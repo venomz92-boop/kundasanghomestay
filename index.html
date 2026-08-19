@@ -1424,7 +1424,7 @@ function addBlockedDate() {
         bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
         saveAvailabilityMap();
         pushBookingToCloud(booking, bookedDates);
-        alert(`BOOKING SUCCESS! Please keep this ID for check-in reference.\nKundasang Welcomes You!\nEnjoy Your Stay!\nID: ${bookingId}\n${nights} nights ${ci} → ${co}\nTotal RM${price.total}`);
+        alert(`BOOKING SUCCESS! Please screenshot this ID for Reference when check-in. Kundasang welcomes you.\nID: ${bookingId}\n${nights} nights ${ci} → ${co}\nTotal RM${price.total}`);
         closeBooking(); closeDetail(); renderGrid();
         return;
       }
@@ -2289,13 +2289,9 @@ function addBlockedDate() {
     const savedBillplz = localStorage.getItem("kd_billplz");
     if (savedBillplz) CONFIG.billplz = {...CONFIG.billplz, ...JSON.parse(savedBillplz)};
     
-    // set default dates for search
-    const today = new Date();
-    const tom = new Date(today); tom.setDate(today.getDate()+1);
-    const after = new Date(tom); after.setDate(tom.getDate()+2);
-    const iso = d => d.toISOString().split('T')[0];
-    if (document.getElementById("checkin")) document.getElementById("checkin").value = iso(tom);
-    if (document.getElementById("checkout")) document.getElementById("checkout").value = iso(after);
+    // set default dates for search - EMPTY so guest picks own dates
+    if (document.getElementById("checkin")) document.getElementById("checkin").value = "";
+    if (document.getElementById("checkout")) document.getElementById("checkout").value = "";
   </script>
 
   <!-- RESTORE DEMOS BUTTON - visible for owner, hidden from guests via localStorage check -->
