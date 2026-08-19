@@ -2391,7 +2391,7 @@ function whatsappWithBookingId(){
   const waNumber = (typeof getOwnerWhatsAppNumber === 'function') ? getOwnerWhatsAppNumber() : '60123456789';
   const homestayName = (typeof selectedHomestay !== 'undefined' && selectedHomestay) ? selectedHomestay.name : 'Homestay';
   const ownerName = (typeof selectedHomestay !== 'undefined' && selectedHomestay && selectedHomestay.ownerName) ? selectedHomestay.ownerName : 'Owner';
-  const message = "Hi " + ownerName + ", I just booked " + homestayName + " on Kundasang Homestays!\n\n*BOOKING SUCCESS!*\nPlease screenshot this ID for Reference when check-in. Kundasang welcomes you.\n\n*ID: " + lastBookingId + "*\n*" + lastBookingNights + " nights* " + lastBookingCi + " → " + lastBookingCo + "\nTotal RM" + lastBookingTotal + "\n\nPlease confirm my check-in. Thanks!";
+  const message = "Hi " + ownerName + ", I just booked " + homestayName + " on Kundasang Homestays!\n\n*ID: " + lastBookingId + "*\n*" + lastBookingNights + " nights* " + lastBookingCi + " → " + lastBookingCo + "\nTotal RM" + lastBookingTotal + "\n\nPlease confirm my check-in. Thanks!";
   const encoded = encodeURIComponent(message);
   window.open("https://wa.me/" + waNumber + "?text=" + encoded, "_blank");
 }
