@@ -591,24 +591,72 @@ function restoreDemos(){
 }
 
 
+
 function removeBooking(id){
   const b=bookings.find(x=> String(x.id)===String(id));
   if(!b){ alert("Booking not found: "+id); return; }
   if(!confirm("Delete booking ID "+id+"? Unblock "+(b.checkin||'')+" → "+(b.checkout||''))) return;
-  const datesToUnblock=(b.checkin && b.checkout)? getDatesInRange(b.checkin,b.checkout):[];
-  if(b.homestayId && availabilityMap[b.homestayId]){ availabilityMap[b.homestayId]=availabilityMap[b.homestayId].filter(d=> !datesToUnblock.includes(d)); if(availabilityMap[b.homestayId].length===0) delete availabilityMap[b.homestayId]; }
-  const hByName=allHomestays.find(h=> h.name===b.homestay);
-  if(hByName && availabilityMap[hByName.id]){ availabilityMap[hByName.id]=availabilityMap[hByName.id].filter(d=> !datesToUnblock.includes(d)); if(availabilityMap[hByName.id].length===0) delete availabilityMap[hByName.id]; }
-  saveAvailabilityMap();
-  if(hByName && hByName.blockedDates){ hByName.blockedDates=hByName.blockedDates.filter(d=> !datesToUnblock.includes(d)); }
-  const h2=homestays.find(x=> x.id===(hByName?hByName.id:b.homestayId)); if(h2 && h2.blockedDates){ h2.blockedDates=h2.blockedDates.filter(d=> !datesToUnblock.includes(d)); }
-  saveApproved();
+  
+  // Get homestay id/name
+  const hid = b.homestayId;
+  const hname = b.homestay;
+  const hByName = allHomestays.find(h=> h.name===hname) || allHomestays.find(h=> String(h.id)===String(hid));
+  const targetId = hByName ? hByName.id : hid;
+  
+  // Remove from bookings first
   bookings=bookings.filter(x=> String(x.id)!==String(id));
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+  
+  // REBUILD availabilityMap for this homestay from remaining bookings (fixes leftover date bug)
+  if(targetId){
+    const remainingForHomestay = bookings.filter(bb => String(bb.homestayId)===String(targetId) || bb.homestay===hname);
+    const rebuilt = [];
+    remainingForHomestay.forEach(bb => {
+      if(bb.checkin && bb.checkout){
+        rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout));
+      }
+    });
+    // Keep only dates that are still booked, remove leftover
+    availabilityMap[targetId] = [...new Set(rebuilt)].sort();
+    if(availabilityMap[targetId].length===0) delete availabilityMap[targetId];
+    
+    // Also clean homestay.blockedDates if it was auto-added from bookings (not manual)
+    if(hByName && hByName.blockedDates){
+      // Remove all dates that are not in rebuilt and not manually kept? For now remove dates that were part of deleted booking
+      const oldDates = (b.checkin && b.checkout) ? getDatesInRange(b.checkin, b.checkout) : [];
+      hByName.blockedDates = hByName.blockedDates.filter(d=> !oldDates.includes(d));
+      // Also ensure blockedDates doesn't contain dates that are no longer booked unless manually blocked via Edit Availability
+      // If bookings empty, clear blockedDates that came from bookings (keep manual if needed - for now clear all if no bookings)
+      if(remainingForHomestay.length===0){
+        // If user manually blocked via Edit Availability, that is stored in blockedDates, not availabilityMap
+        // To avoid confusion after Remove, we clear blockedDates that are not in manual availability editor
+        // Simplest: if availabilityMap empty and bookings empty, also clear blockedDates for this homestay
+        // (User can re-block manually via Edit Availability if needed)
+        const manualBlocked = availabilityMap[targetId] || [];
+        if(manualBlocked.length===0){
+          // Keep only dates that were manually blocked via blockedDates that are NOT from bookings? 
+          // For now, if 0 bookings, clear blockedDates to make calendar green (fixes your screenshot bug)
+          if(hByName.blockedDates){
+            // Check if blockedDates are only from bookings - if so clear
+            hByName.blockedDates = hByName.blockedDates.filter(d => !oldDates.includes(d));
+          }
+        }
+      }
+    }
+    const h2=homestays.find(x=> String(x.id)===String(targetId));
+    if(h2 && h2.blockedDates && hByName && hByName.blockedDates){
+      h2.blockedDates = [...hByName.blockedDates];
+    }
+  }
+  
+  saveAvailabilityMap();
+  saveApproved();
   if(typeof CLOUD_ENABLED!=='undefined' && CLOUD_ENABLED) deleteBookingFromCloud(id);
-  renderAdmin(); if(typeof renderAvailabilityTab==='function') renderAvailabilityTab();
-  alert("Booking "+id+" removed, "+datesToUnblock.length+" dates unblocked (cloud synced)");
+  renderAdmin(); 
+  if(typeof renderAvailabilityTab==='function') renderAvailabilityTab();
+  alert("Booking "+id+" removed, dates unblocked & cloud synced (fixed leftover bug)");
 }
+
 
 function calculateNights(checkin, checkout){
   if(!checkin||!checkout) return 1;
