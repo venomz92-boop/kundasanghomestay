@@ -127,6 +127,13 @@ async function pushChangeDatesToCloud(id, checkin, checkout, priceObj){
   const res=await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateDates", id, checkin, checkout, nights:priceObj.nights, base:priceObj.base, fee:priceObj.fee, total:priceObj.total, youReceive:priceObj.youReceive, gatewayFee:priceObj.gatewayFee})});
   const data=await res.json(); if(!res.ok) throw new Error(data.error); return data;
 }
+async function pushAvailabilityToCloud(){
+  if(!CLOUD_ENABLED) return;
+  try{
+    await fetch(`${API_BASE}/availability`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({availability: availabilityMap})});
+    console.log("Availability synced to cloud");
+  }catch(e){ console.warn("Availability sync fail", e.message); }
+}
 
 
 
@@ -236,6 +243,7 @@ function isHomestayAvailableForRange(homestay, checkin, checkout) {
 }
 function saveAvailabilityMap() {
   localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
+  if(typeof CLOUD_ENABLED!=='undefined' && CLOUD_ENABLED) pushAvailabilityToCloud();
 }
 function renderAvailabilityCalendar(homestay, containerId) {
   const container = document.getElementById(containerId);
