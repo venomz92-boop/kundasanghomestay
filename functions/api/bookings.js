@@ -47,15 +47,24 @@ export async function onRequestPost(context) {
       availability = await kv.get("kd_availability", { type: "json" }) || {};
     }
 
-    // DELETE action
+    // DELETE action - REBUILD from remaining bookings (fixes leftover date bug)
     if (body.action === "delete") {
       const id = body.id;
       const b = bookings.find(x => String(x.id) === String(id));
-      let datesToRemove = b ? getDatesInRange(b.checkin, b.checkout) : [];
       bookings = bookings.filter(x => String(x.id) !== String(id));
-      if (b && b.homestayId && availability[b.homestayId]) {
-        availability[b.homestayId] = availability[b.homestayId].filter(d => !datesToRemove.includes(d));
-        if (availability[b.homestayId].length === 0) delete availability[b.homestayId];
+      if (b && b.homestayId) {
+        const hid = b.homestayId;
+        const hname = b.homestay;
+        const remaining = bookings.filter(bb => String(bb.homestayId)===String(hid) || (hname && bb.homestay===hname));
+        const rebuilt = [];
+        remaining.forEach(bb => {
+          if(bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout));
+        });
+        if(rebuilt.length===0){
+          delete availability[hid];
+        } else {
+          availability[hid] = [...new Set(rebuilt)].sort();
+        }
       }
     } else if (body.action === "updateDates") {
       const { id, checkin, checkout, nights, base, fee, total, youReceive, gatewayFee } = body;
@@ -124,11 +133,20 @@ export async function onRequestDelete(context) {
       availability = await kv.get("kd_availability", { type: "json" }) || {};
     }
     const b = bookings.find(x => String(x.id) === String(id));
-    const datesToRemove = b ? getDatesInRange(b.checkin, b.checkout) : [];
     bookings = bookings.filter(x => String(x.id) !== String(id));
-    if (b && b.homestayId && availability[b.homestayId]) {
-      availability[b.homestayId] = availability[b.homestayId].filter(d => !datesToRemove.includes(d));
-      if (availability[b.homestayId].length===0) delete availability[b.homestayId];
+    if (b && b.homestayId) {
+      const hid = b.homestayId;
+      const hname = b.homestay;
+      const remaining = bookings.filter(bb => String(bb.homestayId)===String(hid) || (hname && bb.homestay===hname));
+      const rebuilt = [];
+      remaining.forEach(bb => {
+        if(bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout));
+      });
+      if(rebuilt.length===0){
+        delete availability[hid];
+      } else {
+        availability[hid] = [...new Set(rebuilt)].sort();
+      }
     }
     if (db) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
