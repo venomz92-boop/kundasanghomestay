@@ -1107,7 +1107,7 @@ function addBlockedDate() {
     // =============================================================
     function renderGrid() {
       const grid = document.getElementById("homestayGrid");
-      const loc = document.getElementById("filterLocation").value;
+      const loc = document.getElementById("filterLocation")?.value || "all";
       const checkinVal = document.getElementById("checkin")?.value;
       const checkoutVal = document.getElementById("checkout")?.value;
       let list = homestays.filter(h => h.approved === true);
