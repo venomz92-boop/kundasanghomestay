@@ -351,9 +351,15 @@
        HOME — HOMESTAY GRID (ONLY APPROVED SHOW)
        ========================================= -->
   <main id="homePage" class="max-w-[1200px] mx-auto px-5 md:px-8 pt-24 pb-20">
-    <div class="flex items-center justify-between mb-6">
-      <h2 class="text-2xl font-bold">Kundasang Homestay Lists</h2>
-      <div id="pendingInfo" class="text-xs bg-yellow-100 px-3 py-1 rounded-full hidden">Pending: <span id="pendingCount">0</span> waiting approval</div>
+    <div class="mb-6">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <h2 class="text-2xl font-bold">Kundasang Homestay Lists</h2>
+        <div id="pendingInfo" class="text-xs bg-yellow-100 px-3 py-1 rounded-full hidden">Pending: <span id="pendingCount">0</span> waiting approval</div>
+      </div>
+      <div class="mt-3 w-full md:w-auto inline-flex max-w-full flex-wrap items-start md:items-center gap-1.5 rounded-xl md:rounded-full bg-amber-50 border border-amber-200 px-3.5 py-2.5 md:py-2 text-[11px] md:text-[11px] leading-snug text-zinc-700">
+        <span class="text-amber-600 mt-0.5 md:mt-0">⚠</span>
+        <span class="flex-1">All payment will go through this website, no outside payment required — secured by FPX gateway</span>
+      </div>
     </div>
     <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
       <!-- Injected by JS -->
@@ -1078,26 +1084,61 @@ function addBlockedDate() {
       const blocked = getAllBlockedDatesForHomestay(homestay);
       const today = new Date();
       today.setHours(0,0,0,0);
+      const todayIso = dateToIso(today);
       
-      // Show next 35 days (5 weeks)
-      let htmlCal = `<div class="text-[11px] text-zinc-500 mb-2">Next 35 days • Green = Available, Red = Fully Booked</div>`;
-      htmlCal += `<div class="calendar-mini">`;
-      const dayNames = ["S","M","T","W","T","F","S"];
-      dayNames.forEach(d => { htmlCal += `<div class="text-[10px] text-center font-bold text-zinc-400 py-1">${d}</div>`; });
+      let htmlCal = `<div class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
+        <div class="text-[11px] text-zinc-500 font-medium">Next 12 months • 1 year view — scroll to check availability</div>
+        <div class="flex flex-wrap gap-3 text-[10px] md:text-[11px]">
+          <span class="flex items-center gap-1"><span class="w-3 h-3 bg-green-100 border border-green-300 rounded inline-block"></span> Available</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-100 border border-red-300 rounded inline-block"></span> Fully Booked</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 border-2 border-[var(--primary)] rounded inline-block"></span> Today</span>
+        </div>
+      </div>`;
+      htmlCal += `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">`;
       
-      for (let i = 0; i < 35; i++) {
-        const d = new Date(today);
-        d.setDate(today.getDate() + i);
-        const iso = dateToIso(d);
-        const isBlocked = blocked.includes(iso);
-        const isToday = i === 0;
-        htmlCal += `<div class="calendar-day ${isBlocked ? 'booked' : 'available'} ${isToday ? 'today' : ''}" title="${iso} ${isBlocked ? '(Booked)' : '(Available)'}">${d.getDate()}</div>`;
+      for (let m = 0; m < 12; m++) {
+        const firstOfMonth = new Date(today.getFullYear(), today.getMonth() + m, 1);
+        const year = firstOfMonth.getFullYear();
+        const month = firstOfMonth.getMonth();
+        const monthLabel = firstOfMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const startDay = new Date(year, month, 1).getDay();
+        const isCurrentMonth = m === 0;
+        
+        htmlCal += `<div class="bg-[#F8F5F0] rounded-xl p-3 md:p-3 border ${isCurrentMonth ? 'border-[var(--primary)]/30 bg-white shadow-sm' : 'border-zinc-100'}">
+          <div class="font-bold text-[13px] mb-2 flex justify-between items-center"><span>${monthLabel}</span>${isCurrentMonth ? '<span class="text-[9px] bg-[var(--primary)] text-white px-2 py-0.5 rounded-full">This month</span>' : ''}</div>
+          <div class="calendar-mini">`;
+        const dayNames = ["S","M","T","W","T","F","S"];
+        dayNames.forEach(d => { htmlCal += `<div class="text-[9px] text-center font-bold text-zinc-400 py-1">${d}</div>`; });
+        for (let e = 0; e < startDay; e++) {
+          htmlCal += `<div></div>`;
+        }
+        for (let day = 1; day <= daysInMonth; day++) {
+          const d = new Date(year, month, day);
+          d.setHours(0,0,0,0);
+          const iso = dateToIso(d);
+          const isBlocked = blocked.includes(iso);
+          const isToday = iso === todayIso;
+          const isPast = d < today;
+          let cls = "calendar-day";
+          if (isPast) {
+            cls += " opacity-30 bg-zinc-50 text-zinc-400";
+          } else {
+            cls += isBlocked ? " booked" : " available";
+          }
+          if (isToday) cls += " today";
+          htmlCal += `<div class="${cls}" title="${iso} ${isBlocked ? '(Booked)' : isPast ? '(Past)' : '(Available)'}">${day}</div>`;
+        }
+        htmlCal += `</div></div>`;
       }
       htmlCal += `</div>`;
-      htmlCal += `<div class="mt-3 flex gap-3 text-[11px]"><span class="flex items-center gap-1"><span class="w-3 h-3 bg-green-100 border border-green-300 rounded inline-block"></span> Available</span><span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-100 border border-red-300 rounded inline-block"></span> Fully Booked (${blocked.length} dates)</span></div>`;
-      if (blocked.length > 0 && blocked.length <= 20) {
-        htmlCal += `<div class="mt-2 text-[11px] text-zinc-500">Blocked: ${blocked.slice(0,20).join(", ")}${blocked.length > 20 ? '...' : ''}</div>`;
-      }
+      const nextYear = new Date(today);
+      nextYear.setFullYear(today.getFullYear() + 1);
+      const blockedNextYear = blocked.filter(d => {
+        const dd = isoToDate(d);
+        return dd >= today && dd < nextYear;
+      }).length;
+      htmlCal += `<div class="mt-4 text-[11px] text-zinc-500 bg-white border rounded-xl p-3">Showing 12 months from <b>${todayIso}</b> • <b class="text-red-700">${blockedNextYear} dates</b> Fully Booked in next year • Total blocked: ${blocked.length}</div>`;
       container.innerHTML = htmlCal;
     }
 
