@@ -734,7 +734,7 @@
       yourBankAccount: "1123-4567-8901",
       yourBankHolder: "Kundasang Homestays Enterprise",
       yourWhatsApp: "60123456789",
-      platformFeePercent: 10,
+      platformFeePercent: 11,
       billplz: {
         enabled: false,
         sandbox: true,
@@ -851,7 +851,7 @@ let tempIcOriginalName = ""; // for new listing form
 
     function calculatePrice(ownerPrice, nights = 1) {
       const base = ownerPrice * nights;
-      const fee = (base * CONFIG.platformFeePercent) / 100;
+      const fee=Math.round((base*CONFIG.platformFeePercent)/100);
       const gatewayFee = CONFIG.billplz.enabled ? CONFIG.billplz.gatewayFee : 0;
       const total = base + fee + gatewayFee;
       return {
@@ -1398,6 +1398,9 @@ function addBlockedDate() {
       const bookingId = "KDH-" + Date.now().toString().slice(-6);
 
       if (!CONFIG.billplz.enabled) {
+        const booking = {
+          id: bookingId,
+          ho
         const booking = {
           id: bookingId,
           homestay: selectedHomestay.name,
