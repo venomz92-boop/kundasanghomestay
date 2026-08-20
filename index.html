@@ -734,14 +734,14 @@
       yourBankAccount: "1123-4567-8901",
       yourBankHolder: "Kundasang Homestays Enterprise",
       yourWhatsApp: "60123456789",
-      platformFeePercent: 11,
+      platformFeePercent: 10,
       billplz: {
         enabled: false,
         sandbox: true,
         apiKey: "YOUR_BILLPLZ_API_KEY",
         collectionId: "YOUR_COLLECTION_ID",
         xSignature: "YOUR_X_SIGNATURE",
-        gatewayFee: 1.25,
+        gatewayFee: 0 // No fee to guest, admin pays on withdraw,
         splitEnabled: true,
       }
     };
@@ -850,20 +850,14 @@ let tempIcOriginalName = ""; // for new listing form
     }
 
     function calculatePrice(ownerPrice, nights = 1) {
-      const base = ownerPrice * nights;
-      const fee=Math.round((base*CONFIG.platformFeePercent)/100);
-      const gatewayFee = CONFIG.billplz.enabled ? CONFIG.billplz.gatewayFee : 0;
-      const total = base + fee + gatewayFee;
-      return {
-        nights,
-        base,
-        fee,
-        gatewayFee,
-        total,
-        ownerReceives: base,
-        youReceive: fee - gatewayFee
-      };
-    }
+  // MODEL A v2 - Guest pays base + fee only (e.g. RM250*2=500+50=550) - No gateway fee to guest
+  // Owner gets base (500) direct via Billplz auto-payout
+  // Platform fee (50) stays in admin panel, withdraw via Billplz (admin pays charges)
+  const base=ownerPrice*nights;
+  const fee=Math.round((base*CONFIG.platformFeePercent)/100);
+  const total=base+fee;
+  return {nights, base, fee, gatewayFee:0, total, ownerReceives:base, youReceive:fee, platformFee:fee};
+}
 
     // =============================================================
     // AVAILABILITY LOGIC - NEW FEATURE
@@ -1398,6 +1392,9 @@ function addBlockedDate() {
       const bookingId = "KDH-" + Date.now().toString().slice(-6);
 
       if (!CONFIG.billplz.enabled) {
+        const booking = {
+          id: bookingId,
+          ho
         const booking = {
           id: bookingId,
           homestay: selectedHomestay.name,
