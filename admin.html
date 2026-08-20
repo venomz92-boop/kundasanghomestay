@@ -129,10 +129,7 @@ async function pushChangeDatesToCloud(id, checkin, checkout, priceObj){
 }
 async function pushAvailabilityToCloud(){
   if(!CLOUD_ENABLED) return;
-  try{
-    await fetch(`${API_BASE}/availability`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({availability: availabilityMap})});
-    console.log("Availability synced to cloud");
-  }catch(e){ console.warn("Availability sync fail", e.message); }
+  try{ await fetch(`${API_BASE}/availability`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({availability: availabilityMap})}); }catch(e){}
 }
 
 
@@ -595,51 +592,24 @@ function removeBooking(id){
   const b=bookings.find(x=> String(x.id)===String(id));
   if(!b){ alert("Booking not found: "+id); return; }
   if(!confirm("Delete booking ID "+id+"? Unblock "+(b.checkin||'')+" → "+(b.checkout||''))) return;
-  
   const hid = b.homestayId;
   const hname = b.homestay;
   const hByName = allHomestays.find(h=> h.name===hname) || allHomestays.find(h=> String(h.id)===String(hid));
   const targetId = hByName ? hByName.id : hid;
-  
-  // Remove from bookings first
   bookings=bookings.filter(x=> String(x.id)!==String(id));
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-  
-  // REBUILD availabilityMap for this homestay from remaining bookings - FIXES leftover bug
   if(targetId){
     const remainingForHomestay = bookings.filter(bb => String(bb.homestayId)===String(targetId) || (hname && bb.homestay===hname));
     const rebuilt = [];
-    remainingForHomestay.forEach(bb => {
-      if(bb.checkin && bb.checkout){
-        rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout));
-      }
-    });
-    if(rebuilt.length===0){
-      delete availabilityMap[targetId];
-      // Also clear homestay.blockedDates to make calendar green when 0 bookings - fixes screenshot bug
-      if(hByName) hByName.blockedDates = [];
-      const h2 = homestays.find(x=> String(x.id)===String(targetId));
-      if(h2) h2.blockedDates = [];
-    } else {
-      availabilityMap[targetId] = [...new Set(rebuilt)].sort();
-      if(hByName && hByName.blockedDates){
-        const oldDates = (b.checkin && b.checkout) ? getDatesInRange(b.checkin, b.checkout) : [];
-        hByName.blockedDates = hByName.blockedDates.filter(d=> !oldDates.includes(d));
-      }
-      const h2b = homestays.find(x=> String(x.id)===String(targetId));
-      if(h2b && hByName && hByName.blockedDates){
-        h2b.blockedDates = [...hByName.blockedDates];
-      }
-    }
+    remainingForHomestay.forEach(bb => { if(bb.checkin && bb.checkout){ rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout)); } });
+    if(rebuilt.length===0){ delete availabilityMap[targetId]; if(hByName) hByName.blockedDates = []; const h2 = homestays.find(x=> String(x.id)===String(targetId)); if(h2) h2.blockedDates = []; } else { availabilityMap[targetId] = [...new Set(rebuilt)].sort(); }
   }
-  
-  saveAvailabilityMap();
-  saveApproved();
+  saveAvailabilityMap(); saveApproved();
   if(typeof CLOUD_ENABLED!=='undefined' && CLOUD_ENABLED) deleteBookingFromCloud(id);
-  renderAdmin(); 
-  if(typeof renderAvailabilityTab==='function') renderAvailabilityTab();
-  alert("Booking "+id+" removed, dates unblocked & cloud synced - FIXED");
+  renderAdmin(); if(typeof renderAvailabilityTab==='function') renderAvailabilityTab();
+  alert("Booking "+id+" removed - FIXED");
 }
+
 
 function calculateNights(checkin, checkout){
   if(!checkin||!checkout) return 1;

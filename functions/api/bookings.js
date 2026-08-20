@@ -57,14 +57,8 @@ export async function onRequestPost(context) {
         const hname = b.homestay;
         const remaining = bookings.filter(bb => String(bb.homestayId)===String(hid) || (hname && bb.homestay===hname));
         const rebuilt = [];
-        remaining.forEach(bb => {
-          if(bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout));
-        });
-        if(rebuilt.length===0){
-          delete availability[hid];
-        } else {
-          availability[hid] = [...new Set(rebuilt)].sort();
-        }
+        remaining.forEach(bb => { if(bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout)); });
+        if(rebuilt.length===0){ delete availability[hid]; } else { availability[hid] = [...new Set(rebuilt)].sort(); }
       }
     } else if (body.action === "updateDates") {
       const { id, checkin, checkout, nights, base, fee, total, youReceive, gatewayFee } = body;
@@ -139,14 +133,8 @@ export async function onRequestDelete(context) {
       const hname = b.homestay;
       const remaining = bookings.filter(bb => String(bb.homestayId)===String(hid) || (hname && bb.homestay===hname));
       const rebuilt = [];
-      remaining.forEach(bb => {
-        if(bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout));
-      });
-      if(rebuilt.length===0){
-        delete availability[hid];
-      } else {
-        availability[hid] = [...new Set(rebuilt)].sort();
-      }
+      remaining.forEach(bb => { if(bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout)); });
+      if(rebuilt.length===0){ delete availability[hid]; } else { availability[hid] = [...new Set(rebuilt)].sort(); }
     }
     if (db) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
