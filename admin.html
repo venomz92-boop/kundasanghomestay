@@ -47,7 +47,7 @@
           <div id="totalFees" class="text-3xl font-bold mt-1">RM0</div>
           <div class="text-xs mt-1">After Billplz RM1.25 fee</div>
           <div class="text-xs mt-2 text-zinc-500"><span id="kdAvailInline">Available: RM0.00</span> • <span id="kdWithdrawnInline">Withdrawn: RM0.00</span></div>
-          <button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw to Bank</button>
+          <button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw to Bank</button><button id="kdResetBtn" style="margin-left:8px;padding:10px 14px;border-radius:999px;background:#fff;border:1px solid #e5e7eb;font-size:12px;cursor:pointer">Reset to RM0</button>
         </div>
         <div class="card p-5">
           <div class="text-xs text-zinc-500">Pending Approval</div>
@@ -708,5 +708,18 @@ if(sessionStorage.getItem("kd_admin_session")){
   setInterval(upd,1000);
 })();
 </script>
+
+<script>
+document.addEventListener('click', function(e){
+  if(e.target.id==='kdResetBtn'){
+    if(confirm('Reset all withdrawals to RM0? Your Available will become full RM66 again.')){
+      localStorage.removeItem('kd_withdrawals');
+      alert('✅ Withdrawals reset! Available is now full earnings.');
+      location.reload();
+    }
+  }
+});
+</script>
+
 </body>
 </html>
