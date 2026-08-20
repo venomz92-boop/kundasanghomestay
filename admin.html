@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kundasang Admin Panel - Clean</title>
+  <title>Kundasang Admin Panel - Fixed</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
@@ -19,15 +19,21 @@
     .calendar-day.available { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
     .calendar-day.booked { background: #fef2f2; border-color: #fecaca; color: #991b1b; text-decoration: line-through; }
     .calendar-day.today { border-color: var(--primary); border-width: 2px; }
+    .blocked-date-chip { display: inline-flex; align-items: center; gap: 6px; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 999px; font-size: 12px; }
+    /* COMPACT AVAILABILITY CALENDAR */
     #availabilityTable .calendar-mini { gap: 2px; max-width: 220px; }
     #availabilityTable .calendar-day { font-size: 9px; border-radius: 5px; aspect-ratio: unset; height: 24px; width: 28px; }
+    #availabilityTable .border.rounded-xl { padding: 10px 12px !important; }
+    @media (min-width: 768px){ #availabilityTable > div > div.grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 1100px){ #availabilityTable > div > div.grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   </style>
 </head>
 <body>
 <header class="sticky top-0 z-40 bg-[var(--primary)] text-white p-4"><div class="max-w-[1200px] mx-auto flex justify-between items-center"><div>ADMIN PANEL</div><div class="text-xs bg-red-500 px-3 py-1 rounded-full">DO NOT SHARE URL</div></div></header>
-<div id="adminPage" class="max-w-[1200px] mx-auto px-5 md:px-8 py-10">
+<div id="adminPage" class=" max-w-[1200px] mx-auto px-5 md:px-8 py-10">
     <div id="adminLogin" class="max-w-[400px] mx-auto card p-8">
       <h2 class="text-2xl font-bold">Admin Login</h2>
+      <p class="text-xs text-zinc-500 mt-1">Pending listings only show after you approve</p>
       <input id="adminPass" type="password" placeholder="Password" class="w-full mt-4 border rounded-full px-4 py-2.5"/>
       <button onclick="adminLogin()" class="btn-primary w-full mt-4">Login</button>
     </div>
@@ -52,76 +58,129 @@
         </div>
       </div>
 
+      <!-- Tabs -->
       <div class="flex gap-2 mt-6 flex-wrap">
         <button onclick="showAdminTab('pending')" id="tabPending" class="px-4 py-2 rounded-full bg-[var(--primary)] text-white text-sm">Pending Approval</button>
         <button onclick="showAdminTab('approved')" id="tabApproved" class="px-4 py-2 rounded-full bg-white border text-sm">Approved</button>
         <button onclick="showAdminTab('bookings')" id="tabBookings" class="px-4 py-2 rounded-full bg-white border text-sm">Bookings</button>
         <button onclick="showAdminTab('availability')" id="tabAvailability" class="px-4 py-2 rounded-full bg-white border text-sm">📅 Availability</button>
         <button onclick="showAdminTab('guests')" id="tabGuests" class="px-4 py-2 rounded-full bg-white border text-sm">Guests (Accounts)</button>
-        <button onclick="showAdminTab('withdraw')" id="tabWithdraw" class="px-4 py-2 rounded-full bg-white border text-sm">💸 Withdraw</button>
         <button onclick="showAdminTab('settings')" id="tabSettings" class="px-4 py-2 rounded-full bg-white border text-sm">Billplz Settings</button>
       </div>
 
       <div id="adminPending" class="mt-4"></div>
       <div id="adminApproved" class="mt-4 hidden"></div>
-      <div id="adminBookings" class="mt-4 hidden"><div id="bookingsTable" class="card p-6 overflow-x-auto"></div></div>
-      <div id="adminAvailability" class="mt-4 hidden"><div id="availabilityTable" class="card p-6 overflow-x-auto"></div></div>
-      <div id="adminGuests" class="mt-4 hidden"><div id="guestsTable" class="card p-6 overflow-x-auto"></div></div>
-      <div id="adminWithdraw" class="mt-4 hidden">
-        <div class="card p-6">
-          <h3 class="font-bold text-lg">💸 Withdraw Your Fee (11%)</h3>
-          <p class="text-xs text-zinc-500 mt-1">Owner base auto-paid by Billplz. You only withdraw your 11% fee. Billplz charges ~RM2.</p>
-          <div class="flex gap-2 mt-4 max-w-[420px]">
-            <input id="withdrawAmount" type="number" placeholder="Amount e.g. 55" class="border rounded-full px-4 py-2.5 flex-1"/>
-            <button onclick="withdrawPlatformFee()" class="btn-primary">Withdraw via Billplz</button>
-          </div>
-          <div id="withdrawStatus" class="text-xs mt-3"></div>
-          <div id="withdrawHistory" class="text-xs mt-3 text-zinc-500">No withdrawals yet</div>
-        </div>
+      <div id="adminBookings" class="mt-4 hidden">
+        <div id="bookingsTable" class="card p-6 overflow-x-auto"></div>
       </div>
+      <div id="adminAvailability" class="mt-4 hidden">
+        <div id="availabilityTable" class="card p-6 overflow-x-auto"></div>
+      </div>
+      <div id="adminGuests" class="mt-4 hidden">
+        <div id="guestsTable" class="card p-6 overflow-x-auto"></div>
+      </div>
+
       <div id="adminSettings" class="hidden mt-4 card p-6">
-        <h3 class="font-bold">Billplz Setup</h3>
+        <h3 class="font-bold">Billplz Setup — EDIT HERE</h3>
         <div class="grid md:grid-cols-2 gap-4 mt-4">
           <input id="cfgApiKey" placeholder="API Key" class="border rounded-full px-4 py-2.5"/>
-          <input id="cfgCollection" placeholder="Collection ID" class="border rounded-full px-4 py-2.5"/>
+          <input id="cfgCollection" placeholder="Collection ID e.g. inbmmepb" class="border rounded-full px-4 py-2.5"/>
           <input id="cfgXSig" placeholder="X Signature" class="border rounded-full px-4 py-2.5"/>
-          <select id="cfgEnabled" class="border rounded-full px-4 py-2.5"><option value="false">Disabled — Simulation</option><option value="true">Enabled — Live</option></select>
+          <select id="cfgEnabled" class="border rounded-full px-4 py-2.5">
+            <option value="false">Disabled — Simulation Mode</option>
+            <option value="true">Enabled — Live Billplz</option>
+          </select>
         </div>
         <button onclick="saveBillplzConfig()" class="btn-primary mt-4">Save Billplz Config</button>
+        <div class="mt-4 text-xs text-zinc-500">Saved to localStorage kd_billplz - same key as index.html uses</div><div class="flex gap-2 mt-4"><button onclick="restoreDemos()" class="text-xs px-3 py-1 border rounded-full">Restore Deleted Demos</button><button onclick="resetDemoEdits()" class="text-xs px-3 py-1 border rounded-full bg-orange-50">Reset Edited Demos</button></div>
       </div>
     </div>
-</div>
+  </div>
 <script>
-// COPY ALL JS LOGIC FROM OLD FILE BELOW - CLEANED
-
+// SAME CONFIG as before
 const CONFIG = {
   adminPasswordHash: "b9276e0bc88047b500d985a7bf9f7bf543cd428b9ca1906128cdf9797bb83d33",
   platformFeePercent: 11,
   billplz: { enabled: false, gatewayFee: 1.25, apiKey: "", collectionId: "", xSignature: "" }
 };
 
-function withdrawPlatformFee(){
-  const amt=parseFloat(document.getElementById("withdrawAmount")?.value);
-  if(!amt){ alert("Enter amount"); return; }
-  const withdrawals=JSON.parse(localStorage.getItem("kd_withdrawals")||"[]");
-  let totalEarned=0; try{ totalEarned=bookings.reduce((s,b)=>s+(b.youReceive||b.fee||0),0);}catch(e){}
-  const totalWithdrawn=withdrawals.reduce((s,w)=>s+w.amount,0);
-  const balance=totalEarned-totalWithdrawn;
-  if(amt>balance){ alert("Insufficient RM"+balance.toFixed(2)); return; }
-  if(!confirm("Withdraw RM"+amt+"? Net RM"+(amt-2).toFixed(2))) return;
-  document.getElementById("withdrawStatus").textContent="Processing...";
-  fetch("/api/billplz-withdraw",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount:amt,bankName:CONFIG.yourBankName,bankAccount:CONFIG.yourBankAccount,bankHolder:CONFIG.yourBankHolder})}).then(r=>r.json()).then(d=>{
-    document.getElementById("withdrawStatus").textContent=d.message||JSON.stringify(d);
-    if(d.success||d.simulated){ withdrawals.push({amount:amt,net:amt-2,date:new Date().toISOString(),status:d.simulated?"Simulated":"Success"}); localStorage.setItem("kd_withdrawals",JSON.stringify(withdrawals)); renderWithdrawHistory(); document.getElementById("withdrawAmount").value=""; renderAdmin(); }
-  });
+ // === CLOUD SYNC - KV or D1 - Auto ===
+const CLOUD_ENABLED = true;
+const API_BASE = "/api";
+async function fetchCloudDataForAdmin(){
+  if(!CLOUD_ENABLED) return false;
+  try{
+    const res=await fetch(`${API_BASE}/bookings`, {cache:"no-store"});
+    if(!res.ok) throw new Error(res.status);
+    const data=await res.json();
+    if(data.bookings){ bookings=data.bookings; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
+    if(data.availability){ availabilityMap=data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
+    return true;
+  }catch(e){ console.warn("Cloud fail", e.message); return false; }
 }
-function renderWithdrawHistory(){
-  const el=document.getElementById("withdrawHistory"); if(!el) return;
-  const hist=JSON.parse(localStorage.getItem("kd_withdrawals")||"[]");
-  if(hist.length===0){ el.innerHTML="No withdrawals yet"; return; }
-  el.innerHTML=hist.slice(-10).reverse().map(h=>`RM${h.amount} net RM${h.net} - ${new Date(h.date).toLocaleDateString()} - ${h.status}`).join("<br>");
+async function deleteBookingFromCloud(id){
+  if(!CLOUD_ENABLED) return;
+  try{ await fetch(`${API_BASE}/bookings?id=${encodeURIComponent(id)}`, {method:"DELETE"}); }catch(e){}
+}
+async function pushChangeDatesToCloud(id, checkin, checkout, priceObj){
+  if(!CLOUD_ENABLED) return;
+  const res=await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateDates", id, checkin, checkout, nights:priceObj.nights, base:priceObj.base, fee:priceObj.fee, total:priceObj.total, youReceive:priceObj.youReceive, gatewayFee:priceObj.gatewayFee})});
+  const data=await res.json(); if(!res.ok) throw new Error(data.error); return data;
+}
+async function pushAvailabilityToCloud(){
+  if(!CLOUD_ENABLED) return;
+  try{ await fetch(`${API_BASE}/availability`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({availability: availabilityMap})}); }catch(e){}
 }
 
+
+
+// === FIX: ADD DEMO DATA SAME AS index.html ===
+const DEMO_HOMESTAYS = [
+  {
+    id: 1,
+    name: "A-Frame Cabin with Kinabalu View",
+    location: "Bundu Tuhan",
+    ownerPrice: 300,
+    rating: 4.9,
+    reviews: 127,
+    guests: 4,
+    bedrooms: 2,
+    image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800",
+    images: [],
+    approved: true,
+    verified: true,
+    ownerName: "Ali",
+    ownerBank: "CIMB",
+    ownerBankAccount: "8600-123456",
+    whatsapp: "60123456789",
+    description: "View Gunung Kinabalu terus dari bilik."
+  },
+  {
+    id: 2,
+    name: "Desa Cattle Farm View Homestay",
+    location: "Desa",
+    ownerPrice: 250,
+    rating: 4.8,
+    reviews: 89,
+    guests: 6,
+    bedrooms: 3,
+    image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800",
+    images: [],
+    approved: true,
+    verified: true,
+    ownerName: "Maria",
+    ownerBank: "Maybank",
+    ownerBankAccount: "1140-987654",
+    whatsapp: "60123456789",
+    description: "5 min to Desa Cattle Farm, ada dapur."
+  }
+];
+
+let pendingHomestays = JSON.parse(localStorage.getItem("kd_pending") || "[]");
+let storedApproved = JSON.parse(localStorage.getItem("kd_approved") || "[]");
+let deletedDemoIds = JSON.parse(localStorage.getItem("kd_deleted_demo") || "[]");
+let demoOverrides = JSON.parse(localStorage.getItem("kd_demo_overrides") || "{}");
+let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d => demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : d);
 let allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
 allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = []; return h; });
 let homestays = [...allHomestays];
@@ -630,5 +689,3 @@ if(sessionStorage.getItem("kd_admin_session")){
 </script>
 </body>
 </html>
-
-</script></body></html>
