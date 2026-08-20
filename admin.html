@@ -563,7 +563,6 @@ function calculatePrice(ownerPrice, nights=1){
   const total=base+fee;
   return {nights, base, fee, gatewayFee:0, total, ownerReceives:base, youReceive:fee, platformFee:fee};
 };
-}
 async function changeBookingDate(id){
   const b=bookings.find(x=> String(x.id)===String(id));
   if(!b){ alert("Not found "+id); return; }
