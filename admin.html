@@ -211,9 +211,16 @@ function saveApproved(){
 // AVAILABILITY LOGIC - LINKED TO INDEX.HTML
 // =============================================================
 function isoToDate(str) { return new Date(str + 'T00:00:00'); }
-function dateToIso(date) { return date.toISOString().split('T')[0]; }
+function dateToIso(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth()+1).padStart(2,'0');
+  const d = String(date.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+// keep isoToDate same
+
 function getDatesInRange(checkin, checkout) {
-  if (!checkin || !checkout) return [];
+  if (!checkin ||!checkout) return [];
   const dates = [];
   const start = isoToDate(checkin);
   const end = isoToDate(checkout);
@@ -221,7 +228,7 @@ function getDatesInRange(checkin, checkout) {
   const cur = new Date(start);
   while (cur < end) {
     dates.push(dateToIso(cur));
-    cur.setDate(cur.getDate() + 1);
+    cur.setDate(cur.getDate()+1);
   }
   return dates;
 }
