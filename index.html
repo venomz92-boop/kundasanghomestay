@@ -2144,7 +2144,7 @@ function addBlockedDate() {
         }catch(e){ console.warn("reload failed", e); }
         
         if(guests.length===0){
-          showAuthMessage("No accounts found in this browser. Did you register before? (Accounts are saved per-browser).<br>Stored keys: " + Object.keys(localStorage).filter(k=>k.includes("kd_")).join(", "), true);
+          showAuthMessage("No Accounts Found. Please Register.", true);
           return;
         }
         const found = guests.find(g => g.email && g.email.toLowerCase() === email && g.password === password);
