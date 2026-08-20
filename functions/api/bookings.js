@@ -1,6 +1,5 @@
-
 // /api/bookings - Works with KV (KD_DATA) OR D1 (DB) - auto detects
-// If you can't find KV, use D1: create D1 database named KD_DATA and bind as DB
+// Preserves your kd_data logic + adds update action for Check-In Payout
 
 export async function onRequestGet(context) {
   const kv = context.env.KD_DATA;
@@ -9,15 +8,9 @@ export async function onRequestGet(context) {
     let bookings = [];
     let availability = {};
     if (db) {
-      // D1 version
-      try {
-        const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
-        if (res) bookings = JSON.parse(res.data);
-      } catch(e) {}
-      try {
-        const res2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
-        if (res2) availability = JSON.parse(res2.data);
-      } catch(e) {}
+      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+      try { const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first(); if (res) bookings = JSON.parse(res.data); } catch(e) {}
+      try { const res2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first(); if (res2) availability = JSON.parse(res2.data); } catch(e) {}
     } else if (kv) {
       bookings = await kv.get("kd_bookings", { type: "json" }) || [];
       availability = await kv.get("kd_availability", { type: "json" }) || {};
@@ -38,8 +31,8 @@ export async function onRequestPost(context) {
     let bookings = [];
     let availability = {};
 
-    // Load current
     if (db) {
+      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
       try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first(); if(r) bookings = JSON.parse(r.data); } catch(e){}
       try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first(); if(r) availability = JSON.parse(r.data); } catch(e){}
     } else if (kv) {
@@ -47,7 +40,6 @@ export async function onRequestPost(context) {
       availability = await kv.get("kd_availability", { type: "json" }) || {};
     }
 
-    // DELETE action - REBUILD from remaining bookings (fixes leftover date bug)
     if (body.action === "delete") {
       const id = body.id;
       const b = bookings.find(x => String(x.id) === String(id));
@@ -59,6 +51,15 @@ export async function onRequestPost(context) {
         const rebuilt = [];
         remaining.forEach(bb => { if(bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout)); });
         if(rebuilt.length===0){ delete availability[hid]; } else { availability[hid] = [...new Set(rebuilt)].sort(); }
+      }
+    } else if (body.action === "update") {
+      // NEW: for Confirm Check-In payout - preserves your existing data
+      const bookingData = body.booking || body;
+      const idx = bookings.findIndex(x => String(x.id) === String(bookingData.id || body.id));
+      if (idx !== -1) {
+        bookings[idx] = { ...bookings[idx], ...bookingData, date: bookings[idx].date || new Date().toISOString() };
+      } else if (bookingData.id) {
+        bookings.push(bookingData);
       }
     } else if (body.action === "updateDates") {
       const { id, checkin, checkout, nights, base, fee, total, youReceive, gatewayFee } = body;
@@ -81,9 +82,10 @@ export async function onRequestPost(context) {
       }
       bookings[idx] = { ...old, checkin, checkout, nights, base, fee, total, youReceive, gatewayFee, date: new Date().toISOString(), status: (old.status||"Paid")+" (Changed)" };
     } else {
-      // Add new booking
       const booking = body.booking || body;
       if (!booking.id) return new Response(JSON.stringify({ error: "Missing id" }), { status: 400, headers: cors() });
+      if (!booking.youReceive) booking.youReceive = booking.base || 0;
+      if (!booking.status) booking.status = "Paid - Awaiting Check-in";
       bookings.push(booking);
       const hid = booking.homestayId;
       if (hid) {
@@ -94,9 +96,8 @@ export async function onRequestPost(context) {
       }
     }
 
-    // Save
     if (db) {
-      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").bind("kd_bookings", JSON.stringify(bookings)).run();
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(availability)).run();
     } else if (kv) {
@@ -104,7 +105,6 @@ export async function onRequestPost(context) {
       await kv.put("kd_availability", JSON.stringify(availability));
     }
 
-    // NOTE: After this, frontend will call /api/billplz-payout to auto transfer owner share
     return new Response(JSON.stringify({ success: true, bookings, availability }), { headers: { ...cors(), "Content-Type": "application/json" } });
   } catch(e) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: cors() });
@@ -115,7 +115,6 @@ export async function onRequestDelete(context) {
   const url = new URL(context.request.url);
   const id = url.searchParams.get("id");
   if (!id) return new Response(JSON.stringify({ error: "Missing id" }), { status: 400, headers: cors() });
-  // reuse POST delete logic
   const kv = context.env.KD_DATA;
   const db = context.env.DB;
   try {
@@ -144,7 +143,6 @@ export async function onRequestDelete(context) {
       await kv.put("kd_bookings", JSON.stringify(bookings));
       await kv.put("kd_availability", JSON.stringify(availability));
     }
-    // NOTE: After this, frontend will call /api/billplz-payout to auto transfer owner share
     return new Response(JSON.stringify({ success: true, bookings, availability }), { headers: { ...cors(), "Content-Type": "application/json" } });
   } catch(e) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: cors() });
