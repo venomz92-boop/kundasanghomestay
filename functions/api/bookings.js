@@ -158,7 +158,13 @@ function getDatesInRange(checkin, checkout) {
   const end = new Date(checkout+"T00:00:00");
   if (isNaN(start) || isNaN(end) || start >= end) return [];
   const cur = new Date(start);
-  while (cur < end) { dates.push(cur.toISOString().split("T")[0]); cur.setDate(cur.getDate()+1); }
+  while (cur < end) {
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth()+1).padStart(2,'0');
+    const d = String(cur.getDate()).padStart(2,'0');
+    dates.push(`${y}-${m}-${d}`);
+    cur.setDate(cur.getDate()+1);
+  }
   return dates;
 }
 function cors(){ return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, PUT, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" }; }
