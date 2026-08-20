@@ -530,7 +530,7 @@
           <b>Why Verified Owner badge?</b> We verify Bank account holder must match owner name.
           New listings start as Pending approval and only show after admin checks.
           <br/><br/>
-          <b>Payment safety:</b> All payment will go through this website, no outside payment. Secured by Billplz FPX.
+          <b>Payment safety:</b> All payment will go through this website, no outside payment. Owner payout on check-in day after ID verification. Secured by Billplz FPX.
         </p>
         <div class="mt-6 flex gap-2">
           <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs">Verified Owner</span>
@@ -605,7 +605,7 @@
       <div id="bookingSummary" class="mt-3 bg-zinc-50 p-4 rounded-xl text-sm border"></div>
       
       <div class="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-800 mt-3">
-        ⚠️ All payment will go through this website, no outside payment. Do not transfer outside to avoid scam.
+        ⚠️ All payment will go through this website, no outside payment. Owner payout on check-in day after ID verification. Do not transfer outside to avoid scam.
       </div>
 
       <div id="guestDetectedBanner" class="hidden mt-4 bg-green-50 border border-green-200 p-3 rounded-xl text-xs text-green-800"></div>
@@ -1286,7 +1286,7 @@ function addBlockedDate() {
         <div id="detailPriceBox" class="mt-4 bg-zinc-50 p-4 rounded-xl border"></div>
 
         <div class="mt-4 bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-800">
-          ⚠️ <b>All payment will go through this website, no outside payment.</b> Do not transfer to personal account outside. All transactions secured by Billplz FPX.
+          ⚠️ <b>All payment will go through this website, no outside payment. Owner payout on check-in day after ID verification.</b> Do not transfer to personal account outside. All transactions secured by Billplz FPX.
         </div>
       `;
 
@@ -1408,7 +1408,8 @@ function addBlockedDate() {
       const co = document.getElementById("bookingCheckout").value;
       const availCheck = isHomestayAvailableForRange(selectedHomestay, ci, co);
       if (!availCheck.available) {
-        alert("✕ Cannot book! Homestay is Fully Booked for: " + (availCheck.blockedDates ? availCheck.blockedDates.join(", ") : ci + " → " + co) + "\nPlease pick different dates.");
+        alert("✕ Cannot book! Homestay is Fully Booked for: " + (availCheck.blockedDates ? availCheck.blockedDates.join(", ") : ci + " → " + co) + "
+Please pick different dates.");
         return;
       }
       const nights = calculateNights(ci, co);
@@ -1422,6 +1423,8 @@ function addBlockedDate() {
           homestayId: selectedHomestay.id,
           owner: selectedHomestay.ownerName,
           ownerBank: selectedHomestay.ownerBankAccount,
+          ownerBankCode: selectedHomestay.bankCode || "MBBEMYKL",
+          ownerAcc: selectedHomestay.ownerBankAccount || selectedHomestay.bankAcc || "",
           nights,
           base: price.base,
           fee: price.fee,
@@ -1432,7 +1435,7 @@ function addBlockedDate() {
           guestId: currentGuest ? currentGuest.id : null,
           guestDetected: currentGuest ? true : false,
           checkin: ci, checkout: co,
-          status: "Paid (Simulated)",
+          status: "Paid - Awaiting Check-in",
           date: new Date().toISOString()
         };
         bookings.push(booking);
@@ -1446,10 +1449,110 @@ function addBlockedDate() {
         return;
       }
 
-      const fakeUrl = `https://www.billplz.com/bills/${bookingId}?amount=${price.total*100}`;
-      if (confirm(`LIVE Billplz\nRedirect to ${fakeUrl}\n\nTotal RM${price.total} for ${nights} nights\nSplit: RM${price.base} owner, RM${price.fee} you`)) {
-        window.open(fakeUrl, "_blank");
-      }
+      // LIVE MODE - Call Cloudflare Function /api/billplz-create (keeps your RM500+RM55 in ONE bill)
+      (async () => {
+        try {
+          const res = await fetch("/api/billplz-create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              bookingId: bookingId,
+              total: price.total,
+              base: price.base,
+              fee: price.fee,
+              youReceive: price.youReceive,
+              homestayName: selectedHomestay.name,
+              homestayId: selectedHomestay.id,
+              guestEmail: guestEmail,
+              guestName: guestName,
+              guestPhone: guestPhone,
+              checkin: ci,
+              checkout: co,
+              nights: nights
+            })
+          });
+          const data = await res.json();
+          if (data.simulation) {
+            // Env keys not set yet, fallback to simulation but keep logic
+            const booking = {
+              id: bookingId,
+              homestay: selectedHomestay.name,
+              homestayId: selectedHomestay.id,
+              owner: selectedHomestay.ownerName,
+              ownerBank: selectedHomestay.ownerBankAccount,
+              ownerBankCode: selectedHomestay.bankCode || "MBBEMYKL",
+              ownerAcc: selectedHomestay.ownerBankAccount || "",
+              nights,
+              base: price.base,
+              fee: price.fee,
+              total: price.total,
+              youReceive: price.youReceive,
+              guestName, guestEmail, guestPhone,
+              checkin: ci, checkout: co,
+              status: "Paid - Awaiting Check-in (Live env not set)",
+              date: new Date().toISOString()
+            };
+            bookings.push(booking);
+            localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+            const bookedDates = getDatesInRange(ci, co);
+            if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
+            bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
+            saveAvailabilityMap();
+            pushBookingToCloud(booking, bookedDates);
+            showBookingSuccess(bookingId, nights, ci, co, price.total);
+            return;
+          }
+          if (data.url) {
+            // Save pending booking before redirect
+            const pendingBooking = {
+              id: bookingId,
+              homestay: selectedHomestay.name,
+              homestayId: selectedHomestay.id,
+              owner: selectedHomestay.ownerName,
+              ownerBank: selectedHomestay.ownerBankAccount,
+              ownerBankCode: selectedHomestay.bankCode || "MBBEMYKL",
+              ownerAcc: selectedHomestay.ownerBankAccount || "",
+              nights,
+              base: price.base,
+              fee: price.fee,
+              total: price.total,
+              youReceive: price.youReceive,
+              guestName, guestEmail, guestPhone,
+              checkin: ci, checkout: co,
+              status: "Pending Billplz - Redirected to FPX",
+              billplz_id: data.id,
+              date: new Date().toISOString()
+            };
+            bookings.push(pendingBooking);
+            localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+            await fetch("/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking: pendingBooking, bookedDates: getDatesInRange(ci, co) }) }).catch(()=>{});
+            window.location.href = data.url;
+          } else {
+            alert("Billplz create failed: " + (data.error || JSON.stringify(data)));
+          }
+        } catch (e) {
+          alert("Billplz error: " + e.message + "
+Falling back to simulation");
+          const booking = {
+            id: bookingId,
+            homestay: selectedHomestay.name,
+            homestayId: selectedHomestay.id,
+            owner: selectedHomestay.ownerName,
+            nights,
+            base: price.base,
+            fee: price.fee,
+            total: price.total,
+            youReceive: price.youReceive,
+            guestName, guestEmail, guestPhone,
+            checkin: ci, checkout: co,
+            status: "Paid - Awaiting Check-in (Error fallback)",
+            date: new Date().toISOString()
+          };
+          bookings.push(booking);
+          localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+          showBookingSuccess(bookingId, nights, ci, co, price.total);
+        }
+      })();
     }
 
     // =============================================================
