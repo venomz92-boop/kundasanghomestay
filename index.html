@@ -2071,8 +2071,8 @@ function addBlockedDate() {
       switchGuestAuth(mode);
     }
     function closeGuestAuth() {
-      const modal = document.getElementById("guestAuthModal");
-      if (modal) modal.classList.add("hidden");
+      const msgEl = document.getElementById("guestAuthMessage");
+      if (msgEl) { msgEl.classList.add("hidden"); msgEl.innerHTML = ""; }
     }
     function switchGuestAuth(mode) {
       const loginForm = document.getElementById("guestLoginForm");
@@ -2080,6 +2080,8 @@ function addBlockedDate() {
       const tabLogin = document.getElementById("guestTabLogin");
       const tabReg = document.getElementById("guestTabRegister");
       const title = document.getElementById("guestAuthTitle");
+      const msgEl = document.getElementById("guestAuthMessage");
+      if (msgEl) { msgEl.classList.add("hidden"); msgEl.innerHTML = ""; }
       if (!loginForm || !regForm) return;
       if (mode === 'login') {
         loginForm.classList.remove("hidden");
