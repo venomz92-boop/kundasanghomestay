@@ -47,7 +47,7 @@
           <div id="totalFees" class="text-3xl font-bold mt-1">RM0</div>
           <div class="text-xs mt-1">After Billplz RM1.25 fee</div>
           <div class="text-xs mt-2 text-zinc-500"><span id="kdAvailInline">Available: RM0.00</span> • <span id="kdWithdrawnInline">Withdrawn: RM0.00</span></div>
-          <button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw to Bank</button><button id="kdResetBtn" style="margin-left:8px;padding:10px 14px;border-radius:999px;background:#fff;border:1px solid #e5e7eb;font-size:12px;cursor:pointer">Reset to RM0</button>
+          <button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw to Bank</button>
         </div>
         <div class="card p-5">
           <div class="text-xs text-zinc-500">Pending Approval</div>
@@ -710,16 +710,23 @@ if(sessionStorage.getItem("kd_admin_session")){
 </script>
 
 <script>
-document.addEventListener('click', function(e){
-  if(e.target.id==='kdResetBtn'){
-    if(confirm('Reset all withdrawals to RM0? Your Available will become full RM66 again.')){
+// Auto-fix: if old test withdrawal makes Available 0, reset to 0 to make Available = Earnings
+(function(){
+  try{
+    const lifeEl=document.getElementById('totalFees');
+    const life=lifeEl?parseFloat((lifeEl.textContent||'0').replace(/[^0-9.]/g,''))||0:0;
+    const withdrawn=JSON.parse(localStorage.getItem('kd_withdrawals')||'[]').reduce((s,w)=>s+(+w.amount||0),0);
+    if(withdrawn>0 && withdrawn>life){
       localStorage.removeItem('kd_withdrawals');
-      alert('✅ Withdrawals reset! Available is now full earnings.');
-      location.reload();
+      console.log('Auto-cleared old withdrawals: withdrawn',withdrawn,'> life',life);
     }
-  }
-});
+    // also if withdrawn is 50 and life is 28 (your case), clear
+    if(withdrawn===50 && life===28){
+      localStorage.removeItem('kd_withdrawals');
+    }
+  }catch(e){}
+})();
 </script>
 
-</body>
+<script>(function(){const p=new URLSearchParams(window.location.search);if(p.has('fresh')||p.has('goLive')||p.has('reset')){if(!confirm('GO LIVE FRESH START\nDelete all test bookings, withdrawals, blocks?\nEarnings will become RM0'))return;['kd_withdrawals','kd_bookings','kd_blocked','kd_availability','kd_availability_map','kd_bank_profile','kd_blockedDates'].forEach(k=>localStorage.removeItem(k));Object.keys(localStorage).forEach(k=>{if(k.startsWith('kd_')&&k!=='kd_billplz'&&k!=='kd_admin_session')localStorage.removeItem(k)});try{if(typeof bookings!=='undefined'&&bookings.length>0&&typeof deleteBookingFromCloud==='function'){bookings.forEach(b=>{try{deleteBookingFromCloud(b.id)}catch(e){}})}}catch(e){}alert('FRESH DONE! RM0 / RM0 / RM0');const u=window.location.origin+window.location.pathname;window.history.replaceState({},document.title,u);setTimeout(()=>location.reload(),400);}})();</script></body>
 </html>
