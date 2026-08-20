@@ -850,19 +850,18 @@ let tempIcOriginalName = ""; // for new listing form
     }
 
     function calculatePrice(ownerPrice, nights = 1) {
-      // MODEL A v2 FIXED - 11% sync with admin
       const base = ownerPrice * nights;
       const fee=Math.round((base*CONFIG.platformFeePercent)/100);
-      const total = base + fee;
+      const gatewayFee = CONFIG.billplz.enabled ? CONFIG.billplz.gatewayFee : 0;
+      const total = base + fee + gatewayFee;
       return {
         nights,
         base,
         fee,
-        gatewayFee:0,
+        gatewayFee,
         total,
         ownerReceives: base,
-        youReceive: fee,
-        platformFee: fee
+        youReceive: fee - gatewayFee
       };
     }
 
