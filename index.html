@@ -1408,8 +1408,7 @@ function addBlockedDate() {
       const co = document.getElementById("bookingCheckout").value;
       const availCheck = isHomestayAvailableForRange(selectedHomestay, ci, co);
       if (!availCheck.available) {
-        alert("✕ Cannot book! Homestay is Fully Booked for: " + (availCheck.blockedDates ? availCheck.blockedDates.join(", ") : ci + " → " + co) + "
-Please pick different dates.");
+        alert("✕ Cannot book! Homestay is Fully Booked for: " + (availCheck.blockedDates ? availCheck.blockedDates.join(", ") : ci + " → " + co) + "\nPlease pick different dates.");
         return;
       }
       const nights = calculateNights(ci, co);
@@ -1529,8 +1528,7 @@ Please pick different dates.");
             alert("Billplz create failed: " + (data.error || JSON.stringify(data)));
           }
         } catch (e) {
-          alert("Billplz error: " + e.message + "
-Falling back to simulation");
+          alert("Billplz error: " + e.message + "\nFalling back to simulation");
           const booking = {
             id: bookingId,
             homestay: selectedHomestay.name,
