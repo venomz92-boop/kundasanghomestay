@@ -16,7 +16,7 @@ export async function onRequestPost(context) {
     const auth = btoa(`${apiKey}:`);
     const payload = {
       bank_code: mapBank(ownerBankName),
-      bank_account_number: ownerBankAccount,
+      bank_account_number: String(ownerBankAccount||"").replace(/[^0-9]/g, ""),
       name: ownerBankHolder,
       amount: Math.round(ownerAmount * 100),
       description: `Payout ${homestayName} Booking ${bookingId} Guest ${guestName}`,
@@ -44,6 +44,7 @@ function mapBank(n){
   if(s.includes("am")) return "ARBKMYKL";
   if(s.includes("bsn")) return "BSNAMYK1";
   if(s.includes("islam")) return "BIMBMYKL";
+  if(s.includes("rakyat")) return "BKRMMYKL";
   return "MBBEMYKL";
 }
 export async function onRequestOptions(){ return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" } }); }

@@ -47,18 +47,27 @@ export async function onRequestPost(context) {
       availability = await kv.get("kd_availability", { type: "json" }) || {};
     }
 
+    // FIXED: Handle availability-only update from admin (was calling /api/availability)
+    if (body.action === "updateAvailability" && body.availability) {
+      availability = body.availability;
+    } else if (body.availability && !body.booking && !body.action) {
+      // Fallback: merge availability object
+      availability = { ...availability, ...body.availability };
+    } else
     // DELETE action - REBUILD from remaining bookings (fixes leftover date bug)
     if (body.action === "delete") {
       const id = body.id;
       const b = bookings.find(x => String(x.id) === String(id));
       bookings = bookings.filter(x => String(x.id) !== String(id));
-      if (b && b.homestayId) {
-        const hid = b.homestayId;
+      if (b && (b.homestayId || b.homestay)) {
+        const hid = b.homestayId || b.homestay;
         const hname = b.homestay;
-        const remaining = bookings.filter(bb => String(bb.homestayId)===String(hid) || (hname && bb.homestay===hname));
+        const remaining = bookings.filter(bb => (b.homestayId && String(bb.homestayId)===String(b.homestayId)) || (hname && bb.homestay===hname));
         const rebuilt = [];
         remaining.forEach(bb => { if(bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout)); });
-        if(rebuilt.length===0){ delete availability[hid]; } else { availability[hid] = [...new Set(rebuilt)].sort(); }
+        // FIXED: handle both id and name keys
+        const availKey = String(b.homestayId || hid);
+        if(rebuilt.length===0){ delete availability[availKey]; delete availability[b.homestayId]; delete availability[hid]; } else { availability[availKey] = [...new Set(rebuilt)].sort(); }
       }
     } else if (body.action === "updateDates") {
       const { id, checkin, checkout, nights, base, fee, total, youReceive, gatewayFee } = body;

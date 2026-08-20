@@ -26,7 +26,7 @@ export async function onRequestPost(context) {
     const auth = btoa(`${apiKey}:`);
     const payload = {
       bank_code: mapBank(bankName),
-      bank_account_number: bankAccount,
+      bank_account_number: String(bankAccount||"").replace(/[^0-9]/g, ""),
       name: bankHolder,
       amount: Math.round(amount * 100), // cents
       description: description || `Platform fee withdrawal RM${amount}`,

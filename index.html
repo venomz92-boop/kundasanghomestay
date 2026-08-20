@@ -728,8 +728,7 @@
     // =============================================================
     const CONFIG = {
       siteName: "Kundasang Homestays",
-      // adminPassword REMOVED for security - now checked server-side
-      // admin hash removed // SHA256 of your password - NOT plain text
+      adminPasswordHash: "b9276e0bc88047b500d985a7bf9f7bf543cd428b9ca1906128cdf9797bb83d33",
       yourBankName: "Maybank",
       yourBankAccount: "1123-4567-8901",
       yourBankHolder: "Kundasang Homestays Enterprise",
@@ -741,7 +740,7 @@
         apiKey: "YOUR_BILLPLZ_API_KEY",
         collectionId: "YOUR_COLLECTION_ID",
         xSignature: "YOUR_X_SIGNATURE",
-        gatewayFee: 0 // No fee to guest, admin pays on withdraw,
+        gatewayFee: 0,
         splitEnabled: true,
       }
     };
@@ -885,8 +884,8 @@ let tempIcOriginalName = ""; // for new listing form
       let blocked = [];
       if (homestay.blockedDates && Array.isArray(homestay.blockedDates)) blocked = [...blocked, ...homestay.blockedDates];
       if (availabilityMap[homestay.id] && Array.isArray(availabilityMap[homestay.id])) blocked = [...blocked, ...availabilityMap[homestay.id]];
-      // Add dates from bookings for this homestay
-      const relatedBookings = bookings.filter(b => b.homestay === homestay.name);
+      // Add dates from bookings for this homestay - FIXED: check both id and name for sync with admin
+      const relatedBookings = bookings.filter(b => b.homestay === homestay.name || String(b.homestayId) === String(homestay.id));
       relatedBookings.forEach(b => {
         if (b.checkin && b.checkout) {
           blocked = [...blocked, ...getDatesInRange(b.checkin, b.checkout)];
@@ -910,6 +909,17 @@ let tempIcOriginalName = ""; // for new listing form
 
     function saveAvailabilityMap() {
       localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
+      if(typeof CLOUD_ENABLED!=='undefined' && CLOUD_ENABLED && typeof pushAvailabilityToCloud==='function') pushAvailabilityToCloud();
+    }
+    async function pushAvailabilityToCloud(){
+      if(!CLOUD_ENABLED) return;
+      try{
+        await fetch(`${API_BASE}/bookings`, {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})
+        });
+      }catch(e){ console.warn("pushAvailability fail", e); }
     }
 
     // Owner form - add blocked date
@@ -1394,9 +1404,6 @@ function addBlockedDate() {
       if (!CONFIG.billplz.enabled) {
         const booking = {
           id: bookingId,
-          ho
-        const booking = {
-          id: bookingId,
           homestay: selectedHomestay.name,
           homestayId: selectedHomestay.id,
           owner: selectedHomestay.ownerName,
@@ -1421,6 +1428,23 @@ function addBlockedDate() {
         bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
         saveAvailabilityMap();
         pushBookingToCloud(booking, bookedDates);
+        // FIXED: Auto payout owner share via Billplz
+        try {
+          fetch(`${API_BASE}/billplz-payout`, {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({
+              bookingId,
+              ownerBankName: selectedHomestay.ownerBank,
+              ownerBankAccount: selectedHomestay.ownerBankAccount,
+              ownerBankHolder: selectedHomestay.bankHolder || selectedHomestay.ownerName,
+              ownerAmount: price.base,
+              platformFee: price.fee,
+              homestayName: selectedHomestay.name,
+              guestName
+            })
+          }).then(r=>r.json()).then(d=>console.log("Payout:", d)).catch(()=>{});
+        } catch(e){ console.warn("Payout call failed", e); }
         showBookingSuccess(bookingId, nights, ci, co, price.total);
         return;
       }
@@ -1663,7 +1687,7 @@ function addBlockedDate() {
       // F12 will only see the hash, not the plain password
       try {
         const hash = await sha256(pass);
-        if (false) { // admin removed
+        if (hash===CONFIG.adminPasswordHash) { // FIXED
           // Set secure session flag (expires in 2 hours)
           sessionStorage.setItem("kd_admin_session", Date.now().toString());
           document.getElementById("adminLogin").classList.add("hidden");
@@ -1789,6 +1813,12 @@ function addBlockedDate() {
       storedApproved = toSave;
       renderAdmin(); renderGrid();
       alert(isDemo ? "Demo deleted and will stay deleted (saved to kd_deleted_demo)" : "Deleted");
+    }
+
+    function saveApproved(){
+      const toSave = allHomestays.filter(h => !DEMO_HOMESTAYS.some(d=>d.id===h.id));
+      localStorage.setItem("kd_approved", JSON.stringify(toSave));
+      storedApproved = toSave;
     }
 
     function toggleVerified(id) {
