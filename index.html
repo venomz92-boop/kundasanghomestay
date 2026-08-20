@@ -591,6 +591,10 @@
       <div class="p-5 border-t flex flex-col md:flex-row justify-between items-center gap-3 bg-zinc-50">
         <button onclick="closeDetail()" class="px-5 py-2 rounded-full border bg-white w-full md:w-auto">Close</button>
         <div class="flex gap-2 w-full md:w-auto justify-end">
+          <button onclick="chatWithOwner()" class="btn-whatsapp w-full md:w-auto justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.46 2.13 11.94c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.79 9.79 0 0 0 4.68 1.19h.01c5.46 0 9.91-4.46 9.91-9.94a9.86 9.86 0 0 0-2.8-6.96zm-7.01 15.1h-.01a8.1 8.1 0 0 1-4.13-1.13l-.3-.18-3.12.82.83-3.04-.2-.31a8.18 8.18 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 0 1 2.41 5.83c0 4.54-3.7 8.23-8.24 8.23zm4.52-6.16c-.25-.12-1.47-.73-1.7-.81-.23-.08-.4-.12-.57.12s-.66.81-.81.98-.3.19-.55.07a6.7 6.7 0 0 1-1.97-1.22 7.38 7.38 0 0 1-1.36-1.69c-.14-.25-.01-.38.11-.5.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43s-.57-1.38-.78-1.89c-.2-.49-.41-.42-.57-.43h-.49c-.17 0-.43.06-.66.31s-.87.85-.87 2.08.89 2.41 1.01 2.58c.12.17 1.75 2.67 4.23 3.75.59.25 1.05.4 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.2-.58.2-1.07.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
+            Chat Owner on WhatsApp
+          </button>
           <button onclick="openBooking()" class="btn-primary w-full md:w-auto">Book Now</button>
         </div>
       </div>
@@ -726,10 +730,10 @@
       siteName: "Kundasang Homestays",
       // adminPassword REMOVED for security - now checked server-side
       // admin hash removed // SHA256 of your password - NOT plain text
-      yourBankName: "MAYBANK",
-      yourBankAccount: "560269009305",
-      yourBankHolder: "Nick's Creations",
-      yourWhatsApp: "60165833713",
+      yourBankName: "Maybank",
+      yourBankAccount: "1123-4567-8901",
+      yourBankHolder: "Kundasang Homestays Enterprise",
+      yourWhatsApp: "60123456789",
       platformFeePercent: 11,
       billplz: {
         enabled: false,
@@ -737,7 +741,7 @@
         apiKey: "YOUR_BILLPLZ_API_KEY",
         collectionId: "YOUR_COLLECTION_ID",
         xSignature: "YOUR_X_SIGNATURE",
-        gatewayFee: 1.25, // No fee to guest, admin pays on withdraw,
+        gatewayFee: 1.25,
         splitEnabled: true,
       }
     };
@@ -846,40 +850,46 @@ let tempIcOriginalName = ""; // for new listing form
     }
 
     function calculatePrice(ownerPrice, nights = 1) {
-  // MODEL A v2 - Guest pays base + fee only (e.g. RM250*2=500+50=550) - No gateway fee to guest
-  // Owner gets base (500) direct via Billplz auto-payout
-  // Platform fee (50) stays in admin panel, withdraw via Billplz (admin pays charges)
-  const base=ownerPrice*nights;
-  const fee=Math.round((base*CONFIG.platformFeePercent)/100);
-  const total=base+fee;
-  return {nights, base, fee, gatewayFee:0, total, ownerReceives:base, youReceive:fee, platformFee:fee};
-}
+      const base = ownerPrice * nights;
+      const fee=Math.round((base*CONFIG.platformFeePercent)/100);
+      const gatewayFee = CONFIG.billplz.enabled ? CONFIG.billplz.gatewayFee : 0;
+      const total = base + fee + gatewayFee;
+      return {
+        nights,
+        base,
+        fee,
+        gatewayFee,
+        total,
+        ownerReceives: base,
+        youReceive: fee - gatewayFee
+      };
+    }
 
     // =============================================================
     // AVAILABILITY LOGIC - NEW FEATURE
     // =============================================================
     function isoToDate(str) { return new Date(str + 'T00:00:00'); }
     function dateToIso(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth()+1).padStart(2,'0');
-  const d = String(date.getDate()).padStart(2,'0');
-  return `${y}-${m}-${d}`;
-}
-// keep isoToDate same
-
-function getDatesInRange(checkin, checkout) {
-  if (!checkin ||!checkout) return [];
-  const dates = [];
-  const start = isoToDate(checkin);
-  const end = isoToDate(checkout);
-  if (isNaN(start) || isNaN(end) || start >= end) return [];
-  const cur = new Date(start);
-  while (cur < end) {
-    dates.push(dateToIso(cur));
-    cur.setDate(cur.getDate()+1);
-  }
-  return dates;
-}
+      const y = date.getFullYear();
+      const m = String(date.getMonth()+1).padStart(2,'0');
+      const d = String(date.getDate()).padStart(2,'0');
+      return `${y}-${m}-${d}`;
+    }
+    
+    function getDatesInRange(checkin, checkout) {
+      // returns array of iso dates inclusive of checkin, exclusive of checkout
+      if (!checkin || !checkout) return [];
+      const dates = [];
+      const start = isoToDate(checkin);
+      const end = isoToDate(checkout);
+      if (isNaN(start) || isNaN(end) || start >= end) return [];
+      const cur = new Date(start);
+      while (cur < end) {
+        dates.push(dateToIso(cur));
+        cur.setDate(cur.getDate() + 1);
+      }
+      return dates;
+    }
 
     function getAllBlockedDatesForHomestay(homestay) {
       if (!homestay) return [];
@@ -1301,11 +1311,11 @@ function addBlockedDate() {
           `;
         } else {
           box.innerHTML = `
-            <h4 class="font-bold text-sm">Price Breakdown</h4>
+            <h4 class="font-bold text-sm">Price Breakdown — Auto Updated</h4>
             <div class="mt-2 text-sm space-y-1">
               <div class="flex justify-between"><span>Price RM${selectedHomestay.ownerPrice} x ${nights} nights</span><span>RM${p.base}</span></div>
               <div class="flex justify-between"><span>Service fee</span><span>RM${p.fee}</span></div>
-              <div class="flex justify-between font-bold border-t pt-2 mt-2 text-base"><span>Total:</span><span>RM${p.total.toFixed(2)}</span></div>
+              <div class="flex justify-between font-bold border-t pt-2 mt-2 text-base"><span>Total Guest Pays</span><span>RM${p.total.toFixed(2)}</span></div>
             </div>
             <div class="mt-2 text-[11px] text-green-700">✓ Dates available — you can book now</div>
           `;
@@ -1393,6 +1403,9 @@ function addBlockedDate() {
       const bookingId = "KDH-" + Date.now().toString().slice(-6);
 
       if (!CONFIG.billplz.enabled) {
+        const booking = {
+          id: bookingId,
+          ho
         const booking = {
           id: bookingId,
           homestay: selectedHomestay.name,

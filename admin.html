@@ -42,19 +42,10 @@
       <h2 class="text-3xl font-bold">Admin — Approval & Billplz</h2>
 
       <div class="grid md:grid-cols-3 gap-4 mt-6">
-        <div class="card p-5 border-2 border-green-200">
-          <div class="text-xs text-zinc-500">Your Fee Earnings (10%) - Withdrawable</div>
+        <div class="card p-5">
+          <div class="text-xs text-zinc-500">Your Fee Earnings (11%)</div>
           <div id="totalFees" class="text-3xl font-bold mt-1">RM0</div>
-          <div class="text-xs mt-1">Stays in panel, withdraw via Billplz (you pay charges)</div>
-          <div class="mt-3 pt-3 border-t">
-            <div class="text-[11px] font-bold">Withdraw Balance</div>
-            <div class="flex gap-2 mt-2">
-              <input id="withdrawAmount" type="number" placeholder="Amount RM" class="flex-1 border rounded-full px-3 py-1.5 text-sm"/>
-              <button onclick="withdrawPlatformFee()" class="px-3 py-1.5 bg-[var(--primary)] text-white rounded-full text-xs">Withdraw via Billplz</button>
-            </div>
-            <div id="withdrawStatus" class="text-[10px] mt-1 text-zinc-500"></div>
-            <div id="withdrawHistory" class="text-[10px] mt-2 max-h-[80px] overflow-y-auto"></div>
-          </div>
+          <div class="text-xs mt-1">After Billplz RM1.25 fee</div>
         </div>
         <div class="card p-5">
           <div class="text-xs text-zinc-500">Pending Approval</div>
@@ -109,7 +100,7 @@
 // SAME CONFIG as before
 const CONFIG = {
   adminPasswordHash: "b9276e0bc88047b500d985a7bf9f7bf543cd428b9ca1906128cdf9797bb83d33",
-  platformFeePercent: 10,
+  platformFeePercent: 11,
   billplz: { enabled: false, gatewayFee: 1.25, apiKey: "", collectionId: "", xSignature: "" }
 };
 
@@ -212,15 +203,14 @@ function saveApproved(){
 // =============================================================
 function isoToDate(str) { return new Date(str + 'T00:00:00'); }
 function dateToIso(date) {
+  // FIXED - use local date, not UTC, to avoid -1 day shift in MYT
   const y = date.getFullYear();
   const m = String(date.getMonth()+1).padStart(2,'0');
   const d = String(date.getDate()).padStart(2,'0');
   return `${y}-${m}-${d}`;
 }
-// keep isoToDate same
-
 function getDatesInRange(checkin, checkout) {
-  if (!checkin ||!checkout) return [];
+  if (!checkin || !checkout) return [];
   const dates = [];
   const start = isoToDate(checkin);
   const end = isoToDate(checkout);
@@ -228,7 +218,7 @@ function getDatesInRange(checkin, checkout) {
   const cur = new Date(start);
   while (cur < end) {
     dates.push(dateToIso(cur));
-    cur.setDate(cur.getDate()+1);
+    cur.setDate(cur.getDate() + 1);
   }
   return dates;
 }
@@ -633,13 +623,10 @@ function calculateNights(checkin, checkout){
   const diff=Math.round((d2-d1)/(1000*60*60*24)); return diff>0?diff:1;
 }
 function calculatePrice(ownerPrice, nights=1){
-  // MODEL A v2 - Guest pays base + fee only (no gateway added to guest)
-  // Owner gets base directly via Billplz auto-payout
-  // Platform fee stays in admin panel, withdraw via Billplz (admin pays charges)
-  const base=ownerPrice*nights; 
-  const fee=Math.round((base*CONFIG.platformFeePercent)/100);
-  const total=base+fee; // Guest pays exactly base + fee (e.g. RM500+RM50=RM550)
-  return {nights, base, fee, gatewayFee:0, total, ownerReceives:base, youReceive:fee, platformFee:fee};
+  const base=ownerPrice*nights; const fee=(base*CONFIG.platformFeePercent)/100;
+  const gatewayFee=CONFIG.billplz.enabled?CONFIG.billplz.gatewayFee:0;
+  const total=base+fee+gatewayFee;
+  return {nights, base, fee, gatewayFee, total, ownerReceives:base, youReceive:fee-gatewayFee};
 }
 async function changeBookingDate(id){
   const b=bookings.find(x=> String(x.id)===String(id));
@@ -662,12 +649,16 @@ async function changeBookingDate(id){
   if(!confirm("Confirm change?\n"+oldCheckin+" → "+oldCheckout+" TO "+newCheckin+" → "+newCheckout+"\nNew Total RM"+price.total)) return;
   try{
     if(typeof CLOUD_ENABLED!=='undefined' && CLOUD_ENABLED){ await pushChangeDatesToCloud(id, newCheckin, newCheckout, price); }
-    if(!availabilityMap[homestay.id]) availabilityMap[homestay.id]=[];
-    availabilityMap[homestay.id]=availabilityMap[homestay.id].filter(d=> !oldDates.includes(d));
-    newRequested.forEach(d=>{ if(!availabilityMap[homestay.id].includes(d)) availabilityMap[homestay.id].push(d); });
-    availabilityMap[homestay.id].sort(); saveAvailabilityMap();
-    if(homestay.blockedDates){ homestay.blockedDates=homestay.blockedDates.filter(d=> !oldDates.includes(d)); newRequested.forEach(d=>{ if(!homestay.blockedDates.includes(d)) homestay.blockedDates.push(d); }); homestay.blockedDates.sort(); }
-    const h2=homestays.find(x=> x.id===homestay.id); if(h2 && h2.blockedDates){ h2.blockedDates=h2.blockedDates.filter(d=> !oldDates.includes(d)); newRequested.forEach(d=>{ if(!h2.blockedDates.includes(d)) h2.blockedDates.push(d); }); h2.blockedDates.sort(); }
+    // FIXED - rebuild from remaining bookings to avoid 1-2 leftover dates
+    const remainingForRebuild = bookings.filter(bb => (String(bb.homestayId)===String(homestay.id) || bb.homestay===homestay.name) && String(bb.id)!==String(id));
+    let rebuiltAv = [];
+    remainingForRebuild.forEach(bb => { if(bb.checkin && bb.checkout) rebuiltAv.push(...getDatesInRange(bb.checkin, bb.checkout)); });
+    rebuiltAv.push(...newRequested);
+    availabilityMap[homestay.id] = [...new Set(rebuiltAv)].sort();
+    saveAvailabilityMap();
+    // update blockedDates to match rebuilt (for demo and approved)
+    if(homestay.blockedDates){ homestay.blockedDates = [...availabilityMap[homestay.id]]; }
+    const h2=homestays.find(x=> x.id===homestay.id); if(h2 && h2.blockedDates){ h2.blockedDates = [...availabilityMap[homestay.id]]; }
     saveApproved();
     b.checkin=newCheckin; b.checkout=newCheckout; b.nights=nights; b.base=price.base; b.fee=price.fee; b.total=price.total; b.youReceive=price.youReceive; b.gatewayFee=price.gatewayFee; b.date=new Date().toISOString(); b.status=(b.status||"Paid")+" (Changed)";
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
@@ -677,46 +668,7 @@ async function changeBookingDate(id){
 }
 
 
-
-function withdrawPlatformFee(){
-  const amt = parseFloat(document.getElementById("withdrawAmount").value);
-  if(!amt || amt<=0){ alert("Enter amount"); return; }
-  const balance = bookings.reduce((s,b)=>s+(b.youReceive||b.fee||0),0) - (JSON.parse(localStorage.getItem("kd_withdrawals")||"[]").reduce((s,w)=>s+w.amount,0));
-  if(amt>balance){ alert("Insufficient balance. Available: RM"+balance); return; }
-  if(!confirm("Withdraw RM"+amt+" via Billplz? Billplz charge (RM1.50-2) will be deducted from your payout, you will receive slightly less.\nOwner money not affected.")) return;
-  document.getElementById("withdrawStatus").textContent = "Processing...";
-  fetch("/api/billplz-withdraw", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      amount: amt,
-      bankName: CONFIG.yourBankName,
-      bankAccount: CONFIG.yourBankAccount,
-      bankHolder: CONFIG.yourBankHolder,
-      description: "Platform fee withdrawal"
-    })
-  }).then(r=>r.json()).then(d=>{
-    document.getElementById("withdrawStatus").textContent = d.message || (d.simulated ? "SIMULATED: RM"+amt+" would be withdrawn" : "Success");
-    if(d.success || d.simulated){
-      const hist = JSON.parse(localStorage.getItem("kd_withdrawals")||"[]");
-      hist.push({amount:amt, date:new Date().toISOString(), status:d.simulated?"Simulated":"Success", result:d});
-      localStorage.setItem("kd_withdrawals", JSON.stringify(hist));
-      renderWithdrawHistory();
-      document.getElementById("withdrawAmount").value="";
-    }
-  }).catch(e=>{ document.getElementById("withdrawStatus").textContent = "Error: "+e.message; });
-}
-function renderWithdrawHistory(){
-  const hist = JSON.parse(localStorage.getItem("kd_withdrawals")||"[]");
-  const el = document.getElementById("withdrawHistory");
-  if(!el) return;
-  if(hist.length===0){ el.innerHTML = "<div class='text-zinc-400'>No withdrawals yet</div>"; return; }
-  el.innerHTML = hist.slice(-5).reverse().map(h=>`<div>RM${h.amount} - ${new Date(h.date).toLocaleDateString()} - ${h.status}</div>`).join("");
-}
-setTimeout(renderWithdrawHistory, 500);
-
 function saveBillplzConfig(){
-
   CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value;
   CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value;
   CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value;
