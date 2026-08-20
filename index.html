@@ -1107,7 +1107,7 @@ function addBlockedDate() {
     // =============================================================
     function renderGrid() {
       const grid = document.getElementById("homestayGrid");
-      const loc = document.getElementById("filterLocation").value;
+      const loc = document.getElementById("filterLocation")?.value || "all";
       const checkinVal = document.getElementById("checkin")?.value;
       const checkoutVal = document.getElementById("checkout")?.value;
       let list = homestays.filter(h => h.approved === true);
@@ -1140,7 +1140,7 @@ function addBlockedDate() {
 
       if (list.length === 0) {
         if (checkinVal && checkoutVal) {
-          grid.innerHTML = `<div class="col-span-3 text-center py-10"><div class="text-zinc-500">No homestays available for ${checkinVal} → ${checkoutVal}</div><div class="text-xs mt-2">${bookedCount} homestay(s) are Fully Booked for those dates</div><button onclick="document.getElementById('checkin').value=''; document.getElementById('checkout').value=''; renderGrid()" class="mt-4 px-4 py-2 rounded-full border bg-white text-sm">Clear dates & show all</button></div>`;
+          grid.innerHTML = `<div class="col-span-3 text-center py-10"><div class="text-zinc-500">No homestays available for ${checkinVal} → ${checkoutVal}</div><div class="text-xs mt-2">${bookedCount} homestay(s) are Fully Booked for those dates</div><button onclick="if(document.getElementById('checkin')) document.getElementById('checkin').value=''; if(document.getElementById('checkout')) document.getElementById('checkout').value=''; renderGrid()" class="mt-4 px-4 py-2 rounded-full border bg-white text-sm">Clear dates & show all</button></div>`;
         } else {
           grid.innerHTML = `<div class="col-span-3 text-center py-10 text-zinc-500">No approved homestays yet. List your homestay and wait for admin approval.</div>`;
         }
@@ -1150,7 +1150,7 @@ function addBlockedDate() {
       // Add info banner when dates selected
       let banner = "";
       if (checkinVal && checkoutVal) {
-        banner = `<div class="col-span-3 mb-2 bg-green-50 border border-green-200 p-3 rounded-xl text-sm">Showing <b>${list.length} available</b> homestays for <b>${checkinVal} → ${checkoutVal}</b> • ${bookedCount} Fully Booked hidden <button onclick="document.getElementById('checkin').value=''; document.getElementById('checkout').value=''; renderGrid()" class="ml-2 text-xs underline">Clear dates</button></div>`;
+        banner = `<div class="col-span-3 mb-2 bg-green-50 border border-green-200 p-3 rounded-xl text-sm">Showing <b>${list.length} available</b> homestays for <b>${checkinVal} → ${checkoutVal}</b> • ${bookedCount} Fully Booked hidden <button onclick="if(document.getElementById('checkin')) document.getElementById('checkin').value=''; if(document.getElementById('checkout')) document.getElementById('checkout').value=''; renderGrid()" class="ml-2 text-xs underline">Clear dates</button></div>`;
       }
 
       grid.innerHTML = banner + list.map(h => {
