@@ -104,6 +104,7 @@ export async function onRequestPost(context) {
       await kv.put("kd_availability", JSON.stringify(availability));
     }
 
+    // NOTE: After this, frontend will call /api/billplz-payout to auto transfer owner share
     return new Response(JSON.stringify({ success: true, bookings, availability }), { headers: { ...cors(), "Content-Type": "application/json" } });
   } catch(e) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: cors() });
@@ -143,6 +144,7 @@ export async function onRequestDelete(context) {
       await kv.put("kd_bookings", JSON.stringify(bookings));
       await kv.put("kd_availability", JSON.stringify(availability));
     }
+    // NOTE: After this, frontend will call /api/billplz-payout to auto transfer owner share
     return new Response(JSON.stringify({ success: true, bookings, availability }), { headers: { ...cors(), "Content-Type": "application/json" } });
   } catch(e) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: cors() });
