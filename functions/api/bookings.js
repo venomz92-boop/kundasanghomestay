@@ -153,7 +153,7 @@ export async function onRequestPost(context) {
         const hid = booking.homestayId;
         if (hid) {
           if (!availability[hid]) availability[hid]=[];
-          const dates = body.bookedDates || getDatesInRange(booking.checkin, booking.checkout);
+          let dates = body.bookedDates; if(!Array.isArray(dates) || dates.length===0) dates = getDatesInRange(booking.checkin, booking.checkout);
           dates.forEach(d=>{ if(!availability[hid].includes(d)) availability[hid].push(d); });
           availability[hid] = [...new Set(availability[hid])].sort();
         }
@@ -190,39 +190,43 @@ export async function onRequestDelete(context) {
   const kv = context.env.KD_DATA;
   const db = context.env.DB;
   try {
-    let bookings = []; let availability = {};
+    let bookings = []; 
+    let availability = {};
     if (db) {
-      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first(); if(r) bookings = JSON.parse(r.data); } catch(e){}
-      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first(); if(r) availability = JSON.parse(r.data); } catch(e){}
+      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first(); if(r && r.data) { const parsed = JSON.parse(r.data); if(Array.isArray(parsed)) bookings = parsed; } } catch(e){}
+      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first(); if(r && r.data) { const parsed = JSON.parse(r.data); if(parsed && typeof parsed === 'object') availability = parsed; } } catch(e){}
     } else if (kv) {
-      bookings = await kv.get("kd_bookings", { type: "json" }) || [];
-      availability = await kv.get("kd_availability", { type: "json" }) || {};
+      try { const b = await kv.get("kd_bookings", { type: "json" }); if(Array.isArray(b)) bookings = b; } catch(e){}
+      try { const a = await kv.get("kd_availability", { type: "json" }); if(a && typeof a === 'object') availability = a; } catch(e){}
     }
-    const b = bookings.find(x => String(x.id) === String(id));
-    bookings = bookings.filter(x => String(x.id) !== String(id));
+    if(!Array.isArray(bookings)) bookings = [];
+    const b = bookings.find(x => x && String(x.id) === String(id));
+    bookings = bookings.filter(x => x && String(x.id) !== String(id));
     if (b && b.homestayId) {
       const hid = b.homestayId;
       const hname = b.homestay;
       const remaining = bookings.filter(bb => {
+        if(!bb) return false;
         if (String(bb.homestayId)===String(hid)) return true;
         if (hname && bb.homestay===hname) return true;
         return false;
       }).filter(bb => !String(bb.status||"").toLowerCase().includes("pending"));
       const rebuilt = [];
-      remaining.forEach(bb => { if(bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout)); });
+      remaining.forEach(bb => { if(bb && bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout)); });
       if(rebuilt.length===0){ delete availability[hid]; } else { availability[hid] = [...new Set(rebuilt)].sort(); }
     }
     if (db) {
-      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(availability)).run();
+      try { await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run(); } catch(e){ console.error("DB bookings save fail", e); }
+      try { await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(availability)).run(); } catch(e){ console.error("DB avail save fail", e); }
     } else if (kv) {
-      await kv.put("kd_bookings", JSON.stringify(bookings));
-      await kv.put("kd_availability", JSON.stringify(availability));
+      try { await kv.put("kd_bookings", JSON.stringify(bookings)); } catch(e){}
+      try { await kv.put("kd_availability", JSON.stringify(availability)); } catch(e){}
     }
-    return new Response(JSON.stringify({ success: true, bookings, availability }), { headers: { ...cors(), "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ success: true, bookings, availability, deletedId: id }), { headers: { ...cors(), "Content-Type": "application/json" } });
   } catch(e) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: cors() });
+    console.error("DELETE error", e);
+    return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500, headers: cors() });
   }
 }
 
