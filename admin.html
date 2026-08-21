@@ -120,21 +120,23 @@ async function fetchCloudData(){
     const res=await fetch(API_BASE + "/bookings", {cache:"no-store"});
     if(!res.ok) throw new Error(res.status);
     const data=await res.json();
+    console.log("Cloud data:", data);
+    
     if(data.bookings && Array.isArray(data.bookings)){
-      // FIXED: Deduplicate and respect cloud as source of truth AFTER delete
       const map=new Map();
       data.bookings.forEach(b=>{ if(b && b.id) map.set(String(b.id), b); });
       bookings=[...map.values()];
       localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    } else if(data.bookings && data.bookings.length===0){
-      // Explicit empty means cloud was purged - honor it
+    } else if(Array.isArray(data.bookings) && data.bookings.length===0){
       bookings=[];
       localStorage.setItem("kd_bookings", JSON.stringify(bookings));
     }
+    
     if(data.availability){
       availabilityMap=data.availability;
       localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
     }
+    
     if(data.approved !== undefined){
       storedApproved=data.approved;
       localStorage.setItem("kd_approved", JSON.stringify(storedApproved));
@@ -151,6 +153,28 @@ async function fetchCloudData(){
       deletedDemoIds=data.deletedDemo;
       localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds));
     }
+    
+    if(data.pending && Array.isArray(data.pending)){
+      if(data.pending.length > 0){
+        const map=new Map();
+        [...pendingHomestays, ...data.pending].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
+        pendingHomestays=[...map.values()];
+        localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
+      }
+    }
+    
+    if(data.guests && Array.isArray(data.guests)){
+      try{
+        const localGuests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
+        if(data.guests.length > 0){
+          const map=new Map();
+          [...localGuests, ...data.guests].forEach(g=>{ if(g && (g.email||g.id)) map.set(String(g.email||g.id).toLowerCase(), g); });
+          const merged=[...map.values()];
+          localStorage.setItem("kd_guests", JSON.stringify(merged));
+        }
+      }catch(e){}
+    }
+    
     try{
       let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id)) && !deletedDemoIds.includes(d.id)).map(d => {
         let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
@@ -414,40 +438,7 @@ function updateBookingStatus(id, newStatus){
 
 function whatsappGuest(id){ const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return; let phone=(b.guestPhone||'').replace(/[^0-9]/g,''); if(phone.startsWith('0')) phone='60'+phone.substring(1); const msg=encodeURIComponent("Hi "+(b.guestName||'Guest')+", booking "+b.id+" for "+b.homestay+" ("+b.checkin+"→"+b.checkout+") is "+b.status+". Total RM"+b.total+"."); window.open("https://wa.me/"+phone+"?text="+msg,'_blank'); }
 function copyBookingId(id){ navigator.clipboard.writeText(id).then(()=> alert("Copied: "+id)); }
-async function deleteBooking(id){
-  if(!confirm("Delete "+id+"? Permanently remove from Cloudflare D1?")) return;
-  // FIXED: Don't touch availabilityMap locally - let server rebuild it atomically to avoid race
-  // Optimistic UI: remove locally first
-  bookings=bookings.filter(x=> String(x.id)!==String(id));
-  localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-  renderBookingsTable();
 
-  // Now delete from Cloudflare D1 and WAIT for response
-  try{
-    const res = await fetch(API_BASE + "/bookings?id=" + encodeURIComponent(id), {method:"DELETE", cache:"no-store"});
-    const data = await res.json().catch(()=>({}));
-    if(!res.ok){
-      alert("Cloud delete failed: "+(data.error||res.status)+" - booking will reappear on F5. Check D1 binding and ensure file is named bookings.js (lowercase) at /functions/api/bookings.js");
-      // restore local from cloud to avoid mismatch
-      await fetchCloudData();
-      renderBookingsTable();
-    } else {
-      console.log("Cloud deleted", id, data);
-      // Server already rebuilt availability - sync it down
-      if(data.availability){
-        availabilityMap = data.availability;
-        localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
-      }
-      // Force refresh from cloud to confirm deletion stuck
-      await fetchCloudData();
-      renderBookingsTable();
-    }
-  }catch(e){
-    alert("Delete error: "+e.message+" - Check /api/bookings DELETE endpoint exists. Ensure file is /functions/api/bookings.js lowercase");
-    await fetchCloudData();
-    renderBookingsTable();
-  }
-}
 async function clearAllBookingsCloud(){
   if(!confirm("DELETE ALL bookings from Cloudflare D1? This cannot be undone.")) return;
   if(!confirm("Really clear ALL?")) return;
@@ -485,73 +476,98 @@ setTimeout(loadBankInfo, 1200);
 function renderAvailabilityTab(){ const div=document.getElementById("availabilityTable"); div.innerHTML='<div class="grid md:grid-cols-2 gap-4">'+homestays.map(h=> '<div class="border sharp p-3"><div class="font-bold text-sm">'+h.name+'</div><div id="cal-'+h.id+'" class="mt-2"></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>').join("")+'</div>'; homestays.forEach(h=> renderAvailabilityCalendar(h, 'cal-'+h.id)); }
 function renderGuestsTable(){ 
   let guests=[];
-  try{
-    guests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
-  }catch(e){ guests=[]; }
+  try{ guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); }catch(e){ guests=[]; }
   const div=document.getElementById("guestsTable"); 
-  if(guests.length===0) div.innerHTML='<div class="text-center text-zinc-500">No guests<br><small class="text-[10px]">Guests register from phone will appear here after cloud sync<br>Click Force Sync if empty</small></div>'; 
-  else div.innerHTML='<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests (from cloud + local)</div>' + guests.map((g,i)=> '<div class="border sharp p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+' '+(g.createdAt ? new Date(g.createdAt).toLocaleDateString() : (g.date||''))+'</div></div><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded bg-red-600 text-white sharp">Delete</button></div>').join(""); 
+  if(!div) return;
+  if(guests.length===0){
+    div.innerHTML='<div class="text-center text-zinc-500 py-8">No guests yet<br><button onclick="forceSyncGuests()" class="mt-3 px-4 py-2 bg-blue-600 text-white text-xs sharp">Force Sync</button> <button onclick="checkCloudRaw()" class="mt-3 px-4 py-2 bg-zinc-200 text-xs sharp">Check Cloud</button></div>';
+  } else {
+    div.innerHTML='<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests</div>' + guests.map((g,i)=> '<div class="border sharp p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+'</div></div><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded bg-red-600 text-white sharp">Delete</button></div>').join("");
+  }
 }
 
-function resetWithdrawn(){
-  if(!confirm('Reset Withdrawn to RM0?\nThis will clear local history and try to reset cloud. This cannot be undone.')) return;
+async function forceSyncGuests(){
   try{
-    localStorage.removeItem('kd_withdrawals');
-    localStorage.setItem('kd_withdrawals', '[]');
-    const el = document.getElementById('kdWithdrawnInline');
-    if(el) el.textContent = 'Withdrawn: RM0.00';
-    // Try cloud reset - try multiple possible endpoints
-    (async()=>{
-      try{
-        const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
-        // Try DELETE
-        await fetch(base + "/withdraw", {method:"DELETE", cache:"no-store"});
-        // Try POST reset
-        await fetch(base + "/withdraw/reset", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({reset:true})});
-        // Try POST with action
-        await fetch(base + "/withdraw", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"reset"})});
-      }catch(e){ console.warn("Cloud reset attempt", e); }
-      // Refresh UI
-      const availEl = document.getElementById("kdAvailInline");
-      if(availEl) {
-        // keep available as is, but ensure withdrawn shows 0
-      }
-      // Try to refresh from server after 500ms
-      setTimeout(()=>{ try{ if(typeof refreshEarningsUI === 'function') location.reload(); else location.reload(); }catch(e){ location.reload(); } }, 500);
-    })();
-    alert('Withdrawn reset to 0 (local). Cloud reset attempted - refresh to confirm.');
-  }catch(e){ alert('Reset failed: '+e.message); }
+    await fetchCloudData();
+    renderGuestsTable();
+    renderAdmin();
+    alert("Synced! Guests:"+(JSON.parse(localStorage.getItem("kd_guests")||"[]").length)+" Bookings:"+bookings.length);
+  }catch(e){ alert("Sync failed: "+e.message); }
+}
+
+async function checkCloudRaw(){
+  try{
+    const res=await fetch(API_BASE + "/bookings", {cache:"no-store"});
+    const data=await res.json();
+    alert("Cloud: bookings:"+(data.bookings?.length||0)+" guests:"+(data.guests?.length||0)+" avail keys:"+(Object.keys(data.availability||{}).length));
+  }catch(e){ alert("Check failed: "+e.message); }
 }
 
 async function deleteGuest(idx){ 
-  if(!confirm('Delete this guest? This will ban them from logging in again.')) return; 
+  if(!confirm('Delete this guest? This cannot be undone.')) return; 
   let guests=[]; 
   try{ guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); }catch(e){} 
   const deleted = guests[idx];
-  const emailToBan = deleted?.email ? String(deleted.email).toLowerCase() : null;
   guests.splice(idx,1); 
   localStorage.setItem("kd_guests", JSON.stringify(guests)); 
   renderGuestsTable(); 
   try{
-    console.log("Deleting guest:", deleted?.email, "and banning");
-    // Overwrite guests list
     await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"overwriteGuests", guests: guests})});
     await fetch(API_BASE + "/pending", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"overwriteGuests", guests: guests})});
-    
-    // Ban the email
-    if(emailToBan){
-      await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"banGuest", email: emailToBan})});
-      // Also store banned locally
-      let banned = [];
-      try{ banned = JSON.parse(localStorage.getItem("kd_banned_guests")||"[]"); }catch(e){}
-      if(!banned.includes(emailToBan)) banned.push(emailToBan);
-      localStorage.setItem("kd_banned_guests", JSON.stringify(banned));
-    }
-    
-    alert("Deleted and banned " + (deleted?.email||"guest") + "
-They can no longer login.");
+    alert("Deleted " + (deleted?.email||"guest"));
   }catch(e){ alert("Deleted locally but cloud fail: "+e.message); }
 }
+async function deleteBooking(id){
+  if(!confirm("Delete "+id+"? This will free blocked dates?")) return;
+  
+  const toDelete = bookings.find(x=> String(x.id)===String(id));
+  const homestayId = toDelete?.homestayId || toDelete?.homestay;
+  
+  bookings=bookings.filter(x=> String(x.id)!==String(id));
+  localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+  
+  if(homestayId){
+    const remainingDates = new Set();
+    bookings.filter(b => String(b.homestayId)===String(homestayId) || String(b.homestay)===String(homestayId)).forEach(b=>{
+      (b.bookedDates||[]).forEach(d=> remainingDates.add(d));
+      if(b.checkin && b.checkout){
+        try{
+          const s = new Date(b.checkin);
+          const e = new Date(b.checkout);
+          for(let d = new Date(s); d < e; d.setDate(d.getDate()+1)){
+            remainingDates.add(d.toISOString().split('T')[0]);
+          }
+        }catch(e){}
+      }
+    });
+    if(remainingDates.size === 0){
+      delete availabilityMap[homestayId];
+    } else {
+      availabilityMap[homestayId] = [...remainingDates];
+    }
+    localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
+  }
+  
+  renderBookingsTable();
+  renderAdmin();
+
+  try{
+    const res = await fetch(API_BASE + "/bookings?id=" + encodeURIComponent(id), {method:"DELETE", cache:"no-store"});
+    if(!res.ok){
+      alert("Cloud delete failed");
+    } else {
+      try{
+        await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"updateAvailability", availability: availabilityMap})});
+      }catch(e){}
+      alert("Deleted "+id+" and freed dates");
+      await fetchCloudData();
+      renderAdmin();
+    }
+  } catch(e){
+    alert("Delete error: "+e.message);
+  }
+}
+
 function saveToyyibPayConfig(){ CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value; CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value; CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value; CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true"; localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz)); alert("Saved"); }
 function approveHomestay(id){ const idx=pendingHomestays.findIndex(h=> h.id==id); if(idx===-1) return; const h=pendingHomestays[idx]; h.approved=true; h.verified=true; allHomestays.push(h); homestays.push(h); storedApproved.push(h); saveApproved(); pendingHomestays.splice(idx,1); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
 function rejectHomestay(id){ if(!confirm("Reject?")) return; pendingHomestays=pendingHomestays.filter(h=> h.id!=id); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
