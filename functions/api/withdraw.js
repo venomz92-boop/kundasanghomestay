@@ -1,25 +1,28 @@
-// /api/withdraw - YOUR platform fee only (11% after RM1.25) - LOCKED BANK FOR SECURITY
-// Owner payouts are via /api/payout on check-in confirm, NOT here
-// SECURITY: Bank details are LOCKED server-side, frontend cannot change even if admin.html hacked
-
-// 🔒 FIXED BANK - Change only here or via Cloudflare Secrets
-const LOCKED_BANK = {
-  bankName: env.YOUR_BANK_NAME,
-  bankCode: env.YOUR_BANK_CODE,
-  accountHolder: env.YOUR_BANK_HOLDER,
-  accountNumber: env.YOUR_BANK_ACCOUNT // <- set in Cloudflare Secrets only
-};
+// /api/withdraw - FIXED: env only inside functions
+// YOUR platform fee only - bank LOCKED server-side
 
 export async function onRequestPost(context) {
   try {
     const { request, env } = context;
+
+    const LOCKED_BANK = {
+      bankName: env.YOUR_BANK_NAME || "Maybank",
+      bankCode: env.YOUR_BANK_CODE || "MBBEMYKL",
+      accountHolder: env.YOUR_BANK_HOLDER || "Nicks Creations",
+      accountNumber: env.YOUR_BANK_ACCOUNT || ""
+    };
+
     const data = await request.json();
     const { amount } = data;
-    // SECURITY: Ignore any bank details from frontend - use locked server values only
-    const bankName = env.YOUR_BANK_NAME || LOCKED_BANK.bankName;
-    const accountHolder = env.YOUR_BANK_HOLDER || LOCKED_BANK.accountHolder;
-    const accountNumber = env.YOUR_BANK_ACCOUNT || LOCKED_BANK.accountNumber;
-    const bankCode = env.YOUR_BANK_CODE || LOCKED_BANK.bankCode;
+
+    const bankName = LOCKED_BANK.bankName;
+    const accountHolder = LOCKED_BANK.accountHolder;
+    const accountNumber = LOCKED_BANK.accountNumber;
+    const bankCode = LOCKED_BANK.bankCode;
+
+    if (!accountNumber) {
+      return new Response(JSON.stringify({ error: "Bank account not set in env YOUR_BANK_ACCOUNT" }), { status: 500, headers: { "Content-Type": "application/json", ...cors() } });
+    }
 
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
       return new Response(JSON.stringify({ error: "Invalid amount" }), { status: 400, headers: { "Content-Type": "application/json", ...cors() } });
@@ -35,7 +38,6 @@ export async function onRequestPost(context) {
       } catch(e){}
     }
 
-    // BUG FIX: check insufficient balance even when available is 0
     if (Number(amount) > (earnings.available || 0)) {
       return new Response(JSON.stringify({ error: `Insufficient balance. Available: RM${(earnings.available||0).toFixed(2)}` }), { status: 400, headers: { "Content-Type": "application/json", ...cors() } });
     }
@@ -66,11 +68,10 @@ export async function onRequestPost(context) {
 
     return new Response(JSON.stringify({
       success: true,
-      message: `Withdraw RM${Number(amount).toFixed(2)} locked to ${bankName} ${accountHolder} - Even if admin.html hacked, money goes to locked account`,
+      message: `Withdraw RM${Number(amount).toFixed(2)} locked to ${bankName} ${accountHolder}`,
       withdrawal,
       earnings,
-      security: "Bank details LOCKED server-side in /api/withdraw.js + env YOUR_BANK_* - frontend inputs ignored",
-      note: "Owner payouts are separate via /api/payout on Confirm Check-In"
+      security: "Bank details LOCKED server-side"
     }), { status: 200, headers: { "Content-Type": "application/json", ...cors() } });
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { "Content-Type": "application/json", ...cors() } });
@@ -78,7 +79,8 @@ export async function onRequestPost(context) {
 }
 
 export async function onRequestGet(context) {
-  const db = context.env.DB;
+  const { env } = context;
+  const db = env.DB;
   let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
   if (db) {
     try {
@@ -89,12 +91,11 @@ export async function onRequestGet(context) {
   }
   return new Response(JSON.stringify({
     message: "Withdraw API ready - LOCKED BANK",
-    lockedBank: { bankName: LOCKED_BANK.bankName, holder: LOCKED_BANK.accountHolder, accountMasked: "****"+LOCKED_BANK.accountNumber.slice(-4), locked: true },
+    lockedBank: { bankName: env.YOUR_BANK_NAME || "Maybank", holder: env.YOUR_BANK_HOLDER || "Nicks Creations", accountMasked: env.YOUR_BANK_ACCOUNT ? "****"+env.YOUR_BANK_ACCOUNT.slice(-4) : "not set", locked: true },
     earnings,
-    security: "Bank fixed in server code - frontend cannot change"
+    security: "Bank fixed in server code"
   }), { status: 200, headers: { "Content-Type": "application/json", ...cors() } });
 }
 
 function cors(){ return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" }; }
-
 export async function onRequestOptions(){ return new Response(null, { headers: cors() }); }
