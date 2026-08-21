@@ -86,9 +86,12 @@ const CONFIG = {
 const CLOUD_ENABLED = true;
 const API_BASE = "/api";
 
+
+const CLOUD_ENABLED = true;
+const API_BASE = "/api";
+
 async function fetchCloudData(){
   console.log("Fetching cloud data from", API_BASE + "/bookings");
-
   if(!CLOUD_ENABLED) return false;
   try{
     const res=await fetch(API_BASE + "/bookings", {cache:"no-store"});
@@ -101,21 +104,44 @@ async function fetchCloudData(){
       localStorage.setItem("kd_bookings", JSON.stringify(bookings));
     }
     if(data.availability){ availabilityMap=data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
-    if(data.pending){ pendingHomestays=data.pending; localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); }
+    if(data.approved !== undefined){ storedApproved=data.approved; localStorage.setItem("kd_approved", JSON.stringify(storedApproved)); }
+    if(data.demoOverrides !== undefined){ demoOverrides=data.demoOverrides; localStorage.setItem("kd_demo_overrides", JSON.stringify(demoOverrides)); pushHomestaysToCloud(); }
+    if(data.demoBlocked !== undefined){ demoBlockedMap=data.demoBlocked; localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap)); }
+    if(data.deletedDemo !== undefined){ deletedDemoIds=data.deletedDemo; localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds)); pushHomestaysToCloud(); }
+    try{
+      let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id)) && !deletedDemoIds.includes(d.id)).map(d => {
+        let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
+        if (demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
+        return merged;
+      });
+      allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
+      allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = []; return h; });
+      homestays = [...allHomestays];
+    }catch(e){}
     return true;
-  }catch(e){ return false; }
+  }catch(e){ console.warn("Cloud fail", e.message); return false; }
+}
+async function pushHomestaysToCloud(){
+  if(!CLOUD_ENABLED) return;
+  try{
+    await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({
+      action:"updateHomestays",
+      approved: storedApproved,
+      demoOverrides: demoOverrides,
+      demoBlocked: demoBlockedMap,
+      deletedDemo: deletedDemoIds
+    })});
+  }catch(e){}
 }
 async function fetchCloudDataForAdmin(){ return fetchCloudData(); }
 async function deleteBookingFromCloud(id){ try{ await fetch(API_BASE + "/bookings?id=" + encodeURIComponent(id), {method:"DELETE"}); }catch(e){} }
 async function pushAvailabilityToCloud(){ 
-  try{ 
-    await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})}); 
-  }catch(e){} 
+  try{ await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})}); }catch(e){} 
 }
 async function fetchEarnings(){
   try{
     const res = await fetch(API_BASE + "/withdraw", {cache:"no-store"});
-    if(!res.ok) throw new Error("no earnings endpoint");
+    if(!res.ok) throw new Error("no earnings");
     const data = await res.json();
     if(data && data.earnings){
       const availEl = document.getElementById("kdAvailInline");
@@ -124,7 +150,7 @@ async function fetchEarnings(){
       if(withEl) withEl.textContent = "Withdrawn: RM"+(data.earnings.withdrawn||0).toFixed(2);
       return data.earnings;
     }
-  }catch(e){ console.warn("Earnings fetch fail", e.message); }
+  }catch(e){}
   return null;
 }
 
@@ -172,7 +198,7 @@ const DEMO_HOMESTAYS = [
 
 let deletedDemoIds = JSON.parse(localStorage.getItem("kd_deleted_demo") || "[]");
 let demoBlockedMap = JSON.parse(localStorage.getItem("kd_demo_blocked") || "{}");
-function saveDemoBlocked(){ localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap)); }
+function saveDemoBlocked(){ localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap)); pushHomestaysToCloud(); }
 let storedApproved = JSON.parse(localStorage.getItem("kd_approved") || "[]");
 let demoOverrides = JSON.parse(localStorage.getItem("kd_demo_overrides") || "{}");
 let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d => {
