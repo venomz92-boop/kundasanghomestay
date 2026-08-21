@@ -3,10 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kundasang Homestays - Verified • Setsail Theme</title>
+  <title>Kundasang Homestays - Verified •</title>
+  <!-- SECURITY NOTE: Admin password is NOT plain text. Only SHA256 hash remains. For 100% security, move /api/admin-login to backend -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
   <style>
+
     :root { --primary:#0F382E; --primary-light:#1a4d3e; --accent:#3FD0D4; --accent-hover:#2bbfc4; --bg:#F8F5F0; --card:#ffffff; --muted:#6b7280; --danger:#dc2626; --dark:#212121; }
     h1,h2,h3{font-family:"Poppins",sans-serif;}
     .font-poppins{font-family:"Poppins",sans-serif;} .font-satisfy{font-family:"Satisfy",cursive;}
@@ -33,6 +35,52 @@
     .setsail-nav-link::after{content:'';position:absolute;left:0;bottom:-2px;width:0;height:2px;background:#3FD0D4;transition:width 0.3s;}
     .setsail-nav-link:hover::after,.setsail-nav-link.active::after{width:100%;}
     @media (max-width:768px){#desktopNav{display:none !important;}#mobileMenuBtn{display:flex !important;}#hero{height:600px !important;}#homePage{padding:80px 20px 60px !important;}#homestayGrid{grid-template-columns:1fr !important;gap:20px !important;}}
+  
+    /* ===== SYNC FIXES FROM WORKING INDEX - KEPT FOR FUNCTIONALITY ===== */
+    *, *::before, *::after { box-sizing: border-box; }
+    .card { overflow: hidden; max-width: 100%; }
+    input[type="date"], input[type="text"], input[type="number"], select, textarea {
+      max-width: 100%;
+      box-sizing: border-box;
+      min-width: 0;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    input[type="date"] {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      -webkit-appearance: none;
+    }
+    @media (max-width: 768px) {
+      #hero .card { 
+        overflow: hidden !important; 
+        width: 100% !important; 
+        max-width: calc(100vw - 32px) !important; 
+        box-sizing: border-box !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+      }
+      #detailContent .grid.grid-cols-2,
+      #bookingModal .grid.grid-cols-2 {
+        grid-template-columns: 1fr !important;
+      }
+    }
+    @media (min-width: 769px) {
+      #mobileNav { display: none !important; }
+    }
+    /* List page inputs - Setsail sharp but readable */
+    #listPage input, #listPage select, #listPage textarea {
+      border-radius: 2px !important;
+      font-family: "Poppins", sans-serif;
+      font-size: 13px;
+    }
+    #listPage .card { padding: 32px; }
+    /* Detail & Booking modals sharp */
+    #detailModal .card, #bookingModal .card, #guestAuthModal .card {
+      border-radius: 2px !important;
+    }
+
   </style>
 </head>
 <body>
@@ -70,16 +118,14 @@
 
 <section id="hero" class="relative w-full h-[680px] overflow-hidden">
   <img src="https://upload.wikimedia.org/wikipedia/commons/5/5d/Kinabalu_Sabah_Borneo_Kampong_Kundasang_panorama_2.jpg" alt="Mount Kinabalu" class="absolute inset-0 w-full h-full object-cover" />
-  <div class="absolute inset-0 bg-black/20"></div><div class="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20"></div>
-  <div class="relative z-10 h-full flex flex-col items-center justify-center text-center px-4 -mt-16">
+  <div class="absolute inset-0 bg-black/20"></div>
+  <div class="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20"></div>
+  <div class="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
     <div class="font-satisfy text-white text-[33px] leading-none mb-3 drop-shadow-sm">Choose Your</div>
     <h1 class="font-poppins font-700 text-white text-[42px] md:text-[68px] leading-[0.95] tracking-[-1px] drop-shadow-sm">Perfect Holiday</h1>
     <p class="mt-5 font-poppins font-600 text-white/80 text-[14px] md:text-[15px] max-w-[600px] leading-[1.7] tracking-wide">Breathe the mountain air of Kundasang. Stay in handpicked homestays with Kinabalu views, local hospitality, and sunrise from your balcony.</p>
     <div class="mt-4 text-[11px] uppercase tracking-[3px] text-white/70 font-600 font-poppins">Setsail-inspired • Verified by Local Owners</div>
-  </div>
-  
-      <button onclick="document.getElementById('homestayGrid')?.scrollIntoView({behavior:'smooth'}); renderGrid()" class="bg-[#3FD0D4] hover:bg-[#2ec2c7] text-white font-700 text-[13px] uppercase tracking-widest px-10 py-5 md:py-0 flex items-center justify-center gap-2 transition-colors shrink-0 font-poppins">Search</button>
-    </div>
+    <button onclick="document.getElementById('homestayGrid')?.scrollIntoView({behavior:'smooth'})" class="mt-8 bg-[#3FD0D4] hover:bg-[#2bbfc4] text-white font-700 text-[12px] uppercase tracking-[0.15em] px-10 py-4 sharp transition-colors font-poppins">Explore Homestays</button>
   </div>
 </section>
 <main id="homePage" class="max-w-[1300px] mx-auto px-6 lg:px-8 pt-[92px] pb-16">
