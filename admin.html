@@ -534,7 +534,7 @@ async function checkCloudRaw(){
   const div=document.getElementById("guestsTable"); 
   if(guests.length===0) div.innerHTML='<div class="text-center text-zinc-500">No guests<br><small class="text-[10px]">Guests register from phone will appear here after cloud sync<br>Click Force Sync if empty</small></div>'; 
   else div.innerHTML='<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests (from cloud + local)</div>' + guests.map((g,i)=> '<div class="border sharp p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+' '+(g.createdAt ? new Date(g.createdAt).toLocaleDateString() : (g.date||''))+'</div></div><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded bg-red-600 text-white sharp">Delete</button></div>').join(""); 
-}
+
 
 function resetWithdrawn(){
   if(!confirm('Reset Withdrawn to RM0?\nThis will clear local history and try to reset cloud. This cannot be undone.')) return;
