@@ -135,6 +135,25 @@ async function fetchCloudData(){
       availabilityMap=data.availability;
       localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
     }
+    if(data.pending !== undefined && Array.isArray(data.pending)){
+      const map=new Map();
+      const localPending=JSON.parse(localStorage.getItem("kd_pending")||"[]");
+      [...localPending, ...data.pending].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
+      pendingHomestays=[...map.values()];
+      localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
+    }
+    // === GUESTS SYNC ===
+    if(data.guests !== undefined && Array.isArray(data.guests)){
+      console.log("Cloud guests:", data.guests.length);
+      try{
+        const localGuests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
+        const map=new Map();
+        [...localGuests, ...data.guests].forEach(g=>{ if(g && (g.email||g.id)) map.set(String(g.email||g.id).toLowerCase(), g); });
+        const merged=[...map.values()];
+        localStorage.setItem("kd_guests", JSON.stringify(merged));
+        console.log("Guests merged:", localGuests.length, "->", merged.length);
+      }catch(e){}
+    }
     if(data.approved !== undefined){
       storedApproved=data.approved;
       localStorage.setItem("kd_approved", JSON.stringify(storedApproved));
@@ -485,9 +504,33 @@ setTimeout(loadBankInfo, 1200);
 function renderAvailabilityTab(){ const div=document.getElementById("availabilityTable"); div.innerHTML='<div class="grid md:grid-cols-2 gap-4">'+homestays.map(h=> '<div class="border sharp p-3"><div class="font-bold text-sm">'+h.name+'</div><div id="cal-'+h.id+'" class="mt-2"></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>').join("")+'</div>'; homestays.forEach(h=> renderAvailabilityCalendar(h, 'cal-'+h.id)); }
 function renderGuestsTable(){ 
   let guests=[];
+  try{ guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); }catch(e){ guests=[]; }
+  const div=document.getElementById("guestsTable"); 
+  if(guests.length===0){
+    div.innerHTML='<div class="text-center text-zinc-500 py-8">No guests yet<br><small class="text-[10px]">Register from phone will appear here after sync<br>Check console for Cloud guests count</small><br><button onclick="forceSyncGuests()" class="mt-3 px-4 py-2 bg-blue-600 text-white text-xs sharp">Force Sync Guests</button> <button onclick="checkCloudRaw()" class="mt-3 px-4 py-2 bg-zinc-200 text-xs sharp">Check Cloud Raw</button></div>';
+  } else {
+    div.innerHTML='<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests (cloud + local) • Last sync: '+new Date().toLocaleTimeString()+'</div>' + guests.map((g,i)=> '<div class="border sharp p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+' '+(g.createdAt?new Date(g.createdAt).toLocaleDateString():(g.date||''))+'</div></div><div class="flex gap-2"><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded bg-red-600 text-white sharp">Delete</button></div></div>').join("");
+  }
+}
+
+async function forceSyncGuests(){
   try{
-    guests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
-  }catch(e){ guests=[]; }
+    await fetchCloudData();
+    renderGuestsTable();
+    const g=JSON.parse(localStorage.getItem("kd_guests")||"[]");
+    alert("Synced! Guests: "+g.length);
+  }catch(e){ alert("Sync failed: "+e.message); }
+}
+
+async function checkCloudRaw(){
+  try{
+    const res=await fetch("/api/bookings", {cache:"no-store"});
+    const data=await res.json();
+    console.log("RAW CLOUD:", data);
+    alert("Cloud:\nbookings:"+(data.bookings?.length||0)+"\npending:"+(data.pending?.length||0)+"\nguests:"+(data.guests?.length||0)+"\nhasDB:"+(data._debug?.hasDB!==undefined?data._debug.hasDB:!!data.guests)+"\n\nFull in console F12");
+  }catch(e){ alert("Check failed: "+e.message); }
+}
+
   const div=document.getElementById("guestsTable"); 
   if(guests.length===0) div.innerHTML='<div class="text-center text-zinc-500">No guests<br><small class="text-[10px]">Guests register from phone will appear here after cloud sync<br>Click Force Sync if empty</small></div>'; 
   else div.innerHTML='<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests (from cloud + local)</div>' + guests.map((g,i)=> '<div class="border sharp p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+' '+(g.createdAt ? new Date(g.createdAt).toLocaleDateString() : (g.date||''))+'</div></div><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded bg-red-600 text-white sharp">Delete</button></div>').join(""); 
