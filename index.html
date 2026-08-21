@@ -511,10 +511,6 @@ async function fetchCloudData(){
       localStorage.setItem("kd_demo_blocked", JSON.stringify(data.demoBlocked)); 
       demoBlockedMap = data.demoBlocked;
     }
-    if(data.pending !== undefined && Array.isArray(data.pending)){
-      pendingHomestays = data.pending;
-      localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
-    }
     if(data.deletedDemo !== undefined){ 
       localStorage.setItem("kd_deleted_demo", JSON.stringify(data.deletedDemo)); 
       deletedDemoIds = data.deletedDemo;
@@ -1438,7 +1434,7 @@ function addBlockedDate() {
       });
     });
 
-    async function submitHomestay() {
+    function submitHomestay() {
     try {
       const ownerName = document.getElementById("listOwnerName").value.trim();
       const whatsapp = document.getElementById("listWhatsapp").value.trim();
@@ -1517,47 +1513,35 @@ function addBlockedDate() {
       };
 
       pendingHomestays.push(newHome);
-      localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
-
-      // === FINAL FIX: SYNC PENDING TO CLOUD - MERGE SAFE ===
-      console.log("Starting cloud sync for pending, count:", pendingHomestays.length, "new ID:", newHome.id);
-      if(pendingHomestays.length === 0){
-        console.error("Pending empty, not pushing!");
-        alert("Error: Pending empty, registration failed. Try again.");
-        return;
-      }
+      // Try save to localStorage, but handle quota exceeded (base64 photos are huge)
       try{
-        const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
-        // 1. Primary: bookings endpoint - sends full merged list
-        const res1 = await fetch(base + "/bookings", {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({action:"updatePending", pending: pendingHomestays})
-        });
-        const data1 = await res1.json().catch(()=>({}));
-        console.log("✅ Bookings sync response:", res1.status, data1);
-        
-        // 2. Dedicated pending endpoint - also sends new home
-        const res2 = await fetch(base + "/pending", {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({pending: pendingHomestays, new: newHome})
-        });
-        const data2 = await res2.json().catch(()=>({}));
-        console.log("✅ Pending endpoint response:", res2.status, data2);
-        
-        if(res1.ok || res2.ok){
-          console.log("✅✅ Pending synced to cloud successfully! ID:", newHome.id);
-        } else {
-          console.error("Both sync failed:", data1, data2);
-          alert("Cloud sync failed!\nBookings: "+(data1.error||res1.status)+"\nPending: "+(data2.error||res2.status)+"\nCheck console.");
-        }
+        localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
       }catch(e){
-        console.error("❌ Pending cloud sync exception:", e);
-        alert("Cloud sync error: " + e.message);
+        console.warn("LocalStorage quota exceeded, trying without images:", e);
+        try{
+          // Save without big images to fit quota
+          const smallPending = pendingHomestays.map(h=>{
+            const copy = {...h};
+            if(copy.image && copy.image.length>500) copy.image = copy.image.substring(0,500)+"...TRUNCATED";
+            if(copy.images) copy.images = copy.images.map(img=> img.length>500 ? img.substring(0,500)+"...TRUNCATED" : img);
+            if(copy.icImage && copy.icImage.length>500) copy.icImage = "IC_UPLOADED";
+            return copy;
+          });
+          localStorage.setItem("kd_pending", JSON.stringify(smallPending));
+          console.log("Saved small version to localStorage");
+        }catch(e2){
+          console.error("Even small version failed, clearing old pending and saving new only:", e2);
+          try{
+            localStorage.removeItem("kd_pending");
+            localStorage.removeItem("kd_bookings");
+            localStorage.setItem("kd_pending", JSON.stringify([newHome]));
+          }catch(e3){
+            console.error("LocalStorage completely full, can't save locally, but will still try cloud:", e3);
+          }
+        }
       }
 
-      alert(`Submitted!\n\n"${homestayName}" is now Pending approval.\nOnly shows on homepage after admin approves.\nYou will get Verified Owner badge after approval.\n\n(Admin will see it even from other phone/desktop now)`);
+      alert(`Submitted!\n\n"${homestayName}" is now Pending approval.\nOnly shows on homepage after admin approves.\nYou will get Verified Owner badge after approval.`);
       
       // reset form
       document.getElementById("listOwnerName").value = "";
@@ -2533,6 +2517,57 @@ function sendContactEmail(){
     </div>
   </div>
 </div>
+
+
+<div id="debugPushPanel" style="position:fixed;bottom:10px;right:10px;z-index:9999;background:yellow;padding:8px;border:2px solid red;font-size:11px;max-width:300px;">
+<b>DEBUG: Pending Sync</b><br>
+<span id="debugPendingCount">Local: 0</span><br>
+<button onclick="forcePushPending()" style="background:blue;color:white;padding:4px 8px;margin:2px;">Force Push to Cloud</button>
+<button onclick="checkPendingStatus()" style="background:green;color:white;padding:4px 8px;margin:2px;">Check Cloud</button>
+<button onclick="document.getElementById('debugPushPanel').style.display='none'" style="background:gray;color:white;padding:2px 6px;">X</button>
+<div id="debugLog" style="max-height:100px;overflow:auto;background:white;margin-top:4px;padding:2px;font-size:10px;"></div>
+</div>
+<script>
+function logDebug(msg){
+  console.log(msg);
+  const el=document.getElementById('debugLog');
+  if(el) el.innerHTML += '<div>'+new Date().toLocaleTimeString()+': '+msg+'</div>';
+}
+function updateDebugCount(){
+  try{
+    const pending = JSON.parse(localStorage.getItem('kd_pending')||'[]');
+    const el=document.getElementById('debugPendingCount');
+    if(el) el.textContent = 'Local: '+pending.length+' pending';
+  }catch(e){}
+}
+async function forcePushPending(){
+  try{
+    const pending = JSON.parse(localStorage.getItem('kd_pending')||'[]');
+    logDebug('Local pending: '+pending.length);
+    if(pending.length===0){ alert('No local pending to push! Register first'); return; }
+    logDebug('Pushing to /api/bookings...');
+    const res1 = await fetch('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updatePending', pending})});
+    const data1 = await res1.json().catch(()=>({}));
+    logDebug('Bookings: '+res1.status+' '+(data1.saved||data1.error||'ok'));
+    logDebug('Pushing to /api/pending...');
+    const res2 = await fetch('/api/pending', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({pending})});
+    const data2 = await res2.json().catch(()=>({}));
+    logDebug('Pending: '+res2.status+' count:'+(data2.count||data2.error));
+    alert('Push done!\nBookings: '+res1.status+'\nPending: '+res2.status+'\nCount: '+(data2.count||data1.pending||'?')+'\nNow check admin Force Sync');
+    updateDebugCount();
+  }catch(e){ logDebug('Error: '+e.message); alert('Push error: '+e.message); }
+}
+async function checkPendingStatus(){
+  try{
+    const res = await fetch('/api/bookings', {cache:'no-store'});
+    const data = await res.json();
+    logDebug('Cloud pending: '+(data.pending?.length||0)+' hasDB:'+data._debug?.hasDB);
+    alert('Cloud pending: '+(data.pending?.length||0)+'\nHasDB: '+data._debug?.hasDB+'\nSee debug panel for details');
+  }catch(e){ logDebug('Check error: '+e.message); }
+}
+setInterval(updateDebugCount, 2000);
+setTimeout(updateDebugCount, 500);
+</script>
 
 </body>
 </html>
