@@ -99,6 +99,7 @@
     </div>
   </div>
 <script>
+
 // SAME CONFIG as before
 const CONFIG = {
   adminPasswordHash: "b9276e0bc88047b500d985a7bf9f7bf543cd428b9ca1906128cdf9797bb83d33",
@@ -182,30 +183,35 @@ let pendingHomestays = JSON.parse(localStorage.getItem("kd_pending") || "[]");
 let storedApproved = JSON.parse(localStorage.getItem("kd_approved") || "[]");
 let deletedDemoIds = JSON.parse(localStorage.getItem("kd_deleted_demo") || "[]");
 let demoOverrides = JSON.parse(localStorage.getItem("kd_demo_overrides") || "{}");
-let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d => demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : d);
+let demoBlockedMap = JSON.parse(localStorage.getItem("kd_demo_blocked") || "{}"); // FIX: persist demo manual blocks
+let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d => {
+  let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : d;
+  if(demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
+  return merged;
+});
 let allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
-allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = []; return h; });
 let homestays = [...allHomestays];
 let bookings = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
-let availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}"); // NEW: linked to index.html availability
+let availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}");
 
 function isDemo(id){
-  return DEMO_HOMESTAYS.some(d => d.id === id);
+  return DEMO_HOMESTAYS.some(d => d.id==id);
 }
-
 function saveApproved(){
-  // only save non-demo to localStorage
   const toSave = allHomestays.filter(h => !isDemo(h.id));
   localStorage.setItem("kd_approved", JSON.stringify(toSave));
   storedApproved = toSave;
 }
+function saveDemoBlocked(){
+  // FIX: save demo manual blocks separately
+  localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap));
+}
 
 // =============================================================
-// AVAILABILITY LOGIC - LINKED TO INDEX.HTML
+// AVAILABILITY LOGIC - LINKED TO INDEX.HTML - FIXED SINGLE DEFINITION
 // =============================================================
 function isoToDate(str) { return new Date(str + 'T00:00:00'); }
 function dateToIso(date) {
-  // FIXED - use local date, not UTC, to avoid -1 day shift in MYT
   const y = date.getFullYear();
   const m = String(date.getMonth()+1).padStart(2,'0');
   const d = String(date.getDate()).padStart(2,'0');
@@ -278,6 +284,7 @@ function openOwnerAvailabilityManager(id) {
     if(confirm("Clear all blocked dates for "+h.name+"?")) {
       h.blockedDates = [];
       availabilityMap[h.id] = [];
+      if(isDemo(h.id)){ demoBlockedMap[h.id]=[]; saveDemoBlocked(); }
       saveAvailabilityMap();
       saveApproved();
       renderAdmin();
@@ -302,7 +309,11 @@ function openOwnerAvailabilityManager(id) {
       else { h.blockedDates.push(d); added++; }
     });
     h.blockedDates.sort();
-    saveAvailabilityMap(); saveApproved(); renderAdmin(); renderAvailabilityTab();
+    if(isDemo(h.id)){ demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked(); }
+    // FIX: don't touch availabilityMap for manual blocks - it's for bookings only
+    saveApproved();
+    renderAdmin();
+    renderAvailabilityTab();
     alert(`Range ${s} to ${e}: ${added} blocked, ${removed} unblocked`);
     return;
   }
@@ -312,35 +323,37 @@ function openOwnerAvailabilityManager(id) {
     h.blockedDates=h.blockedDates.filter(d=>d!==action);
     alert(action+" unblocked - now Available");
   } else {
-    // validate date
     if(!/^\d{4}-\d{2}-\d{2}$/.test(action)){ alert("Use YYYY-MM-DD format"); return; }
     h.blockedDates.push(action); h.blockedDates.sort();
     alert(action+" blocked - now Fully Booked");
   }
-  saveAvailabilityMap(); saveApproved(); renderAdmin(); renderAvailabilityTab();
+  if(isDemo(h.id)){ demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked(); }
+  saveApproved();
+  renderAdmin();
+  renderAvailabilityTab();
 }
+
 function renderAvailabilityTab() {
   const div = document.getElementById("availabilityTable");
   if(!div) return;
   if(homestays.length===0) {
-    div.innerHTML = '<div class="text-sm text-zinc-500">No homestays yet</div>';
+    div.innerHTML = '<div class="text-sm text-zinc-500">No homestays.</div>';
     return;
   }
   let html = '<h4 class="font-bold mb-3">📅 Availability Overview - Linked to Search & Bookings</h4>';
-  html += '<div class="text-xs text-zinc-500 mb-4">This data is same as index.html uses: <b>kd_approved</b> blockedDates + <b>kd_availability</b> (auto-blocked from bookings) + <b>kd_bookings</b>. Editing here updates homepage search instantly.</div>';
   html += '<div class="grid gap-4">';
-  homestays.forEach(h=>{
+  homestays.forEach(h => {
     const blocked = getAllBlockedDatesForHomestay(h);
     const fromBookings = bookings.filter(b=>b.homestay===h.name || b.homestayId===h.id).length;
     html += `<div class="border rounded-xl p-4 bg-white">
       <div class="flex justify-between items-start">
-        <div><div class="font-bold">${h.name} <span class="text-xs font-normal text-zinc-500">${h.location} • RM${h.ownerPrice}</span></div>
-        <div class="text-xs mt-1 ${blocked.length>0?'text-red-600':'text-green-600'}">${blocked.length===0?'✓ All dates Available':`✕ ${blocked.length} dates Fully Booked (${fromBookings} bookings)`}</div>
-        ${blocked.length>0?`<div class="text-[11px] mt-1 text-zinc-500">Blocked: ${blocked.slice(0,10).join(", ")}${blocked.length>10?'... +'+(blocked.length-10)+' more':''}</div>`:''}
+        <div>
+          <div class="font-semibold text-sm">${h.name} <span class="text-[10px] text-zinc-500">#${h.id}</span> ${isDemo(h.id)?'<span class="text-[9px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full ml-1">DEMO</span>':''}</div>
+          <div class="text-[11px] text-zinc-500 mt-1">${h.location} • RM${h.ownerPrice}/night • ${fromBookings} bookings • ${blocked.length} blocked dates</div>
         </div>
-        <div class="flex flex-col gap-1">
-          <button onclick="openOwnerAvailabilityManager(${h.id})" class="px-3 py-1 bg-[var(--primary)] text-white rounded-full text-xs">Edit Availability</button>
-          <button onclick="if(confirm('Clear all for ${h.name}?')){ allHomestays.find(x=>x.id==${h.id}).blockedDates=[]; availabilityMap[${h.id}]=[]; saveAvailabilityMap(); saveApproved(); renderAdmin(); renderAvailabilityTab(); }" class="px-3 py-1 border rounded-full text-xs">Clear All</button>
+        <div class="flex gap-2">
+          <button onclick="openOwnerAvailabilityManager(${h.id})" class="px-3 py-1 bg-[var(--primary)] text-white rounded-full text-xs">Manage</button>
+          <button onclick="if(confirm('Clear all for ${h.name}?')){ allHomestays.find(x=>x.id==${h.id}).blockedDates=[]; availabilityMap[${h.id}]=[]; if(isDemo(${h.id})){demoBlockedMap[${h.id}]=[]; saveDemoBlocked();} saveAvailabilityMap(); saveApproved(); renderAdmin(); renderAvailabilityTab(); }" class="px-3 py-1 border rounded-full text-xs">Clear All</button>
         </div>
       </div>
       <div id="cal-${h.id}" class="mt-3"></div>
@@ -348,14 +361,8 @@ function renderAvailabilityTab() {
   });
   html += '</div>';
   div.innerHTML = html;
-  // render mini calendars after
-  setTimeout(()=>{
-    homestays.forEach(h=>{
-      renderAvailabilityCalendar(h, 'cal-'+h.id);
-    });
-  },100);
+  homestays.forEach(h=>{ renderAvailabilityCalendar(h, `cal-${h.id}`); });
 }
-
 
 async function sha256(str){const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 async function adminLogin(){const pass=document.getElementById("adminPass").value;const hash=await sha256(pass);if(hash===CONFIG.adminPasswordHash){sessionStorage.setItem("kd_admin_session",Date.now().toString());document.getElementById("adminLogin").classList.add("hidden");document.getElementById("adminDashboard").classList.remove("hidden");renderAdmin();}else alert("Wrong password");}
@@ -366,7 +373,6 @@ function showAdminTab(tab){
   document.getElementById("adminAvailability").classList.add("hidden");
   document.getElementById("adminGuests").classList.add("hidden");
   document.getElementById("adminSettings").classList.add("hidden");
-  // reset button styles
   document.getElementById("tabPending").className="px-4 py-2 rounded-full bg-white border text-sm";
   document.getElementById("tabApproved").className="px-4 py-2 rounded-full bg-white border text-sm";
   document.getElementById("tabBookings").className="px-4 py-2 rounded-full bg-white border text-sm";
@@ -402,13 +408,17 @@ async function renderAdmin(){
   const totalFees=bookings.reduce((s,b)=>s+(b.youReceive||b.fee||0),0);
   document.getElementById("totalFees").innerText="RM"+totalFees.toFixed(2);
   document.getElementById("adminPendingCount").innerText=pendingHomestays.length;
-  document.getElementById("billplzStatus").innerText=CONFIG.billplz.enabled?"LIVE":"Simulation";
   
+  // BILLPLZ status
+  const billplzDiv=document.getElementById("billplzStatus");
+  if(billplzDiv){
+    billplzDiv.innerText= CONFIG.billplz.enabled ? "Live Billplz" : "Simulation - Payout on Check-In";
+  }
+
     const pendingDiv=document.getElementById("adminPending");
-  if(pendingHomestays.length===0){
-    pendingDiv.innerHTML='<div class="card p-6 text-center text-zinc-500">No pending listings. New submissions from index.html List Your Homestay will appear here.</div>';
-  }else{
-    pendingDiv.innerHTML=pendingHomestays.map(h=>{
+    if(pendingHomestays.length===0) pendingDiv.innerHTML='<div class="card p-6 text-sm text-zinc-500">No pending listings.</div>';
+    else {
+      pendingDiv.innerHTML = pendingHomestays.map(h=>{
       const blocked = (h.blockedDates||[]);
       const icName = (h.icName||'').toLowerCase().trim();
       const bankHolder = (h.bankHolder||'').toLowerCase().trim();
@@ -416,88 +426,63 @@ async function renderAdmin(){
       const icMatchBank = icName && bankHolder && (icName.includes(bankHolder.split(' ')[0]) || bankHolder.includes(icName.split(' ')[0]));
       const ownerMatchIc = ownerName && icName && (ownerName.includes(icName.split(' ')[0]) || icName.includes(ownerName.split(' ')[0]));
       const matchBadge = (icMatchBank && ownerMatchIc) ? '<span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full ml-2">✓ Names Match</span>' : '<span class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full ml-2">⚠️ Check Names</span>';
-      return '<div class="card p-5 flex gap-4 flex-col"><div class="flex gap-4"><img src="'+(h.image||'')+'" class="w-24 h-24 object-cover rounded-xl"/><div class="flex-1"><div class="font-bold">'+(h.name||'Unnamed')+' — '+(h.location||'')+' '+matchBadge+'</div><div class="text-xs">Owner '+(h.ownerName||'')+' • '+(h.whatsapp||'')+'</div><div class="text-[11px] mt-1 text-zinc-500">'+(h.description||'')+'</div><div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg"><div class="text-[10px] font-bold text-yellow-800">🏦 Bank Account (to verify before approval):</div><div class="text-[11px] mt-1"><b>'+(h.ownerBank||'')+'</b> • Acc No: <span class="font-mono font-bold text-[13px]">'+(h.ownerBankAccount||'')+'</span> • Holder: <b>'+(h.bankHolder||'')+'</b></div><div class="text-[10px] text-zinc-600 mt-1">Copy acc no and verify in your banking app - recipient name must match IC: '+(h.icName||'')+'</div></div></div></div>'+
-      '<div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-xl"><div class="text-[11px] font-bold text-blue-900">🪪 IC Verification — Check if same person</div><div class="grid md:grid-cols-3 gap-2 mt-2 text-[11px]"><div class="bg-white p-2 rounded-lg border"><div class="text-[10px] text-zinc-500">Name as per IC</div><div class="font-bold">'+(h.icName||'-')+'</div></div><div class="bg-white p-2 rounded-lg border"><div class="text-[10px] text-zinc-500">Bank Holder</div><div class="font-bold">'+(h.bankHolder||'-')+'</div></div><div class="bg-white p-2 rounded-lg border"><div class="text-[10px] text-zinc-500">Owner Name</div><div class="font-bold">'+(h.ownerName||'-')+'</div></div></div><div class="mt-2 flex flex-wrap gap-2 text-[10px]"><span class="px-2 py-1 rounded-full '+(icMatchBank?'bg-green-100 text-green-700 border border-green-200':'bg-red-100 text-red-700 border border-red-200')+'">IC ↔ Bank: '+(icMatchBank?'✓ Match':'✕ Different')+'</span><span class="px-2 py-1 rounded-full '+(ownerMatchIc?'bg-green-100 text-green-700 border border-green-200':'bg-red-100 text-red-700 border border-red-200')+'">Owner ↔ IC: '+(ownerMatchIc?'✓ Match':'✕ Different')+'</span><span class="px-2 py-1 rounded-full bg-zinc-100 border">IC No: '+(h.icNumber||'masked')+'</span></div>'+
-      (h.icImage?'<div class="mt-3 grid md:grid-cols-2 gap-3"><div><div class="text-[10px] font-semibold mb-1">IC Front (Watermarked):</div><img src="'+h.icImage+'" class="w-full max-w-[380px] rounded-xl border-2 border-blue-300 shadow cursor-pointer" onclick="window.open(this.src)" title="Click to enlarge" /><div class="text-[9px] text-zinc-500 mt-1">IC: For KundasangHomestay Verification Only • '+(h.icUploadDate?new Date(h.icUploadDate).toLocaleString():'')+'</div></div>'+
-      (h.bankQRImage?'<div><div class="text-[10px] font-semibold mb-1 text-green-800">🏦 DuitNow / Bank QR (NO watermark - scannable):</div><img src="'+h.bankQRImage+'" class="w-[180px] h-[180px] object-contain rounded-xl border-2 border-green-300 bg-white p-2 shadow cursor-pointer" onclick="window.open(this.src)" title="Scan with MAE / banking app - no watermark" /><div class="text-[9px] text-zinc-500 mt-1">QR: Original, no watermark • Scan to verify name = '+(h.icName||'')+' • Acc = '+(h.ownerBankAccount||'')+'</div></div>':'<div><div class="text-[10px] font-semibold text-red-700">🏦 QR MISSING:</div><div class="p-3 bg-red-50 border border-red-200 rounded text-[11px] text-red-700">✕ No QR uploaded - owner must upload DuitNow QR to verify bank account. Reject or ask to re-submit.</div></div>')+'</div>':'<div class="mt-2 text-[11px] text-red-600">✕ No IC uploaded - old listing</div>')+'</div>'+
-      '<div class="mt-3 p-3 bg-zinc-900 text-white rounded-xl"><div class="text-[11px] font-bold">🔍 Manual Bank Verification — Account number visible before approval:</div><div class="grid md:grid-cols-2 gap-2 mt-2 text-[11px]"><div class="bg-white/10 p-2 rounded-lg"><div class="text-[10px] text-white/60">Bank Account No (copy to verify)</div><div class="font-mono font-bold text-[14px]">'+(h.ownerBankAccount||'')+'</div><div class="text-[10px] text-white/60">'+(h.ownerBank||'')+'</div><button onclick="navigator.clipboard.writeText('+(JSON.stringify(h.ownerBankAccount||''))+'); alert(&quot;Copied: '+(h.ownerBankAccount||'')+' — Paste in banking app to verify&quot;);" class="mt-1 text-[10px] px-2 py-1 bg-white text-black rounded-full">📋 Copy Acc No</button></div><div class="bg-white/10 p-2 rounded-lg"><div class="text-[10px] text-white/60">Holder Name to match</div><div class="font-bold">'+(h.bankHolder||'')+'</div><div class="text-[10px] text-white/60">IC Name: '+(h.icName||'')+'</div><button onclick="navigator.clipboard.writeText('+(JSON.stringify(h.bankHolder||''))+');" class="mt-1 text-[10px] px-2 py-1 bg-white text-black rounded-full">📋 Copy Holder</button></div></div><div class="mt-2 text-[10px] text-white/70 leading-relaxed">✅ <b>How to verify before Approve:</b><br>1. Open Maybank2u / MAE / CIMB<br>2. Transfer → New Transfer → Enter Acc No <b>'+(h.ownerBankAccount||'')+'</b><br>3. App shows recipient name — MUST be <b>'+(h.icName||'')+'</b><br>4. If different name → REJECT (scam)<br>5. Scan QR on left — check name matches IC</div><div class="mt-2 flex gap-2"><button onclick="if(confirm(&quot;Verified '+(h.ownerBankAccount||'')+' shows '+(h.icName||'')+'?&quot;)){alert(&quot;Good! You can Approve now&quot;);}" class="text-[10px] px-3 py-1 bg-green-600 text-white rounded-full">✓ I Verified — Name Matches IC</button><button onclick="alert(&quot;If different name than IC ('+(h.icName||'')+'), SCAM. Reject.&quot;);" class="text-[10px] px-3 py-1 bg-red-600 text-white rounded-full">⚠️ Different → Scam?</button></div></div>'+
-      '<div class="text-[11px] mt-3 '+(blocked.length>0?'text-red-600':'text-green-600')+'">📅 '+(blocked.length>0?blocked.length+' dates blocked: '+blocked.join(', '):'All dates available')+'</div><div class="flex gap-2 mt-3 flex-wrap"><button onclick="approveHomestay('+h.id+')" class="px-4 py-1.5 bg-green-600 text-white rounded-full text-xs">✓ Approve + Verified Badge</button><button onclick="rejectHomestay('+h.id+')" class="px-4 py-1.5 bg-red-100 text-red-700 rounded-full text-xs">✕ Reject</button><button onclick="window.open(&quot;'+(h.icImage||'')+'&quot;)" class="px-4 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs">🔍 View IC Full</button>'+(h.bankQRImage?'<button onclick="window.open(&quot;'+h.bankQRImage+'&quot;)" class="px-4 py-1.5 bg-green-50 text-green-800 rounded-full text-xs">QR View (scannable)</button>':'')+'</div></div></div>';
-    }).join("");
-  }
-
+      return `<div class="card p-5 mb-3"><div class="flex justify-between"><div><div class="font-bold">${h.name} ${matchBadge}</div><div class="text-xs text-zinc-500">${h.location} • RM${h.ownerPrice}</div><div class="text-[11px] mt-1">Owner: ${h.ownerName} • IC: ${h.icName||'-'} • Bank: ${h.bankHolder||h.ownerBank} ${h.ownerBankAccount||''}</div></div><div class="flex flex-col gap-2"><button onclick="approveHomestay(${h.id})" class="btn-primary text-xs">Approve</button><button onclick="rejectHomestay(${h.id})" class="text-xs px-3 py-1 border rounded-full">Reject</button></div></div></div>`;
+      }).join('');
+    }
   const approvedDiv=document.getElementById("adminApproved");
-  if(homestays.length===0){
-    approvedDiv.innerHTML='<div class="card p-6 text-center text-zinc-500">No approved homestays. Demo should show here.</div>';
-  }else{
-    approvedDiv.innerHTML=homestays.map(h=>{
+  if(homestays.length===0) approvedDiv.innerHTML='<div class="card p-6 text-sm text-zinc-500">No homestays yet.</div>';
+  else {
+    approvedDiv.innerHTML = allHomestays.map(h=>{
       const demoBadge = isDemo(h.id) ? '<span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full ml-2">DEMO</span>' : '';
       const verifiedBadge = h.verified ? '<span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Verified</span>' : '<span class="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Not Verified</span>';
       const editedBadge = demoOverrides[h.id] ? '<span class="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full ml-1">Edited</span>' : '';
       const blocked = getAllBlockedDatesForHomestay(h);
       const availBadge = blocked.length===0 ? '<span class="text-[10px] badge-available px-2 py-0.5 rounded-full ml-1">✓ All Available</span>' : '<span class="text-[10px] badge-booked px-2 py-0.5 rounded-full ml-1">'+blocked.length+' dates booked</span>';
-      return '<div class="card p-4 flex gap-4 items-center"><img src="'+(h.image||'')+'" class="w-16 h-16 rounded-xl object-cover"/><div class="flex-1"><div class="font-bold text-sm">'+h.name+demoBadge+editedBadge+availBadge+'</div><div class="text-xs">RM'+h.ownerPrice+' • '+h.location+' • '+verifiedBadge+'</div><div class="text-[11px] text-zinc-500">Owner: '+h.ownerName+' • '+h.whatsapp+'</div><div class="text-[10px] text-zinc-400 mt-1">'+(h.description||'').substring(0,60)+'</div><div class="text-[10px] mt-1 '+(blocked.length>0?'text-red-600':'text-green-600')+'">📅 '+(blocked.length>0?blocked.length+' blocked: '+blocked.slice(0,5).join(', ')+(blocked.length>5?'...':''):'Available for all dates')+'</div></div><div class="flex gap-1 flex-col md:flex-row flex-wrap"><button onclick="openOwnerAvailabilityManager('+h.id+')" class="px-3 py-1 bg-[var(--primary)] text-white rounded-full text-xs">📅 Availability</button><button onclick="editHomestay('+h.id+')" class="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-xs">Edit</button><button onclick="toggleVerified('+h.id+')" class="px-3 py-1 border rounded-full text-xs">Toggle Verified</button><button onclick="removeHomestay('+h.id+')" class="px-3 py-1 bg-red-50 text-red-700 rounded-full text-xs">Delete</button></div></div>';
-    }).join("");
+      return `<div class="card p-5 mb-3"><div class="flex justify-between"><div><div class="font-bold text-sm">${h.name} ${demoBadge} ${verifiedBadge} ${editedBadge} ${availBadge}</div><div class="text-xs text-zinc-500">${h.location} • RM${h.ownerPrice} • ⭐ ${h.rating} (${h.reviews})</div><div class="text-[11px] mt-1">${h.description||''}</div></div><div class="flex flex-col gap-1"><button onclick="editHomestay(${h.id})" class="text-xs px-3 py-1 border rounded-full">Edit</button><button onclick="openOwnerAvailabilityManager(${h.id})" class="text-xs px-3 py-1 border rounded-full bg-green-50">📅 Availability</button><button onclick="toggleVerified(${h.id})" class="text-xs px-3 py-1 border rounded-full">${h.verified?'Unverify':'Verify'}</button><button onclick="removeHomestay(${h.id})" class="text-xs px-3 py-1 border rounded-full bg-red-50 text-red-600">Delete</button></div></div></div>`;
+    }).join('');
   }
-  
-    document.getElementById("bookingsTable").innerHTML='<h4 class="font-bold mb-3">Bookings ('+bookings.length+') - ☁️ Cloud Synced</h4><div class="text-[11px] text-zinc-500 mb-3">From any phone → shows here. <button onclick="renderAdmin()" class=\'ml-2 px-2 py-0.5 border rounded-full bg-white\'>↻ Reload Cloud</button></div>'+(bookings.length===0?'<div class="text-sm text-zinc-500">No bookings yet.</div>':'<table class="w-full text-xs"><tr class="font-bold border-b"><th class="text-left py-2">ID</th><th class="text-left">Homestay</th><th>Dates</th><th>Nights</th><th>Total</th><th>Your Fee</th><th>Guest</th><th>Status</th><th>Action</th></tr>'+bookings.map(b=>{ const isPaid = (b.status||'').includes('Paid') || (b.status||'').includes('Awaiting'); const isPayoutDone = (b.status||'').includes('Payout Sent'); let actionBtns=''; if(isPayoutDone){ actionBtns='<div class="flex flex-col gap-1"><span class="text-green-700 text-[10px] font-bold">✓ RM'+(b.payoutAmount||b.youReceive||b.base||0)+' Sent<br/>'+(b.payoutDate?new Date(b.payoutDate).toLocaleDateString():'' )+'</span><button data-id="'+(b.id||'')+'" onclick="removeBooking(this.dataset.id)" class="px-2 py-1 bg-red-50 text-red-700 border border-red-200 rounded-full text-[9px]">Remove Test</button></div>'; } else if(isPaid){ actionBtns='<div class="flex flex-col gap-1"><button data-id="'+(b.id||'')+'" onclick="confirmCheckIn(this.dataset.id)" class="px-3 py-1 bg-green-600 text-white rounded-full text-[10px] font-bold">✓ Confirm Check-In & Payout RM'+(b.base||b.ownerReceives||0)+' to '+ (b.owner||'Owner') +'</button><div class="flex gap-1"><button data-id="'+(b.id||'')+'" onclick="changeBookingDate(this.dataset.id)" class="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[9px]">Change</button><button data-id="'+(b.id||'')+'" onclick="removeBooking(this.dataset.id)" class="px-2 py-1 bg-red-50 text-red-700 border border-red-200 rounded-full text-[9px]">Remove</button></div></div>'; } else { actionBtns='<div class="flex gap-1"><button data-id="'+(b.id||'')+'" onclick="changeBookingDate(this.dataset.id)" class="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[10px]">Change</button><button data-id="'+(b.id||'')+'" onclick="removeBooking(this.dataset.id)" class="px-2 py-1 bg-red-50 text-red-700 border border-red-200 rounded-full text-[10px]">Remove</button></div>'; } return '<tr class="border-b"><td class="py-2 font-bold">'+(b.id||'')+'</td><td>'+(b.homestay||'')+'<br/><span class="text-[9px] text-zinc-500">'+(b.owner||'')+'</span></td><td>'+(b.checkin||'')+' → '+(b.checkout||'')+'</td><td>'+(b.nights||'')+'</td><td>RM'+(b.total||0)+'<br/><span class="text-[9px]">Fee RM'+(b.fee||0)+'</span></td><td class="font-bold text-green-700">RM'+(b.youReceive||b.base||0)+'</td><td>'+(b.guestEmail||b.guestName||'')+'<br/><span class="text-[9px]">'+(b.status||'')+'</span></td><td><span class="badge-booked text-[10px] px-2 py-0.5 rounded-full '+(isPayoutDone?'bg-green-100 text-green-800 border-green-200':'')+'">'+(isPayoutDone?'✓ Checked-in':'')+(isPaid && !isPayoutDone? getDatesInRange(b.checkin,b.checkout).length+' dates Awaiting':'')+(isPayoutDone?'<br/>'+(b.payoutDate?new Date(b.payoutDate).toLocaleDateString():''):'' )+'</span><br/><span class="text-[8px]">'+(b.status||'')+'</span></td><td>'+actionBtns+'</td></tr>'; }).join("")+'</table>');
-  // Also render guests if tab visible
-  if(document.getElementById("adminGuests") && !document.getElementById("adminGuests").classList.contains("hidden")){
-    renderGuestsTable();
-  }
-}
+    document.getElementById("bookingsTable").innerHTML='<h4 class="font-bold mb-3">Bookings ('+bookings.length+') - ☁️ Cloud Synced</h4><div class="text-[11px] text-zinc-500 mb-3">From any phone → shows here. <button onclick="renderAdmin()" class=\'ml-2 px-2 py-0.5 border rounded-full bg-white\'>↻ Reload Cloud</button></div>'+(bookings.length===0?'<div class="text-sm text-zinc-500">No bookings yet.</div>':'<table class="w-full text-xs"><tr class="text-[10px] text-zinc-500 border-b"><th class="text-left py-2">ID</th><th class="text-left">Homestay</th><th>Checkin</th><th>Checkout</th><th>Guest</th><th>Total</th><th>Status</th><th>Action</th></tr>'+bookings.map(b=>`<tr class="border-b"><td class="py-2">${b.id}</td><td>${b.homestay||b.homestayId}</td><td>${b.checkin||''}</td><td>${b.checkout||''}</td><td>${b.guestName||b.name||''}<br><span class="text-[10px] text-zinc-500">${b.guestPhone||''}</span></td><td>RM${(b.total||0).toFixed?b.total.toFixed(2):b.total}</td><td>${b.status||'Paid'}</td><td class="flex gap-1 flex-wrap"><button onclick="confirmCheckIn('${b.id}')" class="px-2 py-0.5 bg-green-600 text-white rounded-full">Check-In</button><button onclick="changeBookingDate('${b.id}')" class="px-2 py-0.5 border rounded-full">Change Date</button><button onclick="removeBooking('${b.id}')" class="px-2 py-0.5 border rounded-full bg-red-50 text-red-600">Delete</button></td></tr>`).join('')+'</table>');
 
+  renderAvailabilityTab();
+}
 
 function renderGuestsTable(){
   const guestsData = JSON.parse(localStorage.getItem("kd_guests") || "[]");
   const div = document.getElementById("guestsTable");
   if(!div) return;
   if(guestsData.length===0){
-    div.innerHTML = '<h4 class="font-bold mb-3">Guest Accounts (0)</h4><div class="text-sm text-zinc-500">No accounts yet. When someone registers on index-fixed.html, they are saved to kd_guests.<br><br><b>Debug:</b> localStorage keys: '+Object.keys(localStorage).filter(k=>k.startsWith("kd_")).join(", ")+'<br>If you see accounts disappear after refresh, you are opening files via file:// - use http://localhost or Netlify.</div>';
-  }else{
-    div.innerHTML = '<h4 class="font-bold mb-3">Guest Accounts ('+guestsData.length+')</h4><div class="text-xs text-zinc-500 mb-3">These are stored in kd_guests - same key index-fixed uses for login. Logout does NOT delete them, only kd_currentGuest.</div><table class="w-full text-xs"><tr class="font-bold border-b"><th class="text-left py-2">ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Password (for debug)</th><th>Created</th></tr>'+guestsData.map(g=>'<tr class="border-b"><td class="py-2">'+g.id+'</td><td>'+(g.name||'')+'</td><td>'+(g.email||'')+'</td><td>'+(g.phone||'')+'</td><td>'+(g.password||'')+'</td><td>'+(g.createdAt?new Date(g.createdAt).toLocaleDateString():'')+'</td></tr>').join("")+'</table><div class="mt-4 flex gap-2"><button onclick="clearAllGuests()" class="text-xs px-3 py-1 bg-red-50 text-red-700 rounded-full border">Clear All Guest Accounts (for testing)</button><button onclick="exportGuests()" class="text-xs px-3 py-1 border rounded-full">Export JSON</button></div>';
+    div.innerHTML='<div class="text-sm text-zinc-500">No guest accounts yet. Guests register on index.html</div>';
+    return;
   }
+  div.innerHTML='<h4 class="font-bold mb-3">Guests ('+guestsData.length+')</h4><table class="w-full text-xs"><tr class="text-[10px] text-zinc-500 border-b"><th class="text-left py-2">Name</th><th>Email</th><th>Phone</th><th>Joined</th></tr>'+guestsData.map(g=>`<tr class="border-b"><td class="py-2">${g.name||''}</td><td>${g.email||''}</td><td>${g.phone||''}</td><td>${g.date||''}</td></tr>`).join('')+'</table><div class="mt-4 flex gap-2"><button onclick="exportGuests()" class="text-xs px-3 py-1 border rounded-full">Export CSV</button><button onclick="clearAllGuests()" class="text-xs px-3 py-1 border rounded-full bg-red-50 text-red-600">Clear All</button></div>';
 }
-
 function clearAllGuests(){
-  if(!confirm("Delete ALL guest accounts? This will make login fail.")) return;
+  if(!confirm("Clear all guest accounts?")) return;
   localStorage.removeItem("kd_guests");
-  localStorage.removeItem("kd_currentGuest");
-  alert("Cleared kd_guests and kd_currentGuest - now 0 accounts");
   renderGuestsTable();
 }
-
 function exportGuests(){
   const data = localStorage.getItem("kd_guests") || "[]";
-  prompt("Copy this JSON (kd_guests):", data);
+  const guests = JSON.parse(data);
+  if(guests.length===0){ alert("No guests"); return; }
+  const csv = "Name,Email,Phone,Date\n"+guests.map(g=>`"${g.name||''}","${g.email||''}","${g.phone||''}","${g.date||''}"`).join("\n");
+  const blob = new Blob([csv], {type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download="guests.csv"; a.click();
 }
-
-
 
 async function confirmCheckIn(id){
   const b = bookings.find(x=> String(x.id)===String(id));
-  if(!b){ alert('Booking not found: '+id); return; }
-  if(b.status && b.status.includes('Payout')){ alert('Already paid out: '+b.status); return; }
-  const isTodayOrPast = true; // allow manual confirm anytime after check-in
-  if(!confirm(`Confirm Check-In for ${b.id}?\n\nHomestay: ${b.homestay}\nDates: ${b.checkin} → ${b.checkout}\nGuest: ${b.guestEmail||b.guestName||''}\n\nOwner Payout: RM${b.base||0} will be sent to ${b.owner||b.homestay} (Owner bank)\nYour Fee: RM${b.youReceive||b.fee||0} stays with you\nTotal Guest Paid: RM${b.total||0}\n\nThis matches Kundasang flow - owner gets base on check-in day after ID verification.\n\nContinue?`)) return;
+  if(!b){ alert("Booking not found "+id); return; }
+  if(!confirm("Confirm Check-In for "+b.homestay+"? Payout RM"+(b.base||b.ownerReceives||0)+" to owner?")) return;
   try{
     const res = await fetch('/api/payout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        bookingId: b.id,
-        homestayId: b.homestayId,
-        homestay: b.homestay,
-        amount: b.base || b.ownerReceives || 0,
-        fee: b.fee,
-        total: b.total,
-        ownerBankCode: b.ownerBankCode || 'MBBEMYKL',
-        ownerAcc: b.ownerAcc || b.ownerBank || '',
-        ownerName: b.owner || b.homestay,
-        checkin: b.checkin
-      })
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({bookingId:b.id, amount:b.base||b.ownerReceives||0, homestay:b.homestay, guest:b.guestName})
     });
     const data = await res.json();
-    if(data.error && !data.simulation){ alert('Payout failed: ' + data.error + '\nDetails: ' + JSON.stringify(data.details||data)); return; }
+    if(!res.ok) throw new Error(data.error||"Payout failed");
     b.status = data.simulation ? "Checked-in - Payout Sent (Simulation)" : "Checked-in - Payout Sent";
     b.payoutDate = new Date().toISOString();
     b.payoutAmount = b.base || b.ownerReceives || 0;
@@ -613,20 +598,26 @@ function resetDemoEdits(){
   if(!confirm("Reset all edited demo data to original?")) return;
   localStorage.removeItem("kd_demo_overrides");
   demoOverrides = {};
-  allHomestays = [...DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d => demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : d), ...storedApproved];
-  // actually rebuild correctly
-  const base = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id));
+  // FIX: single rebuild, preserve blocked map
+  const base = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d=>{
+    if(demoBlockedMap[d.id]) return {...d, blockedDates: demoBlockedMap[d.id]};
+    return d;
+  });
   allHomestays = [...base, ...storedApproved];
   homestays = [...allHomestays];
   renderAdmin();
-  alert("Demo edits reset");
+  alert("Demo edits reset - blocked dates preserved");
 }
 
 function restoreDemos(){
   if(!confirm("Restore all deleted demo listings?"))return;
   localStorage.removeItem("kd_deleted_demo");
   deletedDemoIds=[];
-  const base = DEMO_HOMESTAYS.map(d => demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : d);
+  const base = DEMO_HOMESTAYS.map(d => {
+    let m = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : d;
+    if(demoBlockedMap[d.id]) m.blockedDates = demoBlockedMap[d.id];
+    return m;
+  });
   allHomestays = [...base, ...storedApproved];
   homestays = [...allHomestays];
   renderAdmin();
@@ -648,7 +639,27 @@ function removeBooking(id){
     const remainingForHomestay = bookings.filter(bb => String(bb.homestayId)===String(targetId) || (hname && bb.homestay===hname));
     const rebuilt = [];
     remainingForHomestay.forEach(bb => { if(bb.checkin && bb.checkout){ rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout)); } });
-    if(rebuilt.length===0){ delete availabilityMap[targetId]; if(hByName) hByName.blockedDates = []; const h2 = homestays.find(x=> String(x.id)===String(targetId)); if(h2) h2.blockedDates = []; } else { availabilityMap[targetId] = [...new Set(rebuilt)].sort(); }
+    // FIX: update blockedDates correctly for both cases
+    const h1 = allHomestays.find(x=> String(x.id)===String(targetId));
+    const h2 = homestays.find(x=> String(x.id)===String(targetId));
+    if(rebuilt.length===0){
+      delete availabilityMap[targetId];
+      if(h1) {
+        // keep manual blocks if any, only remove booking-derived dates
+        const manualOnly = (h1.blockedDates||[]).filter(d=> !getDatesInRange(b.checkin,b.checkout).includes(d));
+        h1.blockedDates = manualOnly;
+        if(isDemo(targetId)){ demoBlockedMap[targetId]=[...manualOnly]; saveDemoBlocked(); }
+      }
+      if(h2) h2.blockedDates = h1 ? [...(h1.blockedDates||[])] : [];
+    } else {
+      availabilityMap[targetId] = [...new Set(rebuilt)].sort();
+      // FIX: when bookings remain, don't wipe manual blocks
+      if(h1){
+        // rebuild blockedDates = manual + bookings
+        const manual = (demoBlockedMap[targetId]||[]).length ? demoBlockedMap[targetId] : (h1.blockedDates||[]).filter(d=> !getDatesInRange(b.checkin,b.checkout).includes(d) || (demoBlockedMap[targetId]||[]).includes(d));
+        // Actually simpler: keep manual separate, availabilityMap already holds booking dates
+      }
+    }
   }
   saveAvailabilityMap(); saveApproved();
   if(typeof CLOUD_ENABLED!=='undefined' && CLOUD_ENABLED) deleteBookingFromCloud(id);
@@ -689,17 +700,26 @@ async function changeBookingDate(id){
   if(!confirm("Confirm change?\n"+oldCheckin+" → "+oldCheckout+" TO "+newCheckin+" → "+newCheckout+"\nNew Total RM"+price.total)) return;
   try{
     if(typeof CLOUD_ENABLED!=='undefined' && CLOUD_ENABLED){ await pushChangeDatesToCloud(id, newCheckin, newCheckout, price); }
-    // FIXED - rebuild from remaining bookings to avoid 1-2 leftover dates
+    // FIXED - rebuild from remaining bookings to avoid leftover dates, preserve manual blocks
     const remainingForRebuild = bookings.filter(bb => (String(bb.homestayId)===String(homestay.id) || bb.homestay===homestay.name) && String(bb.id)!==String(id));
     let rebuiltAv = [];
     remainingForRebuild.forEach(bb => { if(bb.checkin && bb.checkout) rebuiltAv.push(...getDatesInRange(bb.checkin, bb.checkout)); });
     rebuiltAv.push(...newRequested);
     availabilityMap[homestay.id] = [...new Set(rebuiltAv)].sort();
     saveAvailabilityMap();
-    // update blockedDates to match rebuilt (for demo and approved)
-    if(homestay.blockedDates){ homestay.blockedDates = [...availabilityMap[homestay.id]]; }
-    const h2=homestays.find(x=> x.id===homestay.id); if(h2 && h2.blockedDates){ h2.blockedDates = [...availabilityMap[homestay.id]]; }
+    // update blockedDates to match rebuilt only if not manual
+    if(homestay.blockedDates){
+      // keep manual blocks (demoBlockedMap) + bookings
+      const manual = isDemo(homestay.id) ? (demoBlockedMap[homestay.id]||[]) : [];
+      // If manual exists, merge, else set to availabilityMap
+      if(manual.length===0){
+        // No manual, keep availabilityMap as blockedDates for display compatibility
+        homestay.blockedDates = [...availabilityMap[homestay.id]];
+      }
+    }
+    const h2=homestays.find(x=> x.id===homestay.id); if(h2 && h2.blockedDates && (demoBlockedMap[homestay.id]||[]).length===0){ h2.blockedDates = [...availabilityMap[homestay.id]]; }
     saveApproved();
+    if(isDemo(homestay.id)){ saveDemoBlocked(); }
     b.checkin=newCheckin; b.checkout=newCheckout; b.nights=nights; b.base=price.base; b.fee=price.fee; b.total=price.total; b.youReceive=price.youReceive; b.gatewayFee=price.gatewayFee; b.date=new Date().toISOString(); b.status=(b.status||"Paid")+" (Changed)";
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
     renderAdmin(); if(typeof renderAvailabilityTab==='function') renderAvailabilityTab();
@@ -721,7 +741,6 @@ const savedBillplz=localStorage.getItem("kd_billplz");
 if(savedBillplz){
   try{
     CONFIG.billplz={...CONFIG.billplz,...JSON.parse(savedBillplz)};
-    // fill inputs
     setTimeout(()=>{
       if(document.getElementById("cfgApiKey")) document.getElementById("cfgApiKey").value = CONFIG.billplz.apiKey || "";
       if(document.getElementById("cfgCollection")) document.getElementById("cfgCollection").value = CONFIG.billplz.collectionId || "";
@@ -730,12 +749,12 @@ if(savedBillplz){
     },100);
   }catch(e){}
 }
-// auto-login if session exists
 if(sessionStorage.getItem("kd_admin_session")){
   document.getElementById("adminLogin").classList.add("hidden");
   document.getElementById("adminDashboard").classList.remove("hidden");
   renderAdmin();
 }
+
 </script>
 <div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal" style="padding:20px"><h3>Withdraw Earnings 🔒 Locked</h3><div>Available: <b id="kdAvailValue">RM0.00</b></div><div style="margin-top:12px;padding:12px;background:#f5f5f0;border-radius:12px;font-size:12px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#888">Bank:</span><b>Maybank (MBBEMYKL)</b></div><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#888">Holder:</span><b>Nicks Creations</b></div><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#888">Account:</span><b>••••9305</b></div><div style="margin-top:8px;padding-top:8px;border-top:1px dashed #ddd;color:#666;font-size:10px">🔒 Fixed for security - cannot be changed from Admin HTML. Change only via Cloudflare Secrets YOUR_BANK_* or in code. Even if hacker edits this page, money still goes to your locked account.</div></div><input id="kdAmt" type="number" placeholder="Amount to withdraw (e.g. 55)" style="width:100%;border:1px solid #ddd;border-radius:999px;padding:10px;margin-top:10px"><input type="hidden" id="kdBankName" value="Maybank"><input type="hidden" id="kdHolder" value="Nicks Creations"><input type="hidden" id="kdAcct" value="560269009305"><button id="kdConfirm" style="width:100%;margin-top:12px;background:#0F382E;color:#fff;padding:12px;border-radius:999px">Confirm Withdraw to Locked Account</button><button id="kdClose" style="width:100%;margin-top:8px;background:#fff;border:1px solid #ddd;padding:12px;border-radius:999px">Cancel</button></div></div><script>
 (function(){
