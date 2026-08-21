@@ -105,9 +105,9 @@ async function fetchCloudData(){
     }
     if(data.availability){ availabilityMap=data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
     if(data.approved !== undefined){ storedApproved=data.approved; localStorage.setItem("kd_approved", JSON.stringify(storedApproved)); }
-    if(data.demoOverrides !== undefined){ demoOverrides=data.demoOverrides; localStorage.setItem("kd_demo_overrides", JSON.stringify(demoOverrides)); pushHomestaysToCloud(); }
+    if(data.demoOverrides !== undefined){ demoOverrides=data.demoOverrides; localStorage.setItem("kd_demo_overrides", JSON.stringify(demoOverrides)); }
     if(data.demoBlocked !== undefined){ demoBlockedMap=data.demoBlocked; localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap)); }
-    if(data.deletedDemo !== undefined){ deletedDemoIds=data.deletedDemo; localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds)); pushHomestaysToCloud(); }
+    if(data.deletedDemo !== undefined){ deletedDemoIds=data.deletedDemo; localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds)); }
     try{
       let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id)) && !deletedDemoIds.includes(d.id)).map(d => {
         let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
