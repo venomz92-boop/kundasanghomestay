@@ -7,17 +7,29 @@ export async function onRequestGet(context) {
   try {
     let bookings = [];
     let availability = {};
+    let approved = [];
+    let demoOverrides = {};
+    let demoBlocked = {};
+    let deletedDemo = [];
     if (db) {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
       try { const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first(); if (res) bookings = JSON.parse(res.data); } catch(e) {}
       try { const res2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first(); if (res2) availability = JSON.parse(res2.data); } catch(e) {}
+      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first(); if (r) approved = JSON.parse(r.data); } catch(e) {}
+      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_demo_overrides").first(); if (r) demoOverrides = JSON.parse(r.data); } catch(e) {}
+      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_demo_blocked").first(); if (r) demoBlocked = JSON.parse(r.data); } catch(e) {}
+      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_deleted_demo").first(); if (r) deletedDemo = JSON.parse(r.data); } catch(e) {}
     } else if (kv) {
       bookings = await kv.get("kd_bookings", { type: "json" }) || [];
       availability = await kv.get("kd_availability", { type: "json" }) || {};
+      approved = await kv.get("kd_approved", { type: "json" }) || [];
+      demoOverrides = await kv.get("kd_demo_overrides", { type: "json" }) || {};
+      demoBlocked = await kv.get("kd_demo_blocked", { type: "json" }) || {};
+      deletedDemo = await kv.get("kd_deleted_demo", { type: "json" }) || [];
     } else {
       return new Response(JSON.stringify({ error: "No KV or D1 bound. Bind KD_DATA (KV) or DB (D1)", bookings: [], availability: {} }), { status: 500, headers: cors() });
     }
-    return new Response(JSON.stringify({ bookings, availability }), { headers: { ...cors(), "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ bookings, availability, approved, demoOverrides, demoBlocked, deletedDemo }), { headers: { ...cors(), "Content-Type": "application/json" } });
   } catch(e) {
     return new Response(JSON.stringify({ error: e.message, bookings: [], availability: {} }), { status: 500, headers: cors() });
   }
@@ -30,15 +42,44 @@ export async function onRequestPost(context) {
     const body = await context.request.json();
     let bookings = [];
     let availability = {};
+    let approved = [];
+    let demoOverrides = {};
+    let demoBlocked = {};
+    let deletedDemo = [];
+
+
 
     if (db) {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
       try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first(); if(r) bookings = JSON.parse(r.data); } catch(e){}
       try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first(); if(r) availability = JSON.parse(r.data); } catch(e){}
+      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first(); if(r) approved = JSON.parse(r.data); } catch(e){}
+      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_demo_overrides").first(); if(r) demoOverrides = JSON.parse(r.data); } catch(e){}
+      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_demo_blocked").first(); if(r) demoBlocked = JSON.parse(r.data); } catch(e){}
+      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_deleted_demo").first(); if(r) deletedDemo = JSON.parse(r.data); } catch(e){}
     } else if (kv) {
       bookings = await kv.get("kd_bookings", { type: "json" }) || [];
       availability = await kv.get("kd_availability", { type: "json" }) || {};
+      approved = await kv.get("kd_approved", { type: "json" }) || [];
+      demoOverrides = await kv.get("kd_demo_overrides", { type: "json" }) || {};
+      demoBlocked = await kv.get("kd_demo_blocked", { type: "json" }) || {};
+      deletedDemo = await kv.get("kd_deleted_demo", { type: "json" }) || [];
     }
+
+    // --- HOMESTAYS SYNC (Fix index-admin sync) ---
+    if (body.action === "updateHomestays") {
+      if (body.approved !== undefined) approved = body.approved;
+      if (body.demoOverrides !== undefined) demoOverrides = body.demoOverrides;
+      if (body.demoBlocked !== undefined) demoBlocked = body.demoBlocked;
+      if (body.deletedDemo !== undefined) deletedDemo = body.deletedDemo;
+    } else if (body.action === "updateApproved") {
+      approved = body.approved || body.data || [];
+    } else if (body.action === "updateDemoOverrides") {
+      demoOverrides = body.demoOverrides || body.data || {};
+    } else if (body.action === "updateDemoBlocked") {
+      demoBlocked = body.demoBlocked || body.data || {};
+    } else if (body.action === "updateDeletedDemo") {
+      deletedDemo = body.deletedDemo || body.data || [];
 
     // --- CLEAR ALL ACTION (Fix F5 bug) ---
     if (body.action === "clearAll") {
@@ -153,12 +194,20 @@ export async function onRequestPost(context) {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(availability)).run();
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_approved", JSON.stringify(approved)).run();
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_overrides", JSON.stringify(demoOverrides)).run();
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_blocked", JSON.stringify(demoBlocked)).run();
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_deleted_demo", JSON.stringify(deletedDemo)).run();
     } else if (kv) {
       await kv.put("kd_bookings", JSON.stringify(bookings));
       await kv.put("kd_availability", JSON.stringify(availability));
+      await kv.put("kd_approved", JSON.stringify(approved));
+      await kv.put("kd_demo_overrides", JSON.stringify(demoOverrides));
+      await kv.put("kd_demo_blocked", JSON.stringify(demoBlocked));
+      await kv.put("kd_deleted_demo", JSON.stringify(deletedDemo));
     }
 
-    return new Response(JSON.stringify({ success: true, bookings, availability }), { headers: { ...cors(), "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ success: true, bookings, availability, approved, demoOverrides, demoBlocked, deletedDemo }), { headers: { ...cors(), "Content-Type": "application/json" } });
   } catch(e) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: cors() });
   }
@@ -203,7 +252,7 @@ export async function onRequestDelete(context) {
       await kv.put("kd_bookings", JSON.stringify(bookings));
       await kv.put("kd_availability", JSON.stringify(availability));
     }
-    return new Response(JSON.stringify({ success: true, bookings, availability }), { headers: { ...cors(), "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ success: true, bookings, availability, approved, demoOverrides, demoBlocked, deletedDemo }), { headers: { ...cors(), "Content-Type": "application/json" } });
   } catch(e) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: cors() });
   }
