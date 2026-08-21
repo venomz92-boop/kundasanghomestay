@@ -319,7 +319,7 @@ function renderAdmin(){
   const approvedDiv=document.getElementById("adminApproved");
   approvedDiv.innerHTML=homestays.map(h=>{
     const blocked=getAllBlockedDatesForHomestay(h);
-    return '<div class="card p-4 flex gap-4 items-center"><img src="'+(h.image||'')+'" class="w-16 h-16 sharp object-cover"/><div class="flex-1"><div class="font-bold text-sm">'+h.name+'</div><div class="text-xs">RM'+h.ownerPrice+' • '+h.location+' • '+blocked.length+' booked</div></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="text-xs border sharp px-3 py-1">Manage</button></div>';
+    return '<div class="card p-4 flex gap-4 items-center"><img src="'+(h.image||'')+'" class="w-16 h-16 sharp object-cover"/><div class="flex-1"><div class="font-bold text-sm">'+h.name+'</div><div class="text-xs">RM'+h.ownerPrice+' • '+h.location+' • '+blocked.length+' booked</div><div class="text-[10px] text-zinc-500">Owner: '+(h.ownerName||'')+' • '+(h.whatsapp||'')+'</div></div><div class="flex gap-2"><button onclick="openOwnerAvailabilityManager('+h.id+')" class="text-xs border sharp px-3 py-1">Manage</button><button onclick="removeApprovedListing('+h.id+')" class="text-xs bg-red-600 text-white sharp px-3 py-1">Remove</button></div></div>';
   }).join("");
   renderBookingsTable();
 }
@@ -517,6 +517,46 @@ function resetWithdrawn(){
 
 function deleteGuest(idx){ if(!confirm('Delete this guest? This cannot be undone.')) return; const guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); guests.splice(idx,1); localStorage.setItem("kd_guests", JSON.stringify(guests)); renderGuestsTable(); renderAdmin(); }
 function saveToyyibPayConfig(){ CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value; CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value; CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value; CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true"; localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz)); alert("Saved"); }
+
+function removeApprovedListing(id){
+  const h = homestays.find(x=> String(x.id)===String(id)) || allHomestays.find(x=> String(x.id)===String(id));
+  if(!h){ alert('Listing not found'); return; }
+  if(!confirm('Remove listing: '+h.name+'?\n\nOwner: '+(h.ownerName||'')+'\nThis will hide it from customers. You can restore it via Restore Demos if needed.\n\nContinue?')) return;
+  try{
+    // Remove from current lists
+    homestays = homestays.filter(x=> String(x.id)!==String(id));
+    allHomestays = allHomestays.filter(x=> String(x.id)!==String(id));
+    storedApproved = storedApproved.filter(x=> String(x.id)!==String(id));
+    // If demo, mark as deleted demo
+    if(DEMO_HOMESTAYS.some(d=> String(d.id)===String(id))){
+      if(!deletedDemoIds.includes(String(id)) && !deletedDemoIds.includes(Number(id))){
+        deletedDemoIds.push(id);
+        localStorage.setItem('kd_deleted_demo', JSON.stringify(deletedDemoIds));
+      }
+    }else{
+      // Approved custom - save
+      localStorage.setItem('kd_approved', JSON.stringify(storedApproved));
+    }
+    // Also save overrides removal
+    saveApproved();
+    // Clear blocked dates for this homestay from availabilityMap
+    if(typeof availabilityMap !== 'undefined' && availabilityMap[id]){
+      delete availabilityMap[id];
+      if(typeof saveAvailabilityMap === 'function') saveAvailabilityMap();
+    }
+    // Try cloud delete
+    (async()=>{
+      try{
+        const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
+        await fetch(base + '/homestays', {method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id})});
+        await fetch(base + '/homestays/' + id, {method:'DELETE'});
+      }catch(e){ console.warn('Cloud delete attempt', e); }
+    })();
+    alert('Removed: '+h.name+'\nListing is now hidden from customers.');
+    renderAdmin();
+  }catch(e){ alert('Remove failed: '+e.message); }
+}
+
 function approveHomestay(id){ const idx=pendingHomestays.findIndex(h=> h.id==id); if(idx===-1) return; const h=pendingHomestays[idx]; h.approved=true; h.verified=true; allHomestays.push(h); homestays.push(h); storedApproved.push(h); saveApproved(); pendingHomestays.splice(idx,1); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
 function rejectHomestay(id){ if(!confirm("Reject?")) return; pendingHomestays=pendingHomestays.filter(h=> h.id!=id); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
 function restoreDemos(){ if(!confirm("Restore?")) return; localStorage.removeItem("kd_deleted_demo"); deletedDemoIds=[]; const base=DEMO_HOMESTAYS.map(d=> demoOverrides[d.id]?{...d, ...demoOverrides[d.id]}:d); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
