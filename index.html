@@ -78,11 +78,19 @@
 
     /* Glass Mist Hero - NO external image, pure gradient + mist orbs */
     .hero-bg {
-      background: radial-gradient(120% 120% at 10% 20%, rgba(212,231,158,0.15) 0%, transparent 50%),
-                  radial-gradient(100% 100% at 90% 80%, rgba(45,74,58,0.6) 0%, transparent 50%),
-                  linear-gradient(165deg, var(--mist-1) 0%, var(--mist-2) 45%, var(--mist-3) 100%);
+      /* Gunung Kinabalu Picture + Glass Mist overlay */
+      background-image: url('https://upload.wikimedia.org/wikipedia/commons/5/5d/Kinabalu_Sabah_Borneo_Kampong_Kundasang_panorama_2.jpg');
       background-size: cover;
-      background-position: center;
+      background-position: center 40%;
+      background-repeat: no-repeat;
+    }
+    .hero-bg::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(120% 120% at 10% 20%, rgba(212,231,158,0.12) 0%, transparent 50%),
+                  linear-gradient(165deg, rgba(15,26,21,0.75) 0%, rgba(28,51,42,0.65) 45%, rgba(15,26,21,0.8) 100%);
+      /* This keeps your Kinabalu visible but with Glass Mist tint */
     }
     .hero-bg::after {
       content: '';
