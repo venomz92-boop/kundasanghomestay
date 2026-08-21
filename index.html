@@ -496,9 +496,11 @@ async function fetchCloudData(){
     const res=await fetch(`${API_BASE}/bookings`, {cache:"no-store"});
     if(!res.ok) throw new Error(res.status);
     const data=await res.json();
+    console.log("Cloud sync:", data.bookings?.length||0, "bookings,", data.guests?.length||0, "guests, banned:", data.bannedGuests?.length||0);
+    
     if(data.bookings){ bookings=data.bookings; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
     if(data.availability){ availabilityMap=data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
-    // SYNC HOMESTAYS FROM CLOUD (Fix index-admin sync)
+    // SYNC HOMESTAYS FROM CLOUD
     if(data.approved !== undefined){ 
       localStorage.setItem("kd_approved", JSON.stringify(data.approved)); 
       storedApproved = data.approved;
@@ -511,6 +513,54 @@ async function fetchCloudData(){
       localStorage.setItem("kd_demo_blocked", JSON.stringify(data.demoBlocked)); 
       demoBlockedMap = data.demoBlocked;
     }
+    if(data.deletedDemo !== undefined){
+      localStorage.setItem("kd_deleted_demo", JSON.stringify(data.deletedDemo));
+      deletedDemoIds = data.deletedDemo;
+    }
+    // SYNC GUESTS - cloud is source of truth after delete
+    if(data.guests !== undefined && Array.isArray(data.guests)){
+      console.log("Cloud guests:", data.guests.length, "Local:", guests.length);
+      // If cloud has fewer than local, it means admin deleted someone - use cloud as truth
+      if(data.guests.length < guests.length || guests.length === 0){
+        guests = data.guests;
+        localStorage.setItem("kd_guests", JSON.stringify(guests));
+        console.log("Guests overwritten from cloud (admin deleted?)");
+      } else {
+        // Merge
+        const map=new Map();
+        [...guests, ...data.guests].forEach(g=>{ if(g && (g.email||g.id)) map.set(String(g.email||g.id).toLowerCase(), g); });
+        guests=[...map.values()];
+        localStorage.setItem("kd_guests", JSON.stringify(guests));
+      }
+    }
+    // SYNC BANNED - critical for blocking deleted accounts
+    if(data.bannedGuests !== undefined && Array.isArray(data.bannedGuests)){
+      localStorage.setItem("kd_banned_guests", JSON.stringify(data.bannedGuests));
+      console.log("Banned guests synced:", data.bannedGuests.length);
+      // If current logged in user is banned, logout them
+      if(currentGuest && data.bannedGuests.includes(currentGuest.email?.toLowerCase())){
+        console.log("Current user is banned, logging out");
+        currentGuest = null;
+        localStorage.removeItem("kd_currentGuest");
+        renderGuestNav();
+      }
+    }
+    // Rebuild homestays list
+    try{
+      let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id)) && !deletedDemoIds.includes(d.id)).map(d => {
+        let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
+        if(demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
+        return merged;
+      });
+      allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
+      homestays = [...allHomestays];
+    }catch(e){}
+    return true;
+  }catch(e){
+    console.warn("Cloud sync fail", e);
+    return false;
+  }
+}
     if(data.deletedDemo !== undefined){ 
       localStorage.setItem("kd_deleted_demo", JSON.stringify(data.deletedDemo)); 
       deletedDemoIds = data.deletedDemo;
@@ -2126,7 +2176,7 @@ function addBlockedDate() {
       }
     }
 
-    function loginGuest() {
+    async function loginGuest() {
       console.log("loginGuest called - guests in memory:", guests.length);
       try {
         const emailEl = document.getElementById("loginEmail");
@@ -2135,25 +2185,56 @@ function addBlockedDate() {
         const email = emailEl.value.trim().toLowerCase();
         const password = passEl.value;
         if (!email || !password) { showAuthMessage("Fill email & password", true); return; }
-        // Always reload from localStorage freshest
+        
+        // FIX: Always fetch latest from cloud first - admin may have deleted/banned
+        showAuthMessage("Checking account...", false);
+        try{
+          const res = await fetch(`${API_BASE}/bookings`, {cache:"no-store"});
+          const data = await res.json();
+          console.log("Cloud check for login:", data.guests?.length||0, "guests, banned:", data.bannedGuests?.length||0);
+          
+          if(data.bannedGuests && Array.isArray(data.bannedGuests)){
+            localStorage.setItem("kd_banned_guests", JSON.stringify(data.bannedGuests));
+            if(data.bannedGuests.includes(email.toLowerCase())){
+              showAuthMessage("This account is not exist", true);
+              // Also clear local copy
+              guests = guests.filter(g => g.email?.toLowerCase() !== email.toLowerCase());
+              localStorage.setItem("kd_guests", JSON.stringify(guests));
+              if(currentGuest && currentGuest.email?.toLowerCase() === email.toLowerCase()){
+                currentGuest = null;
+                localStorage.removeItem("kd_currentGuest");
+                renderGuestNav();
+              }
+              return;
+            }
+          }
+          
+          if(data.guests && Array.isArray(data.guests)){
+            // Overwrite local guests with cloud - if deleted, it won't be in cloud
+            guests = data.guests;
+            localStorage.setItem("kd_guests", JSON.stringify(guests));
+            console.log("Guests synced from cloud for login:", guests.length);
+          }
+        }catch(e){ console.warn("Cloud check failed, using local", e); }
+        
+        // Reload from localStorage after cloud sync
         try{
           const fresh = JSON.parse(localStorage.getItem("kd_guests") || "[]");
-          if(Array.isArray(fresh) && fresh.length>0){
+          if(Array.isArray(fresh)){
             guests = fresh;
-            console.log("Reloaded guests for login:", guests.length);
           }
-        }catch(e){ console.warn("reload failed", e); }
+        }catch(e){}
         
         if(guests.length===0){
-          showAuthMessage("No Accounts Found. Please Register.", true);
+          showAuthMessage("This account is not exist", true);
           return;
         }
-        // Check banned list
+        // Double check banned list from local after sync
         try{
           const bannedRaw = localStorage.getItem("kd_banned_guests");
           const bannedList = bannedRaw ? JSON.parse(bannedRaw) : [];
           if(bannedList.includes(email.toLowerCase())){
-            showAuthMessage("This account has been banned/deleted by admin. Please contact support.", true);
+            showAuthMessage("This account is not exist", true);
             return;
           }
         }catch(e){}
@@ -2171,8 +2252,8 @@ function addBlockedDate() {
             setTimeout(() => { closeGuestAuth(); updateBookingFormWithGuest(); renderMyBookings(); }, 600);
             return;
           }
-          console.log("Login failed - guests list:", guests.map(g=>g.email+":"+g.password));
-          showAuthMessage("Wrong email or password. Found "+guests.length+" account(s) in this browser: " + guests.map(g=>g.email).join(", "), true);
+          console.log("Login failed - guests list:", guests.map(g=>g.email));
+          showAuthMessage("This account is not exist", true);
           return;
         }
         currentGuest = { id: found.id, name: found.name, email: found.email, phone: found.phone };
