@@ -28,17 +28,14 @@ export async function onRequestPost(context) {
     // === RESET HANDLER (sync with Reset to 0 button) ===
     if (reset === true || action === "reset") {
       const prevWithdrawn = earnings.withdrawn || 0;
-      // Reset withdrawn to 0, move it back to available
+      const prevAvailable = earnings.available || 0;
+      const prevTotal = earnings.total || 0;
+      // Reset ALL to 0 as requested
       earnings.withdrawn = 0;
-      if (earnings.total && earnings.total > 0) {
-        earnings.available = earnings.total;
-      } else {
-        // If no total, add withdrawn back to available
-        earnings.available = (earnings.available || 0) + prevWithdrawn;
-      }
-      // Keep history but add reset record, or clear withdrawal history
-      earnings.history = (earnings.history || []).filter(h => h.type !== "withdrawal");
-      earnings.history.push({ type: "reset", date: new Date().toISOString(), note: "Withdrawn reset to 0 by admin", prevWithdrawn });
+      earnings.available = 0;
+      earnings.total = 0;
+      earnings.history = [];
+      earnings.history.push({ type: "reset", date: new Date().toISOString(), note: "FULL RESET - All to 0 by admin", prevWithdrawn, prevAvailable, prevTotal });
 
       if (db) {
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_fee_earnings", JSON.stringify(earnings)).run();
@@ -141,14 +138,14 @@ export async function onRequestDelete(context) {
     }
 
     const prevWithdrawn = earnings.withdrawn || 0;
+    const prevAvailable = earnings.available || 0;
+    const prevTotal = earnings.total || 0;
+    // Reset ALL to 0 as requested
     earnings.withdrawn = 0;
-    if (earnings.total && earnings.total > 0) {
-      earnings.available = earnings.total;
-    } else {
-      earnings.available = (earnings.available || 0) + prevWithdrawn;
-    }
-    earnings.history = (earnings.history || []).filter(h => h.type !== "withdrawal");
-    earnings.history.push({ type: "reset", date: new Date().toISOString(), note: "Withdrawn reset to 0 via DELETE", prevWithdrawn });
+    earnings.available = 0;
+    earnings.total = 0;
+    earnings.history = [];
+    earnings.history.push({ type: "reset", date: new Date().toISOString(), note: "FULL RESET - All to 0 via DELETE", prevWithdrawn, prevAvailable, prevTotal });
 
     if (db) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_fee_earnings", JSON.stringify(earnings)).run();
