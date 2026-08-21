@@ -1,22 +1,9 @@
-// /api/bookings - ROBUST VERSION with multi-DB binding support
-// Handles bookings + pending + approved sync
-
-function getDB(env){
-  return env.DB || env.D1 || env.MY_DB || env.DATABASE || env.KUNDASANG_DB || env.STORE || null;
-}
-
-function corsHeaders(){
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type"
-  };
-}
+// /api/bookings - with PENDING SYNC FIX
+// Handles bookings + pending homestays for multi-device sync
 
 export async function onRequestGet(context) {
   const { env } = context;
-  const db = getDB(env);
+  const db = env.DB;
   let data = {
     bookings: [],
     availability: {},
@@ -24,18 +11,18 @@ export async function onRequestGet(context) {
     demoOverrides: {},
     demoBlocked: {},
     deletedDemo: [],
-    pending: [],
-    _debug: { hasDB: !!db, envKeys: Object.keys(env).filter(k=>!k.toLowerCase().includes('secret') && !k.toLowerCase().includes('key')).slice(0,20) }
+    pending: [] // <-- ADDED
   };
 
   if (db) {
     try {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-      const keys = ["kd_bookings", "kd_availability", "kd_approved", "kd_demo_overrides", "kd_demo_blocked", "kd_deleted_demo", "kd_pending"];
+      
+      const keys = ["kd_bookings", "kd_availability", "kd_approved", "kd_demo_overrides", "kd_demo_blocked", "kd_deleted_demo", "kd_pending", "kd_guests"];
       for (const key of keys) {
-        try {
-          const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
-          if (r && r.data) {
+        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
+        if (r) {
+          try {
             const parsed = JSON.parse(r.data);
             if (key === "kd_bookings") data.bookings = parsed;
             else if (key === "kd_availability") data.availability = parsed;
@@ -44,70 +31,44 @@ export async function onRequestGet(context) {
             else if (key === "kd_demo_blocked") data.demoBlocked = parsed;
             else if (key === "kd_deleted_demo") data.deletedDemo = parsed;
             else if (key === "kd_pending") data.pending = parsed;
-          }
-        } catch(e){ console.error("Parse error for", key, e); }
+            else if (key === "kd_guests") data.guests = parsed;
+          } catch(e){}
+        }
       }
     } catch(e) {
-      data._debug.error = e.message;
       console.error("DB read error", e);
     }
-  } else {
-    data._debug.error = "No D1 binding found - tried DB, D1, MY_DB, DATABASE, KUNDASANG_DB, STORE";
   }
 
   return new Response(JSON.stringify(data), {
     status: 200,
-    headers: corsHeaders()
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" }
   });
 }
 
 export async function onRequestPost(context) {
   const { request, env } = context;
-  const db = getDB(env);
+  const db = env.DB;
   
   try {
     const body = await request.json();
-    const { action, pending, bookings, availability, approved, demoOverrides, demoBlocked, deletedDemo } = body;
+    const { action, pending, bookings, availability, approved, demoOverrides, demoBlocked, deletedDemo, guests } = body;
 
     if (!db) {
-      return new Response(JSON.stringify({ 
-        error: "DB not configured - Add D1 binding named DB in Cloudflare Pages > Settings > Functions > D1 bindings",
-        envKeys: Object.keys(env).filter(k=>!k.toLowerCase().includes('secret')).slice(0,20),
-        receivedAction: action
-      }), { status: 500, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders() });
     }
 
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-    let saved = [];
-
+    // Handle pending sync
     if (action === "updatePending" || pending !== undefined) {
-      // MERGE, don't overwrite - prevent empty from clearing cloud
-      let existingPending = [];
-      try{
-        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
-        if(r && r.data) existingPending = JSON.parse(r.data);
-      }catch(e){}
-      let incoming = pending || [];
-      if(incoming.length === 0 && existingPending.length > 0){
-        // Don't overwrite existing with empty - keep existing
-        console.log("Incoming pending empty, keeping existing:", existingPending.length);
-        saved.push(`pending:kept-${existingPending.length}`);
-      } else {
-        // Merge by id
-        const map = new Map();
-        [...existingPending, ...incoming].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
-        const merged = [...map.values()];
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(merged)).run();
-        saved.push(`pending:${merged.length} (merged ${existingPending.length}+${incoming.length})`);
-        console.log("Pending merged:", existingPending.length, "+", incoming.length, "=", merged.length);
-      }
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(pending || [])).run();
+      console.log("Pending updated:", (pending||[]).length);
     }
 
     if (action === "updateHomestays" || approved !== undefined) {
       if (approved !== undefined) {
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_approved", JSON.stringify(approved)).run();
-        saved.push(`approved:${approved.length}`);
       }
       if (demoOverrides !== undefined) {
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_overrides", JSON.stringify(demoOverrides)).run();
@@ -124,7 +85,6 @@ export async function onRequestPost(context) {
       const avail = availability || body.availability;
       if (avail) {
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(avail)).run();
-        saved.push("availability");
       }
     }
 
@@ -132,11 +92,12 @@ export async function onRequestPost(context) {
       const b = bookings || body.bookings;
       if (b) {
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(b)).run();
-        saved.push(`bookings:${b.length}`);
       }
     }
 
-    if (body.id && body.checkin && !action) {
+    // Handle single booking
+    if (body.id && body.checkin) {
+      // It's a booking
       let existing = [];
       try {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
@@ -144,37 +105,32 @@ export async function onRequestPost(context) {
       } catch(e){}
       existing.push(body);
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(existing)).run();
-      saved.push("single-booking");
     }
 
+    // Handle single new pending homestay
     if (body.new && !pending) {
       let existingPending = [];
       try {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
-        if (r && r.data) existingPending = JSON.parse(r.data);
+        if (r) existingPending = JSON.parse(r.data);
       } catch(e){}
-      // Deduplicate by id
-      const map = new Map();
-      [...existingPending, body.new].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
-      const merged = [...map.values()];
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(merged)).run();
-      saved.push(`single-pending:${merged.length}`);
+      existingPending.push(body.new);
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(existingPending)).run();
     }
 
-    return new Response(JSON.stringify({ success: true, message: "Synced: " + saved.join(", "), saved }), {
+    return new Response(JSON.stringify({ success: true, message: "Synced" }), {
       status: 200,
       headers: corsHeaders()
     });
 
   } catch (err) {
-    console.error("POST error", err);
-    return new Response(JSON.stringify({ error: err.message, stack: err.stack }), { status: 500, headers: corsHeaders() });
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders() });
   }
 }
 
 export async function onRequestDelete(context) {
   const { request, env } = context;
-  const db = getDB(env);
+  const db = env.DB;
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
 
@@ -189,6 +145,10 @@ export async function onRequestDelete(context) {
   }
 
   return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders() });
+}
+
+function corsHeaders(){
+  return { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" };
 }
 
 export async function onRequestOptions(){
