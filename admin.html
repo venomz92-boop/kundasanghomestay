@@ -86,10 +86,6 @@ const CONFIG = {
 const CLOUD_ENABLED = true;
 const API_BASE = "/api";
 
-
-const CLOUD_ENABLED = true;
-const API_BASE = "/api";
-
 async function fetchCloudData(){
   console.log("Fetching cloud data from", API_BASE + "/bookings");
   if(!CLOUD_ENABLED) return false;
@@ -105,9 +101,9 @@ async function fetchCloudData(){
     }
     if(data.availability){ availabilityMap=data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
     if(data.approved !== undefined){ storedApproved=data.approved; localStorage.setItem("kd_approved", JSON.stringify(storedApproved)); }
-    if(data.demoOverrides !== undefined){ demoOverrides=data.demoOverrides; localStorage.setItem("kd_demo_overrides", JSON.stringify(demoOverrides)); }
+    if(data.demoOverrides !== undefined){ demoOverrides=data.demoOverrides; localStorage.setItem("kd_demo_overrides", JSON.stringify(demoOverrides)); pushHomestaysToCloud(); }
     if(data.demoBlocked !== undefined){ demoBlockedMap=data.demoBlocked; localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap)); }
-    if(data.deletedDemo !== undefined){ deletedDemoIds=data.deletedDemo; localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds)); }
+    if(data.deletedDemo !== undefined){ deletedDemoIds=data.deletedDemo; localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds)); pushHomestaysToCloud(); }
     try{
       let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id)) && !deletedDemoIds.includes(d.id)).map(d => {
         let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
@@ -364,7 +360,7 @@ function updateBookingStatus(id, newStatus){
 
 function whatsappGuest(id){ const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return; let phone=(b.guestPhone||'').replace(/[^0-9]/g,''); if(phone.startsWith('0')) phone='60'+phone.substring(1); const msg=encodeURIComponent("Hi "+(b.guestName||'Guest')+", booking "+b.id+" for "+b.homestay+" ("+b.checkin+"→"+b.checkout+") is "+b.status+". Total RM"+b.total+"."); window.open("https://wa.me/"+phone+"?text="+msg,'_blank'); }
 function copyBookingId(id){ navigator.clipboard.writeText(id).then(()=> alert("Copied: "+id)); }
-async async function deleteBooking(id){
+async function deleteBooking(id){
   if(!confirm("Delete "+id+"? Permanently remove from Cloudflare D1?")) return;
   const b=bookings.find(x=> String(x.id)===String(id));
   // Remove from local first
