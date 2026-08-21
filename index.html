@@ -10,41 +10,65 @@
 
   <style>
     /* =========================================
-       COLORS - EDIT HERE (PORTRAIT MODE)
+       GLASS MIST THEME - Modern Professional Minimal Eye-Catching
+       Only colors & visuals changed - NO JS logic altered
        ========================================= */
     :root {
-      --primary: #0F382E;
-      --primary-light: #1a4d3e;
-      --accent: #E8B86D;
-      --bg: #F8F5F0;
-      --card: #ffffff;
+      --primary: #0F1A15;
+      --primary-light: #1C332A;
+      --primary-glass: rgba(15, 26, 21, 0.85);
+      --accent: #D4E79E;
+      --accent-strong: #E8FF9A;
+      --bg: #F7FBF8;
+      --bg-soft: #EFF5F0;
+      --card: rgba(255, 255, 255, 0.92);
+      --card-glass: rgba(255, 255, 255, 0.1);
       --muted: #6b7280;
       --danger: #dc2626;
+      --glass-border: rgba(255, 255, 255, 0.18);
+      --mist-1: #0F1A15;
+      --mist-2: #1C332A;
+      --mist-3: #2D4A3A;
     }
 
-    h1, h2, h3 { font-family: "Fraunces", serif; }
-    body { font-family: "Inter", sans-serif; background: var(--bg); }
+    h1, h2, h3 { font-family: "Fraunces", serif; letter-spacing: -0.02em; }
+    body { font-family: "Inter", sans-serif; background: var(--bg); -webkit-font-smoothing: antialiased; }
 
     .card {
-      border-radius: 20px;
+      border-radius: 24px;
       background: var(--card);
-      box-shadow: 0 10px 30px -12px rgba(56,46,15,0.15);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(0,0,0,0.06);
+      box-shadow: 0 8px 32px -12px rgba(15, 26, 21, 0.12), 0 0 0 1px rgba(0,0,0,0.02);
+      transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+    }
+    .card:hover {
+      box-shadow: 0 20px 48px -16px rgba(15, 26, 21, 0.18), 0 0 0 1px rgba(0,0,0,0.04);
+      transform: translateY(-2px);
     }
 
     .btn-primary {
       background: var(--primary);
       color: white;
       border-radius: 999px;
-      padding: 10px 20px;
+      padding: 12px 24px;
       font-weight: 600;
-      transition: all .2s;
+      font-size: 14px;
+      letter-spacing: -0.01em;
+      transition: all .25s cubic-bezier(0.16,1,0.3,1);
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 4px 16px -4px rgba(15,26,21,0.3);
     }
-    .btn-primary:hover { background: var(--primary-light); transform: translateY(-1px); }
+    .btn-primary:hover { background: #152A20; transform: translateY(-1px); box-shadow: 0 8px 24px -6px rgba(15,26,21,0.4); }
 
     .badge-verified {
-      background: #dcfce7;
-      color: #166534;
-      border: 1px solid #bbf7d0;
+      background: rgba(212, 231, 158, 0.25);
+      color: #1A2E1A;
+      border: 1px solid rgba(212, 231, 158, 0.5);
+      backdrop-filter: blur(8px);
+      font-weight: 600;
+      letter-spacing: 0.02em;
     }
     .badge-pending {
       background: #fef3c7;
@@ -52,11 +76,21 @@
       border: 1px solid #fde68a;
     }
 
-    /* Hero real image */
+    /* Glass Mist Hero - NO external image, pure gradient + mist orbs */
     .hero-bg {
-      background-image: url('https://upload.wikimedia.org/wikipedia/commons/5/5d/Kinabalu_Sabah_Borneo_Kampong_Kundasang_panorama_2.jpg?utm_source=en.wikipedia.org&utm_campaign=index&utm_content=original');
+      background: radial-gradient(120% 120% at 10% 20%, rgba(212,231,158,0.15) 0%, transparent 50%),
+                  radial-gradient(100% 100% at 90% 80%, rgba(45,74,58,0.6) 0%, transparent 50%),
+                  linear-gradient(165deg, var(--mist-1) 0%, var(--mist-2) 45%, var(--mist-3) 100%);
       background-size: cover;
       background-position: center;
+    }
+    .hero-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(600px at 20% 30%, rgba(212,231,158,0.08) 0%, transparent 60%),
+                  radial-gradient(800px at 80% 20%, rgba(255,255,255,0.04) 0%, transparent 50%);
+      pointer-events: none;
     }
   
     .btn-whatsapp {
@@ -69,9 +103,25 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      box-shadow: 0 4px 16px -4px rgba(37,211,102,0.4);
     }
     .btn-whatsapp:hover { background: #1ebe5d; transform: translateY(-1px); }
-    .guest-avatar { width: 32px; height: 32px; border-radius: 999px; background: var(--accent); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+    .guest-avatar { width: 32px; height: 32px; border-radius: 999px; background: var(--accent); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; border: 1px solid rgba(0,0,0,0.05); }
+    
+    /* Glass Mist additions - minimal eye-catching */
+    .glass-search {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 20px 60px -20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    .glass-nav {
+      background: rgba(15, 26, 21, 0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
 
   
     /* ===== AVAILABILITY FEATURE - ADDED ===== */
@@ -268,7 +318,7 @@
   <!-- =========================================
        HEADER
        ========================================= -->
-  <header class="sticky top-0 z-40 bg-[var(--primary)] text-white border-b border-white/10">
+  <header class="sticky top-0 z-40 glass-nav text-white">
     <div class="max-w-[1200px] mx-auto px-5 md:px-8 h-[64px] flex items-center justify-between">
       <div class="flex items-center gap-3 cursor-pointer" onclick="showPage('home')">
         <div class="w-9 h-9 rounded-full bg-[var(--accent)] flex items-center justify-center text-[var(--primary)] font-bold">K</div>
@@ -328,10 +378,13 @@
        ========================================= -->
   <section id="hero" class="relative">
     <div class="hero-bg absolute inset-0"></div>
-    <div class="absolute inset-0 bg-[var(--primary)]/80"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-[var(--primary)]/70 via-[var(--primary)]/60 to-[var(--primary)]/85"></div>
+    <div class="absolute top-20 left-[10%] w-72 h-72 bg-[var(--accent)]/10 rounded-full blur-[80px] pointer-events-none"></div>
+    <div class="absolute bottom-20 right-[15%] w-96 h-96 bg-white/[0.03] rounded-full blur-[100px] pointer-events-none"></div>
     <div class="relative max-w-[1200px] mx-auto px-5 md:px-8 pt-14 pb-28">
       <div class="max-w-[650px]">
-        <div class="inline-flex items-center gap-2 bg-white/10 backdrop-blur px-3 py-1 rounded-full text-xs border border-white/20">
+        <div class="inline-flex items-center gap-2 glass-search px-3 py-1 rounded-full text-xs text-white/80">
+          <span class="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-pulse"></span> Live • Verified • Kinabalu View
         </div>
         <h1 class="text-4xl md:text-[56px] font-bold leading-[0.9] text-white mt-4">
           Stay In Kundasang ,<br/>
