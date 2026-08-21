@@ -561,26 +561,7 @@ async function fetchCloudData(){
     return false;
   }
 }
-    if(data.deletedDemo !== undefined){ 
-      localStorage.setItem("kd_deleted_demo", JSON.stringify(data.deletedDemo)); 
-      deletedDemoIds = data.deletedDemo;
-    }
-    // Rebuild allHomestays after cloud sync
-    if(data.approved !== undefined || data.demoOverrides !== undefined || data.demoBlocked !== undefined || data.deletedDemo !== undefined){
-      try{
-        let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id)) && !deletedDemoIds.includes(d.id)).map(d => {
-          let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
-          if (demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
-          return merged;
-        });
-        allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
-        allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = []; return h; });
-        homestays = [...allHomestays];
-      }catch(e){ console.warn("Rebuild homestays fail", e); }
-    }
-    return true;
-  }catch(e){ console.warn("Cloud fail", e.message); return false; }
-}
+
 async function pushHomestaysToCloud(){
   if(!CLOUD_ENABLED) return;
   try{
@@ -597,7 +578,14 @@ async function pushHomestaysToCloud(){
 async function pushBookingToCloud(booking, bookedDates){
   if(!CLOUD_ENABLED) return;
   try{
-    await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({booking, bookedDates})});
+    console.log("☁️ Pushing booking:", booking.id);
+    await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(booking)});
+    const allBookings = JSON.parse(localStorage.getItem("kd_bookings")||"[]");
+    await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateBookings", bookings: allBookings})}).catch(()=>{});
+    if(bookedDates && bookedDates.length > 0){
+      const avail = JSON.parse(localStorage.getItem("kd_availability")||"{}");
+      await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: avail})}).catch(()=>{});
+    }
     console.log("☁️ Pushed to cloud");
   }catch(e){ console.warn("Push fail", e); }
 }
