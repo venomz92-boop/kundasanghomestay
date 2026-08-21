@@ -80,15 +80,20 @@ export async function onRequestPost(context) {
       }
     }
 
-    // Handle guests sync - MERGE BY EMAIL
-    if (action === "updateGuests" || guests !== undefined) {
+    // Handle guests sync - MERGE BY EMAIL (with overwrite support for delete)
+    if (action === "updateGuests" || action === "overwriteGuests" || action === "deleteGuest" || guests !== undefined) {
       let existingGuests = [];
       try{
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
         if(r && r.data) existingGuests = JSON.parse(r.data);
       }catch(e){}
       let incomingGuests = guests || [];
-      if(incomingGuests.length === 0 && existingGuests.length > 0){
+      
+      // If overwrite action or delete action, REPLACE instead of merge
+      if(action === "overwriteGuests" || action === "deleteGuest"){
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_guests", JSON.stringify(incomingGuests)).run();
+        console.log("Guests OVERWRITTEN:", incomingGuests.length, "(was", existingGuests.length, ")");
+      } else if(incomingGuests.length === 0 && existingGuests.length > 0){
         console.log("Guests empty, keeping existing:", existingGuests.length);
       } else {
         const map = new Map();
