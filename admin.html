@@ -74,7 +74,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
   </div>
 </div>
 
-<div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw Earnings</h3><div class="mt-2 text-xs">Your fee from check-ins</div><input id="kdBankName" placeholder="Bank Name" class="w-full border sharp px-3 py-2 mt-3"/><input id="kdAmt" type="number" placeholder="Amount" class="w-full border sharp px-3 py-2 mt-2"/><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm Withdraw</button></div></div></div>
+<div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw Earnings</h3><div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after Billplz RM1.25) - Locked to Maybank ****9305 (Nicks Creations)<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button, not here.</div><div class="mt-3 p-2 bg-green-50 border border-green-200 sharp text-[11px]">🔒 Locked Bank: Maybank - Nicks Creations - ****9305<br>Change only in /api/withdraw.js or env YOUR_BANK_*</div><input id="kdBankName" placeholder="Bank Name (Locked - ignored)" disabled class="w-full border sharp px-3 py-2 mt-3 bg-zinc-100 text-zinc-500" value="Maybank - Locked"/><input id="kdAmt" type="number" placeholder="Amount RM" min="1" step="0.01" class="w-full border sharp px-3 py-2 mt-2"/><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm Withdraw</button></div><div id="kdWithdrawMsg" class="mt-3 text-[11px] text-zinc-500"></div></div></div>
 
 <script>
 const CONFIG = {
@@ -104,7 +104,27 @@ async function fetchCloudData(){
 }
 async function fetchCloudDataForAdmin(){ return fetchCloudData(); }
 async function deleteBookingFromCloud(id){ try{ await fetch(API_BASE + "/bookings?id=" + encodeURIComponent(id), {method:"DELETE"}); }catch(e){} }
-async function pushAvailabilityToCloud(){ try{ await fetch(API_BASE + "/availability", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({availability: availabilityMap})}); }catch(e){} }
+async function pushAvailabilityToCloud(){ 
+  try{ 
+    await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})}); 
+  }catch(e){} 
+}
+async function fetchEarnings(){
+  try{
+    const res = await fetch(API_BASE + "/withdraw", {cache:"no-store"});
+    if(!res.ok) throw new Error("no earnings endpoint");
+    const data = await res.json();
+    if(data && data.earnings){
+      const availEl = document.getElementById("kdAvailInline");
+      const withEl = document.getElementById("kdWithdrawnInline");
+      if(availEl) availEl.textContent = "Available: RM"+(data.earnings.available||0).toFixed(2);
+      if(withEl) withEl.textContent = "Withdrawn: RM"+(data.earnings.withdrawn||0).toFixed(2);
+      return data.earnings;
+    }
+  }catch(e){ console.warn("Earnings fetch fail", e.message); }
+  return null;
+}
+
 
 const DEMO_HOMESTAYS = [
   {
@@ -288,8 +308,8 @@ async function confirmCheckIn(id){
     b.completedDate=new Date().toISOString();
     if(!b.nights) b.nights=calculateNights(b.checkin,b.checkout);
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    fetch('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'update', booking:b, id:b.id})}).catch(()=>{});
-    fetch('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id:b.id, status:b.status, booking:b})}).catch(()=>{});
+    // BUG FIX: single updateStatus call (was double + invalid action caused duplicates)
+    fetch(API_BASE + '/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id:b.id, status:b.status, booking:b})}).catch(()=>{});
     renderBookingsTable();
     const tf=document.getElementById("totalFees"); if(tf){ const total=bookings.reduce((s,x)=>s+(x.youReceive||x.fee||0),0); tf.innerText="RM"+total.toFixed(2); }
     alert('CHECK-IN COMPLETE!\nOwner: RM'+ownerAmount+' '+(payoutData?.simulation?'(Simulation)':'via Billplz')+'\nYour fee: RM'+yourFee);
@@ -338,9 +358,74 @@ function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeIte
 </script>
 <script>
 (function(){
-  function getLife(){ const el=document.getElementById('totalFees'); return el?parseFloat((el.textContent||'0').replace(/[^0-9.]/g,''))||0:0; }
-  function getW(){ try{ return JSON.parse(localStorage.getItem('kd_withdrawals')||'[]').reduce((s,w)=>s+(+w.amount||0),0); }catch(e){return 0;} }
-  document.addEventListener('click',e=>{ if(e.target.id==='kdWithdrawBtn'){ document.getElementById('kdWithdrawOverlay').classList.add('open'); } if(e.target.id==='kdClose' || e.target.id==='kdWithdrawOverlay'){ document.getElementById('kdWithdrawOverlay').classList.remove('open'); } if(e.target.id==='kdConfirm'){ const amt=parseFloat(document.getElementById('kdAmt').value); const arr=JSON.parse(localStorage.getItem('kd_withdrawals')||'[]'); arr.push({amount:amt}); localStorage.setItem('kd_withdrawals',JSON.stringify(arr)); document.getElementById('kdWithdrawOverlay').classList.remove('open'); } });
+  async function refreshEarningsUI(){
+    try{
+      const res = await fetch(API_BASE + "/withdraw", {cache:"no-store"});
+      const data = await res.json();
+      if(data && data.earnings){
+        const availEl = document.getElementById("kdAvailInline");
+        const withEl = document.getElementById("kdWithdrawnInline");
+        if(availEl) availEl.textContent = "Available: RM"+(data.earnings.available||0).toFixed(2);
+        if(withEl) withEl.textContent = "Withdrawn: RM"+(data.earnings.withdrawn||0).toFixed(2);
+        const totalFeesEl = document.getElementById("totalFees");
+        // total = available + withdrawn + simulation fallback
+        if(data.earnings.total>0 && totalFeesEl){
+          // keep totalFees as total earnings (available+withdrawn) if larger than local calc
+          const localTotal = parseFloat((totalFeesEl.textContent||'0').replace(/[^0-9.]/g,''))||0;
+          if(data.earnings.total > localTotal){
+            // don't override if local is sum of all bookings, but show available correctly
+          }
+        }
+      }
+    }catch(e){ console.warn("Earnings UI refresh fail", e); }
+  }
+  // Refresh on load
+  setTimeout(refreshEarningsUI, 1000);
+
+  document.addEventListener('click', async (e)=>{
+    if(e.target.id==='kdWithdrawBtn'){
+      await refreshEarningsUI();
+      document.getElementById('kdWithdrawOverlay').classList.add('open');
+    }
+    if(e.target.id==='kdClose' || e.target.id==='kdWithdrawOverlay'){
+      document.getElementById('kdWithdrawOverlay').classList.remove('open');
+    }
+    if(e.target.id==='kdConfirm'){
+      const amtInput = document.getElementById('kdAmt');
+      const amt = parseFloat(amtInput.value);
+      if(!amt || amt<=0){ alert("Enter valid amount"); return; }
+      const btn = document.getElementById('kdConfirm');
+      const origText = btn.textContent;
+      btn.textContent = "Processing...";
+      btn.disabled = true;
+      try{
+        const res = await fetch(API_BASE + "/withdraw", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ amount: amt })
+        });
+        const data = await res.json();
+        if(!res.ok){
+          alert("Withdraw failed: " + (data.error||JSON.stringify(data)));
+        } else {
+          alert("Withdraw success: RM"+amt.toFixed(2)+" locked to Maybank ****9305\n"+data.message);
+          // Update local storage for backward compat
+          const arr = JSON.parse(localStorage.getItem('kd_withdrawals')||'[]');
+          arr.push({amount:amt, date:new Date().toISOString(), id:data.withdrawal?.id});
+          localStorage.setItem('kd_withdrawals',JSON.stringify(arr));
+          document.getElementById('kdWithdrawOverlay').classList.remove('open');
+          amtInput.value = "";
+          await refreshEarningsUI();
+          renderAdmin();
+        }
+      }catch(err){
+        alert("Withdraw error: "+err.message+"\nCheck /api/withdraw endpoint and D1 binding");
+      } finally {
+        btn.textContent = origText;
+        btn.disabled = false;
+      }
+    }
+  });
 })();
 </script>
 </body>

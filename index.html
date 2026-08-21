@@ -506,6 +506,14 @@ async function pushBookingToCloud(booking, bookedDates){
     console.log("☁️ Pushed to cloud");
   }catch(e){ console.warn("Push fail", e); }
 }
+async function pushAvailabilityToCloud(){
+  if(!CLOUD_ENABLED) return;
+  try{
+    await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})});
+    console.log("☁️ Availability synced");
+  }catch(e){ console.warn("Availability push fail", e); }
+}
+
 
 
 
@@ -1306,15 +1314,19 @@ function addBlockedDate() {
               fee: price.fee,
               total: price.total,
               youReceive: price.youReceive,
+              gatewayFee: price.gatewayFee,
               guestName, guestEmail, guestPhone,
               checkin: ci, checkout: co,
               status: "Pending Billplz - Redirected to FPX",
               billplz_id: data.id,
               date: new Date().toISOString()
             };
+            // BUG FIX: Do NOT block availability for pending payment - wait for webhook
+            // Previously this blocked dates before payment, causing ghost bookings
             bookings.push(pendingBooking);
             localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-            await fetch("/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking: pendingBooking, bookedDates: getDatesInRange(ci, co) }) }).catch(()=>{});
+            // Push booking WITHOUT bookedDates so availability not blocked until paid
+            await fetch("/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking: pendingBooking }) }).catch(()=>{});
             window.location.href = data.url;
           } else {
             alert("Billplz create failed: " + (data.error || JSON.stringify(data)));
@@ -1326,9 +1338,13 @@ function addBlockedDate() {
             homestay: selectedHomestay.name,
             homestayId: selectedHomestay.id,
             owner: selectedHomestay.ownerName,
+            ownerBank: selectedHomestay.ownerBankAccount,
+            ownerBankCode: selectedHomestay.bankCode || "MBBEMYKL",
+            ownerAcc: selectedHomestay.ownerBankAccount || "",
             nights,
             base: price.base,
             fee: price.fee,
+            gatewayFee: price.gatewayFee,
             total: price.total,
             youReceive: price.youReceive,
             guestName, guestEmail, guestPhone,
@@ -1338,6 +1354,12 @@ function addBlockedDate() {
           };
           bookings.push(booking);
           localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+          // BUG FIX: also block availability and push to cloud in fallback
+          const bookedDates = getDatesInRange(ci, co);
+          if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
+          bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
+          saveAvailabilityMap();
+          pushBookingToCloud(booking, bookedDates);
           showBookingSuccess(bookingId, nights, ci, co, price.total);
         }
       })();
@@ -2218,7 +2240,49 @@ function addBlockedDate() {
     }
 
     // Init with Cloud
-    (async()=>{ renderGuestNav(); if(CLOUD_ENABLED) await fetchCloudData(); renderGrid(); })();
+    (async()=>{
+      renderGuestNav();
+      if(CLOUD_ENABLED) await fetchCloudData();
+      renderGrid();
+      // BUG FIX: handle Billplz redirect ?booking=ID&paid=1
+      try{
+        const params = new URLSearchParams(window.location.search);
+        const bookingIdParam = params.get("booking");
+        const paidParam = params.get("paid");
+        if(bookingIdParam && paidParam==="1"){
+          const b = bookings.find(x=> String(x.id)===String(bookingIdParam));
+          if(b){
+            // If pending, update to paid and block availability now (webhook will also confirm)
+            if((b.status||"").toLowerCase().includes("pending")){
+              b.status = "Paid - Awaiting Check-in";
+              b.statusUpdated = new Date().toISOString();
+              localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+              // Now block availability
+              const dates = getDatesInRange(b.checkin, b.checkout);
+              if(b.homestayId){
+                if(!availabilityMap[b.homestayId]) availabilityMap[b.homestayId]=[];
+                dates.forEach(d=>{ if(!availabilityMap[b.homestayId].includes(d)) availabilityMap[b.homestayId].push(d); });
+                saveAvailabilityMap();
+              }
+              fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateStatus", id:b.id, status:b.status, booking:b})}).catch(()=>{});
+            }
+            // Show success modal
+            const nights = b.nights || calculateNights(b.checkin, b.checkout);
+            showBookingSuccess(b.id, nights, b.checkin, b.checkout, b.total);
+          } else {
+            // Try fetch from cloud
+            await fetchCloudData();
+            const b2 = bookings.find(x=> String(x.id)===String(bookingIdParam));
+            if(b2){
+              const nights = b2.nights || calculateNights(b2.checkin, b2.checkout);
+              showBookingSuccess(b2.id, nights, b2.checkin, b2.checkout, b2.total);
+            }
+          }
+          // Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }catch(e){ console.warn("Paid redirect handler fail", e); }
+    })();
     const savedBillplz = localStorage.getItem("kd_billplz");
     if (savedBillplz) CONFIG.billplz = {...CONFIG.billplz, ...JSON.parse(savedBillplz)};
     

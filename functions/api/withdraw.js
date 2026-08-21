@@ -21,8 +21,8 @@ export async function onRequestPost(context) {
     const accountNumber = env.YOUR_BANK_ACCOUNT || LOCKED_BANK.accountNumber;
     const bankCode = env.YOUR_BANK_CODE || LOCKED_BANK.bankCode;
 
-    if (!amount || amount <= 0) {
-      return new Response(JSON.stringify({ error: "Invalid amount" }), { status: 400, headers: { "Content-Type": "application/json" } });
+    if (!amount || isNaN(amount) || Number(amount) <= 0) {
+      return new Response(JSON.stringify({ error: "Invalid amount" }), { status: 400, headers: { "Content-Type": "application/json", ...cors() } });
     }
 
     const db = env.DB;
@@ -35,6 +35,11 @@ export async function onRequestPost(context) {
       } catch(e){}
     }
 
+    // BUG FIX: check insufficient balance even when available is 0
+    if (Number(amount) > (earnings.available || 0)) {
+      return new Response(JSON.stringify({ error: `Insufficient balance. Available: RM${(earnings.available||0).toFixed(2)}` }), { status: 400, headers: { "Content-Type": "application/json", ...cors() } });
+    }
+
     const withdrawal = {
       id: "WD_" + Date.now(),
       amount: Number(amount),
@@ -42,23 +47,18 @@ export async function onRequestPost(context) {
       bankCode: bankCode,
       accountHolder: accountHolder,
       accountNumber: accountNumber.slice(-4).padStart(accountNumber.length, "*"),
-      fullAccountForPayout: "***LOCKED***", // never expose full number in response
+      fullAccountForPayout: "***LOCKED***",
       note: "Platform fee withdrawal - Locked to owner account",
       date: new Date().toISOString(),
       status: "Pending - Locked Bank",
       locked: true
     };
 
-    if (earnings.available > 0 && amount > earnings.available) {
-      return new Response(JSON.stringify({ error: `Insufficient balance. Available: RM${earnings.available.toFixed(2)}` }), { status: 400, headers: { "Content-Type": "application/json" } });
-    }
-
     if (db) {
       earnings.available = Math.max(0, (earnings.available || 0) - Number(amount));
       earnings.withdrawn = (earnings.withdrawn || 0) + Number(amount);
       earnings.history.push({ ...withdrawal, type: "withdrawal" });
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_fee_earnings", JSON.stringify(earnings)).run();
-      // Also store locked bank profile for audit
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_locked_bank", JSON.stringify({ bankName, bankCode, accountHolder, accountNumber: accountNumber.slice(-4).padStart(accountNumber.length, "*"), lastUpdated: new Date().toISOString() }))
         .run();
@@ -71,9 +71,9 @@ export async function onRequestPost(context) {
       earnings,
       security: "Bank details LOCKED server-side in /api/withdraw.js + env YOUR_BANK_* - frontend inputs ignored",
       note: "Owner payouts are separate via /api/payout on Confirm Check-In"
-    }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }), { status: 200, headers: { "Content-Type": "application/json", ...cors() } });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { "Content-Type": "application/json", ...cors() } });
   }
 }
 
@@ -82,14 +82,19 @@ export async function onRequestGet(context) {
   let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
   if (db) {
     try {
+      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
       if (r) earnings = JSON.parse(r.data);
     } catch(e){}
   }
   return new Response(JSON.stringify({
     message: "Withdraw API ready - LOCKED BANK",
-    lockedBank: { bankName: LOCKED_BANK.bankName, holder: LOCKED_BANK.accountHolder, accountMasked: "****9305", locked: true },
+    lockedBank: { bankName: LOCKED_BANK.bankName, holder: LOCKED_BANK.accountHolder, accountMasked: "****"+LOCKED_BANK.accountNumber.slice(-4), locked: true },
     earnings,
     security: "Bank fixed in server code - frontend cannot change"
-  }), { status: 200, headers: { "Content-Type": "application/json" } });
+  }), { status: 200, headers: { "Content-Type": "application/json", ...cors() } });
 }
+
+function cors(){ return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" }; }
+
+export async function onRequestOptions(){ return new Response(null, { headers: cors() }); }

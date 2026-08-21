@@ -1,5 +1,5 @@
 // /api/bookings - Works with KV (KD_DATA) OR D1 (DB) - auto detects
-// Preserves your kd_data logic + adds update action for Check-In Payout
+// Fixed version: handles updateStatus, prevents duplicates, fixes availability logic
 
 export async function onRequestGet(context) {
   const kv = context.env.KD_DATA;
@@ -40,6 +40,7 @@ export async function onRequestPost(context) {
       availability = await kv.get("kd_availability", { type: "json" }) || {};
     }
 
+    // --- DELETE ACTION ---
     if (body.action === "delete") {
       const id = body.id;
       const b = bookings.find(x => String(x.id) === String(id));
@@ -47,20 +48,52 @@ export async function onRequestPost(context) {
       if (b && b.homestayId) {
         const hid = b.homestayId;
         const hname = b.homestay;
-        const remaining = bookings.filter(bb => String(bb.homestayId)===String(hid) || (hname && bb.homestay===hname));
+        const remaining = bookings.filter(bb => {
+          if (String(bb.homestayId)===String(hid)) return true;
+          if (hname && bb.homestay===hname) return true;
+          return false;
+        }).filter(bb => {
+          const st = (bb.status||"").toLowerCase();
+          return !st.includes("pending");
+        });
         const rebuilt = [];
         remaining.forEach(bb => { if(bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout)); });
         if(rebuilt.length===0){ delete availability[hid]; } else { availability[hid] = [...new Set(rebuilt)].sort(); }
       }
+
+    // --- UPDATE (full booking object) ---
     } else if (body.action === "update") {
-      // NEW: for Confirm Check-In payout - preserves your existing data
       const bookingData = body.booking || body;
-      const idx = bookings.findIndex(x => String(x.id) === String(bookingData.id || body.id));
+      const targetId = String(bookingData.id || body.id || "");
+      if (!targetId) return new Response(JSON.stringify({ error: "Missing id for update" }), { status: 400, headers: cors() });
+      const idx = bookings.findIndex(x => String(x.id) === String(targetId));
       if (idx !== -1) {
-        bookings[idx] = { ...bookings[idx], ...bookingData, date: bookings[idx].date || new Date().toISOString() };
+        bookings[idx] = { ...bookings[idx], ...bookingData, date: bookings[idx].date || new Date().toISOString(), statusUpdated: new Date().toISOString() };
       } else if (bookingData.id) {
         bookings.push(bookingData);
       }
+
+    // --- UPDATE STATUS ONLY (BUG FIX: was missing, caused duplicates) ---
+    } else if (body.action === "updateStatus") {
+      const { id, status } = body;
+      const bookingPatch = body.booking || {};
+      const targetId = String(id || bookingPatch.id || "");
+      if (!targetId) return new Response(JSON.stringify({ error: "Missing id for updateStatus" }), { status: 400, headers: cors() });
+      const idx = bookings.findIndex(x => String(x.id) === String(targetId));
+      if (idx === -1) return new Response(JSON.stringify({ error: "Not found: "+targetId }), { status: 404, headers: cors() });
+      bookings[idx] = { 
+        ...bookings[idx], 
+        ...bookingPatch,
+        status: status || bookingPatch.status || bookings[idx].status,
+        statusUpdated: new Date().toISOString()
+      };
+
+    // --- UPDATE AVAILABILITY DIRECT (BUG FIX: /api/availability 404) ---
+    } else if (body.action === "updateAvailability" || body.availability) {
+      if (body.availability && typeof body.availability === 'object') {
+        availability = body.availability;
+      }
+
     } else if (body.action === "updateDates") {
       const { id, checkin, checkout, nights, base, fee, total, youReceive, gatewayFee } = body;
       const idx = bookings.findIndex(x => String(x.id) === String(id));
@@ -80,19 +113,34 @@ export async function onRequestPost(context) {
         newDates.forEach(d=>{ if(!availability[hid].includes(d)) availability[hid].push(d); });
         availability[hid].sort();
       }
-      bookings[idx] = { ...old, checkin, checkout, nights, base, fee, total, youReceive, gatewayFee, date: new Date().toISOString(), status: (old.status||"Paid")+" (Changed)" };
+      bookings[idx] = { ...old, checkin, checkout, nights, base, fee, total, youReceive, gatewayFee, date: new Date().toISOString(), status: (old.status||"Paid")+" (Changed)", statusUpdated: new Date().toISOString() };
+
     } else {
+      // CREATE NEW BOOKING
       const booking = body.booking || body;
       if (!booking.id) return new Response(JSON.stringify({ error: "Missing id" }), { status: 400, headers: cors() });
-      if (!booking.youReceive) booking.youReceive = booking.base || 0;
-      if (!booking.status) booking.status = "Paid - Awaiting Check-in";
-      bookings.push(booking);
-      const hid = booking.homestayId;
-      if (hid) {
-        if (!availability[hid]) availability[hid]=[];
-        const dates = body.bookedDates || getDatesInRange(booking.checkin, booking.checkout);
-        dates.forEach(d=>{ if(!availability[hid].includes(d)) availability[hid].push(d); });
-        availability[hid].sort();
+      // Prevent duplicate push (BUG FIX)
+      const existingIdx = bookings.findIndex(x => String(x.id) === String(booking.id));
+      if (existingIdx !== -1) {
+        // merge instead of duplicate
+        bookings[existingIdx] = { ...bookings[existingIdx], ...booking, statusUpdated: new Date().toISOString() };
+      } else {
+        if (!booking.youReceive) {
+          booking.youReceive = booking.fee || booking.base || 0;
+        }
+        if (!booking.status) booking.status = "Paid - Awaiting Check-in";
+        bookings.push(booking);
+      }
+      // Only block availability if NOT pending Billplz (BUG FIX: ghost blocks)
+      const isPending = (booking.status||"").toLowerCase().includes("pending");
+      if (!isPending) {
+        const hid = booking.homestayId;
+        if (hid) {
+          if (!availability[hid]) availability[hid]=[];
+          const dates = body.bookedDates || getDatesInRange(booking.checkin, booking.checkout);
+          dates.forEach(d=>{ if(!availability[hid].includes(d)) availability[hid].push(d); });
+          availability[hid] = [...new Set(availability[hid])].sort();
+        }
       }
     }
 
@@ -131,7 +179,14 @@ export async function onRequestDelete(context) {
     if (b && b.homestayId) {
       const hid = b.homestayId;
       const hname = b.homestay;
-      const remaining = bookings.filter(bb => String(bb.homestayId)===String(hid) || (hname && bb.homestay===hname));
+      const remaining = bookings.filter(bb => {
+        if (String(bb.homestayId)===String(hid)) return true;
+        if (hname && bb.homestay===hname) return true;
+        return false;
+      }).filter(bb => {
+        const st = (bb.status||"").toLowerCase();
+        return !st.includes("pending");
+      });
       const rebuilt = [];
       remaining.forEach(bb => { if(bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout)); });
       if(rebuilt.length===0){ delete availability[hid]; } else { availability[hid] = [...new Set(rebuilt)].sort(); }
