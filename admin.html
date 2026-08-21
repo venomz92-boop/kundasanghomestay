@@ -41,7 +41,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
     <button onclick="doAdminLogin()" class="btn-primary w-full mt-4">Login</button>
   </div>
   <div id="adminDashboard" class="hidden">
-    <h2 class="text-3xl font-bold">Admin — ToyyibPay Auto Payout</h2>
+    <h2 class="text-3xl font-bold">Admin — ToyyibPay Auto Payout</h2><div class="text-[11px] text-zinc-500 mt-1">Malaysia Time: <span id="myTimeNow"></span> • Timezone: Asia/Kuala_Lumpur (UTC+8)</div>
     <div class="grid md:grid-cols-3 gap-4 mt-6">
       <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11%)</div><div id="totalFees" class="text-3xl font-bold mt-1">RM0</div><div class="text-[11px] mt-1">After gateway fee RM1 • Owner gets Base via ToyyibPay Auto on Check-in</div><div class="text-[11px] mt-2"><span id="kdAvailInline">Available: RM0</span> • <span id="kdWithdrawnInline">Withdrawn: RM0</span> <button onclick="resetWithdrawn()" class="ml-2 text-[10px] px-2 py-0.5 bg-red-600 text-white sharp">Reset to 0</button></div><button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw Earnings</button></div>
       <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Pending</div><div id="adminPendingCount" class="text-3xl font-bold mt-1">0</div></div>
@@ -78,6 +78,33 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 <div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw Earnings</h3><div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after RM1) - Auto payout to owners via ToyyibPay<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button, not here.</div><div class="mt-3 p-2 bg-green-50 border border-green-200 sharp text-[11px]">🔒 Locked Bank: Loading...<br>Change only in Cloudflare env YOUR_BANK_*</div><input id="kdBankName" placeholder="Bank Name (Locked - ignored)" disabled class="w-full border sharp px-3 py-2 mt-3 bg-zinc-100 text-zinc-500" value="Maybank - Locked"/><input id="kdAmt" type="number" placeholder="Amount RM" min="1" step="0.01" class="w-full border sharp px-3 py-2 mt-2"/><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm Withdraw</button></div><div id="kdWithdrawMsg" class="mt-3 text-[11px] text-zinc-500"></div></div></div>
 
 <script>
+
+// === MALAYSIA TIMEZONE (Asia/Kuala_Lumpur UTC+8) ===
+const MY_TZ = "Asia/Kuala_Lumpur";
+function toMYDate(dateInput){
+  if(!dateInput) return "";
+  try{
+    const d = new Date(dateInput);
+    if(isNaN(d)) return dateInput;
+    return d.toLocaleDateString('en-MY', {timeZone: MY_TZ, year:'numeric', month:'short', day:'numeric'});
+  }catch(e){ return dateInput; }
+}
+function toMYDateTime(dateInput){
+  if(!dateInput) return "";
+  try{
+    const d = new Date(dateInput);
+    if(isNaN(d)) return dateInput;
+    return d.toLocaleString('en-MY', {timeZone: MY_TZ, year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', hour12:true}) + " MYT";
+  }catch(e){ return dateInput; }
+}
+function nowMYISOString(){
+  // Store as ISO but display will be MYT - keep ISO for backend compatibility
+  return new Date().toISOString();
+}
+function nowMYLocale(){
+  return new Date().toLocaleString('en-MY', {timeZone: MY_TZ, year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true}) + " MYT";
+}
+
 const CONFIG = {
   adminPasswordHash: "b9276e0bc88047b500d985a7bf9f7bf543cd428b9ca1906128cdf9797bb83d33",
   platformFeePercent: 11,
@@ -315,7 +342,7 @@ function renderBookingsTable(){
       btns+='<button onclick="confirmCheckIn(\''+b.id+'\')" class="px-3 py-1.5 bg-[#0F382E] text-white sharp text-[11px] uppercase font-700">✓ CHECK IN</button>';
     }
     btns+='<button onclick="updateBookingStatus(\''+b.id+'\',\'Completed\')" class="px-3 py-1.5 bg-green-600 text-white sharp text-[11px] uppercase font-600">COMPLETE</button>';
-    return '<div class="border border-black/10 sharp p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">'+b.id+'</div><div class="text-[12px] mt-1">'+homestayName+' • '+nights+' nights • '+checkin+' → '+checkout+' • RM'+total+'</div><div class="text-[12px]">Guest: '+(b.guestName||'')+' '+(b.guestEmail||'')+' '+(b.guestPhone||'')+'</div><div class="text-[10px] text-zinc-500 mt-1">Base RM'+base+' + Fee RM'+fee+' = You receive RM'+youReceive+' '+(b.payoutAmount ? '• Owner Paid RM'+b.payoutAmount+(b.payoutDate ? ' on '+new Date(b.payoutDate).toLocaleDateString() : '') : '')+'</div></div><div><span class="text-[11px] px-2 py-1 sharp '+badgeClass+'">'+status+'</span></div></div><div class="flex gap-2 mt-3 flex-wrap">'+btns+'<button onclick="whatsappGuest(\''+b.id+'\')" class="px-3 py-1.5 bg-[#25D366] text-white sharp text-[11px] uppercase font-600">WHATSAPP GUEST</button><button onclick="copyBookingId(\''+b.id+'\')" class="px-3 py-1.5 bg-white border sharp text-[11px] uppercase font-600">COPY ID</button><button onclick="changeBookingDates(\''+b.id+'\')" class="px-3 py-1.5 bg-white border sharp text-[11px] uppercase font-600">CHANGE DATES</button><button onclick="deleteBooking(\''+b.id+'\')" class="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 sharp text-[11px] uppercase font-600">DELETE</button></div></div>';
+    return '<div class="border border-black/10 sharp p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">'+b.id+'</div><div class="text-[12px] mt-1">'+homestayName+' • '+nights+' nights • '+checkin+' → '+checkout+' • RM'+total+'</div><div class="text-[12px]">Guest: '+(b.guestName||'')+' '+(b.guestEmail||'')+' '+(b.guestPhone||'')+'</div><div class="text-[10px] text-zinc-500 mt-1">Base RM'+base+' + Fee RM'+fee+' = You receive RM'+youReceive+' '+(b.payoutAmount ? '• Owner Paid RM'+b.payoutAmount+(b.payoutDate ? ' on '+toMYDate(b.payoutDate) : '') : '')+'</div></div><div><span class="text-[11px] px-2 py-1 sharp '+badgeClass+'">'+status+'</span></div></div><div class="flex gap-2 mt-3 flex-wrap">'+btns+'<button onclick="whatsappGuest(\''+b.id+'\')" class="px-3 py-1.5 bg-[#25D366] text-white sharp text-[11px] uppercase font-600">WHATSAPP GUEST</button><button onclick="copyBookingId(\''+b.id+'\')" class="px-3 py-1.5 bg-white border sharp text-[11px] uppercase font-600">COPY ID</button><button onclick="changeBookingDates(\''+b.id+'\')" class="px-3 py-1.5 bg-white border sharp text-[11px] uppercase font-600">CHANGE DATES</button><button onclick="deleteBooking(\''+b.id+'\')" class="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 sharp text-[11px] uppercase font-600">DELETE</button></div></div>';
   }).join("")+'</div>';
 }
 
@@ -578,5 +605,22 @@ function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeIte
   });
 })();
 </script>
+
+<script>
+// Update MY time clock
+(function(){
+  function updateMYClock(){
+    const el = document.getElementById('myTimeNow');
+    if(el){
+      try{
+        el.textContent = new Date().toLocaleString('en-MY', {timeZone: 'Asia/Kuala_Lumpur', weekday:'short', year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true}) + ' MYT';
+      }catch(e){ el.textContent = new Date().toString(); }
+    }
+  }
+  setInterval(updateMYClock, 1000);
+  setTimeout(updateMYClock, 200);
+})();
+</script>
+
 </body>
 </html>
