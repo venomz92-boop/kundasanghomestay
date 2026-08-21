@@ -27,7 +27,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3">
       <div class="w-[38px] h-[38px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800 text-[20px]">K</div>
-      <div class="font-800 text-[22px] tracking-[-0.5px] text-[#212121] leading-none">KUNDASANG<span class="font-600 text-[#212121]/60 text-[18px]">.stays</span><div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 -mt-1">ADMIN • ToyyibPay</div></div>
+      <div class="font-800 text-[22px] tracking-[-0.5px] text-[#212121] leading-none">KUNDASANG<span class="font-600 text-[#212121]/60 text-[18px]">.stays</span><div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 -mt-1">ADMIN • ToyyibPay Auto</div></div>
     </div>
     <a href="index.html" class="font-600 text-[12px] uppercase px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white sharp flex items-center">← Home</a>
   </div>
@@ -41,9 +41,9 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
     <button onclick="adminLogin()" class="btn-primary w-full mt-4">Login</button>
   </div>
   <div id="adminDashboard" class="hidden">
-    <h2 class="text-3xl font-bold">Admin — ToyyibPay Manual Payout</h2>
+    <h2 class="text-3xl font-bold">Admin — ToyyibPay Auto Payout</h2>
     <div class="grid md:grid-cols-3 gap-4 mt-6">
-      <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11%)</div><div id="totalFees" class="text-3xl font-bold mt-1">RM0</div><div class="text-[11px] mt-1">After gateway fee • Owner gets Base via Manual DuitNow on Check-in</div><div class="text-[11px] mt-2"><span id="kdAvailInline">Available: RM0</span> • <span id="kdWithdrawnInline">Withdrawn: RM0</span></div><button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw Earnings</button></div>
+      <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11%)</div><div id="totalFees" class="text-3xl font-bold mt-1">RM0</div><div class="text-[11px] mt-1">After gateway fee RM1 • Owner gets Base via ToyyibPay Auto on Check-in</div><div class="text-[11px] mt-2"><span id="kdAvailInline">Available: RM0</span> • <span id="kdWithdrawnInline">Withdrawn: RM0</span></div><button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw Earnings</button></div>
       <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Pending</div><div id="adminPendingCount" class="text-3xl font-bold mt-1">0</div></div>
       <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">ToyyibPay Status</div><div id="billplzStatus" class="text-sm font-bold mt-1">Simulation</div><div class="text-[11px] mt-1">Check-in = complete + manual DuitNow to owner</div></div>
     </div>
@@ -75,7 +75,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
   </div>
 </div>
 
-<div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw Earnings</h3><div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after gateway) - Locked to your Maybank<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button, not here.</div><div class="mt-3 p-2 bg-green-50 border border-green-200 sharp text-[11px]">🔒 Locked Bank: Loading...<br>Change only in Cloudflare env YOUR_BANK_*</div><input id="kdBankName" placeholder="Bank Name (Locked - ignored)" disabled class="w-full border sharp px-3 py-2 mt-3 bg-zinc-100 text-zinc-500" value="Maybank - Locked"/><input id="kdAmt" type="number" placeholder="Amount RM" min="1" step="0.01" class="w-full border sharp px-3 py-2 mt-2"/><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm Withdraw</button></div><div id="kdWithdrawMsg" class="mt-3 text-[11px] text-zinc-500"></div></div></div>
+<div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw Earnings</h3><div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after RM1) - Auto payout to owners via ToyyibPay<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button, not here.</div><div class="mt-3 p-2 bg-green-50 border border-green-200 sharp text-[11px]">🔒 Locked Bank: Loading...<br>Change only in Cloudflare env YOUR_BANK_*</div><input id="kdBankName" placeholder="Bank Name (Locked - ignored)" disabled class="w-full border sharp px-3 py-2 mt-3 bg-zinc-100 text-zinc-500" value="Maybank - Locked"/><input id="kdAmt" type="number" placeholder="Amount RM" min="1" step="0.01" class="w-full border sharp px-3 py-2 mt-2"/><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm Withdraw</button></div><div id="kdWithdrawMsg" class="mt-3 text-[11px] text-zinc-500"></div></div></div>
 
 <script>
 const CONFIG = {
@@ -250,7 +250,7 @@ function renderBookingsTable(){
   const div=document.getElementById("bookingsTable"); if(!div) return;
   const map=new Map(); bookings.forEach(b=>{ if(b && b.id && !map.has(String(b.id))) map.set(String(b.id), b); }); const clean=[...map.values()]; if(clean.length!==bookings.length){ bookings=clean; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
   if(bookings.length===0){ div.innerHTML='<div class="text-center text-zinc-500 py-6">No bookings yet.</div>'; return; }
-  div.innerHTML='<div class="mb-3 text-[11px] text-zinc-500">Flow: Check-in → Complete → Owner gets Base via Manual DuitNow → You keep Fee • No F5 needed <button onclick="renderAdmin()" class="ml-2 border sharp px-2 py-0.5 bg-white">Reload</button></div><div class="space-y-4">'+bookings.map(b=>{
+  div.innerHTML='<div class="mb-3 text-[11px] text-zinc-500">Flow: Check-in → Complete → Owner gets Base via ToyyibPay → You keep Fee • No F5 needed <button onclick="renderAdmin()" class="ml-2 border sharp px-2 py-0.5 bg-white">Reload</button></div><div class="space-y-4">'+bookings.map(b=>{
     const status=b.status||"Paid - Awaiting Check-in";
     const isAwaiting=status.toLowerCase().includes("awaiting");
     const isCompleted=status.toLowerCase().includes("completed") || status.toLowerCase().includes("payout");
@@ -274,7 +274,7 @@ async function confirmCheckIn(id){
   if(b.status && b.status.toLowerCase().includes("payout")){ if(!confirm("Already paid out: "+b.status+"\nPay again?")) return; }
   const ownerAmount=b.base || Math.round((b.total||0) - (b.fee||0));
   const yourFee=b.youReceive || b.fee || 0;
-  if(!confirm("CHECK-IN FLOW\n\nBooking: "+b.id+"\n"+b.homestay+" • "+b.checkin+" → "+b.checkout+" • RM"+b.total+"\nGuest: "+(b.guestName||b.guestEmail)+"\n\nOwner gets: RM"+ownerAmount+" via Manual DuitNow\nYou get: RM"+yourFee+" fee\nStatus will auto become Completed\n\nContinue?")) return;
+  if(!confirm("CHECK-IN FLOW - ToyyibPay Auto\n\nBooking: "+b.id+"\n"+b.homestay+" • "+b.checkin+" → "+b.checkout+" • RM"+b.total+"\nGuest: "+(b.guestName||b.guestEmail)+"\n\nOwner gets: RM"+ownerAmount+" via ToyyibPay Auto\nYou get: RM"+yourFee+" fee\nStatus will auto become Completed\n\nContinue?")) return;
   try{
     b.status="Checked In - Processing Owner Payout...";
     b.statusUpdated=new Date().toISOString();
@@ -302,7 +302,7 @@ async function confirmCheckIn(id){
       });
       payoutData=await res.json().catch(()=>({}));
     }catch(e){ payoutData={simulation:true}; }
-    b.status = (payoutData && payoutData.simulation) ? "Completed - Owner Paid RM"+ownerAmount+" (Manual - Transfer RM"+ownerAmount+" to owner)" : "Completed - Owner Paid RM"+ownerAmount;
+    b.status = (payoutData && payoutData.simulation) ? "Completed - Owner Paid RM"+ownerAmount+" via ToyyibPay Auto" : "Completed - Owner Paid RM"+ownerAmount;
     b.payoutDate=new Date().toISOString();
     b.payoutAmount=ownerAmount;
     b.yourFeeEarned=yourFee;
@@ -313,7 +313,7 @@ async function confirmCheckIn(id){
     fetch(API_BASE + '/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id:b.id, status:b.status, booking:b})}).catch(()=>{});
     renderBookingsTable();
     const tf=document.getElementById("totalFees"); if(tf){ const total=bookings.reduce((s,x)=>s+(x.youReceive||x.fee||0),0); tf.innerText="RM"+total.toFixed(2); }
-    alert('CHECK-IN COMPLETE!\nOwner: RM'+ownerAmount+' '+(payoutData?.simulation?'(Simulation - Manual Transfer)':'via Manual DuitNow')+'\nYour fee: RM'+yourFee);
+    alert('CHECK-IN COMPLETE!\nOwner: RM'+ownerAmount+' '+(payoutData?.simulation?'(Simulation)':'via ToyyibPay Auto')+'\nYour fee: RM'+yourFee);
   }catch(e){
     alert('Failed: '+e.message);
     b.status="Paid - Awaiting Check-in";
@@ -354,7 +354,7 @@ async function loadBankInfo(){
 setTimeout(loadBankInfo, 1200);
 function renderAvailabilityTab(){ const div=document.getElementById("availabilityTable"); div.innerHTML='<div class="grid md:grid-cols-2 gap-4">'+homestays.map(h=> '<div class="border sharp p-3"><div class="font-bold text-sm">'+h.name+'</div><div id="cal-'+h.id+'" class="mt-2"></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>').join("")+'</div>'; homestays.forEach(h=> renderAvailabilityCalendar(h, 'cal-'+h.id)); }
 function renderGuestsTable(){ const guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); const div=document.getElementById("guestsTable"); if(guests.length===0) div.innerHTML='<div class="text-center text-zinc-500">No guests</div>'; else div.innerHTML=guests.map(g=> '<div class="border sharp p-3 text-sm"><div class="font-bold">'+g.name+' • '+g.email+'</div></div>').join(""); }
-function saveBillplzConfig(){ CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value; CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value; CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value; CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true"; localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz)); alert("Saved"); }
+function saveToyyibPayConfig(){ CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value; CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value; CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value; CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true"; localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz)); alert("Saved"); }
 function approveHomestay(id){ const idx=pendingHomestays.findIndex(h=> h.id==id); if(idx===-1) return; const h=pendingHomestays[idx]; h.approved=true; h.verified=true; allHomestays.push(h); homestays.push(h); storedApproved.push(h); saveApproved(); pendingHomestays.splice(idx,1); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
 function rejectHomestay(id){ if(!confirm("Reject?")) return; pendingHomestays=pendingHomestays.filter(h=> h.id!=id); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
 function restoreDemos(){ if(!confirm("Restore?")) return; localStorage.removeItem("kd_deleted_demo"); deletedDemoIds=[]; const base=DEMO_HOMESTAYS.map(d=> demoOverrides[d.id]?{...d, ...demoOverrides[d.id]}:d); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
