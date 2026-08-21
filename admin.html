@@ -104,8 +104,8 @@
 const CONFIG = {
   adminPasswordHash: "b9276e0bc88047b500d985a7bf9f7bf543cd428b9ca1906128cdf9797bb83d33",
   platformFeePercent: 11,
-  billplz: { enabled: false, gatewayFee: 1.25, apiKey: "", collectionId: "", xSignature: "" }
-};
+  billplz: { enabled: false, sandbox: true, apiKey: "", collectionId: "", xSignature: "", gatewayFee: 1.25, splitEnabled: true }
+}
 
  // === CLOUD SYNC - KV or D1 - Auto ===
 const CLOUD_ENABLED = true;
@@ -121,6 +121,15 @@ async function fetchCloudDataForAdmin(){
     return true;
   }catch(e){ console.warn("Cloud fail", e.message); return false; }
 }
+
+function fetchCloudData(){ return fetchCloudDataForAdmin(); }
+async function pushBookingToCloud(booking, bookedDates){
+  if(!CLOUD_ENABLED) return;
+  try{
+    await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({booking, bookedDates})});
+  }catch(e){}
+}
+
 async function deleteBookingFromCloud(id){
   if(!CLOUD_ENABLED) return;
   try{ await fetch(`${API_BASE}/bookings?id=${encodeURIComponent(id)}`, {method:"DELETE"}); }catch(e){}
@@ -139,45 +148,47 @@ async function pushAvailabilityToCloud(){
 
 // === FIX: ADD DEMO DATA SAME AS index.html ===
 const DEMO_HOMESTAYS = [
-  {
-    id: 1,
-    name: "A-Frame Cabin with Kinabalu View",
-    location: "Bundu Tuhan",
-    ownerPrice: 300,
-    rating: 4.9,
-    reviews: 127,
-    guests: 4,
-    bedrooms: 2,
-    image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800",
-    images: [],
-    approved: true,
-    verified: true,
-    ownerName: "Ali",
-    ownerBank: "CIMB",
-    ownerBankAccount: "8600-123456",
-    whatsapp: "60123456789",
-    description: "View Gunung Kinabalu terus dari bilik."
-  },
-  {
-    id: 2,
-    name: "Desa Cattle Farm View Homestay",
-    location: "Desa",
-    ownerPrice: 250,
-    rating: 4.8,
-    reviews: 89,
-    guests: 6,
-    bedrooms: 3,
-    image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800",
-    images: [],
-    approved: true,
-    verified: true,
-    ownerName: "Maria",
-    ownerBank: "Maybank",
-    ownerBankAccount: "1140-987654",
-    whatsapp: "60123456789",
-    description: "5 min to Desa Cattle Farm, ada dapur."
-  }
-];
+      {
+        id: 1,
+        name: "A-Frame Cabin with Kinabalu View",
+        location: "Bundu Tuhan",
+        ownerPrice: 300,
+        rating: 4.9,
+        reviews: 127,
+        guests: 4,
+        bedrooms: 2,
+        image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800",
+        images: [],
+        approved: true,
+        verified: true,
+        ownerName: "Ali",
+        ownerBank: "CIMB",
+        ownerBankAccount: "8600-123456",
+        whatsapp: "60123456789",
+        description: "View Gunung Kinabalu terus dari bilik.",
+        blockedDates: []
+      },
+      {
+        id: 2,
+        name: "Desa Cattle Farm View Homestay",
+        location: "Desa",
+        ownerPrice: 250,
+        rating: 4.8,
+        reviews: 89,
+        guests: 6,
+        bedrooms: 3,
+        image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800",
+        images: [],
+        approved: true,
+        verified: true,
+        ownerName: "Maria",
+        ownerBank: "Maybank",
+        ownerBankAccount: "1140-987654",
+        whatsapp: "60123456789",
+        description: "5 min to Desa Cattle Farm, ada dapur.",
+        blockedDates: []
+      }
+    ];
 
 let pendingHomestays = JSON.parse(localStorage.getItem("kd_pending") || "[]");
 let storedApproved = JSON.parse(localStorage.getItem("kd_approved") || "[]");
@@ -185,10 +196,11 @@ let deletedDemoIds = JSON.parse(localStorage.getItem("kd_deleted_demo") || "[]")
 let demoOverrides = JSON.parse(localStorage.getItem("kd_demo_overrides") || "{}");
 let demoBlockedMap = JSON.parse(localStorage.getItem("kd_demo_blocked") || "{}"); // FIX: persist demo manual blocks
 let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d => {
-  let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : d;
-  if(demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
-  return merged;
-});
+      let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
+      if(demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
+      return merged;
+    });
+
 let allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
 let homestays = [...allHomestays];
 let bookings = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
@@ -235,7 +247,7 @@ function getAllBlockedDatesForHomestay(homestay) {
   let blocked = [];
   if (homestay.blockedDates && Array.isArray(homestay.blockedDates)) blocked = [...blocked, ...homestay.blockedDates];
   if (availabilityMap[homestay.id] && Array.isArray(availabilityMap[homestay.id])) blocked = [...blocked, ...availabilityMap[homestay.id]];
-  const relatedBookings = bookings.filter(b => b.homestay === homestay.name || b.homestayId === homestay.id);
+  const relatedBookings = bookings.filter(b => b.homestay === homestay.name || String(b.homestayId) === String(homestay.id));
   relatedBookings.forEach(b => {
     if (b.checkin && b.checkout) {
       blocked = [...blocked, ...getDatesInRange(b.checkin, b.checkout)];
@@ -454,7 +466,11 @@ function renderGuestsTable(){
     div.innerHTML='<div class="text-sm text-zinc-500">No guest accounts yet. Guests register on index.html</div>';
     return;
   }
-  div.innerHTML='<h4 class="font-bold mb-3">Guests ('+guestsData.length+')</h4><table class="w-full text-xs"><tr class="text-[10px] text-zinc-500 border-b"><th class="text-left py-2">Name</th><th>Email</th><th>Phone</th><th>Joined</th></tr>'+guestsData.map(g=>`<tr class="border-b"><td class="py-2">${g.name||''}</td><td>${g.email||''}</td><td>${g.phone||''}</td><td>${g.date||''}</td></tr>`).join('')+'</table><div class="mt-4 flex gap-2"><button onclick="exportGuests()" class="text-xs px-3 py-1 border rounded-full">Export CSV</button><button onclick="clearAllGuests()" class="text-xs px-3 py-1 border rounded-full bg-red-50 text-red-600">Clear All</button></div>';
+  div.innerHTML='<h4 class="font-bold mb-3">Guests ('+guestsData.length+')</h4><table class="w-full text-xs"><tr class="text-[10px] text-zinc-500 border-b"><th class="text-left py-2">Name</th><th>Email</th><th>Phone</th><th>Joined</th><th>Bookings</th></tr>'+guestsData.map(g=>{
+    const joined = g.date || g.createdAt || '';
+    const displayDate = joined ? new Date(joined).toLocaleDateString() : '-';
+    return `<tr class="border-b"><td class="py-2">${g.name||''}</td><td>${g.email||''}</td><td>${g.phone||''}</td><td>${displayDate}</td><td>${g.bookingsCount||0}</td></tr>`;
+  }).join('')+'</table><div class="mt-4 flex gap-2"><button onclick="exportGuests()" class="text-xs px-3 py-1 border rounded-full">Export CSV</button><button onclick="clearAllGuests()" class="text-xs px-3 py-1 border rounded-full bg-red-50 text-red-600">Clear All</button></div>';
 }
 function clearAllGuests(){
   if(!confirm("Clear all guest accounts?")) return;
@@ -465,11 +481,15 @@ function exportGuests(){
   const data = localStorage.getItem("kd_guests") || "[]";
   const guests = JSON.parse(data);
   if(guests.length===0){ alert("No guests"); return; }
-  const csv = "Name,Email,Phone,Date\n"+guests.map(g=>`"${g.name||''}","${g.email||''}","${g.phone||''}","${g.date||''}"`).join("\n");
+  const csv = "Name,Email,Phone,Date,Bookings\n"+guests.map(g=>{
+    const d = g.date || g.createdAt || '';
+    return `"${g.name||''}","${g.email||''}","${g.phone||''}","${d}","${g.bookingsCount||0}"`;
+  }).join("\n");
   const blob = new Blob([csv], {type:"text/csv"});
   const url = URL.createObjectURL(blob);
   const a=document.createElement("a"); a.href=url; a.download="guests.csv"; a.click();
 }
+
 
 async function confirmCheckIn(id){
   const b = bookings.find(x=> String(x.id)===String(id));
@@ -674,7 +694,7 @@ function calculateNights(checkin, checkout){
   const diff=Math.round((d2-d1)/(1000*60*60*24)); return diff>0?diff:1;
 }
 function calculatePrice(ownerPrice, nights=1){
-  const base=ownerPrice*nights; const fee=(base*CONFIG.platformFeePercent)/100;
+  const base=ownerPrice*nights; const fee=Math.round((base*CONFIG.platformFeePercent)/100);
   const gatewayFee=CONFIG.billplz.enabled?CONFIG.billplz.gatewayFee:0;
   const total=base+fee+gatewayFee;
   return {nights, base, fee, gatewayFee, total, ownerReceives:base, youReceive:fee-gatewayFee};
@@ -733,6 +753,8 @@ function saveBillplzConfig(){
   CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value;
   CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value;
   CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true";
+  CONFIG.billplz.sandbox=true;
+  CONFIG.billplz.splitEnabled=true;
   localStorage.setItem("kd_billplz",JSON.stringify(CONFIG.billplz));
   alert("Saved! index.html will also read kd_billplz");
   renderAdmin();
@@ -785,5 +807,5 @@ if(sessionStorage.getItem("kd_admin_session")){
 })();
 </script>
 
-<script>(function(){const p=new URLSearchParams(window.location.search);if(p.has('fresh')||p.has('goLive')||p.has('reset')){if(!confirm('GO LIVE FRESH START\nDelete all test bookings, withdrawals, blocks?\nEarnings will become RM0'))return;['kd_withdrawals','kd_bookings','kd_blocked','kd_availability','kd_availability_map','kd_bank_profile','kd_blockedDates'].forEach(k=>localStorage.removeItem(k));Object.keys(localStorage).forEach(k=>{if(k.startsWith('kd_')&&k!=='kd_billplz'&&k!=='kd_admin_session')localStorage.removeItem(k)});try{if(typeof bookings!=='undefined'&&bookings.length>0&&typeof deleteBookingFromCloud==='function'){bookings.forEach(b=>{try{deleteBookingFromCloud(b.id)}catch(e){}})}}catch(e){}alert('FRESH DONE! RM0 / RM0 / RM0');const u=window.location.origin+window.location.pathname;window.history.replaceState({},document.title,u);setTimeout(()=>location.reload(),400);}})();</script></body>
+<script>(function(){const p=new URLSearchParams(window.location.search);if(p.has('fresh')||p.has('goLive')||p.has('reset')){if(!confirm('GO LIVE FRESH START\nDelete all test bookings, withdrawals, blocks?\nEarnings will become RM0'))return;['kd_withdrawals','kd_bookings','kd_blocked','kd_availability','kd_bank_profile','kd_blockedDates','kd_demo_blocked'].forEach(k=>localStorage.removeItem(k));Object.keys(localStorage).forEach(k=>{if(k.startsWith('kd_')&&k!=='kd_billplz'&&k!=='kd_admin_session')localStorage.removeItem(k)});try{if(typeof bookings!=='undefined'&&bookings.length>0&&typeof deleteBookingFromCloud==='function'){bookings.forEach(b=>{try{deleteBookingFromCloud(b.id)}catch(e){}})}}catch(e){}alert('FRESH DONE! RM0 / RM0 / RM0');const u=window.location.origin+window.location.pathname;window.history.replaceState({},document.title,u);setTimeout(()=>location.reload(),400);}})();</script></body>
 </html>

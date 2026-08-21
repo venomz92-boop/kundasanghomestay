@@ -51,7 +51,7 @@
         <button onclick="openGuestAuth('login')" id="guestLoginBtn" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
         <button onclick="openGuestAuth('register')" id="guestRegisterBtn" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp">Register</button>
       </div>
-      <div <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
+      <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
         <button onclick="showPage('mybookings')" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</button>
         <div class="flex items-center gap-2 bg-[#212121] text-white px-4 h-[38px] sharp"><div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div><span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span><button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-2 py-1 sharp uppercase tracking-wider">Logout</button></div>
       </div>
@@ -63,7 +63,7 @@
       <button onclick="showPage('home'); toggleMobileMenu()" id="mNavHome" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">🏠 Home</button>
       <button onclick="showPage('list'); toggleMobileMenu()" id="mNavList" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">➕ List Your Homestay</button>
       <button onclick="showPage('about'); toggleMobileMenu()" id="mNavAbout" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">ℹ️ About</button>
-      <div class="pt-2"><div id="mGuestNav" class="space-y-3"><button onclick="openGuestAuth('login'); toggleMobileMenu()" class="w-full px-6 h-[44px] border border-[#3FD0D4] text-[#3FD0D4] font-600 text-[12px] uppercase tracking-wider sharp">Login</button><button onclick="openGuestAuth('register'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#3FD0D4] text-white font-600 text-[12px] uppercase tracking-wider sharp">Register</button></div><div <div <div id="mGuestProfileNav" class="hidden space-y-3"><div class="flex items-center gap-3 bg-[#212121] text-white px-4 py-3 sharp"><div id="mGuestAvatar" class="guest-avatar bg-[#3FD0D4]">G</div><div><div id="mGuestNameNav" class="text-sm font-bold">Guest</div><div class="text-[11px] text-white/60">Verified guest</div></div><button onclick="logoutGuest()" class="ml-auto text-xs bg-white/20 px-3 py-1.5 sharp">Logout</button></div><button onclick="showPage('mybookings'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#212121] text-white font-600 text-[12px] uppercase tracking-wider sharp">📅 My Bookings</button></div></div>
+      <div class="pt-2"><div id="mGuestNav" class="space-y-3"><button onclick="openGuestAuth('login'); toggleMobileMenu()" class="w-full px-6 h-[44px] border border-[#3FD0D4] text-[#3FD0D4] font-600 text-[12px] uppercase tracking-wider sharp">Login</button><button onclick="openGuestAuth('register'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#3FD0D4] text-white font-600 text-[12px] uppercase tracking-wider sharp">Register</button></div><div id="mGuestProfileNav" class="hidden space-y-3"><div class="flex items-center gap-3 bg-[#212121] text-white px-4 py-3 sharp"><div id="mGuestAvatar" class="guest-avatar bg-[#3FD0D4]">G</div><div><div id="mGuestNameNav" class="text-sm font-bold">Guest</div><div class="text-[11px] text-white/60">Verified guest</div></div><button onclick="logoutGuest()" class="ml-auto text-xs bg-white/20 px-3 py-1.5 sharp">Logout</button></div><button onclick="showPage('mybookings'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#212121] text-white font-600 text-[12px] uppercase tracking-wider sharp">📅 My Bookings</button></div></div>
     </div>
   </div>
 </header>
@@ -423,8 +423,6 @@
     // =============================================================
     const CONFIG = {
       siteName: "Kundasang Homestays",
-      // adminPassword REMOVED for security - now checked server-side
-      // admin hash removed // SHA256 of your password - NOT plain text
       yourBankName: "Maybank",
       yourBankAccount: "1123-4567-8901",
       yourBankHolder: "Kundasang Homestays Enterprise",
@@ -514,9 +512,25 @@ async function pushBookingToCloud(booking, bookedDates){
     // Load from localStorage - FIXED to support persistent demo deletion + editable demos
     let pendingHomestays = JSON.parse(localStorage.getItem("kd_pending") || "[]");
     let deletedDemoIds = JSON.parse(localStorage.getItem("kd_deleted_demo") || "[]");
+let demoBlockedMap = JSON.parse(localStorage.getItem("kd_demo_blocked") || "{}");
+function saveDemoBlocked(){
+  localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap));
+}
+function isDemo(id){
+  return DEMO_HOMESTAYS.some(d => String(d.id)===String(id));
+}
+function saveApproved(){
+  const toSave = allHomestays.filter(h => !isDemo(h.id));
+  localStorage.setItem("kd_approved", JSON.stringify(toSave));
+  storedApproved = toSave;
+}
     let storedApproved = JSON.parse(localStorage.getItem("kd_approved") || "[]");
     let demoOverrides = JSON.parse(localStorage.getItem("kd_demo_overrides") || "{}");
-    let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d => demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : d);
+    let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d => {
+      let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
+      if (demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
+      return merged;
+    });
     let allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
     // Ensure blockedDates array exists
     allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = []; return h; });
@@ -546,7 +560,7 @@ let tempIcOriginalName = ""; // for new listing form
 
     function calculatePrice(ownerPrice, nights = 1) {
       const base = ownerPrice * nights;
-      const fee=Math.round((base*CONFIG.platformFeePercent)/100);
+      const fee = Math.round((base*CONFIG.platformFeePercent)/100);
       const gatewayFee = CONFIG.billplz.enabled ? CONFIG.billplz.gatewayFee : 0;
       const total = base + fee + gatewayFee;
       return {
@@ -591,14 +605,12 @@ let tempIcOriginalName = ""; // for new listing form
       let blocked = [];
       if (homestay.blockedDates && Array.isArray(homestay.blockedDates)) blocked = [...blocked, ...homestay.blockedDates];
       if (availabilityMap[homestay.id] && Array.isArray(availabilityMap[homestay.id])) blocked = [...blocked, ...availabilityMap[homestay.id]];
-      // Add dates from bookings for this homestay
-      const relatedBookings = bookings.filter(b => b.homestay === homestay.name);
+      const relatedBookings = bookings.filter(b => b.homestay === homestay.name || String(b.homestayId) === String(homestay.id));
       relatedBookings.forEach(b => {
         if (b.checkin && b.checkout) {
           blocked = [...blocked, ...getDatesInRange(b.checkin, b.checkout)];
         }
       });
-      // dedupe
       return [...new Set(blocked)].sort();
     }
 
@@ -616,6 +628,9 @@ let tempIcOriginalName = ""; // for new listing form
 
     function saveAvailabilityMap() {
       localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
+      if (typeof CLOUD_ENABLED !== 'undefined' && CLOUD_ENABLED && typeof pushAvailabilityToCloud === 'function') {
+        pushAvailabilityToCloud();
+      }
     }
 
     // Owner form - add blocked date
@@ -2076,56 +2091,62 @@ function addBlockedDate() {
 
     // Owner Availability Manager - allow owner to edit blocked dates after listing
     function openOwnerAvailabilityManager(id) {
-      const h = homestays.find(x => x.id === id) || allHomestays.find(x => x.id === id);
+      const h = allHomestays.find(x=>x.id==id) || homestays.find(x=>x.id==id);
       if (!h) return;
       const blocked = getAllBlockedDatesForHomestay(h);
-      const newDate = prompt(`Manage Availability for ${h.name}\n\nCurrently blocked (${blocked.length} dates): ${blocked.join(", ") || "None - All available"}\n\nEnter date to toggle (YYYY-MM-DD) or range START,END (e.g. 2026-09-01,2026-09-05):\nLeave empty to clear all, or type 'clear' to clear`);
-      if (newDate === null) return;
-      if (newDate.toLowerCase() === "clear" || newDate.trim() === "") {
-        if (confirm("Clear all blocked dates for " + h.name + "?")) {
+      const action = prompt(`📅 Availability Manager for ${h.name}\n\nCurrently blocked (${blocked.length} dates):\n${blocked.join(", ") || "None - All Available"}\n\nOptions:\n- Enter single date YYYY-MM-DD to toggle\n- Enter range START,END e.g. 2026-09-01,2026-09-05\n- Type 'clear' to clear all\n- Type 'view' to see calendar in console`);
+      if(action===null) return;
+      if(action.toLowerCase()==='clear') {
+        if(confirm("Clear all blocked dates for "+h.name+"?")) {
           h.blockedDates = [];
           availabilityMap[h.id] = [];
+          if(isDemo(h.id)){ demoBlockedMap[h.id]=[]; saveDemoBlocked(); }
           saveAvailabilityMap();
-          localStorage.setItem("kd_approved", JSON.stringify(allHomestays.filter(x => !DEMO_HOMESTAYS.some(d=>d.id===x.id))));
+          saveApproved();
           renderGrid();
           if (typeof renderAdmin === 'function') renderAdmin();
-          alert("All blocked dates cleared - now Available for all dates");
+          alert("Cleared - now Available for all dates");
         }
         return;
       }
-      // Check if range
-      if (newDate.includes(",")) {
-        const [s,e] = newDate.split(",").map(x => x.trim());
-        const range = getDatesInRange(s, dateToIso(new Date(isoToDate(e).getTime() + 24*60*60*1000)));
-        if (range.length === 0) { alert("Invalid range"); return; }
-        if (!h.blockedDates) h.blockedDates = [];
-        let added = 0, removed = 0;
-        range.forEach(d => {
-          if (h.blockedDates.includes(d)) { h.blockedDates = h.blockedDates.filter(x => x!==d); removed++; }
+      if(action.toLowerCase()==='view') {
+        console.log("Blocked dates for", h.name, blocked);
+        alert("Check console (F12) - blocked: "+blocked.join(", "));
+        return;
+      }
+      if(action.includes(",")) {
+        const [s,e] = action.split(",").map(x=>x.trim());
+        const range = getDatesInRange(s, dateToIso(new Date(isoToDate(e).getTime()+24*60*60*1000)));
+        if(range.length===0){ alert("Invalid range"); return; }
+        if(!h.blockedDates) h.blockedDates=[];
+        let added=0, removed=0;
+        range.forEach(d=>{
+          if(h.blockedDates.includes(d)){ h.blockedDates=h.blockedDates.filter(x=>x!==d); removed++; }
           else { h.blockedDates.push(d); added++; }
         });
         h.blockedDates.sort();
+        if(isDemo(h.id)){ demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked(); }
+        saveApproved();
         saveAvailabilityMap();
-        localStorage.setItem("kd_approved", JSON.stringify(allHomestays.filter(x => !DEMO_HOMESTAYS.some(d=>d.id===x.id))));
         renderGrid();
-        if (typeof renderAdmin === 'function') renderAdmin();
-        alert(`Range ${s} to ${e}: ${added} dates blocked, ${removed} unblocked`);
+        if(typeof renderAdmin === 'function') renderAdmin();
+        alert(`Range ${s} to ${e}: ${added} blocked, ${removed} unblocked`);
         return;
       }
-      // Single date toggle
-      if (!h.blockedDates) h.blockedDates = [];
-      if (h.blockedDates.includes(newDate)) {
-        h.blockedDates = h.blockedDates.filter(d => d !== newDate);
-        alert(newDate + " unblocked - now Available");
+      if(!h.blockedDates) h.blockedDates=[];
+      if(h.blockedDates.includes(action)) {
+        h.blockedDates=h.blockedDates.filter(d=>d!==action);
+        alert(action+" unblocked - now Available");
       } else {
-        h.blockedDates.push(newDate);
-        h.blockedDates.sort();
-        alert(newDate + " blocked - now Fully Booked");
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(action)){ alert("Use YYYY-MM-DD format"); return; }
+        h.blockedDates.push(action); h.blockedDates.sort();
+        alert(action+" blocked - now Fully Booked");
       }
+      if(isDemo(h.id)){ demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked(); }
+      saveApproved();
       saveAvailabilityMap();
-      localStorage.setItem("kd_approved", JSON.stringify(allHomestays.filter(x => !DEMO_HOMESTAYS.some(d=>d.id===x.id))));
       renderGrid();
-      if (typeof renderAdmin === 'function') renderAdmin();
+      if(typeof renderAdmin === 'function') renderAdmin();
     }
 
     function restoreDemos(){
