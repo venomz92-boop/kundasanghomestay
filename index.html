@@ -1519,11 +1519,16 @@ function addBlockedDate() {
       pendingHomestays.push(newHome);
       localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
 
-      // === FINAL FIX: SYNC PENDING TO CLOUD - MUST WORK ===
-      console.log("Starting cloud sync for pending, count:", pendingHomestays.length);
+      // === FINAL FIX: SYNC PENDING TO CLOUD - MERGE SAFE ===
+      console.log("Starting cloud sync for pending, count:", pendingHomestays.length, "new ID:", newHome.id);
+      if(pendingHomestays.length === 0){
+        console.error("Pending empty, not pushing!");
+        alert("Error: Pending empty, registration failed. Try again.");
+        return;
+      }
       try{
         const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
-        // 1. Primary: bookings endpoint
+        // 1. Primary: bookings endpoint - sends full merged list
         const res1 = await fetch(base + "/bookings", {
           method:"POST",
           headers:{"Content-Type":"application/json"},
@@ -1532,7 +1537,7 @@ function addBlockedDate() {
         const data1 = await res1.json().catch(()=>({}));
         console.log("✅ Bookings sync response:", res1.status, data1);
         
-        // 2. Dedicated pending endpoint - always try
+        // 2. Dedicated pending endpoint - also sends new home
         const res2 = await fetch(base + "/pending", {
           method:"POST",
           headers:{"Content-Type":"application/json"},
@@ -1541,15 +1546,15 @@ function addBlockedDate() {
         const data2 = await res2.json().catch(()=>({}));
         console.log("✅ Pending endpoint response:", res2.status, data2);
         
-        if(!res1.ok && !res2.ok){
-          console.error("Both sync failed:", data1, data2);
-          alert("Cloud sync failed!\n\nBookings: "+(data1.error||res1.status)+"\nPending: "+(data2.error||res2.status)+"\n\nCheck console (F12) for details.\nYour listing is saved locally but admin wont see it.");
-        } else {
+        if(res1.ok || res2.ok){
           console.log("✅✅ Pending synced to cloud successfully! ID:", newHome.id);
+        } else {
+          console.error("Both sync failed:", data1, data2);
+          alert("Cloud sync failed!\nBookings: "+(data1.error||res1.status)+"\nPending: "+(data2.error||res2.status)+"\nCheck console.");
         }
       }catch(e){
         console.error("❌ Pending cloud sync exception:", e);
-        alert("Cloud sync error: " + e.message + "\nCheck console. Listing saved locally only.");
+        alert("Cloud sync error: " + e.message);
       }
 
       alert(`Submitted!\n\n"${homestayName}" is now Pending approval.\nOnly shows on homepage after admin approves.\nYou will get Verified Owner badge after approval.\n\n(Admin will see it even from other phone/desktop now)`);

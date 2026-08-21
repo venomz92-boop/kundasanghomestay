@@ -237,15 +237,18 @@ async function fetchCloudData(){
 
 async function pushPendingToCloud(){
   if(!CLOUD_ENABLED) return;
+  if(pendingHomestays.length === 0){
+    console.log("Skipping pushPendingToCloud - local pending empty, don't clear cloud");
+    return;
+  }
   try{
+    console.log("Pushing pending to cloud:", pendingHomestays.length);
     await fetch(API_BASE + "/bookings", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({action:"updatePending", pending: pendingHomestays})
     });
-    // Also try dedicated endpoints
     await fetch(API_BASE + "/pending", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({pending: pendingHomestays})}).catch(()=>{});
-    await fetch(API_BASE + "/homestays", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"updatePending", pending: pendingHomestays})}).catch(()=>{});
   }catch(e){ console.warn("pushPending fail", e); }
 }
 
