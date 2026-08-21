@@ -1,6 +1,3 @@
-// /api/bookings - Works with KV (KD_DATA) OR D1 (DB) - auto detects
-// Fixed version: handles updateStatus, prevents duplicates, fixes availability logic
-
 export async function onRequestGet(context) {
   const kv = context.env.KD_DATA;
   const db = context.env.DB;
@@ -13,8 +10,8 @@ export async function onRequestGet(context) {
     let deletedDemo = [];
     if (db) {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-      try { const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first(); if (res) bookings = JSON.parse(res.data); } catch(e) {}
-      try { const res2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first(); if (res2) availability = JSON.parse(res2.data); } catch(e) {}
+      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first(); if (r) bookings = JSON.parse(r.data); } catch(e) {}
+      try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first(); if (r) availability = JSON.parse(r.data); } catch(e) {}
       try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first(); if (r) approved = JSON.parse(r.data); } catch(e) {}
       try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_demo_overrides").first(); if (r) demoOverrides = JSON.parse(r.data); } catch(e) {}
       try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_demo_blocked").first(); if (r) demoBlocked = JSON.parse(r.data); } catch(e) {}
@@ -27,7 +24,7 @@ export async function onRequestGet(context) {
       demoBlocked = await kv.get("kd_demo_blocked", { type: "json" }) || {};
       deletedDemo = await kv.get("kd_deleted_demo", { type: "json" }) || [];
     } else {
-      return new Response(JSON.stringify({ error: "No KV or D1 bound. Bind KD_DATA (KV) or DB (D1)", bookings: [], availability: {} }), { status: 500, headers: cors() });
+      return new Response(JSON.stringify({ error: "No KV or D1 bound" }), { status: 500, headers: cors() });
     }
     return new Response(JSON.stringify({ bookings, availability, approved, demoOverrides, demoBlocked, deletedDemo }), { headers: { ...cors(), "Content-Type": "application/json" } });
   } catch(e) {
@@ -47,8 +44,6 @@ export async function onRequestPost(context) {
     let demoBlocked = {};
     let deletedDemo = [];
 
-
-
     if (db) {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
       try { const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first(); if(r) bookings = JSON.parse(r.data); } catch(e){}
@@ -66,7 +61,7 @@ export async function onRequestPost(context) {
       deletedDemo = await kv.get("kd_deleted_demo", { type: "json" }) || [];
     }
 
-    // --- HOMESTAYS SYNC (Fix index-admin sync) ---
+    // --- HOMESTAY SYNC ---
     if (body.action === "updateHomestays") {
       if (body.approved !== undefined) approved = body.approved;
       if (body.demoOverrides !== undefined) demoOverrides = body.demoOverrides;
@@ -80,13 +75,9 @@ export async function onRequestPost(context) {
       demoBlocked = body.demoBlocked || body.data || {};
     } else if (body.action === "updateDeletedDemo") {
       deletedDemo = body.deletedDemo || body.data || [];
-
-    // --- CLEAR ALL ACTION (Fix F5 bug) ---
-    if (body.action === "clearAll") {
+    } else if (body.action === "clearAll") {
       bookings = [];
       availability = {};
-    
-    // --- DELETE ACTION ---
     } else if (body.action === "delete") {
       const id = body.id;
       const b = bookings.find(x => String(x.id) === String(id));
@@ -98,16 +89,11 @@ export async function onRequestPost(context) {
           if (String(bb.homestayId)===String(hid)) return true;
           if (hname && bb.homestay===hname) return true;
           return false;
-        }).filter(bb => {
-          const st = (bb.status||"").toLowerCase();
-          return !st.includes("pending");
-        });
+        }).filter(bb => !String(bb.status||"").toLowerCase().includes("pending"));
         const rebuilt = [];
         remaining.forEach(bb => { if(bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout)); });
         if(rebuilt.length===0){ delete availability[hid]; } else { availability[hid] = [...new Set(rebuilt)].sort(); }
       }
-
-    // --- UPDATE (full booking object) ---
     } else if (body.action === "update") {
       const bookingData = body.booking || body;
       const targetId = String(bookingData.id || body.id || "");
@@ -118,8 +104,6 @@ export async function onRequestPost(context) {
       } else if (bookingData.id) {
         bookings.push(bookingData);
       }
-
-    // --- UPDATE STATUS ONLY (BUG FIX: was missing, caused duplicates) ---
     } else if (body.action === "updateStatus") {
       const { id, status } = body;
       const bookingPatch = body.booking || {};
@@ -127,19 +111,11 @@ export async function onRequestPost(context) {
       if (!targetId) return new Response(JSON.stringify({ error: "Missing id for updateStatus" }), { status: 400, headers: cors() });
       const idx = bookings.findIndex(x => String(x.id) === String(targetId));
       if (idx === -1) return new Response(JSON.stringify({ error: "Not found: "+targetId }), { status: 404, headers: cors() });
-      bookings[idx] = { 
-        ...bookings[idx], 
-        ...bookingPatch,
-        status: status || bookingPatch.status || bookings[idx].status,
-        statusUpdated: new Date().toISOString()
-      };
-
-    // --- UPDATE AVAILABILITY DIRECT (BUG FIX: /api/availability 404) ---
+      bookings[idx] = { ...bookings[idx], ...bookingPatch, status: status || bookingPatch.status || bookings[idx].status, statusUpdated: new Date().toISOString() };
     } else if (body.action === "updateAvailability" || body.availability) {
       if (body.availability && typeof body.availability === 'object') {
         availability = body.availability;
       }
-
     } else if (body.action === "updateDates") {
       const { id, checkin, checkout, nights, base, fee, total, youReceive, gatewayFee } = body;
       const idx = bookings.findIndex(x => String(x.id) === String(id));
@@ -160,25 +136,19 @@ export async function onRequestPost(context) {
         availability[hid].sort();
       }
       bookings[idx] = { ...old, checkin, checkout, nights, base, fee, total, youReceive, gatewayFee, date: new Date().toISOString(), status: (old.status||"Paid")+" (Changed)", statusUpdated: new Date().toISOString() };
-
     } else {
       // CREATE NEW BOOKING
       const booking = body.booking || body;
       if (!booking.id) return new Response(JSON.stringify({ error: "Missing id" }), { status: 400, headers: cors() });
-      // Prevent duplicate push (BUG FIX)
       const existingIdx = bookings.findIndex(x => String(x.id) === String(booking.id));
       if (existingIdx !== -1) {
-        // merge instead of duplicate
         bookings[existingIdx] = { ...bookings[existingIdx], ...booking, statusUpdated: new Date().toISOString() };
       } else {
-        if (!booking.youReceive) {
-          booking.youReceive = booking.fee || booking.base || 0;
-        }
+        if (!booking.youReceive) booking.youReceive = booking.fee || booking.base || 0;
         if (!booking.status) booking.status = "Paid - Awaiting Check-in";
         bookings.push(booking);
       }
-      // Only block availability if NOT pending Billplz (BUG FIX: ghost blocks)
-      const isPending = (booking.status||"").toLowerCase().includes("pending");
+      const isPending = String(booking.status||"").toLowerCase().includes("pending");
       if (!isPending) {
         const hid = booking.homestayId;
         if (hid) {
@@ -237,15 +207,13 @@ export async function onRequestDelete(context) {
         if (String(bb.homestayId)===String(hid)) return true;
         if (hname && bb.homestay===hname) return true;
         return false;
-      }).filter(bb => {
-        const st = (bb.status||"").toLowerCase();
-        return !st.includes("pending");
-      });
+      }).filter(bb => !String(bb.status||"").toLowerCase().includes("pending"));
       const rebuilt = [];
       remaining.forEach(bb => { if(bb.checkin && bb.checkout) rebuilt.push(...getDatesInRange(bb.checkin, bb.checkout)); });
       if(rebuilt.length===0){ delete availability[hid]; } else { availability[hid] = [...new Set(rebuilt)].sort(); }
     }
     if (db) {
+      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(availability)).run();
     } else if (kv) {
@@ -274,5 +242,5 @@ function getDatesInRange(checkin, checkout) {
   }
   return dates;
 }
-function cors(){ return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, PUT, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" }; }
+function cors(){ return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" }; }
 export async function onRequestOptions(){ return new Response(null, { headers: cors() }); }
