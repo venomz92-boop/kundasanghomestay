@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reset Storage - Kundasang Homestays</title>
+<script src="https://cdn.tailwindcss.com"></script></head>
+<body class="bg-[#F8F5F0] p-6 font-sans">
+<div class="max-w-[500px] mx-auto bg-white p-6 sharp shadow">
+<h1 class="font-bold text-xl">Reset LocalStorage</h1>
+<p class="text-xs text-zinc-500 mt-2">Use this if you cant register from phone (quota full / corrupted data)</p>
+<div id="info" class="mt-4 p-3 bg-zinc-50 text-xs"></div>
+<div class="grid gap-2 mt-4">
+<button onclick="clearPending()" class="bg-red-600 text-white px-4 py-2 sharp text-sm">Clear Pending Only (kd_pending)</button>
+<button onclick="clearAll()" class="bg-black text-white px-4 py-2 sharp text-sm">Clear ALL Kundasang Data (recommended)</button>
+<button onclick="clearAllStorage()" class="bg-zinc-200 px-4 py-2 sharp text-sm">Clear ENTIRE LocalStorage</button>
+<button onclick="location.href='index.html'" class="border px-4 py-2 sharp text-sm mt-2">Back to Home</button>
+</div>
+<div class="mt-6 text-[11px] text-zinc-500">
+<p><b>Phone method:</b></p>
+<p>1. Chrome phone: 3 dots - Settings - Site settings - Storage - Find your site - Clear & Reset</p>
+<p>2. Or open console and run: localStorage.clear();location.reload();</p>
+<p>3. Or open this page and press Clear ALL</p>
+</div>
+</div>
+<script>
+function updateInfo(){
+  const info = document.getElementById('info');
+  let html = '';
+  try{
+    html += 'kd_pending: ' + (localStorage.getItem('kd_pending') ? JSON.parse(localStorage.getItem('kd_pending')).length + ' items' : 'empty') + '<br>';
+    html += 'kd_bookings: ' + (localStorage.getItem('kd_bookings') ? (localStorage.getItem('kd_bookings').length/1024).toFixed(1)+' KB' : 'empty') + '<br>';
+    html += 'Total localStorage used: ~' + (JSON.stringify(localStorage).length/1024).toFixed(1) + ' KB<br>';
+    if(JSON.stringify(localStorage).length > 4000000) html += '<br><b style="color:red">Storage almost full! Base64 photos take huge space. Clear needed.</b>';
+  }catch(e){ html = 'Error: '+e.message; }
+  info.innerHTML = html;
+}
+function clearPending(){
+  if(!confirm('Clear pending registrations?')) return;
+  localStorage.removeItem('kd_pending');
+  alert('Pending cleared! Try register again.');
+  updateInfo();
+}
+function clearAll(){
+  if(!confirm('Clear ALL Kundasang data? Continue?')) return;
+  ['kd_pending','kd_bookings','kd_approved','kd_demo_overrides','kd_demo_blocked','kd_deleted_demo','kd_availability','kd_guests','kd_withdrawals'].forEach(k=>localStorage.removeItem(k));
+  alert('All KD data cleared! Refresh and try again.');
+  updateInfo();
+}
+function clearAllStorage(){
+  if(!confirm('Clear ENTIRE localStorage for this site? Continue?')) return;
+  localStorage.clear();
+  sessionStorage.clear();
+  alert('Entire storage cleared!');
+  updateInfo();
+}
+updateInfo();
+</script>
+</body>
+</html>
