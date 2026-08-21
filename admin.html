@@ -471,7 +471,8 @@ function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeIte
 (function(){
   async function refreshEarningsUI(){
     try{
-      const res = await fetch(API_BASE + "/withdraw", {cache:"no-store"});
+      const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
+      const res = await fetch(base + "/withdraw", {cache:"no-store"});
       const data = await res.json();
       if(data && data.earnings){
         const availEl = document.getElementById("kdAvailInline");
@@ -488,8 +489,7 @@ function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeIte
           }
         }
       }
-    }
-    catch(e){ console.warn("Earnings UI refresh fail", e); }
+    }catch(e){ console.warn("Earnings UI refresh fail", e); }
   }
   // Refresh on load
   setTimeout(refreshEarningsUI, 1000);
