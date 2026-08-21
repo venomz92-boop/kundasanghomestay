@@ -547,8 +547,20 @@ async function pushHomestaysToCloud(){
 async function pushBookingToCloud(booking, bookedDates){
   if(!CLOUD_ENABLED) return;
   try{
-    await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({booking, bookedDates})});
-    console.log("☁️ Pushed to cloud");
+    console.log("☁️ Pushing booking to cloud:", booking.id);
+    // Send as single booking format that backend handles
+    const res = await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(booking)});
+    const data = await res.json().catch(()=>({}));
+    console.log("☁️ Booking push result:", res.status, data);
+    
+    // Also push as bookings array for redundancy
+    const allBookings = JSON.parse(localStorage.getItem("kd_bookings")||"[]");
+    await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateBookings", bookings: allBookings})}).catch(()=>{});
+    
+    // Push availability too
+    if(bookedDates && bookedDates.length > 0){
+      await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: JSON.parse(localStorage.getItem("kd_availability")||"{}")})}).catch(()=>{});
+    }
   }catch(e){ console.warn("Push fail", e); }
 }
 async function pushAvailabilityToCloud(){
