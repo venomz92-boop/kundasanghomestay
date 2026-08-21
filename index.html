@@ -6,7 +6,7 @@
   <title>Kundasang Homestays - Verified •</title>
   <!-- SECURITY NOTE: Admin password is NOT plain text anymore. Plain password removed. Only SHA256 hash remains. For 100% security, move /api/admin-login to backend (Netlify/Cloudflare). See adminLogin() function -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,700;9..144,0,800;9..144,0,900;9..144,1,700;9..144,1,800&family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
     /* =========================================
@@ -31,7 +31,12 @@
       --mist-3: #2D4A3A;
     }
 
-    h1, h2, h3 { font-family: "Fraunces", serif; letter-spacing: -0.02em; }
+    h1, h2, h3 { font-family: "Fraunces", serif; font-weight: 900; letter-spacing: -0.05em; line-height: 0.85; font-variation-settings: "opsz" 64, "WONK" 1; }
+    h1 em, h1 i, .font-accent-italic { font-family: "Fraunces", serif; font-style: italic; font-weight: 800; letter-spacing: -0.03em; color: var(--accent); }
+    body { font-family: "Inter", sans-serif; background: var(--bg); font-feature-settings: "ss01" 1, "ss02" 1, "cv01" 1; -webkit-font-smoothing: antialiased; letter-spacing: -0.015em; }
+    .font-nav { font-family: "Space Grotesk", "Inter", sans-serif; font-weight: 600; letter-spacing: -0.02em; }
+    .font-label { font-family: "Space Grotesk", sans-serif; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; font-size: 10px; }
+    .font-brand { font-family: "Fraunces", serif; font-weight: 900; letter-spacing: -0.03em; }
     body { font-family: "Inter", sans-serif; background: var(--bg); -webkit-font-smoothing: antialiased; }
 
     .card {
@@ -124,6 +129,9 @@
       border: 1px solid var(--glass-border);
       box-shadow: 0 20px 60px -20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
     }
+    .hero-title { font-size: clamp(36px, 6vw, 72px); font-weight: 900; letter-spacing: -0.05em; line-height: 0.85; }
+    .hero-title .lime { color: var(--accent); font-style: italic; font-weight: 800; position: relative; display: inline-block; }
+    .hero-title .lime::after { content: ""; position: absolute; left: 0; right: 0; bottom: 6px; height: 10px; background: var(--accent); opacity: 0.28; z-index: -1; border-radius: 2px; }
     .glass-nav {
       background: rgba(15, 26, 21, 0.75);
       backdrop-filter: blur(20px);
@@ -326,13 +334,13 @@
   <!-- =========================================
        HEADER
        ========================================= -->
-  <header class="sticky top-0 z-40 glass-nav text-white">
-    <div class="max-w-[1200px] mx-auto px-5 md:px-8 h-[64px] flex items-center justify-between">
+  <header class="sticky top-0 z-40 glass-nav text-white backdrop-blur-[20px] bg-[rgba(15,26,21,0.72)] border-b border-white/[0.06]">
+    <div class="max-w-[1280px] mx-auto px-5 md:px-8 h-[72px] flex items-center justify-between">
       <div class="flex items-center gap-3 cursor-pointer" onclick="showPage('home')">
         <div class="w-9 h-9 rounded-full bg-[var(--accent)] flex items-center justify-center text-[var(--primary)] font-bold">K</div>
-        <div>
-          <div class="font-bold leading-none">Kundasang Homestays</div>
-          <div class="text-[11px] opacity-70">• Verified Homestay Owners •</div>
+        <div class="leading-none">
+          <div class="font-brand text-[16px] flex items-center gap-1">Kundasang <span class="font-[300] opacity-90 tracking-[-0.02em]">Homestays</span> <span class="w-1.5 h-1.5 bg-[var(--accent)] rounded-full ml-1 animate-pulse"></span></div>
+          <div class="font-label opacity-60 mt-[3px]">Verified Owners • Kinabalu View</div>
         </div>
       </div>
       <nav id="desktopNav" class="hidden md:flex gap-2 text-sm items-center">
@@ -394,10 +402,10 @@
         <div class="inline-flex items-center gap-2 glass-search px-3 py-1 rounded-full text-xs text-white/80">
           <span class="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-pulse"></span> Live • Verified • Kinabalu View
         </div>
-        <h1 class="text-4xl md:text-[56px] font-bold leading-[0.9] text-white mt-4">
-          Stay In Kundasang ,<br/>
-          Wake up to Mount Kinabalu<br/>
-          — <span class="text-[var(--accent)]">Verified Homestays by Local Owners</span>
+                <h1 class="hero-title text-white mt-4">
+          Stay In Kundasang,<br/>
+          Wake up to <span class="lime">Mount Kinabalu</span><br/>
+          <span class="text-[13px] md:text-[14px] tracking-[0.18em] mt-4 inline-block font-label text-white/60">— Verified Homestays by Local Owners</span>
         </h1>
         <p class="mt-4 max-w-[520px] text-white/80 leading-relaxed">
         Book direct with trusted local hosts. Every homestay is personally verified for your peace of mind.
