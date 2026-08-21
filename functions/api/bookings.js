@@ -252,7 +252,7 @@ export async function onRequestDelete(context) {
       await kv.put("kd_bookings", JSON.stringify(bookings));
       await kv.put("kd_availability", JSON.stringify(availability));
     }
-    return new Response(JSON.stringify({ success: true, bookings, availability, approved, demoOverrides, demoBlocked, deletedDemo }), { headers: { ...cors(), "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ success: true, bookings, availability }), { headers: { ...cors(), "Content-Type": "application/json" } });
   } catch(e) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: cors() });
   }
