@@ -585,7 +585,39 @@ async function checkCloudRaw(){
 }
 
 
-function deleteGuest(idx){ if(!confirm('Delete this guest? This cannot be undone.')) return; let guests=[]; try{ guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); }catch(e){} guests.splice(idx,1); localStorage.setItem("kd_guests", JSON.stringify(guests)); renderGuestsTable(); renderAdmin(); }
+async function deleteGuest(idx){ 
+  if(!confirm('Delete this guest? This cannot be undone.')) return; 
+  let guests=[]; 
+  try{ guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); }catch(e){} 
+  const deleted = guests[idx];
+  guests.splice(idx,1); 
+  localStorage.setItem("kd_guests", JSON.stringify(guests)); 
+  renderGuestsTable(); 
+  // Also delete from cloud - OVERWRITE
+  try{
+    console.log("Deleting guest from cloud:", deleted?.email, "remaining:", guests.length);
+    const res1 = await fetch(API_BASE + "/bookings", {
+      method:"POST", 
+      headers:{"Content-Type":"application/json"}, 
+      body: JSON.stringify({action:"overwriteGuests", guests: guests})
+    });
+    const data1 = await res1.json().catch(()=>({}));
+    console.log("✅ Delete sync bookings:", res1.status, data1);
+    
+    const res2 = await fetch(API_BASE + "/pending", {
+      method:"POST", 
+      headers:{"Content-Type":"application/json"}, 
+      body: JSON.stringify({action:"overwriteGuests", guests: guests})
+    });
+    const data2 = await res2.json().catch(()=>({}));
+    console.log("✅ Delete sync pending:", res2.status, data2);
+    
+    alert("Deleted " + (deleted?.email||"guest") + "\nCloud updated. Refresh should stay deleted.");
+  }catch(e){
+    console.warn("Cloud delete failed:", e);
+    alert("Deleted locally but cloud delete failed: " + e.message + "\nGuest may reappear after refresh. Check console.");
+  }
+}
 function saveToyyibPayConfig(){ CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value; CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value; CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value; CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true"; localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz)); alert("Saved"); }
 function approveHomestay(id){ const idx=pendingHomestays.findIndex(h=> h.id==id); if(idx===-1) return; const h=pendingHomestays[idx]; h.approved=true; h.verified=true; allHomestays.push(h); homestays.push(h); storedApproved.push(h); saveApproved(); pendingHomestays.splice(idx,1); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
 function rejectHomestay(id){ if(!confirm("Reject?")) return; pendingHomestays=pendingHomestays.filter(h=> h.id!=id); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
