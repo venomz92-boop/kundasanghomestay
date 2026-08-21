@@ -2207,15 +2207,13 @@ function addBlockedDate() {
   let num = String(raw).replace(/[^0-9]/g, '');
   if (num.startsWith('0')) num = '60' + num.substring(1);
   if (!num) { alert('Owner WhatsApp not available'); return; }
-  const message = `Hi ${h.ownerName || booking.owner || 'Owner'}, I've made a booking for ${booking.homestay} 😊
-    Booking ID: ${booking.id}
-    Check-in: ${booking.checkin}
-    Check-out: ${booking.checkout}
-    Nights: ${booking.nights} nights
-    Guest: ${booking.guestName || '-'}
-
-    Can you double confirm my booking? Thank you!
-    From ${booking.guestName || 'Guest'} - Kundasang Homestays`;
+  const message = "Hi " + (h.ownerName || booking.owner || 'Owner') + ", I've made a booking for " + booking.homestay + "\n\n" +
+    "Booking ID: " + booking.id + "\n" +
+    "Check-in: " + booking.checkin + "\n" +
+    "Check-out: " + booking.checkout + "\n" +
+    "Nights: " + booking.nights + " nights\n\n" +
+    "Can you double confirm my booking? Thank you!\n\n" +
+    "From " + (booking.guestName || 'Guest') + " - Kundasang Homestays";
   openWhatsAppLink(num, message);
 }
 
