@@ -80,20 +80,15 @@ export async function onRequestPost(context) {
       }
     }
 
-    // Handle guests sync - MERGE BY EMAIL (with overwrite support for delete)
-    if (action === "updateGuests" || action === "overwriteGuests" || action === "deleteGuest" || guests !== undefined) {
+    // Handle guests sync - MERGE BY EMAIL
+    if (action === "updateGuests" || guests !== undefined) {
       let existingGuests = [];
       try{
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
         if(r && r.data) existingGuests = JSON.parse(r.data);
       }catch(e){}
       let incomingGuests = guests || [];
-      
-      // If overwrite action or delete action, REPLACE instead of merge
-      if(action === "overwriteGuests" || action === "deleteGuest"){
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_guests", JSON.stringify(incomingGuests)).run();
-        console.log("Guests OVERWRITTEN:", incomingGuests.length, "(was", existingGuests.length, ")");
-      } else if(incomingGuests.length === 0 && existingGuests.length > 0){
+      if(incomingGuests.length === 0 && existingGuests.length > 0){
         console.log("Guests empty, keeping existing:", existingGuests.length);
       } else {
         const map = new Map();
@@ -128,21 +123,60 @@ export async function onRequestPost(context) {
 
     if (action === "updateBookings" || bookings !== undefined) {
       const b = bookings || body.bookings;
-      if (b) {
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(b)).run();
+      if (b && Array.isArray(b)) {
+        let existing = [];
+        try{
+          const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+          if(r && r.data) existing = JSON.parse(r.data);
+        }catch(e){}
+        if(b.length === 0 && existing.length > 0){
+          console.log("Bookings empty, keeping existing:", existing.length);
+        } else {
+          const map = new Map();
+          [...existing, ...b].forEach(book=>{ if(book && book.id) map.set(String(book.id), book); });
+          const merged = [...map.values()];
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
+          console.log("Bookings merged:", existing.length, "+", b.length, "=", merged.length);
+        }
       }
     }
 
-    // Handle single booking
+    // Handle single booking - support both direct and nested {booking, bookedDates}
+    let singleBooking = null;
     if (body.id && body.checkin) {
-      // It's a booking
+      singleBooking = body;
+    } else if (body.booking && body.booking.id && body.booking.checkin) {
+      singleBooking = body.booking;
+    } else if (body.bookingId && body.checkin) {
+      singleBooking = body;
+    }
+    
+    if (singleBooking) {
       let existing = [];
       try {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
-        if (r) existing = JSON.parse(r.data);
+        if (r && r.data) existing = JSON.parse(r.data);
       } catch(e){}
-      existing.push(body);
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(existing)).run();
+      // Deduplicate by id
+      const map = new Map();
+      [...existing, singleBooking].forEach(b=>{ if(b && b.id) map.set(String(b.id), b); });
+      const merged = [...map.values()];
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
+      console.log("Booking added:", singleBooking.id, "total:", merged.length);
+      
+      // Also handle bookedDates -> availability
+      let datesToBlock = body.bookedDates || singleBooking.bookedDates || [];
+      if(datesToBlock.length > 0 && singleBooking.homestayId){
+        try{
+          let avail = {};
+          const r2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
+          if(r2 && r2.data) avail = JSON.parse(r2.data);
+          if(!avail[singleBooking.homestayId]) avail[singleBooking.homestayId] = [];
+          datesToBlock.forEach(d=>{ if(!avail[singleBooking.homestayId].includes(d)) avail[singleBooking.homestayId].push(d); });
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(avail)).run();
+          console.log("Availability updated for", singleBooking.homestayId, datesToBlock.length, "dates");
+        }catch(e){ console.warn("Availability update fail", e); }
+      }
     }
 
     // Handle single new pending homestay
