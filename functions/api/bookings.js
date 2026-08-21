@@ -40,8 +40,13 @@ export async function onRequestPost(context) {
       availability = await kv.get("kd_availability", { type: "json" }) || {};
     }
 
+    // --- CLEAR ALL ACTION (Fix F5 bug) ---
+    if (body.action === "clearAll") {
+      bookings = [];
+      availability = {};
+    
     // --- DELETE ACTION ---
-    if (body.action === "delete") {
+    } else if (body.action === "delete") {
       const id = body.id;
       const b = bookings.find(x => String(x.id) === String(id));
       bookings = bookings.filter(x => String(x.id) !== String(id));
