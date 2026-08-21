@@ -61,7 +61,7 @@ export async function onRequestPost(context) {
 
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-    // Handle pending sync - MERGE
+    // Pending - MERGE
     if (action === "updatePending" || pending !== undefined) {
       let existingPending = [];
       try{
@@ -76,26 +76,27 @@ export async function onRequestPost(context) {
         [...existingPending, ...incoming].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
         const merged = [...map.values()];
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(merged)).run();
-        console.log("Pending merged:", existingPending.length, "+", incoming.length, "=", merged.length);
       }
     }
 
-    // Handle guests sync - MERGE BY EMAIL
-    if (action === "updateGuests" || guests !== undefined) {
+    // Guests - MERGE + OVERWRITE for delete
+    if (action === "updateGuests" || action === "overwriteGuests" || action === "deleteGuest" || guests !== undefined) {
       let existingGuests = [];
       try{
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
         if(r && r.data) existingGuests = JSON.parse(r.data);
       }catch(e){}
       let incomingGuests = guests || [];
-      if(incomingGuests.length === 0 && existingGuests.length > 0){
+      if(action === "overwriteGuests" || action === "deleteGuest"){
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_guests", JSON.stringify(incomingGuests)).run();
+        console.log("Guests OVERWRITTEN:", incomingGuests.length);
+      } else if(incomingGuests.length === 0 && existingGuests.length > 0){
         console.log("Guests empty, keeping existing:", existingGuests.length);
       } else {
         const map = new Map();
         [...existingGuests, ...incomingGuests].forEach(g=>{ if(g && (g.email||g.id)) map.set(String(g.email||g.id).toLowerCase(), g); });
         const merged = [...map.values()];
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_guests", JSON.stringify(merged)).run();
-        console.log("Guests merged:", existingGuests.length, "+", incomingGuests.length, "=", merged.length);
       }
     }
 
@@ -123,32 +124,76 @@ export async function onRequestPost(context) {
 
     if (action === "updateBookings" || bookings !== undefined) {
       const b = bookings || body.bookings;
-      if (b) {
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(b)).run();
+      if (b && Array.isArray(b)) {
+        let existing = [];
+        try{
+          const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+          if(r && r.data) existing = JSON.parse(r.data);
+        }catch(e){}
+        if(b.length === 0 && existing.length > 0){
+          console.log("Bookings empty, keeping existing:", existing.length);
+        } else {
+          const map = new Map();
+          [...existing, ...b].forEach(book=>{ if(book && book.id) map.set(String(book.id), book); });
+          const merged = [...map.values()];
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
+        }
       }
     }
 
-    // Handle single booking
+    // Single booking - handle nested {booking, bookedDates}
+    let singleBooking = null;
     if (body.id && body.checkin) {
-      // It's a booking
+      singleBooking = body;
+    } else if (body.booking && body.booking.id && body.booking.checkin) {
+      singleBooking = body.booking;
+    }
+    
+    if (singleBooking) {
       let existing = [];
       try {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
-        if (r) existing = JSON.parse(r.data);
+        if (r && r.data) existing = JSON.parse(r.data);
       } catch(e){}
-      existing.push(body);
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(existing)).run();
+      const map = new Map();
+      [...existing, singleBooking].forEach(b=>{ if(b && b.id) map.set(String(b.id), b); });
+      const merged = [...map.values()];
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
+      
+      // Update availability
+      let datesToBlock = body.bookedDates || singleBooking.bookedDates || [];
+      if(datesToBlock.length === 0 && singleBooking.checkin && singleBooking.checkout){
+        try{
+          const s = new Date(singleBooking.checkin);
+          const e = new Date(singleBooking.checkout);
+          datesToBlock = [];
+          for(let d = new Date(s); d < e; d.setDate(d.getDate()+1)){
+            datesToBlock.push(d.toISOString().split('T')[0]);
+          }
+        }catch(e){}
+      }
+      if(datesToBlock.length > 0 && singleBooking.homestayId){
+        try{
+          let avail = {};
+          const r2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
+          if(r2 && r2.data) avail = JSON.parse(r2.data);
+          if(!avail[singleBooking.homestayId]) avail[singleBooking.homestayId] = [];
+          datesToBlock.forEach(d=>{ if(!avail[singleBooking.homestayId].includes(d)) avail[singleBooking.homestayId].push(d); });
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(avail)).run();
+        }catch(e){}
+      }
     }
 
-    // Handle single new pending homestay
-    if (body.new && !pending && !guests) {
+    if (body.new && !pending && !guests && !singleBooking) {
       let existingPending = [];
       try {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
-        if (r) existingPending = JSON.parse(r.data);
+        if(r && r.data) existingPending = JSON.parse(r.data);
       } catch(e){}
-      existingPending.push(body.new);
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(existingPending)).run();
+      const map = new Map();
+      [...existingPending, body.new].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
+      const merged = [...map.values()];
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(merged)).run();
     }
 
     return new Response(JSON.stringify({ success: true, message: "Synced" }), {
@@ -173,44 +218,35 @@ export async function onRequestDelete(context) {
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
       if (r && r.data) bookings = JSON.parse(r.data);
       
-      // Find booking to get its dates and homestayId before deleting
       const toDelete = bookings.find(b => String(b.id) === String(id));
       
       bookings = bookings.filter(b => String(b.id) !== String(id));
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
       console.log("Deleted booking", id, "remaining:", bookings.length);
       
-      // Also clear availability for this booking
       if(toDelete){
         try{
           let avail = {};
           const r2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
           if(r2 && r2.data) avail = JSON.parse(r2.data);
           
-          const homestayId = toDelete.homestayId || toDelete.homestay;
-          const datesToRemove = toDelete.bookedDates || [];
-          // Also compute from checkin/checkout if bookedDates not stored
-          let dates = datesToRemove;
-          if(dates.length === 0 && toDelete.checkin && toDelete.checkout){
-            // Generate dates between checkin and checkout
+          const homestayId = toDelete.homestayId || toDelete.homestay || toDelete.homestay_id;
+          let datesToRemove = toDelete.bookedDates || [];
+          if(datesToRemove.length === 0 && toDelete.checkin && toDelete.checkout){
             try{
               const start = new Date(toDelete.checkin);
               const end = new Date(toDelete.checkout);
-              dates = [];
               for(let d = new Date(start); d < end; d.setDate(d.getDate()+1)){
-                dates.push(d.toISOString().split('T')[0]);
+                datesToRemove.push(d.toISOString().split('T')[0]);
               }
             }catch(e){}
           }
           
-          if(homestayId && avail[homestayId] && dates.length > 0){
-            avail[homestayId] = avail[homestayId].filter(d => !dates.includes(d));
-            // Also check if other bookings still use those dates (don't clear if other booking has same date)
+          if(homestayId){
             // Rebuild availability from remaining bookings for this homestay
             const remainingDates = new Set();
             bookings.filter(b => String(b.homestayId) === String(homestayId) || String(b.homestay) === String(homestayId)).forEach(b=>{
               (b.bookedDates||[]).forEach(d=> remainingDates.add(d));
-              // Also from checkin/checkout
               if(b.checkin && b.checkout){
                 try{
                   const s = new Date(b.checkin);
@@ -221,47 +257,15 @@ export async function onRequestDelete(context) {
                 }catch(e){}
               }
             });
-            // Keep only dates that are still booked by other bookings
-            if(avail[homestayId]){
-              // If we rebuilt from remaining, use that instead
-              if(remainingDates.size > 0){
-                avail[homestayId] = [...remainingDates];
-              } else {
-                // No remaining bookings for this homestay, clear filtered
-                // avail already filtered above
-                if(avail[homestayId].length === 0) delete avail[homestayId];
-              }
-            }
-            await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(avail)).run();
-            console.log("Availability cleared for", homestayId, "removed", dates.length, "dates, remaining:", avail[homestayId]?.length||0);
-          } else if(homestayId){
-            // If no specific dates, rebuild availability from scratch from remaining bookings
-            let avail2 = {};
-            try{
-              const r3 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
-              if(r3 && r3.data) avail2 = JSON.parse(r3.data);
-            }catch(e){}
-            // Rebuild for this homestay
-            const remainingDates = new Set();
-            bookings.filter(b => String(b.homestayId) === String(homestayId) || String(b.homestay) === String(homestayId)).forEach(b=>{
-              (b.bookedDates||[]).forEach(d=> remainingDates.add(d));
-              if(b.checkin && b.checkout){
-                try{
-                  const s = new Date(b.checkin);
-                  const e = new Date(b.checkout);
-                  for(let d = new Date(s); d < e; d.setDate(d.getDate()+1)){
-                    remainingDates.add(d.toISOString().split('T')[0]);
-                  }
-                }catch(e){}
-              }
-            });
+            
             if(remainingDates.size === 0){
-              delete avail2[homestayId];
+              delete avail[homestayId];
             } else {
-              avail2[homestayId] = [...remainingDates];
+              avail[homestayId] = [...remainingDates];
             }
-            await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(avail2)).run();
-            console.log("Availability rebuilt for", homestayId, "remaining:", remainingDates.size);
+            
+            await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(avail)).run();
+            console.log("Availability rebuilt for", homestayId, "remaining dates:", remainingDates.size);
           }
         }catch(e){ console.warn("Availability clear fail", e); }
       }
