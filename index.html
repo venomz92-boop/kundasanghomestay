@@ -272,7 +272,7 @@
 
 
         <div class="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-800">
-          ⚠️ All payment will go through this website, no outside payment — to protect guests and owners from scam. Billplz FPX secured.
+          ⚠️ All payment will go through this website, no outside payment — to protect guests and owners from scam. ToyyibPay FPX secured.
         </div>
 
         <button onclick="submitHomestay()" class="btn-primary w-full py-3">Submit for Approval — Pending</button>
@@ -293,11 +293,11 @@
           <b>Why Verified Owner badge?</b> We verify Bank account holder must match owner name.
           New listings start as Pending approval and only show after admin checks.
           <br/><br/>
-          <b>Payment safety:</b> All payment will go through this website, no outside payment. Secured by Billplz FPX.
+          <b>Payment safety:</b> All payment will go through this website, no outside payment. Secured by ToyyibPay FPX.
         </p>
         <div class="mt-6 flex gap-2">
           <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs">Verified Owner</span>
-          <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">Billplz FPX Secured</span>
+          <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">ToyyibPay FPX Secured</span>
         </div>
       </div>
 
@@ -389,7 +389,7 @@
         <button onclick="closeBooking()" class="flex-1 border rounded-full py-2.5 bg-white">Cancel</button>
         <button onclick="processBillplzPayment()" class="flex-1 btn-primary py-2.5">Pay with FPX</button>
       </div>
-      <p id="billplzNote" class="mt-3 text-[11px] text-zinc-500 text-center"></p>
+      <p id="toyyibpayNote" class="mt-3 text-[11px] text-zinc-500 text-center"></p>
     </div>
   </div>
 
@@ -461,7 +461,7 @@
 
 
   
-<footer class="bg-[#212121] text-white/70 mt-20"><div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10"><div><div class="flex items-center gap-3"><div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div><div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60">.stays</span></div></div><p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Setsail-inspired - Kundasang version. Mountain homestays with Kinabalu soul.</p></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div><div class="space-y-2 text-[13px] font-poppins"><div class="hover:text-white cursor-pointer" onclick="showPage('home')">Homestays</div><div class="hover:text-white cursor-pointer" onclick="showPage('list')">List Property</div><div class="hover:text-white cursor-pointer" onclick="showPage('about')">About</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div><div class="space-y-2 text-[13px] font-poppins"><div>Host Guidelines</div><div>Billplz FPX Secured</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div><p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p></div></div><div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2025 Kundasang Stays — Setsail-inspired — Mount Kinabalu, Sabah</div></footer>
+<footer class="bg-[#212121] text-white/70 mt-20"><div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10"><div><div class="flex items-center gap-3"><div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div><div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60">.stays</span></div></div><p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Setsail-inspired - Kundasang version. Mountain homestays with Kinabalu soul.</p></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div><div class="space-y-2 text-[13px] font-poppins"><div class="hover:text-white cursor-pointer" onclick="showPage('home')">Homestays</div><div class="hover:text-white cursor-pointer" onclick="showPage('list')">List Property</div><div class="hover:text-white cursor-pointer" onclick="showPage('about')">About</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div><div class="space-y-2 text-[13px] font-poppins"><div>Host Guidelines</div><div>ToyyibPay FPX Secured</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div><p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p></div></div><div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2025 Kundasang Stays — Setsail-inspired — Mount Kinabalu, Sabah</div></footer>
 
 <script>
     // =============================================================
@@ -474,7 +474,7 @@
       yourBankHolder: "Kundasang Homestays Enterprise",
       yourWhatsApp: "60123456789",
       platformFeePercent: 11,
-      billplz: {
+      toyyibpay: {
         enabled: false,
         sandbox: true,
         apiKey: "YOUR_BILLPLZ_API_KEY",
@@ -615,7 +615,7 @@ let tempIcOriginalName = ""; // for new listing form
     function calculatePrice(ownerPrice, nights = 1) {
       const base = ownerPrice * nights;
       const fee = Math.round((base*CONFIG.platformFeePercent)/100);
-      const gatewayFee = CONFIG.billplz.enabled ? CONFIG.billplz.gatewayFee : 0;
+      const gatewayFee = CONFIG.toyyibpay.enabled ? CONFIG.toyyibpay.gatewayFee : 0;
       const total = base + fee + gatewayFee;
       return {
         nights,
@@ -1086,7 +1086,7 @@ function addBlockedDate() {
         <div id="detailPriceBox" class="mt-4 bg-zinc-50 p-4 rounded-xl border"></div>
 
         <div class="mt-4 bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-800">
-          ⚠️ <b>All payment will go through this website, no outside payment.</b> Do not transfer to personal account outside. All transactions secured by Billplz FPX.
+          ⚠️ <b>All payment will go through this website, no outside payment.</b> Do not transfer to personal account outside. All transactions secured by ToyyibPay FPX.
         </div>
       `;
 
@@ -1149,12 +1149,12 @@ function addBlockedDate() {
       updateBookingPrice();
       document.getElementById("bookingModal").classList.remove("hidden");
       updateBookingFormWithGuest();
-      const noteEl = document.getElementById("billplzNote");
+      const noteEl = document.getElementById("toyyibpayNote");
       if (noteEl) {
         if (currentGuest) {
-          noteEl.innerHTML = "Logged in as <b>" + currentGuest.name + "</b> (" + currentGuest.email + ") — Booking will be saved to your account<br>" + (CONFIG.billplz.enabled ? "Live: Redirect to Billplz FPX, auto-split RM"+selectedHomestay.ownerPrice+" to owner" : "Simulation mode — enable Billplz in Admin > Settings when ready");
+          noteEl.innerHTML = "Logged in as <b>" + currentGuest.name + "</b> (" + currentGuest.email + ") — Booking will be saved to your account<br>" + (CONFIG.toyyibpay.enabled ? "Live: Redirect to ToyyibPay FPX, auto-split RM"+selectedHomestay.ownerPrice+" to owner" : "Simulation mode — enable Billplz in Admin > Settings when ready");
         } else {
-          noteEl.innerHTML = (CONFIG.billplz.enabled ? "Live: Redirect to Billplz FPX, auto-split RM"+selectedHomestay.ownerPrice+" to owner" : "Simulation mode — enable Billplz in Admin > Settings when ready") + " — <a onclick=\"openGuestAuth('register')\" class=\"underline cursor-pointer\">Register to track</a>";
+          noteEl.innerHTML = (CONFIG.toyyibpay.enabled ? "Live: Redirect to ToyyibPay FPX, auto-split RM"+selectedHomestay.ownerPrice+" to owner" : "Simulation mode — enable Billplz in Admin > Settings when ready") + " — <a onclick=\"openGuestAuth('register')\" class=\"underline cursor-pointer\">Register to track</a>";
         }
       }
     }
@@ -1215,7 +1215,7 @@ function addBlockedDate() {
       const price = calculatePrice(selectedHomestay.ownerPrice, nights);
       const bookingId = "KDH-" + Date.now().toString().slice(-6);
 
-      if (!CONFIG.billplz.enabled) {
+      if (!CONFIG.toyyibpay.enabled) {
         const booking = {
           id: bookingId,
           homestay: selectedHomestay.name,
@@ -1248,10 +1248,10 @@ function addBlockedDate() {
         return;
       }
 
-      // LIVE MODE - Call Cloudflare Function /api/billplz-create
+      // LIVE MODE - Call Cloudflare Function /api/toyyibpay-create
       (async () => {
         try {
-          const res = await fetch("/api/billplz-create", {
+          const res = await fetch("/api/toyyibpay-create", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -1318,7 +1318,7 @@ function addBlockedDate() {
               guestName, guestEmail, guestPhone,
               checkin: ci, checkout: co,
               status: "Pending Billplz - Redirected to FPX",
-              billplz_id: data.id,
+              toyyibpay_id: data.id,
               date: new Date().toISOString()
             };
             // BUG FIX: Do NOT block availability for pending payment - wait for webhook
@@ -1644,7 +1644,7 @@ function addBlockedDate() {
       const totalFees = bookings.reduce((s,b) => s + b.youReceive, 0);
       document.getElementById("totalFees").innerText = "RM" + totalFees.toFixed(2);
       document.getElementById("adminPendingCount").innerText = pendingHomestays.length;
-      document.getElementById("billplzStatus").innerText = CONFIG.billplz.enabled ? "LIVE - Billplz Enabled" : "Simulation Mode";
+      document.getElementById("toyyibpayStatus").innerText = CONFIG.toyyibpay.enabled ? "LIVE - Billplz Enabled" : "Simulation Mode";
 
       // Pending
       const pendingDiv = document.getElementById("adminPending");
@@ -1758,12 +1758,12 @@ function addBlockedDate() {
     }
 
     function saveBillplzConfig() {
-      CONFIG.billplz.apiKey = document.getElementById("cfgApiKey").value;
-      CONFIG.billplz.collectionId = document.getElementById("cfgCollection").value;
-      CONFIG.billplz.xSignature = document.getElementById("cfgXSig").value;
-      CONFIG.billplz.enabled = document.getElementById("cfgEnabled").value === "true";
-      localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz));
-      alert("Saved! " + (CONFIG.billplz.enabled ? "LIVE Billplz enabled" : "Simulation mode"));
+      CONFIG.toyyibpay.apiKey = document.getElementById("cfgApiKey").value;
+      CONFIG.toyyibpay.collectionId = document.getElementById("cfgCollection").value;
+      CONFIG.toyyibpay.xSignature = document.getElementById("cfgXSig").value;
+      CONFIG.toyyibpay.enabled = document.getElementById("cfgEnabled").value === "true";
+      localStorage.setItem("kd_toyyibpay", JSON.stringify(CONFIG.toyyibpay));
+      alert("Saved! " + (CONFIG.toyyibpay.enabled ? "LIVE Billplz enabled" : "Simulation mode"));
     }
 
     function searchHomestays() { 
@@ -2283,8 +2283,8 @@ function addBlockedDate() {
         }
       }catch(e){ console.warn("Paid redirect handler fail", e); }
     })();
-    const savedBillplz = localStorage.getItem("kd_billplz");
-    if (savedBillplz) CONFIG.billplz = {...CONFIG.billplz, ...JSON.parse(savedBillplz)};
+    const savedBillplz = localStorage.getItem("kd_toyyibpay");
+    if (savedBillplz) CONFIG.toyyibpay = {...CONFIG.toyyibpay, ...JSON.parse(savedBillplz)};
     
         // set default dates for search - EMPTY so guest picks own dates
     if (document.getElementById("checkin")) document.getElementById("checkin").value = "";
