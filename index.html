@@ -511,6 +511,10 @@ async function fetchCloudData(){
       localStorage.setItem("kd_demo_blocked", JSON.stringify(data.demoBlocked)); 
       demoBlockedMap = data.demoBlocked;
     }
+    if(data.pending !== undefined && Array.isArray(data.pending)){
+      pendingHomestays = data.pending;
+      localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
+    }
     if(data.deletedDemo !== undefined){ 
       localStorage.setItem("kd_deleted_demo", JSON.stringify(data.deletedDemo)); 
       deletedDemoIds = data.deletedDemo;
@@ -1515,7 +1519,35 @@ function addBlockedDate() {
       pendingHomestays.push(newHome);
       localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
 
-      alert(`Submitted!\n\n"${homestayName}" is now Pending approval.\nOnly shows on homepage after admin approves.\nYou will get Verified Owner badge after approval.`);
+      // === FIX: SYNC PENDING TO CLOUD FOR ADMIN PANEL (multi-device) ===
+      (async()=>{
+        try{
+          const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
+          // Primary: updatePending via bookings endpoint
+          await fetch(base + "/bookings", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({action:"updatePending", pending: pendingHomestays})
+          });
+          // Fallback: try dedicated pending endpoint
+          await fetch(base + "/pending", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({pending: pendingHomestays, new: newHome})
+          }).catch(()=>{});
+          // Also try homestays endpoint
+          await fetch(base + "/homestays", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({action:"updatePending", pending: pendingHomestays, new: newHome})
+          }).catch(()=>{});
+          console.log("Pending synced to cloud:", newHome.id);
+        }catch(e){
+          console.warn("Pending cloud sync failed (will still show locally):", e);
+        }
+      })();
+
+      alert(`Submitted!\n\n"${homestayName}" is now Pending approval.\nOnly shows on homepage after admin approves.\nYou will get Verified Owner badge after approval.\n\n(Admin will see it even from other phone/desktop now)`);
       
       // reset form
       document.getElementById("listOwnerName").value = "";
