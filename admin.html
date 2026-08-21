@@ -3,89 +3,79 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Admin - Kundasang Homestays • Setsail</title>
+<title>Admin - Kundasang Homestays</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root { --primary:#0F382E; --accent:#3FD0D4; --accent-hover:#2bbfc4; --bg:#F8F5F0; --card:#ffffff; --dark:#212121; }
-body{font-family:"Poppins","Inter",sans-serif;background:var(--bg);}
+:root { --primary:#0F382E; --accent:#3FD0D4; --bg:#F8F5F0; --card:#ffffff; --dark:#212121; }
+body{font-family:"Poppins",sans-serif;background:var(--bg);}
 .font-poppins{font-family:"Poppins",sans-serif;}
 .sharp{border-radius:2px !important;}
 .card{border-radius:2px;background:var(--card);box-shadow:0 2px 20px rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.04);}
-.btn-primary{background:var(--dark);color:white;border-radius:2px;padding:10px 20px;font-weight:700;font-family:"Poppins",sans-serif;text-transform:uppercase;letter-spacing:0.08em;font-size:11px;}
-.btn-primary:hover{background:black;}
+.btn-primary{background:var(--dark);color:white;border-radius:2px;padding:10px 20px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-size:11px;}
 .badge-available{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:2px;}
 .badge-booked{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:2px;}
 .calendar-mini{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
 .calendar-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:2px;font-size:10px;font-weight:600;border:1px solid #e5e7eb;}
 .calendar-day.available{background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
-.calendar-day.booked{background:#fef2f2;border-color:#fecaca;color:#991b1b;text-decoration:line-through;}
-.kd-withdraw-btn{display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:10px 18px;border-radius:2px;background:#0F382E;color:#fff;font-weight:700;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;border:1px solid #0F382E;cursor:pointer;}
-.kd-w-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(15,23,18,.48);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:.25s}
+.calendar-day.booked{background:#fef2f2;border-color:#fecaca;color:#991b1b;}
+.kd-withdraw-btn{display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:10px 18px;border-radius:2px;background:#0F382E;color:#fff;font-weight:700;font-size:11px;text-transform:uppercase;}
+.kd-w-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.48);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:.25s}
 .kd-w-overlay.open{opacity:1;pointer-events:auto}
 .kd-w-modal{background:#fff;width:100%;max-width:480px;max-height:92vh;overflow:auto;border-radius:2px}
 </style>
 </head>
 <body>
-
 <header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3">
       <div class="w-[38px] h-[38px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800 text-[20px]">K</div>
-      <div class="font-800 text-[22px] tracking-[-0.5px] text-[#212121] leading-none">KUNDASANG<span class="font-600 text-[#212121]/60 text-[18px]">.stays</span><div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 -mt-1">ADMIN PANEL • Verified • Setsail</div></div>
+      <div class="font-800 text-[22px] tracking-[-0.5px] text-[#212121] leading-none">KUNDASANG<span class="font-600 text-[#212121]/60 text-[18px]">.stays</span><div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 -mt-1">ADMIN PANEL</div></div>
     </div>
-    <div class="flex items-center gap-3">
-      <div class="text-[11px] bg-[#212121] text-white px-3 py-1.5 sharp uppercase tracking-widest font-700">DO NOT SHARE URL</div>
-      <a href="index.html" class="font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp flex items-center">← Home</a>
-    </div>
+    <a href="index.html" class="font-600 text-[12px] uppercase px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white sharp flex items-center">← Home</a>
   </div>
 </header>
 
 <div class="max-w-[1200px] mx-auto px-5 md:px-8 py-8">
   <div id="adminLogin" class="max-w-[400px] mx-auto card p-8">
     <h2 class="text-2xl font-bold">Admin Login</h2>
-    <p class="text-xs text-zinc-500 mt-1">Enter password to manage bookings & approvals</p>
     <input id="adminPass" type="password" placeholder="Password" class="w-full mt-4 border sharp px-4 py-2.5"/>
     <button onclick="adminLogin()" class="btn-primary w-full mt-4">Login</button>
   </div>
-
   <div id="adminDashboard" class="hidden">
-    <h2 class="text-3xl font-bold">Admin — Approval & Billplz</h2>
+    <h2 class="text-3xl font-bold">Admin Dashboard</h2>
     <div class="grid md:grid-cols-3 gap-4 mt-6">
-      <div class="card p-5"><div class="text-[11px] uppercase tracking-widest text-zinc-500">Your Fee Earnings (11%)</div><div id="totalFees" class="text-3xl font-bold mt-1">RM0</div><div class="text-[11px] mt-1">After Billplz RM1.25</div><button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw Earnings</button><div id="kdLife" class="text-[10px] mt-2 text-zinc-500"></div></div>
-      <div class="card p-5"><div class="text-[11px] uppercase tracking-widest text-zinc-500">Pending Approval</div><div id="adminPendingCount" class="text-3xl font-bold mt-1">0</div><div class="text-[11px] mt-1">New homestays waiting</div></div>
-      <div class="card p-5"><div class="text-[11px] uppercase tracking-widest text-zinc-500">Billplz Status</div><div id="billplzStatus" class="text-sm font-bold mt-1">Simulation</div><div class="text-[11px] mt-1" id="pendingBadge">0 pending</div></div>
+      <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Earnings (11%)</div><div id="totalFees" class="text-3xl font-bold mt-1">RM0</div><div class="text-[11px] mt-1"><span id="kdAvailInline">Available: RM0</span> • <span id="kdWithdrawnInline">Withdrawn: RM0</span></div><button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw</button></div>
+      <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Pending</div><div id="adminPendingCount" class="text-3xl font-bold mt-1">0</div></div>
+      <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Billplz</div><div id="billplzStatus" class="text-sm font-bold mt-1">Simulation</div></div>
     </div>
-
     <div class="flex gap-2 mt-6 flex-wrap">
-      <button onclick="showAdminTab('pending')" id="tabPending" class="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase tracking-widest font-700">Pending</button>
-      <button onclick="showAdminTab('approved')" id="tabApproved" class="px-5 py-2.5 sharp bg-white border border-black/10 text-[11px] uppercase tracking-widest font-600">Approved</button>
-      <button onclick="showAdminTab('bookings')" id="tabBookings" class="px-5 py-2.5 sharp bg-white border border-black/10 text-[11px] uppercase tracking-widest font-600">Bookings</button>
-      <button onclick="showAdminTab('availability')" id="tabAvailability" class="px-5 py-2.5 sharp bg-white border border-black/10 text-[11px] uppercase tracking-widest font-600">Availability</button>
-      <button onclick="showAdminTab('guests')" id="tabGuests" class="px-5 py-2.5 sharp bg-white border border-black/10 text-[11px] uppercase tracking-widest font-600">Guests</button>
-      <button onclick="showAdminTab('settings')" id="tabSettings" class="px-5 py-2.5 sharp bg-white border border-black/10 text-[11px] uppercase tracking-widest font-600">Settings</button>
+      <button onclick="showAdminTab('pending')" id="tabPending" class="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase font-700">Pending</button>
+      <button onclick="showAdminTab('approved')" id="tabApproved" class="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600">Approved</button>
+      <button onclick="showAdminTab('bookings')" id="tabBookings" class="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600">Bookings</button>
+      <button onclick="showAdminTab('availability')" id="tabAvailability" class="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600">Availability</button>
+      <button onclick="showAdminTab('guests')" id="tabGuests" class="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600">Guests</button>
+      <button onclick="showAdminTab('settings')" id="tabSettings" class="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600">Settings</button>
     </div>
-
     <div id="adminPending" class="mt-4"></div>
     <div id="adminApproved" class="mt-4 hidden"></div>
-    <div id="adminBookings" class="mt-4 hidden"><div id="bookingsTable" class="card p-6 overflow-x-auto"></div></div>
-    <div id="adminAvailability" class="mt-4 hidden"><div id="availabilityTable" class="card p-6 overflow-x-auto"></div></div>
-    <div id="adminGuests" class="mt-4 hidden"><div id="guestsTable" class="card p-6 overflow-x-auto"></div></div>
+    <div id="adminBookings" class="mt-4 hidden"><div id="bookingsTable" class="card p-6"></div></div>
+    <div id="adminAvailability" class="mt-4 hidden"><div id="availabilityTable" class="card p-6"></div></div>
+    <div id="adminGuests" class="mt-4 hidden"><div id="guestsTable" class="card p-6"></div></div>
     <div id="adminSettings" class="hidden mt-4 card p-6">
-      <h3 class="font-bold">Billplz Setup</h3>
+      <h3 class="font-bold">Billplz</h3>
       <div class="grid md:grid-cols-2 gap-4 mt-4">
         <input id="cfgApiKey" placeholder="API Key" class="border sharp px-4 py-2.5"/>
         <input id="cfgCollection" placeholder="Collection ID" class="border sharp px-4 py-2.5"/>
         <input id="cfgXSig" placeholder="X Signature" class="border sharp px-4 py-2.5"/>
-        <select id="cfgEnabled" class="border sharp px-4 py-2.5"><option value="false">Disabled — Simulation</option><option value="true">Enabled — Live</option></select>
+        <select id="cfgEnabled" class="border sharp px-4 py-2.5"><option value="false">Simulation</option><option value="true">Live</option></select>
       </div>
-      <button onclick="saveBillplzConfig()" class="btn-primary mt-4">Save Config</button>
-      <div class="flex gap-2 mt-4"><button onclick="restoreDemos()" class="text-xs px-3 py-1 border sharp">Restore Demos</button><button onclick="resetDemoEdits()" class="text-xs px-3 py-1 border sharp bg-orange-50">Reset Edits</button></div>
+      <button onclick="saveBillplzConfig()" class="btn-primary mt-4">Save</button>
     </div>
   </div>
 </div>
 
-<div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw Earnings</h3><div class="mt-4 space-y-3"><div><label class="text-xs">Bank Name</label><input id="kdBankName" class="w-full border sharp px-3 py-2"/></div><div><label class="text-xs">Amount RM</label><input id="kdAmt" type="number" class="w-full border sharp px-3 py-2"/></div></div><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm</button></div><div class="mt-4 text-xs"><div id="kdAvailInline">Available: RM0</div><div id="kdWithdrawnInline">Withdrawn: RM0</div></div></div></div>
+<div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw</h3><input id="kdBankName" placeholder="Bank" class="w-full border sharp px-3 py-2 mt-3"/><input id="kdAmt" type="number" placeholder="Amount" class="w-full border sharp px-3 py-2 mt-2"/><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm</button></div></div></div>
 
 <script>
 const CONFIG = {
@@ -96,68 +86,75 @@ const CONFIG = {
 const CLOUD_ENABLED = true;
 const API_BASE = "/api";
 
+// === CLOUD ===
 async function fetchCloudData(){
   if(!CLOUD_ENABLED) return false;
   try{
     const res=await fetch(`${API_BASE}/bookings`, {cache:"no-store"});
     if(!res.ok) throw new Error(res.status);
     const data=await res.json();
-    if(data.bookings){ bookings=data.bookings; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
+    if(data.bookings && Array.isArray(data.bookings)){ 
+      // DEDUP by ID to prevent duplicates like in screenshot
+      const map=new Map();
+      data.bookings.forEach(b=>{ if(b && b.id) map.set(String(b.id), b); });
+      bookings=[...map.values()];
+      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+    }
     if(data.availability){ availabilityMap=data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
     if(data.pending){ pendingHomestays=data.pending; localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); }
     return true;
-  }catch(e){ return false; }
+  }catch(e){ console.warn("Cloud fail", e.message); return false; }
 }
 async function fetchCloudDataForAdmin(){ return fetchCloudData(); }
 async function deleteBookingFromCloud(id){ try{ await fetch(`${API_BASE}/bookings?id=${encodeURIComponent(id)}`, {method:"DELETE"}); }catch(e){} }
 async function pushAvailabilityToCloud(){ try{ await fetch(`${API_BASE}/availability`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({availability: availabilityMap})}); }catch(e){} }
-async function pushChangeDatesToCloud(id, checkin, checkout, priceObj){
-  const res=await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateDates", id, checkin, checkout, nights:priceObj.nights, base:priceObj.base, fee:priceObj.fee, total:priceObj.total, youReceive:priceObj.youReceive})});
-  return res.json();
+async function pushBookingToCloud(booking, dates){ try{ await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({booking, bookedDates: dates})}); }catch(e){} }
+async function pushChangeDatesToCloud(id, ci, co, price){ 
+  try{
+    await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateDates", id, checkin:ci, checkout:co, nights:price.nights, base:price.base, fee:price.fee, total:price.total, youReceive:price.youReceive})});
+  }catch(e){}
 }
 
 const DEMO_HOMESTAYS = [
-      {
-        id: 1,
-        name: "A-Frame Cabin with Kinabalu View",
-        location: "Bundu Tuhan",
-        ownerPrice: 300,
-        rating: 4.9,
-        reviews: 127,
-        guests: 4,
-        bedrooms: 2,
-        image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800",
-        images: [],
-        approved: true,
-        verified: true,
-        ownerName: "Ali",
-        ownerBank: "CIMB",
-        ownerBankAccount: "8600-123456",
-        whatsapp: "60123456789",
-        description: "View Gunung Kinabalu terus dari bilik.",
-        blockedDates: []
-      },
-      {
-        id: 2,
-        name: "Desa Cattle Farm View Homestay",
-        location: "Desa",
-        ownerPrice: 250,
-        rating: 4.8,
-        reviews: 89,
-        guests: 6,
-        bedrooms: 3,
-        image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800",
-        images: [],
-        approved: true,
-        verified: true,
-        ownerName: "Maria",
-        ownerBank: "Maybank",
-        ownerBankAccount: "1140-987654",
-        whatsapp: "60123456789",
-        description: "5 min to Desa Cattle Farm, ada dapur.",
-        blockedDates: []
-      }
-    ];
+  {
+    id: 1,
+    name: "A-Frame Cabin with Kinabalu View",
+    location: "Bundu Tuhan",
+    ownerPrice: 300,
+    rating: 4.9,
+    reviews: 127,
+    guests: 4,
+    bedrooms: 2,
+    image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800",
+    images: [],
+    approved: true,
+    verified: true,
+    ownerName: "Ali",
+    ownerBank: "CIMB",
+    ownerBankAccount: "8600-123456",
+    whatsapp: "60123456789",
+    description: "View Gunung Kinabalu terus dari bilik."
+  },
+  {
+    id: 2,
+    name: "Desa Cattle Farm View Homestay",
+    location: "Desa",
+    ownerPrice: 250,
+    rating: 4.8,
+    reviews: 89,
+    guests: 6,
+    bedrooms: 3,
+    image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800",
+    images: [],
+    approved: true,
+    verified: true,
+    ownerName: "Maria",
+    ownerBank: "Maybank",
+    ownerBankAccount: "1140-987654",
+    whatsapp: "60123456789",
+    description: "5 min to Desa Cattle Farm, ada dapur."
+  }
+];
 
 let deletedDemoIds = JSON.parse(localStorage.getItem("kd_deleted_demo") || "[]");
 let demoBlockedMap = JSON.parse(localStorage.getItem("kd_demo_blocked") || "{}");
@@ -172,42 +169,26 @@ let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d
 let allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
 allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = []; return h; });
 let homestays = [...allHomestays];
-let bookings = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
+// DEDUP bookings by ID on load to fix screenshot bug
+let rawBookings = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
+let bookingsMap=new Map();
+rawBookings.forEach(b=>{ if(b && b.id){ if(!bookingsMap.has(String(b.id))) bookingsMap.set(String(b.id), b); } });
+let bookings=[...bookingsMap.values()];
 let pendingHomestays = JSON.parse(localStorage.getItem("kd_pending") || "[]");
 let availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}");
 
 function isDemo(id){ return DEMO_HOMESTAYS.some(d => String(d.id)===String(id)); }
 function saveApproved(){ const toSave = allHomestays.filter(h => !isDemo(h.id)); localStorage.setItem("kd_approved", JSON.stringify(toSave)); storedApproved = toSave; }
-
 function isoToDate(s){ return new Date(s+'T00:00:00'); }
-function dateToIso(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
-function getDatesInRange(ci, co){
-  if(!ci||!co) return []; const dates=[]; const start=isoToDate(ci); const end=isoToDate(co);
-  if(isNaN(start)||isNaN(end)||start>=end) return [];
-  const cur=new Date(start); while(cur<end){ dates.push(dateToIso(cur)); cur.setDate(cur.getDate()+1); } return dates;
-}
-function getAllBlockedDatesForHomestay(h){
-  if(!h) return []; let blocked=[];
-  if(h.blockedDates) blocked=[...blocked, ...h.blockedDates];
-  if(availabilityMap[h.id]) blocked=[...blocked, ...availabilityMap[h.id]];
-  const rel=bookings.filter(b=> b.homestay===h.name || String(b.homestayId)===String(h.id));
-  rel.forEach(b=>{ if(b.checkin&&b.checkout) blocked=[...blocked, ...getDatesInRange(b.checkin,b.checkout)]; });
-  return [...new Set(blocked)].sort();
-}
+function dateToIso(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function getDatesInRange(ci,co){ if(!ci||!co) return []; const dates=[]; const a=isoToDate(ci), b=isoToDate(co); if(isNaN(a)||isNaN(b)||a>=b) return []; const cur=new Date(a); while(cur<b){ dates.push(dateToIso(cur)); cur.setDate(cur.getDate()+1); } return dates; }
+function getAllBlockedDatesForHomestay(h){ if(!h) return []; let blk=[]; if(h.blockedDates) blk=[...blk,...h.blockedDates]; if(availabilityMap[h.id]) blk=[...blk,...availabilityMap[h.id]]; const rel=bookings.filter(b=> b.homestay===h.name || String(b.homestayId)===String(h.id)); rel.forEach(b=>{ if(b.checkin&&b.checkout) blk=[...blk,...getDatesInRange(b.checkin,b.checkout)]; }); return [...new Set(blk)].sort(); }
 function saveAvailabilityMap(){ localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); pushAvailabilityToCloud(); }
 function calculateNights(ci,co){ if(!ci||!co) return 1; const d1=new Date(ci), d2=new Date(co); const diff=Math.round((d2-d1)/86400000); return diff>0?diff:1; }
-function calculatePrice(price, nights=1){ const base=price*nights; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gateway=CONFIG.billplz.enabled?CONFIG.billplz.gatewayFee:0; const total=base+fee+gateway; return {nights, base, fee, gatewayFee:gateway, total, youReceive:fee-gateway}; }
-function renderAvailabilityCalendar(h, containerId){
-  const c=document.getElementById(containerId); if(!c||!h) return;
-  const blocked=getAllBlockedDatesForHomestay(h);
-  const today=new Date(); today.setHours(0,0,0,0);
-  let html=`<div class="text-[11px] text-zinc-500 mb-2">Next 35 days</div><div class="calendar-mini">`;
-  ["S","M","T","W","T","F","S"].forEach(d=> html+=`<div class="text-[10px] text-center font-bold text-zinc-400">${d}</div>`);
-  for(let i=0;i<35;i++){ const d=new Date(today); d.setDate(today.getDate()+i); const iso=dateToIso(d); const blk=blocked.includes(iso); html+=`<div class="calendar-day ${blk?'booked':'available'}">${d.getDate()}</div>`; }
-  html+=`</div>`; c.innerHTML=html;
-}
+function calculatePrice(p,n=1){ const base=p*n; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gw=CONFIG.billplz.enabled?CONFIG.billplz.gatewayFee:0; return {nights:n, base, fee, gatewayFee:gw, total:base+fee+gw, youReceive:fee-gw}; }
+function renderAvailabilityCalendar(h,id){ const c=document.getElementById(id); if(!c||!h) return; const blk=getAllBlockedDatesForHomestay(h); const today=new Date(); today.setHours(0,0,0,0); let html=`<div class="calendar-mini">`; ["S","M","T","W","T","F","S"].forEach(d=> html+=`<div class="text-[10px] text-center font-bold text-zinc-400">${d}</div>`); for(let i=0;i<35;i++){ const d=new Date(today); d.setDate(today.getDate()+i); const iso=dateToIso(d); const b=blk.includes(iso); html+=`<div class="calendar-day ${b?'booked':'available'}">${d.getDate()}</div>`; } html+=`</div>`; c.innerHTML=html; }
 
-async function sha256(str){ const buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+async function sha256(s){ const buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
 async function adminLogin(){
   const pass=document.getElementById("adminPass").value;
   const hash=await sha256(pass);
@@ -215,188 +196,155 @@ async function adminLogin(){
     sessionStorage.setItem("kd_admin_session","1");
     document.getElementById("adminLogin").classList.add("hidden");
     document.getElementById("adminDashboard").classList.remove("hidden");
+    await fetchCloudData(); // load cloud once on login
     renderAdmin();
   } else alert("Wrong password");
 }
 function showAdminTab(tab){
   ["adminPending","adminApproved","adminBookings","adminAvailability","adminGuests","adminSettings"].forEach(id=> document.getElementById(id).classList.add("hidden"));
-  ["tabPending","tabApproved","tabBookings","tabAvailability","tabGuests","tabSettings"].forEach(id=>{ const el=document.getElementById(id); if(el) el.className="px-5 py-2.5 sharp bg-white border border-black/10 text-[11px] uppercase tracking-widest font-600"; });
-  if(tab==='pending'){ document.getElementById("adminPending").classList.remove("hidden"); document.getElementById("tabPending").className="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase tracking-widest font-700"; }
-  else if(tab==='approved'){ document.getElementById("adminApproved").classList.remove("hidden"); document.getElementById("tabApproved").className="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase tracking-widest font-700"; }
-  else if(tab==='bookings'){ document.getElementById("adminBookings").classList.remove("hidden"); document.getElementById("tabBookings").className="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase tracking-widest font-700"; }
-  else if(tab==='availability'){ document.getElementById("adminAvailability").classList.remove("hidden"); document.getElementById("tabAvailability").className="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase tracking-widest font-700"; renderAvailabilityTab(); }
-  else if(tab==='guests'){ document.getElementById("adminGuests").classList.remove("hidden"); document.getElementById("tabGuests").className="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase tracking-widest font-700"; renderGuestsTable(); }
-  else if(tab==='settings'){ document.getElementById("adminSettings").classList.remove("hidden"); document.getElementById("tabSettings").className="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase tracking-widest font-700"; }
+  ["tabPending","tabApproved","tabBookings","tabAvailability","tabGuests","tabSettings"].forEach(id=>{ const el=document.getElementById(id); if(el) el.className="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600"; });
+  document.getElementById("admin"+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.remove("hidden");
+  document.getElementById("tab"+tab.charAt(0).toUpperCase()+tab.slice(1)).className="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase font-700";
+  if(tab==='availability') renderAvailabilityTab();
+  if(tab==='guests') renderGuestsTable();
+  if(tab==='bookings') renderBookingsTable();
 }
 
-async function renderAdmin(){
-  try{ await fetchCloudDataForAdmin(); }catch(e){}
+function renderAdmin(){ // NO await fetch inside - prevents overwriting local changes and duplicate bug
   const totalFees=bookings.reduce((s,b)=> s+(b.youReceive||b.fee||0),0);
   const tf=document.getElementById("totalFees"); if(tf) tf.innerText="RM"+totalFees.toFixed(2);
   const pc=document.getElementById("adminPendingCount"); if(pc) pc.innerText=pendingHomestays.length;
-  const pb=document.getElementById("pendingBadge"); if(pb) pb.innerText=pendingHomestays.length+" pending";
   const bs=document.getElementById("billplzStatus"); if(bs) bs.innerText=CONFIG.billplz.enabled?"LIVE":"Simulation";
-
+  
+  // pending
   const pendingDiv=document.getElementById("adminPending");
   if(pendingHomestays.length===0) pendingDiv.innerHTML='<div class="card p-6 text-center text-zinc-500">No pending.</div>';
-  else pendingDiv.innerHTML=pendingHomestays.map(h=> `<div class="card p-5"><div class="flex gap-4"><img src="${h.image||''}" class="w-24 h-24 sharp object-cover"/><div><div class="font-bold">${h.name} — ${h.location}</div><div class="text-xs">${h.ownerName} • ${h.whatsapp}</div><div class="text-[11px] text-zinc-500 mt-1">${h.description||''}</div></div></div><div class="flex gap-2 mt-3"><button onclick="approveHomestay(${h.id})" class="px-4 py-1.5 bg-green-600 text-white sharp text-xs">Approve</button><button onclick="rejectHomestay(${h.id})" class="px-4 py-1.5 bg-red-100 text-red-700 sharp text-xs">Reject</button></div></div>`).join("");
+  else pendingDiv.innerHTML=pendingHomestays.map(h=> `<div class="card p-5"><div class="flex gap-4"><img src="${h.image||''}" class="w-24 h-24 sharp object-cover"/><div><div class="font-bold">${h.name} — ${h.location}</div><div class="text-xs">${h.ownerName} • ${h.whatsapp}</div></div></div><div class="flex gap-2 mt-3"><button onclick="approveHomestay(${h.id})" class="px-4 py-1.5 bg-green-600 text-white sharp text-xs">Approve</button><button onclick="rejectHomestay(${h.id})" class="px-4 py-1.5 bg-red-100 text-red-700 sharp text-xs">Reject</button></div></div>`).join("");
 
   const approvedDiv=document.getElementById("adminApproved");
-  approvedDiv.innerHTML=homestays.map(h=> {
-    const blocked=getAllBlockedDatesForHomestay(h);
-    return `<div class="card p-4 flex gap-4 items-center"><img src="${h.image||''}" class="w-16 h-16 sharp object-cover"/><div class="flex-1"><div class="font-bold text-sm">${h.name}</div><div class="text-xs">RM${h.ownerPrice} • ${h.location} • ${blocked.length} booked</div></div><button onclick="openOwnerAvailabilityManager(${h.id})" class="text-xs border sharp px-3 py-1">Manage Dates</button></div>`;
-  }).join("");
+  approvedDiv.innerHTML=homestays.map(h=> `<div class="card p-4 flex gap-4 items-center"><img src="${h.image||''}" class="w-16 h-16 sharp object-cover"/><div class="flex-1"><div class="font-bold text-sm">${h.name}</div><div class="text-xs">RM${h.ownerPrice} • ${h.location}</div></div><button onclick="openOwnerAvailabilityManager(${h.id})" class="text-xs border sharp px-3 py-1">Manage</button></div>`).join("");
 
-  const bookingsTable=document.getElementById("bookingsTable");
-  if(bookings.length===0) bookingsTable.innerHTML='<div class="text-center text-zinc-500 py-6">No bookings yet.</div>';
-  else {
-    bookingsTable.innerHTML='<div class="space-y-4">'+bookings.map(b=>{
-      const status=b.status||"Paid";
-      const isAwaiting = status.toLowerCase().includes("awaiting check-in") || status.toLowerCase().includes("paid");
-      const isCheckedIn = status.toLowerCase().includes("checked in") && !status.toLowerCase().includes("awaiting");
-      const isCheckedOut = status.toLowerCase().includes("checked out") || status.toLowerCase().includes("completed");
-      let statusBadge=`<span class="text-[11px] px-2 py-1 sharp ${isAwaiting?'bg-yellow-100 text-yellow-800':isCheckedIn?'bg-blue-100 text-blue-800':isCheckedOut?'bg-green-100 text-green-800':'bg-zinc-100'}">${status}</span>`;
-      let actionButtons="";
-      if(isAwaiting){
-        actionButtons+=`<button onclick="updateBookingStatus('${b.id}','Checked In')" class="px-3 py-1.5 bg-[#0F382E] text-white sharp text-[11px] uppercase font-700">✓ Check In</button>`;
-      }
-      if(isCheckedIn){
-        actionButtons+=`<button onclick="updateBookingStatus('${b.id}','Checked Out')" class="px-3 py-1.5 bg-blue-600 text-white sharp text-[11px] uppercase font-700">✓ Check Out</button>`;
-      }
-      if(!isCheckedOut){
-        actionButtons+=`<button onclick="updateBookingStatus('${b.id}','Completed')" class="px-3 py-1.5 bg-green-600 text-white sharp text-[11px] uppercase font-600">Complete</button>`;
-      }
-      return `
-      <div class="border border-black/10 sharp p-4 bg-white">
-        <div class="flex justify-between items-start gap-4">
-          <div><div class="font-800 text-[14px] tracking-wide">${b.id}</div><div class="text-[12px] mt-1">${b.homestay} • ${b.nights||''} nights • ${b.checkin} → ${b.checkout} • <span class="font-700">RM${b.total||0}</span></div><div class="text-[12px]">Guest: ${b.guestName||''} ${b.guestEmail||''} ${b.guestPhone||''}</div><div class="text-[10px] text-zinc-500 mt-1">Base RM${b.base||0} + Fee RM${b.fee||0} = You receive RM${b.youReceive||0}</div></div>
-          <div class="text-right">${statusBadge}</div>
-        </div>
-        <div class="flex gap-2 mt-3 flex-wrap">
-          ${actionButtons}
-          <button onclick="whatsappGuest('${b.id}')" class="px-3 py-1.5 bg-[#25D366] text-white sharp text-[11px] uppercase font-600">WhatsApp Guest</button>
-          <button onclick="copyBookingId('${b.id}')" class="px-3 py-1.5 bg-white border sharp text-[11px] uppercase font-600">Copy ID</button>
-          <button onclick="changeBookingDates('${b.id}')" class="px-3 py-1.5 bg-white border sharp text-[11px] uppercase font-600">Change Dates</button>
-          <button onclick="deleteBooking('${b.id}')" class="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 sharp text-[11px] uppercase font-600">Delete</button>
-        </div>
-      </div>`;
-    }).join("")+'</div>';
-  }
+  renderBookingsTable();
 }
 
-function approveHomestay(id){
-  const idx=pendingHomestays.findIndex(h=> h.id==id);
-  if(idx===-1) return;
-  const h=pendingHomestays[idx]; h.approved=true; h.verified=true;
-  allHomestays.push(h); homestays.push(h); storedApproved.push(h); saveApproved();
-  pendingHomestays.splice(idx,1); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
-  renderAdmin();
+function renderBookingsTable(){
+  const div=document.getElementById("bookingsTable");
+  if(!div) return;
+  // DEDUP before render to fix screenshot bug
+  const dedupMap=new Map();
+  bookings.forEach(b=>{ if(b && b.id && !dedupMap.has(String(b.id))) dedupMap.set(String(b.id), b); });
+  const cleanBookings=[...dedupMap.values()];
+  if(cleanBookings.length!==bookings.length){ bookings=cleanBookings; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
+
+  if(bookings.length===0){ div.innerHTML='<div class="text-center text-zinc-500 py-6">No bookings yet.</div>'; return; }
+  div.innerHTML='<div class="space-y-4">'+bookings.map(b=>{
+    const status=b.status||"Paid - Awaiting Check-in";
+    const isAwaiting = status.toLowerCase().includes("awaiting");
+    const isCheckedIn = status.toLowerCase().includes("checked in") && !status.toLowerCase().includes("awaiting");
+    const isCheckedOut = status.toLowerCase().includes("checked out") || status.toLowerCase().includes("completed");
+    const homestayName=b.homestay||"Homestay";
+    const nights=b.nights||calculateNights(b.checkin,b.checkout);
+    const checkin=b.checkin||"";
+    const checkout=b.checkout||"";
+    const total=b.total||0;
+    const guestName=b.guestName||"";
+    const guestEmail=b.guestEmail||"";
+    const guestPhone=b.guestPhone||"";
+    const base=b.base||0, fee=b.fee||0, youReceive=b.youReceive||0;
+    let badge=`<span class="text-[11px] px-2 py-1 sharp ${isAwaiting?'bg-yellow-100 text-yellow-800':isCheckedIn?'bg-blue-100 text-blue-800':'bg-green-100 text-green-800'}">${status}</span>`;
+    let actions="";
+    if(isAwaiting) actions+=`<button onclick="updateBookingStatus('${b.id}','Checked In')" class="px-3 py-1.5 bg-[#0F382E] text-white sharp text-[11px] uppercase font-700">✓ Check In</button>`;
+    if(isCheckedIn) actions+=`<button onclick="updateBookingStatus('${b.id}','Checked Out')" class="px-3 py-1.5 bg-blue-600 text-white sharp text-[11px] uppercase font-700">✓ Check Out</button>`;
+    if(!isCheckedOut) actions+=`<button onclick="updateBookingStatus('${b.id}','Completed')" class="px-3 py-1.5 bg-green-600 text-white sharp text-[11px] uppercase font-600">Complete</button>`;
+    return `
+    <div class="border border-black/10 sharp p-4 bg-white">
+      <div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">${b.id}</div><div class="text-[12px] mt-1">${homestayName} • ${nights} nights • ${checkin} → ${checkout} • RM${total}</div><div class="text-[12px]">Guest: ${guestName} ${guestEmail} ${guestPhone}</div><div class="text-[10px] text-zinc-500 mt-1">Base RM${base} + Fee RM${fee} = You receive RM${youReceive}</div></div><div>${badge}</div></div>
+      <div class="flex gap-2 mt-3 flex-wrap">${actions}<button onclick="whatsappGuest('${b.id}')" class="px-3 py-1.5 bg-[#25D366] text-white sharp text-[11px] uppercase font-600">WhatsApp Guest</button><button onclick="copyBookingId('${b.id}')" class="px-3 py-1.5 bg-white border sharp text-[11px] uppercase font-600">Copy ID</button><button onclick="changeBookingDates('${b.id}')" class="px-3 py-1.5 bg-white border sharp text-[11px] uppercase font-600">Change Dates</button><button onclick="deleteBooking('${b.id}')" class="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 sharp text-[11px] uppercase font-600">Delete</button></div>
+    </div>`;
+  }).join("")+'</div>';
 }
-function rejectHomestay(id){
-  if(!confirm("Reject?")) return;
-  pendingHomestays=pendingHomestays.filter(h=> h.id!=id);
-  localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
-  renderAdmin();
-}
+
+function approveHomestay(id){ const idx=pendingHomestays.findIndex(h=> h.id==id); if(idx===-1) return; const h=pendingHomestays[idx]; h.approved=true; h.verified=true; allHomestays.push(h); homestays.push(h); storedApproved.push(h); saveApproved(); pendingHomestays.splice(idx,1); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
+function rejectHomestay(id){ if(!confirm("Reject?")) return; pendingHomestays=pendingHomestays.filter(h=> h.id!=id); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
+
 function updateBookingStatus(id, newStatus){
   const b=bookings.find(x=> String(x.id)===String(id));
-  if(!b) return;
+  if(!b){ alert("Not found "+id); return; }
   if(!confirm(`Change ${id} from "${b.status}" to "${newStatus}"?`)) return;
-  b.status=newStatus; b.statusUpdated=new Date().toISOString();
+  // Update local immediately
+  b.status=newStatus;
+  b.statusUpdated=new Date().toISOString();
+  // Fix undefined fields if they exist (from old bug)
+  if(!b.homestay) b.homestay=b.homestay||"Homestay";
+  if(!b.nights) b.nights=calculateNights(b.checkin,b.checkout);
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-  // push to cloud
-  fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateStatus", id, status:newStatus})}).catch(()=>{});
-  renderAdmin();
+  // Auto update UI instantly - NO fetch before render
+  renderBookingsTable();
+  const tf=document.getElementById("totalFees"); if(tf){ const totalFees=bookings.reduce((s,b)=> s+(b.youReceive||b.fee||0),0); tf.innerText="RM"+totalFees.toFixed(2); }
+  // Push to cloud in background (no await blocking UI)
+  fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateStatus", id, status:newStatus, booking:b})}).catch(()=>{}).then(()=> console.log("Status synced to cloud"));
 }
+
 function whatsappGuest(id){
   const b=bookings.find(x=> String(x.id)===String(id));
   if(!b) return;
-  const phone=(b.guestPhone||'').replace(/[^0-9]/g,'');
-  let num=phone; if(num.startsWith('0')) num='60'+num.substring(1);
-  const msg=encodeURIComponent(`Hi ${b.guestName||'Guest'}, your booking ${b.id} for ${b.homestay} (${b.checkin} → ${b.checkout}) is ${b.status}. Total RM${b.total}. Thanks! - Kundasang Stays`);
-  window.open(`https://wa.me/${num}?text=${msg}`,'_blank');
+  let phone=(b.guestPhone||'').replace(/[^0-9]/g,''); if(phone.startsWith('0')) phone='60'+phone.substring(1);
+  const msg=encodeURIComponent(`Hi ${b.guestName||'Guest'}, your booking ${b.id} for ${b.homestay} (${b.checkin} → ${b.checkout}) is now ${b.status}. Total RM${b.total}. - Kundasang Stays`);
+  window.open(`https://wa.me/${phone}?text=${msg}`,'_blank');
 }
 function copyBookingId(id){ navigator.clipboard.writeText(id).then(()=> alert("Copied: "+id)); }
 function deleteBooking(id){
-  if(!confirm("Delete booking "+id+"? This will free dates.")) return;
+  if(!confirm("Delete booking "+id+"?")) return;
   const b=bookings.find(x=> String(x.id)===String(id));
-  if(b&&b.checkin&&b.checkout){
-    const dates=getDatesInRange(b.checkin,b.checkout);
-    const hid=b.homestayId;
-    if(availabilityMap[hid]){ availabilityMap[hid]=availabilityMap[hid].filter(d=> !dates.includes(d)); saveAvailabilityMap(); }
-  }
+  if(b&&b.checkin&&b.checkout){ const dates=getDatesInRange(b.checkin,b.checkout); const hid=b.homestayId; if(availabilityMap[hid]){ availabilityMap[hid]=availabilityMap[hid].filter(d=> !dates.includes(d)); saveAvailabilityMap(); } }
   bookings=bookings.filter(x=> String(x.id)!==String(id));
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
   deleteBookingFromCloud(id);
+  renderBookingsTable();
   renderAdmin();
 }
 async function changeBookingDates(id){
   const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return;
-  const newCheckin=prompt(`Current: ${b.checkin} → ${b.checkout}\nNew Check-in YYYY-MM-DD:`, b.checkin); if(!newCheckin) return;
+  const newCheckin=prompt(`Current: ${b.checkin} → ${b.checkout}\nNew Check-in:`, b.checkin); if(!newCheckin) return;
   const newCheckout=prompt("New Check-out:", b.checkout); if(!newCheckout) return;
   const d1=new Date(newCheckin), d2=new Date(newCheckout); if(d1>=d2){ alert("Invalid"); return; }
   const homestay=homestays.find(h=> String(h.id)===String(b.homestayId) || h.name===b.homestay);
   const oldDates=getDatesInRange(b.checkin,b.checkout);
   const tempBlocked=getAllBlockedDatesForHomestay(homestay).filter(d=> !oldDates.includes(d));
-  const requested=getDatesInRange(newCheckin,newCheckout);
-  const overlap=requested.filter(d=> tempBlocked.includes(d));
-  if(overlap.length>0){ alert("Overlap: "+overlap.join(",")); return; }
+  const req=getDatesInRange(newCheckin,newCheckout);
+  if(req.filter(d=> tempBlocked.includes(d)).length>0){ alert("Overlap"); return; }
   const nights=calculateNights(newCheckin,newCheckout); const price=calculatePrice(homestay.ownerPrice,nights);
   if(availabilityMap[homestay.id]) availabilityMap[homestay.id]=availabilityMap[homestay.id].filter(d=> !oldDates.includes(d));
   if(!availabilityMap[homestay.id]) availabilityMap[homestay.id]=[];
-  requested.forEach(d=>{ if(!availabilityMap[homestay.id].includes(d)) availabilityMap[homestay.id].push(d); }); availabilityMap[homestay.id].sort(); saveAvailabilityMap();
+  req.forEach(d=>{ if(!availabilityMap[homestay.id].includes(d)) availabilityMap[homestay.id].push(d); }); availabilityMap[homestay.id].sort(); saveAvailabilityMap();
   b.checkin=newCheckin; b.checkout=newCheckout; b.nights=nights; b.base=price.base; b.fee=price.fee; b.total=price.total; b.youReceive=price.youReceive;
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
   try{ await pushChangeDatesToCloud(b.id,newCheckin,newCheckout,price); }catch(e){}
-  renderAdmin(); alert("Changed to "+newCheckin+" → "+newCheckout);
+  renderBookingsTable();
 }
-function openOwnerAvailabilityManager(id){
-  const h=allHomestays.find(x=> String(x.id)===String(id)); if(!h) return;
-  const blocked=getAllBlockedDatesForHomestay(h);
-  const action=prompt(`Manage ${h.name}\nBlocked: ${blocked.join(", ")||"None"}\nEnter YYYY-MM-DD, START,END, or clear`);
-  if(action===null) return;
-  if(action==='clear'){ h.blockedDates=[]; availabilityMap[h.id]=[]; if(isDemo(h.id)){demoBlockedMap[h.id]=[]; saveDemoBlocked();} saveAvailabilityMap(); saveApproved(); renderAdmin(); return; }
-  if(action.includes(",")){ const [s,e]=action.split(",").map(x=>x.trim()); const range=getDatesInRange(s,e); range.forEach(d=>{ if(h.blockedDates.includes(d)) h.blockedDates=h.blockedDates.filter(x=>x!==d); else h.blockedDates.push(d); }); h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); return; }
-  if(h.blockedDates.includes(action)) h.blockedDates=h.blockedDates.filter(d=>d!==action); else h.blockedDates.push(action);
-  h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin();
-}
-function renderAvailabilityTab(){
-  const div=document.getElementById("availabilityTable");
-  div.innerHTML='<div class="grid md:grid-cols-2 gap-4">'+homestays.map(h=> `<div class="border sharp p-3"><div class="font-bold text-sm">${h.name}</div><div id="cal-${h.id}" class="mt-2"></div><button onclick="openOwnerAvailabilityManager(${h.id})" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>`).join("")+'</div>';
-  homestays.forEach(h=> renderAvailabilityCalendar(h, `cal-${h.id}`));
-}
-function renderGuestsTable(){
-  const guests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
-  const div=document.getElementById("guestsTable");
-  if(guests.length===0) div.innerHTML='<div class="text-center text-zinc-500">No guests</div>';
-  else div.innerHTML=guests.map(g=> `<div class="border sharp p-3 text-sm"><div class="font-bold">${g.name} • ${g.email}</div><div class="text-xs">${g.phone||''}</div></div>`).join("");
-}
-function saveBillplzConfig(){
-  CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value;
-  CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value;
-  CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value;
-  CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true";
-  localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz));
-  alert("Saved "+(CONFIG.billplz.enabled?"LIVE":"Simulation"));
-}
-function resetDemoEdits(){ if(!confirm("Reset edits?")) return; localStorage.removeItem("kd_demo_overrides"); demoOverrides={}; const base=DEMO_HOMESTAYS.filter(d=> !deletedDemoIds.includes(d.id)); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
-function restoreDemos(){ if(!confirm("Restore demos?")) return; localStorage.removeItem("kd_deleted_demo"); deletedDemoIds=[]; const base=DEMO_HOMESTAYS.map(d=> demoOverrides[d.id]?{...d, ...demoOverrides[d.id]}:d); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
+
+function openOwnerAvailabilityManager(id){ const h=allHomestays.find(x=> String(x.id)===String(id)); if(!h) return; const blocked=getAllBlockedDatesForHomestay(h); const a=prompt(`Manage ${h.name}\nBlocked: ${blocked.join(", ")||"None"}\nEnter YYYY-MM-DD, START,END, or clear`); if(a===null) return; if(a==='clear'){ h.blockedDates=[]; availabilityMap[h.id]=[]; if(isDemo(h.id)){demoBlockedMap[h.id]=[]; saveDemoBlocked();} saveAvailabilityMap(); saveApproved(); renderAdmin(); return; } if(a.includes(",")){ const [s,e]=a.split(",").map(x=>x.trim()); const range=getDatesInRange(s,e); range.forEach(d=>{ if(h.blockedDates.includes(d)) h.blockedDates=h.blockedDates.filter(x=>x!==d); else h.blockedDates.push(d); }); h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); return; } if(h.blockedDates.includes(a)) h.blockedDates=h.blockedDates.filter(d=>d!==a); else h.blockedDates.push(a); h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); }
+function renderAvailabilityTab(){ const div=document.getElementById("availabilityTable"); div.innerHTML='<div class="grid md:grid-cols-2 gap-4">'+homestays.map(h=> `<div class="border sharp p-3"><div class="font-bold text-sm">${h.name}</div><div id="cal-${h.id}" class="mt-2"></div><button onclick="openOwnerAvailabilityManager(${h.id})" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>`).join("")+'</div>'; homestays.forEach(h=> renderAvailabilityCalendar(h, `cal-${h.id}`)); }
+function renderGuestsTable(){ const guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); const div=document.getElementById("guestsTable"); if(guests.length===0) div.innerHTML='<div class="text-center text-zinc-500">No guests</div>'; else div.innerHTML=guests.map(g=> `<div class="border sharp p-3 text-sm"><div class="font-bold">${g.name} • ${g.email}</div></div>`).join(""); }
+function saveBillplzConfig(){ CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value; CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value; CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value; CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true"; localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz)); alert("Saved"); }
+function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeItem("kd_demo_overrides"); demoOverrides={}; const base=DEMO_HOMESTAYS.filter(d=> !deletedDemoIds.includes(d.id)); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
+function restoreDemos(){ if(!confirm("Restore?")) return; localStorage.removeItem("kd_deleted_demo"); deletedDemoIds=[]; const base=DEMO_HOMESTAYS.map(d=> demoOverrides[d.id]?{...d, ...demoOverrides[d.id]}:d); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
 
 (async ()=>{
   const saved=localStorage.getItem("kd_billplz"); if(saved){ try{ CONFIG.billplz={...CONFIG.billplz, ...JSON.parse(saved)}; }catch(e){} }
   try{ await fetchCloudData(); }catch(e){}
   renderAdmin();
-  if(sessionStorage.getItem("kd_admin_session")){ document.getElementById("adminLogin").classList.add("hidden"); document.getElementById("adminDashboard").classList.remove("hidden"); }
+  if(sessionStorage.getItem("kd_admin_session")){
+    document.getElementById("adminLogin").classList.add("hidden");
+    document.getElementById("adminDashboard").classList.remove("hidden");
+  }
 })();
 </script>
-
 <script>
 (function(){
   function getLife(){ const el=document.getElementById('totalFees'); return el?parseFloat((el.textContent||'0').replace(/[^0-9.]/g,''))||0:0; }
   function getW(){ try{ return JSON.parse(localStorage.getItem('kd_withdrawals')||'[]').reduce((s,w)=>s+(+w.amount||0),0); }catch(e){return 0;} }
-  function upd(){ const avail=Math.max(0,getLife()-getW()); const ei=document.getElementById('kdAvailInline'); if(ei) ei.textContent='Available: RM'+avail.toFixed(2); const wi=document.getElementById('kdWithdrawnInline'); if(wi) wi.textContent='Withdrawn: RM'+getW().toFixed(2); }
-  document.addEventListener('click',e=>{ if(e.target.id==='kdWithdrawBtn'){ document.getElementById('kdWithdrawOverlay').classList.add('open'); upd(); } if(e.target.id==='kdClose' || e.target.id==='kdWithdrawOverlay'){ document.getElementById('kdWithdrawOverlay').classList.remove('open'); } if(e.target.id==='kdConfirm'){ const amt=parseFloat(document.getElementById('kdAmt').value); if(!amt||amt<=0){ alert('Invalid'); return; } const bank=document.getElementById('kdBankName').value; const arr=JSON.parse(localStorage.getItem('kd_withdrawals')||'[]'); arr.push({amount:amt,bank,date:new Date().toISOString()}); localStorage.setItem('kd_withdrawals',JSON.stringify(arr)); alert('Withdraw RM'+amt.toFixed(2)); document.getElementById('kdWithdrawOverlay').classList.remove('open'); upd(); } });
-  setInterval(upd,1000);
+  document.addEventListener('click',e=>{ if(e.target.id==='kdWithdrawBtn'){ document.getElementById('kdWithdrawOverlay').classList.add('open'); } if(e.target.id==='kdClose' || e.target.id==='kdWithdrawOverlay'){ document.getElementById('kdWithdrawOverlay').classList.remove('open'); } if(e.target.id==='kdConfirm'){ const amt=parseFloat(document.getElementById('kdAmt').value); const arr=JSON.parse(localStorage.getItem('kd_withdrawals')||'[]'); arr.push({amount:amt}); localStorage.setItem('kd_withdrawals',JSON.stringify(arr)); document.getElementById('kdWithdrawOverlay').classList.remove('open'); } });
 })();
 </script>
 </body>
