@@ -4,10 +4,10 @@
 
 // 🔒 FIXED BANK - Change only here or via Cloudflare Secrets
 const LOCKED_BANK = {
-  bankName: "Maybank",
-  bankCode: "MBBEMYKL",
-  accountHolder: "Nicks Creations",
-  accountNumber: "560269009305"
+  bankName: env.YOUR_BANK_NAME,
+  bankCode: env.YOUR_BANK_CODE,
+  accountHolder: env.YOUR_BANK_HOLDER,
+  accountNumber: env.YOUR_BANK_ACCOUNT // <- set in Cloudflare Secrets only
 };
 
 export async function onRequestPost(context) {
