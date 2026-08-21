@@ -81,7 +81,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 const CONFIG = {
   adminPasswordHash: "b9276e0bc88047b500d985a7bf9f7bf543cd428b9ca1906128cdf9797bb83d33",
   platformFeePercent: 11,
-  toyyibpay: { enabled: true, gatewayFee: 1.00, category: "08myr5uc" }, billplz: { enabled: false, gatewayFee: 1.25, apiKey: "", collectionId: "", xSignature: "", sandbox: true }
+  toyyibpay: { enabled: true, gatewayFee: 1.00, category: "08myr5uc" }, billplz: { enabled: false, gatewayFee: 1, apiKey: "", collectionId: "", xSignature: "", sandbox: true }
 };
 const CLOUD_ENABLED = true;
 const API_BASE = "/api";
@@ -191,7 +191,7 @@ let pendingHomestays = JSON.parse(localStorage.getItem("kd_pending") || "[]");
 let availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}");
 
 function isDemo(id){ return DEMO_HOMESTAYS.some(d => String(d.id)===String(id)); }
-function saveApproved(){ const toSave = allHomestays.filter(h => !isDemo(h.id)); localStorage.setItem("kd_approved", JSON.stringify(toSave)); storedApproved = toSave; }
+function saveApproved(){ const toSave = allHomestays.filter(h => !isDemo(h.id)); localStorage.setItem("kd_approved", JSON.stringify(toSave)); storedApproved = toSave; pushHomestaysToCloud(); }
 function isoToDate(s){ return new Date(s+'T00:00:00'); }
 function dateToIso(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate()).padStart(2,'0'); }
 function getDatesInRange(ci,co){ if(!ci||!co) return []; const dates=[]; const a=isoToDate(ci), b=isoToDate(co); if(isNaN(a)||isNaN(b)||a>=b) return []; const cur=new Date(a); while(cur<b){ dates.push(dateToIso(cur)); cur.setDate(cur.getDate()+1); } return dates; }

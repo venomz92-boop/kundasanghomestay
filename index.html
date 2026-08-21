@@ -480,7 +480,7 @@
         apiKey: "YOUR_BILLPLZ_API_KEY",
         collectionId: "YOUR_COLLECTION_ID",
         xSignature: "YOUR_X_SIGNATURE",
-        gatewayFee: 1.25,
+        gatewayFee: 1,
         splitEnabled: true,
       }
     };
@@ -496,8 +496,51 @@ async function fetchCloudData(){
     const data=await res.json();
     if(data.bookings){ bookings=data.bookings; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
     if(data.availability){ availabilityMap=data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
+    // SYNC HOMESTAYS FROM CLOUD (Fix index-admin sync)
+    if(data.approved !== undefined){ 
+      localStorage.setItem("kd_approved", JSON.stringify(data.approved)); 
+      storedApproved = data.approved;
+    }
+    if(data.demoOverrides !== undefined){ 
+      localStorage.setItem("kd_demo_overrides", JSON.stringify(data.demoOverrides)); 
+      demoOverrides = data.demoOverrides;
+    }
+    if(data.demoBlocked !== undefined){ 
+      localStorage.setItem("kd_demo_blocked", JSON.stringify(data.demoBlocked)); 
+      demoBlockedMap = data.demoBlocked;
+    }
+    if(data.deletedDemo !== undefined){ 
+      localStorage.setItem("kd_deleted_demo", JSON.stringify(data.deletedDemo)); 
+      deletedDemoIds = data.deletedDemo;
+    }
+    // Rebuild allHomestays after cloud sync
+    if(data.approved !== undefined || data.demoOverrides !== undefined || data.demoBlocked !== undefined || data.deletedDemo !== undefined){
+      try{
+        let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id)) && !deletedDemoIds.includes(d.id)).map(d => {
+          let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
+          if (demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
+          return merged;
+        });
+        allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
+        allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = []; return h; });
+        homestays = [...allHomestays];
+      }catch(e){ console.warn("Rebuild homestays fail", e); }
+    }
     return true;
   }catch(e){ console.warn("Cloud fail", e.message); return false; }
+}
+async function pushHomestaysToCloud(){
+  if(!CLOUD_ENABLED) return;
+  try{
+    await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({
+      action:"updateHomestays",
+      approved: storedApproved,
+      demoOverrides: demoOverrides,
+      demoBlocked: demoBlockedMap,
+      deletedDemo: deletedDemoIds
+    })});
+    console.log("☁️ Homestays synced to cloud");
+  }catch(e){ console.warn("Homestays push fail", e); }
 }
 async function pushBookingToCloud(booking, bookedDates){
   if(!CLOUD_ENABLED) return;
@@ -569,6 +612,7 @@ async function pushAvailabilityToCloud(){
 let demoBlockedMap = JSON.parse(localStorage.getItem("kd_demo_blocked") || "{}");
 function saveDemoBlocked(){
   localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap));
+  pushHomestaysToCloud();
 }
 function isDemo(id){
   return DEMO_HOMESTAYS.some(d => String(d.id)===String(id));
@@ -577,6 +621,7 @@ function saveApproved(){
   const toSave = allHomestays.filter(h => !isDemo(h.id));
   localStorage.setItem("kd_approved", JSON.stringify(toSave));
   storedApproved = toSave;
+  pushHomestaysToCloud();
 }
     let storedApproved = JSON.parse(localStorage.getItem("kd_approved") || "[]");
     let demoOverrides = JSON.parse(localStorage.getItem("kd_demo_overrides") || "{}");
@@ -1727,7 +1772,7 @@ function addBlockedDate() {
       if(isDemo){
         if(!deletedDemoIds.includes(id)){
           deletedDemoIds.push(id);
-          localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds));
+          localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds)); pushHomestaysToCloud();
         }
       }
       homestays = homestays.filter(h => h.id !== id);
