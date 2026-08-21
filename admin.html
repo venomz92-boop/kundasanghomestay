@@ -70,7 +70,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
         Callback: /api/toyyibpay-webhook
       </div>
       <div id="liveBankInfo" class="mt-3 p-3 bg-zinc-50 border sharp text-xs">Loading locked bank...</div>
-      <div class="flex gap-2 mt-4"><button onclick="restoreDemos()" class="text-xs border sharp px-3 py-1">Restore Demos</button><button onclick="resetDemoEdits()" class="text-xs border sharp px-3 py-1">Reset Edits</button><button onclick="if(confirm('Clear all bookings?')){localStorage.removeItem('kd_bookings'); bookings=[]; renderAdmin();}" class="text-xs border sharp px-3 py-1 bg-red-50">Clear Bookings (fix duplicates)</button><button onclick="clearAllBookingsCloud()" class="text-xs border sharp px-3 py-1 bg-red-600 text-white">PURGE CLOUD D1 (Fix F5 bug)</button></div>
+      <div class="flex gap-2 mt-4"><button onclick="restoreDemos()" class="text-xs border sharp px-3 py-1">Restore Demos</button><button onclick="resetDemoEdits()" class="text-xs border sharp px-3 py-1">Reset Edits</button><button onclick="if(confirm('Clear all bookings?'){localStorage.removeItem('kd_bookings'); bookings=[]; renderAdmin();}" class="text-xs border sharp px-3 py-1 bg-red-50">Clear Bookings (fix duplicates)</button><button onclick="clearAllBookingsCloud()" class="text-xs border sharp px-3 py-1 bg-red-600 text-white">PURGE CLOUD D1 (Fix F5 bug)</button></div>
     </div>
   </div>
 </div>
@@ -81,74 +81,51 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 const CONFIG = {
   adminPasswordHash: "b9276e0bc88047b500d985a7bf9f7bf543cd428b9ca1906128cdf9797bb83d33",
   platformFeePercent: 11,
-  toyyibpay: { enabled: true, gatewayFee: 1.00, category: "08myr5uc" }, billplz: { enabled: false, gatewayFee: 1, apiKey: "", collectionId: "", xSignature: "", sandbox: true }
+  toyyibpay: { enabled: true, gatewayFee: 1.00, category: "08myr5uc" }, billplz: { enabled: false, gatewayFee: 1.25, apiKey: "", collectionId: "", xSignature: "", sandbox: true }
 };
-const CLOUD_ENABLED = true;
-const API_BASE = "/api";
-
+var CLOUD_ENABLED = true;
+var API_BASE = "/api";
 async function fetchCloudData(){
-  console.log("Fetching cloud data from", API_BASE + "/bookings");
   if(!CLOUD_ENABLED) return false;
   try{
     const res=await fetch(API_BASE + "/bookings", {cache:"no-store"});
     if(!res.ok) throw new Error(res.status);
     const data=await res.json();
-    if(data.bookings && Array.isArray(data.bookings)){
+    if(data.bookings && Array.isArray(data.bookings){
       const map=new Map();
       data.bookings.forEach(b=>{ if(b && b.id) map.set(String(b.id), b); });
       bookings=[...map.values()];
-      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+      localStorage.setItem("kd_bookings", JSON.stringify(bookings);
     }
-    if(data.availability){ availabilityMap=data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
-    if(data.approved !== undefined){ storedApproved=data.approved; localStorage.setItem("kd_approved", JSON.stringify(storedApproved)); }
-    if(data.demoOverrides !== undefined){ demoOverrides=data.demoOverrides; localStorage.setItem("kd_demo_overrides", JSON.stringify(demoOverrides)); pushHomestaysToCloud(); }
-    if(data.demoBlocked !== undefined){ demoBlockedMap=data.demoBlocked; localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap)); }
-    if(data.deletedDemo !== undefined){ deletedDemoIds=data.deletedDemo; localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds)); pushHomestaysToCloud(); }
+    if(data.availability){ availabilityMap=data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap); }
+    if(data.approved !== undefined){ storedApproved=data.approved; localStorage.setItem("kd_approved", JSON.stringify(storedApproved); }
+    if(data.demoOverrides !== undefined){ demoOverrides=data.demoOverrides; localStorage.setItem("kd_demo_overrides", JSON.stringify(demoOverrides); }
+    if(data.demoBlocked !== undefined){ demoBlockedMap=data.demoBlocked; localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap); }
+    if(data.deletedDemo !== undefined){ deletedDemoIds=data.deletedDemo; localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds); }
     try{
-      let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id)) && !deletedDemoIds.includes(d.id)).map(d => {
+      let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id) && !deletedDemoIds.includes(d.id).map(d => {
         let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
         if (demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
         return merged;
       });
-      allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
+      allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h });
       allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = []; return h; });
       homestays = [...allHomestays];
     }catch(e){}
     return true;
-  }catch(e){ console.warn("Cloud fail", e.message); return false; }
+  }catch(e){ return false; }
 }
 async function pushHomestaysToCloud(){
   if(!CLOUD_ENABLED) return;
   try{
-    await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({
-      action:"updateHomestays",
-      approved: storedApproved,
-      demoOverrides: demoOverrides,
-      demoBlocked: demoBlockedMap,
-      deletedDemo: deletedDemoIds
-    })});
+    await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"updateHomestays", approved: storedApproved, demoOverrides: demoOverrides, demoBlocked: demoBlockedMap, deletedDemo: deletedDemoIds})});
   }catch(e){}
 }
 async function fetchCloudDataForAdmin(){ return fetchCloudData(); }
 async function deleteBookingFromCloud(id){ try{ await fetch(API_BASE + "/bookings?id=" + encodeURIComponent(id), {method:"DELETE"}); }catch(e){} }
-async function pushAvailabilityToCloud(){ 
-  try{ await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})}); }catch(e){} 
-}
-async function fetchEarnings(){
-  try{
-    const res = await fetch(API_BASE + "/withdraw", {cache:"no-store"});
-    if(!res.ok) throw new Error("no earnings");
-    const data = await res.json();
-    if(data && data.earnings){
-      const availEl = document.getElementById("kdAvailInline");
-      const withEl = document.getElementById("kdWithdrawnInline");
-      if(availEl) availEl.textContent = "Available: RM"+(data.earnings.available||0).toFixed(2);
-      if(withEl) withEl.textContent = "Withdrawn: RM"+(data.earnings.withdrawn||0).toFixed(2);
-      return data.earnings;
-    }
-  }catch(e){}
-  return null;
-}
+async function pushAvailabilityToCloud(){ try{ await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})}); }catch(e){} }
+async function fetchEarnings(){ try{ const res = await fetch(API_BASE + "/withdraw", {cache:"no-store"}); if(!res.ok) throw new Error("no"); const data = await res.json(); if(data && data.earnings){ const availEl = document.getElementById("kdAvailInline"); const withEl = document.getElementById("kdWithdrawnInline"); if(availEl) availEl.textContent = "Available: RM"+(data.earnings.available||0).toFixed(2); if(withEl) withEl.textContent = "Withdrawn: RM"+(data.earnings.withdrawn||0).toFixed(2); return data.earnings; } }catch(e){} return null; }
+function saveAvailabilityMap(){ localStorage.setItem("kd_availability", JSON.stringify(availabilityMap); pushAvailabilityToCloud(); }
 
 
 const DEMO_HOMESTAYS = [
@@ -194,36 +171,36 @@ const DEMO_HOMESTAYS = [
 
 let deletedDemoIds = JSON.parse(localStorage.getItem("kd_deleted_demo") || "[]");
 let demoBlockedMap = JSON.parse(localStorage.getItem("kd_demo_blocked") || "{}");
-function saveDemoBlocked(){ localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap)); pushHomestaysToCloud(); }
+function saveDemoBlocked(){ localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap); pushHomestaysToCloud(); }
 let storedApproved = JSON.parse(localStorage.getItem("kd_approved") || "[]");
 let demoOverrides = JSON.parse(localStorage.getItem("kd_demo_overrides") || "{}");
-let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d => {
+let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id).map(d => {
   let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
   if (demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
   return merged;
 });
-let allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
+let allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h });
 allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = []; return h; });
 let homestays = [...allHomestays];
 let _rawBookings = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
 let _map=new Map();
-_rawBookings.forEach(b=>{ if(b && b.id && !_map.has(String(b.id))) _map.set(String(b.id), b); });
+_rawBookings.forEach(b=>{ if(b && b.id && !_map.has(String(b.id)) _map.set(String(b.id), b); });
 let bookings=[..._map.values()];
 let pendingHomestays = JSON.parse(localStorage.getItem("kd_pending") || "[]");
 let availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}");
 
-function isDemo(id){ return DEMO_HOMESTAYS.some(d => String(d.id)===String(id)); }
-function saveApproved(){ const toSave = allHomestays.filter(h => !isDemo(h.id)); localStorage.setItem("kd_approved", JSON.stringify(toSave)); storedApproved = toSave; pushHomestaysToCloud(); }
+function isDemo(id){ return DEMO_HOMESTAYS.some(d => String(d.id)===String(id); }
+function saveApproved(){ const toSave = allHomestays.filter(h => !isDemo(h.id); localStorage.setItem("kd_approved", JSON.stringify(toSave); storedApproved = toSave; pushHomestaysToCloud(); }
 function isoToDate(s){ return new Date(s+'T00:00:00'); }
-function dateToIso(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate()).padStart(2,'0'); }
-function getDatesInRange(ci,co){ if(!ci||!co) return []; const dates=[]; const a=isoToDate(ci), b=isoToDate(co); if(isNaN(a)||isNaN(b)||a>=b) return []; const cur=new Date(a); while(cur<b){ dates.push(dateToIso(cur)); cur.setDate(cur.getDate()+1); } return dates; }
-function getAllBlockedDatesForHomestay(h){ if(!h) return []; let blk=[]; if(h.blockedDates) blk=[...blk,...h.blockedDates]; if(availabilityMap[h.id]) blk=[...blk,...availabilityMap[h.id]]; const rel=bookings.filter(b=> b.homestay===h.name || String(b.homestayId)===String(h.id)); rel.forEach(b=>{ if(b.checkin&&b.checkout) blk=[...blk,...getDatesInRange(b.checkin,b.checkout)]; }); return [...new Set(blk)].sort(); }
-function saveAvailabilityMap(){ localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); pushAvailabilityToCloud(); }
+function dateToIso(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate().padStart(2,'0'); }
+function getDatesInRange(ci,co){ if(!ci||!co) return []; const dates=[]; const a=isoToDate(ci), b=isoToDate(co); if(isNaN(a)||isNaN(b)||a>=b) return []; const cur=new Date(a); while(cur<b){ dates.push(dateToIso(cur); cur.setDate(cur.getDate()+1); } return dates; }
+function getAllBlockedDatesForHomestay(h){ if(!h) return []; let blk=[]; if(h.blockedDates) blk=[...blk,...h.blockedDates]; if(availabilityMap[h.id]) blk=[...blk,...availabilityMap[h.id]]; const rel=bookings.filter(b=> b.homestay===h.name || String(b.homestayId)===String(h.id); rel.forEach(b=>{ if(b.checkin&&b.checkout) blk=[...blk,...getDatesInRange(b.checkin,b.checkout)]; }); return [...new Set(blk)].sort(); }
+function saveAvailabilityMap(){ localStorage.setItem("kd_availability", JSON.stringify(availabilityMap); pushAvailabilityToCloud(); }
 function calculateNights(ci,co){ if(!ci||!co) return 1; const d1=new Date(ci), d2=new Date(co); const diff=Math.round((d2-d1)/86400000); return diff>0?diff:1; }
 function calculatePrice(p,n){ n=n||1; const base=p*n; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gw=CONFIG.toyyibpay.enabled?CONFIG.toyyibpay.gatewayFee:0; return {nights:n, base:base, fee:fee, gatewayFee:gw, total:base+fee+gw, youReceive:fee-gw, ownerReceives:base}; }
 function renderAvailabilityCalendar(h,id){ const c=document.getElementById(id); if(!c||!h) return; const blk=getAllBlockedDatesForHomestay(h); const today=new Date(); today.setHours(0,0,0,0); let html='<div class="calendar-mini">'; ["S","M","T","W","T","F","S"].forEach(d=> html+='<div class="text-[10px] text-center font-bold text-zinc-400">'+d+'</div>'); for(let i=0;i<35;i++){ const d=new Date(today); d.setDate(today.getDate()+i); const iso=dateToIso(d); const b=blk.includes(iso); html+='<div class="calendar-day '+(b?'booked':'available')+'">'+d.getDate()+'</div>'; } html+='</div>'; c.innerHTML=html; }
 
-async function sha256(s){ const buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+async function sha256(s){ const buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s); return Array.from(new Uint8Array(buf).map(b=>b.toString(16).padStart(2,'0').join(''); }
 async function adminLogin(){
   const pass=document.getElementById("adminPass").value;
   const hash=await sha256(pass);
@@ -236,17 +213,17 @@ async function adminLogin(){
   } else alert("Wrong password");
 }
 function showAdminTab(tab){
-  ["adminPending","adminApproved","adminBookings","adminAvailability","adminGuests","adminSettings"].forEach(id=> document.getElementById(id).classList.add("hidden"));
+  ["adminPending","adminApproved","adminBookings","adminAvailability","adminGuests","adminSettings"].forEach(id=> document.getElementById(id).classList.add("hidden");
   ["tabPending","tabApproved","tabBookings","tabAvailability","tabGuests","tabSettings"].forEach(id=>{ const el=document.getElementById(id); if(el) el.className="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600"; });
-  document.getElementById("admin"+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.remove("hidden");
-  document.getElementById("tab"+tab.charAt(0).toUpperCase()+tab.slice(1)).className="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase font-700";
+  document.getElementById("admin"+tab.charAt(0).toUpperCase()+tab.slice(1).classList.remove("hidden");
+  document.getElementById("tab"+tab.charAt(0).toUpperCase()+tab.slice(1).className="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase font-700";
   if(tab==='availability') renderAvailabilityTab();
   if(tab==='guests') renderGuestsTable();
   if(tab==='bookings') renderBookingsTable();
 }
 
 function renderAdmin(){
-  const dedup=new Map(); bookings.forEach(b=>{ if(b && b.id && !dedup.has(String(b.id))) dedup.set(String(b.id), b); }); if(dedup.size!==bookings.length){ bookings=[...dedup.values()]; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
+  const dedup=new Map(); bookings.forEach(b=>{ if(b && b.id && !dedup.has(String(b.id)) dedup.set(String(b.id), b); }); if(dedup.size!==bookings.length){ bookings=[...dedup.values()]; localStorage.setItem("kd_bookings", JSON.stringify(bookings); }
   const totalFees=bookings.reduce((s,b)=>s+(b.youReceive||b.fee||0),0);
   const tf=document.getElementById("totalFees"); if(tf) tf.innerText="RM"+totalFees.toFixed(2);
   const pc=document.getElementById("adminPendingCount"); if(pc) pc.innerText=pendingHomestays.length;
@@ -258,7 +235,7 @@ function renderAdmin(){
       const blocked=(h.blockedDates||[]);
       const icName=(h.icName||'').toLowerCase().trim();
       const bankHolder=(h.bankHolder||'').toLowerCase().trim();
-      const match=(icName && bankHolder && (icName.includes(bankHolder.split(' ')[0]) || bankHolder.includes(icName.split(' ')[0]))) ? '✓ Match' : '⚠️ Check';
+      const match=(icName && bankHolder && (icName.includes(bankHolder.split(' ')[0]) || bankHolder.includes(icName.split(' ')[0])) ? '✓ Match' : '⚠️ Check';
       return '<div class="card p-5"><div class="flex gap-4"><img src="'+(h.image||'')+'" class="w-24 h-24 sharp object-cover"/><div class="flex-1"><div class="font-bold">'+(h.name||'Unnamed')+' — '+(h.location||'')+' <span class="text-[10px] bg-zinc-100 px-2 py-0.5 sharp">'+match+'</span></div><div class="text-xs">Owner '+(h.ownerName||'')+' • '+(h.whatsapp||'')+'</div><div class="text-[11px] mt-1 text-zinc-500">'+(h.description||'')+'</div><div class="mt-2 p-2 bg-yellow-50 border sharp text-[11px]">Bank: '+(h.ownerBank||'')+' • Acc: '+(h.ownerBankAccount||'')+' • Holder: '+(h.bankHolder||'')+'</div></div></div><div class="flex gap-2 mt-3"><button onclick="approveHomestay('+h.id+')" class="px-4 py-1.5 bg-green-600 text-white sharp text-xs">Approve</button><button onclick="rejectHomestay('+h.id+')" class="px-4 py-1.5 bg-red-100 text-red-700 sharp text-xs">Reject</button></div></div>';
     }).join("");
   }
@@ -272,7 +249,7 @@ function renderAdmin(){
 
 function renderBookingsTable(){
   const div=document.getElementById("bookingsTable"); if(!div) return;
-  const map=new Map(); bookings.forEach(b=>{ if(b && b.id && !map.has(String(b.id))) map.set(String(b.id), b); }); const clean=[...map.values()]; if(clean.length!==bookings.length){ bookings=clean; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
+  const map=new Map(); bookings.forEach(b=>{ if(b && b.id && !map.has(String(b.id)) map.set(String(b.id), b); }); const clean=[...map.values()]; if(clean.length!==bookings.length){ bookings=clean; localStorage.setItem("kd_bookings", JSON.stringify(bookings); }
   if(bookings.length===0){ div.innerHTML='<div class="text-center text-zinc-500 py-6">No bookings yet.</div>'; return; }
   div.innerHTML='<div class="mb-3 text-[11px] text-zinc-500">Flow: Check-in → Complete → Owner gets Base via ToyyibPay → You keep Fee • No F5 needed <button onclick="renderAdmin()" class="ml-2 border sharp px-2 py-0.5 bg-white">Reload</button></div><div class="space-y-4">'+bookings.map(b=>{
     const status=b.status||"Paid - Awaiting Check-in";
@@ -293,16 +270,16 @@ function renderBookingsTable(){
 }
 
 async function confirmCheckIn(id){
-  const b=bookings.find(x=> String(x.id)===String(id));
+  const b=bookings.find(x=> String(x.id)===String(id);
   if(!b){ alert("Booking not found"); return; }
-  if(b.status && b.status.toLowerCase().includes("payout")){ if(!confirm("Already paid out: "+b.status+"\nPay again?")) return; }
-  const ownerAmount=b.base || Math.round((b.total||0) - (b.fee||0));
+  if(b.status && b.status.toLowerCase().includes("payout"){ if(!confirm("Already paid out: "+b.status+"\nPay again?") return; }
+  const ownerAmount=b.base || Math.round((b.total||0) - (b.fee||0);
   const yourFee=b.youReceive || b.fee || 0;
-  if(!confirm("CHECK-IN FLOW - ToyyibPay Auto\n\nBooking: "+b.id+"\n"+b.homestay+" • "+b.checkin+" → "+b.checkout+" • RM"+b.total+"\nGuest: "+(b.guestName||b.guestEmail)+"\n\nOwner gets: RM"+ownerAmount+" via ToyyibPay Auto\nYou get: RM"+yourFee+" fee\nStatus will auto become Completed\n\nContinue?")) return;
+  if(!confirm("CHECK-IN FLOW - ToyyibPay Auto\n\nBooking: "+b.id+"\n"+b.homestay+" • "+b.checkin+" → "+b.checkout+" • RM"+b.total+"\nGuest: "+(b.guestName||b.guestEmail)+"\n\nOwner gets: RM"+ownerAmount+" via ToyyibPay Auto\nYou get: RM"+yourFee+" fee\nStatus will auto become Completed\n\nContinue?") return;
   try{
     b.status="Checked In - Processing Owner Payout...";
     b.statusUpdated=new Date().toISOString();
-    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+    localStorage.setItem("kd_bookings", JSON.stringify(bookings);
     renderBookingsTable();
     let payoutData=null;
     try{
@@ -324,7 +301,7 @@ async function confirmCheckIn(id){
           checkin: b.checkin
         })
       });
-      payoutData=await res.json().catch(()=>({}));
+      payoutData=await res.json().catch(()=>({});
     }catch(e){ payoutData={simulation:true}; }
     b.status = (payoutData && payoutData.simulation) ? "Completed - Owner Paid RM"+ownerAmount+" via ToyyibPay Auto" : "Completed - Owner Paid RM"+ownerAmount;
     b.payoutDate=new Date().toISOString();
@@ -332,7 +309,7 @@ async function confirmCheckIn(id){
     b.yourFeeEarned=yourFee;
     b.completedDate=new Date().toISOString();
     if(!b.nights) b.nights=calculateNights(b.checkin,b.checkout);
-    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+    localStorage.setItem("kd_bookings", JSON.stringify(bookings);
     // BUG FIX: single updateStatus call (was double + invalid action caused duplicates)
     fetch(API_BASE + '/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id:b.id, status:b.status, booking:b})}).catch(()=>{});
     renderBookingsTable();
@@ -341,39 +318,39 @@ async function confirmCheckIn(id){
   }catch(e){
     alert('Failed: '+e.message);
     b.status="Paid - Awaiting Check-in";
-    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+    localStorage.setItem("kd_bookings", JSON.stringify(bookings);
     renderBookingsTable();
   }
 }
 
 function updateBookingStatus(id, newStatus){
-  const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return;
+  const b=bookings.find(x=> String(x.id)===String(id); if(!b) return;
   if(newStatus==="Checked In"){ return confirmCheckIn(id); }
-  if(!confirm("Change "+id+" from \""+b.status+"\" to \""+newStatus+"\"?")) return;
+  if(!confirm("Change "+id+" from \""+b.status+"\" to \""+newStatus+"\"?") return;
   b.status=newStatus; b.statusUpdated=new Date().toISOString();
   if(!b.nights) b.nights=calculateNights(b.checkin,b.checkout);
-  localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+  localStorage.setItem("kd_bookings", JSON.stringify(bookings);
   renderBookingsTable();
   const tf=document.getElementById("totalFees"); if(tf){ const total=bookings.reduce((s,x)=>s+(x.youReceive||x.fee||0),0); tf.innerText="RM"+total.toFixed(2); }
   fetch('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id, status:newStatus, booking:b})}).catch(()=>{});
 }
 
-function whatsappGuest(id){ const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return; let phone=(b.guestPhone||'').replace(/[^0-9]/g,''); if(phone.startsWith('0')) phone='60'+phone.substring(1); const msg=encodeURIComponent("Hi "+(b.guestName||'Guest')+", booking "+b.id+" for "+b.homestay+" ("+b.checkin+"→"+b.checkout+") is "+b.status+". Total RM"+b.total+"."); window.open("https://wa.me/"+phone+"?text="+msg,'_blank'); }
-function copyBookingId(id){ navigator.clipboard.writeText(id).then(()=> alert("Copied: "+id)); }
-async function deleteBooking(id){
-  if(!confirm("Delete "+id+"? Permanently remove from Cloudflare D1?")) return;
-  const b=bookings.find(x=> String(x.id)===String(id));
+function whatsappGuest(id){ const b=bookings.find(x=> String(x.id)===String(id); if(!b) return; let phone=(b.guestPhone||'').replace(/[^0-9]/g,''); if(phone.startsWith('0') phone='60'+phone.substring(1); const msg=encodeURIComponent("Hi "+(b.guestName||'Guest')+", booking "+b.id+" for "+b.homestay+" ("+b.checkin+"→"+b.checkout+") is "+b.status+". Total RM"+b.total+"."); window.open("https://wa.me/"+phone+"?text="+msg,'_blank'); }
+function copyBookingId(id){ navigator.clipboard.writeText(id).then(()=> alert("Copied: "+id); }
+async async function deleteBooking(id){
+  if(!confirm("Delete "+id+"? Permanently remove from Cloudflare D1?") return;
+  const b=bookings.find(x=> String(x.id)===String(id);
   // Remove from local first
   if(b&&b.checkin&&b.checkout){
     const dates=getDatesInRange(b.checkin,b.checkout);
     const hid=b.homestayId;
     if(availabilityMap[hid]){
-      availabilityMap[hid]=availabilityMap[hid].filter(d=> !dates.includes(d));
+      availabilityMap[hid]=availabilityMap[hid].filter(d=> !dates.includes(d);
       saveAvailabilityMap();
     }
   }
-  bookings=bookings.filter(x=> String(x.id)!==String(id));
-  localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+  bookings=bookings.filter(x=> String(x.id)!==String(id);
+  localStorage.setItem("kd_bookings", JSON.stringify(bookings);
   renderBookingsTable();
 
   // Now delete from Cloudflare D1 and WAIT for response
@@ -396,16 +373,16 @@ async function deleteBooking(id){
   }
 }
 async function clearAllBookingsCloud(){
-  if(!confirm("DELETE ALL bookings from Cloudflare D1? This cannot be undone.")) return;
-  if(!confirm("Really clear ALL? Type OK")) return;
+  if(!confirm("DELETE ALL bookings from Cloudflare D1? This cannot be undone.") return;
+  if(!confirm("Really clear ALL? Type OK") return;
   try{
     const res = await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"clearAll"})});
     const data = await res.json();
     if(res.ok){
       bookings=[];
-      localStorage.setItem("kd_bookings", JSON.stringify([]));
+      localStorage.setItem("kd_bookings", JSON.stringify([]);
       availabilityMap={};
-      localStorage.setItem("kd_availability", JSON.stringify({}));
+      localStorage.setItem("kd_availability", JSON.stringify({});
       alert("All bookings cleared from cloud: "+(data.bookings?.length||0)+" remaining");
       renderAdmin();
     } else {
@@ -413,8 +390,8 @@ async function clearAllBookingsCloud(){
     }
   }catch(e){ alert("Clear error: "+e.message); }
 }
-async function changeBookingDates(id){ const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return; const ci=prompt("New Check-in:", b.checkin); if(!ci) return; const co=prompt("New Check-out:", b.checkout); if(!co) return; const d1=new Date(ci), d2=new Date(co); if(d1>=d2){ alert("Invalid"); return; } const h=homestays.find(h=> String(h.id)===String(b.homestayId) || h.name===b.homestay); const old=getDatesInRange(b.checkin,b.checkout); const temp=getAllBlockedDatesForHomestay(h).filter(d=> !old.includes(d)); const req=getDatesInRange(ci,co); if(req.filter(d=> temp.includes(d)).length>0){ alert("Overlap"); return; } const nights=calculateNights(ci,co); const price=calculatePrice(h.ownerPrice,nights); if(availabilityMap[h.id]) availabilityMap[h.id]=availabilityMap[h.id].filter(d=> !old.includes(d)); if(!availabilityMap[h.id]) availabilityMap[h.id]=[]; req.forEach(d=>{ if(!availabilityMap[h.id].includes(d)) availabilityMap[h.id].push(d); }); availabilityMap[h.id].sort(); saveAvailabilityMap(); b.checkin=ci; b.checkout=co; b.nights=nights; b.base=price.base; b.fee=price.fee; b.total=price.total; b.youReceive=price.youReceive; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); try{ await fetch('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'updateDates', id:b.id, checkin:ci, checkout:co, nights:price.nights, base:price.base, fee:price.fee, total:price.total, youReceive:price.youReceive})}); }catch(e){} renderBookingsTable(); }
-function openOwnerAvailabilityManager(id){ const h=allHomestays.find(x=> String(x.id)===String(id)); if(!h) return; const blocked=getAllBlockedDatesForHomestay(h); const a=prompt("Manage "+h.name+"\nBlocked: "+(blocked.join(", ")||"None")+"\nEnter YYYY-MM-DD, START,END, or clear"); if(a===null) return; if(a==='clear'){ h.blockedDates=[]; availabilityMap[h.id]=[]; if(isDemo(h.id)){demoBlockedMap[h.id]=[]; saveDemoBlocked();} saveAvailabilityMap(); saveApproved(); renderAdmin(); return; } if(a.includes(",")){ const parts=a.split(",").map(x=>x.trim()); const range=getDatesInRange(parts[0],parts[1]); range.forEach(d=>{ if(h.blockedDates.includes(d)) h.blockedDates=h.blockedDates.filter(x=>x!==d); else h.blockedDates.push(d); }); h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); return; } if(h.blockedDates.includes(a)) h.blockedDates=h.blockedDates.filter(d=>d!==a); else h.blockedDates.push(a); h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); }
+async function changeBookingDates(id){ const b=bookings.find(x=> String(x.id)===String(id); if(!b) return; const ci=prompt("New Check-in:", b.checkin); if(!ci) return; const co=prompt("New Check-out:", b.checkout); if(!co) return; const d1=new Date(ci), d2=new Date(co); if(d1>=d2){ alert("Invalid"); return; } const h=homestays.find(h=> String(h.id)===String(b.homestayId) || h.name===b.homestay); const old=getDatesInRange(b.checkin,b.checkout); const temp=getAllBlockedDatesForHomestay(h).filter(d=> !old.includes(d); const req=getDatesInRange(ci,co); if(req.filter(d=> temp.includes(d).length>0){ alert("Overlap"); return; } const nights=calculateNights(ci,co); const price=calculatePrice(h.ownerPrice,nights); if(availabilityMap[h.id]) availabilityMap[h.id]=availabilityMap[h.id].filter(d=> !old.includes(d); if(!availabilityMap[h.id]) availabilityMap[h.id]=[]; req.forEach(d=>{ if(!availabilityMap[h.id].includes(d) availabilityMap[h.id].push(d); }); availabilityMap[h.id].sort(); saveAvailabilityMap(); b.checkin=ci; b.checkout=co; b.nights=nights; b.base=price.base; b.fee=price.fee; b.total=price.total; b.youReceive=price.youReceive; localStorage.setItem("kd_bookings", JSON.stringify(bookings); try{ await fetch('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'updateDates', id:b.id, checkin:ci, checkout:co, nights:price.nights, base:price.base, fee:price.fee, total:price.total, youReceive:price.youReceive})}); }catch(e){} renderBookingsTable(); }
+function openOwnerAvailabilityManager(id){ const h=allHomestays.find(x=> String(x.id)===String(id); if(!h) return; const blocked=getAllBlockedDatesForHomestay(h); const a=prompt("Manage "+h.name+"\nBlocked: "+(blocked.join(", ")||"None")+"\nEnter YYYY-MM-DD, START,END, or clear"); if(a===null) return; if(a==='clear'){ h.blockedDates=[]; availabilityMap[h.id]=[]; if(isDemo(h.id){demoBlockedMap[h.id]=[]; saveDemoBlocked();} saveAvailabilityMap(); saveApproved(); renderAdmin(); return; } if(a.includes(","){ const parts=a.split(",").map(x=>x.trim(); const range=getDatesInRange(parts[0],parts[1]); range.forEach(d=>{ if(h.blockedDates.includes(d) h.blockedDates=h.blockedDates.filter(x=>x!==d); else h.blockedDates.push(d); }); h.blockedDates.sort(); if(isDemo(h.id){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); return; } if(h.blockedDates.includes(a) h.blockedDates=h.blockedDates.filter(d=>d!==a); else h.blockedDates.push(a); h.blockedDates.sort(); if(isDemo(h.id){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); }
 async function loadBankInfo(){
   try{
     const res = await fetch(API_BASE + "/withdraw");
@@ -428,19 +405,19 @@ async function loadBankInfo(){
   }catch(e){}
 }
 setTimeout(loadBankInfo, 1200);
-function renderAvailabilityTab(){ const div=document.getElementById("availabilityTable"); div.innerHTML='<div class="grid md:grid-cols-2 gap-4">'+homestays.map(h=> '<div class="border sharp p-3"><div class="font-bold text-sm">'+h.name+'</div><div id="cal-'+h.id+'" class="mt-2"></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>').join("")+'</div>'; homestays.forEach(h=> renderAvailabilityCalendar(h, 'cal-'+h.id)); }
+function renderAvailabilityTab(){ const div=document.getElementById("availabilityTable"); div.innerHTML='<div class="grid md:grid-cols-2 gap-4">'+homestays.map(h=> '<div class="border sharp p-3"><div class="font-bold text-sm">'+h.name+'</div><div id="cal-'+h.id+'" class="mt-2"></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>').join("")+'</div>'; homestays.forEach(h=> renderAvailabilityCalendar(h, 'cal-'+h.id); }
 function renderGuestsTable(){ const guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); const div=document.getElementById("guestsTable"); if(guests.length===0) div.innerHTML='<div class="text-center text-zinc-500">No guests</div>'; else div.innerHTML=guests.map(g=> '<div class="border sharp p-3 text-sm"><div class="font-bold">'+g.name+' • '+g.email+'</div></div>').join(""); }
-function saveToyyibPayConfig(){ CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value; CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value; CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value; CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true"; localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz)); alert("Saved"); }
-function approveHomestay(id){ const idx=pendingHomestays.findIndex(h=> h.id==id); if(idx===-1) return; const h=pendingHomestays[idx]; h.approved=true; h.verified=true; allHomestays.push(h); homestays.push(h); storedApproved.push(h); saveApproved(); pendingHomestays.splice(idx,1); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
-function rejectHomestay(id){ if(!confirm("Reject?")) return; pendingHomestays=pendingHomestays.filter(h=> h.id!=id); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
-function restoreDemos(){ if(!confirm("Restore?")) return; localStorage.removeItem("kd_deleted_demo"); deletedDemoIds=[]; const base=DEMO_HOMESTAYS.map(d=> demoOverrides[d.id]?{...d, ...demoOverrides[d.id]}:d); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
-function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeItem("kd_demo_overrides"); demoOverrides={}; const base=DEMO_HOMESTAYS.filter(d=> !deletedDemoIds.includes(d.id)); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
+function saveToyyibPayConfig(){ CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value; CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value; CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value; CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true"; localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz); alert("Saved"); }
+function approveHomestay(id){ const idx=pendingHomestays.findIndex(h=> h.id==id); if(idx===-1) return; const h=pendingHomestays[idx]; h.approved=true; h.verified=true; allHomestays.push(h); homestays.push(h); storedApproved.push(h); saveApproved(); pendingHomestays.splice(idx,1); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays); renderAdmin(); }
+function rejectHomestay(id){ if(!confirm("Reject?") return; pendingHomestays=pendingHomestays.filter(h=> h.id!=id); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays); renderAdmin(); }
+function restoreDemos(){ if(!confirm("Restore?") return; localStorage.removeItem("kd_deleted_demo"); deletedDemoIds=[]; const base=DEMO_HOMESTAYS.map(d=> demoOverrides[d.id]?{...d, ...demoOverrides[d.id]}:d); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
+function resetDemoEdits(){ if(!confirm("Reset?") return; localStorage.removeItem("kd_demo_overrides"); demoOverrides={}; const base=DEMO_HOMESTAYS.filter(d=> !deletedDemoIds.includes(d.id); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
 
 (async ()=>{
   const saved=localStorage.getItem("kd_billplz"); if(saved){ try{ CONFIG.billplz={...CONFIG.billplz, ...JSON.parse(saved)}; }catch(e){} }
   try{ await fetchCloudData(); }catch(e){}
   renderAdmin();
-  if(sessionStorage.getItem("kd_admin_session")){
+  if(sessionStorage.getItem("kd_admin_session"){
     document.getElementById("adminLogin").classList.add("hidden");
     document.getElementById("adminDashboard").classList.remove("hidden");
   }
@@ -461,7 +438,7 @@ function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeIte
         // total = available + withdrawn + simulation fallback
         if(data.earnings.total>0 && totalFeesEl){
           // keep totalFees as total earnings (available+withdrawn) if larger than local calc
-          const localTotal = parseFloat((totalFeesEl.textContent||'0').replace(/[^0-9.]/g,''))||0;
+          const localTotal = parseFloat((totalFeesEl.textContent||'0').replace(/[^0-9.]/g,'')||0;
           if(data.earnings.total > localTotal){
             // don't override if local is sum of all bookings, but show available correctly
           }
@@ -496,13 +473,13 @@ function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeIte
         });
         const data = await res.json();
         if(!res.ok){
-          alert("Withdraw failed: " + (data.error||JSON.stringify(data)));
+          alert("Withdraw failed: " + (data.error||JSON.stringify(data));
         } else {
           alert("Withdraw success: RM"+amt.toFixed(2)+" locked to your locked bank\n"+data.message);
           // Update local storage for backward compat
           const arr = JSON.parse(localStorage.getItem('kd_withdrawals')||'[]');
           arr.push({amount:amt, date:new Date().toISOString(), id:data.withdrawal?.id});
-          localStorage.setItem('kd_withdrawals',JSON.stringify(arr));
+          localStorage.setItem('kd_withdrawals',JSON.stringify(arr);
           document.getElementById('kdWithdrawOverlay').classList.remove('open');
           amtInput.value = "";
           await refreshEarningsUI();
