@@ -1,3 +1,4 @@
+function getDB(env){ return env.DB || env.D1 || env.MY_DB || env.DATABASE || env.KUNDASANG_DB || env.STORE || null; }
 // /api/bookings - with PENDING SYNC FIX
 // Handles bookings + pending homestays for multi-device sync
 
@@ -60,10 +61,42 @@ export async function onRequestPost(context) {
 
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-    // Handle pending sync
+    // Handle pending sync - MERGE
     if (action === "updatePending" || pending !== undefined) {
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(pending || [])).run();
-      console.log("Pending updated:", (pending||[]).length);
+      let existingPending = [];
+      try{
+        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
+        if(r && r.data) existingPending = JSON.parse(r.data);
+      }catch(e){}
+      let incoming = pending || [];
+      if(incoming.length === 0 && existingPending.length > 0){
+        console.log("Pending empty, keeping existing:", existingPending.length);
+      } else {
+        const map = new Map();
+        [...existingPending, ...incoming].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
+        const merged = [...map.values()];
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(merged)).run();
+        console.log("Pending merged:", existingPending.length, "+", incoming.length, "=", merged.length);
+      }
+    }
+
+    // Handle guests sync - MERGE BY EMAIL
+    if (action === "updateGuests" || guests !== undefined) {
+      let existingGuests = [];
+      try{
+        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
+        if(r && r.data) existingGuests = JSON.parse(r.data);
+      }catch(e){}
+      let incomingGuests = guests || [];
+      if(incomingGuests.length === 0 && existingGuests.length > 0){
+        console.log("Guests empty, keeping existing:", existingGuests.length);
+      } else {
+        const map = new Map();
+        [...existingGuests, ...incomingGuests].forEach(g=>{ if(g && (g.email||g.id)) map.set(String(g.email||g.id).toLowerCase(), g); });
+        const merged = [...map.values()];
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_guests", JSON.stringify(merged)).run();
+        console.log("Guests merged:", existingGuests.length, "+", incomingGuests.length, "=", merged.length);
+      }
     }
 
     if (action === "updateHomestays" || approved !== undefined) {
@@ -108,7 +141,7 @@ export async function onRequestPost(context) {
     }
 
     // Handle single new pending homestay
-    if (body.new && !pending) {
+    if (body.new && !pending && !guests) {
       let existingPending = [];
       try {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
