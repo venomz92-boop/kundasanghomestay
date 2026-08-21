@@ -80,15 +80,18 @@ export async function onRequestPost(context) {
       }
     }
 
-    // Handle guests sync - MERGE BY EMAIL
-    if (action === "updateGuests" || guests !== undefined) {
+    // Handle guests sync - MERGE + OVERWRITE for delete
+    if (action === "updateGuests" || action === "overwriteGuests" || action === "deleteGuest" || guests !== undefined) {
       let existingGuests = [];
       try{
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
         if(r && r.data) existingGuests = JSON.parse(r.data);
       }catch(e){}
       let incomingGuests = guests || [];
-      if(incomingGuests.length === 0 && existingGuests.length > 0){
+      if(action === "overwriteGuests" || action === "deleteGuest"){
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_guests", JSON.stringify(incomingGuests)).run();
+        console.log("Guests OVERWRITTEN:", incomingGuests.length, "was", existingGuests.length);
+      } else if(incomingGuests.length === 0 && existingGuests.length > 0){
         console.log("Guests empty, keeping existing:", existingGuests.length);
       } else {
         const map = new Map();
@@ -141,14 +144,12 @@ export async function onRequestPost(context) {
       }
     }
 
-    // Handle single booking - support both direct and nested {booking, bookedDates}
+    // Handle single booking - support nested {booking, bookedDates}
     let singleBooking = null;
     if (body.id && body.checkin) {
       singleBooking = body;
     } else if (body.booking && body.booking.id && body.booking.checkin) {
       singleBooking = body.booking;
-    } else if (body.bookingId && body.checkin) {
-      singleBooking = body;
     }
     
     if (singleBooking) {
@@ -157,14 +158,12 @@ export async function onRequestPost(context) {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
         if (r && r.data) existing = JSON.parse(r.data);
       } catch(e){}
-      // Deduplicate by id
       const map = new Map();
       [...existing, singleBooking].forEach(b=>{ if(b && b.id) map.set(String(b.id), b); });
       const merged = [...map.values()];
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
       console.log("Booking added:", singleBooking.id, "total:", merged.length);
       
-      // Also handle bookedDates -> availability
       let datesToBlock = body.bookedDates || singleBooking.bookedDates || [];
       if(datesToBlock.length > 0 && singleBooking.homestayId){
         try{
@@ -174,20 +173,21 @@ export async function onRequestPost(context) {
           if(!avail[singleBooking.homestayId]) avail[singleBooking.homestayId] = [];
           datesToBlock.forEach(d=>{ if(!avail[singleBooking.homestayId].includes(d)) avail[singleBooking.homestayId].push(d); });
           await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(avail)).run();
-          console.log("Availability updated for", singleBooking.homestayId, datesToBlock.length, "dates");
-        }catch(e){ console.warn("Availability update fail", e); }
+        }catch(e){}
       }
     }
 
     // Handle single new pending homestay
-    if (body.new && !pending && !guests) {
+    if (body.new && !pending && !guests && !singleBooking) {
       let existingPending = [];
       try {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
-        if (r) existingPending = JSON.parse(r.data);
+        if (r && r.data) existingPending = JSON.parse(r.data);
       } catch(e){}
-      existingPending.push(body.new);
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(existingPending)).run();
+      const map = new Map();
+      [...existingPending, body.new].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
+      const merged = [...map.values()];
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(merged)).run();
     }
 
     return new Response(JSON.stringify({ success: true, message: "Synced" }), {
