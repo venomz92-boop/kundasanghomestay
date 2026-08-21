@@ -552,7 +552,7 @@ async function checkCloudRaw(){
   }catch(e){ alert("Check failed: "+e.message); }
 }
 
-async async function deleteGuest(idx){ 
+async function deleteGuest(idx){ 
   if(!confirm('Delete this guest? They will not be able to login again and will see "This account is not exist"')) return; 
   let guests=[]; 
   try{ guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); }catch(e){} 
