@@ -381,7 +381,7 @@ function updateBookingStatus(id, newStatus){
 
 function whatsappGuest(id){ const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return; let phone=(b.guestPhone||'').replace(/[^0-9]/g,''); if(phone.startsWith('0')) phone='60'+phone.substring(1); const msg=encodeURIComponent("Hi "+(b.guestName||'Guest')+", booking "+b.id+" for "+b.homestay+" ("+b.checkin+"→"+b.checkout+") is "+b.status+". Total RM"+b.total+"."); window.open("https://wa.me/"+phone+"?text="+msg,'_blank'); }
 function copyBookingId(id){ navigator.clipboard.writeText(id).then(()=> alert("Copied: "+id)); }
-async async function deleteBooking(id){
+async function deleteBooking(id){
   if(!confirm("Delete "+id+"? Permanently remove from Cloudflare D1?")) return;
   const b=bookings.find(x=> String(x.id)===String(id));
   // Remove from local first
@@ -488,7 +488,8 @@ function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeIte
           }
         }
       }
-    }catch(e){ console.warn("Earnings UI refresh fail", e); }
+    }
+    catch(e){ console.warn("Earnings UI refresh fail", e); }
   }
   // Refresh on load
   setTimeout(refreshEarningsUI, 1000);
