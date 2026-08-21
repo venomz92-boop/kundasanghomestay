@@ -160,21 +160,53 @@ export async function onRequestPost(context) {
       }
     }
 
+    // --- FIXED: Only save keys that were actually changed to prevent race resurrection ---
+    const isBookingsAction = ["delete","update","updateStatus","updateDates","clearAll",null,undefined].includes(body.action) || !body.action;
+    const isAvailAction = ["delete","updateDates","updateAvailability","clearAll",null,undefined].includes(body.action) || body.availability;
+    const isHomestayAction = ["updateHomestays","updateApproved","updateDemoOverrides","updateDemoBlocked","updateDeletedDemo"].includes(body.action);
+
     if (db) {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(availability)).run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_approved", JSON.stringify(approved)).run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_overrides", JSON.stringify(demoOverrides)).run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_blocked", JSON.stringify(demoBlocked)).run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_deleted_demo", JSON.stringify(deletedDemo)).run();
+      if (body.action === "updateHomestays") {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_approved", JSON.stringify(approved)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_overrides", JSON.stringify(demoOverrides)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_blocked", JSON.stringify(demoBlocked)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_deleted_demo", JSON.stringify(deletedDemo)).run();
+      } else if (body.action === "updateApproved") {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_approved", JSON.stringify(approved)).run();
+      } else if (body.action === "updateDemoOverrides") {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_overrides", JSON.stringify(demoOverrides)).run();
+      } else if (body.action === "updateDemoBlocked") {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_blocked", JSON.stringify(demoBlocked)).run();
+      } else if (body.action === "updateDeletedDemo") {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_deleted_demo", JSON.stringify(deletedDemo)).run();
+      } else if (body.action === "updateAvailability") {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(availability)).run();
+      } else {
+        // bookings-related actions: delete, update, updateStatus, updateDates, clearAll, create
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(availability)).run();
+      }
     } else if (kv) {
-      await kv.put("kd_bookings", JSON.stringify(bookings));
-      await kv.put("kd_availability", JSON.stringify(availability));
-      await kv.put("kd_approved", JSON.stringify(approved));
-      await kv.put("kd_demo_overrides", JSON.stringify(demoOverrides));
-      await kv.put("kd_demo_blocked", JSON.stringify(demoBlocked));
-      await kv.put("kd_deleted_demo", JSON.stringify(deletedDemo));
+      if (body.action === "updateHomestays") {
+        await kv.put("kd_approved", JSON.stringify(approved));
+        await kv.put("kd_demo_overrides", JSON.stringify(demoOverrides));
+        await kv.put("kd_demo_blocked", JSON.stringify(demoBlocked));
+        await kv.put("kd_deleted_demo", JSON.stringify(deletedDemo));
+      } else if (body.action === "updateApproved") {
+        await kv.put("kd_approved", JSON.stringify(approved));
+      } else if (body.action === "updateDemoOverrides") {
+        await kv.put("kd_demo_overrides", JSON.stringify(demoOverrides));
+      } else if (body.action === "updateDemoBlocked") {
+        await kv.put("kd_demo_blocked", JSON.stringify(demoBlocked));
+      } else if (body.action === "updateDeletedDemo") {
+        await kv.put("kd_deleted_demo", JSON.stringify(deletedDemo));
+      } else if (body.action === "updateAvailability") {
+        await kv.put("kd_availability", JSON.stringify(availability));
+      } else {
+        await kv.put("kd_bookings", JSON.stringify(bookings));
+        await kv.put("kd_availability", JSON.stringify(availability));
+      }
     }
 
     return new Response(JSON.stringify({ success: true, bookings, availability, approved, demoOverrides, demoBlocked, deletedDemo }), { headers: { ...cors(), "Content-Type": "application/json" } });
