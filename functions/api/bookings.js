@@ -19,7 +19,7 @@ export async function onRequestGet(context) {
     try {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
       
-      const keys = ["kd_bookings", "kd_availability", "kd_approved", "kd_demo_overrides", "kd_demo_blocked", "kd_deleted_demo", "kd_pending", "kd_guests"];
+      const keys = ["kd_bookings", "kd_availability", "kd_approved", "kd_demo_overrides", "kd_demo_blocked", "kd_deleted_demo", "kd_pending", "kd_guests", "kd_banned_guests"];
       for (const key of keys) {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
         if (r) {
@@ -33,6 +33,7 @@ export async function onRequestGet(context) {
             else if (key === "kd_deleted_demo") data.deletedDemo = parsed;
             else if (key === "kd_pending") data.pending = parsed;
             else if (key === "kd_guests") data.guests = parsed;
+            else if (key === "kd_banned_guests") data.bannedGuests = parsed;
           } catch(e){}
         }
       }
@@ -89,7 +90,6 @@ export async function onRequestPost(context) {
       let incomingGuests = guests || [];
       if(action === "overwriteGuests" || action === "deleteGuest"){
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_guests", JSON.stringify(incomingGuests)).run();
-        console.log("Guests OVERWRITTEN:", incomingGuests.length);
       } else if(incomingGuests.length === 0 && existingGuests.length > 0){
         console.log("Guests empty, keeping existing:", existingGuests.length);
       } else {
@@ -97,6 +97,30 @@ export async function onRequestPost(context) {
         [...existingGuests, ...incomingGuests].forEach(g=>{ if(g && (g.email||g.id)) map.set(String(g.email||g.id).toLowerCase(), g); });
         const merged = [...map.values()];
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_guests", JSON.stringify(merged)).run();
+      }
+    }
+
+    // Banned guests - BLOCK LOGIN
+    if (action === "banGuest" || action === "overwriteBanned" || body.bannedGuests !== undefined) {
+      let existingBanned = [];
+      try{
+        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_banned_guests").first();
+        if(r && r.data) existingBanned = JSON.parse(r.data);
+      }catch(e){}
+      
+      let incomingBanned = body.bannedGuests || [];
+      if(action === "banGuest" && body.email){
+        const email = String(body.email).toLowerCase();
+        if(!existingBanned.includes(email)) existingBanned.push(email);
+        incomingBanned = existingBanned;
+      }
+      
+      if(action === "overwriteBanned" || action === "banGuest"){
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_banned_guests", JSON.stringify(incomingBanned)).run();
+        console.log("Banned guests updated:", incomingBanned.length);
+      } else if(incomingBanned.length > 0){
+        const merged = [...new Set([...existingBanned, ...incomingBanned.map(e=>String(e).toLowerCase())])];
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_banned_guests", JSON.stringify(merged)).run();
       }
     }
 
@@ -131,6 +155,7 @@ export async function onRequestPost(context) {
           if(r && r.data) existing = JSON.parse(r.data);
         }catch(e){}
         if(b.length === 0 && existing.length > 0){
+          // keep existing if empty push (protect against accidental wipe)
           console.log("Bookings empty, keeping existing:", existing.length);
         } else {
           const map = new Map();
@@ -141,7 +166,7 @@ export async function onRequestPost(context) {
       }
     }
 
-    // Single booking - handle nested {booking, bookedDates}
+    // Single booking - handle nested {booking, bookedDates} from index.html
     let singleBooking = null;
     if (body.id && body.checkin) {
       singleBooking = body;
@@ -160,7 +185,6 @@ export async function onRequestPost(context) {
       const merged = [...map.values()];
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
       
-      // Update availability
       let datesToBlock = body.bookedDates || singleBooking.bookedDates || [];
       if(datesToBlock.length === 0 && singleBooking.checkin && singleBooking.checkout){
         try{
@@ -222,7 +246,6 @@ export async function onRequestDelete(context) {
       
       bookings = bookings.filter(b => String(b.id) !== String(id));
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
-      console.log("Deleted booking", id, "remaining:", bookings.length);
       
       if(toDelete){
         try{
@@ -231,19 +254,8 @@ export async function onRequestDelete(context) {
           if(r2 && r2.data) avail = JSON.parse(r2.data);
           
           const homestayId = toDelete.homestayId || toDelete.homestay || toDelete.homestay_id;
-          let datesToRemove = toDelete.bookedDates || [];
-          if(datesToRemove.length === 0 && toDelete.checkin && toDelete.checkout){
-            try{
-              const start = new Date(toDelete.checkin);
-              const end = new Date(toDelete.checkout);
-              for(let d = new Date(start); d < end; d.setDate(d.getDate()+1)){
-                datesToRemove.push(d.toISOString().split('T')[0]);
-              }
-            }catch(e){}
-          }
           
           if(homestayId){
-            // Rebuild availability from remaining bookings for this homestay
             const remainingDates = new Set();
             bookings.filter(b => String(b.homestayId) === String(homestayId) || String(b.homestay) === String(homestayId)).forEach(b=>{
               (b.bookedDates||[]).forEach(d=> remainingDates.add(d));
@@ -265,11 +277,10 @@ export async function onRequestDelete(context) {
             }
             
             await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(avail)).run();
-            console.log("Availability rebuilt for", homestayId, "remaining dates:", remainingDates.size);
           }
-        }catch(e){ console.warn("Availability clear fail", e); }
+        }catch(e){}
       }
-    } catch(e){ console.warn("Delete fail", e); }
+    } catch(e){}
   }
 
   return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders() });
