@@ -1513,33 +1513,7 @@ function addBlockedDate() {
       };
 
       pendingHomestays.push(newHome);
-      // Try save to localStorage, but handle quota exceeded (base64 photos are huge)
-      try{
-        localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
-      }catch(e){
-        console.warn("LocalStorage quota exceeded, trying without images:", e);
-        try{
-          // Save without big images to fit quota
-          const smallPending = pendingHomestays.map(h=>{
-            const copy = {...h};
-            if(copy.image && copy.image.length>500) copy.image = copy.image.substring(0,500)+"...TRUNCATED";
-            if(copy.images) copy.images = copy.images.map(img=> img.length>500 ? img.substring(0,500)+"...TRUNCATED" : img);
-            if(copy.icImage && copy.icImage.length>500) copy.icImage = "IC_UPLOADED";
-            return copy;
-          });
-          localStorage.setItem("kd_pending", JSON.stringify(smallPending));
-          console.log("Saved small version to localStorage");
-        }catch(e2){
-          console.error("Even small version failed, clearing old pending and saving new only:", e2);
-          try{
-            localStorage.removeItem("kd_pending");
-            localStorage.removeItem("kd_bookings");
-            localStorage.setItem("kd_pending", JSON.stringify([newHome]));
-          }catch(e3){
-            console.error("LocalStorage completely full, can't save locally, but will still try cloud:", e3);
-          }
-        }
-      }
+      localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
 
       alert(`Submitted!\n\n"${homestayName}" is now Pending approval.\nOnly shows on homepage after admin approves.\nYou will get Verified Owner badge after approval.`);
       
@@ -2098,28 +2072,53 @@ function addBlockedDate() {
       }
     }
 
-    function registerGuest() {
+        async function registerGuest() {
       console.log("registerGuest called");
       try {
         const nameEl = document.getElementById("regName");
         const emailEl = document.getElementById("regEmail");
         const phoneEl = document.getElementById("regPhone");
         const passEl = document.getElementById("regPassword");
-        if (!nameEl || !emailEl || !phoneEl || !passEl) { showAuthMessage("Form error - refresh page", true); return; }
+        if (!nameEl || !emailEl || !phoneEl || !passEl) { showAuthMessage("Form error", true); return; }
         const name = nameEl.value.trim();
         const email = emailEl.value.trim().toLowerCase();
         const phone = phoneEl.value.trim();
         const password = passEl.value;
-        if (!name || !email || !phone || !password) { showAuthMessage("Fill all fields: Name, Email, WhatsApp, Password", true); return; }
+        if (!name || !email || !phone || !password) { showAuthMessage("Please fill all fields *", true); return; }
+        if (!email.includes("@")) { showAuthMessage("Invalid email", true); return; }
         if (password.length < 6) { showAuthMessage("Password min 6 characters", true); return; }
         if (guests.some(g => g.email === email)) { showAuthMessage("Email already registered, please login", true); switchGuestAuth('login'); return; }
         const newGuest = { id: "G-" + Date.now(), name, email, phone, password, createdAt: new Date().toISOString(), bookingsCount: 0 };
         guests.push(newGuest);
         saveGuests();
+        
+        // === FIX: SYNC GUESTS TO CLOUD FOR ADMIN PANEL ===
+        try{
+          const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
+          console.log("Syncing guests to cloud:", guests.length);
+          const res1 = await fetch(base + "/bookings", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({action:"updateGuests", guests: guests})
+          });
+          const data1 = await res1.json().catch(()=>({}));
+          console.log("✅ Guests sync to bookings:", res1.status, data1);
+          
+          const res2 = await fetch(base + "/pending", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({guests: guests})
+          });
+          const data2 = await res2.json().catch(()=>({}));
+          console.log("✅ Guests sync to pending:", res2.status, data2);
+        }catch(e){
+          console.warn("Guests cloud sync failed (will still work locally):", e);
+        }
+        
         currentGuest = { id: newGuest.id, name: newGuest.name, email: newGuest.email, phone: newGuest.phone };
         saveCurrentGuest();
         renderGuestNav();
-        showAuthMessage("Welcome " + name + "! Account created. Logged in as " + email);
+        showAuthMessage("Welcome " + name + "! Account created. Logged in as " + email + "<br><small>Synced to admin panel</small>");
         setTimeout(() => { closeGuestAuth(); renderMyBookings(); }, 800);
       } catch(e) {
         console.error(e);
@@ -2517,57 +2516,6 @@ function sendContactEmail(){
     </div>
   </div>
 </div>
-
-
-<div id="debugPushPanel" style="position:fixed;bottom:10px;right:10px;z-index:9999;background:yellow;padding:8px;border:2px solid red;font-size:11px;max-width:300px;">
-<b>DEBUG: Pending Sync</b><br>
-<span id="debugPendingCount">Local: 0</span><br>
-<button onclick="forcePushPending()" style="background:blue;color:white;padding:4px 8px;margin:2px;">Force Push to Cloud</button>
-<button onclick="checkPendingStatus()" style="background:green;color:white;padding:4px 8px;margin:2px;">Check Cloud</button>
-<button onclick="document.getElementById('debugPushPanel').style.display='none'" style="background:gray;color:white;padding:2px 6px;">X</button>
-<div id="debugLog" style="max-height:100px;overflow:auto;background:white;margin-top:4px;padding:2px;font-size:10px;"></div>
-</div>
-<script>
-function logDebug(msg){
-  console.log(msg);
-  const el=document.getElementById('debugLog');
-  if(el) el.innerHTML += '<div>'+new Date().toLocaleTimeString()+': '+msg+'</div>';
-}
-function updateDebugCount(){
-  try{
-    const pending = JSON.parse(localStorage.getItem('kd_pending')||'[]');
-    const el=document.getElementById('debugPendingCount');
-    if(el) el.textContent = 'Local: '+pending.length+' pending';
-  }catch(e){}
-}
-async function forcePushPending(){
-  try{
-    const pending = JSON.parse(localStorage.getItem('kd_pending')||'[]');
-    logDebug('Local pending: '+pending.length);
-    if(pending.length===0){ alert('No local pending to push! Register first'); return; }
-    logDebug('Pushing to /api/bookings...');
-    const res1 = await fetch('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updatePending', pending})});
-    const data1 = await res1.json().catch(()=>({}));
-    logDebug('Bookings: '+res1.status+' '+(data1.saved||data1.error||'ok'));
-    logDebug('Pushing to /api/pending...');
-    const res2 = await fetch('/api/pending', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({pending})});
-    const data2 = await res2.json().catch(()=>({}));
-    logDebug('Pending: '+res2.status+' count:'+(data2.count||data2.error));
-    alert('Push done!\nBookings: '+res1.status+'\nPending: '+res2.status+'\nCount: '+(data2.count||data1.pending||'?')+'\nNow check admin Force Sync');
-    updateDebugCount();
-  }catch(e){ logDebug('Error: '+e.message); alert('Push error: '+e.message); }
-}
-async function checkPendingStatus(){
-  try{
-    const res = await fetch('/api/bookings', {cache:'no-store'});
-    const data = await res.json();
-    logDebug('Cloud pending: '+(data.pending?.length||0)+' hasDB:'+data._debug?.hasDB);
-    alert('Cloud pending: '+(data.pending?.length||0)+'\nHasDB: '+data._debug?.hasDB+'\nSee debug panel for details');
-  }catch(e){ logDebug('Check error: '+e.message); }
-}
-setInterval(updateDebugCount, 2000);
-setTimeout(updateDebugCount, 500);
-</script>
 
 </body>
 </html>

@@ -44,7 +44,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
     <h2 class="text-3xl font-bold">Admin — ToyyibPay Auto Payout</h2><div class="text-[11px] text-zinc-500 mt-1">Malaysia Time: <span id="myTimeNow"></span> • Timezone: Asia/Kuala_Lumpur (UTC+8)</div>
     <div class="grid md:grid-cols-3 gap-4 mt-6">
       <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11%)</div><div id="totalFees" class="text-3xl font-bold mt-1">RM0</div><div class="text-[11px] mt-1">After gateway fee RM1 • Owner gets Base via ToyyibPay Auto on Check-in</div><div class="text-[11px] mt-2"><span id="kdAvailInline">Available: RM0</span> • <span id="kdWithdrawnInline">Withdrawn: RM0</span> <button onclick="resetWithdrawn()" class="ml-2 text-[10px] px-2 py-0.5 bg-red-600 text-white sharp">Reset to 0</button></div><button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw Earnings</button></div>
-      <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Pending</div><div id="adminPendingCount" class="text-3xl font-bold mt-1">0</div><div class="text-[10px] text-zinc-500 mt-1"><span id="debugPendingInfo">Local: 0 | Cloud: ?</span><br><button onclick="forceSyncPending()" class="mt-1 border sharp px-2 py-0.5 bg-blue-600 text-white">Force Sync Now</button><button onclick="checkCloudRaw()" class="mt-1 ml-1 border sharp px-2 py-0.5 bg-zinc-100">Check Cloud Raw</button></div></div>
+      <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Pending</div><div id="adminPendingCount" class="text-3xl font-bold mt-1">0</div></div>
       <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">ToyyibPay Status</div><div id="billplzStatus" class="text-sm font-bold mt-1">Simulation</div><div class="text-[11px] mt-1">Check-in = complete + auto ToyyibPay to owner</div></div>
     </div>
     <div class="flex gap-2 mt-6 flex-wrap">
@@ -121,11 +121,13 @@ async function fetchCloudData(){
     if(!res.ok) throw new Error(res.status);
     const data=await res.json();
     if(data.bookings && Array.isArray(data.bookings)){
+      // FIXED: Deduplicate and respect cloud as source of truth AFTER delete
       const map=new Map();
       data.bookings.forEach(b=>{ if(b && b.id) map.set(String(b.id), b); });
       bookings=[...map.values()];
       localStorage.setItem("kd_bookings", JSON.stringify(bookings));
     } else if(data.bookings && data.bookings.length===0){
+      // Explicit empty means cloud was purged - honor it
       bookings=[];
       localStorage.setItem("kd_bookings", JSON.stringify(bookings));
     }
@@ -149,59 +151,6 @@ async function fetchCloudData(){
       deletedDemoIds=data.deletedDemo;
       localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds));
     }
-    // === FIX: SYNC PENDING FROM CLOUD - MERGE, DON'T OVERWRITE ===
-    if(data.pending !== undefined && Array.isArray(data.pending)){
-      console.log("Cloud pending found:", data.pending.length, "Local pending:", pendingHomestays.length);
-      if(data.pending.length > 0){
-        // Merge cloud + local, deduplicate by id
-        const map = new Map();
-        [...pendingHomestays, ...data.pending].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
-        const merged = [...map.values()];
-        if(merged.length !== pendingHomestays.length){
-          console.log("Merged pending:", pendingHomestays.length, "->", merged.length);
-          pendingHomestays = merged;
-          localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
-        } else if(data.pending.length > pendingHomestays.length){
-          // Cloud has more than local, use cloud
-          pendingHomestays = data.pending;
-          localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
-        }
-      } else {
-        console.log("Cloud pending empty, keeping local:", pendingHomestays.length);
-        // Don't overwrite local with empty cloud
-      }
-    } else {
-      console.log("No pending field in cloud response:", Object.keys(data));
-    }
-
-    // === EXTRA: Try separate pending endpoints (for other phone registration) ===
-    try{
-      // Try /api/pending
-      const pendingEndpoints = ["/pending", "/homestays?status=pending", "/homestays/pending", "/bookings?pending=true"];
-      for(const ep of pendingEndpoints){
-        try{
-          const r = await fetch(API_BASE + ep, {cache:"no-store"});
-          if(r.ok){
-            const d = await r.json();
-            let cloudPending = null;
-            if(Array.isArray(d)) cloudPending = d;
-            else if(d.pending && Array.isArray(d.pending)) cloudPending = d.pending;
-            else if(d.data && Array.isArray(d.data)) cloudPending = d.data;
-            if(cloudPending && cloudPending.length>0){
-              console.log("Found pending via", ep, cloudPending.length);
-              // Merge with local pending, deduplicate by id
-              const map = new Map();
-              [...pendingHomestays, ...cloudPending].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
-              pendingHomestays = [...map.values()];
-              localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
-              break;
-            }
-          }
-        }catch(e){ /* try next endpoint */ }
-      }
-    }catch(e){ console.warn("Pending extra fetch fail", e); }
-
-
     try{
       let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id)) && !deletedDemoIds.includes(d.id)).map(d => {
         let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
@@ -215,43 +164,9 @@ async function fetchCloudData(){
     return true;
   }catch(e){
     console.warn("Cloud fail", e.message);
-    // Try pending endpoint directly even if bookings fail
-    try{
-      const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
-      const r = await fetch(base + "/pending", {cache:"no-store"});
-      if(r.ok){
-        const d = await r.json();
-        const cloudPending = d.pending || (Array.isArray(d) ? d : []);
-        if(cloudPending.length>0){
-          console.log("Recovered pending via /pending:", cloudPending.length);
-          const map = new Map();
-          [...pendingHomestays, ...cloudPending].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
-          pendingHomestays = [...map.values()];
-          localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
-        }
-      }
-    }catch(e2){}
     return false;
   }
 }
-
-async function pushPendingToCloud(){
-  if(!CLOUD_ENABLED) return;
-  if(pendingHomestays.length === 0){
-    console.log("Skipping pushPendingToCloud - local pending empty, don't clear cloud");
-    return;
-  }
-  try{
-    console.log("Pushing pending to cloud:", pendingHomestays.length);
-    await fetch(API_BASE + "/bookings", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({action:"updatePending", pending: pendingHomestays})
-    });
-    await fetch(API_BASE + "/pending", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({pending: pendingHomestays})}).catch(()=>{});
-  }catch(e){ console.warn("pushPending fail", e); }
-}
-
 async function pushHomestaysToCloud(){
   if(!CLOUD_ENABLED) return;
   try{
@@ -404,7 +319,7 @@ function renderAdmin(){
   const approvedDiv=document.getElementById("adminApproved");
   approvedDiv.innerHTML=homestays.map(h=>{
     const blocked=getAllBlockedDatesForHomestay(h);
-    return '<div class="card p-4 flex gap-4 items-center"><img src="'+(h.image||'')+'" class="w-16 h-16 sharp object-cover"/><div class="flex-1"><div class="font-bold text-sm">'+h.name+'</div><div class="text-xs">RM'+h.ownerPrice+' • '+h.location+' • '+blocked.length+' booked</div><div class="text-[10px] text-zinc-500">Owner: '+(h.ownerName||'')+' • '+(h.whatsapp||'')+'</div></div><div class="flex gap-2"><button onclick="openOwnerAvailabilityManager('+h.id+')" class="text-xs border sharp px-3 py-1">Manage</button><button onclick="removeApprovedListing('+h.id+')" class="text-xs bg-red-600 text-white sharp px-3 py-1">Remove</button></div></div>';
+    return '<div class="card p-4 flex gap-4 items-center"><img src="'+(h.image||'')+'" class="w-16 h-16 sharp object-cover"/><div class="flex-1"><div class="font-bold text-sm">'+h.name+'</div><div class="text-xs">RM'+h.ownerPrice+' • '+h.location+' • '+blocked.length+' booked</div></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="text-xs border sharp px-3 py-1">Manage</button></div>';
   }).join("");
   renderBookingsTable();
 }
@@ -568,7 +483,15 @@ async function loadBankInfo(){
 }
 setTimeout(loadBankInfo, 1200);
 function renderAvailabilityTab(){ const div=document.getElementById("availabilityTable"); div.innerHTML='<div class="grid md:grid-cols-2 gap-4">'+homestays.map(h=> '<div class="border sharp p-3"><div class="font-bold text-sm">'+h.name+'</div><div id="cal-'+h.id+'" class="mt-2"></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>').join("")+'</div>'; homestays.forEach(h=> renderAvailabilityCalendar(h, 'cal-'+h.id)); }
-function renderGuestsTable(){ const guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); const div=document.getElementById("guestsTable"); if(guests.length===0) div.innerHTML='<div class="text-center text-zinc-500">No guests</div>'; else div.innerHTML=guests.map((g,i)=> '<div class="border sharp p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+g.name+' • '+g.email+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+' '+(g.date||'')+'</div></div><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded bg-red-600 text-white sharp">Delete</button></div>').join(""); }
+function renderGuestsTable(){ 
+  let guests=[];
+  try{
+    guests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
+  }catch(e){ guests=[]; }
+  const div=document.getElementById("guestsTable"); 
+  if(guests.length===0) div.innerHTML='<div class="text-center text-zinc-500">No guests<br><small class="text-[10px]">Guests register from phone will appear here after cloud sync<br>Click Force Sync if empty</small></div>'; 
+  else div.innerHTML='<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests (from cloud + local)</div>' + guests.map((g,i)=> '<div class="border sharp p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+' '+(g.createdAt ? new Date(g.createdAt).toLocaleDateString() : (g.date||''))+'</div></div><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded bg-red-600 text-white sharp">Delete</button></div>').join(""); 
+}
 
 function resetWithdrawn(){
   if(!confirm('Reset Withdrawn to RM0?\nThis will clear local history and try to reset cloud. This cannot be undone.')) return;
@@ -602,117 +525,10 @@ function resetWithdrawn(){
 
 function deleteGuest(idx){ if(!confirm('Delete this guest? This cannot be undone.')) return; const guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); guests.splice(idx,1); localStorage.setItem("kd_guests", JSON.stringify(guests)); renderGuestsTable(); renderAdmin(); }
 function saveToyyibPayConfig(){ CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value; CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value; CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value; CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true"; localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz)); alert("Saved"); }
-
-function removeApprovedListing(id){
-  const h = homestays.find(x=> String(x.id)===String(id)) || allHomestays.find(x=> String(x.id)===String(id));
-  if(!h){ alert('Listing not found'); return; }
-  if(!confirm('Remove listing: '+h.name+'?\n\nOwner: '+(h.ownerName||'')+'\nThis will hide it from customers. You can restore it via Restore Demos if needed.\n\nContinue?')) return;
-  try{
-    // Remove from current lists
-    homestays = homestays.filter(x=> String(x.id)!==String(id));
-    allHomestays = allHomestays.filter(x=> String(x.id)!==String(id));
-    storedApproved = storedApproved.filter(x=> String(x.id)!==String(id));
-    // If demo, mark as deleted demo
-    if(DEMO_HOMESTAYS.some(d=> String(d.id)===String(id))){
-      if(!deletedDemoIds.includes(String(id)) && !deletedDemoIds.includes(Number(id))){
-        deletedDemoIds.push(id);
-        localStorage.setItem('kd_deleted_demo', JSON.stringify(deletedDemoIds));
-      }
-    }else{
-      // Approved custom - save
-      localStorage.setItem('kd_approved', JSON.stringify(storedApproved));
-    }
-    // Also save overrides removal
-    saveApproved();
-    // Clear blocked dates for this homestay from availabilityMap
-    if(typeof availabilityMap !== 'undefined' && availabilityMap[id]){
-      delete availabilityMap[id];
-      if(typeof saveAvailabilityMap === 'function') saveAvailabilityMap();
-    }
-    // Try cloud delete
-    (async()=>{
-      try{
-        const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
-        await fetch(base + '/homestays', {method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id})});
-        await fetch(base + '/homestays/' + id, {method:'DELETE'});
-      }catch(e){ console.warn('Cloud delete attempt', e); }
-    })();
-    alert('Removed: '+h.name+'\nListing is now hidden from customers.');
-    renderAdmin();
-  }catch(e){ alert('Remove failed: '+e.message); }
-}
-
-function approveHomestay(id){ const idx=pendingHomestays.findIndex(h=> h.id==id); if(idx===-1) return; const h=pendingHomestays[idx]; h.approved=true; h.verified=true; allHomestays.push(h); homestays.push(h); storedApproved.push(h); saveApproved(); pendingHomestays.splice(idx,1); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); pushPendingToCloud(); renderAdmin(); }
-function rejectHomestay(id){ if(!confirm("Reject?")) return; pendingHomestays=pendingHomestays.filter(h=> h.id!=id); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); pushPendingToCloud(); renderAdmin(); }
+function approveHomestay(id){ const idx=pendingHomestays.findIndex(h=> h.id==id); if(idx===-1) return; const h=pendingHomestays[idx]; h.approved=true; h.verified=true; allHomestays.push(h); homestays.push(h); storedApproved.push(h); saveApproved(); pendingHomestays.splice(idx,1); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
+function rejectHomestay(id){ if(!confirm("Reject?")) return; pendingHomestays=pendingHomestays.filter(h=> h.id!=id); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
 function restoreDemos(){ if(!confirm("Restore?")) return; localStorage.removeItem("kd_deleted_demo"); deletedDemoIds=[]; const base=DEMO_HOMESTAYS.map(d=> demoOverrides[d.id]?{...d, ...demoOverrides[d.id]}:d); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
 function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeItem("kd_demo_overrides"); demoOverrides={}; const base=DEMO_HOMESTAYS.filter(d=> !deletedDemoIds.includes(d.id)); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
-
-
-// Auto-sync pending every 10s for multi-device
-
-async function forceSyncPending(){
-  console.log("Force syncing...");
-  const btn = document.querySelector('#debugPendingInfo');
-  if(btn) btn.textContent = 'Syncing...';
-  try{
-    await fetchCloudData();
-    renderAdmin();
-    updateDebugInfo();
-    alert('Sync done!\nLocal pending: '+pendingHomestays.length+'\nCheck console for cloud response');
-  }catch(e){ alert('Sync failed: '+e.message); }
-}
-
-async function checkCloudRaw(){
-  try{
-    const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
-    const res = await fetch(base + "/bookings", {cache:"no-store"});
-    const data = await res.json();
-    console.log("RAW CLOUD DATA:", data);
-    let msg = 'Cloud raw:\n';
-    msg += 'bookings: '+(data.bookings?.length||0)+'\n';
-    msg += 'pending: '+(data.pending?.length||0)+'\n';
-    msg += 'approved: '+(data.approved?.length||0)+'\n';
-    msg += 'hasDB: '+(data._debug?.hasDB)+'\n';
-    msg += 'envKeys: '+(data._debug?.envKeys?.join(',')||'none')+'\n';
-    if(data._debug?.error) msg += 'Error: '+data._debug.error+'\n';
-    msg += '\nFull data in console (F12)';
-    alert(msg);
-    // Also try /api/pending
-    try{
-      const res2 = await fetch(base + "/pending", {cache:"no-store"});
-      const data2 = await res2.json();
-      console.log("RAW /api/pending:", data2);
-      alert('/api/pending: '+JSON.stringify(data2).slice(0,500));
-    }catch(e){ console.log("pending endpoint fail", e); }
-  }catch(e){ alert('Check failed: '+e.message); }
-}
-
-function updateDebugInfo(){
-  try{
-    const localCount = pendingHomestays.length;
-    const el = document.getElementById('debugPendingInfo');
-    if(el){
-      // Try to get cloud count from last fetch if available
-      el.textContent = 'Local: '+localCount+' | Click Force Sync';
-    }
-  }catch(e){}
-}
-
-// Update debug info after render
-const originalRenderAdmin = renderAdmin;
-renderAdmin = function(){
-  originalRenderAdmin();
-  try{ updateDebugInfo(); }catch(e){}
-};
-
-setInterval(async()=>{
-  try{
-    if(document.visibilityState === 'visible'){
-      await fetchCloudData();
-      renderAdmin();
-    }
-  }catch(e){}
-}, 10000);
 
 (async ()=>{
   const saved=localStorage.getItem("kd_billplz"); if(saved){ try{ CONFIG.billplz={...CONFIG.billplz, ...JSON.parse(saved)}; }catch(e){} }
