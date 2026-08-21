@@ -146,7 +146,7 @@
           </div>
           <div>
             <label class="text-xs font-semibold">WhatsApp Number *</label>
-            <input id="listWhatsapp" placeholder="6012-3456789" inputmode="numeric" autocomplete="tel" class="w-full mt-1 border rounded-xl px-4 py-2.5"/>
+            <input id="listWhatsapp" placeholder="6012-3456789" required inputmode="numeric" autocomplete="tel" class="w-full mt-1 border rounded-xl px-4 py-2.5"/ required required>
           </div>
         </div>
 
@@ -468,7 +468,6 @@
     // CONFIG — EDIT HERE
     // =============================================================
     const CONFIG = {
-      yourWhatsApp: "60123456789",
       platformFeePercent: 11,
       toyyibpay: {
         enabled: false,
@@ -1432,6 +1431,7 @@ function addBlockedDate() {
     try {
       const ownerName = document.getElementById("listOwnerName").value.trim();
       const whatsapp = document.getElementById("listWhatsapp").value.trim();
+      if(!whatsapp){ alert("WhatsApp number is required! Owner must put WhatsApp."); document.getElementById("listWhatsapp").focus(); return; }
       const homestayName = document.getElementById("listHomestayName").value.trim();
       const areaEl = document.getElementById("listArea");
       const area = areaEl ? areaEl.value : "Kundasang";
@@ -1837,13 +1837,14 @@ function addBlockedDate() {
     // =========================================
     function getOwnerWhatsAppNumber() {
       let raw = null;
+      // CLIENT ONLY - WhatsApp is required at listing, so owner must have it
       if (selectedHomestay && selectedHomestay.whatsapp) raw = selectedHomestay.whatsapp;
-      else if (typeof CONFIG !== 'undefined' && CONFIG.yourWhatsApp) raw = CONFIG.yourWhatsApp;
-      else raw = "60123456789";
+      else if (selectedHomestay && selectedHomestay.ownerPhone) raw = selectedHomestay.ownerPhone;
+      else if (selectedHomestay && selectedHomestay.phone) raw = selectedHomestay.phone;
+      else raw = "";
       let num = String(raw).replace(/[^0-9]/g, '');
-      if (!num) return "60123456789";
+      if (!num) return "";
       if (num.startsWith('0')) num = '60' + num.substring(1);
-      if (!num.startsWith('60') && num.length >= 9 && num.length <= 10) num = '60' + num;
       return num;
     }
 
@@ -2371,7 +2372,8 @@ function closeBookingSuccess(){
   closeBooking(); closeDetail(); renderGrid();
 }
 function whatsappWithBookingId(){
-  const waNumber = (typeof getOwnerWhatsAppNumber === 'function') ? getOwnerWhatsAppNumber() : '60123456789';
+  const waNumber = (typeof getOwnerWhatsAppNumber === 'function') ? getOwnerWhatsAppNumber() : '';
+  if(!waNumber){ alert('WhatsApp not found - owner must add WhatsApp at listing.'); return; }
   const homestayName = (typeof selectedHomestay !== 'undefined' && selectedHomestay) ? selectedHomestay.name : 'Homestay';
   const ownerName = (typeof selectedHomestay !== 'undefined' && selectedHomestay && selectedHomestay.ownerName) ? selectedHomestay.ownerName : 'Owner';
   const message = "Hi " + ownerName + ", I just booked " + homestayName + " on Kundasang Homestays!\n\n*ID: " + lastBookingId + "*\n*" + lastBookingNights + " nights* " + lastBookingCi + " → " + lastBookingCo + "\nTotal RM" + lastBookingTotal + "\n\nPlease confirm my check-in. Thanks!";
