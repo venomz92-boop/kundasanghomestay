@@ -494,7 +494,12 @@ async function fetchCloudData(){
     const res=await fetch(`${API_BASE}/bookings`, {cache:"no-store"});
     if(!res.ok) throw new Error(res.status);
     const data=await res.json();
-    if(data.bookings){ bookings=data.bookings; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
+    if(data.bookings && Array.isArray(data.bookings)){
+      const map=new Map();
+      data.bookings.forEach(b=>{ if(b && b.id && !map.has(String(b.id))) map.set(String(b.id), b); });
+      bookings=[...map.values()];
+      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+    }
     if(data.availability){ availabilityMap=data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
     // SYNC HOMESTAYS FROM CLOUD (Fix index-admin sync)
     if(data.approved !== undefined){ 
@@ -545,16 +550,25 @@ async function pushHomestaysToCloud(){
 async function pushBookingToCloud(booking, bookedDates){
   if(!CLOUD_ENABLED) return;
   try{
-    await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({booking, bookedDates})});
-    console.log("☁️ Pushed to cloud");
+    const payload = { action: "create", booking, bookedDates };
+    const res = await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) console.warn("Push cloud fail", data);
+    else console.log("☁️ Pushed to cloud", data.bookings?.length);
+    return data;
   }catch(e){ console.warn("Push fail", e); }
 }
 async function pushAvailabilityToCloud(){
   if(!CLOUD_ENABLED) return;
   try{
-    await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})});
+    const res = await fetch(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})});
     console.log("☁️ Availability synced");
+    return res;
   }catch(e){ console.warn("Availability push fail", e); }
+}
+async function saveAvailabilityMap(){
+  localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
+  try{ await pushAvailabilityToCloud(); }catch(e){}
 }
 
 
