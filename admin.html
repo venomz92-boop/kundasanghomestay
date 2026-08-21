@@ -27,7 +27,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3">
       <div class="w-[38px] h-[38px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800 text-[20px]">K</div>
-      <div class="font-800 text-[22px] tracking-[-0.5px] text-[#212121] leading-none">KUNDASANG<span class="font-600 text-[#212121]/60 text-[18px]">.stays</span><div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 -mt-1">ADMIN • Auto Payout</div></div>
+      <div class="font-800 text-[22px] tracking-[-0.5px] text-[#212121] leading-none">KUNDASANG<span class="font-600 text-[#212121]/60 text-[18px]">.stays</span><div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 -mt-1">ADMIN • ToyyibPay</div></div>
     </div>
     <a href="index.html" class="font-600 text-[12px] uppercase px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white sharp flex items-center">← Home</a>
   </div>
@@ -41,11 +41,11 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
     <button onclick="adminLogin()" class="btn-primary w-full mt-4">Login</button>
   </div>
   <div id="adminDashboard" class="hidden">
-    <h2 class="text-3xl font-bold">Admin — Approval & Billplz Auto Payout</h2>
+    <h2 class="text-3xl font-bold">Admin — ToyyibPay Manual Payout</h2>
     <div class="grid md:grid-cols-3 gap-4 mt-6">
-      <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11%)</div><div id="totalFees" class="text-3xl font-bold mt-1">RM0</div><div class="text-[11px] mt-1">After Billplz RM1.25 • Owner gets Base via Billplz on Check-in</div><div class="text-[11px] mt-2"><span id="kdAvailInline">Available: RM0</span> • <span id="kdWithdrawnInline">Withdrawn: RM0</span></div><button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw Earnings</button></div>
+      <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11%)</div><div id="totalFees" class="text-3xl font-bold mt-1">RM0</div><div class="text-[11px] mt-1">After gateway fee • Owner gets Base via Manual DuitNow on Check-in</div><div class="text-[11px] mt-2"><span id="kdAvailInline">Available: RM0</span> • <span id="kdWithdrawnInline">Withdrawn: RM0</span></div><button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw Earnings</button></div>
       <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Pending</div><div id="adminPendingCount" class="text-3xl font-bold mt-1">0</div></div>
-      <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Billplz Status</div><div id="billplzStatus" class="text-sm font-bold mt-1">Simulation</div><div class="text-[11px] mt-1">Check-in = auto complete + owner payout</div></div>
+      <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">ToyyibPay Status</div><div id="billplzStatus" class="text-sm font-bold mt-1">Simulation</div><div class="text-[11px] mt-1">Check-in = complete + manual DuitNow to owner</div></div>
     </div>
     <div class="flex gap-2 mt-6 flex-wrap">
       <button onclick="showAdminTab('pending')" id="tabPending" class="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase font-700">Pending</button>
@@ -61,26 +61,27 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
     <div id="adminAvailability" class="mt-4 hidden"><div id="availabilityTable" class="card p-6"></div></div>
     <div id="adminGuests" class="mt-4 hidden"><div id="guestsTable" class="card p-6"></div></div>
     <div id="adminSettings" class="hidden mt-4 card p-6">
-      <h3 class="font-bold">Billplz Setup</h3>
-      <div class="grid md:grid-cols-2 gap-4 mt-4">
-        <input id="cfgApiKey" placeholder="API Key" class="border sharp px-4 py-2.5"/>
-        <input id="cfgCollection" placeholder="Collection ID" class="border sharp px-4 py-2.5"/>
-        <input id="cfgXSig" placeholder="X Signature" class="border sharp px-4 py-2.5"/>
-        <select id="cfgEnabled" class="border sharp px-4 py-2.5"><option value="false">Simulation</option><option value="true">Live Billplz</option></select>
+      <h3 class="font-bold">ToyyibPay Setup (Server-side)</h3>
+      <div class="p-3 bg-green-50 border border-green-200 sharp text-xs">
+        ✅ Live: Category <b>08myr5uc</b><br>
+        Secret Key: Set in Cloudflare Secrets (TOYYIBPAY_SECRET_KEY)<br>
+        Payout Mode: <b>Manual DuitNow</b> - you transfer to owner on Check-in, fee stays with you.<br>
+        Return URL: https://kundasanghomestay.my/?booking=ID&paid=1<br>
+        Callback: /api/toyyibpay-webhook
       </div>
-      <button onclick="saveBillplzConfig()" class="btn-primary mt-4">Save</button>
+      <div id="liveBankInfo" class="mt-3 p-3 bg-zinc-50 border sharp text-xs">Loading locked bank...</div>
       <div class="flex gap-2 mt-4"><button onclick="restoreDemos()" class="text-xs border sharp px-3 py-1">Restore Demos</button><button onclick="resetDemoEdits()" class="text-xs border sharp px-3 py-1">Reset Edits</button><button onclick="if(confirm('Clear all bookings?')){localStorage.removeItem('kd_bookings'); bookings=[]; renderAdmin();}" class="text-xs border sharp px-3 py-1 bg-red-50">Clear Bookings (fix duplicates)</button></div>
     </div>
   </div>
 </div>
 
-<div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw Earnings</h3><div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after Billplz RM1.25) - Locked to Maybank ****9305 (Nicks Creations)<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button, not here.</div><div class="mt-3 p-2 bg-green-50 border border-green-200 sharp text-[11px]">🔒 Locked Bank: Maybank - Nicks Creations - ****9305<br>Change only in /api/withdraw.js or env YOUR_BANK_*</div><input id="kdBankName" placeholder="Bank Name (Locked - ignored)" disabled class="w-full border sharp px-3 py-2 mt-3 bg-zinc-100 text-zinc-500" value="Maybank - Locked"/><input id="kdAmt" type="number" placeholder="Amount RM" min="1" step="0.01" class="w-full border sharp px-3 py-2 mt-2"/><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm Withdraw</button></div><div id="kdWithdrawMsg" class="mt-3 text-[11px] text-zinc-500"></div></div></div>
+<div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw Earnings</h3><div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after gateway) - Locked to your Maybank<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button, not here.</div><div class="mt-3 p-2 bg-green-50 border border-green-200 sharp text-[11px]">🔒 Locked Bank: Loading...<br>Change only in Cloudflare env YOUR_BANK_*</div><input id="kdBankName" placeholder="Bank Name (Locked - ignored)" disabled class="w-full border sharp px-3 py-2 mt-3 bg-zinc-100 text-zinc-500" value="Maybank - Locked"/><input id="kdAmt" type="number" placeholder="Amount RM" min="1" step="0.01" class="w-full border sharp px-3 py-2 mt-2"/><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm Withdraw</button></div><div id="kdWithdrawMsg" class="mt-3 text-[11px] text-zinc-500"></div></div></div>
 
 <script>
 const CONFIG = {
   adminPasswordHash: "b9276e0bc88047b500d985a7bf9f7bf543cd428b9ca1906128cdf9797bb83d33",
   platformFeePercent: 11,
-  billplz: { enabled: false, gatewayFee: 1.25, apiKey: "", collectionId: "", xSignature: "", sandbox: true }
+  toyyibpay: { enabled: true, gatewayFee: 1.00, category: "08myr5uc" }, billplz: { enabled: false, gatewayFee: 1.25, apiKey: "", collectionId: "", xSignature: "", sandbox: true }
 };
 const CLOUD_ENABLED = true;
 const API_BASE = "/api";
@@ -195,7 +196,7 @@ function getDatesInRange(ci,co){ if(!ci||!co) return []; const dates=[]; const a
 function getAllBlockedDatesForHomestay(h){ if(!h) return []; let blk=[]; if(h.blockedDates) blk=[...blk,...h.blockedDates]; if(availabilityMap[h.id]) blk=[...blk,...availabilityMap[h.id]]; const rel=bookings.filter(b=> b.homestay===h.name || String(b.homestayId)===String(h.id)); rel.forEach(b=>{ if(b.checkin&&b.checkout) blk=[...blk,...getDatesInRange(b.checkin,b.checkout)]; }); return [...new Set(blk)].sort(); }
 function saveAvailabilityMap(){ localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); pushAvailabilityToCloud(); }
 function calculateNights(ci,co){ if(!ci||!co) return 1; const d1=new Date(ci), d2=new Date(co); const diff=Math.round((d2-d1)/86400000); return diff>0?diff:1; }
-function calculatePrice(p,n){ n=n||1; const base=p*n; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gw=CONFIG.billplz.enabled?CONFIG.billplz.gatewayFee:0; return {nights:n, base:base, fee:fee, gatewayFee:gw, total:base+fee+gw, youReceive:fee-gw, ownerReceives:base}; }
+function calculatePrice(p,n){ n=n||1; const base=p*n; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gw=CONFIG.toyyibpay.enabled?CONFIG.toyyibpay.gatewayFee:0; return {nights:n, base:base, fee:fee, gatewayFee:gw, total:base+fee+gw, youReceive:fee-gw, ownerReceives:base}; }
 function renderAvailabilityCalendar(h,id){ const c=document.getElementById(id); if(!c||!h) return; const blk=getAllBlockedDatesForHomestay(h); const today=new Date(); today.setHours(0,0,0,0); let html='<div class="calendar-mini">'; ["S","M","T","W","T","F","S"].forEach(d=> html+='<div class="text-[10px] text-center font-bold text-zinc-400">'+d+'</div>'); for(let i=0;i<35;i++){ const d=new Date(today); d.setDate(today.getDate()+i); const iso=dateToIso(d); const b=blk.includes(iso); html+='<div class="calendar-day '+(b?'booked':'available')+'">'+d.getDate()+'</div>'; } html+='</div>'; c.innerHTML=html; }
 
 async function sha256(s){ const buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
@@ -225,7 +226,7 @@ function renderAdmin(){
   const totalFees=bookings.reduce((s,b)=>s+(b.youReceive||b.fee||0),0);
   const tf=document.getElementById("totalFees"); if(tf) tf.innerText="RM"+totalFees.toFixed(2);
   const pc=document.getElementById("adminPendingCount"); if(pc) pc.innerText=pendingHomestays.length;
-  const bs=document.getElementById("billplzStatus"); if(bs) bs.innerText=CONFIG.billplz.enabled?"LIVE":"Simulation";
+  const bs=document.getElementById("billplzStatus"); if(bs) bs.innerText=CONFIG.toyyibpay.enabled?"LIVE ToyyibPay":"Simulation";
   const pendingDiv=document.getElementById("adminPending");
   if(pendingHomestays.length===0) pendingDiv.innerHTML='<div class="card p-6 text-center text-zinc-500">No pending.</div>';
   else {
@@ -249,7 +250,7 @@ function renderBookingsTable(){
   const div=document.getElementById("bookingsTable"); if(!div) return;
   const map=new Map(); bookings.forEach(b=>{ if(b && b.id && !map.has(String(b.id))) map.set(String(b.id), b); }); const clean=[...map.values()]; if(clean.length!==bookings.length){ bookings=clean; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
   if(bookings.length===0){ div.innerHTML='<div class="text-center text-zinc-500 py-6">No bookings yet.</div>'; return; }
-  div.innerHTML='<div class="mb-3 text-[11px] text-zinc-500">Flow: Check-in → Auto Complete → Owner gets Base via Billplz → You get Fee • No F5 needed <button onclick="renderAdmin()" class="ml-2 border sharp px-2 py-0.5 bg-white">Reload</button></div><div class="space-y-4">'+bookings.map(b=>{
+  div.innerHTML='<div class="mb-3 text-[11px] text-zinc-500">Flow: Check-in → Complete → Owner gets Base via Manual DuitNow → You keep Fee • No F5 needed <button onclick="renderAdmin()" class="ml-2 border sharp px-2 py-0.5 bg-white">Reload</button></div><div class="space-y-4">'+bookings.map(b=>{
     const status=b.status||"Paid - Awaiting Check-in";
     const isAwaiting=status.toLowerCase().includes("awaiting");
     const isCompleted=status.toLowerCase().includes("completed") || status.toLowerCase().includes("payout");
@@ -273,7 +274,7 @@ async function confirmCheckIn(id){
   if(b.status && b.status.toLowerCase().includes("payout")){ if(!confirm("Already paid out: "+b.status+"\nPay again?")) return; }
   const ownerAmount=b.base || Math.round((b.total||0) - (b.fee||0));
   const yourFee=b.youReceive || b.fee || 0;
-  if(!confirm("CHECK-IN FLOW\n\nBooking: "+b.id+"\n"+b.homestay+" • "+b.checkin+" → "+b.checkout+" • RM"+b.total+"\nGuest: "+(b.guestName||b.guestEmail)+"\n\nOwner gets: RM"+ownerAmount+" via Billplz\nYou get: RM"+yourFee+" fee\nStatus will auto become Completed\n\nContinue?")) return;
+  if(!confirm("CHECK-IN FLOW\n\nBooking: "+b.id+"\n"+b.homestay+" • "+b.checkin+" → "+b.checkout+" • RM"+b.total+"\nGuest: "+(b.guestName||b.guestEmail)+"\n\nOwner gets: RM"+ownerAmount+" via Manual DuitNow\nYou get: RM"+yourFee+" fee\nStatus will auto become Completed\n\nContinue?")) return;
   try{
     b.status="Checked In - Processing Owner Payout...";
     b.statusUpdated=new Date().toISOString();
@@ -301,7 +302,7 @@ async function confirmCheckIn(id){
       });
       payoutData=await res.json().catch(()=>({}));
     }catch(e){ payoutData={simulation:true}; }
-    b.status = (payoutData && payoutData.simulation) ? "Completed - Owner Paid RM"+ownerAmount+" (Simulation)" : "Completed - Owner Paid RM"+ownerAmount;
+    b.status = (payoutData && payoutData.simulation) ? "Completed - Owner Paid RM"+ownerAmount+" (Manual - Transfer RM"+ownerAmount+" to owner)" : "Completed - Owner Paid RM"+ownerAmount;
     b.payoutDate=new Date().toISOString();
     b.payoutAmount=ownerAmount;
     b.yourFeeEarned=yourFee;
@@ -312,7 +313,7 @@ async function confirmCheckIn(id){
     fetch(API_BASE + '/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id:b.id, status:b.status, booking:b})}).catch(()=>{});
     renderBookingsTable();
     const tf=document.getElementById("totalFees"); if(tf){ const total=bookings.reduce((s,x)=>s+(x.youReceive||x.fee||0),0); tf.innerText="RM"+total.toFixed(2); }
-    alert('CHECK-IN COMPLETE!\nOwner: RM'+ownerAmount+' '+(payoutData?.simulation?'(Simulation)':'via Billplz')+'\nYour fee: RM'+yourFee);
+    alert('CHECK-IN COMPLETE!\nOwner: RM'+ownerAmount+' '+(payoutData?.simulation?'(Simulation - Manual Transfer)':'via Manual DuitNow')+'\nYour fee: RM'+yourFee);
   }catch(e){
     alert('Failed: '+e.message);
     b.status="Paid - Awaiting Check-in";
@@ -338,6 +339,19 @@ function copyBookingId(id){ navigator.clipboard.writeText(id).then(()=> alert("C
 function deleteBooking(id){ if(!confirm("Delete "+id+"?")) return; const b=bookings.find(x=> String(x.id)===String(id)); if(b&&b.checkin&&b.checkout){ const dates=getDatesInRange(b.checkin,b.checkout); const hid=b.homestayId; if(availabilityMap[hid]){ availabilityMap[hid]=availabilityMap[hid].filter(d=> !dates.includes(d)); saveAvailabilityMap(); } } bookings=bookings.filter(x=> String(x.id)!==String(id)); localStorage.setItem("kd_bookings", JSON.stringify(bookings)); deleteBookingFromCloud(id); renderBookingsTable(); }
 async function changeBookingDates(id){ const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return; const ci=prompt("New Check-in:", b.checkin); if(!ci) return; const co=prompt("New Check-out:", b.checkout); if(!co) return; const d1=new Date(ci), d2=new Date(co); if(d1>=d2){ alert("Invalid"); return; } const h=homestays.find(h=> String(h.id)===String(b.homestayId) || h.name===b.homestay); const old=getDatesInRange(b.checkin,b.checkout); const temp=getAllBlockedDatesForHomestay(h).filter(d=> !old.includes(d)); const req=getDatesInRange(ci,co); if(req.filter(d=> temp.includes(d)).length>0){ alert("Overlap"); return; } const nights=calculateNights(ci,co); const price=calculatePrice(h.ownerPrice,nights); if(availabilityMap[h.id]) availabilityMap[h.id]=availabilityMap[h.id].filter(d=> !old.includes(d)); if(!availabilityMap[h.id]) availabilityMap[h.id]=[]; req.forEach(d=>{ if(!availabilityMap[h.id].includes(d)) availabilityMap[h.id].push(d); }); availabilityMap[h.id].sort(); saveAvailabilityMap(); b.checkin=ci; b.checkout=co; b.nights=nights; b.base=price.base; b.fee=price.fee; b.total=price.total; b.youReceive=price.youReceive; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); try{ await fetch('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'updateDates', id:b.id, checkin:ci, checkout:co, nights:price.nights, base:price.base, fee:price.fee, total:price.total, youReceive:price.youReceive})}); }catch(e){} renderBookingsTable(); }
 function openOwnerAvailabilityManager(id){ const h=allHomestays.find(x=> String(x.id)===String(id)); if(!h) return; const blocked=getAllBlockedDatesForHomestay(h); const a=prompt("Manage "+h.name+"\nBlocked: "+(blocked.join(", ")||"None")+"\nEnter YYYY-MM-DD, START,END, or clear"); if(a===null) return; if(a==='clear'){ h.blockedDates=[]; availabilityMap[h.id]=[]; if(isDemo(h.id)){demoBlockedMap[h.id]=[]; saveDemoBlocked();} saveAvailabilityMap(); saveApproved(); renderAdmin(); return; } if(a.includes(",")){ const parts=a.split(",").map(x=>x.trim()); const range=getDatesInRange(parts[0],parts[1]); range.forEach(d=>{ if(h.blockedDates.includes(d)) h.blockedDates=h.blockedDates.filter(x=>x!==d); else h.blockedDates.push(d); }); h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); return; } if(h.blockedDates.includes(a)) h.blockedDates=h.blockedDates.filter(d=>d!==a); else h.blockedDates.push(a); h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); }
+async function loadBankInfo(){
+  try{
+    const res = await fetch(API_BASE + "/withdraw");
+    const data = await res.json();
+    if(data.lockedBank){
+      const el = document.getElementById("liveBankInfo");
+      if(el) el.innerHTML = `🔒 Locked Bank: ${data.lockedBank.bankName} - ${data.lockedBank.holder} - ${data.lockedBank.accountMasked}<br>Fee earnings: Available RM${data.earnings.available?.toFixed(2)||0} / Total RM${data.earnings.total?.toFixed(2)||0}`;
+      const overlay = document.querySelector("#kdWithdrawOverlay .bg-green-50");
+      if(overlay) overlay.innerHTML = `🔒 Locked Bank: ${data.lockedBank.bankName} - ${data.lockedBank.holder} - ${data.lockedBank.accountMasked}<br>Change only in Cloudflare env YOUR_BANK_*`;
+    }
+  }catch(e){}
+}
+setTimeout(loadBankInfo, 1200);
 function renderAvailabilityTab(){ const div=document.getElementById("availabilityTable"); div.innerHTML='<div class="grid md:grid-cols-2 gap-4">'+homestays.map(h=> '<div class="border sharp p-3"><div class="font-bold text-sm">'+h.name+'</div><div id="cal-'+h.id+'" class="mt-2"></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>').join("")+'</div>'; homestays.forEach(h=> renderAvailabilityCalendar(h, 'cal-'+h.id)); }
 function renderGuestsTable(){ const guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); const div=document.getElementById("guestsTable"); if(guests.length===0) div.innerHTML='<div class="text-center text-zinc-500">No guests</div>'; else div.innerHTML=guests.map(g=> '<div class="border sharp p-3 text-sm"><div class="font-bold">'+g.name+' • '+g.email+'</div></div>').join(""); }
 function saveBillplzConfig(){ CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value; CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value; CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value; CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true"; localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz)); alert("Saved"); }
@@ -408,7 +422,7 @@ function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeIte
         if(!res.ok){
           alert("Withdraw failed: " + (data.error||JSON.stringify(data)));
         } else {
-          alert("Withdraw success: RM"+amt.toFixed(2)+" locked to Maybank ****9305\n"+data.message);
+          alert("Withdraw success: RM"+amt.toFixed(2)+" locked to your locked bank\n"+data.message);
           // Update local storage for backward compat
           const arr = JSON.parse(localStorage.getItem('kd_withdrawals')||'[]');
           arr.push({amount:amt, date:new Date().toISOString(), id:data.withdrawal?.id});
