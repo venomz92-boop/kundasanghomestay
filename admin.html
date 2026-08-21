@@ -478,7 +478,7 @@ async function confirmCheckIn(id){
   if(!b){ alert('Booking not found: '+id); return; }
   if(b.status && b.status.includes('Payout')){ alert('Already paid out: '+b.status); return; }
   const isTodayOrPast = true; // allow manual confirm anytime after check-in
-  if(!confirm(`Confirm Check-In for ${b.id}?\n\nHomestay: ${b.homestay}\nDates: ${b.checkin} → ${b.checkout}\nGuest: ${b.guestEmail||b.guestName||''}\n\nOwner Payout: RM${b.youReceive||b.base||0} will be sent to ${b.owner||b.homestay}\nThis matches Kundasang flow - payout on check-in day after ID verification.\n\nContinue?`)) return;
+  if(!confirm(`Confirm Check-In for ${b.id}?\n\nHomestay: ${b.homestay}\nDates: ${b.checkin} → ${b.checkout}\nGuest: ${b.guestEmail||b.guestName||''}\n\nOwner Payout: RM${b.base||0} will be sent to ${b.owner||b.homestay} (Owner bank)\nYour Fee: RM${b.youReceive||b.fee||0} stays with you\nTotal Guest Paid: RM${b.total||0}\n\nThis matches Kundasang flow - owner gets base on check-in day after ID verification.\n\nContinue?`)) return;
   try{
     const res = await fetch('/api/payout', {
       method: 'POST',
@@ -487,7 +487,7 @@ async function confirmCheckIn(id){
         bookingId: b.id,
         homestayId: b.homestayId,
         homestay: b.homestay,
-        amount: b.youReceive || b.base,
+        amount: b.base || b.ownerReceives || 0,
         fee: b.fee,
         total: b.total,
         ownerBankCode: b.ownerBankCode || 'MBBEMYKL',
@@ -500,7 +500,7 @@ async function confirmCheckIn(id){
     if(data.error && !data.simulation){ alert('Payout failed: ' + data.error + '\nDetails: ' + JSON.stringify(data.details||data)); return; }
     b.status = data.simulation ? "Checked-in - Payout Sent (Simulation)" : "Checked-in - Payout Sent";
     b.payoutDate = new Date().toISOString();
-    b.payoutAmount = b.youReceive || b.base;
+    b.payoutAmount = b.base || b.ownerReceives || 0;
     b.payoutId = data.payout?.id || data.withdrawal?.id || '';
     localStorage.setItem('kd_bookings', JSON.stringify(bookings));
     // sync to D1 - update
