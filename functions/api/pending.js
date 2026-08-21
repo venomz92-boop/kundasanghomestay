@@ -33,20 +33,35 @@ export async function onRequestPost(context){
   if(!db) return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders() });
   try{
     const body = await request.json();
-    const pending = body.pending || body || [];
-    const toSave = Array.isArray(pending) ? pending : (body.pending || []);
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(toSave)).run();
-    if(body.new){
-      let existing = toSave;
-      if(!Array.isArray(toSave) || toSave.length===0){
-        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
-        if(r) existing = JSON.parse(r.data);
-        existing.push(body.new);
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(existing)).run();
-      }
+    // Get existing
+    let existingPending = [];
+    try{
+      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
+      if(r && r.data) existingPending = JSON.parse(r.data);
+    }catch(e){}
+    
+    let incoming = [];
+    if(body.pending && Array.isArray(body.pending)) incoming = body.pending;
+    else if(Array.isArray(body)) incoming = body;
+    else if(body.new) incoming = [body.new];
+    
+    if(incoming.length === 0 && existingPending.length > 0 && !body.new){
+      // Don't clear with empty
+      return new Response(JSON.stringify({ success: true, count: existingPending.length, kept: true, message: "Kept existing, incoming empty" }), { status: 200, headers: corsHeaders() });
     }
-    return new Response(JSON.stringify({ success: true, count: (toSave||[]).length }), { status: 200, headers: corsHeaders() });
+    
+    // Merge by id
+    const map = new Map();
+    [...existingPending, ...incoming].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
+    if(body.new && body.new.id){
+      map.set(String(body.new.id), body.new);
+    }
+    const merged = [...map.values()];
+    
+    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(merged)).run();
+    
+    return new Response(JSON.stringify({ success: true, count: merged.length, merged: true, existing: existingPending.length, incoming: incoming.length }), { status: 200, headers: corsHeaders() });
   }catch(e){
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders() });
   }

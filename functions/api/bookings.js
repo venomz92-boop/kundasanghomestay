@@ -82,9 +82,26 @@ export async function onRequestPost(context) {
     let saved = [];
 
     if (action === "updatePending" || pending !== undefined) {
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(pending || [])).run();
-      saved.push(`pending:${(pending||[]).length}`);
-      console.log("Pending updated:", (pending||[]).length);
+      // MERGE, don't overwrite - prevent empty from clearing cloud
+      let existingPending = [];
+      try{
+        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
+        if(r && r.data) existingPending = JSON.parse(r.data);
+      }catch(e){}
+      let incoming = pending || [];
+      if(incoming.length === 0 && existingPending.length > 0){
+        // Don't overwrite existing with empty - keep existing
+        console.log("Incoming pending empty, keeping existing:", existingPending.length);
+        saved.push(`pending:kept-${existingPending.length}`);
+      } else {
+        // Merge by id
+        const map = new Map();
+        [...existingPending, ...incoming].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
+        const merged = [...map.values()];
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(merged)).run();
+        saved.push(`pending:${merged.length} (merged ${existingPending.length}+${incoming.length})`);
+        console.log("Pending merged:", existingPending.length, "+", incoming.length, "=", merged.length);
+      }
     }
 
     if (action === "updateHomestays" || approved !== undefined) {
@@ -130,15 +147,18 @@ export async function onRequestPost(context) {
       saved.push("single-booking");
     }
 
-    if (body.new && !pending && !action) {
+    if (body.new && !pending) {
       let existingPending = [];
       try {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
-        if (r) existingPending = JSON.parse(r.data);
+        if (r && r.data) existingPending = JSON.parse(r.data);
       } catch(e){}
-      existingPending.push(body.new);
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(existingPending)).run();
-      saved.push("single-pending");
+      // Deduplicate by id
+      const map = new Map();
+      [...existingPending, body.new].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
+      const merged = [...map.values()];
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(merged)).run();
+      saved.push(`single-pending:${merged.length}`);
     }
 
     return new Response(JSON.stringify({ success: true, message: "Synced: " + saved.join(", "), saved }), {
