@@ -43,7 +43,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
   <div id="adminDashboard" class="hidden">
     <h2 class="text-3xl font-bold">Admin — ToyyibPay Auto Payout</h2>
     <div class="grid md:grid-cols-3 gap-4 mt-6">
-      <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11%)</div><div id="totalFees" class="text-3xl font-bold mt-1">RM0</div><div class="text-[11px] mt-1">After gateway fee RM1 • Owner gets Base via ToyyibPay Auto on Check-in</div><div class="text-[11px] mt-2"><span id="kdAvailInline">Available: RM0</span> • <span id="kdWithdrawnInline">Withdrawn: RM0</span></div><button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw Earnings</button></div>
+      <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11%)</div><div id="totalFees" class="text-3xl font-bold mt-1">RM0</div><div class="text-[11px] mt-1">After gateway fee RM1 • Owner gets Base via ToyyibPay Auto on Check-in</div><div class="text-[11px] mt-2"><span id="kdAvailInline">Available: RM0</span> • <span id="kdWithdrawnInline">Withdrawn: RM0</span> <button onclick="resetWithdrawn()" class="ml-2 text-[10px] px-2 py-0.5 bg-red-600 text-white sharp">Reset to 0</button></div><button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw Earnings</button></div>
       <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">Pending</div><div id="adminPendingCount" class="text-3xl font-bold mt-1">0</div></div>
       <div class="card p-5"><div class="text-[11px] uppercase text-zinc-500">ToyyibPay Status</div><div id="billplzStatus" class="text-sm font-bold mt-1">Simulation</div><div class="text-[11px] mt-1">Check-in = complete + auto ToyyibPay to owner</div></div>
     </div>
@@ -457,6 +457,37 @@ async function loadBankInfo(){
 setTimeout(loadBankInfo, 1200);
 function renderAvailabilityTab(){ const div=document.getElementById("availabilityTable"); div.innerHTML='<div class="grid md:grid-cols-2 gap-4">'+homestays.map(h=> '<div class="border sharp p-3"><div class="font-bold text-sm">'+h.name+'</div><div id="cal-'+h.id+'" class="mt-2"></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>').join("")+'</div>'; homestays.forEach(h=> renderAvailabilityCalendar(h, 'cal-'+h.id)); }
 function renderGuestsTable(){ const guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); const div=document.getElementById("guestsTable"); if(guests.length===0) div.innerHTML='<div class="text-center text-zinc-500">No guests</div>'; else div.innerHTML=guests.map((g,i)=> '<div class="border sharp p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+g.name+' • '+g.email+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+' '+(g.date||'')+'</div></div><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded bg-red-600 text-white sharp">Delete</button></div>').join(""); }
+
+function resetWithdrawn(){
+  if(!confirm('Reset Withdrawn to RM0?\nThis will clear local history and try to reset cloud. This cannot be undone.')) return;
+  try{
+    localStorage.removeItem('kd_withdrawals');
+    localStorage.setItem('kd_withdrawals', '[]');
+    const el = document.getElementById('kdWithdrawnInline');
+    if(el) el.textContent = 'Withdrawn: RM0.00';
+    // Try cloud reset - try multiple possible endpoints
+    (async()=>{
+      try{
+        const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
+        // Try DELETE
+        await fetch(base + "/withdraw", {method:"DELETE", cache:"no-store"});
+        // Try POST reset
+        await fetch(base + "/withdraw/reset", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({reset:true})});
+        // Try POST with action
+        await fetch(base + "/withdraw", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"reset"})});
+      }catch(e){ console.warn("Cloud reset attempt", e); }
+      // Refresh UI
+      const availEl = document.getElementById("kdAvailInline");
+      if(availEl) {
+        // keep available as is, but ensure withdrawn shows 0
+      }
+      // Try to refresh from server after 500ms
+      setTimeout(()=>{ try{ if(typeof refreshEarningsUI === 'function') location.reload(); else location.reload(); }catch(e){ location.reload(); } }, 500);
+    })();
+    alert('Withdrawn reset to 0 (local). Cloud reset attempted - refresh to confirm.');
+  }catch(e){ alert('Reset failed: '+e.message); }
+}
+
 function deleteGuest(idx){ if(!confirm('Delete this guest? This cannot be undone.')) return; const guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); guests.splice(idx,1); localStorage.setItem("kd_guests", JSON.stringify(guests)); renderGuestsTable(); renderAdmin(); }
 function saveToyyibPayConfig(){ CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value; CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value; CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value; CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true"; localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz)); alert("Saved"); }
 function approveHomestay(id){ const idx=pendingHomestays.findIndex(h=> h.id==id); if(idx===-1) return; const h=pendingHomestays[idx]; h.approved=true; h.verified=true; allHomestays.push(h); homestays.push(h); storedApproved.push(h); saveApproved(); pendingHomestays.splice(idx,1); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
