@@ -1,4 +1,4 @@
-// /api/withdraw - FIXED: env only inside functions
+// /api/withdraw - FIXED: env only inside functions + RESET support
 // YOUR platform fee only - bank LOCKED server-side
 
 export async function onRequestPost(context) {
@@ -13,7 +13,46 @@ export async function onRequestPost(context) {
     };
 
     const data = await request.json();
-    const { amount } = data;
+    const { amount, reset, action } = data || {};
+
+    const db = env.DB;
+    let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
+    if (db) {
+      try {
+        await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
+        if (r) earnings = JSON.parse(r.data);
+      } catch(e){}
+    }
+
+    // === RESET HANDLER (sync with Reset to 0 button) ===
+    if (reset === true || action === "reset") {
+      const prevWithdrawn = earnings.withdrawn || 0;
+      // Reset withdrawn to 0, move it back to available
+      earnings.withdrawn = 0;
+      if (earnings.total && earnings.total > 0) {
+        earnings.available = earnings.total;
+      } else {
+        // If no total, add withdrawn back to available
+        earnings.available = (earnings.available || 0) + prevWithdrawn;
+      }
+      // Keep history but add reset record, or clear withdrawal history
+      earnings.history = (earnings.history || []).filter(h => h.type !== "withdrawal");
+      earnings.history.push({ type: "reset", date: new Date().toISOString(), note: "Withdrawn reset to 0 by admin", prevWithdrawn });
+
+      if (db) {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_fee_earnings", JSON.stringify(earnings)).run();
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: "Withdrawn reset to RM0.00",
+        earnings,
+        reset: true
+      }), { status: 200, headers: { "Content-Type": "application/json", ...cors() } });
+    }
+
+    // === NORMAL WITHDRAW ===
 
     const bankName = LOCKED_BANK.bankName;
     const accountHolder = LOCKED_BANK.accountHolder;
@@ -26,16 +65,6 @@ export async function onRequestPost(context) {
 
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
       return new Response(JSON.stringify({ error: "Invalid amount" }), { status: 400, headers: { "Content-Type": "application/json", ...cors() } });
-    }
-
-    const db = env.DB;
-    let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
-    if (db) {
-      try {
-        await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
-        if (r) earnings = JSON.parse(r.data);
-      } catch(e){}
     }
 
     if (Number(amount) > (earnings.available || 0)) {
@@ -97,5 +126,44 @@ export async function onRequestGet(context) {
   }), { status: 200, headers: { "Content-Type": "application/json", ...cors() } });
 }
 
-function cors(){ return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" }; }
+export async function onRequestDelete(context) {
+  // Reset Withdrawn to 0 - called by Reset button
+  try {
+    const { env } = context;
+    const db = env.DB;
+    let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
+    if (db) {
+      try {
+        await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
+        if (r) earnings = JSON.parse(r.data);
+      } catch(e){}
+    }
+
+    const prevWithdrawn = earnings.withdrawn || 0;
+    earnings.withdrawn = 0;
+    if (earnings.total && earnings.total > 0) {
+      earnings.available = earnings.total;
+    } else {
+      earnings.available = (earnings.available || 0) + prevWithdrawn;
+    }
+    earnings.history = (earnings.history || []).filter(h => h.type !== "withdrawal");
+    earnings.history.push({ type: "reset", date: new Date().toISOString(), note: "Withdrawn reset to 0 via DELETE", prevWithdrawn });
+
+    if (db) {
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_fee_earnings", JSON.stringify(earnings)).run();
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: "Withdrawn reset to RM0.00",
+      earnings,
+      reset: true
+    }), { status: 200, headers: { "Content-Type": "application/json", ...cors() } });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { "Content-Type": "application/json", ...cors() } });
+  }
+}
+
+function cors(){ return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" }; }
 export async function onRequestOptions(){ return new Response(null, { headers: cors() }); }
