@@ -1438,7 +1438,7 @@ function addBlockedDate() {
       });
     });
 
-    function submitHomestay() {
+    async function submitHomestay() {
     try {
       const ownerName = document.getElementById("listOwnerName").value.trim();
       const whatsapp = document.getElementById("listWhatsapp").value.trim();
@@ -1519,33 +1519,36 @@ function addBlockedDate() {
       pendingHomestays.push(newHome);
       localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
 
-      // === FIX: SYNC PENDING TO CLOUD FOR ADMIN PANEL (multi-device) ===
-      (async()=>{
+      // === FIX: SYNC PENDING TO CLOUD FOR ADMIN PANEL (multi-device) - ROBUST ===
+      try{
+        const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
+        // Primary: updatePending via bookings endpoint - MUST await
+        const res1 = await fetch(base + "/bookings", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({action:"updatePending", pending: pendingHomestays})
+        });
+        const data1 = await res1.json().catch(()=>({}));
+        console.log("Bookings sync response:", res1.status, data1);
+        if(!res1.ok){
+          console.error("Bookings sync failed:", data1);
+          // Show warning but still allow submit
+          alert("Warning: Cloud sync failed (" + (data1.error||res1.status) + ")\n\nYour listing saved locally but admin may not see it from other device.\n\nFix: Check Cloudflare Pages D1 binding named DB exists.\n\nError: " + JSON.stringify(data1).slice(0,300));
+        } else {
+          console.log("Pending synced to cloud:", newHome.id, data1);
+        }
+        // Fallback: try dedicated pending endpoint
         try{
-          const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
-          // Primary: updatePending via bookings endpoint
-          await fetch(base + "/bookings", {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body: JSON.stringify({action:"updatePending", pending: pendingHomestays})
-          });
-          // Fallback: try dedicated pending endpoint
           await fetch(base + "/pending", {
             method:"POST",
             headers:{"Content-Type":"application/json"},
             body: JSON.stringify({pending: pendingHomestays, new: newHome})
-          }).catch(()=>{});
-          // Also try homestays endpoint
-          await fetch(base + "/homestays", {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body: JSON.stringify({action:"updatePending", pending: pendingHomestays, new: newHome})
-          }).catch(()=>{});
-          console.log("Pending synced to cloud:", newHome.id);
-        }catch(e){
-          console.warn("Pending cloud sync failed (will still show locally):", e);
-        }
-      })();
+          });
+        }catch(e){}
+      }catch(e){
+        console.error("Pending cloud sync failed:", e);
+        alert("Cloud sync error: " + e.message + "\n\nYour listing saved locally only. Admin on other device won't see it until cloud is fixed.\nCheck D1 binding DB exists.");
+      }
 
       alert(`Submitted!\n\n"${homestayName}" is now Pending approval.\nOnly shows on homepage after admin approves.\nYou will get Verified Owner badge after approval.\n\n(Admin will see it even from other phone/desktop now)`);
       
