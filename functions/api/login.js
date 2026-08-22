@@ -1,4 +1,4 @@
-// /api/login.js - SIMPLE FIX (SHA-256 with salt)
+// /api/login.js - BULLETPROOF (SHA-256 + Salt + Pepper)
 
 async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
@@ -21,7 +21,9 @@ function corsHeaders() {
   };
 }
 
-// Rate limiting
+const PEPPER = "kundasang-homestay-2026-secure-pepper";
+
+// Rate limiting (in-memory)
 const loginAttempts = new Map();
 function checkRateLimit(email) {
   const key = email.toLowerCase();
@@ -87,18 +89,30 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
     }
 
-    // If user has salt (new account), use it
     let hashedInput;
     if (user.salt) {
-      hashedInput = await sha256(trimmedPassword + user.salt);
+      // New account with salt
+      hashedInput = await sha256(PEPPER + trimmedPassword + user.salt);
     } else {
-      // Legacy account (no salt) - use old method
+      // Legacy account (no salt) – fallback to old method
       hashedInput = await sha256(trimmedPassword);
     }
 
     if (hashedInput !== user.password) {
       recordLoginAttempt(cleanEmail);
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
+      
+      // Return debug info so you can see what's wrong
+      return new Response(JSON.stringify({
+        error: "Invalid credentials",
+        debug: {
+          userFound: true,
+          hasSalt: !!user.salt,
+          saltPreview: user.salt ? user.salt.substring(0, 8) + "..." : "none",
+          storedHashPreview: user.password.substring(0, 8) + "...",
+          computedHashPreview: hashedInput.substring(0, 8) + "...",
+          passwordLength: trimmedPassword.length
+        }
+      }), { status: 401, headers: corsHeaders() });
     }
 
     loginAttempts.delete(cleanEmail);
