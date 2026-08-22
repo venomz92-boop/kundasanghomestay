@@ -1,48 +1,14 @@
-// /api/register.js - ULTRA ROBUST version (Safe for mobile/Cloudflare)
+// /api/register.js - SIMPLE FIX (SHA-256 with salt)
 
-// ========== UTILITY FUNCTIONS ==========
-
-// Fallback salt generator if crypto.getRandomValues fails
-function generateSaltFallback() {
+async function generateSalt() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
 }
 
-async function generateSalt() {
-  try {
-    const saltBuffer = crypto.getRandomValues(new Uint8Array(16));
-    return Array.from(saltBuffer).map(b => b.toString(16).padStart(2, '0')).join('');
-  } catch (e) {
-    console.warn("⚠️ getRandomValues failed, using fallback salt generator");
-    return generateSaltFallback();
-  }
-}
-
-async function hashPassword(password, salt) {
-  try {
-    const encoder = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(password),
-      'PBKDF2',
-      false,
-      ['deriveBits']
-    );
-    const hashBuffer = await crypto.subtle.deriveBits(
-      {
-        name: 'PBKDF2',
-        salt: encoder.encode(salt),
-        iterations: 100000,
-        hash: 'SHA-256'
-      },
-      keyMaterial,
-      256
-    );
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  } catch (e) {
-    console.error("❌ Hashing error:", e.message);
-    throw new Error("Password encryption failed");
-  }
+async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 function validateEmail(email) {
@@ -69,14 +35,9 @@ function corsHeaders() {
   };
 }
 
-// ========== MAIN HANDLER ==========
-
 export async function onRequestPost({ request, env }) {
   try {
-    const body = await request.json().catch(() => {
-      throw new Error("Invalid JSON payload");
-    });
-    
+    const body = await request.json();
     let { name, email, phone, password } = body;
 
     name = sanitizeString(name);
@@ -84,7 +45,6 @@ export async function onRequestPost({ request, env }) {
     phone = phone ? phone.trim() : '';
     password = password ? password.trim() : '';
 
-    // --- Validations ---
     if (!name || !email || !phone || !password) {
       return new Response(JSON.stringify({ error: "All fields are required" }), { status: 400, headers: corsHeaders() });
     }
@@ -100,42 +60,27 @@ export async function onRequestPost({ request, env }) {
     if (password.length < 6) {
       return new Response(JSON.stringify({ error: "Password must be at least 6 characters" }), { status: 400, headers: corsHeaders() });
     }
-    if (password.length > 100) {
-      return new Response(JSON.stringify({ error: "Password is too long (max 100 characters)" }), { status: 400, headers: corsHeaders() });
-    }
 
     const db = env.DB;
     if (!db) {
-      console.error("❌ Database not configured");
       return new Response(JSON.stringify({ error: "Server configuration error" }), { status: 500, headers: corsHeaders() });
     }
 
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-    // --- Get existing guests ---
     const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
     let guests = [];
     if (r && r.data) {
-      try { guests = JSON.parse(r.data); } catch(e) { console.error("Failed to parse guests:", e); }
+      try { guests = JSON.parse(r.data); } catch(e) {}
     }
 
-    // --- Check if email already exists ---
     if (guests.some(g => g.email && g.email.toLowerCase() === email)) {
-      // Do not reveal existence
       return new Response(JSON.stringify({ error: "Registration failed. Please try again." }), { status: 400, headers: corsHeaders() });
     }
 
-    // --- Generate salt and hash (with robust error catching) ---
-    let salt, hashedPassword;
-    try {
-      salt = await generateSalt();
-      hashedPassword = await hashPassword(password, salt);
-    } catch (hashError) {
-      console.error("❌ Hashing failed:", hashError.message);
-      return new Response(JSON.stringify({ error: "Security processing failed. Please try again." }), { status: 500, headers: corsHeaders() });
-    }
+    const salt = await generateSalt();
+    const hashedPassword = await sha256(password + salt);
 
-    // --- Create guest object ---
     const newGuest = {
       id: "G-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6),
       name: name,
@@ -153,17 +98,15 @@ export async function onRequestPost({ request, env }) {
       .bind("kd_guests", JSON.stringify(guests))
       .run();
 
-    console.log(`✅ New guest registered: ${email}`);
-
-    const { password: _, salt: __, ...safeGuest } = newGuest;
+    const { password: _, ...safeGuest } = newGuest;
     return new Response(JSON.stringify({ success: true, guest: safeGuest, message: "Registration successful" }), {
       status: 200,
       headers: corsHeaders()
     });
 
   } catch (e) {
-    console.error("❌ Register error:", e.message, e.stack);
-    return new Response(JSON.stringify({ error: e.message || "Registration failed. Please try again later." }), {
+    console.error("❌ Register error:", e.message);
+    return new Response(JSON.stringify({ error: "Registration failed. Please try again later." }), {
       status: 500,
       headers: corsHeaders()
     });
