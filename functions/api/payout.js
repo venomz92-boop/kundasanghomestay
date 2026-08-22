@@ -1,13 +1,12 @@
-// /api/payout.js - FIXED: Auth + Error Handling
+// /api/payout.js - AUTO via ToyyibPay Payout
+// Flow: Check-in -> ToyyibPay auto transfers Base to owner -> Fee stays with you
+// Requires: TOYYIBPAY_SECRET_KEY + TOYYIBPAY_PAYOUT_ENABLED=true
+// If payout not enabled, falls back to manual instruction
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
-  const expectedToken = env.ADMIN_TOKEN || "secret";
+  const expectedToken = env.ADMIN_TOKEN || "my-secure-admin-token";
   const expected = "Bearer " + expectedToken;
-  
-  console.log("🔐 Payout Auth Check:");
-  console.log("  Received:", auth);
-  console.log("  Expected:", expected);
   
   if (auth !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -36,7 +35,10 @@ export async function onRequestPost({ request, env }) {
     const { bookingId, amount, fee, ownerBankCode, ownerAcc, ownerName } = body;
 
     if (!bookingId || !amount) {
-      return new Response(JSON.stringify({ error: "Missing bookingId or amount" }), { status: 400, headers: { "Content-Type": "application/json", ...cors() } });
+      return new Response(JSON.stringify({ error: "Missing bookingId or amount" }), { 
+        status: 400, 
+        headers: { "Content-Type": "application/json", ...cors() } 
+      });
     }
 
     const db = env.DB;
@@ -183,7 +185,10 @@ export async function onRequestPost({ request, env }) {
 
   } catch (e) {
     console.error("Payout request failed:", e.message);
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { "Content-Type": "application/json", ...cors() } });
+    return new Response(JSON.stringify({ error: e.message }), { 
+      status: 500, 
+      headers: { "Content-Type": "application/json", ...cors() } 
+    });
   }
 }
 
@@ -199,4 +204,5 @@ export async function onRequestGet({ env }) {
 }
 
 export async function onRequestOptions() {
-  return new
+  return new Response(null, { headers: cors() });
+}
