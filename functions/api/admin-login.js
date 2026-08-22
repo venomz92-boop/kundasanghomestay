@@ -7,9 +7,8 @@ export async function onRequestPost({ request, env }) {
     const adminPass = env.ADMIN_PASSWORD || "venomz92";
     
     if (password === adminPass) {
-      // Return the ADMIN_TOKEN from environment variables
-      // This ensures the token matches what the backend expects
-      const token = env.ADMIN_TOKEN || "my-secure-admin-token";
+      // Return the SAME token that backend expects
+      const token = "my-secure-admin-token";
       
       return new Response(JSON.stringify({ 
         success: true, 
