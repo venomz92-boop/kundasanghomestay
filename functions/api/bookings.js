@@ -1,4 +1,4 @@
-// /api/bookings.js - FIXED: added clearAll and public createPublicBooking
+// /api/bookings.js - SECURE: GET requires admin token
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
@@ -21,8 +21,13 @@ function corsHeaders() {
   };
 }
 
+// ========== GET (now requires auth) ==========
 export async function onRequestGet(context) {
-  const { env } = context;
+  const { request, env } = context;
+  // Auth check added
+  const authError = verifyAdmin(request, env);
+  if (authError) return authError;
+
   const db = env.DB;
   let data = {
     bookings: [],
@@ -61,7 +66,17 @@ export async function onRequestGet(context) {
             case "kd_demo_blocked": data.demoBlocked = parsed; break;
             case "kd_deleted_demo": data.deletedDemo = parsed; break;
             case "kd_pending": data.pending = parsed; break;
-            case "kd_guests": data.guests = parsed; break;
+            case "kd_guests": 
+              // Remove password field before sending (security)
+              if (Array.isArray(parsed)) {
+                data.guests = parsed.map(g => {
+                  const { password, ...rest } = g;
+                  return rest;
+                });
+              } else {
+                data.guests = parsed;
+              }
+              break;
             case "kd_banned_guests": data.bannedGuests = parsed; break;
           }
         }
@@ -72,6 +87,7 @@ export async function onRequestGet(context) {
   return new Response(JSON.stringify(data), { status: 200, headers: corsHeaders() });
 }
 
+// ========== POST (unchanged but uses verifyAdmin) ==========
 export async function onRequestPost(context) {
   const { request, env } = context;
   const db = env.DB;
@@ -100,7 +116,7 @@ export async function onRequestPost(context) {
     const authError = verifyAdmin(request, env);
     if (authError) return authError;
 
-    // --- CLEAR ALL (Fix F5 bug) ---
+    // --- CLEAR ALL ---
     if (action === "clearAll") {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify([])).run();
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify({})).run();
@@ -206,6 +222,7 @@ export async function onRequestPost(context) {
   }
 }
 
+// ========== DELETE (unchanged) ==========
 export async function onRequestDelete(context) {
   const { request, env } = context;
   const authError = verifyAdmin(request, env);
@@ -217,7 +234,6 @@ export async function onRequestDelete(context) {
     return new Response(JSON.stringify({ success: true, message: "No action needed" }), { status: 200, headers: corsHeaders() });
   }
   try {
-    // Delete booking
     let bookings = [];
     const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
     if (r && r.data) bookings = JSON.parse(r.data);
@@ -225,7 +241,6 @@ export async function onRequestDelete(context) {
     bookings = bookings.filter(b => String(b.id) !== String(id));
     await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
 
-    // Recalculate availability
     if (toDelete) {
       let avail = {};
       const r2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();

@@ -1,19 +1,24 @@
-// /api/toyyibpay-webhook.js
-// ToyyibPay callback - marks booking as Paid, blocks dates, ready for owner payout on check-in
+// /api/toyyibpay-webhook.js - SECURE: verify secret key
 
 export async function onRequestPost({ request, env }) {
   try {
+    // --- SECURITY: Verify secret key ---
+    const authHeader = request.headers.get('Authorization') || '';
+    const expected = 'Bearer ' + (env.TOYYIBPAY_SECRET_KEY || '');
+    if (authHeader !== expected) {
+      console.warn('Webhook unauthorized: missing or invalid secret');
+      return new Response('Unauthorized', { status: 401, headers: cors() });
+    }
+
     const formData = await request.formData();
-    const refNo = formData.get('refno'); // bookingId = billExternalReferenceNo
-    const status = formData.get('status'); // 1 = success, 2 = pending, 3 = fail
-    const reason = formData.get('reason');
+    const refNo = formData.get('refno');
+    const status = formData.get('status');
     const billcode = formData.get('billcode');
     const orderId = formData.get('order_id');
     const amount = formData.get('amount');
 
     console.log("ToyyibPay webhook", { refNo, status, billcode, amount });
 
-    // Status 1 = success
     if (String(status) !== "1") {
       return new Response("Not success - status "+status, { status: 200, headers: cors() });
     }
@@ -44,7 +49,7 @@ export async function onRequestPost({ request, env }) {
 
     await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
 
-    // Block availability now (was pending before)
+    // Block availability now
     try {
       const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
       let availability = {};
@@ -77,5 +82,5 @@ function getDatesInRange(checkin, checkout){
   while(cur<end){ const y=cur.getFullYear(); const m=String(cur.getMonth()+1).padStart(2,'0'); const d=String(cur.getDate()).padStart(2,'0'); dates.push(`${y}-${m}-${d}`); cur.setDate(cur.getDate()+1); }
   return dates;
 }
-function cors(){ return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" }; }
+function cors(){ return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" }; }
 export async function onRequestOptions(){ return new Response(null, { headers: cors() }); }

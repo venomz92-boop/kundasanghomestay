@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Admin - Kundasang Homestays</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<!-- DOMPurify for XSS protection -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root { --primary:#0F382E; --accent:#3FD0D4; --bg:#F8F5F0; --card:#ffffff; --dark:#212121; }
@@ -31,7 +33,6 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
     </div>
     <div class="flex items-center gap-3">
       <a href="index.html" class="font-600 text-[12px] uppercase px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white sharp flex items-center">← Home</a>
-      <!-- LOGOUT BUTTON -->
       <button onclick="logoutAdmin()" class="font-600 text-[12px] uppercase px-6 h-[38px] border border-red-500 text-red-500 hover:bg-red-500 hover:text-white sharp flex items-center">Logout</button>
     </div>
   </div>
@@ -83,6 +84,11 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 <div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw Earnings</h3><div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after RM1) - Auto payout to owners via ToyyibPay<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button, not here.</div><div class="mt-3 p-2 bg-green-50 border border-green-200 sharp text-[11px]">🔒 Locked Bank: Loading...<br>Change only in Cloudflare env YOUR_BANK_*</div><input id="kdBankName" placeholder="Bank Name (Locked - ignored)" disabled class="w-full border sharp px-3 py-2 mt-3 bg-zinc-100 text-zinc-500" value="Maybank - Locked"/><input id="kdAmt" type="number" placeholder="Amount RM" min="1" step="0.01" class="w-full border sharp px-3 py-2 mt-2"/><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm Withdraw</button></div><div id="kdWithdrawMsg" class="mt-3 text-[11px] text-zinc-500"></div></div></div>
 
 <script>
+// ========== DOMPurify sanitization helper ==========
+function safeHTML(html) {
+  return DOMPurify.sanitize(html);
+}
+
 // ========== ADMIN TOKEN MANAGEMENT ==========
 let ADMIN_TOKEN = sessionStorage.getItem('kd_admin_token') || '';
 
@@ -93,10 +99,8 @@ function logoutAdmin() {
   ADMIN_TOKEN = '';
   document.getElementById('adminDashboard').classList.add('hidden');
   document.getElementById('adminLogin').classList.remove('hidden');
-  // Reset password field
   document.getElementById('adminPass').value = '';
-  // Reload data? Not needed, but we reset the UI
-  location.reload(); // simple full reload to reset all state
+  location.reload();
 }
 
 // ========== FETCH WITH AUTH HEADER ==========
@@ -342,7 +346,7 @@ function getDatesInRange(ci,co){ if(!ci||!co) return []; const dates=[]; const a
 function getAllBlockedDatesForHomestay(h){ if(!h) return []; let blk=[]; if(h.blockedDates) blk=[...blk,...h.blockedDates]; if(availabilityMap[h.id]) blk=[...blk,...availabilityMap[h.id]]; const rel=bookings.filter(b=> b.homestay===h.name || String(b.homestayId)===String(h.id)); rel.forEach(b=>{ if(b.checkin&&b.checkout) blk=[...blk,...getDatesInRange(b.checkin,b.checkout)]; }); return [...new Set(blk)].sort(); }
 function calculateNights(ci,co){ if(!ci||!co) return 1; const d1=new Date(ci), d2=new Date(co); const diff=Math.round((d2-d1)/86400000); return diff>0?diff:1; }
 function calculatePrice(p,n){ n=n||1; const base=p*n; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gw=CONFIG.toyyibpay.enabled?CONFIG.toyyibpay.gatewayFee:0; return {nights:n, base:base, fee:fee, gatewayFee:gw, total:base+fee+gw, youReceive:fee-gw, ownerReceives:base}; }
-function renderAvailabilityCalendar(h,id){ const c=document.getElementById(id); if(!c||!h) return; const blk=getAllBlockedDatesForHomestay(h); const today=new Date(); today.setHours(0,0,0,0); let html='<div class="calendar-mini">'; ["S","M","T","W","T","F","S"].forEach(d=> html+='<div class="text-[10px] text-center font-bold text-zinc-400">'+d+'</div>'); for(let i=0;i<35;i++){ const d=new Date(today); d.setDate(today.getDate()+i); const iso=dateToIso(d); const b=blk.includes(iso); html+='<div class="calendar-day '+(b?'booked':'available')+'">'+d.getDate()+'</div>'; } html+='</div>'; c.innerHTML=html; }
+function renderAvailabilityCalendar(h,id){ const c=document.getElementById(id); if(!c||!h) return; const blk=getAllBlockedDatesForHomestay(h); const today=new Date(); today.setHours(0,0,0,0); let html='<div class="calendar-mini">'; ["S","M","T","W","T","F","S"].forEach(d=> html+='<div class="text-[10px] text-center font-bold text-zinc-400">'+d+'</div>'); for(let i=0;i<35;i++){ const d=new Date(today); d.setDate(today.getDate()+i); const iso=dateToIso(d); const b=blk.includes(iso); html+='<div class="calendar-day '+(b?'booked':'available')+'">'+d.getDate()+'</div>'; } html+='</div>'; c.innerHTML = safeHTML(html); }
 
 // ========== ADMIN LOGIN ==========
 async function doAdminLogin() {
@@ -435,29 +439,29 @@ function renderAdmin(){
   const pc=document.getElementById("adminPendingCount"); if(pc) pc.innerText=pendingHomestays.length;
   const bs=document.getElementById("billplzStatus"); if(bs) bs.innerText=CONFIG.toyyibpay.enabled?"LIVE ToyyibPay":"Simulation";
   const pendingDiv=document.getElementById("adminPending");
-  if(pendingHomestays.length===0) pendingDiv.innerHTML='<div class="card p-6 text-center text-zinc-500">No pending.</div>';
+  if(pendingHomestays.length===0) pendingDiv.innerHTML = safeHTML('<div class="card p-6 text-center text-zinc-500">No pending.</div>');
   else {
-    pendingDiv.innerHTML=pendingHomestays.map(h=>{
+    pendingDiv.innerHTML = safeHTML(pendingHomestays.map(h=>{
       const blocked=(h.blockedDates||[]);
       const icName=(h.icName||'').toLowerCase().trim();
       const bankHolder=(h.bankHolder||'').toLowerCase().trim();
       const match=(icName && bankHolder && (icName.includes(bankHolder.split(' ')[0]) || bankHolder.includes(icName.split(' ')[0]))) ? '✓ Match' : '⚠️ Check';
       return '<div class="card p-5"><div class="flex gap-4"><img src="'+(h.image||'')+'" class="w-24 h-24 sharp object-cover"/><div class="flex-1"><div class="font-bold">'+(h.name||'Unnamed')+' — '+(h.location||'')+' <span class="text-[10px] bg-zinc-100 px-2 py-0.5 sharp">'+match+'</span></div><div class="text-xs">Owner '+(h.ownerName||'')+' • '+(h.whatsapp||'')+'</div><div class="text-[11px] mt-1 text-zinc-500">'+(h.description||'')+'</div><div class="mt-2 p-2 bg-yellow-50 border sharp text-[11px]">Bank: '+(h.ownerBank||'')+' • Acc: '+(h.ownerBankAccount||'')+' • Holder: '+(h.bankHolder||'')+'</div></div></div><div class="flex gap-2 mt-3"><button onclick="approveHomestay('+h.id+')" class="px-4 py-1.5 bg-green-600 text-white sharp text-xs">Approve</button><button onclick="rejectHomestay('+h.id+')" class="px-4 py-1.5 bg-red-100 text-red-700 sharp text-xs">Reject</button></div></div>';
-    }).join("");
+    }).join(""));
   }
   const approvedDiv=document.getElementById("adminApproved");
-  approvedDiv.innerHTML=homestays.map(h=>{
+  approvedDiv.innerHTML = safeHTML(homestays.map(h=>{
     const blocked=getAllBlockedDatesForHomestay(h);
     return '<div class="card p-4 flex gap-4 items-center"><img src="'+(h.image||'')+'" class="w-16 h-16 sharp object-cover"/><div class="flex-1"><div class="font-bold text-sm">'+h.name+'</div><div class="text-xs">RM'+h.ownerPrice+' • '+h.location+' • '+blocked.length+' booked</div></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="text-xs border sharp px-3 py-1">Manage</button></div>';
-  }).join("");
+  }).join(""));
   renderBookingsTable();
 }
 
 function renderBookingsTable(){
   const div=document.getElementById("bookingsTable"); if(!div) return;
   const map=new Map(); bookings.forEach(b=>{ if(b && b.id && !map.has(String(b.id))) map.set(String(b.id), b); }); const clean=[...map.values()]; if(clean.length!==bookings.length){ bookings=clean; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
-  if(bookings.length===0){ div.innerHTML='<div class="text-center text-zinc-500 py-6">No bookings yet.</div>'; return; }
-  div.innerHTML='<div class="mb-3 text-[11px] text-zinc-500">Flow: Check-in → Complete → Owner gets Base via ToyyibPay → You keep Fee • No F5 needed <button onclick="renderAdmin()" class="ml-2 border sharp px-2 py-0.5 bg-white">Reload</button></div><div class="space-y-4">'+bookings.map(b=>{
+  if(bookings.length===0){ div.innerHTML = safeHTML('<div class="text-center text-zinc-500 py-6">No bookings yet.</div>'); return; }
+  div.innerHTML = safeHTML('<div class="mb-3 text-[11px] text-zinc-500">Flow: Check-in → Complete → Owner gets Base via ToyyibPay → You keep Fee • No F5 needed <button onclick="renderAdmin()" class="ml-2 border sharp px-2 py-0.5 bg-white">Reload</button></div><div class="space-y-4">'+bookings.map(b=>{
     const status=b.status||"Paid - Awaiting Check-in";
     const isAwaiting=status.toLowerCase().includes("awaiting");
     const isCompleted=status.toLowerCase().includes("completed") || status.toLowerCase().includes("payout");
@@ -472,7 +476,7 @@ function renderBookingsTable(){
     }
     btns+='<button onclick="updateBookingStatus(\''+b.id+'\',\'Completed\')" class="px-3 py-1.5 bg-green-600 text-white sharp text-[11px] uppercase font-600">COMPLETE</button>';
     return '<div class="border border-black/10 sharp p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">'+b.id+'</div><div class="text-[12px] mt-1">'+homestayName+' • '+nights+' nights • '+checkin+' → '+checkout+' • RM'+total+'</div><div class="text-[12px]">Guest: '+(b.guestName||'')+' '+(b.guestEmail||'')+' '+(b.guestPhone||'')+'</div><div class="text-[10px] text-zinc-500 mt-1">Base RM'+base+' + Fee RM'+fee+' = You receive RM'+youReceive+' '+(b.payoutAmount ? '• Owner Paid RM'+b.payoutAmount+(b.payoutDate ? ' on '+toMYDate(b.payoutDate) : '') : '')+'</div></div><div><span class="text-[11px] px-2 py-1 sharp '+badgeClass+'">'+status+'</span></div></div><div class="flex gap-2 mt-3 flex-wrap">'+btns+'<button onclick="whatsappGuest(\''+b.id+'\')" class="px-3 py-1.5 bg-[#25D366] text-white sharp text-[11px] uppercase font-600">WHATSAPP GUEST</button><button onclick="copyBookingId(\''+b.id+'\')" class="px-3 py-1.5 bg-white border sharp text-[11px] uppercase font-600">COPY ID</button><button onclick="changeBookingDates(\''+b.id+'\')" class="px-3 py-1.5 bg-white border sharp text-[11px] uppercase font-600">CHANGE DATES</button><button onclick="deleteBooking(\''+b.id+'\')" class="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 sharp text-[11px] uppercase font-600">DELETE</button></div></div>';
-  }).join("")+'</div>';
+  }).join("")+'</div>');
 }
 
 // ========== CHECK-IN ==========
@@ -554,15 +558,15 @@ async function loadBankInfo(){
     const data = await res.json();
     if(data.lockedBank){
       const el = document.getElementById("liveBankInfo");
-      if(el) el.innerHTML = `🔒 Locked Bank: ${data.lockedBank.bankName} - ${data.lockedBank.holder} - ${data.lockedBank.accountMasked}<br>Fee earnings: Available RM${data.earnings.available?.toFixed(2)||0} / Total RM${data.earnings.total?.toFixed(2)||0}`;
+      if(el) el.innerHTML = safeHTML(`🔒 Locked Bank: ${data.lockedBank.bankName} - ${data.lockedBank.holder} - ${data.lockedBank.accountMasked}<br>Fee earnings: Available RM${data.earnings.available?.toFixed(2)||0} / Total RM${data.earnings.total?.toFixed(2)||0}`);
       const overlay = document.querySelector("#kdWithdrawOverlay .bg-green-50");
-      if(overlay) overlay.innerHTML = `🔒 Locked Bank: ${data.lockedBank.bankName} - ${data.lockedBank.holder} - ${data.lockedBank.accountMasked}<br>Change only in Cloudflare env YOUR_BANK_*`;
+      if(overlay) overlay.innerHTML = safeHTML(`🔒 Locked Bank: ${data.lockedBank.bankName} - ${data.lockedBank.holder} - ${data.lockedBank.accountMasked}<br>Change only in Cloudflare env YOUR_BANK_*`);
     }
   }catch(e){}
 }
 setTimeout(loadBankInfo, 1200);
 
-function renderAvailabilityTab(){ const div=document.getElementById("availabilityTable"); div.innerHTML='<div class="grid md:grid-cols-2 gap-4">'+homestays.map(h=> '<div class="border sharp p-3"><div class="font-bold text-sm">'+h.name+'</div><div id="cal-'+h.id+'" class="mt-2"></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>').join("")+'</div>'; homestays.forEach(h=> renderAvailabilityCalendar(h, 'cal-'+h.id)); }
+function renderAvailabilityTab(){ const div=document.getElementById("availabilityTable"); div.innerHTML = safeHTML('<div class="grid md:grid-cols-2 gap-4">'+homestays.map(h=> '<div class="border sharp p-3"><div class="font-bold text-sm">'+h.name+'</div><div id="cal-'+h.id+'" class="mt-2"></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>').join("")+'</div>'); homestays.forEach(h=> renderAvailabilityCalendar(h, 'cal-'+h.id)); }
 
 function renderGuestsTable(){
   let guests=[];
@@ -570,9 +574,9 @@ function renderGuestsTable(){
   const div=document.getElementById("guestsTable"); 
   if(!div) return;
   if(guests.length===0){
-    div.innerHTML='<div class="text-center text-zinc-500 py-8">No guests yet<br><button onclick="forceSyncGuests()" class="mt-3 px-4 py-2 bg-blue-600 text-white text-xs sharp">Force Sync</button> <button onclick="checkCloudRaw()" class="mt-3 px-4 py-2 bg-zinc-200 text-xs sharp">Check Cloud</button></div>';
+    div.innerHTML = safeHTML('<div class="text-center text-zinc-500 py-8">No guests yet<br><button onclick="forceSyncGuests()" class="mt-3 px-4 py-2 bg-blue-600 text-white text-xs sharp">Force Sync</button> <button onclick="checkCloudRaw()" class="mt-3 px-4 py-2 bg-zinc-200 text-xs sharp">Check Cloud</button></div>');
   } else {
-    div.innerHTML='<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests</div>' + guests.map((g,i)=> '<div class="border sharp p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+'</div></div><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded bg-red-600 text-white sharp">Delete & Ban</button></div>').join("");
+    div.innerHTML = safeHTML('<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests</div>' + guests.map((g,i)=> '<div class="border sharp p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+'</div></div><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded bg-red-600 text-white sharp">Delete & Ban</button></div>').join(""));
   }
 }
 
