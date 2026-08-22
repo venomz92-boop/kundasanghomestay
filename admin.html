@@ -39,6 +39,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
     <p class="text-xs text-zinc-500 mt-1">Login to manage bookings & payouts</p>
     <input id="adminPass" type="password" placeholder="Password" class="w-full mt-4 border sharp px-4 py-2.5"/>
     <button onclick="doAdminLogin()" class="btn-primary w-full mt-4">Login</button>
+    <div id="loginError" class="text-red-600 text-xs mt-2 hidden"></div>
   </div>
   <div id="adminDashboard" class="hidden">
     <h2 class="text-3xl font-bold">Admin — ToyyibPay Auto Payout</h2><div class="text-[11px] text-zinc-500 mt-1">Malaysia Time: <span id="myTimeNow"></span> • Timezone: Asia/Kuala_Lumpur (UTC+8)</div>
@@ -78,8 +79,19 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 <div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw Earnings</h3><div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after RM1) - Auto payout to owners via ToyyibPay<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button, not here.</div><div class="mt-3 p-2 bg-green-50 border border-green-200 sharp text-[11px]">🔒 Locked Bank: Loading...<br>Change only in Cloudflare env YOUR_BANK_*</div><input id="kdBankName" placeholder="Bank Name (Locked - ignored)" disabled class="w-full border sharp px-3 py-2 mt-3 bg-zinc-100 text-zinc-500" value="Maybank - Locked"/><input id="kdAmt" type="number" placeholder="Amount RM" min="1" step="0.01" class="w-full border sharp px-3 py-2 mt-2"/><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm Withdraw</button></div><div id="kdWithdrawMsg" class="mt-3 text-[11px] text-zinc-500"></div></div></div>
 
 <script>
+// ========== ADMIN TOKEN MANAGEMENT ==========
+let ADMIN_TOKEN = sessionStorage.getItem('kd_admin_token') || '';
 
-// === MALAYSIA TIMEZONE (Asia/Kuala_Lumpur UTC+8) ===
+// ========== FETCH WITH AUTH HEADER ==========
+async function fetchWithAuth(url, options = {}) {
+  const headers = options.headers || {};
+  if (ADMIN_TOKEN) {
+    headers['Authorization'] = 'Bearer ' + ADMIN_TOKEN;
+  }
+  return fetch(url, { ...options, headers });
+}
+
+// ========== MALAYSIA TIME ==========
 const MY_TZ = "Asia/Kuala_Lumpur";
 function toMYDate(dateInput){
   if(!dateInput) return "";
@@ -97,10 +109,7 @@ function toMYDateTime(dateInput){
     return d.toLocaleString('en-MY', {timeZone: MY_TZ, year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', hour12:true}) + " MYT";
   }catch(e){ return dateInput; }
 }
-function nowMYISOString(){
-  // Store as ISO but display will be MYT - keep ISO for backend compatibility
-  return new Date().toISOString();
-}
+function nowMYISOString(){ return new Date().toISOString(); }
 function nowMYLocale(){
   return new Date().toLocaleString('en-MY', {timeZone: MY_TZ, year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true}) + " MYT";
 }
@@ -108,17 +117,27 @@ function nowMYLocale(){
 const CONFIG = {
   adminPasswordHash: "b9276e0bc88047b500d985a7bf9f7bf543cd428b9ca1906128cdf9797bb83d33",
   platformFeePercent: 11,
-  toyyibpay: { enabled: true, gatewayFee: 1.00, category: "08myr5uc" }, billplz: { enabled: false, gatewayFee: 1.25, apiKey: "", collectionId: "", xSignature: "", sandbox: true }
+  toyyibpay: { enabled: true, gatewayFee: 1.00, category: "08myr5uc" },
+  billplz: { enabled: false, gatewayFee: 1.25, apiKey: "", collectionId: "", xSignature: "", sandbox: true }
 };
 var CLOUD_ENABLED = true;
 var API_BASE = "/api";
 
+// ========== CLOUD DATA FETCH ==========
 async function fetchCloudData(){
-  console.log("Fetching cloud data from", API_BASE + "/bookings");
+  console.log("Fetching cloud data with auth");
   if(!CLOUD_ENABLED) return false;
   try{
-    const res=await fetch(API_BASE + "/bookings", {cache:"no-store"});
-    if(!res.ok) throw new Error(res.status);
+    const res = await fetchWithAuth(API_BASE + "/bookings", {cache:"no-store"});
+    if(!res.ok) {
+      console.warn("Cloud fetch failed", res.status);
+      if (res.status === 401) {
+        alert("Session expired. Please login again.");
+        sessionStorage.removeItem('kd_admin_token');
+        location.reload();
+      }
+      return false;
+    }
     const data=await res.json();
     console.log("Cloud data:", data);
     
@@ -170,7 +189,6 @@ async function fetchCloudData(){
     
     if(data.guests && Array.isArray(data.guests)){
       const localGuests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
-      // Cloud is source of truth after delete - if cloud has fewer, use cloud
       if(data.guests.length < localGuests.length){
         localStorage.setItem("kd_guests", JSON.stringify(data.guests));
         console.log("Guests overwritten from cloud (admin deleted):", localGuests.length, "->", data.guests.length);
@@ -182,27 +200,6 @@ async function fetchCloudData(){
           localStorage.setItem("kd_guests", JSON.stringify(merged));
         }catch(e){}
       }
-    }
-    
-    if(data.pending && Array.isArray(data.pending)){
-      if(data.pending.length > 0){
-        const map=new Map();
-        [...pendingHomestays, ...data.pending].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
-        pendingHomestays=[...map.values()];
-        localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
-      }
-    }
-    
-    if(data.guests && Array.isArray(data.guests)){
-      try{
-        const localGuests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
-        if(data.guests.length > 0){
-          const map=new Map();
-          [...localGuests, ...data.guests].forEach(g=>{ if(g && (g.email||g.id)) map.set(String(g.email||g.id).toLowerCase(), g); });
-          const merged=[...map.values()];
-          localStorage.setItem("kd_guests", JSON.stringify(merged));
-        }
-      }catch(e){}
     }
     
     try{
@@ -224,7 +221,7 @@ async function fetchCloudData(){
 async function pushHomestaysToCloud(){
   if(!CLOUD_ENABLED) return;
   try{
-    await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({
+    await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({
       action:"updateHomestays",
       approved: storedApproved,
       demoOverrides: demoOverrides,
@@ -234,16 +231,16 @@ async function pushHomestaysToCloud(){
   }catch(e){}
 }
 async function fetchCloudDataForAdmin(){ return fetchCloudData(); }
-async function deleteBookingFromCloud(id){ try{ await fetch(API_BASE + "/bookings?id=" + encodeURIComponent(id), {method:"DELETE"}); }catch(e){} }
+async function deleteBookingFromCloud(id){ try{ await fetchWithAuth(API_BASE + "/bookings?id=" + encodeURIComponent(id), {method:"DELETE"}); }catch(e){} }
 async function pushAvailabilityToCloud(){
   try{
-    const res = await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})});
+    const res = await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})});
     return res;
   }catch(e){ console.warn("pushAvailability fail", e); }
 }
 async function fetchEarnings(){
   try{
-    const res = await fetch(API_BASE + "/withdraw", {cache:"no-store"});
+    const res = await fetchWithAuth(API_BASE + "/withdraw", {cache:"no-store"});
     if(!res.ok) throw new Error("no earnings");
     const data = await res.json();
     if(data && data.earnings){
@@ -258,7 +255,7 @@ async function fetchEarnings(){
 }
 async function saveAvailabilityMap(){ localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); try{ await pushAvailabilityToCloud(); }catch(e){} }
 
-
+// ========== DEMO DATA ==========
 const DEMO_HOMESTAYS = [
   {
     id: 1,
@@ -326,23 +323,84 @@ function isoToDate(s){ return new Date(s+'T00:00:00'); }
 function dateToIso(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate()).padStart(2,'0'); }
 function getDatesInRange(ci,co){ if(!ci||!co) return []; const dates=[]; const a=isoToDate(ci), b=isoToDate(co); if(isNaN(a)||isNaN(b)||a>=b) return []; const cur=new Date(a); while(cur<b){ dates.push(dateToIso(cur)); cur.setDate(cur.getDate()+1); } return dates; }
 function getAllBlockedDatesForHomestay(h){ if(!h) return []; let blk=[]; if(h.blockedDates) blk=[...blk,...h.blockedDates]; if(availabilityMap[h.id]) blk=[...blk,...availabilityMap[h.id]]; const rel=bookings.filter(b=> b.homestay===h.name || String(b.homestayId)===String(h.id)); rel.forEach(b=>{ if(b.checkin&&b.checkout) blk=[...blk,...getDatesInRange(b.checkin,b.checkout)]; }); return [...new Set(blk)].sort(); }
-async function saveAvailabilityMap(){ localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); try{ await pushAvailabilityToCloud(); }catch(e){} }
 function calculateNights(ci,co){ if(!ci||!co) return 1; const d1=new Date(ci), d2=new Date(co); const diff=Math.round((d2-d1)/86400000); return diff>0?diff:1; }
 function calculatePrice(p,n){ n=n||1; const base=p*n; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gw=CONFIG.toyyibpay.enabled?CONFIG.toyyibpay.gatewayFee:0; return {nights:n, base:base, fee:fee, gatewayFee:gw, total:base+fee+gw, youReceive:fee-gw, ownerReceives:base}; }
 function renderAvailabilityCalendar(h,id){ const c=document.getElementById(id); if(!c||!h) return; const blk=getAllBlockedDatesForHomestay(h); const today=new Date(); today.setHours(0,0,0,0); let html='<div class="calendar-mini">'; ["S","M","T","W","T","F","S"].forEach(d=> html+='<div class="text-[10px] text-center font-bold text-zinc-400">'+d+'</div>'); for(let i=0;i<35;i++){ const d=new Date(today); d.setDate(today.getDate()+i); const iso=dateToIso(d); const b=blk.includes(iso); html+='<div class="calendar-day '+(b?'booked':'available')+'">'+d.getDate()+'</div>'; } html+='</div>'; c.innerHTML=html; }
 
-async function sha256(s){ const buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
-async function doAdminLogin(){
-  const pass=document.getElementById("adminPass").value;
-  const hash=await sha256(pass);
-  if(hash===CONFIG.adminPasswordHash){
-    sessionStorage.setItem("kd_admin_session","1");
-    document.getElementById("adminLogin").classList.add("hidden");
-    document.getElementById("adminDashboard").classList.remove("hidden");
-    try{ await fetchCloudData(); }catch(e){}
-    renderAdmin();
-  } else alert("Wrong password");
+// ========== ADMIN LOGIN ==========
+async function doAdminLogin() {
+  const pass = document.getElementById("adminPass").value;
+  const errorEl = document.getElementById("loginError");
+  errorEl.classList.add("hidden");
+  try {
+    const res = await fetch(API_BASE + "/admin-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: pass })
+    });
+    const data = await res.json();
+    if (data.success) {
+      ADMIN_TOKEN = data.token;
+      sessionStorage.setItem("kd_admin_token", ADMIN_TOKEN);
+      document.getElementById("adminLogin").classList.add("hidden");
+      document.getElementById("adminDashboard").classList.remove("hidden");
+      await fetchCloudData();
+      renderAdmin();
+    } else {
+      errorEl.textContent = data.error || "Wrong password";
+      errorEl.classList.remove("hidden");
+    }
+  } catch(e) {
+    errorEl.textContent = "Login error: " + e.message;
+    errorEl.classList.remove("hidden");
+  }
 }
+
+// ========== RESET WITHDRAWN ==========
+async function resetWithdrawn() {
+  if (!confirm("Reset withdrawn and available balance to 0?")) return;
+  try {
+    const res = await fetchWithAuth(API_BASE + "/withdraw", { method: "DELETE" });
+    const data = await res.json();
+    if (res.ok) {
+      alert("Withdrawn reset to RM0.00");
+      await fetchCloudData();
+      renderAdmin();
+    } else {
+      alert("Reset failed: " + (data.error || "Unknown"));
+    }
+  } catch(e) {
+    alert("Error: " + e.message);
+  }
+}
+
+// ========== CLEAR ALL CLOUD ==========
+async function clearAllBookingsCloud() {
+  if (!confirm("DELETE ALL bookings from Cloudflare D1? This cannot be undone.")) return;
+  if (!confirm("Really clear ALL?")) return;
+  try {
+    const res = await fetchWithAuth(API_BASE + "/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "clearAll" })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      bookings = [];
+      localStorage.setItem("kd_bookings", JSON.stringify([]));
+      availabilityMap = {};
+      localStorage.setItem("kd_availability", JSON.stringify({}));
+      alert("All bookings cleared from cloud: " + (data.bookings?.length || 0) + " remaining");
+      renderAdmin();
+    } else {
+      alert("Clear failed: " + data.error);
+    }
+  } catch(e) {
+    alert("Clear error: " + e.message);
+  }
+}
+
+// ========== RENDER ADMIN ==========
 function showAdminTab(tab){
   ["adminPending","adminApproved","adminBookings","adminAvailability","adminGuests","adminSettings"].forEach(id=> document.getElementById(id).classList.add("hidden"));
   ["tabPending","tabApproved","tabBookings","tabAvailability","tabGuests","tabSettings"].forEach(id=>{ const el=document.getElementById(id); if(el) el.className="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600"; });
@@ -400,6 +458,7 @@ function renderBookingsTable(){
   }).join("")+'</div>';
 }
 
+// ========== CHECK-IN ==========
 async function confirmCheckIn(id){
   const b=bookings.find(x=> String(x.id)===String(id));
   if(!b){ alert("Booking not found"); return; }
@@ -414,7 +473,7 @@ async function confirmCheckIn(id){
     renderBookingsTable();
     let payoutData=null;
     try{
-      const res=await fetch('/api/payout', {
+      const res=await fetchWithAuth('/api/payout', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
@@ -441,8 +500,7 @@ async function confirmCheckIn(id){
     b.completedDate=new Date().toISOString();
     if(!b.nights) b.nights=calculateNights(b.checkin,b.checkout);
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    // BUG FIX: single updateStatus call (was double + invalid action caused duplicates)
-    fetch(API_BASE + '/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id:b.id, status:b.status, booking:b})}).catch(()=>{});
+    fetchWithAuth(API_BASE + '/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id:b.id, status:b.status, booking:b})}).catch(()=>{});
     renderBookingsTable();
     const tf=document.getElementById("totalFees"); if(tf){ const total=bookings.reduce((s,x)=>s+(x.youReceive||x.fee||0),0); tf.innerText="RM"+total.toFixed(2); }
     alert('CHECK-IN COMPLETE!\nOwner: RM'+ownerAmount+' '+(payoutData?.simulation?'(Simulation)':'via ToyyibPay Auto')+'\nYour fee: RM'+yourFee);
@@ -463,36 +521,19 @@ function updateBookingStatus(id, newStatus){
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
   renderBookingsTable();
   const tf=document.getElementById("totalFees"); if(tf){ const total=bookings.reduce((s,x)=>s+(x.youReceive||x.fee||0),0); tf.innerText="RM"+total.toFixed(2); }
-  fetch('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id, status:newStatus, booking:b})}).catch(()=>{});
+  fetchWithAuth('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id, status:newStatus, booking:b})}).catch(()=>{});
 }
 
 function whatsappGuest(id){ const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return; let phone=(b.guestPhone||'').replace(/[^0-9]/g,''); if(phone.startsWith('0')) phone='60'+phone.substring(1); const msg=encodeURIComponent("Hi "+(b.guestName||'Guest')+", booking "+b.id+" for "+b.homestay+" ("+b.checkin+"→"+b.checkout+") is "+b.status+". Total RM"+b.total+"."); window.open("https://wa.me/"+phone+"?text="+msg,'_blank'); }
 function copyBookingId(id){ navigator.clipboard.writeText(id).then(()=> alert("Copied: "+id)); }
 
-async function clearAllBookingsCloud(){
-  if(!confirm("DELETE ALL bookings from Cloudflare D1? This cannot be undone.")) return;
-  if(!confirm("Really clear ALL?")) return;
-  try{
-    // FIXED: Ensure no pending availability push races with clear
-    const res = await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"clearAll"})});
-    const data = await res.json();
-    if(res.ok){
-      bookings=[];
-      localStorage.setItem("kd_bookings", JSON.stringify([]));
-      availabilityMap={};
-      localStorage.setItem("kd_availability", JSON.stringify({}));
-      alert("All bookings cleared from cloud: "+(data.bookings?.length||0)+" remaining");
-      renderAdmin();
-    } else {
-      alert("Clear failed: "+data.error);
-    }
-  }catch(e){ alert("Clear error: "+e.message); }
-}
-async function changeBookingDates(id){ const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return; const ci=prompt("New Check-in:", b.checkin); if(!ci) return; const co=prompt("New Check-out:", b.checkout); if(!co) return; const d1=new Date(ci), d2=new Date(co); if(d1>=d2){ alert("Invalid"); return; } const h=homestays.find(h=> String(h.id)===String(b.homestayId) || h.name===b.homestay); const old=getDatesInRange(b.checkin,b.checkout); const temp=getAllBlockedDatesForHomestay(h).filter(d=> !old.includes(d)); const req=getDatesInRange(ci,co); if(req.filter(d=> temp.includes(d)).length>0){ alert("Overlap"); return; } const nights=calculateNights(ci,co); const price=calculatePrice(h.ownerPrice,nights); if(availabilityMap[h.id]) availabilityMap[h.id]=availabilityMap[h.id].filter(d=> !old.includes(d)); if(!availabilityMap[h.id]) availabilityMap[h.id]=[]; req.forEach(d=>{ if(!availabilityMap[h.id].includes(d)) availabilityMap[h.id].push(d); }); availabilityMap[h.id].sort(); saveAvailabilityMap(); b.checkin=ci; b.checkout=co; b.nights=nights; b.base=price.base; b.fee=price.fee; b.total=price.total; b.youReceive=price.youReceive; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); try{ await fetch('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'updateDates', id:b.id, checkin:ci, checkout:co, nights:price.nights, base:price.base, fee:price.fee, total:price.total, youReceive:price.youReceive})}); }catch(e){} renderBookingsTable(); }
+async function changeBookingDates(id){ const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return; const ci=prompt("New Check-in:", b.checkin); if(!ci) return; const co=prompt("New Check-out:", b.checkout); if(!co) return; const d1=new Date(ci), d2=new Date(co); if(d1>=d2){ alert("Invalid"); return; } const h=homestays.find(h=> String(h.id)===String(b.homestayId) || h.name===b.homestay); const old=getDatesInRange(b.checkin,b.checkout); const temp=getAllBlockedDatesForHomestay(h).filter(d=> !old.includes(d)); const req=getDatesInRange(ci,co); if(req.filter(d=> temp.includes(d)).length>0){ alert("Overlap"); return; } const nights=calculateNights(ci,co); const price=calculatePrice(h.ownerPrice,nights); if(availabilityMap[h.id]) availabilityMap[h.id]=availabilityMap[h.id].filter(d=> !old.includes(d)); if(!availabilityMap[h.id]) availabilityMap[h.id]=[]; req.forEach(d=>{ if(!availabilityMap[h.id].includes(d)) availabilityMap[h.id].push(d); }); availabilityMap[h.id].sort(); saveAvailabilityMap(); b.checkin=ci; b.checkout=co; b.nights=nights; b.base=price.base; b.fee=price.fee; b.total=price.total; b.youReceive=price.youReceive; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); try{ await fetchWithAuth('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'updateDates', id:b.id, checkin:ci, checkout:co, nights:price.nights, base:price.base, fee:price.fee, total:price.total, youReceive:price.youReceive})}); }catch(e){} renderBookingsTable(); }
+
 function openOwnerAvailabilityManager(id){ const h=allHomestays.find(x=> String(x.id)===String(id)); if(!h) return; const blocked=getAllBlockedDatesForHomestay(h); const a=prompt("Manage "+h.name+"\nBlocked: "+(blocked.join(", ")||"None")+"\nEnter YYYY-MM-DD, START,END, or clear"); if(a===null) return; if(a==='clear'){ h.blockedDates=[]; availabilityMap[h.id]=[]; if(isDemo(h.id)){demoBlockedMap[h.id]=[]; saveDemoBlocked();} saveAvailabilityMap(); saveApproved(); renderAdmin(); return; } if(a.includes(",")){ const parts=a.split(",").map(x=>x.trim()); const range=getDatesInRange(parts[0],parts[1]); range.forEach(d=>{ if(h.blockedDates.includes(d)) h.blockedDates=h.blockedDates.filter(x=>x!==d); else h.blockedDates.push(d); }); h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); return; } if(h.blockedDates.includes(a)) h.blockedDates=h.blockedDates.filter(d=>d!==a); else h.blockedDates.push(a); h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); }
+
 async function loadBankInfo(){
   try{
-    const res = await fetch(API_BASE + "/withdraw");
+    const res = await fetchWithAuth(API_BASE + "/withdraw");
     const data = await res.json();
     if(data.lockedBank){
       const el = document.getElementById("liveBankInfo");
@@ -503,7 +544,9 @@ async function loadBankInfo(){
   }catch(e){}
 }
 setTimeout(loadBankInfo, 1200);
+
 function renderAvailabilityTab(){ const div=document.getElementById("availabilityTable"); div.innerHTML='<div class="grid md:grid-cols-2 gap-4">'+homestays.map(h=> '<div class="border sharp p-3"><div class="font-bold text-sm">'+h.name+'</div><div id="cal-'+h.id+'" class="mt-2"></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>').join("")+'</div>'; homestays.forEach(h=> renderAvailabilityCalendar(h, 'cal-'+h.id)); }
+
 function renderGuestsTable(){
   let guests=[];
   try{ guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); }catch(e){ guests=[]; }
@@ -529,26 +572,9 @@ async function forceSyncGuests(){
 
 async function checkCloudRaw(){
   try{
-    const res=await fetch(API_BASE + "/bookings", {cache:"no-store"});
+    const res=await fetchWithAuth(API_BASE + "/bookings", {cache:"no-store"});
     const data=await res.json();
     alert("Cloud: bookings:"+(data.bookings?.length||0)+" guests:"+(data.guests?.length||0)+" banned:"+(data.bannedGuests?.length||0));
-  }catch(e){ alert("Check failed: "+e.message); }
-}
-
-async function forceSyncGuests(){
-  try{
-    await fetchCloudData();
-    renderGuestsTable();
-    renderAdmin();
-    alert("Synced! Guests:"+(JSON.parse(localStorage.getItem("kd_guests")||"[]").length)+" Bookings:"+bookings.length);
-  }catch(e){ alert("Sync failed: "+e.message); }
-}
-
-async function checkCloudRaw(){
-  try{
-    const res=await fetch(API_BASE + "/bookings", {cache:"no-store"});
-    const data=await res.json();
-    alert("Cloud: bookings:"+(data.bookings?.length||0)+" guests:"+(data.guests?.length||0)+" avail keys:"+(Object.keys(data.availability||{}).length));
   }catch(e){ alert("Check failed: "+e.message); }
 }
 
@@ -564,20 +590,16 @@ async function deleteGuest(idx){
   renderAdmin();
   try{
     console.log("Deleting and banning:", deleted?.email);
-    // Overwrite guests list in cloud - so deleted account no longer exists in cloud
-    await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"overwriteGuests", guests: guests})});
-    await fetch(API_BASE + "/pending", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"overwriteGuests", guests: guests})}).catch(()=>{});
-    
-    // Ban email so even if phone has local copy, login checks banned list
+    await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"overwriteGuests", guests: guests})});
+    await fetchWithAuth(API_BASE + "/pending", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"overwriteGuests", guests: guests})}).catch(()=>{});
     if(emailToBan){
-      await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"banGuest", email: emailToBan})});
-      await fetch(API_BASE + "/pending", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"banGuest", email: emailToBan})}).catch(()=>{});
+      await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"banGuest", email: emailToBan})});
+      await fetchWithAuth(API_BASE + "/pending", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"banGuest", email: emailToBan})}).catch(()=>{});
       let banned = [];
       try{ banned = JSON.parse(localStorage.getItem("kd_banned_guests")||"[]"); }catch(e){}
       if(!banned.includes(emailToBan)) banned.push(emailToBan);
       localStorage.setItem("kd_banned_guests", JSON.stringify(banned));
     }
-    
     alert("Deleted and banned " + (deleted?.email||"guest") + "\nIf they try login, they will see: This account is not exist");
   }catch(e){ alert("Deleted locally but cloud fail: "+e.message); }
 }
@@ -609,10 +631,10 @@ async function deleteBooking(id){
   renderBookingsTable();
   renderAdmin();
   try{
-    const res = await fetch(API_BASE + "/bookings?id=" + encodeURIComponent(id), {method:"DELETE", cache:"no-store"});
+    const res = await fetchWithAuth(API_BASE + "/bookings?id=" + encodeURIComponent(id), {method:"DELETE", cache:"no-store"});
     if(!res.ok){ alert("Cloud delete failed"); }
     else {
-      try{ await fetch(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"updateAvailability", availability: availabilityMap})}); }catch(e){}
+      try{ await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"updateAvailability", availability: availabilityMap})}); }catch(e){}
       alert("Deleted "+id+" and freed dates");
       await fetchCloudData();
       renderAdmin();
@@ -626,92 +648,63 @@ function rejectHomestay(id){ if(!confirm("Reject?")) return; pendingHomestays=pe
 function restoreDemos(){ if(!confirm("Restore?")) return; localStorage.removeItem("kd_deleted_demo"); deletedDemoIds=[]; const base=DEMO_HOMESTAYS.map(d=> demoOverrides[d.id]?{...d, ...demoOverrides[d.id]}:d); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
 function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeItem("kd_demo_overrides"); demoOverrides={}; const base=DEMO_HOMESTAYS.filter(d=> !deletedDemoIds.includes(d.id)); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
 
+// ========== INIT ==========
 (async ()=>{
   const saved=localStorage.getItem("kd_billplz"); if(saved){ try{ CONFIG.billplz={...CONFIG.billplz, ...JSON.parse(saved)}; }catch(e){} }
   try{ await fetchCloudData(); }catch(e){}
   renderAdmin();
-  if(sessionStorage.getItem("kd_admin_session")){
+  if(sessionStorage.getItem("kd_admin_token")){
     document.getElementById("adminLogin").classList.add("hidden");
     document.getElementById("adminDashboard").classList.remove("hidden");
   }
 })();
-</script>
-<script>
-(function(){
-  async function refreshEarningsUI(){
-    try{
-      const base = (typeof API_BASE !== "undefined" ? API_BASE : "/api");
-      const res = await fetch(base + "/withdraw", {cache:"no-store"});
-      const data = await res.json();
-      if(data && data.earnings){
-        const availEl = document.getElementById("kdAvailInline");
-        const withEl = document.getElementById("kdWithdrawnInline");
-        if(availEl) availEl.textContent = "Available: RM"+(data.earnings.available||0).toFixed(2);
-        if(withEl) withEl.textContent = "Withdrawn: RM"+(data.earnings.withdrawn||0).toFixed(2);
-        const totalFeesEl = document.getElementById("totalFees");
-        // total = available + withdrawn + simulation fallback
-        if(data.earnings.total>0 && totalFeesEl){
-          // keep totalFees as total earnings (available+withdrawn) if larger than local calc
-          const localTotal = parseFloat((totalFeesEl.textContent||'0').replace(/[^0-9.]/g,''))||0;
-          if(data.earnings.total > localTotal){
-            // don't override if local is sum of all bookings, but show available correctly
-          }
-        }
-      }
-    }catch(e){ console.warn("Earnings UI refresh fail", e); }
+
+// ========== WITHDRAW OVERLAY EVENTS ==========
+document.addEventListener('click', async (e)=>{
+  if(e.target.id==='kdWithdrawBtn'){
+    await fetchEarnings();
+    document.getElementById('kdWithdrawOverlay').classList.add('open');
   }
-  // Refresh on load
-  setTimeout(refreshEarningsUI, 1000);
-
-  document.addEventListener('click', async (e)=>{
-    if(e.target.id==='kdWithdrawBtn'){
-      await refreshEarningsUI();
-      document.getElementById('kdWithdrawOverlay').classList.add('open');
-    }
-    if(e.target.id==='kdClose' || e.target.id==='kdWithdrawOverlay'){
-      document.getElementById('kdWithdrawOverlay').classList.remove('open');
-    }
-    if(e.target.id==='kdConfirm'){
-      const amtInput = document.getElementById('kdAmt');
-      const amt = parseFloat(amtInput.value);
-      if(!amt || amt<=0){ alert("Enter valid amount"); return; }
-      const btn = document.getElementById('kdConfirm');
-      const origText = btn.textContent;
-      btn.textContent = "Processing...";
-      btn.disabled = true;
-      try{
-        const res = await fetch(API_BASE + "/withdraw", {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ amount: amt })
-        });
-        const data = await res.json();
-        if(!res.ok){
-          alert("Withdraw failed: " + (data.error||JSON.stringify(data)));
-        } else {
-          alert("Withdraw success: RM"+amt.toFixed(2)+" locked to your locked bank\n"+data.message);
-          // Update local storage for backward compat
-          const arr = JSON.parse(localStorage.getItem('kd_withdrawals')||'[]');
-          arr.push({amount:amt, date:new Date().toISOString(), id:data.withdrawal?.id});
-          localStorage.setItem('kd_withdrawals',JSON.stringify(arr));
-          document.getElementById('kdWithdrawOverlay').classList.remove('open');
-          amtInput.value = "";
-          await refreshEarningsUI();
-          renderAdmin();
-        }
-      }catch(err){
-        alert("Withdraw error: "+err.message+"\nCheck /api/withdraw endpoint and D1 binding");
-      } finally {
-        btn.textContent = origText;
-        btn.disabled = false;
+  if(e.target.id==='kdClose' || e.target.id==='kdWithdrawOverlay'){
+    document.getElementById('kdWithdrawOverlay').classList.remove('open');
+  }
+  if(e.target.id==='kdConfirm'){
+    const amtInput = document.getElementById('kdAmt');
+    const amt = parseFloat(amtInput.value);
+    if(!amt || amt<=0){ alert("Enter valid amount"); return; }
+    const btn = document.getElementById('kdConfirm');
+    const origText = btn.textContent;
+    btn.textContent = "Processing...";
+    btn.disabled = true;
+    try{
+      const res = await fetchWithAuth(API_BASE + "/withdraw", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ amount: amt })
+      });
+      const data = await res.json();
+      if(!res.ok){
+        alert("Withdraw failed: " + (data.error||JSON.stringify(data)));
+      } else {
+        alert("Withdraw success: RM"+amt.toFixed(2)+" locked to your locked bank\n"+data.message);
+        const arr = JSON.parse(localStorage.getItem('kd_withdrawals')||'[]');
+        arr.push({amount:amt, date:new Date().toISOString(), id:data.withdrawal?.id});
+        localStorage.setItem('kd_withdrawals',JSON.stringify(arr));
+        document.getElementById('kdWithdrawOverlay').classList.remove('open');
+        amtInput.value = "";
+        await fetchEarnings();
+        renderAdmin();
       }
+    }catch(err){
+      alert("Withdraw error: "+err.message+"\nCheck /api/withdraw endpoint and D1 binding");
+    } finally {
+      btn.textContent = origText;
+      btn.disabled = false;
     }
-  });
-})();
-</script>
+  }
+});
 
-<script>
-// Update MY time clock
+// ========== CLOCK ==========
 (function(){
   function updateMYClock(){
     const el = document.getElementById('myTimeNow');
@@ -725,6 +718,5 @@ function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeIte
   setTimeout(updateMYClock, 200);
 })();
 </script>
-
 </body>
 </html>
