@@ -1,5 +1,4 @@
 // /api/login.js - Guest login with bcrypt and JWT
-
 import bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
 
@@ -17,7 +16,7 @@ function corsHeaders() {
   };
 }
 
-// Simple in-memory rate limiter (per email)
+// Simple in-memory rate limiter (per email) – for production, use Cloudflare KV
 const loginAttempts = new Map();
 
 function checkRateLimit(email) {
