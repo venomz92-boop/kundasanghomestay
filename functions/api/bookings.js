@@ -1,4 +1,4 @@
-// /api/bookings.js - COMPLETE FIXED VERSION
+// /api/bookings.js - SECURE: GET now requires admin token
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
@@ -28,9 +28,15 @@ function corsHeaders() {
   };
 }
 
-// ========== GET - Public (No Auth Required for viewing data) ==========
+// ========== GET - NOW REQUIRES AUTH ==========
 export async function onRequestGet(context) {
-  const { env } = context;
+  const { request, env } = context;
+  
+  // --- 🔒 ADDED AUTH CHECK ---
+  const authError = verifyAdmin(request, env);
+  if (authError) return authError;
+  // ---------------------------
+
   const db = env.DB;
   let data = {
     bookings: [],
@@ -70,6 +76,7 @@ export async function onRequestGet(context) {
             case "kd_deleted_demo": data.deletedDemo = parsed; break;
             case "kd_pending": data.pending = parsed; break;
             case "kd_guests": 
+              // 🔒 REMOVE passwords from response
               if (Array.isArray(parsed)) {
                 data.guests = parsed.map(g => {
                   const { password, ...rest } = g;
