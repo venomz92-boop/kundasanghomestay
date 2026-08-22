@@ -29,7 +29,11 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
       <div class="w-[38px] h-[38px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800 text-[20px]">K</div>
       <div class="font-800 text-[22px] tracking-[-0.5px] text-[#212121] leading-none">KUNDASANG<span class="font-600 text-[#212121]/60 text-[18px]">.stays</span><div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 -mt-1">ADMIN • ToyyibPay Auto</div></div>
     </div>
-    <a href="index.html" class="font-600 text-[12px] uppercase px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white sharp flex items-center">← Home</a>
+    <div class="flex items-center gap-3">
+      <a href="index.html" class="font-600 text-[12px] uppercase px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white sharp flex items-center">← Home</a>
+      <!-- LOGOUT BUTTON -->
+      <button onclick="logoutAdmin()" class="font-600 text-[12px] uppercase px-6 h-[38px] border border-red-500 text-red-500 hover:bg-red-500 hover:text-white sharp flex items-center">Logout</button>
+    </div>
   </div>
 </header>
 
@@ -81,6 +85,19 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 <script>
 // ========== ADMIN TOKEN MANAGEMENT ==========
 let ADMIN_TOKEN = sessionStorage.getItem('kd_admin_token') || '';
+
+// ========== LOGOUT ==========
+function logoutAdmin() {
+  if (!confirm("Logout from admin panel?")) return;
+  sessionStorage.removeItem('kd_admin_token');
+  ADMIN_TOKEN = '';
+  document.getElementById('adminDashboard').classList.add('hidden');
+  document.getElementById('adminLogin').classList.remove('hidden');
+  // Reset password field
+  document.getElementById('adminPass').value = '';
+  // Reload data? Not needed, but we reset the UI
+  location.reload(); // simple full reload to reset all state
+}
 
 // ========== FETCH WITH AUTH HEADER ==========
 async function fetchWithAuth(url, options = {}) {
