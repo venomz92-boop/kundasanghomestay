@@ -17,7 +17,7 @@ function corsHeaders(){
 // Admin verification (same as bookings.js)
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
-  const expectedToken = env.ADMIN_TOKEN || "secret";
+  const expectedToken = env.ADMIN_TOKEN;
   const expected = "Bearer " + expectedToken;
   if (auth !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
