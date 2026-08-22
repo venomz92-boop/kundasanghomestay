@@ -4,7 +4,7 @@
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
-  const expectedToken = env.ADMIN_TOKEN || "my-secure-admin-token";
+  const expectedToken = env.ADMIN_TOKEN;
   const expected = "Bearer " + expectedToken;
   
   console.log("🔐 Withdraw Auth Check:");
