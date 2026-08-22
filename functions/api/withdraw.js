@@ -1,11 +1,14 @@
-// /api/withdraw - FIXED: Auth + Error Handling + RESET support
-// YOUR platform fee only - bank LOCKED server-side
+// /api/withdraw.js - FIXED: Auth + Error Handling + RESET support
 
-// === AUTH HELPER ===
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
-  // Hardcoded token matching admin-login.js
-  const expected = "Bearer secret";
+  const expectedToken = env.ADMIN_TOKEN || "secret";
+  const expected = "Bearer " + expectedToken;
+  
+  console.log("🔐 Withdraw Auth Check:");
+  console.log("  Received:", auth);
+  console.log("  Expected:", expected);
+  
   if (auth !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -15,9 +18,17 @@ function verifyAdmin(request, env) {
   return null;
 }
 
+function cors() {
+  return {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+  };
+}
+
 // === POST (Withdraw + Reset) ===
 export async function onRequestPost(context) {
-  // Auth check
   const authError = verifyAdmin(context.request, context.env);
   if (authError) return authError;
 
@@ -47,7 +58,7 @@ export async function onRequestPost(context) {
       }
     }
 
-    // === RESET HANDLER (sync with Reset to 0 button) ===
+    // === RESET HANDLER ===
     if (reset === true || action === "reset") {
       const prevWithdrawn = earnings.withdrawn || 0;
       const prevAvailable = earnings.available || 0;
@@ -181,7 +192,6 @@ export async function onRequestGet(context) {
 
 // === DELETE (Reset earnings to 0) ===
 export async function onRequestDelete(context) {
-  // Auth check
   const authError = verifyAdmin(context.request, context.env);
   if (authError) return authError;
 
@@ -236,15 +246,6 @@ export async function onRequestDelete(context) {
     console.error("DELETE reset failed:", err.message);
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { "Content-Type": "application/json", ...cors() } });
   }
-}
-
-function cors() {
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-  };
 }
 
 export async function onRequestOptions() {
