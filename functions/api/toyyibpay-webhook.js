@@ -1,7 +1,5 @@
 // /api/toyyibpay-webhook.js - SECURE PRODUCTION VERSION
 
-// ========== HELPER FUNCTIONS ==========
-
 function getDatesInRange(checkin, checkout) {
   if (!checkin || !checkout) return [];
   const dates = [];
@@ -27,8 +25,6 @@ function cors() {
   };
 }
 
-// ========== MAIN HANDLER ==========
-
 export async function onRequestPost({ request, env }) {
   try {
     // --- 🔒 SECURITY: STRICT authentication ---
@@ -44,7 +40,6 @@ export async function onRequestPost({ request, env }) {
     const authHeader = request.headers.get('Authorization') || '';
     const customHeader = request.headers.get('X-Toyyibpay-Secret') || '';
     
-    // Accept either "Bearer SECRET" or just "SECRET"
     const isValid = 
       authHeader === 'Bearer ' + expectedToken ||
       authHeader === expectedToken ||
@@ -56,7 +51,6 @@ export async function onRequestPost({ request, env }) {
       return new Response('Unauthorized', { status: 401, headers: cors() });
     }
 
-    // --- Parse webhook data ---
     const formData = await request.formData();
     const refNo = formData.get('refno');
     const status = formData.get('status');
@@ -66,13 +60,11 @@ export async function onRequestPost({ request, env }) {
 
     console.log(`📡 Webhook received: refno=${refNo}, status=${status}, billcode=${billcode}, amount=${amount}`);
 
-    // --- Verify payment status ---
     if (String(status) !== "1") {
       console.log(`⚠️ Payment not successful - status: ${status}`);
       return new Response(`Not success - status ${status}`, { status: 200, headers: cors() });
     }
 
-    // --- Validate required fields ---
     if (!refNo) {
       console.error('❌ Missing refno in webhook');
       return new Response('Missing refno', { status: 400, headers: cors() });
@@ -83,7 +75,6 @@ export async function onRequestPost({ request, env }) {
       return new Response('Invalid amount', { status: 400, headers: cors() });
     }
 
-    // --- Database connection ---
     const db = env.DB;
     if (!db) {
       console.error('❌ No database configured');
@@ -92,7 +83,7 @@ export async function onRequestPost({ request, env }) {
 
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-    // --- 🔒 FETCH BOOKING BY ID (with lock check) ---
+    // --- Fetch booking ---
     const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
     let bookings = [];
     if (res?.data) {
@@ -101,7 +92,7 @@ export async function onRequestPost({ request, env }) {
 
     const idx = bookings.findIndex(b => String(b.id) === String(refNo));
 
-    // --- ❌ CRITICAL FIX: If booking not found, DO NOT auto-create corrupt data ---
+    // --- ❌ CRITICAL: If booking not found, DO NOT auto-create corrupt data ---
     if (idx === -1) {
       console.error(`❌❌ CRITICAL: Booking ${refNo} not found in database!`);
       
@@ -123,11 +114,10 @@ export async function onRequestPost({ request, env }) {
           .run();
       } catch (e) { console.error('Failed to save unknown webhook:', e.message); }
       
-      // Return 200 to stop ToyyibPay from retrying, but admin MUST investigate
       return new Response("Booking not found – logged for review", { status: 200, headers: cors() });
     }
 
-    // --- 🔒 IDEMPOTENCY: Already processed? ---
+    // --- Idempotency ---
     const existingBooking = bookings[idx];
     if (existingBooking.status && 
         existingBooking.status.toLowerCase().includes("paid") && 
@@ -136,33 +126,27 @@ export async function onRequestPost({ request, env }) {
       return new Response("Already processed", { status: 200, headers: cors() });
     }
 
-    // --- 🔒 PRICE VERIFICATION: Recalculate total from DB ---
-    // We need the homestay price to verify the amount.
-    // Fetch homestay data from store
+    // --- Price verification ---
     let homestays = [];
     const hRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
     if (hRes?.data) {
       try { homestays = JSON.parse(hRes.data); } catch (e) {}
     }
-    // Also check demo homestays (if you store them)
     const demoRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_demo_overrides").first();
     let demoOverrides = {};
     if (demoRes?.data) {
       try { demoOverrides = JSON.parse(demoRes.data); } catch (e) {}
     }
-    // Find the homestay
     let homestay = homestays.find(h => String(h.id) === String(existingBooking.homestayId));
     if (!homestay) {
-      // Try demo overrides
       const demoEntry = demoOverrides[existingBooking.homestayId];
       if (demoEntry) homestay = demoEntry;
     }
-    // Fallback: use the ownerPrice from the booking object if homestay not found
     let expectedTotal = existingBooking.total || 0;
     if (homestay && homestay.ownerPrice && existingBooking.nights) {
       const base = homestay.ownerPrice * existingBooking.nights;
-      const fee = Math.round((base * 11) / 100); // 11% platform fee
-      const gatewayFee = 1; // or read from env
+      const fee = Math.round((base * 11) / 100);
+      const gatewayFee = 1;
       expectedTotal = base + fee + gatewayFee;
     } else if (existingBooking.total) {
       expectedTotal = existingBooking.total;
@@ -171,10 +155,8 @@ export async function onRequestPost({ request, env }) {
       expectedTotal = amount;
     }
 
-    // Compare with margin of error (0.01 RM)
     if (Math.abs(amount - expectedTotal) > 0.01) {
       console.error(`❌ PRICE MISMATCH: booking ${refNo} - expected RM${expectedTotal.toFixed(2)}, webhook RM${amount.toFixed(2)}`);
-      // Flag it but still mark as paid (FPX is authoritative), but add a warning flag
       bookings[idx].payment_mismatch = true;
       bookings[idx].expected_amount = expectedTotal;
       bookings[idx].received_amount = amount;
@@ -182,8 +164,7 @@ export async function onRequestPost({ request, env }) {
       console.log(`✅ Price verified: RM${amount.toFixed(2)} matches expected RM${expectedTotal.toFixed(2)}`);
     }
 
-    // --- ✅ UPDATE BOOKING ---
-    console.log(`✅ Updating booking ${refNo} to PAID`);
+    // --- Update booking ---
     bookings[idx].status = "Paid - Awaiting Check-in";
     bookings[idx].toyyibpay_billcode = billcode;
     bookings[idx].toyyibpay_order_id = orderId;
@@ -191,15 +172,13 @@ export async function onRequestPost({ request, env }) {
     bookings[idx].toyyibpay_amount = amount;
     bookings[idx].statusUpdated = new Date().toISOString();
     bookings[idx].webhook_received_at = new Date().toISOString();
-    // If we flagged a mismatch, keep it
     if (!bookings[idx].payment_mismatch) delete bookings[idx].payment_mismatch;
 
-    // --- 💾 SAVE BOOKING ---
     await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
       .bind("kd_bookings", JSON.stringify(bookings))
       .run();
 
-    // --- 📅 BLOCK AVAILABILITY (only if we have valid dates) ---
+    // --- Block availability ---
     try {
       if (bookings[idx].checkin && bookings[idx].checkout && bookings[idx].homestayId) {
         const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
@@ -220,11 +199,7 @@ export async function onRequestPost({ request, env }) {
             .bind("kd_availability", JSON.stringify(availability))
             .run();
           console.log(`📅 Blocked ${dates.length} dates for homestay ${hId}`);
-        } else {
-          console.warn(`⚠️ No valid dates to block for ${refNo}`);
         }
-      } else {
-        console.warn(`⚠️ Cannot block availability for ${refNo}: missing homestayId or dates`);
       }
     } catch (e) {
       console.error('❌ Availability error:', e.message);
@@ -238,8 +213,6 @@ export async function onRequestPost({ request, env }) {
     return new Response("Internal Server Error", { status: 500, headers: cors() });
   }
 }
-
-// ========== GET / OPTIONS ==========
 
 export async function onRequestGet() {
   return new Response("ToyyibPay webhook ready", { status: 200, headers: cors() });
