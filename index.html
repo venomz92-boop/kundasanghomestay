@@ -255,7 +255,25 @@
 // SECURE HELPER: Sanitize HTML (XSS protection)
 // =============================================================
 function safeHTML(html) {
-  return DOMPurify.sanitize(html);
+  if (!html) return '';
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th',
+      'button', 'input', 'form', 'label', 'select', 'option', 'textarea',
+      'section', 'article', 'header', 'footer', 'nav', 'main', 'aside',
+      'code', 'pre', 'blockquote', 'hr', 'small', 'sub', 'sup', 'svg', 'path'
+    ],
+    ALLOWED_ATTR: [
+      'id', 'class', 'style', 'href', 'src', 'alt', 'title', 'rel', 'target',
+      'onclick', 'onchange', 'oninput', 'onload', 'onerror',
+      'method', 'action', 'type', 'name', 'value', 'placeholder',
+      'checked', 'disabled', 'readonly', 'required', 'multiple',
+      'min', 'max', 'step', 'pattern', 'autocomplete', 'inputmode',
+      'viewBox', 'fill', 'stroke', 'stroke-width', 'd'
+    ],
+    ADD_ATTR: ['target']
+  });
 }
 
 // =============================================================
@@ -264,7 +282,7 @@ function safeHTML(html) {
 const CONFIG = {
   platformFeePercent: 11,
   toyyibpay: {
-    enabled: false, // will be set from localStorage
+    enabled: false,
     sandbox: true,
     apiKey: "YOUR_TOYYIBPAY_KEY",
     collectionId: "YOUR_COLLECTION_ID",
@@ -299,11 +317,8 @@ async function fetchCloudData(){
     if(data.demoOverrides !== undefined){ localStorage.setItem("kd_demo_overrides", JSON.stringify(data.demoOverrides)); demoOverrides = data.demoOverrides; }
     if(data.demoBlocked !== undefined){ localStorage.setItem("kd_demo_blocked", JSON.stringify(data.demoBlocked)); demoBlockedMap = data.demoBlocked; }
     if(data.deletedDemo !== undefined){ localStorage.setItem("kd_deleted_demo", JSON.stringify(data.deletedDemo)); deletedDemoIds = data.deletedDemo; }
-    // We no longer store guests locally (password hashed server-side)
-    // But we keep banned list to check login
     if(data.bannedGuests !== undefined && Array.isArray(data.bannedGuests)){
       localStorage.setItem("kd_banned_guests", JSON.stringify(data.bannedGuests));
-      // If current guest is banned, logout
       if(currentGuest && data.bannedGuests.includes(currentGuest.email?.toLowerCase())){
         currentGuest = null;
         localStorage.removeItem('kd_guest');
@@ -452,12 +467,10 @@ let availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}"
 // =============================================================
 let currentGuest = null;
 
-// Restore guest session from localStorage (non-sensitive data only)
 try {
   const saved = localStorage.getItem('kd_guest');
   if (saved) {
     const parsed = JSON.parse(saved);
-    // Ensure no password field
     if (parsed && parsed.id) {
       currentGuest = parsed;
     }
@@ -505,7 +518,6 @@ async function registerGuest() {
     });
     const data = await res.json();
     if (data.success) {
-      // Store guest without password
       currentGuest = data.guest;
       localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
       renderGuestNav();
@@ -1013,7 +1025,6 @@ async function processPayment() {
     }
   } catch(e) {
     alert("Payment error: " + e.message + "\nFalling back to simulation.");
-    // fallback
     booking.status = "Paid - Awaiting Check-in (Error fallback)";
     bookings.push(booking);
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
@@ -1025,11 +1036,10 @@ async function processPayment() {
   }
 }
 
-// Alias for backward compatibility
 function processBillplzPayment() { processPayment(); }
 
 // =============================================================
-// IC & BANK UPLOAD HANDLERS (unchanged)
+// IC & BANK UPLOAD HANDLERS
 // =============================================================
 function handleIcFile(input) {
   const file = input.files[0];
@@ -1084,34 +1094,370 @@ function handleIcFile(input) {
   };
   reader.readAsDataURL(file);
 }
-function removeIc() { /* same as before */ }
-function syncBankHolder() { /* same as before */ }
-function handleBankProofUpload(input) { /* same as before */ }
-function removeBankProof() { /* same as before */ }
-function handleBankQRUpload(input) { /* same as before */ }
-function removeBankQR() { /* same as before */ }
+function removeIc() {
+  tempIcWatermarked = "";
+  tempIcOriginalName = "";
+  const el = document.getElementById("listIcFront");
+  if (el) el.value = "";
+  document.getElementById("icPreviewWrap").classList.add("hidden");
+  const pv = document.getElementById("icPreview");
+  if (pv) pv.src = "";
+}
+function syncBankHolder() {
+  const icName = (document.getElementById("listIcName")?.value || "").toLowerCase().trim();
+  const bankHolder = (document.getElementById("listBankHolder")?.value || "").toLowerCase().trim();
+  const status = document.getElementById("bankProofStatus");
+  if (!icName || !bankHolder) return;
+  if (status) {
+    const icFirst = icName.split(" ")[0];
+    if (bankHolder.includes(icFirst) || icName.includes(bankHolder.split(" ")[0])) {
+      status.classList.add("hidden");
+    } else {
+      status.classList.remove("hidden");
+      status.className = "text-[11px] mt-2 text-red-600";
+      status.innerHTML = `⚠️ Bank Holder "${document.getElementById("listBankHolder").value}" does NOT match IC Name "${document.getElementById("listIcName").value}" - will be flagged`;
+    }
+  }
+}
+function handleBankProofUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5*1024*1024) { alert("Bank proof too large, max 5MB"); input.value=""; return; }
+  tempBankProofOriginalName = file.name;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.getElementById("bankCanvas");
+      const maxW = 1200;
+      let w = img.width, h = img.height;
+      if (w > maxW) { h = h * (maxW / w); w = maxW; }
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      const ownerName = (document.getElementById("listOwnerName")?.value || document.getElementById("listBankHolder")?.value || "OWNER").toUpperCase();
+      const dateStr = new Date().toISOString().split('T')[0];
+      ctx.save(); ctx.globalAlpha = 0.22;
+      ctx.font = `bold ${Math.max(18, w*0.035)}px Inter, sans-serif`;
+      ctx.fillStyle = "#b45309"; ctx.translate(w/2, h/2); ctx.rotate(-0.5);
+      const txt = "For KundasangHomestay Bank Verification Only";
+      const txt2 = dateStr + " • " + ownerName + " • " + (document.getElementById("listBankAccount")?.value || "");
+      for (let y = -h; y < h; y += 80) { for (let x = -w; x < w; x += 350) { ctx.fillText(txt, x, y); ctx.font = `bold ${Math.max(12, w*0.02)}px Inter, sans-serif`; ctx.fillText(txt2, x, y+22); ctx.font = `bold ${Math.max(18, w*0.035)}px Inter, sans-serif`; } }
+      ctx.restore(); ctx.globalAlpha = 0.85; ctx.fillStyle = "rgba(120,53,15,0.9)"; ctx.fillRect(0, h-36, w, 36); ctx.globalAlpha = 1; ctx.fillStyle = "white"; ctx.font = "bold 11px Inter, sans-serif";
+      ctx.fillText(`BANK VERIFICATION ONLY • ${dateStr} • ${ownerName} • ${document.getElementById("listBankAccount")?.value || ""}`, 10, h-14);
+      tempBankProofWatermarked = canvas.toDataURL("image/jpeg", 0.85);
+      document.getElementById("bankProofImg").src = tempBankProofWatermarked;
+      document.getElementById("bankProofPreview").classList.remove("hidden");
+      const s = document.getElementById("bankProofStatus"); if (s) { s.classList.remove("hidden"); s.className="text-[11px] mt-2 text-green-600"; s.innerHTML=`✓ Bank proof watermarked • Size: ${(tempBankProofWatermarked.length/1024).toFixed(0)}KB`; }
+    }; img.src = e.target.result;
+  }; reader.readAsDataURL(file);
+}
+function removeBankProof() {
+  tempBankProofWatermarked=""; tempBankProofOriginalName=""; const el=document.getElementById("listBankProof"); if(el) el.value=""; document.getElementById("bankProofPreview").classList.add("hidden"); const pv=document.getElementById("bankProofImg"); if(pv) pv.src="";
+}
+function handleBankQRUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 3*1024*1024) { alert("QR too large max 3MB"); input.value=""; return; }
+  tempBankQROriginalName = file.name;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    tempBankQRWatermarked = e.target.result;
+    document.getElementById("bankQRImg").src = tempBankQRWatermarked;
+    document.getElementById("bankQRPreview").classList.remove("hidden");
+  };
+  reader.readAsDataURL(file);
+}
+function removeBankQR(){ tempBankQRWatermarked=""; tempBankQROriginalName=""; const el=document.getElementById("listBankQR"); if(el) el.value=""; document.getElementById("bankQRPreview").classList.add("hidden"); const pv=document.getElementById("bankQRImg"); if(pv) pv.src=""; }
 
 // =============================================================
 // AVAILABILITY HELPERS (for listing form)
 // =============================================================
-function addBlockedDate() { /* same as before */ }
-function addBlockedRange() { /* same as before */ }
-function removeBlockedDate(dateStr) { /* same as before */ }
-function renderBlockedDatesList() { /* same as before */ }
-function renderAvailabilityCalendar(homestay, containerId) { /* same as before */ }
-
-document.getElementById("listIcFront")?.addEventListener("change", function(e) { handleIcFile(e.target); });
-document.getElementById("listPhotos")?.addEventListener("change", function(e) { /* photo preview */ });
-
-function submitHomestay() { /* same as before (uses safeHTML where needed) */ }
+function addBlockedDate() {
+  const input = document.getElementById("listBlockedDateInput");
+  if (!input || !input.value) { alert("Pick a date first"); return; }
+  const dateStr = input.value;
+  if (tempBlockedDates.includes(dateStr)) { alert("Date already blocked"); return; }
+  tempBlockedDates.push(dateStr);
+  tempBlockedDates.sort();
+  renderBlockedDatesList();
+  input.value = "";
+}
+function addBlockedRange() {
+  const input = document.getElementById("listBlockedDateInput");
+  const start = input ? input.value : "";
+  if (!start) { alert("Pick start date first, then you'll be asked for end date"); return; }
+  const end = prompt("Block until date (inclusive) - YYYY-MM-DD:", start);
+  if (!end) return;
+  const range = getDatesInRange(start, dateToIso(new Date(isoToDate(end).getTime() + 24*60*60*1000)));
+  let added = 0;
+  range.forEach(d => {
+    if (!tempBlockedDates.includes(d)) { tempBlockedDates.push(d); added++; }
+  });
+  tempBlockedDates.sort();
+  renderBlockedDatesList();
+  alert(added + " dates blocked from " + start + " to " + end);
+  if (input) input.value = "";
+}
+function removeBlockedDate(dateStr) {
+  tempBlockedDates = tempBlockedDates.filter(d => d !== dateStr);
+  renderBlockedDatesList();
+}
+function renderBlockedDatesList() {
+  const listDiv = document.getElementById("blockedDatesList");
+  const countDiv = document.getElementById("blockedDatesCount");
+  if (!listDiv) return;
+  if (tempBlockedDates.length === 0) {
+    listDiv.innerHTML = safeHTML("<span class='text-xs text-zinc-400'>No blocked dates yet — homestay will show as Available for all dates</span>");
+  } else {
+    listDiv.innerHTML = safeHTML(tempBlockedDates.map(d => `<span class="blocked-date-chip">${d} <button onclick="removeBlockedDate('${d}')" class="ml-1 font-bold">✕</button></span>`).join(""));
+  }
+  if (countDiv) {
+    countDiv.innerText = tempBlockedDates.length + " dates blocked • " + (tempBlockedDates.length === 0 ? "Available for all other dates" : "Guests searching these dates will see Fully Booked");
+  }
+}
+function renderAvailabilityCalendar(homestay, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container || !homestay) return;
+  const blocked = getAllBlockedDatesForHomestay(homestay);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const todayIso = dateToIso(today);
+  
+  let htmlCal = `<div class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
+    <div class="text-[11px] text-zinc-500 font-medium">Next 12 months • 1 year view — scroll to check availability</div>
+    <div class="flex flex-wrap gap-3 text-[10px] md:text-[11px]">
+      <span class="flex items-center gap-1"><span class="w-3 h-3 bg-green-100 border border-green-300 rounded inline-block"></span> Available</span>
+      <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-100 border border-red-300 rounded inline-block"></span> Fully Booked</span>
+      <span class="flex items-center gap-1"><span class="w-3 h-3 border-2 border-[var(--primary)] rounded inline-block"></span> Today</span>
+    </div>
+  </div>`;
+  htmlCal += `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">`;
+  
+  for (let m = 0; m < 12; m++) {
+    const firstOfMonth = new Date(today.getFullYear(), today.getMonth() + m, 1);
+    const year = firstOfMonth.getFullYear();
+    const month = firstOfMonth.getMonth();
+    const monthLabel = firstOfMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startDay = new Date(year, month, 1).getDay();
+    const isCurrentMonth = m === 0;
+    
+    htmlCal += `<div class="bg-[#F8F5F0] rounded-xl p-3 md:p-3 border ${isCurrentMonth ? 'border-[var(--primary)]/30 bg-white shadow-sm' : 'border-zinc-100'}">
+      <div class="font-bold text-[13px] mb-2 flex justify-between items-center"><span>${monthLabel}</span>${isCurrentMonth ? '<span class="text-[9px] bg-[var(--primary)] text-white px-2 py-0.5 rounded-full">This month</span>' : ''}</div>
+      <div class="calendar-mini">`;
+    const dayNames = ["S","M","T","W","T","F","S"];
+    dayNames.forEach(d => { htmlCal += `<div class="text-[9px] text-center font-bold text-zinc-400 py-1">${d}</div>`; });
+    for (let e = 0; e < startDay; e++) {
+      htmlCal += `<div></div>`;
+    }
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(year, month, day);
+      d.setHours(0,0,0,0);
+      const iso = dateToIso(d);
+      const isBlocked = blocked.includes(iso);
+      const isToday = iso === todayIso;
+      const isPast = d < today;
+      let cls = "calendar-day";
+      if (isPast) {
+        cls += " opacity-30 bg-zinc-50 text-zinc-400";
+      } else {
+        cls += isBlocked ? " booked" : " available";
+      }
+      if (isToday) cls += " today";
+      htmlCal += `<div class="${cls}" title="${iso} ${isBlocked ? '(Booked)' : isPast ? '(Past)' : '(Available)'}">${day}</div>`;
+    }
+    htmlCal += `</div></div>`;
+  }
+  htmlCal += `</div>`;
+  const nextYear = new Date(today);
+  nextYear.setFullYear(today.getFullYear() + 1);
+  const blockedNextYear = blocked.filter(d => {
+    const dd = isoToDate(d);
+    return dd >= today && dd < nextYear;
+  }).length;
+  htmlCal += `<div class="mt-4 text-[11px] text-zinc-500 bg-white border rounded-xl p-3">Showing 12 months from <b>${todayIso}</b> • <b class="text-red-700">${blockedNextYear} dates</b> Fully Booked in next year • Total blocked: ${blocked.length}</div>`;
+  container.innerHTML = safeHTML(htmlCal);
+}
 
 // =============================================================
-// WHATSAPP FUNCTIONS (same as before)
+// SUBMIT HOMESTAY
 // =============================================================
-function getOwnerWhatsAppNumber() { /* ... */ }
-function openWhatsAppLink(waNumber, message) { /* ... */ }
-function chatWithOwner() { /* ... */ }
-function chatWithOwnerFromBooking(bookingId) { /* ... */ }
+function submitHomestay() {
+  try {
+    const ownerName = document.getElementById("listOwnerName").value.trim();
+    const whatsapp = document.getElementById("listWhatsapp").value.trim();
+    if(!whatsapp){ alert("WhatsApp number is required! Owner must put WhatsApp."); document.getElementById("listWhatsapp").focus(); return; }
+    const homestayName = document.getElementById("listHomestayName").value.trim();
+    const areaEl = document.getElementById("listArea");
+    const area = areaEl ? areaEl.value : "Kundasang";
+    const price = parseInt(document.getElementById("listPrice").value);
+    const numGuests = parseInt(document.getElementById("listGuests").value) || 4;
+    const bedrooms = parseInt(document.getElementById("listBedrooms").value) || 2;
+    const bankName = document.getElementById("listBankName").value.trim();
+    const bankAccount = document.getElementById("listBankAccount").value.trim();
+    const bankHolder = document.getElementById("listBankHolder").value.trim();
+    const description = document.getElementById("listDescription").value.trim();
+    const bankConfirm = document.getElementById("listBankConfirm").checked;
+    const icNameEl = document.getElementById("listIcName");
+    const icName = icNameEl ? icNameEl.value.trim() : "";
+    if (!ownerName || !whatsapp || !homestayName || !price || !bankAccount || !bankHolder || !icName) {
+      alert("Please fill all required fields * including IC Name");
+      return;
+    }
+    if (!tempIcWatermarked) {
+      alert("Please upload IC Front - required for verification. Watermark added automatically.");
+      return;
+    }
+    if (!bankConfirm) {
+      alert("Please confirm bank account is under owner / business account same as owner name");
+      return;
+    }
+    if (tempPhotos.length === 0) {
+      alert("Please upload at least 1 photo");
+      return;
+    }
+    const firstName = ownerName.split(" ")[0].toLowerCase();
+    if (!bankHolder.toLowerCase().includes(firstName) && bankHolder.length > 3) {
+      if (!confirm(`Bank holder "${bankHolder}" does not contain owner name "${ownerName}". Are you sure this account is same as owner/business? Continue?`)) {
+        return;
+      }
+    }
+    const icNumberEl = document.getElementById("listIcNumber");
+    const icNumber = icNumberEl ? icNumberEl.value.trim() : "";
+    const newHome = {
+      id: Date.now(),
+      name: homestayName,
+      location: area,
+      ownerPrice: price,
+      guests: numGuests,
+      bedrooms,
+      image: tempPhotos[0],
+      images: tempPhotos,
+      ownerName,
+      whatsapp,
+      ownerBank: bankName,
+      ownerBankAccount: bankAccount,
+      bankHolder,
+      icName: icName,
+      icNumber: icNumber ? icNumber.substring(0,3) + "****" + icNumber.slice(-4) : "",
+      icImage: tempIcWatermarked,
+      icOriginalName: tempIcOriginalName,
+      icUploadDate: new Date().toISOString(),
+      bankQRImage: tempBankQRWatermarked,
+      bankQROriginalName: tempBankQROriginalName,
+      description,
+      blockedDates: [...tempBlockedDates],
+      approved: false,
+      verified: false,
+      rating: 0,
+      reviews: 0
+    };
+    pendingHomestays.push(newHome);
+    localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
+    alert(`Submitted!\n\n"${homestayName}" is now Pending approval.\nOnly shows on homepage after admin approves.\nYou will get Verified Owner badge after approval.`);
+    document.getElementById("listOwnerName").value = "";
+    document.getElementById("listHomestayName").value = "";
+    document.getElementById("listPrice").value = "";
+    document.getElementById("listDescription").value = "";
+    const icNameReset = document.getElementById("listIcName");
+    if (icNameReset) icNameReset.value = "";
+    const icNumReset = document.getElementById("listIcNumber");
+    if (icNumReset) icNumReset.value = "";
+    const icFileReset = document.getElementById("listIcFront");
+    if (icFileReset) icFileReset.value = "";
+    const icWrap = document.getElementById("icPreviewWrap");
+    if (icWrap) icWrap.classList.add("hidden");
+    tempPhotos = [];
+    tempBlockedDates = [];
+    tempIcWatermarked = "";
+    tempIcOriginalName = "";
+    renderBlockedDatesList();
+    const pp = document.getElementById("photoPreview");
+    if (pp) pp.innerHTML = "";
+    showPage('home');
+  } catch (err) {
+    console.error('Submit error:', err);
+    alert('Error submitting: ' + err.message + '\n\nCheck console F12 for details. Make sure all * fields filled, IC uploaded, and bank confirm ticked.');
+  }
+}
+
+// =============================================================
+// WHATSAPP FUNCTIONS
+// =============================================================
+function getOwnerWhatsAppNumber() {
+  let raw = null;
+  if (selectedHomestay && selectedHomestay.whatsapp) raw = selectedHomestay.whatsapp;
+  else if (selectedHomestay && selectedHomestay.ownerPhone) raw = selectedHomestay.ownerPhone;
+  else if (selectedHomestay && selectedHomestay.phone) raw = selectedHomestay.phone;
+  else raw = "";
+  let num = String(raw).replace(/[^0-9]/g, '');
+  if (!num) return "";
+  if (num.startsWith('0')) num = '60' + num.substring(1);
+  return num;
+}
+function openWhatsAppLink(waNumber, message) {
+  const encoded = encodeURIComponent(message);
+  const waUrl = "https://wa.me/" + waNumber + "?text=" + encoded;
+  const apiUrl = "https://api.whatsapp.com/send?phone=" + waNumber + "&text=" + encoded;
+  try {
+    const a = document.createElement('a');
+    a.href = waUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { if (a.parentNode) a.parentNode.removeChild(a); }, 1000);
+    return waUrl;
+  } catch(e) {
+    try {
+      const win = window.open(waUrl, '_blank', 'noopener,noreferrer');
+      if (!win) window.open(apiUrl, '_blank');
+      return waUrl;
+    } catch(e2) {
+      alert("Could not open WhatsApp automatically. Please use this link: " + waUrl);
+      return waUrl;
+    }
+  }
+}
+function chatWithOwner() {
+  try {
+    if (!selectedHomestay) { alert('No homestay selected - please open a homestay first'); return; }
+    const waNumber = getOwnerWhatsAppNumber();
+    const ci = document.getElementById("detailCheckin")?.value || document.getElementById("bookingCheckin")?.value || document.getElementById("checkin")?.value || '';
+    const co = document.getElementById("detailCheckout")?.value || document.getElementById("bookingCheckout")?.value || document.getElementById("checkout")?.value || '';
+    const nightsEl = document.getElementById("detailNights") || document.getElementById("bookingNights");
+    const nights = nightsEl ? nightsEl.innerText : (calculateNights(ci, co) || 2);
+    const message = "Hi " + (selectedHomestay.ownerName || 'Owner') + ", I saw " + selectedHomestay.name + " on Kundasang Homestays website.\n\n" +
+      "I'm interested to book:\n" +
+      "Check-in: " + (ci || 'Flexible') + "\n" +
+      "Check-out: " + (co || 'Flexible') + "\n" +
+      "Nights: " + nights + "\n" +
+      "Guests: " + selectedHomestay.guests + " guests\n\n" +
+      "Can you confirm availability and facilities? Thanks!\n\n" +
+      "From: Kundasang Homestays (Verified)";
+    openWhatsAppLink(waNumber, message);
+  } catch (e) { alert('WhatsApp error: ' + e.message); }
+}
+function chatWithOwnerFromBooking(bookingId) {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (!booking) { alert('Booking not found'); return; }
+  const h = homestays.find(x => x.name === booking.homestay) || allHomestays.find(x => x.name === booking.homestay) || homestays.find(x => x.id === booking.homestayId) || allHomestays.find(x => x.id === booking.homestayId);
+  if (!h) { alert('Homestay not found'); return; }
+  let raw = h.whatsapp || h.phone || '';
+  let num = String(raw).replace(/[^0-9]/g, '');
+  if (num.startsWith('0')) num = '60' + num.substring(1);
+  if (!num) { alert('Owner WhatsApp not available'); return; }
+  const message = "Hi " + (h.ownerName || booking.owner || 'Owner') + ", I have made a booking for " + booking.homestay + "\n\n" +
+    "Booking ID: " + booking.id + "\n" +
+    "Check-in: " + booking.checkin + "\n" +
+    "Check-out: " + booking.checkout + "\n" +
+    "Nights: " + booking.nights + " nights\n\n" +
+    "Guest: " + (booking.guestName || '-') + "\n" +
+    "Can you double confirm my booking? Thank you!\n\n" +
+    "From " + (booking.guestName || 'Guest') + " - Kundasang Homestays";
+  openWhatsAppLink(num, message);
+}
 
 // =============================================================
 // BOOKING SUCCESS MODAL
@@ -1197,7 +1543,6 @@ function showPage(page) {
   }
   window.scrollTo({top:0, behavior:'smooth'});
 }
-
 function toggleMobileMenu() {
   const nav = document.getElementById('mobileNav');
   if (nav) nav.classList.toggle('hidden');
@@ -1213,13 +1558,25 @@ document.addEventListener('click', function(e) {
 // =============================================================
 // CONTACT EMAIL
 // =============================================================
-function sendContactEmail(){ /* ... */ }
+function sendContactEmail(){
+  const name = document.getElementById('contactName')?.value.trim() || '';
+  const email = document.getElementById('contactEmailInput')?.value.trim() || '';
+  const msg = document.getElementById('contactMessage')?.value.trim() || '';
+  if(!name || !email || !msg){
+    alert('Please fill Name, Email and Message');
+    return;
+  }
+  const adminEmail = document.getElementById('contactEmail')?.textContent.trim() || 'hello@kundasanghomestay.my';
+  const subject = encodeURIComponent('[Support] ' + name + ' - Kundasang Homestays');
+  const body = encodeURIComponent('Name: ' + name + '\nEmail: ' + email + '\n\nMessage:\n' + msg);
+  window.location.href = 'mailto:' + adminEmail + '?subject=' + subject + '&body=' + body;
+}
 
 // =============================================================
-// RESTORE DEMOS (placeholder)
+// RESTORE DEMOS (admin functions)
 // =============================================================
-function restoreDemos() { /* ... */ }
-function resetDemoEdits() { /* ... */ }
+function restoreDemos() { /* Admin function - only used in admin panel */ }
+function resetDemoEdits() { /* Admin function - only used in admin panel */ }
 
 // =============================================================
 // INIT
