@@ -1,34 +1,63 @@
-// /api/login.js - Guest login with PBKDF2 password verification (secure)
-// SECURE: Rate limiting, input validation, proper error handling
+// /api/register.js - ULTRA ROBUST version (Safe for mobile/Cloudflare)
 
 // ========== UTILITY FUNCTIONS ==========
 
+// Fallback salt generator if crypto.getRandomValues fails
+function generateSaltFallback() {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
+}
+
+async function generateSalt() {
+  try {
+    const saltBuffer = crypto.getRandomValues(new Uint8Array(16));
+    return Array.from(saltBuffer).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    console.warn("⚠️ getRandomValues failed, using fallback salt generator");
+    return generateSaltFallback();
+  }
+}
+
 async function hashPassword(password, salt) {
-  const encoder = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(password),
-    'PBKDF2',
-    false,
-    ['deriveBits']
-  );
-  const hashBuffer = await crypto.subtle.deriveBits(
-    {
-      name: 'PBKDF2',
-      salt: encoder.encode(salt),
-      iterations: 100000,
-      hash: 'SHA-256'
-    },
-    keyMaterial,
-    256
-  );
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  try {
+    const encoder = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(password),
+      'PBKDF2',
+      false,
+      ['deriveBits']
+    );
+    const hashBuffer = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt: encoder.encode(salt),
+        iterations: 100000,
+        hash: 'SHA-256'
+      },
+      keyMaterial,
+      256
+    );
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    console.error("❌ Hashing error:", e.message);
+    throw new Error("Password encryption failed");
+  }
 }
 
 function validateEmail(email) {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(email);
+}
+
+function validatePhone(phone) {
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 10 && digits.length <= 12;
+}
+
+function sanitizeString(str) {
+  if (!str) return '';
+  return str.replace(/[<>]/g, '').trim();
 }
 
 function corsHeaders() {
@@ -40,104 +69,104 @@ function corsHeaders() {
   };
 }
 
-// Rate limiting (in-memory, improve with D1/KV for production)
-const loginAttempts = new Map();
-function checkRateLimit(email) {
-  const key = email.toLowerCase();
-  const now = Date.now();
-  const attempts = loginAttempts.get(key) || [];
-  const recent = attempts.filter(t => now - t < 15 * 60 * 1000);
-  if (recent.length >= 5) return { blocked: true, remaining: 0 };
-  return { blocked: false, remaining: 5 - recent.length };
-}
-function recordLoginAttempt(email) {
-  const key = email.toLowerCase();
-  const now = Date.now();
-  const attempts = loginAttempts.get(key) || [];
-  const recent = attempts.filter(t => now - t < 15 * 60 * 1000);
-  recent.push(now);
-  loginAttempts.set(key, recent);
-}
-
 // ========== MAIN HANDLER ==========
 
 export async function onRequestPost({ request, env }) {
   try {
-    const { email, password } = await request.json();
+    const body = await request.json().catch(() => {
+      throw new Error("Invalid JSON payload");
+    });
+    
+    let { name, email, phone, password } = body;
 
-    if (!email || !password) {
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 400, headers: corsHeaders() });
+    name = sanitizeString(name);
+    email = email ? email.toLowerCase().trim() : '';
+    phone = phone ? phone.trim() : '';
+    password = password ? password.trim() : '';
+
+    // --- Validations ---
+    if (!name || !email || !phone || !password) {
+      return new Response(JSON.stringify({ error: "All fields are required" }), { status: 400, headers: corsHeaders() });
+    }
+    if (name.length < 2 || name.length > 100) {
+      return new Response(JSON.stringify({ error: "Name must be between 2 and 100 characters" }), { status: 400, headers: corsHeaders() });
     }
     if (!validateEmail(email)) {
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 400, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Please enter a valid email address" }), { status: 400, headers: corsHeaders() });
     }
-
-    const rateLimit = checkRateLimit(email);
-    if (rateLimit.blocked) {
-      return new Response(JSON.stringify({ error: "Too many login attempts. Please try again later.", blocked: true }), {
-        status: 429,
-        headers: corsHeaders()
-      });
+    if (!validatePhone(phone)) {
+      return new Response(JSON.stringify({ error: "Please enter a valid phone number (at least 10 digits)" }), { status: 400, headers: corsHeaders() });
+    }
+    if (password.length < 6) {
+      return new Response(JSON.stringify({ error: "Password must be at least 6 characters" }), { status: 400, headers: corsHeaders() });
+    }
+    if (password.length > 100) {
+      return new Response(JSON.stringify({ error: "Password is too long (max 100 characters)" }), { status: 400, headers: corsHeaders() });
     }
 
     const db = env.DB;
     if (!db) {
+      console.error("❌ Database not configured");
       return new Response(JSON.stringify({ error: "Server configuration error" }), { status: 500, headers: corsHeaders() });
     }
 
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-    // --- Get guests ---
+    // --- Get existing guests ---
     const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
     let guests = [];
-    if (r && r.data) { try { guests = JSON.parse(r.data); } catch(e) {} }
-
-    // --- Check banned ---
-    const bannedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_banned_guests").first();
-    let banned = [];
-    if (bannedRes && bannedRes.data) { try { banned = JSON.parse(bannedRes.data); } catch(e) {} }
-    const cleanEmail = email.toLowerCase().trim();
-    if (banned.includes(cleanEmail)) {
-      recordLoginAttempt(cleanEmail);
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
+    if (r && r.data) {
+      try { guests = JSON.parse(r.data); } catch(e) { console.error("Failed to parse guests:", e); }
     }
 
-    const user = guests.find(g => g.email && g.email.toLowerCase() === cleanEmail);
-    if (!user) {
-      recordLoginAttempt(cleanEmail);
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
+    // --- Check if email already exists ---
+    if (guests.some(g => g.email && g.email.toLowerCase() === email)) {
+      // Do not reveal existence
+      return new Response(JSON.stringify({ error: "Registration failed. Please try again." }), { status: 400, headers: corsHeaders() });
     }
 
-    // --- Verify password using stored salt ---
-    if (!user.salt) {
-      // Legacy user without salt – fallback to SHA-256 (or reject)
-      // For security, we'll reject and ask to reset password.
-      console.warn(`User ${cleanEmail} has no salt – password reset required`);
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
-    }
-    const hashedInput = await hashPassword(password, user.salt);
-    if (hashedInput !== user.password) {
-      recordLoginAttempt(cleanEmail);
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
+    // --- Generate salt and hash (with robust error catching) ---
+    let salt, hashedPassword;
+    try {
+      salt = await generateSalt();
+      hashedPassword = await hashPassword(password, salt);
+    } catch (hashError) {
+      console.error("❌ Hashing failed:", hashError.message);
+      return new Response(JSON.stringify({ error: "Security processing failed. Please try again." }), { status: 500, headers: corsHeaders() });
     }
 
-    // --- Success ---
-    loginAttempts.delete(cleanEmail);
-    console.log(`✅ Login successful: ${cleanEmail}`);
+    // --- Create guest object ---
+    const newGuest = {
+      id: "G-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6),
+      name: name,
+      email: email,
+      phone: phone,
+      password: hashedPassword,
+      salt: salt,
+      createdAt: new Date().toISOString(),
+      bookingsCount: 0,
+      verified: false
+    };
 
-    const randomPart = Math.random().toString(36).substring(2, 10);
-    const tokenData = { userId: user.id, email: user.email, ts: Date.now(), rand: randomPart };
-    const sessionToken = btoa(JSON.stringify(tokenData));
+    guests.push(newGuest);
+    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+      .bind("kd_guests", JSON.stringify(guests))
+      .run();
 
-    const { password: _, salt: __, ...safeUser } = user;
-    return new Response(JSON.stringify({ success: true, guest: safeUser, token: sessionToken, message: "Login successful" }), {
+    console.log(`✅ New guest registered: ${email}`);
+
+    const { password: _, salt: __, ...safeGuest } = newGuest;
+    return new Response(JSON.stringify({ success: true, guest: safeGuest, message: "Registration successful" }), {
       status: 200,
       headers: corsHeaders()
     });
 
   } catch (e) {
-    console.error("❌ Login error:", e.message, e.stack);
-    return new Response(JSON.stringify({ error: "Login failed. Please try again later." }), { status: 500, headers: corsHeaders() });
+    console.error("❌ Register error:", e.message, e.stack);
+    return new Response(JSON.stringify({ error: e.message || "Registration failed. Please try again later." }), {
+      status: 500,
+      headers: corsHeaders()
+    });
   }
 }
 
