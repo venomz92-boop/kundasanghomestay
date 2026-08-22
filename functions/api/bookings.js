@@ -1,15 +1,9 @@
-// /api/bookings.js - SECURE: GET now requires admin token
+// /api/bookings.js - SECURE: GET requires admin token, POST validation added
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
   const expectedToken = env.ADMIN_TOKEN || "secret";
   const expected = "Bearer " + expectedToken;
-  
-  console.log("🔐 Auth Check:");
-  console.log("  Received:", auth);
-  console.log("  Expected:", expected);
-  console.log("  Match:", auth === expected);
-  
   if (auth !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized - Token mismatch" }), {
       status: 401,
@@ -28,14 +22,11 @@ function corsHeaders() {
   };
 }
 
-// ========== GET - NOW REQUIRES AUTH ==========
+// ========== GET ==========
 export async function onRequestGet(context) {
   const { request, env } = context;
-  
-  // --- 🔒 ADDED AUTH CHECK ---
   const authError = verifyAdmin(request, env);
   if (authError) return authError;
-  // ---------------------------
 
   const db = env.DB;
   let data = {
@@ -76,10 +67,9 @@ export async function onRequestGet(context) {
             case "kd_deleted_demo": data.deletedDemo = parsed; break;
             case "kd_pending": data.pending = parsed; break;
             case "kd_guests": 
-              // 🔒 REMOVE passwords from response
               if (Array.isArray(parsed)) {
                 data.guests = parsed.map(g => {
-                  const { password, ...rest } = g;
+                  const { password, salt, ...rest } = g;
                   return rest;
                 });
               } else {
@@ -96,14 +86,62 @@ export async function onRequestGet(context) {
   return new Response(JSON.stringify(data), { status: 200, headers: corsHeaders() });
 }
 
-// ========== POST - Requires Auth ==========
+// ========== POST ==========
 export async function onRequestPost(context) {
   const { request, env } = context;
   
-  // Check auth for POST requests
+  // All POST actions except createPublicBooking require admin auth
+  const body = await request.json().catch(() => ({}));
+  const action = body.action;
+
+  // PUBLIC: create a pending booking without auth (used before payment)
+  if (action === "createPublicBooking" && body.booking) {
+    const booking = body.booking;
+    // --- INPUT VALIDATION ---
+    const required = ['id', 'homestay', 'homestayId', 'checkin', 'checkout', 'guestEmail', 'guestName', 'total', 'base', 'fee'];
+    for (const field of required) {
+      if (!booking[field]) {
+        return new Response(JSON.stringify({ error: `Missing required field: ${field}` }), {
+          status: 400,
+          headers: corsHeaders()
+        });
+      }
+    }
+    // Validate dates
+    const d1 = new Date(booking.checkin);
+    const d2 = new Date(booking.checkout);
+    if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
+      return new Response(JSON.stringify({ error: "Invalid checkin/checkout dates" }), { status: 400, headers: corsHeaders() });
+    }
+    // Validate email format
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRe.test(booking.guestEmail)) {
+      return new Response(JSON.stringify({ error: "Invalid guest email" }), { status: 400, headers: corsHeaders() });
+    }
+    // Validate numeric fields
+    if (isNaN(booking.total) || isNaN(booking.base) || isNaN(booking.fee)) {
+      return new Response(JSON.stringify({ error: "Invalid price fields" }), { status: 400, headers: corsHeaders() });
+    }
+
+    const db = env.DB;
+    if (!db) {
+      return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders() });
+    }
+    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+    let existing = [];
+    const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+    if (r && r.data) existing = JSON.parse(r.data);
+    const map = new Map();
+    [...existing, booking].forEach(b => { if (b && b.id) map.set(String(b.id), b); });
+    const merged = [...map.values()];
+    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
+    return new Response(JSON.stringify({ success: true, bookingId: booking.id }), { status: 200, headers: corsHeaders() });
+  }
+
+  // All other actions require admin auth
   const authError = verifyAdmin(request, env);
   if (authError) return authError;
-  
+
   const db = env.DB;
   if (!db) {
     return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders() });
@@ -111,20 +149,6 @@ export async function onRequestPost(context) {
 
   try {
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-    const body = await request.json();
-    const { action, booking, bookings, availability, approved, demoOverrides, demoBlocked, deletedDemo, guests, pending } = body;
-
-    // PUBLIC: create a pending booking without auth (used before payment)
-    if (action === "createPublicBooking" && booking) {
-      let existing = [];
-      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
-      if (r && r.data) existing = JSON.parse(r.data);
-      const map = new Map();
-      [...existing, booking].forEach(b => { if (b && b.id) map.set(String(b.id), b); });
-      const merged = [...map.values()];
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
-      return new Response(JSON.stringify({ success: true, bookingId: booking.id }), { status: 200, headers: corsHeaders() });
-    }
 
     // --- CLEAR ALL ---
     if (action === "clearAll") {
@@ -134,11 +158,11 @@ export async function onRequestPost(context) {
     }
 
     // --- PENDING ---
-    if (action === "updatePending" || pending !== undefined) {
+    if (action === "updatePending" || body.pending !== undefined) {
       let existingPending = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
       if (r && r.data) existingPending = JSON.parse(r.data);
-      let incoming = pending || [];
+      let incoming = body.pending || [];
       const map = new Map();
       [...existingPending, ...incoming].forEach(h => { if (h && h.id) map.set(String(h.id), h); });
       const merged = [...map.values()];
@@ -146,11 +170,11 @@ export async function onRequestPost(context) {
     }
 
     // --- GUESTS ---
-    if (action === "updateGuests" || action === "overwriteGuests" || action === "banGuest" || guests !== undefined) {
+    if (action === "updateGuests" || action === "overwriteGuests" || action === "banGuest" || body.guests !== undefined) {
       let existingGuests = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
       if (r && r.data) existingGuests = JSON.parse(r.data);
-      let incomingGuests = guests || [];
+      let incomingGuests = body.guests || [];
       if (action === "overwriteGuests" || action === "deleteGuest") {
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_guests", JSON.stringify(incomingGuests)).run();
       } else if (action === "banGuest" && body.email) {
@@ -169,32 +193,32 @@ export async function onRequestPost(context) {
     }
 
     // --- HOMESTAYS (APPROVED/DEMO) ---
-    if (action === "updateHomestays" || approved !== undefined) {
-      if (approved !== undefined) {
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_approved", JSON.stringify(approved)).run();
+    if (action === "updateHomestays" || body.approved !== undefined) {
+      if (body.approved !== undefined) {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_approved", JSON.stringify(body.approved)).run();
       }
-      if (demoOverrides !== undefined) {
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_overrides", JSON.stringify(demoOverrides)).run();
+      if (body.demoOverrides !== undefined) {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_overrides", JSON.stringify(body.demoOverrides)).run();
       }
-      if (demoBlocked !== undefined) {
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_blocked", JSON.stringify(demoBlocked)).run();
+      if (body.demoBlocked !== undefined) {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_blocked", JSON.stringify(body.demoBlocked)).run();
       }
-      if (deletedDemo !== undefined) {
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_deleted_demo", JSON.stringify(deletedDemo)).run();
+      if (body.deletedDemo !== undefined) {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_deleted_demo", JSON.stringify(body.deletedDemo)).run();
       }
     }
 
     // --- AVAILABILITY ---
-    if (action === "updateAvailability" || availability !== undefined) {
-      const avail = availability || body.availability;
+    if (action === "updateAvailability" || body.availability !== undefined) {
+      const avail = body.availability || body.availability;
       if (avail) {
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(avail)).run();
       }
     }
 
     // --- BOOKINGS (BULK) ---
-    if (action === "updateBookings" || bookings !== undefined) {
-      const b = bookings || body.bookings;
+    if (action === "updateBookings" || body.bookings !== undefined) {
+      const b = body.bookings || body.bookings;
       if (b && Array.isArray(b)) {
         let existing = [];
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
@@ -232,7 +256,7 @@ export async function onRequestPost(context) {
   }
 }
 
-// ========== DELETE - Requires Auth ==========
+// ========== DELETE ==========
 export async function onRequestDelete(context) {
   const { request, env } = context;
   const authError = verifyAdmin(request, env);
