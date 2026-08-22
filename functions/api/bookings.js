@@ -1,11 +1,17 @@
-// /api/bookings.js - SECURE: GET requires admin token
+// /api/bookings.js - COMPLETE FIXED VERSION
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
-  // Hardcoded token matching admin-login.js
-  const expected = "Bearer secret";
+  const expectedToken = env.ADMIN_TOKEN || "secret";
+  const expected = "Bearer " + expectedToken;
+  
+  console.log("🔐 Auth Check:");
+  console.log("  Received:", auth);
+  console.log("  Expected:", expected);
+  console.log("  Match:", auth === expected);
+  
   if (auth !== expected) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    return new Response(JSON.stringify({ error: "Unauthorized - Token mismatch" }), {
       status: 401,
       headers: corsHeaders()
     });
@@ -22,13 +28,9 @@ function corsHeaders() {
   };
 }
 
-// ========== GET (now requires auth) ==========
+// ========== GET - Public (No Auth Required for viewing data) ==========
 export async function onRequestGet(context) {
-  const { request, env } = context;
-  // Auth check added
-  const authError = verifyAdmin(request, env);
-  if (authError) return authError;
-
+  const { env } = context;
   const db = env.DB;
   let data = {
     bookings: [],
@@ -68,7 +70,6 @@ export async function onRequestGet(context) {
             case "kd_deleted_demo": data.deletedDemo = parsed; break;
             case "kd_pending": data.pending = parsed; break;
             case "kd_guests": 
-              // Remove password field before sending (security)
               if (Array.isArray(parsed)) {
                 data.guests = parsed.map(g => {
                   const { password, ...rest } = g;
@@ -88,9 +89,14 @@ export async function onRequestGet(context) {
   return new Response(JSON.stringify(data), { status: 200, headers: corsHeaders() });
 }
 
-// ========== POST (unchanged but uses verifyAdmin) ==========
+// ========== POST - Requires Auth ==========
 export async function onRequestPost(context) {
   const { request, env } = context;
+  
+  // Check auth for POST requests
+  const authError = verifyAdmin(request, env);
+  if (authError) return authError;
+  
   const db = env.DB;
   if (!db) {
     return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders() });
@@ -112,10 +118,6 @@ export async function onRequestPost(context) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
       return new Response(JSON.stringify({ success: true, bookingId: booking.id }), { status: 200, headers: corsHeaders() });
     }
-
-    // All other actions require admin auth
-    const authError = verifyAdmin(request, env);
-    if (authError) return authError;
 
     // --- CLEAR ALL ---
     if (action === "clearAll") {
@@ -223,11 +225,12 @@ export async function onRequestPost(context) {
   }
 }
 
-// ========== DELETE (unchanged) ==========
+// ========== DELETE - Requires Auth ==========
 export async function onRequestDelete(context) {
   const { request, env } = context;
   const authError = verifyAdmin(request, env);
   if (authError) return authError;
+  
   const db = env.DB;
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
