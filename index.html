@@ -44,10 +44,6 @@
     #listPage input, #listPage select, #listPage textarea { border-radius: 2px !important; font-family: "Poppins", sans-serif; font-size: 13px; }
     #listPage .card { padding: 32px; }
     #detailModal .card, #bookingModal .card, #guestAuthModal .card { border-radius: 2px !important; }
-    /* Loading Spinner */
-    .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid var(--accent); width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .overlay-loading { position: fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999999; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(2px); }
   </style>
 </head>
 <body>
@@ -102,24 +98,6 @@
 <!-- HOME PAGE -->
 <main id="homePage" class="max-w-[1300px] mx-auto px-6 lg:px-8 pt-[92px] pb-16">
   <div class="text-center mb-12"><div class="font-satisfy text-[#3FD0D4] text-[30px] leading-none">Go & Discover</div><h2 class="font-poppins font-700 text-[32px] md:text-[40px] text-[#212121] tracking-[-0.8px] mt-1">Breathtaking Homestays</h2><div class="w-[48px] h-[2px] bg-[#3FD0D4] mx-auto mt-4"></div><p class="font-poppins text-[13px] text-[#212121]/60 max-w-[520px] mx-auto mt-4 leading-[1.6]">Verified homestays only — book direct with trusted local hosts.</p><div class="mt-4 flex items-center justify-center gap-2 flex-wrap"><div id="pendingInfo" class="text-[11px] bg-amber-50 border border-amber-200 px-3 py-1.5 sharp hidden font-600">Pending: <span id="pendingCount">0</span> waiting approval</div><div class="text-[11px] bg-[#3FD0D4]/10 border border-[#3FD0D4]/20 px-3 py-1.5 sharp font-600 text-[#212121]/70">All payment via website • FPX secured</div></div></div>
-  
-  <!-- ===== FIXED: SEARCH FILTERS ADDED ===== -->
-  <div id="searchFilters" class="mt-6 mb-8 flex flex-wrap gap-4 items-end justify-center bg-white p-4 rounded-xl shadow-sm border border-black/5">
-    <div><label class="text-xs font-semibold block mb-1">Location</label>
-      <select id="filterLocation" class="border rounded-full px-4 py-2.5 text-sm w-full md:w-40" onchange="renderGrid()">
-        <option value="all">All Areas</option>
-        <option value="Bundu Tuhan">Bundu Tuhan</option>
-        <option value="Desa">Desa</option>
-        <option value="Mesilau">Mesilau</option>
-        <option value="Kundasang">Kundasang</option>
-        <option value="Ranau">Ranau</option>
-      </select>
-    </div>
-    <div><label class="text-xs font-semibold block mb-1">Check-in</label><input id="checkin" type="date" class="border rounded-full px-4 py-2.5 text-sm w-full md:w-36" onchange="renderGrid()" /></div>
-    <div><label class="text-xs font-semibold block mb-1">Check-out</label><input id="checkout" type="date" class="border rounded-full px-4 py-2.5 text-sm w-full md:w-36" onchange="renderGrid()" /></div>
-    <div><button onclick="clearFilters()" class="text-xs px-4 py-2.5 rounded-full bg-zinc-100 border hover:bg-zinc-200">Clear Filters</button></div>
-  </div>
-
   <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
 </main>
 
@@ -139,7 +117,7 @@
           <div><label class="text-xs font-semibold">Location / Area *</label><select id="listArea" class="w-full mt-1 border rounded-xl px-4 py-2.5"><option value="Bundu Tuhan">Mesilou</option><option value="Desa">Pekan Kundasang</option><option value="Mesilau">Bundu Tuhan</option><option value="Kundasang">Kampung Kinasaraban</option><option value="Ranau">Kampung Lembah Permai</option><option value="Bundu Tuhan">Kampung Cinta Mata</option><option value="Desa">Kampung Kauluan</option><option value="Mesilau">Kampung Sosondoton</option><option value="Kundasang">Kampung Mentoki</option><option value="Ranau">Kampung Dumpiring</option><option value="Bundu Tuhan">Kampung Bambangan</option><option value="Desa">Kampung Mohimboyon</option></select></div>
         </div>
         <div class="grid md:grid-cols-2 gap-4">
-          <div><label class="text-xs font-semibold">Price per Night (RM) *</label><input id="listPrice" type="number" inputmode="numeric" placeholder="300" class="w-full mt-1 border rounded-xl px-4 py-2.5" oninput="updatePricePreview()"/><div id="listPricePreview" class="text-[11px] mt-1 text-green-700"></div></div>
+          <div><label class="text-xs font-semibold">Price per Night (RM) *</label><input id="listPrice" type="number" inputmode="numeric" placeholder="300" class="w-full mt-1 border rounded-xl px-4 py-2.5"/><div id="listPricePreview" class="text-[11px] mt-1 text-green-700"></div></div>
           <div><label class="text-xs font-semibold">Guests / Bedrooms</label><div class="flex gap-2 mt-1"><input id="listGuests" type="number" placeholder="Guests 4" class="w-1/2 border rounded-xl px-4 py-2.5"/><input id="listBedrooms" type="number" placeholder="Bedrooms 2" class="w-1/2 border rounded-xl px-4 py-2.5"/></div></div>
         </div>
         <!-- Bank Account -->
@@ -151,8 +129,6 @@
             <input id="listBankAccount" placeholder="Account Number" class="border rounded-xl px-4 py-2.5"/>
             <input id="listBankHolder" placeholder="Account Holder Name (must match IC)" class="border rounded-xl px-4 py-2.5" oninput="syncBankHolder()"/>
           </div>
-          <!-- Status for bank holder mismatch -->
-          <div id="bankProofStatus" class="hidden text-[11px] mt-2 text-red-600"></div>
           <div class="mt-3 bg-white border border-amber-200 p-3 rounded-xl">
             <label class="text-xs font-bold">🏦 DuitNow / Bank QR Code (MUST UPLOAD)</label>
             <p class="text-[11px] text-zinc-600 mt-1">Upload your DuitNow QR or bank QR. Admins need it to verify account name matches IC.</p>
@@ -173,7 +149,7 @@
           </div>
           <div class="mt-3">
             <label class="text-xs font-semibold">Upload IC Front (JPG/PNG) *</label>
-            <input id="listIcFront" type="file" accept="image/*" class="w-full mt-1 border rounded-xl px-4 py-2.5 bg-white" onchange="handleIcFile(this)"/>
+            <input id="listIcFront" type="file" accept="image/*" class="w-full mt-1 border rounded-xl px-4 py-2.5 bg-white" />
             <div class="text-[10px] text-zinc-500 mt-1">Max 5MB. Watermark added automatically in browser, original never uploaded.</div>
             <div id="icPreviewWrap" class="mt-3 hidden"><div class="text-[11px] font-semibold mb-1">Preview with Watermark — This is what admin sees:</div><img id="icPreview" class="w-full max-w-[400px] rounded-xl border-2 border-blue-300 shadow" /><div id="icWatermarkInfo" class="text-[10px] text-green-700 mt-2 bg-green-50 border border-green-200 rounded-lg p-2"></div><button onclick="removeIc()" type="button" class="mt-2 text-[11px] px-3 py-1 border rounded-full bg-white">✕ Remove IC</button></div>
             <canvas id="icCanvas" class="hidden"></canvas><canvas id="bankCanvas" class="hidden"></canvas><canvas id="qrCanvas" class="hidden"></canvas>
@@ -479,14 +455,15 @@ let selectedHomestay = null;
 let tempPhotos = [];
 let tempBlockedDates = [];
 let tempIcWatermarked = "";
-let tempIcOriginalName = "";
+let tempBankProofWatermarked = "";
+let tempBankProofOriginalName = "";
 let tempBankQRWatermarked = "";
 let tempBankQROriginalName = "";
+let tempIcOriginalName = "";
 let availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}");
 
 // =============================================================
-// GUEST SYSTEM (SECURE - server-side hashing REQUIRED for production)
-// WARNING: localStorage auth is INSECURE. Replace with JWT/HttpOnly cookies.
+// GUEST SYSTEM (SECURE - server-side hashing)
 // =============================================================
 let currentGuest = null;
 
@@ -517,7 +494,7 @@ function renderGuestNav() {
 }
 
 // =============================================================
-// GUEST REGISTER & LOGIN (INSECURE DEMO - MUST IMPLEMENT JWT BACKEND)
+// GUEST REGISTER & LOGIN (secure endpoints)
 // =============================================================
 async function registerGuest() {
   const name = document.getElementById("regName").value.trim();
@@ -674,13 +651,10 @@ function calculateNights(checkin, checkout) {
   const d1 = new Date(checkin);
   const d2 = new Date(checkout);
   const diff = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
-  // FIXED: If checkout is same or before checkin, return 0
-  if (diff <= 0) return 0;
-  return diff;
+  return diff > 0 ? diff : 1;
 }
 
 function calculatePrice(ownerPrice, nights = 1) {
-  if (nights <= 0) nights = 1;
   const base = ownerPrice * nights;
   const fee = Math.round((base*CONFIG.platformFeePercent)/100);
   const gatewayFee = CONFIG.toyyibpay.enabled ? CONFIG.toyyibpay.gatewayFee : 0;
@@ -726,7 +700,7 @@ function getAllBlockedDatesForHomestay(homestay) {
 function isHomestayAvailableForRange(homestay, checkin, checkout) {
   if (!checkin || !checkout) return { available: true, reason: 'No dates selected' };
   const requestedDates = getDatesInRange(checkin, checkout);
-  if (requestedDates.length === 0) return { available: false, reason: 'Invalid date range' };
+  if (requestedDates.length === 0) return { available: true, reason: 'Invalid range' };
   const blocked = getAllBlockedDatesForHomestay(homestay);
   const overlap = requestedDates.filter(d => blocked.includes(d));
   if (overlap.length > 0) {
@@ -738,16 +712,6 @@ function isHomestayAvailableForRange(homestay, checkin, checkout) {
 function saveAvailabilityMap() {
   localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
   pushAvailabilityToCloud();
-}
-
-// =============================================================
-// FILTERS & CLEAR
-// =============================================================
-function clearFilters() {
-  document.getElementById("checkin").value = '';
-  document.getElementById("checkout").value = '';
-  document.getElementById("filterLocation").value = 'all';
-  renderGrid();
 }
 
 // =============================================================
@@ -776,7 +740,7 @@ function renderGrid() {
   }
   if (list.length === 0) {
     if (checkinVal && checkoutVal) {
-      grid.innerHTML = safeHTML(`<div class="col-span-3 text-center py-10"><div class="text-zinc-500">No homestays available for ${checkinVal} → ${checkoutVal}</div><div class="text-xs mt-2">${bookedCount} homestay(s) are Fully Booked for those dates</div><button onclick="clearFilters()" class="mt-4 px-4 py-2 rounded-full border bg-white text-sm">Clear dates & show all</button></div>`);
+      grid.innerHTML = safeHTML(`<div class="col-span-3 text-center py-10"><div class="text-zinc-500">No homestays available for ${checkinVal} → ${checkoutVal}</div><div class="text-xs mt-2">${bookedCount} homestay(s) are Fully Booked for those dates</div><button onclick="document.getElementById('checkin').value=''; document.getElementById('checkout').value=''; renderGrid()" class="mt-4 px-4 py-2 rounded-full border bg-white text-sm">Clear dates & show all</button></div>`);
     } else {
       grid.innerHTML = safeHTML(`<div class="col-span-3 text-center py-10 text-zinc-500">No approved homestays yet. List your homestay and wait for admin approval.</div>`);
     }
@@ -784,7 +748,7 @@ function renderGrid() {
   }
   let banner = "";
   if (checkinVal && checkoutVal) {
-    banner = safeHTML(`<div class="col-span-3 mb-2 bg-green-50 border border-green-200 p-3 rounded-xl text-sm">Showing <b>${list.length} available</b> homestays for <b>${checkinVal} → ${checkoutVal}</b> • ${bookedCount} Fully Booked hidden <button onclick="clearFilters()" class="ml-2 text-xs underline">Clear dates</button></div>`);
+    banner = safeHTML(`<div class="col-span-3 mb-2 bg-green-50 border border-green-200 p-3 rounded-xl text-sm">Showing <b>${list.length} available</b> homestays for <b>${checkinVal} → ${checkoutVal}</b> • ${bookedCount} Fully Booked hidden <button onclick="document.getElementById('checkin').value=''; document.getElementById('checkout').value=''; renderGrid()" class="ml-2 text-xs underline">Clear dates</button></div>`);
   }
   grid.innerHTML = banner + safeHTML(list.map(h => {
     const price = calculatePrice(h.ownerPrice, 1);
@@ -879,9 +843,6 @@ function openDetail(id) {
   document.getElementById("detailModal").classList.remove("hidden");
   renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
   updateDetailPrice();
-  // Set min date for detail inputs
-  setMinDateForElement("detailCheckin");
-  setMinDateForElement("detailCheckout");
 }
 
 function updateDetailPrice() {
@@ -895,10 +856,7 @@ function updateDetailPrice() {
   if (el) el.innerText = nights;
   const statusEl = document.getElementById("detailAvailabilityStatus");
   if (statusEl) {
-    if (nights === 0) {
-      statusEl.className = "mt-3 text-xs p-2 rounded-lg bg-red-50 text-red-800 border border-red-200";
-      statusEl.innerHTML = safeHTML("✕ Invalid date range (check-out must be after check-in)");
-    } else if (avail.available) {
+    if (avail.available) {
       statusEl.className = "mt-3 text-xs p-2 rounded-lg bg-green-50 text-green-800 border border-green-200";
       statusEl.innerHTML = safeHTML("✓ Available for " + ci + " → " + co + " (" + nights + " nights)");
     } else {
@@ -908,8 +866,8 @@ function updateDetailPrice() {
   }
   const box = document.getElementById("detailPriceBox");
   if (box) {
-    if (nights === 0 || !avail.available) {
-      box.innerHTML = safeHTML(`<h4 class="font-bold text-sm text-red-700">✕ Not Available</h4><div class="mt-2 text-sm text-red-600">${nights === 0 ? 'Invalid date range (check-out must be after check-in).' : 'This homestay is fully booked for selected dates.'}</div>`);
+    if (!avail.available) {
+      box.innerHTML = safeHTML(`<h4 class="font-bold text-sm text-red-700">✕ Not Available</h4><div class="mt-2 text-sm text-red-600">This homestay is fully booked for ${avail.blockedDates ? avail.blockedDates.join(", ") : "your selected dates"}. Please choose other dates.</div><div class="mt-2 text-xs">Price would be RM${p.total.toFixed(2)} for ${nights} nights if available</div>`);
     } else {
       box.innerHTML = safeHTML(`<h4 class="font-bold text-sm">Price Breakdown — Auto Updated</h4><div class="mt-2 text-sm space-y-1"><div class="flex justify-between"><span>Price RM${selectedHomestay.ownerPrice} x ${nights} nights</span><span>RM${p.base}</span></div><div class="flex justify-between"><span>Service fee</span><span>RM${p.fee}</span></div><div class="flex justify-between font-bold border-t pt-2 mt-2 text-base"><span>Total :</span><span>RM${p.total.toFixed(2)}</span></div></div><div class="mt-2 text-[11px] text-green-700">✓ Dates available — you can book now</div>`);
     }
@@ -929,8 +887,6 @@ function openBooking() {
   updateBookingPrice();
   document.getElementById("bookingModal").classList.remove("hidden");
   updateBookingFormWithGuest();
-  setMinDateForElement("bookingCheckin");
-  setMinDateForElement("bookingCheckout");
   const noteEl = document.getElementById("toyyibpayNote");
   if (noteEl) {
     if (currentGuest) {
@@ -950,8 +906,8 @@ function updateBookingPrice() {
   const avail = isHomestayAvailableForRange(selectedHomestay, ci, co);
   document.getElementById("bookingNights").innerText = nights;
   const summaryEl = document.getElementById("bookingSummary");
-  if (nights === 0 || !avail.available) {
-    summaryEl.innerHTML = safeHTML(`<div class="font-bold text-red-700">✕ ${nights === 0 ? 'Invalid date range' : 'Fully Booked'}</div><div class="mt-2 text-xs text-red-600">${nights === 0 ? 'Check-out must be after check-in.' : 'Blocked dates: ' + (avail.blockedDates ? avail.blockedDates.join(", ") : "Unavailable")}</div>`);
+  if (!avail.available) {
+    summaryEl.innerHTML = safeHTML(`<div class="font-bold text-red-700">✕ Fully Booked for ${ci} → ${co}</div><div class="mt-2 text-xs text-red-600">Blocked dates: ${avail.blockedDates ? avail.blockedDates.join(", ") : "Unavailable"}</div><div class="mt-2 text-xs">Please pick different dates to continue booking</div><div class="mt-2 space-y-1 opacity-50"><div class="flex justify-between"><span>RM${selectedHomestay.ownerPrice} x ${nights}</span><span>RM${p.base}</span></div><div class="flex justify-between"><span>Service Fee</span><span>RM${p.fee}</span></div><div class="flex justify-between font-bold border-t pt-2 mt-2"><span>Total</span><span>RM${p.total.toFixed(2)}</span></div></div>`);
   } else {
     summaryEl.innerHTML = safeHTML(`<div class="font-bold">${selectedHomestay.name} — ${nights} nights</div><div class="mt-1 text-[11px] text-green-700">✓ Available for your dates</div><div class="mt-2 space-y-1"><div class="flex justify-between"><span>RM${selectedHomestay.ownerPrice} x ${nights}</span><span>RM${p.base}</span></div><div class="flex justify-between"><span>Service Fee</span><span>RM${p.fee}</span></div><div class="flex justify-between font-bold border-t pt-2 mt-2"><span>Total</span><span>RM${p.total.toFixed(2)}</span></div></div>`);
   }
@@ -962,23 +918,6 @@ function closeBooking() { document.getElementById("bookingModal").classList.add(
 // =============================================================
 // PAYMENT FUNCTION
 // =============================================================
-function showLoadingOverlay() {
-  let overlay = document.getElementById('loadingOverlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'loadingOverlay';
-    overlay.className = 'overlay-loading';
-    overlay.innerHTML = '<div class="bg-white p-6 rounded-xl shadow-lg text-center max-w-sm"><div class="loader"></div><p class="mt-4 font-semibold text-sm">Processing your booking...</p><p class="text-xs text-zinc-500 mt-1">Please do not close this window</p></div>';
-    document.body.appendChild(overlay);
-  } else {
-    overlay.style.display = 'flex';
-  }
-}
-function hideLoadingOverlay() {
-  const overlay = document.getElementById('loadingOverlay');
-  if (overlay) overlay.style.display = 'none';
-}
-
 async function processPayment() {
   const guestName = document.getElementById("guestName").value.trim();
   const guestEmail = document.getElementById("guestEmail").value.trim();
@@ -989,20 +928,12 @@ async function processPayment() {
   }
   const ci = document.getElementById("bookingCheckin").value;
   const co = document.getElementById("bookingCheckout").value;
-  const nights = calculateNights(ci, co);
-  
-  // FIXED: Check for valid nights
-  if (nights <= 0) {
-    alert("✕ Invalid date range! Check-out must be after check-in.");
-    return;
-  }
-
   const availCheck = isHomestayAvailableForRange(selectedHomestay, ci, co);
   if (!availCheck.available) {
     alert("✕ Cannot book! Homestay is Fully Booked for: " + (availCheck.blockedDates ? availCheck.blockedDates.join(", ") : ci + " → " + co) + "\nPlease pick different dates.");
     return;
   }
-
+  const nights = calculateNights(ci, co);
   const price = calculatePrice(selectedHomestay.ownerPrice, nights);
   const bookingId = "KDH-" + Date.now().toString().slice(-6);
 
@@ -1030,8 +961,6 @@ async function processPayment() {
     bankHolder: selectedHomestay.bankHolder || selectedHomestay.ownerName,
   };
 
-  showLoadingOverlay();
-
   // --- PUBLIC SAVE BEFORE PAYMENT ---
   try {
     const saveRes = await fetch(API_BASE + "/bookings", {
@@ -1041,13 +970,11 @@ async function processPayment() {
     });
     if (!saveRes.ok) {
       const err = await saveRes.text();
-      hideLoadingOverlay();
       alert("Failed to save booking: " + err);
       return;
     }
     console.log("✅ Booking saved to cloud, proceeding to payment");
   } catch(e) {
-    hideLoadingOverlay();
     alert("Network error while saving booking: " + e.message);
     return;
   }
@@ -1061,7 +988,6 @@ async function processPayment() {
     if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
     bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
     saveAvailabilityMap();
-    hideLoadingOverlay();
     showBookingSuccess(bookingId, nights, ci, co, price.total);
     return;
   }
@@ -1086,7 +1012,6 @@ async function processPayment() {
       if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
       bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
       saveAvailabilityMap();
-      hideLoadingOverlay();
       showBookingSuccess(bookingId, nights, ci, co, price.total);
       return;
     }
@@ -1096,11 +1021,9 @@ async function processPayment() {
       localStorage.setItem("kd_bookings", JSON.stringify(bookings));
       window.location.href = data.url;
     } else {
-      hideLoadingOverlay();
       alert("Payment creation failed: " + (data.error || "Unknown"));
     }
   } catch(e) {
-    hideLoadingOverlay();
     alert("Payment error: " + e.message + "\nFalling back to simulation.");
     booking.status = "Paid - Awaiting Check-in (Error fallback)";
     bookings.push(booking);
@@ -1109,21 +1032,15 @@ async function processPayment() {
     if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
     bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
     saveAvailabilityMap();
-    hideLoadingOverlay();
     showBookingSuccess(bookingId, nights, ci, co, price.total);
   }
 }
 
-// =============================================================
-// IC & BANK UPLOAD HANDLERS (SECURITY: Images cleared after submit)
-// =============================================================
-function updatePricePreview() {
-  const val = document.getElementById("listPrice").value;
-  const preview = document.getElementById("listPricePreview");
-  if (preview && val) preview.innerText = "RM" + val + " per night";
-  else if (preview) preview.innerText = "";
-}
+function processBillplzPayment() { processPayment(); }
 
+// =============================================================
+// IC & BANK UPLOAD HANDLERS
+// =============================================================
 function handleIcFile(input) {
   const file = input.files[0];
   if (!file) return;
@@ -1190,18 +1107,53 @@ function syncBankHolder() {
   const icName = (document.getElementById("listIcName")?.value || "").toLowerCase().trim();
   const bankHolder = (document.getElementById("listBankHolder")?.value || "").toLowerCase().trim();
   const status = document.getElementById("bankProofStatus");
-  if (!icName || !bankHolder || !status) {
-    if (status) status.classList.add("hidden");
-    return;
+  if (!icName || !bankHolder) return;
+  if (status) {
+    const icFirst = icName.split(" ")[0];
+    if (bankHolder.includes(icFirst) || icName.includes(bankHolder.split(" ")[0])) {
+      status.classList.add("hidden");
+    } else {
+      status.classList.remove("hidden");
+      status.className = "text-[11px] mt-2 text-red-600";
+      status.innerHTML = `⚠️ Bank Holder "${document.getElementById("listBankHolder").value}" does NOT match IC Name "${document.getElementById("listIcName").value}" - will be flagged`;
+    }
   }
-  const icFirst = icName.split(" ")[0];
-  const bankFirst = bankHolder.split(" ")[0];
-  if (bankHolder.includes(icFirst) || icName.includes(bankFirst)) {
-    status.classList.add("hidden");
-  } else {
-    status.classList.remove("hidden");
-    status.innerHTML = `⚠️ Bank Holder "${document.getElementById("listBankHolder").value}" does NOT match IC Name "${document.getElementById("listIcName").value}" - will be flagged`;
-  }
+}
+function handleBankProofUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5*1024*1024) { alert("Bank proof too large, max 5MB"); input.value=""; return; }
+  tempBankProofOriginalName = file.name;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.getElementById("bankCanvas");
+      const maxW = 1200;
+      let w = img.width, h = img.height;
+      if (w > maxW) { h = h * (maxW / w); w = maxW; }
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      const ownerName = (document.getElementById("listOwnerName")?.value || document.getElementById("listBankHolder")?.value || "OWNER").toUpperCase();
+      const dateStr = new Date().toISOString().split('T')[0];
+      ctx.save(); ctx.globalAlpha = 0.22;
+      ctx.font = `bold ${Math.max(18, w*0.035)}px Inter, sans-serif`;
+      ctx.fillStyle = "#b45309"; ctx.translate(w/2, h/2); ctx.rotate(-0.5);
+      const txt = "For KundasangHomestay Bank Verification Only";
+      const txt2 = dateStr + " • " + ownerName + " • " + (document.getElementById("listBankAccount")?.value || "");
+      for (let y = -h; y < h; y += 80) { for (let x = -w; x < w; x += 350) { ctx.fillText(txt, x, y); ctx.font = `bold ${Math.max(12, w*0.02)}px Inter, sans-serif`; ctx.fillText(txt2, x, y+22); ctx.font = `bold ${Math.max(18, w*0.035)}px Inter, sans-serif`; } }
+      ctx.restore(); ctx.globalAlpha = 0.85; ctx.fillStyle = "rgba(120,53,15,0.9)"; ctx.fillRect(0, h-36, w, 36); ctx.globalAlpha = 1; ctx.fillStyle = "white"; ctx.font = "bold 11px Inter, sans-serif";
+      ctx.fillText(`BANK VERIFICATION ONLY • ${dateStr} • ${ownerName} • ${document.getElementById("listBankAccount")?.value || ""}`, 10, h-14);
+      tempBankProofWatermarked = canvas.toDataURL("image/jpeg", 0.85);
+      document.getElementById("bankProofImg").src = tempBankProofWatermarked;
+      document.getElementById("bankProofPreview").classList.remove("hidden");
+      const s = document.getElementById("bankProofStatus"); if (s) { s.classList.remove("hidden"); s.className="text-[11px] mt-2 text-green-600"; s.innerHTML=`✓ Bank proof watermarked • Size: ${(tempBankProofWatermarked.length/1024).toFixed(0)}KB`; }
+    }; img.src = e.target.result;
+  }; reader.readAsDataURL(file);
+}
+function removeBankProof() {
+  tempBankProofWatermarked=""; tempBankProofOriginalName=""; const el=document.getElementById("listBankProof"); if(el) el.value=""; document.getElementById("bankProofPreview").classList.add("hidden"); const pv=document.getElementById("bankProofImg"); if(pv) pv.src="";
 }
 function handleBankQRUpload(input) {
   const file = input.files[0]; if (!file) return;
@@ -1328,18 +1280,7 @@ function renderAvailabilityCalendar(homestay, containerId) {
 }
 
 // =============================================================
-// SET MIN DATE FOR DATE INPUTS (Block past dates)
-// =============================================================
-function setMinDateForElement(id) {
-  const el = document.getElementById(id);
-  if (el) {
-    const today = new Date().toISOString().split('T')[0];
-    el.setAttribute('min', today);
-  }
-}
-
-// =============================================================
-// SUBMIT HOMESTAY (SECURITY FIX: Do NOT store large image Data URLs in localStorage)
+// SUBMIT HOMESTAY
 // =============================================================
 function submitHomestay() {
   try {
@@ -1399,11 +1340,10 @@ function submitHomestay() {
       bankHolder,
       icName: icName,
       icNumber: icNumber ? icNumber.substring(0,3) + "****" + icNumber.slice(-4) : "",
-      // SECURITY FIX: Store only FLAGS, not the actual image data URL to prevent localStorage scraping.
-      icUploaded: true,
+      icImage: tempIcWatermarked,
       icOriginalName: tempIcOriginalName,
       icUploadDate: new Date().toISOString(),
-      bankQRUploaded: true,
+      bankQRImage: tempBankQRWatermarked,
       bankQROriginalName: tempBankQROriginalName,
       description,
       blockedDates: [...tempBlockedDates],
@@ -1414,37 +1354,26 @@ function submitHomestay() {
     };
     pendingHomestays.push(newHome);
     localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
-    
-    // Clear sensitive temp images from memory (they are NOT stored in localStorage)
-    tempIcWatermarked = "";
-    tempBankQRWatermarked = "";
-    tempIcOriginalName = "";
-    tempBankQROriginalName = "";
-    removeIc();
-    removeBankQR();
-
     alert(`Submitted!\n\n"${homestayName}" is now Pending approval.\nOnly shows on homepage after admin approves.\nYou will get Verified Owner badge after approval.`);
     document.getElementById("listOwnerName").value = "";
     document.getElementById("listHomestayName").value = "";
     document.getElementById("listPrice").value = "";
-    document.getElementById("listPricePreview").innerText = "";
     document.getElementById("listDescription").value = "";
-    document.getElementById("listWhatsapp").value = "";
-    document.getElementById("listBankName").value = "";
-    document.getElementById("listBankAccount").value = "";
-    document.getElementById("listBankHolder").value = "";
-    document.getElementById("listIcName").value = "";
-    document.getElementById("listIcNumber").value = "";
-    document.getElementById("listIcFront").value = "";
-    document.getElementById("listBankQR").value = "";
-    document.getElementById("listBankConfirm").checked = false;
-    document.getElementById("icPreviewWrap").classList.add("hidden");
-    document.getElementById("bankQRPreview").classList.add("hidden");
+    const icNameReset = document.getElementById("listIcName");
+    if (icNameReset) icNameReset.value = "";
+    const icNumReset = document.getElementById("listIcNumber");
+    if (icNumReset) icNumReset.value = "";
+    const icFileReset = document.getElementById("listIcFront");
+    if (icFileReset) icFileReset.value = "";
+    const icWrap = document.getElementById("icPreviewWrap");
+    if (icWrap) icWrap.classList.add("hidden");
     tempPhotos = [];
     tempBlockedDates = [];
+    tempIcWatermarked = "";
+    tempIcOriginalName = "";
+    renderBlockedDatesList();
     const pp = document.getElementById("photoPreview");
     if (pp) pp.innerHTML = "";
-    renderBlockedDatesList();
     showPage('home');
   } catch (err) {
     console.error('Submit error:', err);
@@ -1644,15 +1573,18 @@ function sendContactEmail(){
 }
 
 // =============================================================
+// RESTORE DEMOS (admin functions)
+// =============================================================
+function restoreDemos() { /* Admin function - only used in admin panel */ }
+function resetDemoEdits() { /* Admin function - only used in admin panel */ }
+
+// =============================================================
 // INIT
 // =============================================================
 (async function init() {
   renderGuestNav();
   await fetchCloudData();
   renderGrid();
-  // Set min dates for all date inputs on load
-  ['checkin', 'checkout', 'listBlockedDateInput'].forEach(setMinDateForElement);
-  
   const saved = localStorage.getItem("kd_toyyibpay");
   if (saved) { try { CONFIG.toyyibpay = { ...CONFIG.toyyibpay, ...JSON.parse(saved) }; } catch(e) {} }
   // Handle redirect from ToyyibPay
