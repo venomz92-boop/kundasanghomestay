@@ -4,7 +4,7 @@
 export async function onRequestPost({ request, env }) {
   try {
     const { password } = await request.json();
-    const adminPass = env.ADMIN_PASSWORD || "Venomz@92";
+    const adminPass = env.ADMIN_PASSWORD || "venomz92";
     
     if (password === adminPass) {
       // Return the ADMIN_TOKEN from environment variables
