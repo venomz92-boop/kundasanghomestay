@@ -92,7 +92,7 @@ export async function onRequestPost({ request, env }) {
       loginAttempts.delete(clientIP);
       
       // --- Get token from environment (or use fallback) ---
-      const token = env.ADMIN_TOKEN || "my-secure-admin-token";
+      const token = env.ADMIN_TOKEN;
       
       console.log(`✅ Admin login successful (IP: ${clientIP})`);
       
