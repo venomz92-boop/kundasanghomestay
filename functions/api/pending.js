@@ -1,4 +1,5 @@
 // /api/pending - dedicated pending endpoint for multi-device sync
+// SECURITY FIX: GET now requires admin auth to view full data; returns count only for public.
 
 function getDB(env){
   return env.DB || env.D1 || env.MY_DB || env.DATABASE || env.KUNDASANG_DB || env.STORE || null;
@@ -9,12 +10,26 @@ function corsHeaders(){
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type"
+    "Access-Control-Allow-Headers": "Content-Type, Authorization"
   };
 }
 
+// Admin verification (same as bookings.js)
+function verifyAdmin(request, env) {
+  const auth = request.headers.get("Authorization") || "";
+  const expectedToken = env.ADMIN_TOKEN || "secret";
+  const expected = "Bearer " + expectedToken;
+  if (auth !== expected) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: corsHeaders()
+    });
+  }
+  return null;
+}
+
 export async function onRequestGet(context){
-  const { env } = context;
+  const { request, env } = context;
   const db = getDB(env);
   let pending = [];
   if(db){
@@ -24,11 +39,30 @@ export async function onRequestGet(context){
       if(r) pending = JSON.parse(r.data);
     }catch(e){}
   }
-  return new Response(JSON.stringify({ pending, count: pending.length, hasDB: !!db }), { status: 200, headers: corsHeaders() });
+
+  // Return count only for public; full data only if admin token provided
+  const authError = verifyAdmin(request, env);
+  if (authError) {
+    // Not admin – return only count
+    return new Response(JSON.stringify({ pending: [], count: pending.length, hasDB: !!db }), {
+      status: 200,
+      headers: corsHeaders()
+    });
+  }
+
+  // Admin – return full data
+  return new Response(JSON.stringify({ pending, count: pending.length, hasDB: !!db }), {
+    status: 200,
+    headers: corsHeaders()
+  });
 }
 
+// POST and DELETE unchanged – they require admin (but we add auth check for safety)
 export async function onRequestPost(context){
   const { request, env } = context;
+  const authError = verifyAdmin(request, env);
+  if (authError) return authError;
+
   const db = getDB(env);
   if(!db) return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders() });
   try{
