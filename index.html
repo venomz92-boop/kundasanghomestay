@@ -478,18 +478,39 @@ try {
 } catch(e) { currentGuest = null; }
 
 function renderGuestNav() {
+  // --- DESKTOP NAV ---
   const loginNav = document.getElementById("guestNav");
   const profileNav = document.getElementById("guestProfileNav");
+  
+  // --- MOBILE NAV ---
+  const mLoginNav = document.getElementById("mGuestNav");
+  const mProfileNav = document.getElementById("mGuestProfileNav");
+  const mAvatar = document.getElementById("mGuestAvatar");
+  const mNameNav = document.getElementById("mGuestNameNav");
+
   if (currentGuest) {
-    if (loginNav) loginNav.classList.add("hidden");
+    // --- DESKTOP: Show profile, hide login ---
+    if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
     if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
     const avatar = document.getElementById("guestAvatar");
     const nameNav = document.getElementById("guestNameNav");
     if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
     if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
+
+    // --- MOBILE: Show profile, hide login ---
+    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
+    if (mAvatar) mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+
   } else {
+    // --- DESKTOP: Show login, hide profile ---
     if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
     if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
+
+    // --- MOBILE: Show login, hide profile ---
+    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
   }
 }
 
