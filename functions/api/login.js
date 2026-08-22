@@ -1,11 +1,27 @@
-// /api/login.js - Guest login with password hash verification
-// SECURE: Rate limiting, input validation, and proper error handling
+// /api/login.js - Guest login with PBKDF2 password verification (secure)
+// SECURE: Rate limiting, input validation, proper error handling
 
 // ========== UTILITY FUNCTIONS ==========
 
-async function sha256(message) {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+async function hashPassword(password, salt) {
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const hashBuffer = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: encoder.encode(salt),
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    256
+  );
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
@@ -24,25 +40,16 @@ function corsHeaders() {
   };
 }
 
-// ========== SIMPLE RATE LIMITING (in-memory) ==========
-// Note: For production, use Cloudflare KV or D1 for persistence
+// Rate limiting (in-memory, improve with D1/KV for production)
 const loginAttempts = new Map();
-
 function checkRateLimit(email) {
   const key = email.toLowerCase();
   const now = Date.now();
   const attempts = loginAttempts.get(key) || [];
-  
-  // Clean old attempts (older than 15 minutes)
   const recent = attempts.filter(t => now - t < 15 * 60 * 1000);
-  
-  if (recent.length >= 5) {
-    return { blocked: true, remaining: 0 };
-  }
-  
+  if (recent.length >= 5) return { blocked: true, remaining: 0 };
   return { blocked: false, remaining: 5 - recent.length };
 }
-
 function recordLoginAttempt(email) {
   const key = email.toLowerCase();
   const now = Date.now();
@@ -56,154 +63,83 @@ function recordLoginAttempt(email) {
 
 export async function onRequestPost({ request, env }) {
   try {
-    // --- Parse request ---
     const { email, password } = await request.json();
 
-    // --- Validate required fields ---
     if (!email || !password) {
-      console.log("❌ Login failed: Missing email or password");
-      return new Response(JSON.stringify({ 
-        error: "Invalid credentials"  // Generic message for security
-      }), { 
-        status: 400, 
-        headers: corsHeaders() 
-      });
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 400, headers: corsHeaders() });
     }
-
-    // --- Validate email format ---
     if (!validateEmail(email)) {
-      console.log(`❌ Login failed: Invalid email format - ${email}`);
-      return new Response(JSON.stringify({ 
-        error: "Invalid credentials"
-      }), { 
-        status: 400, 
-        headers: corsHeaders() 
-      });
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 400, headers: corsHeaders() });
     }
 
-    // --- Rate limiting ---
     const rateLimit = checkRateLimit(email);
     if (rateLimit.blocked) {
-      console.log(`🚫 Login rate limit exceeded for: ${email}`);
-      return new Response(JSON.stringify({ 
-        error: "Too many login attempts. Please try again later.",
-        blocked: true
-      }), { 
-        status: 429, 
-        headers: corsHeaders() 
+      return new Response(JSON.stringify({ error: "Too many login attempts. Please try again later.", blocked: true }), {
+        status: 429,
+        headers: corsHeaders()
       });
     }
 
-    // --- Database connection ---
     const db = env.DB;
     if (!db) {
-      console.error("❌ Database not configured");
-      return new Response(JSON.stringify({ 
-        error: "Server configuration error" 
-      }), { 
-        status: 500, 
-        headers: corsHeaders() 
-      });
+      return new Response(JSON.stringify({ error: "Server configuration error" }), { status: 500, headers: corsHeaders() });
     }
 
-    // --- Initialize table ---
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-    // --- Get guests from database ---
+    // --- Get guests ---
     const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
     let guests = [];
-    if (r && r.data) {
-      try { guests = JSON.parse(r.data); } catch(e) {
-        console.error("❌ Failed to parse guests:", e);
-      }
-    }
+    if (r && r.data) { try { guests = JSON.parse(r.data); } catch(e) {} }
 
-    // --- Check banned list ---
+    // --- Check banned ---
     const bannedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_banned_guests").first();
     let banned = [];
-    if (bannedRes && bannedRes.data) {
-      try { banned = JSON.parse(bannedRes.data); } catch(e) {}
-    }
-    
+    if (bannedRes && bannedRes.data) { try { banned = JSON.parse(bannedRes.data); } catch(e) {} }
     const cleanEmail = email.toLowerCase().trim();
     if (banned.includes(cleanEmail)) {
-      console.log(`🚫 Blocked login attempt for banned user: ${cleanEmail}`);
-      // Record attempt but don't reveal ban status
       recordLoginAttempt(cleanEmail);
-      return new Response(JSON.stringify({ 
-        error: "Invalid credentials"
-      }), { 
-        status: 401, 
-        headers: corsHeaders() 
-      });
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
     }
 
-    // --- Find user by email ---
     const user = guests.find(g => g.email && g.email.toLowerCase() === cleanEmail);
     if (!user) {
-      console.log(`❌ Login failed: User not found - ${cleanEmail}`);
       recordLoginAttempt(cleanEmail);
-      return new Response(JSON.stringify({ 
-        error: "Invalid credentials"
-      }), { 
-        status: 401, 
-        headers: corsHeaders() 
-      });
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
     }
 
-    // --- Verify password ---
-    const hashedInput = await sha256(password);
+    // --- Verify password using stored salt ---
+    if (!user.salt) {
+      // Legacy user without salt – fallback to SHA-256 (or reject)
+      // For security, we'll reject and ask to reset password.
+      console.warn(`User ${cleanEmail} has no salt – password reset required`);
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
+    }
+    const hashedInput = await hashPassword(password, user.salt);
     if (hashedInput !== user.password) {
-      console.log(`❌ Login failed: Wrong password for ${cleanEmail}`);
       recordLoginAttempt(cleanEmail);
-      return new Response(JSON.stringify({ 
-        error: "Invalid credentials"
-      }), { 
-        status: 401, 
-        headers: corsHeaders() 
-      });
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
     }
 
-    // --- Login successful - clear rate limit attempts ---
+    // --- Success ---
     loginAttempts.delete(cleanEmail);
     console.log(`✅ Login successful: ${cleanEmail}`);
 
-    // --- Generate session token ---
-    // Using a more secure token with random component
     const randomPart = Math.random().toString(36).substring(2, 10);
-    const tokenData = { 
-      userId: user.id, 
-      email: user.email,
-      ts: Date.now(),
-      rand: randomPart
-    };
+    const tokenData = { userId: user.id, email: user.email, ts: Date.now(), rand: randomPart };
     const sessionToken = btoa(JSON.stringify(tokenData));
 
-    // --- Return safe user info (without password) ---
-    const { password: _, ...safeUser } = user;
-    
-    return new Response(JSON.stringify({ 
-      success: true, 
-      guest: safeUser, 
-      token: sessionToken,
-      message: "Login successful"
-    }), {
+    const { password: _, salt: __, ...safeUser } = user;
+    return new Response(JSON.stringify({ success: true, guest: safeUser, token: sessionToken, message: "Login successful" }), {
       status: 200,
       headers: corsHeaders()
     });
 
   } catch (e) {
     console.error("❌ Login error:", e.message, e.stack);
-    return new Response(JSON.stringify({ 
-      error: "Login failed. Please try again later." 
-    }), { 
-      status: 500, 
-      headers: corsHeaders() 
-    });
+    return new Response(JSON.stringify({ error: "Login failed. Please try again later." }), { status: 500, headers: corsHeaders() });
   }
 }
-
-// ========== OPTIONS HANDLER ==========
 
 export async function onRequestOptions() {
   return new Response(null, { headers: corsHeaders() });
