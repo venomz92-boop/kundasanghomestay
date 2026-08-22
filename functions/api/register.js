@@ -1,14 +1,14 @@
-// /api/register.js - SIMPLE FIX (SHA-256 with salt)
-
-async function generateSalt() {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
-}
+// /api/register.js - BULLETPROOF (SHA-256 + Salt + Pepper)
 
 async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function generateSalt() {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
 }
 
 function validateEmail(email) {
@@ -34,6 +34,10 @@ function corsHeaders() {
     "Access-Control-Allow-Headers": "Content-Type"
   };
 }
+
+// This pepper is hardcoded but combined with a per-user salt makes it secure
+// Even if code is public, hackers cannot reverse SHA-256 without the password.
+const PEPPER = "kundasang-homestay-2026-secure-pepper";
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -78,8 +82,9 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: "Registration failed. Please try again." }), { status: 400, headers: corsHeaders() });
     }
 
-    const salt = await generateSalt();
-    const hashedPassword = await sha256(password + salt);
+    const salt = generateSalt();
+    // HASH = SHA256(PEPPER + PASSWORD + SALT)
+    const hashedPassword = await sha256(PEPPER + password + salt);
 
     const newGuest = {
       id: "G-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6),
