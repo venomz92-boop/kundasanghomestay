@@ -1,13 +1,14 @@
-// /api/payout.js - AUTO via ToyyibPay Payout
-// Flow: Check-in -> ToyyibPay auto transfers Base to owner -> Fee stays with you
-// Requires: TOYYIBPAY_SECRET_KEY + TOYYIBPAY_PAYOUT_ENABLED=true
-// If payout not enabled, falls back to manual instruction
+// /api/payout.js - FIXED: Auth + Error Handling
 
-// === AUTH HELPER ===
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
-  // Hardcoded token matching admin-login.js
-  const expected = "Bearer secret";
+  const expectedToken = env.ADMIN_TOKEN || "secret";
+  const expected = "Bearer " + expectedToken;
+  
+  console.log("🔐 Payout Auth Check:");
+  console.log("  Received:", auth);
+  console.log("  Expected:", expected);
+  
   if (auth !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -17,8 +18,16 @@ function verifyAdmin(request, env) {
   return null;
 }
 
+function cors() {
+  return {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+  };
+}
+
 export async function onRequestPost({ request, env }) {
-  // Auth check
   const authError = verifyAdmin(request, env);
   if (authError) return authError;
 
@@ -38,7 +47,7 @@ export async function onRequestPost({ request, env }) {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
     }
 
-    // --- MANUAL FALLBACK (if payout not enabled yet) ---
+    // --- MANUAL FALLBACK ---
     if (!isToyyibLive) {
       if (db) {
         try {
@@ -75,7 +84,7 @@ export async function onRequestPost({ request, env }) {
     formData.append("bankCode", ownerBankCode || env.YOUR_BANK_CODE || "MBBEMYKL");
     formData.append("bankAccountNumber", cleanOwnerAcc);
     formData.append("accountHolderName", ownerName || "Homestay Owner");
-    formData.append("amount", Math.round(Number(amount) * 100)); // in cents
+    formData.append("amount", Math.round(Number(amount) * 100));
     formData.append("payoutDescription", `KDH ${bookingId} owner payout RM${amount}`);
     formData.append("payoutReferenceNo", bookingId);
 
@@ -127,7 +136,7 @@ export async function onRequestPost({ request, env }) {
         console.error("Failed to update booking status after payout:", e.message);
       }
 
-      // Fee earnings - you keep fee
+      // Fee earnings
       try {
         const feeRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
         let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
@@ -178,7 +187,6 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// === GET (Public - show payout config status) ===
 export async function onRequestGet({ env }) {
   const isLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
   return new Response(JSON.stringify({
@@ -190,15 +198,5 @@ export async function onRequestGet({ env }) {
   }), { status: 200, headers: cors() });
 }
 
-function cors() {
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-  };
-}
-
 export async function onRequestOptions() {
-  return new Response(null, { headers: cors() });
-}
+  return new
