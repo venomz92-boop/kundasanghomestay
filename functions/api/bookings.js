@@ -2,7 +2,7 @@
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
-  const expected = "Bearer " + (env.ADMIN_TOKEN || "secret");
+  const expected = "Bearer " + (env.ADMIN_TOKEN || "my-secure-admin-token");
   if (auth !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
