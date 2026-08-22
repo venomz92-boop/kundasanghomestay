@@ -4,7 +4,9 @@
 // === AUTH HELPER ===
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
-  if (!env.ADMIN_TOKEN || auth !== "Bearer " + env.ADMIN_TOKEN) {
+  // Hardcoded token matching admin-login.js
+  const expected = "Bearer my-secure-admin-token";
+  if (auth !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json", ...cors() }
