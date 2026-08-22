@@ -1,17 +1,12 @@
-// /api/bookings.js - SECURE: GET now requires admin token
+// /api/bookings.js - SECURE: Full admin endpoints + public booking creation
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
   const expectedToken = env.ADMIN_TOKEN || "secret";
   const expected = "Bearer " + expectedToken;
   
-  console.log("🔐 Auth Check:");
-  console.log("  Received:", auth);
-  console.log("  Expected:", expected);
-  console.log("  Match:", auth === expected);
-  
   if (auth !== expected) {
-    return new Response(JSON.stringify({ error: "Unauthorized - Token mismatch" }), {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: corsHeaders()
     });
@@ -28,14 +23,11 @@ function corsHeaders() {
   };
 }
 
-// ========== GET - NOW REQUIRES AUTH ==========
+// ========== GET - Admin only ==========
 export async function onRequestGet(context) {
   const { request, env } = context;
-  
-  // --- 🔒 ADDED AUTH CHECK ---
   const authError = verifyAdmin(request, env);
   if (authError) return authError;
-  // ---------------------------
 
   const db = env.DB;
   let data = {
@@ -96,13 +88,13 @@ export async function onRequestGet(context) {
   return new Response(JSON.stringify(data), { status: 200, headers: corsHeaders() });
 }
 
-// ========== POST - Requires Auth ==========
+// ========== POST - Admin + Public ==========
 export async function onRequestPost(context) {
   const { request, env } = context;
   
-  // Check auth for POST requests
+  // Check auth for POST requests (admin actions require auth, public create does not)
   const authError = verifyAdmin(request, env);
-  if (authError) return authError;
+  // We'll handle auth inside the logic below – public endpoint bypasses admin check
   
   const db = env.DB;
   if (!db) {
@@ -114,7 +106,7 @@ export async function onRequestPost(context) {
     const body = await request.json();
     const { action, booking, bookings, availability, approved, demoOverrides, demoBlocked, deletedDemo, guests, pending } = body;
 
-    // PUBLIC: create a pending booking without auth (used before payment)
+    // ----- PUBLIC: create a pending booking without auth (used before payment) -----
     if (action === "createPublicBooking" && booking) {
       let existing = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
@@ -125,6 +117,9 @@ export async function onRequestPost(context) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
       return new Response(JSON.stringify({ success: true, bookingId: booking.id }), { status: 200, headers: corsHeaders() });
     }
+
+    // ----- ALL FOLLOWING ACTIONS REQUIRE ADMIN AUTH -----
+    if (authError) return authError;
 
     // --- CLEAR ALL ---
     if (action === "clearAll") {
@@ -232,7 +227,7 @@ export async function onRequestPost(context) {
   }
 }
 
-// ========== DELETE - Requires Auth ==========
+// ========== DELETE - Admin only ==========
 export async function onRequestDelete(context) {
   const { request, env } = context;
   const authError = verifyAdmin(request, env);
