@@ -8,7 +8,7 @@ export async function onRequestPost({ request, env }) {
     
     if (password === adminPass) {
       // Return the SAME token that backend expects
-      const token = "my-secure-admin-token";
+      const token = "secret";
       
       return new Response(JSON.stringify({ 
         success: true, 
