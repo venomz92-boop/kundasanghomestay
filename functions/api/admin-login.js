@@ -1,13 +1,20 @@
 // /api/admin-login.js - Login endpoint for admin
+// Returns the ADMIN_TOKEN from env so it matches backend expectations
 
 export async function onRequestPost({ request, env }) {
   try {
     const { password } = await request.json();
     const adminPass = env.ADMIN_PASSWORD || "admin123";
+    
     if (password === adminPass) {
-      // Simple token (use JWT in production)
-      const token = btoa(JSON.stringify({ user: "admin", ts: Date.now() }));
-      return new Response(JSON.stringify({ success: true, token }), {
+      // Return the ADMIN_TOKEN from environment variables
+      // This ensures the token matches what the backend expects
+      const token = env.ADMIN_TOKEN || "secret";
+      
+      return new Response(JSON.stringify({ 
+        success: true, 
+        token: token 
+      }), {
         status: 200,
         headers: { "Content-Type": "application/json", ...cors() }
       });
@@ -32,6 +39,7 @@ function cors() {
     "Access-Control-Allow-Headers": "Content-Type"
   };
 }
+
 export async function onRequestOptions() {
   return new Response(null, { headers: cors() });
 }
