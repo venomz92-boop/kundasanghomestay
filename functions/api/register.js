@@ -1,5 +1,4 @@
 // /api/register.js - Guest registration with bcrypt hashing
-
 import bcrypt from 'bcryptjs';
 
 function validateEmail(email) {
