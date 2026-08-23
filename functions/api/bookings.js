@@ -28,6 +28,23 @@ function corsHeaders() {
   };
 }
 
+function getDatesInRange(checkin, checkout) {
+  if (!checkin || !checkout) return [];
+  const dates = [];
+  const start = new Date(checkin + 'T00:00:00');
+  const end = new Date(checkout + 'T00:00:00');
+  if (isNaN(start) || isNaN(end) || start >= end) return [];
+  const cur = new Date(start);
+  while (cur < end) {
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, '0');
+    const d = String(cur.getDate()).padStart(2, '0');
+    dates.push(`${y}-${m}-${d}`);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
 // ========== GET ==========
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -96,17 +113,15 @@ export async function onRequestGet(context) {
 export async function onRequestPost(context) {
   const { request, env } = context;
   
-  // All POST actions except createPublicBooking require admin auth
+  // Parse body first
   const body = await request.json().catch(() => ({}));
   const action = body.action;
 
-  // PUBLIC: create a pending booking without auth (used before payment)
+  // ========== PUBLIC: Create booking (no auth needed) ==========
   if (action === "createPublicBooking" && body.booking) {
     const booking = body.booking;
-    // --- INPUT VALIDATION (FIXED: allows 0 values) ---
     const required = ['id', 'homestay', 'homestayId', 'checkin', 'checkout', 'guestEmail', 'guestName', 'total', 'base', 'fee'];
     for (const field of required) {
-      // Allow 0 values (e.g., fee can be 0 for RM1 bookings)
       if (booking[field] === undefined || booking[field] === null || booking[field] === '') {
         return new Response(JSON.stringify({ error: `Missing required field: ${field}` }), {
           status: 400,
@@ -114,18 +129,15 @@ export async function onRequestPost(context) {
         });
       }
     }
-    // Validate dates
     const d1 = new Date(booking.checkin);
     const d2 = new Date(booking.checkout);
     if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
       return new Response(JSON.stringify({ error: "Invalid checkin/checkout dates" }), { status: 400, headers: corsHeaders() });
     }
-    // Validate email format
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRe.test(booking.guestEmail)) {
       return new Response(JSON.stringify({ error: "Invalid guest email" }), { status: 400, headers: corsHeaders() });
     }
-    // Validate numeric fields (allow 0)
     if (isNaN(booking.total) || isNaN(booking.base) || isNaN(booking.fee)) {
       return new Response(JSON.stringify({ error: "Invalid price fields" }), { status: 400, headers: corsHeaders() });
     }
@@ -145,7 +157,68 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ success: true, bookingId: booking.id }), { status: 200, headers: corsHeaders() });
   }
 
-  // All other actions require admin auth
+  // ========== PUBLIC: Update booking status (no auth needed) ==========
+  if (action === "publicUpdateStatus" && body.id && body.status) {
+    const db = env.DB;
+    if (!db) {
+      return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders() });
+    }
+    
+    try {
+      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+      let bookings = [];
+      if (r && r.data) { try { bookings = JSON.parse(r.data); } catch(e) {} }
+      
+      const idx = bookings.findIndex(b => String(b.id) === String(body.id));
+      if (idx === -1) {
+        return new Response(JSON.stringify({ error: "Booking not found" }), { status: 404, headers: corsHeaders() });
+      }
+      
+      bookings[idx].status = body.status;
+      bookings[idx].statusUpdated = new Date().toISOString();
+      if (body.toyyibpay_billcode) bookings[idx].toyyibpay_billcode = body.toyyibpay_billcode;
+      if (body.toyyibpay_transaction_id) bookings[idx].toyyibpay_transaction_id = body.toyyibpay_transaction_id;
+      if (body.toyyibpay_status_id) bookings[idx].toyyibpay_status_id = body.toyyibpay_status_id;
+      if (body.paid_at) bookings[idx].paid_at = body.paid_at;
+      
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_bookings", JSON.stringify(bookings))
+        .run();
+      
+      // Also update availability
+      try {
+        const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
+        let availability = {};
+        if (availRes && availRes.data) { try { availability = JSON.parse(availRes.data); } catch(e) {} }
+        
+        const booking = bookings[idx];
+        if (booking.homestayId && booking.checkin && booking.checkout) {
+          if (!availability[booking.homestayId]) availability[booking.homestayId] = [];
+          const dates = getDatesInRange(booking.checkin, booking.checkout);
+          dates.forEach(d => {
+            if (!availability[booking.homestayId].includes(d)) {
+              availability[booking.homestayId].push(d);
+            }
+          });
+          availability[booking.homestayId] = [...new Set(availability[booking.homestayId])].sort();
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+            .bind("kd_availability", JSON.stringify(availability))
+            .run();
+        }
+      } catch(e) { console.warn("Availability update failed:", e.message); }
+      
+      return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
+        status: 200,
+        headers: corsHeaders()
+      });
+    } catch(e) {
+      console.error("❌ publicUpdateStatus error:", e.message);
+      return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders() });
+    }
+  }
+
+  // ========== ALL OTHER ACTIONS REQUIRE ADMIN AUTH ==========
   const authError = verifyAdmin(request, env);
   if (authError) return authError;
 
@@ -157,14 +230,12 @@ export async function onRequestPost(context) {
   try {
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-    // --- CLEAR ALL ---
     if (action === "clearAll") {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify([])).run();
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify({})).run();
       return new Response(JSON.stringify({ success: true, bookings: [] }), { status: 200, headers: corsHeaders() });
     }
 
-    // --- PENDING ---
     if (action === "updatePending" || body.pending !== undefined) {
       let existingPending = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
@@ -176,7 +247,6 @@ export async function onRequestPost(context) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(merged)).run();
     }
 
-    // --- GUESTS ---
     if (action === "updateGuests" || action === "overwriteGuests" || action === "banGuest" || body.guests !== undefined) {
       let existingGuests = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
@@ -199,7 +269,6 @@ export async function onRequestPost(context) {
       }
     }
 
-    // --- HOMESTAYS (APPROVED/DEMO) ---
     if (action === "updateHomestays" || body.approved !== undefined) {
       if (body.approved !== undefined) {
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_approved", JSON.stringify(body.approved)).run();
@@ -215,7 +284,6 @@ export async function onRequestPost(context) {
       }
     }
 
-    // --- AVAILABILITY ---
     if (action === "updateAvailability" || body.availability !== undefined) {
       const avail = body.availability || body.availability;
       if (avail) {
@@ -223,7 +291,6 @@ export async function onRequestPost(context) {
       }
     }
 
-    // --- BOOKINGS (BULK) ---
     if (action === "updateBookings" || body.bookings !== undefined) {
       const b = body.bookings || body.bookings;
       if (b && Array.isArray(b)) {
@@ -241,7 +308,6 @@ export async function onRequestPost(context) {
       }
     }
 
-    // --- SINGLE BOOKING (updateStatus, updateDates) ---
     if (body.id && body.action !== "updateBookings" && body.action !== "createPublicBooking") {
       let existing = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
