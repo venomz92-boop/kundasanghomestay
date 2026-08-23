@@ -12,6 +12,9 @@
     .card { background: white; border: 1px solid rgba(0,0,0,0.04); box-shadow: 0 2px 20px rgba(0,0,0,0.05); }
     .btn-primary { background: #0F382E; color: white; padding: 10px 24px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; }
     .btn-success { background: #16a34a; color: white; padding: 8px 16px; font-weight: 600; text-transform: uppercase; font-size: 11px; }
+    .btn-warning { background: #f59e0b; color: white; padding: 8px 16px; font-weight: 600; text-transform: uppercase; font-size: 11px; }
+    .btn-danger { background: #dc2626; color: white; padding: 8px 16px; font-weight: 600; text-transform: uppercase; font-size: 11px; }
+    .btn-outline { background: transparent; border: 1px solid #d1d5db; padding: 8px 16px; font-weight: 600; font-size: 11px; }
   </style>
 </head>
 <body>
@@ -34,11 +37,9 @@
       <input id="ownerWhatsapp" type="tel" placeholder="6012-3456789" class="w-full border sharp px-4 py-3 mt-4" />
       <input id="ownerPassword" type="password" placeholder="Password" class="w-full border sharp px-4 py-3 mt-3" />
       
-      <!-- ====== FORGOT PASSWORD LINK (Owner) ====== -->
       <div class="text-right mt-2">
         <button onclick="openOwnerForgotPassword()" class="text-[11px] text-purple-600 hover:underline">Forgot Password?</button>
       </div>
-      <!-- ========================================= -->
       
       <button onclick="ownerLogin()" class="btn-primary w-full mt-4 py-3">Login</button>
       <div id="loginError" class="text-red-600 text-xs mt-2 hidden"></div>
@@ -66,7 +67,7 @@
     let ownerHomestayId = null;
 
     // =============================================
-    // OWNER FORGOT PASSWORD (Fallback Prompt)
+    // OWNER FORGOT PASSWORD
     // =============================================
     function openOwnerForgotPassword() {
       const email = prompt('Enter your registered email address to reset your owner password:');
@@ -157,19 +158,51 @@
           return;
         }
 
-        listDiv.innerHTML = bookings.map(b => `
-          <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-            <div>
-              <div class="font-bold text-sm">${b.homestay}</div>
-              <div class="text-xs text-zinc-500">${b.checkin} → ${b.checkout} • ${b.nights} nights • Guest: ${b.guestName || b.guestEmail}</div>
-              <div class="text-xs font-semibold mt-1">Base: RM${b.base} • Status: <span class="text-yellow-600">${b.status}</span></div>
+        listDiv.innerHTML = bookings.map(b => {
+          const isPaid = b.status && b.status.toLowerCase().includes('paid');
+          const isCompleted = b.payoutDate || (b.status && b.status.toLowerCase().includes('completed'));
+          const isPending = b.status && b.status.toLowerCase().includes('pending');
+          
+          let statusBadge = '';
+          if (isCompleted) {
+            statusBadge = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✅ Completed</span>';
+          } else if (isPaid) {
+            statusBadge = '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">🟡 Paid - Ready for Check-in</span>';
+          } else if (isPending) {
+            statusBadge = '<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">⏳ Pending Payment</span>';
+          } else {
+            statusBadge = `<span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">${b.status || 'Unknown'}</span>`;
+          }
+
+          let actionButtons = '';
+          if (isPaid && !isCompleted) {
+            actionButtons += `
+              <button onclick="confirmCheckIn('${b.id}')" class="btn-success sharp">✅ Confirm Check-in</button>
+            `;
+          }
+          if (!isCompleted) {
+            actionButtons += `
+              <button onclick="changeBookingDates('${b.id}')" class="btn-warning sharp">📅 Change Dates</button>
+            `;
+          }
+          if (isCompleted) {
+            actionButtons = `<span class="text-xs text-zinc-400">✅ Paid out on ${b.payoutDate ? new Date(b.payoutDate).toLocaleDateString('en-MY') : 'N/A'}</span>`;
+          }
+
+          return `
+            <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+              <div class="flex-1">
+                <div class="font-bold text-sm">${b.homestay}</div>
+                <div class="text-xs text-zinc-500">${b.checkin} → ${b.checkout} • ${b.nights || '?'} nights • Guest: ${b.guestName || b.guestEmail}</div>
+                <div class="text-xs font-semibold mt-1">Base: RM${b.base} • Total Paid: RM${b.total}</div>
+                <div class="mt-1">${statusBadge}</div>
+              </div>
+              <div class="flex flex-wrap gap-2 mt-2 md:mt-0">
+                ${actionButtons}
+              </div>
             </div>
-            ${b.status && b.status.toLowerCase().includes('paid') && !b.payoutDate ? 
-              `<button onclick="checkInGuest('${b.id}')" class="btn-success sharp">✅ Check In & Pay Owner</button>` : 
-              `<span class="text-xs text-zinc-400">${b.payoutDate ? 'Paid out' : 'Waiting for payment'}</span>`
-            }
-          </div>
-        `).join('');
+          `;
+        }).join('');
       } catch(e) {
         listDiv.innerHTML = '<div class="text-sm text-red-600">Error loading bookings.</div>';
         console.error(e);
@@ -177,18 +210,67 @@
     }
 
     // =============================================
-    // CHECK-IN GUEST
+    // CONFIRM CHECK-IN (Owner triggers payout)
     // =============================================
-    async function checkInGuest(bookingId) {
-      if (!confirm(`Confirm check-in for booking ${bookingId}?\nThis will send the Base amount (RM) to your bank account.`)) return;
+    async function confirmCheckIn(bookingId) {
+      if (!confirm(`Confirm check-in for booking ${bookingId}?\n\nThis will send the Base amount to your bank account via ToyyibPay.`)) return;
+      
       try {
-        const res = await fetch(API_BASE + '/owner-checkin', {
+        const res = await fetch(API_BASE + '/owner-update-booking', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Owner-Authorization': 'Bearer ' + ownerToken
           },
-          body: JSON.stringify({ bookingId })
+          body: JSON.stringify({ 
+            bookingId, 
+            action: 'confirmCheckin' 
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('✅ ' + data.message);
+          loadBookings();
+        } else {
+          alert('❌ Failed: ' + (data.error || data.message));
+        }
+      } catch(e) {
+        alert('Network error: ' + e.message);
+      }
+    }
+
+    // =============================================
+    // CHANGE BOOKING DATES
+    // =============================================
+    async function changeBookingDates(bookingId) {
+      // First, get current booking info from the DOM or fetch it
+      const currentCheckin = prompt('Enter new check-in date (YYYY-MM-DD):', '');
+      if (!currentCheckin) return;
+      const currentCheckout = prompt('Enter new check-out date (YYYY-MM-DD):', '');
+      if (!currentCheckout) return;
+
+      const d1 = new Date(currentCheckin);
+      const d2 = new Date(currentCheckout);
+      if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
+        alert('Invalid dates. Check-out must be after check-in.');
+        return;
+      }
+
+      if (!confirm(`Change booking ${bookingId} dates to ${currentCheckin} → ${currentCheckout}?`)) return;
+
+      try {
+        const res = await fetch(API_BASE + '/owner-update-booking', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Owner-Authorization': 'Bearer ' + ownerToken
+          },
+          body: JSON.stringify({ 
+            bookingId, 
+            action: 'changeDates',
+            checkin: currentCheckin,
+            checkout: currentCheckout
+          })
         });
         const data = await res.json();
         if (data.success) {
