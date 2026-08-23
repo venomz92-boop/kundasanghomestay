@@ -1,4 +1,4 @@
-// /api/bookings.js - SECURE: GET requires admin token, POST validation added
+// /api/bookings.js - GET is PUBLIC, POST/DELETE require admin auth
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
@@ -45,12 +45,9 @@ function getDatesInRange(checkin, checkout) {
   return dates;
 }
 
-// ========== GET ==========
+// ========== GET - PUBLIC (no auth required) ==========
 export async function onRequestGet(context) {
-  const { request, env } = context;
-  const authError = verifyAdmin(request, env);
-  if (authError) return authError;
-
+  const { env } = context;
   const db = env.DB;
   let data = {
     bookings: [],
@@ -91,6 +88,7 @@ export async function onRequestGet(context) {
             case "kd_pending": data.pending = parsed; break;
             case "kd_guests": 
               if (Array.isArray(parsed)) {
+                // Remove password field for public safety
                 data.guests = parsed.map(g => {
                   const { password, salt, ...rest } = g;
                   return rest;
@@ -109,7 +107,7 @@ export async function onRequestGet(context) {
   return new Response(JSON.stringify(data), { status: 200, headers: corsHeaders() });
 }
 
-// ========== POST ==========
+// ========== POST - ADMIN AUTH REQUIRED ==========
 export async function onRequestPost(context) {
   const { request, env } = context;
   
@@ -329,7 +327,7 @@ export async function onRequestPost(context) {
   }
 }
 
-// ========== DELETE ==========
+// ========== DELETE - ADMIN AUTH REQUIRED ==========
 export async function onRequestDelete(context) {
   const { request, env } = context;
   const authError = verifyAdmin(request, env);
