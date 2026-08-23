@@ -159,10 +159,9 @@
       listDiv.innerHTML = '<div class="text-sm text-zinc-400">Loading...</div>';
 
       try {
-        // Always fetch fresh from server – no caching
         const res = await fetch(API_BASE + '/owner-bookings', {
           headers: { 'Owner-Authorization': 'Bearer ' + ownerToken },
-          cache: 'no-store' // force fresh
+          cache: 'no-store'
         });
         if (!res.ok) throw new Error('Failed to fetch');
         bookings = await res.json();
@@ -234,7 +233,7 @@
     }
 
     // =============================================
-    // OPEN WHATSAPP TO GUEST
+    // OPEN WHATSAPP TO GUEST – ALWAYS NEW TAB
     // =============================================
     function openWhatsappToGuest(bookingId) {
       const booking = bookings.find(b => String(b.id) === String(bookingId));
@@ -271,14 +270,41 @@
         `🏔️ Welcome to Kundasang!`;
 
       const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      
       try {
+        // Open WhatsApp in a new tab (always)
         const win = window.open(waUrl, '_blank');
-        if (!win) window.location.href = waUrl;
+        if (!win || win.closed || typeof win.closed === 'undefined') {
+          // Popup was blocked – offer alternative
+          const shouldCopy = confirm(
+            '⚠️ WhatsApp popup was blocked by your browser.\n\n' +
+            'Click OK to copy the message to your clipboard, then paste it in WhatsApp.\n\n' +
+            'Phone: ' + phone
+          );
+          if (shouldCopy) {
+            navigator.clipboard.writeText(message).then(() => {
+              alert('✅ Message copied to clipboard!\n\n' +
+                'Phone: ' + phone + '\n\n' +
+                'Paste the message in WhatsApp.');
+            }).catch(() => {
+              alert('❌ Could not copy. Please manually send this message:\n\n' +
+                'Phone: ' + phone + '\n\n' +
+                'Message:\n' + message);
+            });
+          }
+        } else {
+          console.log('✅ WhatsApp opened in new tab');
+        }
       } catch(e) {
+        // Fallback: copy message
         navigator.clipboard.writeText(message).then(() => {
-          alert('✅ Message copied to clipboard! You can paste it in WhatsApp.\n\nPhone: ' + phone);
+          alert('✅ Message copied to clipboard!\n\n' +
+            'Phone: ' + phone + '\n\n' +
+            'Paste it in WhatsApp.');
         }).catch(() => {
-          alert('❌ Could not open WhatsApp. Please send this message manually:\n\nPhone: ' + phone + '\n\nMessage:\n' + message);
+          alert('❌ Could not open WhatsApp. Please send this message manually:\n\n' +
+            'Phone: ' + phone + '\n\n' +
+            'Message:\n' + message);
         });
       }
     }
@@ -304,10 +330,8 @@
         const data = await res.json();
         if (data.success) {
           alert('✅ ' + data.message);
-          // Refresh bookings immediately
           await loadBookings();
           
-          // Ask to send WhatsApp
           setTimeout(() => {
             const shouldSendWhatsapp = confirm(
               '📱 Send WhatsApp confirmation to the guest?\n\n' +
