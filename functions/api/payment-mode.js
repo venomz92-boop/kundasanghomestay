@@ -1,23 +1,35 @@
-// /api/payment-mode.js - Returns ToyyibPay status from env vars
+// /api/payment-mode.js - DIAGNOSTIC VERSION (shows everything)
 
-export async function onRequestGet({ env }) {
-  // Read the environment variable, case-insensitive
-  const payoutEnabled = env.TOYYIBPAY_PAYOUT_ENABLED || 'false';
-  const isLive = payoutEnabled.toLowerCase() === 'true';
+export async function onRequestGet({ env, request }) {
+  // Get the raw value
+  const rawValue = env.TOYYIBPAY_PAYOUT_ENABLED;
+  const secretKey = env.TOYYIBPAY_SECRET_KEY ? 'present' : 'missing';
   
-  // Also check if secret key exists (optional extra check)
-  const hasSecret = !!env.TOYYIBPAY_SECRET_KEY;
+  // Check if it's truly "true" or "false"
+  const isTrue = rawValue === 'true';
+  const isFalse = rawValue === 'false';
+  const isUndefined = rawValue === undefined || rawValue === null;
   
-  const enabled = isLive && hasSecret;
+  // Also check if there's any other variable that might override
+  const allKeys = Object.keys(env);
   
   return new Response(JSON.stringify({
-    enabled: enabled,
-    isLive: isLive,
-    hasSecret: hasSecret,
-    message: enabled ? "LIVE - Payments go to ToyyibPay" : "SIMULATION - No real money",
-    // Debug info (remove later if you want)
-    rawPayoutEnv: payoutEnabled,
-    payoutEnabled: env.TOYYIBPAY_PAYOUT_ENABLED
+    // What you care about
+    TOYYIBPAY_PAYOUT_ENABLED: rawValue,
+    isTrue: isTrue,
+    isFalse: isFalse,
+    isUndefined: isUndefined,
+    TOYYIBPAY_SECRET_KEY: secretKey,
+    
+    // Debug: all available env vars (filtered for security)
+    allVariableNames: allKeys,
+    totalVariables: allKeys.length,
+    
+    // Check if there's a "true" value anywhere
+    truthyCheck: {
+      rawValueType: typeof rawValue,
+      rawValueLength: rawValue ? rawValue.length : 0,
+    }
   }), {
     status: 200,
     headers: {
