@@ -14,7 +14,7 @@ export async function onRequestGet({ env }) {
   // Check if keys exist (for information only)
   const hasSecret = !!(env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_CATEGORY_CODE);
   
-  // ===== FIX: enabled = isLive ONLY =====
+  // ===== enabled = isLive (no extra checks) =====
   const enabled = isLive;
   
   return new Response(JSON.stringify({
@@ -25,7 +25,7 @@ export async function onRequestGet({ env }) {
     // ===== DIAGNOSTIC: show the raw value =====
     rawPayoutEnabled: rawPayoutEnabled,
     // ===== DEPLOYMENT STAMP =====
-    version: "2.1",
+    version: "2.2",
     deployedAt: new Date().toISOString(),
     message: enabled ? "LIVE - Payments go to ToyyibPay" : "SIMULATION - No real money"
   }), {
