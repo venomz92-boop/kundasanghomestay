@@ -1,0 +1,261 @@
+// /api/owner-update-booking.js - Owner can change booking dates
+
+function corsHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Owner-Authorization"
+  };
+}
+
+function verifyOwner(request) {
+  const auth = request.headers.get("Owner-Authorization") || "";
+  if (!auth.startsWith("Bearer ")) return null;
+  try {
+    const token = auth.replace("Bearer ", "");
+    const data = JSON.parse(atob(token));
+    if (data.ownerId && data.ts && (Date.now() - data.ts < 24 * 60 * 60 * 1000)) {
+      return data;
+    }
+  } catch(e) { return null; }
+  return null;
+}
+
+function calculateNights(checkin, checkout) {
+  if (!checkin || !checkout) return 1;
+  const d1 = new Date(checkin);
+  const d2 = new Date(checkout);
+  const diff = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+  return diff > 0 ? diff : 1;
+}
+
+function calculatePrice(ownerPrice, nights = 1) {
+  const base = ownerPrice * nights;
+  const fee = Math.round((base * 11) / 100);
+  const gatewayFee = 1.00;
+  const total = base + fee + gatewayFee;
+  return { nights, base, fee, gatewayFee, total, youReceive: fee - gatewayFee };
+}
+
+function getDatesInRange(checkin, checkout) {
+  if (!checkin || !checkout) return [];
+  const dates = [];
+  const start = new Date(checkin + 'T00:00:00');
+  const end = new Date(checkout + 'T00:00:00');
+  if (isNaN(start) || isNaN(end) || start >= end) return [];
+  const cur = new Date(start);
+  while (cur < end) {
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, '0');
+    const d = String(cur.getDate()).padStart(2, '0');
+    dates.push(`${y}-${m}-${d}`);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+export async function onRequestPost({ request, env }) {
+  try {
+    const ownerData = verifyOwner(request);
+    if (!ownerData) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders() });
+    }
+
+    const body = await request.json();
+    const { bookingId, checkin, checkout, action } = body;
+
+    if (!bookingId) {
+      return new Response(JSON.stringify({ error: "Missing bookingId" }), { status: 400, headers: corsHeaders() });
+    }
+
+    const db = env.DB;
+    if (!db) {
+      return new Response(JSON.stringify({ error: "Server error" }), { status: 500, headers: corsHeaders() });
+    }
+
+    // Fetch bookings
+    const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+    let bookings = [];
+    if (res && res.data) { try { bookings = JSON.parse(res.data); } catch(e) {} }
+
+    const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
+    if (idx === -1) {
+      return new Response(JSON.stringify({ error: "Booking not found" }), { status: 404, headers: corsHeaders() });
+    }
+
+    const booking = bookings[idx];
+
+    // SECURITY: Verify this owner owns this homestay
+    if (String(booking.homestayId) !== String(ownerData.ownerId)) {
+      console.warn(`⚠️ Owner ${ownerData.whatsapp} tried to modify booking for homestay ${booking.homestayId} but owns ${ownerData.ownerId}`);
+      return new Response(JSON.stringify({ error: "Unauthorized: You do not own this homestay" }), { status: 403, headers: corsHeaders() });
+    }
+
+    // ========== ACTION: CHANGE DATES ==========
+    if (action === "changeDates") {
+      if (!checkin || !checkout) {
+        return new Response(JSON.stringify({ error: "Missing checkin or checkout" }), { status: 400, headers: corsHeaders() });
+      }
+
+      const d1 = new Date(checkin);
+      const d2 = new Date(checkout);
+      if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
+        return new Response(JSON.stringify({ error: "Invalid dates" }), { status: 400, headers: corsHeaders() });
+      }
+
+      // Get homestay to recalculate price
+      const rApproved = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
+      let homestays = [];
+      if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch(e) {} }
+      const rPending = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
+      if (rPending && rPending.data) { try { homestays = [...homestays, ...JSON.parse(rPending.data)]; } catch(e) {} }
+
+      const homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
+      if (!homestay) {
+        return new Response(JSON.stringify({ error: "Homestay not found" }), { status: 404, headers: corsHeaders() });
+      }
+
+      // Check availability (excluding this booking's own dates)
+      const oldDates = getDatesInRange(booking.checkin, booking.checkout);
+      const allBlocked = [];
+      if (homestay.blockedDates) allBlocked.push(...homestay.blockedDates);
+      if (availabilityMap && availabilityMap[homestay.id]) allBlocked.push(...availabilityMap[homestay.id]);
+      // Remove this booking's own dates from blocked check
+      const blockedWithoutThis = allBlocked.filter(d => !oldDates.includes(d));
+      const newDates = getDatesInRange(checkin, checkout);
+      const overlap = newDates.filter(d => blockedWithoutThis.includes(d));
+      if (overlap.length > 0) {
+        return new Response(JSON.stringify({ 
+          error: `Dates overlap with existing bookings: ${overlap.join(', ')}` 
+        }), { status: 400, headers: corsHeaders() });
+      }
+
+      // Recalculate price
+      const nights = calculateNights(checkin, checkout);
+      const price = calculatePrice(homestay.ownerPrice, nights);
+
+      // Update booking
+      bookings[idx].checkin = checkin;
+      bookings[idx].checkout = checkout;
+      bookings[idx].nights = nights;
+      bookings[idx].base = price.base;
+      bookings[idx].fee = price.fee;
+      bookings[idx].gatewayFee = price.gatewayFee;
+      bookings[idx].total = price.total;
+      bookings[idx].youReceive = price.youReceive;
+      bookings[idx].statusUpdated = new Date().toISOString();
+
+      // Update availability (remove old dates, add new dates)
+      // We need to fetch availabilityMap from DB
+      const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
+      let availabilityMap = {};
+      if (availRes && availRes.data) { try { availabilityMap = JSON.parse(availRes.data); } catch(e) {} }
+
+      if (!availabilityMap[homestay.id]) availabilityMap[homestay.id] = [];
+      availabilityMap[homestay.id] = availabilityMap[homestay.id].filter(d => !oldDates.includes(d));
+      newDates.forEach(d => {
+        if (!availabilityMap[homestay.id].includes(d)) availabilityMap[homestay.id].push(d);
+      });
+      availabilityMap[homestay.id].sort();
+
+      // Save all changes
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_bookings", JSON.stringify(bookings))
+        .run();
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_availability", JSON.stringify(availabilityMap))
+        .run();
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Booking dates updated to ${checkin} → ${checkout}`,
+        booking: bookings[idx]
+      }), { status: 200, headers: corsHeaders() });
+    }
+
+    // ========== ACTION: CONFIRM CHECK-IN ==========
+    if (action === "confirmCheckin") {
+      // Check if already checked in
+      if (booking.payoutDate) {
+        return new Response(JSON.stringify({
+          success: false,
+          message: `Booking ${bookingId} already checked in on ${booking.payoutDate}`
+        }), { status: 200, headers: corsHeaders() });
+      }
+
+      // Check if paid
+      if (!booking.status || !booking.status.toLowerCase().includes("paid")) {
+        return new Response(JSON.stringify({ 
+          error: "Booking is not paid yet. Cannot check-in." 
+        }), { status: 400, headers: corsHeaders() });
+      }
+
+      // Call the payout API
+      const ownerAmount = booking.base || 0;
+      const yourFee = booking.youReceive || booking.fee || 0;
+
+      // Get owner bank details from homestay
+      const rApproved = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
+      let homestays = [];
+      if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch(e) {} }
+      const rPending = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
+      if (rPending && rPending.data) { try { homestays = [...homestays, ...JSON.parse(rPending.data)]; } catch(e) {} }
+      const homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
+
+      if (!homestay) {
+        return new Response(JSON.stringify({ error: "Homestay not found" }), { status: 404, headers: corsHeaders() });
+      }
+
+      // Now trigger the actual payout
+      const payoutReq = await fetch(`${env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my'}/api/payout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: booking.id,
+          homestayId: booking.homestayId,
+          homestay: booking.homestay,
+          amount: ownerAmount,
+          ownerAmount: ownerAmount,
+          yourFee: yourFee,
+          fee: booking.fee,
+          total: booking.total,
+          ownerBankCode: homestay.bankCode || 'MBBEMYKL',
+          ownerAcc: homestay.ownerBankAccount || '',
+          ownerName: homestay.bankHolder || homestay.ownerName || 'Owner',
+          checkin: booking.checkin
+        })
+      });
+
+      const payoutData = await payoutReq.json().catch(() => ({}));
+
+      // Update booking status
+      bookings[idx].status = "Completed - Owner Paid via Owner Check-in";
+      bookings[idx].payoutDate = new Date().toISOString();
+      bookings[idx].payoutAmount = ownerAmount;
+      bookings[idx].completedDate = new Date().toISOString();
+      bookings[idx].ownerPayoutId = payoutData?.payoutId || payoutData?.payoutCode || "OWNER_" + Date.now();
+
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_bookings", JSON.stringify(bookings))
+        .run();
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: `✅ Check-in confirmed! Owner (${homestay.ownerName}) received RM${ownerAmount}. Your fee RM${yourFee} is available for withdrawal.`,
+        booking: bookings[idx],
+        payout: payoutData
+      }), { status: 200, headers: corsHeaders() });
+    }
+
+    return new Response(JSON.stringify({ error: "Invalid action" }), { status: 400, headers: corsHeaders() });
+
+  } catch (e) {
+    console.error("❌ Owner update booking error:", e.message);
+    return new Response(JSON.stringify({ error: "Server error: " + e.message }), { status: 500, headers: corsHeaders() });
+  }
+}
+
+export async function onRequestOptions() {
+  return new Response(null, { headers: corsHeaders() });
+}
