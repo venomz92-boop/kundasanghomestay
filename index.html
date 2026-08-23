@@ -1506,20 +1506,28 @@ function resetDemoEdits() { /* Admin function - only used in admin panel */ }
             saveAvailabilityMap();
           }
           
-          // Sync to cloud
+          // Sync to cloud (using public endpoint so guests can update)
           try {
-            await fetchWithAuth(`${API_BASE}/bookings`, { 
-              method: "POST", 
-              headers: { "Content-Type": "application/json" }, 
-              body: JSON.stringify({ 
-                action: "updateStatus", 
-                id: b.id, 
-                status: b.status, 
-                booking: b 
-              }) 
+            const updateRes = await fetch(`${API_BASE}/bookings`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "publicUpdateStatus",
+                id: b.id,
+                status: "Paid - Awaiting Check-in",
+                toyyibpay_billcode: billcode || null,
+                toyyibpay_transaction_id: transactionId || null,
+                toyyibpay_status_id: statusId || null,
+                paid_at: new Date().toISOString()
+              })
             });
-            console.log("☁️ Booking status synced to cloud");
-          } catch(e) { console.warn("Cloud sync failed:", e); }
+            if (updateRes.ok) {
+              console.log("☁️ Booking status synced to cloud via public endpoint");
+            } else {
+              const err = await updateRes.text();
+              console.warn("⚠️ Cloud sync failed:", err);
+            }
+          } catch(e) { console.warn("Cloud sync error:", e); }
         }
         
         // Show the booking success modal with receipt details
@@ -1531,7 +1539,6 @@ function resetDemoEdits() { /* Admin function - only used in admin panel */ }
         
       } else {
         console.warn("⚠️ Booking not found for ID:", bookingIdParam);
-        // Still show a generic success message
         alert("✅ Payment successful! Your booking has been confirmed.\n\nBooking ID: " + bookingIdParam + "\nTransaction ID: " + (transactionId || 'N/A'));
       }
       
