@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Kundasang Homestay - Verified •</title>
-  <!-- DOMPurify for XSS protection -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
@@ -51,7 +50,6 @@
     input[type="date"], input[type="text"], input[type="number"], select, textarea { max-width: 100%; box-sizing: border-box; min-width: 0; -webkit-appearance: none; appearance: none; }
     input[type="date"] { display: block; width: 100%; min-width: 0; -webkit-appearance: none; }
     @media (max-width: 768px) { #hero .card { overflow: hidden !important; width: 100% !important; max-width: calc(100vw - 32px) !important; box-sizing: border-box !important; margin-left: auto !important; margin-right: auto !important; } #detailContent .grid.grid-cols-2, #bookingModal .grid.grid-cols-2 { grid-template-columns: 1fr !important; } }
-    @media (min-width: 769px) { #mobileNav { display: none !important; } }
     #detailModal .card, #bookingModal .card, #guestAuthModal .card { border-radius: 2px !important; }
     .mobile-agent-link { color: #7c3aed !important; border: 1px solid #7c3aed !important; border-radius: 2px !important; padding: 8px 16px !important; display: inline-block !important; margin-top: 4px; }
     .nav-link-list { position:relative; font-family:"Poppins",sans-serif; font-weight:600; font-size:13px; letter-spacing:0.3px; text-transform:uppercase; color:#212121; padding:8px 0; cursor:pointer; background:none; border:none; text-decoration:none; }
@@ -64,29 +62,7 @@
     .calendar-legend .dot.red { background: #fef2f2; border: 1px solid #fecaca; }
     .calendar-legend .dot.today-dot { border: 2px solid var(--primary); background: white; width: 10px; height: 10px; }
 
-    /* ===== MOBILE MENU – ANIMATION (NO max-height / overflow) ===== */
-    #mobileNav {
-      display: block;
-      opacity: 0;
-      transform: translateY(-20px);
-      pointer-events: none;
-      transition: opacity 0.3s ease, transform 0.3s ease, pointer-events 0.3s;
-      background: white;
-      border-top: 1px solid rgba(0,0,0,0.08);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-      position: absolute;
-      top: 80px;
-      left: 0;
-      right: 0;
-      z-index: 50;
-    }
-
-    #mobileNav.open {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: auto;
-    }
-
+    /* ===== MOBILE NAV – NO ANIMATION, JUST TOGGLE ===== */
     #mobileNav a,
     #mobileNav button {
       display: block;
@@ -128,7 +104,7 @@
 </head>
 <body>
 
-<!-- ===== HEADER ===== -->
+<!-- HEADER -->
 <header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
@@ -153,8 +129,8 @@
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 sharp bg-[#212121] text-white items-center justify-center"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
   </div>
 
-  <!-- ===== MOBILE NAV ===== -->
-  <div id="mobileNav" class="lg:hidden absolute top-[80px] left-0 right-0 z-50">
+  <!-- ===== MOBILE NAV – HIDDEN INITIALLY ===== -->
+  <div id="mobileNav" class="hidden lg:hidden absolute top-[80px] left-0 right-0 bg-white border-t border-black/10 z-50 shadow-xl">
     <div class="p-6 space-y-4">
       <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">🏠 Home</a>
       <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">➕ List Your Homestay</a>
@@ -182,7 +158,7 @@
   </div>
 </header>
 
-<!-- ===== HERO ===== -->
+<!-- HERO -->
 <section id="hero" class="relative w-full h-[680px] overflow-hidden">
   <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=original" alt="Mount Kinabalu" class="absolute inset-0 w-full h-full object-cover" />
   <div class="absolute inset-0 bg-black/20"></div>
@@ -196,7 +172,7 @@
   </div>
 </section>
 
-<!-- ===== HOME PAGE ===== -->
+<!-- HOME PAGE -->
 <main id="homePage" class="max-w-[1300px] mx-auto px-6 lg:px-8 pt-[92px] pb-16">
   <div class="text-center mb-12">
     <div class="font-satisfy text-[#3FD0D4] text-[30px] leading-none">Go & Discover</div>
@@ -211,7 +187,7 @@
   <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
 </main>
 
-<!-- ===== DETAIL MODAL ===== -->
+<!-- DETAIL MODAL -->
 <div id="detailModal" class="fixed inset-0 z-50 hidden bg-black/60 p-3 md:p-5 overflow-y-auto">
   <div class="max-w-[900px] mx-auto card overflow-hidden mt-6 md:mt-10">
     <div id="detailContent" class="p-5 md:p-6"></div>
@@ -222,7 +198,7 @@
   </div>
 </div>
 
-<!-- ===== BOOKING MODAL ===== -->
+<!-- BOOKING MODAL -->
 <div id="bookingModal" class="fixed inset-0 z-50 hidden bg-black/60 p-3 md:p-5 overflow-y-auto">
   <div class="max-w-[520px] mx-auto card p-6 mt-10">
     <h3 class="text-2xl font-bold">Book Homestay</h3>
@@ -249,7 +225,7 @@
   </div>
 </div>
 
-<!-- ===== GUEST AUTH MODAL ===== -->
+<!-- GUEST AUTH MODAL -->
 <div id="guestAuthModal" class="fixed inset-0 z-[60] hidden bg-black/60 p-3 md:p-5 overflow-y-auto">
   <div class="max-w-[420px] mx-auto card p-6 md:p-8 mt-10">
     <div class="flex justify-between items-center"><h3 id="guestAuthTitle" class="text-2xl font-bold">Guest Login</h3><button onclick="closeGuestAuth()" class="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center">✕</button></div>
@@ -276,7 +252,7 @@
   </div>
 </div>
 
-<!-- ===== FORGOT PASSWORD MODAL ===== -->
+<!-- FORGOT PASSWORD MODAL -->
 <div id="forgotPasswordModal" class="fixed inset-0 z-[70] hidden bg-black/60 p-3 md:p-5 overflow-y-auto">
   <div class="max-w-[420px] mx-auto card p-6 md:p-8 mt-10">
     <div class="flex justify-between items-center">
@@ -296,12 +272,11 @@
   </div>
 </div>
 
-<!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20"><div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10"><div><div class="flex items-center gap-3"><div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div><div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div></div><p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local - Kundasang version. Mountain homestays with Kinabalu soul.</p></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div><div class="space-y-2 text-[13px] font-poppins"><a href="/" class="hover:text-white block">Homestays</a><a href="/list.html" class="hover:text-white block">List Property</a><a href="/about.html" class="hover:text-white block">About</a></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div><div class="space-y-2 text-[13px] font-poppins"><div>Host Guidelines</div><div>ToyyibPay FPX Secured</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div><p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p></div></div><div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay - All payment is secured by Toyyibpay</div></footer>
 
 <script>
 // =============================================================
-// SECURE HELPER: Sanitize HTML (XSS protection)
+// SECURE HELPER
 // =============================================================
 function safeHTML(html) {
   if (!html) return '';
@@ -1347,29 +1322,26 @@ function whatsappWithBookingId(){
 }
 
 // =============================================================
-// PAGE NAVIGATION (simplified to Home only)
+// PAGE NAVIGATION
 // =============================================================
 function showHome() {
   const homePage = document.getElementById("homePage");
   const hero = document.getElementById("hero");
-  
   if (homePage) homePage.classList.remove("hidden");
   if (hero) hero.classList.remove("hidden");
-  
   const active = document.getElementById("navHome");
   if (active) active.className = "setsail-nav-link active";
-  
   renderGrid();
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
 // =============================================================
-// MOBILE MENU TOGGLE (with animation)
+// MOBILE MENU TOGGLE – SIMPLE
 // =============================================================
 function toggleMobileMenu() {
   const nav = document.getElementById('mobileNav');
   if (nav) {
-    nav.classList.toggle('open');
+    nav.classList.toggle('hidden');
   }
 }
 
@@ -1377,10 +1349,11 @@ document.addEventListener('click', function(e) {
   const nav = document.getElementById('mobileNav');
   const btn = document.getElementById('mobileMenuBtn');
   if (!nav || !btn) return;
-  if (nav.classList.contains('open') && 
+  // If menu is visible (not hidden) and click is outside
+  if (!nav.classList.contains('hidden') && 
       !nav.contains(e.target) && 
       !btn.contains(e.target)) {
-    nav.classList.remove('open');
+    nav.classList.add('hidden');
   }
 });
 
