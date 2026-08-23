@@ -26,6 +26,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 .verification-badge.pass{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
 .verification-badge.fail{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
 .verification-badge.warn{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+.detail-modal-img{max-width:100%;max-height:70vh;object-fit:contain;border-radius:8px;border:2px solid #e5e7eb;background:#fff;}
 </style>
 </head>
 <body>
@@ -85,7 +86,17 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
   </div>
 </div>
 
+<!-- ====== WITHDRAW MODAL ====== -->
 <div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw Earnings</h3><div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after RM1) - Auto payout to owners via ToyyibPay<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button, not here.</div><div class="mt-3 p-2 bg-green-50 border border-green-200 sharp text-[11px]">🔒 Locked Bank: Loading...<br>Change only in Cloudflare env YOUR_BANK_*</div><input id="kdBankName" placeholder="Bank Name (Locked - ignored)" disabled class="w-full border sharp px-3 py-2 mt-3 bg-zinc-100 text-zinc-500" value="Maybank - Locked"/><input id="kdAmt" type="number" placeholder="Amount RM" min="1" step="0.01" class="w-full border sharp px-3 py-2 mt-2"/><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm Withdraw</button></div><div id="kdWithdrawMsg" class="mt-3 text-[11px] text-zinc-500"></div></div></div>
+
+<!-- ====== PENDING DETAIL MODAL (Large View) ====== -->
+<div id="pendingDetailModal" class="fixed inset-0 z-[100] hidden bg-black/70 p-4 overflow-y-auto" onclick="if(event.target===this) closePendingDetail()">
+  <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl p-6 md:p-8 relative mt-10 mb-10">
+    <button onclick="closePendingDetail()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-2xl hover:bg-zinc-200 transition">✕</button>
+    <h3 class="text-2xl font-bold mb-2" id="detailModalTitle">Pending Details</h3>
+    <div id="pendingDetailContent" class="space-y-4"></div>
+  </div>
+</div>
 
 <script>
 // ========== SECURITY: DOMPurify Sanitization ==========
@@ -444,7 +455,6 @@ function renderAdmin(){
       const bankHolder=(h.bankHolder||'').toLowerCase().trim();
       const match = (icName && bankHolder) ? (icName.includes(bankHolder.split(' ')[0]) || bankHolder.includes(icName.split(' ')[0])) : false;
       
-      // Verification badges
       let nameMatchBadge = match ? '<span class="verification-badge pass">✅ Name matches</span>' : '<span class="verification-badge fail">❌ Name mismatch</span>';
       let icUploaded = h.icImage ? '<span class="verification-badge pass">✅ IC uploaded</span>' : '<span class="verification-badge fail">❌ IC missing</span>';
       let qrUploaded = h.bankQRImage ? '<span class="verification-badge pass">✅ QR uploaded</span>' : '<span class="verification-badge warn">⚠️ QR missing</span>';
@@ -466,35 +476,16 @@ function renderAdmin(){
             </div>
           </div>
           
-          <!-- Verification Badges -->
           <div class="flex flex-wrap gap-2 mt-3">
             ${nameMatchBadge}
             ${icUploaded}
             ${qrUploaded}
           </div>
           
-          <!-- IC Image -->
-          ${h.icImage ? `
-            <div class="mt-3 border rounded-xl p-3 bg-blue-50">
-              <div class="text-xs font-bold uppercase text-zinc-500 mb-2">IC Front (Watermarked)</div>
-              <img src="${h.icImage}" class="max-w-[300px] max-h-[200px] rounded-lg border-2 border-blue-300 object-contain" />
-              <div class="text-[10px] text-zinc-500 mt-1">Uploaded: ${h.icUploadDate ? toMYDate(h.icUploadDate) : 'Unknown'}</div>
-            </div>
-          ` : ''}
-          
-          <!-- Bank QR -->
-          ${h.bankQRImage ? `
-            <div class="mt-3 border rounded-xl p-3 bg-green-50">
-              <div class="text-xs font-bold uppercase text-zinc-500 mb-2">Bank QR / DuitNow</div>
-              <img src="${h.bankQRImage}" class="max-w-[200px] max-h-[200px] rounded-lg border-2 border-green-300 object-contain" />
-            </div>
-          ` : ''}
-          
-          <!-- Action Buttons -->
-          <div class="flex gap-2 mt-4 flex-wrap">
+          <div class="flex flex-wrap gap-2 mt-3">
+            ${h.icImage ? `<button onclick="viewPendingDetails(${h.id})" class="px-3 py-1.5 bg-blue-600 text-white sharp text-xs font-bold">🔍 View Full Details</button>` : `<button onclick="viewPendingDetails(${h.id})" class="px-3 py-1.5 bg-blue-600 text-white sharp text-xs font-bold">🔍 View Full Details</button>`}
             <button onclick="approveHomestay(${h.id})" class="px-4 py-1.5 bg-green-600 text-white sharp text-xs font-bold">✅ Approve</button>
             <button onclick="rejectHomestay(${h.id})" class="px-4 py-1.5 bg-red-100 text-red-700 sharp text-xs font-bold">✕ Reject</button>
-            <button onclick="viewPendingDetails(${h.id})" class="px-4 py-1.5 bg-blue-100 text-blue-700 sharp text-xs">🔍 View Full</button>
           </div>
         </div>
       `;
@@ -512,13 +503,115 @@ function renderAdmin(){
   renderBookingsTable();
 }
 
+// ====== PENDING DETAIL MODAL ======
 function viewPendingDetails(id) {
   const h = pendingHomestays.find(p => p.id === id);
   if (!h) return;
-  const details = JSON.stringify(h, null, 2);
-  alert("Full Pending Details:\n\n" + details);
+  
+  const content = document.getElementById('pendingDetailContent');
+  const title = document.getElementById('detailModalTitle');
+  title.textContent = `🔍 ${h.name || 'Unnamed'} — Pending Review`;
+  
+  let html = `
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <div class="text-sm font-semibold text-zinc-500">Owner Information</div>
+        <div class="mt-2 space-y-2 text-sm">
+          <div><span class="font-bold">Name:</span> ${h.ownerName || 'N/A'}</div>
+          <div><span class="font-bold">WhatsApp:</span> ${h.whatsapp || 'N/A'}</div>
+          <div><span class="font-bold">Email:</span> ${h.ownerEmail || 'N/A'}</div>
+          <div><span class="font-bold">IC Name:</span> ${h.icName || 'N/A'}</div>
+          <div><span class="font-bold">IC Number:</span> ${h.icNumber || 'N/A'}</div>
+        </div>
+      </div>
+      <div>
+        <div class="text-sm font-semibold text-zinc-500">Homestay Details</div>
+        <div class="mt-2 space-y-2 text-sm">
+          <div><span class="font-bold">Name:</span> ${h.name || 'N/A'}</div>
+          <div><span class="font-bold">Location:</span> ${h.location || 'N/A'}</div>
+          <div><span class="font-bold">Price/Night:</span> RM${h.ownerPrice || 0}</div>
+          <div><span class="font-bold">Guests:</span> ${h.guests || 0}</div>
+          <div><span class="font-bold">Bedrooms:</span> ${h.bedrooms || 0}</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+      <div>
+        <div class="text-sm font-semibold text-zinc-500">Bank Details</div>
+        <div class="mt-2 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+          <div><span class="font-bold">Bank:</span> ${h.ownerBank || 'N/A'}</div>
+          <div><span class="font-bold">Account Number:</span> <span class="font-mono font-bold text-lg">${h.ownerBankAccount || 'N/A'}</span></div>
+          <div><span class="font-bold">Account Holder:</span> ${h.bankHolder || 'N/A'}</div>
+          <div><span class="font-bold">Bank QR:</span> ${h.bankQRImage ? '✅ Uploaded' : '❌ Not uploaded'}</div>
+        </div>
+      </div>
+      <div>
+        <div class="text-sm font-semibold text-zinc-500">Verification Status</div>
+        <div class="mt-2 space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-bold">IC Name vs Bank Holder:</span>
+            ${(h.icName || '').toLowerCase().includes((h.bankHolder || '').toLowerCase().split(' ')[0]) || (h.bankHolder || '').toLowerCase().includes((h.icName || '').toLowerCase().split(' ')[0]) 
+              ? '<span class="verification-badge pass">✅ Match</span>' 
+              : '<span class="verification-badge fail">❌ Mismatch</span>'}
+          </div>
+          <div><span class="text-sm font-bold">IC Uploaded:</span> ${h.icImage ? '✅ Yes' : '❌ No'}</div>
+          <div><span class="text-sm font-bold">QR Uploaded:</span> ${h.bankQRImage ? '✅ Yes' : '❌ No'}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // IC Image - Large
+  if (h.icImage) {
+    html += `
+      <div class="mt-4">
+        <div class="text-sm font-semibold text-zinc-500">IC Front (Watermarked) — Click to enlarge</div>
+        <div class="mt-2 border rounded-xl p-3 bg-blue-50">
+          <img src="${h.icImage}" class="detail-modal-img max-h-[500px] w-auto mx-auto cursor-pointer" onclick="window.open('${h.icImage}', '_blank')" />
+          <div class="text-[10px] text-zinc-500 mt-2 text-center">Click image to open in new tab for full resolution</div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // QR Image - Large
+  if (h.bankQRImage) {
+    html += `
+      <div class="mt-4">
+        <div class="text-sm font-semibold text-zinc-500">Bank QR / DuitNow — Click to enlarge</div>
+        <div class="mt-2 border rounded-xl p-3 bg-green-50">
+          <img src="${h.bankQRImage}" class="detail-modal-img max-h-[400px] w-auto mx-auto cursor-pointer" onclick="window.open('${h.bankQRImage}', '_blank')" />
+          <div class="text-[10px] text-zinc-500 mt-2 text-center">Click image to open in new tab for full resolution</div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Full JSON (collapsed)
+  html += `
+    <div class="mt-4">
+      <button onclick="toggleJsonView()" class="text-xs text-blue-600 underline">Show Full JSON Data</button>
+      <div id="jsonView" class="hidden mt-2 p-3 bg-zinc-100 border rounded-xl text-xs font-mono overflow-auto max-h-60">
+        ${safeHTML(JSON.stringify(h, null, 2))}
+      </div>
+    </div>
+  `;
+  
+  content.innerHTML = safeHTML(html);
+  document.getElementById('pendingDetailModal').classList.remove('hidden');
 }
 
+function toggleJsonView() {
+  const el = document.getElementById('jsonView');
+  if (el) el.classList.toggle('hidden');
+}
+
+function closePendingDetail() {
+  document.getElementById('pendingDetailModal').classList.add('hidden');
+}
+
+// ========== RENDER BOOKINGS TABLE ==========
 function renderBookingsTable(){
   const div=document.getElementById("bookingsTable"); if(!div) return;
   if(bookings.length===0){ 
@@ -634,7 +727,6 @@ function approveHomestay(id){
   saveApproved(); 
   pendingHomestays.splice(idx,1); 
   localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); 
-  // Also sync pending deletion to cloud
   fetchWithAuth(API_BASE + "/pending", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ pending: pendingHomestays })}).catch(()=>{});
   renderAdmin(); 
 }
