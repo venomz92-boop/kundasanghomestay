@@ -1,4 +1,4 @@
-// /api/bookings.js - SECURE: GET is PUBLIC, POST/DELETE require admin auth
+// /api/bookings.js - FULLY FIXED: All admin actions sync to DB
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
@@ -106,14 +106,18 @@ export async function onRequestGet(context) {
   return new Response(JSON.stringify(data), { status: 200, headers: corsHeaders() });
 }
 
-// ========== POST - ADMIN AUTH REQUIRED ==========
+// ========== POST ==========
 export async function onRequestPost(context) {
   const { request, env } = context;
   
   const body = await request.json().catch(() => ({}));
   const action = body.action;
 
-  // ========== PUBLIC: Create booking ==========
+  // ============================================================
+  // PUBLIC ACTIONS (no auth required)
+  // ============================================================
+
+  // 1. Create booking
   if (action === "createPublicBooking" && body.booking) {
     const booking = body.booking;
     const required = ['id', 'homestay', 'homestayId', 'checkin', 'checkout', 'guestEmail', 'guestName', 'total', 'base', 'fee'];
@@ -153,7 +157,7 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ success: true, bookingId: booking.id }), { status: 200, headers: corsHeaders() });
   }
 
-  // ========== PUBLIC: Update booking status ==========
+  // 2. Public update status (ToyyibPay webhook)
   if (action === "publicUpdateStatus" && body.id && body.status) {
     const db = env.DB;
     if (!db) {
@@ -177,7 +181,7 @@ export async function onRequestPost(context) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_bookings", JSON.stringify(bookings))
         .run();
-      // Also update availability
+      // Update availability
       try {
         const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
         let availability = {};
@@ -207,7 +211,9 @@ export async function onRequestPost(context) {
     }
   }
 
-  // ========== ALL OTHER ACTIONS REQUIRE ADMIN AUTH ==========
+  // ============================================================
+  // ALL OTHER ACTIONS REQUIRE ADMIN AUTH
+  // ============================================================
   const authError = verifyAdmin(request, env);
   if (authError) return authError;
 
@@ -219,7 +225,7 @@ export async function onRequestPost(context) {
   try {
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-    // ===== NEW: UPDATE DATES (Admin change booking dates) =====
+    // ===== 1. UPDATE DATES (Admin changes booking dates) =====
     if (action === "updateDates" && body.id) {
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
       let bookings = [];
@@ -228,7 +234,6 @@ export async function onRequestPost(context) {
       if (idx === -1) {
         return new Response(JSON.stringify({ error: "Booking not found" }), { status: 404, headers: corsHeaders() });
       }
-      // Update the booking fields
       bookings[idx].checkin = body.checkin;
       bookings[idx].checkout = body.checkout;
       bookings[idx].nights = body.nights;
@@ -241,15 +246,13 @@ export async function onRequestPost(context) {
         .bind("kd_bookings", JSON.stringify(bookings))
         .run();
 
-      // Also update availability map to reflect new dates
+      // Rebuild availability
       try {
         const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
         let availability = {};
         if (availRes && availRes.data) { try { availability = JSON.parse(availRes.data); } catch(e) {} }
-        
         const booking = bookings[idx];
         if (booking.homestayId && booking.checkin && booking.checkout) {
-          // Rebuild availability for this homestay from all bookings
           const allBookings = bookings.filter(b => String(b.homestayId) === String(booking.homestayId));
           const allDates = new Set();
           allBookings.forEach(b => {
@@ -258,8 +261,7 @@ export async function onRequestPost(context) {
               dates.forEach(d => allDates.add(d));
             }
           });
-          // Also include manually blocked dates from the homestay (we need to preserve them)
-          // Fetch the homestay to get its blockedDates
+          // Preserve manually blocked dates
           const homestayRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
           let homestays = [];
           if (homestayRes && homestayRes.data) { try { homestays = JSON.parse(homestayRes.data); } catch(e) {} }
@@ -276,7 +278,7 @@ export async function onRequestPost(context) {
             .bind("kd_availability", JSON.stringify(availability))
             .run();
         }
-      } catch(e) { console.warn("Availability update failed on date change:", e.message); }
+      } catch(e) { console.warn("Availability update failed:", e.message); }
 
       return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
         status: 200,
@@ -284,14 +286,122 @@ export async function onRequestPost(context) {
       });
     }
 
-    // ===== CLEAR ALL =====
+    // ===== 2. APPROVE HOMESTAY =====
+    if (action === "approveHomestay" && body.id) {
+      // Get pending list
+      const pendingRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
+      let pending = [];
+      if (pendingRes && pendingRes.data) { try { pending = JSON.parse(pendingRes.data); } catch(e) {} }
+      
+      const idx = pending.findIndex(h => String(h.id) === String(body.id));
+      if (idx === -1) {
+        return new Response(JSON.stringify({ error: "Pending homestay not found" }), { status: 404, headers: corsHeaders() });
+      }
+      
+      const homestay = pending[idx];
+      homestay.approved = true;
+      homestay.verified = true;
+      
+      // Remove from pending
+      pending.splice(idx, 1);
+      
+      // Get approved list
+      const approvedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
+      let approved = [];
+      if (approvedRes && approvedRes.data) { try { approved = JSON.parse(approvedRes.data); } catch(e) {} }
+      
+      approved.push(homestay);
+      
+      // Save both
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_pending", JSON.stringify(pending))
+        .run();
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_approved", JSON.stringify(approved))
+        .run();
+      
+      return new Response(JSON.stringify({ success: true, homestay }), {
+        status: 200,
+        headers: corsHeaders()
+      });
+    }
+
+    // ===== 3. REJECT HOMESTAY =====
+    if (action === "rejectHomestay" && body.id) {
+      const pendingRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
+      let pending = [];
+      if (pendingRes && pendingRes.data) { try { pending = JSON.parse(pendingRes.data); } catch(e) {} }
+      
+      const idx = pending.findIndex(h => String(h.id) === String(body.id));
+      if (idx === -1) {
+        return new Response(JSON.stringify({ error: "Pending homestay not found" }), { status: 404, headers: corsHeaders() });
+      }
+      
+      pending.splice(idx, 1);
+      
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_pending", JSON.stringify(pending))
+        .run();
+      
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: corsHeaders()
+      });
+    }
+
+    // ===== 4. REMOVE APPROVED HOMESTAY =====
+    if (action === "removeApprovedHomestay" && body.id) {
+      const approvedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
+      let approved = [];
+      if (approvedRes && approvedRes.data) { try { approved = JSON.parse(approvedRes.data); } catch(e) {} }
+      
+      const idx = approved.findIndex(h => String(h.id) === String(body.id));
+      if (idx === -1) {
+        return new Response(JSON.stringify({ error: "Approved homestay not found" }), { status: 404, headers: corsHeaders() });
+      }
+      
+      const removed = approved[idx];
+      approved.splice(idx, 1);
+      
+      // Also remove from demoBlocked if it's a demo
+      if (body.isDemo) {
+        const demoBlockedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_demo_blocked").first();
+        let demoBlocked = {};
+        if (demoBlockedRes && demoBlockedRes.data) { try { demoBlocked = JSON.parse(demoBlockedRes.data); } catch(e) {} }
+        if (demoBlocked[body.id]) delete demoBlocked[body.id];
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_demo_blocked", JSON.stringify(demoBlocked))
+          .run();
+        
+        const deletedDemoRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_deleted_demo").first();
+        let deletedDemo = [];
+        if (deletedDemoRes && deletedDemoRes.data) { try { deletedDemo = JSON.parse(deletedDemoRes.data); } catch(e) {} }
+        if (!deletedDemo.includes(String(body.id))) {
+          deletedDemo.push(String(body.id));
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+            .bind("kd_deleted_demo", JSON.stringify(deletedDemo))
+            .run();
+        }
+      }
+      
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_approved", JSON.stringify(approved))
+        .run();
+      
+      return new Response(JSON.stringify({ success: true, removed }), {
+        status: 200,
+        headers: corsHeaders()
+      });
+    }
+
+    // ===== 5. CLEAR ALL =====
     if (action === "clearAll") {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify([])).run();
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify({})).run();
       return new Response(JSON.stringify({ success: true, bookings: [] }), { status: 200, headers: corsHeaders() });
     }
 
-    // ===== UPDATE PENDING =====
+    // ===== 6. UPDATE PENDING (bulk) =====
     if (action === "updatePending" || body.pending !== undefined) {
       let existingPending = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
@@ -303,7 +413,7 @@ export async function onRequestPost(context) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(merged)).run();
     }
 
-    // ===== UPDATE GUESTS =====
+    // ===== 7. UPDATE GUESTS =====
     if (action === "updateGuests" || action === "overwriteGuests" || action === "banGuest" || body.guests !== undefined) {
       let existingGuests = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
@@ -326,7 +436,7 @@ export async function onRequestPost(context) {
       }
     }
 
-    // ===== UPDATE HOMESTAYS =====
+    // ===== 8. UPDATE HOMESTAYS =====
     if (action === "updateHomestays" || body.approved !== undefined) {
       if (body.approved !== undefined) {
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_approved", JSON.stringify(body.approved)).run();
@@ -342,7 +452,7 @@ export async function onRequestPost(context) {
       }
     }
 
-    // ===== UPDATE AVAILABILITY =====
+    // ===== 9. UPDATE AVAILABILITY =====
     if (action === "updateAvailability" || body.availability !== undefined) {
       const avail = body.availability || body.availability;
       if (avail) {
@@ -350,7 +460,7 @@ export async function onRequestPost(context) {
       }
     }
 
-    // ===== UPDATE BOOKINGS =====
+    // ===== 10. UPDATE BOOKINGS (bulk) =====
     if (action === "updateBookings" || body.bookings !== undefined) {
       const b = body.bookings || body.bookings;
       if (b && Array.isArray(b)) {
@@ -364,8 +474,8 @@ export async function onRequestPost(context) {
       }
     }
 
-    // ===== GENERIC FALLBACK (saves single booking) =====
-    if (body.id && body.action !== "updateBookings" && body.action !== "createPublicBooking" && body.action !== "updateDates") {
+    // ===== 11. GENERIC FALLBACK (saves single booking) =====
+    if (body.id && body.action !== "updateBookings" && body.action !== "createPublicBooking" && body.action !== "updateDates" && body.action !== "approveHomestay" && body.action !== "rejectHomestay" && body.action !== "removeApprovedHomestay") {
       let existing = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
       if (r && r.data) existing = JSON.parse(r.data);
@@ -429,7 +539,7 @@ export async function onRequestDelete(context) {
             } catch (e) { console.error("Failed to parse dates:", e.message); }
           }
         });
-        // Also preserve manually blocked dates from the homestay
+        // Also preserve manually blocked dates
         try {
           const homestayRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
           let homestays = [];
