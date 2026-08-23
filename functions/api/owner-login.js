@@ -1,4 +1,4 @@
-// /api/owner-login.js - Owner Login (WhatsApp + Password) with homestay name in token
+// /api/owner-login.js - Owner Login (WhatsApp + Password) for MULTIPLE homestays
 
 async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
@@ -16,7 +16,7 @@ function corsHeaders() {
   };
 }
 
-// Rate limiting (simple in-memory)
+// Rate limiting
 const loginAttempts = new Map();
 
 export async function onRequestPost({ request, env }) {
@@ -45,55 +45,60 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: "Server error" }), { status: 500, headers: corsHeaders() });
     }
 
-    // Get approved homestays
+    // Get approved + pending homestays
     const r1 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
     let homestays = [];
     if (r1 && r1.data) { try { homestays = JSON.parse(r1.data); } catch(e) {} }
-
-    // Also check pending (just in case)
     const r2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
     if (r2 && r2.data) { try { homestays = [...homestays, ...JSON.parse(r2.data)]; } catch(e) {} }
 
-    // Find owner by whatsapp
-    const ownerHomestay = homestays.find(h => {
+    // Find ALL homestays with matching WhatsApp
+    const ownerHomestays = homestays.filter(h => {
       const hWhatsapp = h.whatsapp ? h.whatsapp.replace(/[^0-9]/g, '') : '';
       return hWhatsapp === cleanWhatsapp && h.ownerPasswordHash && h.ownerSalt;
     });
 
-    if (!ownerHomestay) {
+    if (ownerHomestays.length === 0) {
       return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
     }
 
-    // Verify password
-    const hashedInput = await sha256(cleanPassword + ownerHomestay.ownerSalt);
-    if (hashedInput !== ownerHomestay.ownerPasswordHash) {
+    // Verify password against the first match (assumes same password for all)
+    const firstMatch = ownerHomestays[0];
+    const hashedInput = await sha256(cleanPassword + firstMatch.ownerSalt);
+    if (hashedInput !== firstMatch.ownerPasswordHash) {
       return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
     }
 
     // Login successful - clear attempts
     loginAttempts.delete(key);
 
-    // ===== FIX: include homestay name in token =====
+    // Build homestay list for the token
+    const homestayList = ownerHomestays.map(h => ({
+      id: h.id,
+      name: h.name,
+      location: h.location,
+      ownerPrice: h.ownerPrice
+    }));
+
+    const homestayIds = ownerHomestays.map(h => h.id);
+    const ownerName = ownerHomestays[0].ownerName;
+
     const tokenData = {
-      ownerId: ownerHomestay.id,
-      ownerName: ownerHomestay.ownerName,
-      homestayName: ownerHomestay.name,   // <-- ADDED
+      ownerId: ownerHomestays[0].id, // primary / fallback
+      homestayIds: homestayIds,
+      homestays: homestayList,
+      ownerName: ownerName,
       whatsapp: cleanWhatsapp,
       ts: Date.now()
     };
     const ownerToken = btoa(JSON.stringify(tokenData));
 
     // Return safe data (exclude password hash and salt)
-    const { ownerPasswordHash, ownerSalt, ...safeHomestay } = ownerHomestay;
+    const safeHomestays = ownerHomestays.map(({ ownerPasswordHash, ownerSalt, ...rest }) => rest);
     return new Response(JSON.stringify({
       success: true,
       token: ownerToken,
-      homestay: {
-        id: safeHomestay.id,
-        name: safeHomestay.name,
-        ownerName: safeHomestay.ownerName,
-        whatsapp: safeHomestay.whatsapp
-      },
+      homestays: safeHomestays,
       message: "Login successful"
     }), { status: 200, headers: corsHeaders() });
 
