@@ -29,10 +29,73 @@
     .nav-link-list:hover::after, .nav-link-list.active::after { width:100%; }
     .mobile-agent-link { color: #7c3aed !important; border: 1px solid #7c3aed !important; border-radius: 2px !important; padding: 8px 16px !important; display: inline-block !important; margin-top: 4px; }
     *{-webkit-tap-highlight-color:transparent;} html{overflow-x:hidden;} body{overflow-x:hidden;-webkit-text-size-adjust:100%;}
-    .faq-question{cursor:pointer;transition:background 0.2s;}
-    .faq-question:hover{background:#f3f4f6;}
-    .faq-answer{max-height:0;overflow:hidden;transition:max-height 0.3s ease;}
-    .faq-answer.open{max-height:300px;}
+    
+    /* ===== FAQ STYLES ===== */
+    .faq-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 2px;
+      margin-bottom: 8px;
+      background: white;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .faq-item:hover {
+      border-color: #d1d5db;
+    }
+    .faq-question {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      cursor: pointer;
+      background: white;
+      transition: background 0.2s;
+      gap: 12px;
+    }
+    .faq-question:hover {
+      background: #f9fafb;
+    }
+    .faq-question .q-text {
+      font-weight: 600;
+      font-size: 14px;
+      color: #1f2937;
+    }
+    .faq-question .q-icon {
+      font-size: 20px;
+      font-weight: 300;
+      color: #6b7280;
+      flex-shrink: 0;
+      transition: transform 0.3s ease;
+      width: 24px;
+      text-align: center;
+    }
+    .faq-item.open .faq-question .q-icon {
+      transform: rotate(180deg);
+    }
+    .faq-item.open {
+      border-color: #3FD0D4;
+    }
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease, padding 0.3s ease;
+      padding: 0 20px;
+    }
+    .faq-item.open .faq-answer {
+      max-height: 300px;
+      padding: 0 20px 16px 20px;
+    }
+    .faq-answer p {
+      font-size: 14px;
+      color: #4b5563;
+      line-height: 1.6;
+      margin: 0;
+    }
+    .faq-answer strong {
+      color: #0F382E;
+    }
+    /* ================== */
+
     .step-number{width:48px;height:48px;border-radius:999px;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;flex-shrink:0;}
   </style>
 </head>
@@ -182,56 +245,79 @@
     </div>
   </div>
 
-  <!-- FAQ Section -->
+  <!-- ===== FAQ SECTION (REDESIGNED) ===== -->
   <div class="mb-10">
     <h2 class="text-2xl md:text-3xl font-bold text-center mb-2">Frequently Asked Questions</h2>
     <div class="w-[40px] h-[2px] bg-[#3FD0D4] mx-auto mb-6"></div>
-    <div class="max-w-3xl mx-auto space-y-3">
-      <div class="card overflow-hidden">
-        <div class="faq-question px-5 py-3.5 flex justify-between items-center" onclick="toggleFAQ(this)">
-          <span class="font-semibold text-sm">Is it safe to book here?</span>
-          <span class="text-xl font-light">+</span>
+    
+    <div class="max-w-3xl mx-auto space-y-2">
+      
+      <!-- FAQ 1 -->
+      <div class="faq-item open">
+        <div class="faq-question" onclick="toggleFAQ(this)">
+          <span class="q-text">🛡️ Is it safe to book here?</span>
+          <span class="q-icon">▾</span>
         </div>
-        <div class="faq-answer px-5 pb-4 text-sm text-zinc-600 leading-relaxed">
-          Yes. All payments are processed via <span class="font-semibold">ToyyibPay</span> (a licensed Malaysian payment gateway) with FPX banking. Your money is safe, and we never store your card details.
-        </div>
-      </div>
-      <div class="card overflow-hidden">
-        <div class="faq-question px-5 py-3.5 flex justify-between items-center" onclick="toggleFAQ(this)">
-          <span class="font-semibold text-sm">How are homestays verified?</span>
-          <span class="text-xl font-light">+</span>
-        </div>
-        <div class="faq-answer px-5 pb-4 text-sm text-zinc-600 leading-relaxed">
-          Owners must submit a photo of their IC and bank account. Our admin team reviews and approves every listing before it goes live. We cross‑check that the bank account holder matches the owner’s IC name.
+        <div class="faq-answer">
+          <p>Yes. All payments are processed via <strong>ToyyibPay</strong> (a licensed Malaysian payment gateway) with FPX banking. Your money is safe, and we never store your card details.</p>
         </div>
       </div>
-      <div class="card overflow-hidden">
-        <div class="faq-question px-5 py-3.5 flex justify-between items-center" onclick="toggleFAQ(this)">
-          <span class="font-semibold text-sm">Can I cancel my booking?</span>
-          <span class="text-xl font-light">+</span>
+
+      <!-- FAQ 2 -->
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFAQ(this)">
+          <span class="q-text">✅ How are homestays verified?</span>
+          <span class="q-icon">▾</span>
         </div>
-        <div class="faq-answer px-5 pb-4 text-sm text-zinc-600 leading-relaxed">
-          Please contact the owner directly or email us at <a href="mailto:hello@kundasanghomestay.my" class="text-[#0F382E] font-semibold hover:underline">hello@kundasanghomestay.my</a>. Cancellation policies are set by each owner and displayed during booking.
-        </div>
-      </div>
-      <div class="card overflow-hidden">
-        <div class="faq-question px-5 py-3.5 flex justify-between items-center" onclick="toggleFAQ(this)">
-          <span class="font-semibold text-sm">How much does it cost to list my homestay?</span>
-          <span class="text-xl font-light">+</span>
-        </div>
-        <div class="faq-answer px-5 pb-4 text-sm text-zinc-600 leading-relaxed">
-          It’s <span class="font-semibold">free</span> to list! We only take a small <span class="font-semibold">11% platform fee</span> when a booking is confirmed, which covers our hosting, support, and payment processing costs.
+        <div class="faq-answer">
+          <p>Owners must submit a photo of their IC and bank account. Our admin team reviews and approves every listing before it goes live. We cross‑check that the bank account holder matches the owner's IC name.</p>
         </div>
       </div>
-      <div class="card overflow-hidden">
-        <div class="faq-question px-5 py-3.5 flex justify-between items-center" onclick="toggleFAQ(this)">
-          <span class="font-semibold text-sm">What areas do you cover?</span>
-          <span class="text-xl font-light">+</span>
+
+      <!-- FAQ 3 -->
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFAQ(this)">
+          <span class="q-text">❓ Can I cancel my booking?</span>
+          <span class="q-icon">▾</span>
         </div>
-        <div class="faq-answer px-5 pb-4 text-sm text-zinc-600 leading-relaxed">
-          We currently focus on <span class="font-semibold">Kundasang, Ranau, and surrounding villages</span> – including Bundu Tuhan, Mesilou, Desa, Kampung Kinasaraban, and more.
+        <div class="faq-answer">
+          <p>Please contact the owner directly or email us at <a href="mailto:hello@kundasanghomestay.my" class="text-[#0F382E] font-semibold hover:underline">hello@kundasanghomestay.my</a>. Cancellation policies are set by each owner and displayed during booking.</p>
         </div>
       </div>
+
+      <!-- FAQ 4 -->
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFAQ(this)">
+          <span class="q-text">💰 How much does it cost to list my homestay?</span>
+          <span class="q-icon">▾</span>
+        </div>
+        <div class="faq-answer">
+          <p>It's <strong>free</strong> to list! We only take a small <strong>11% platform fee</strong> when a booking is confirmed, which covers our hosting, support, and payment processing costs.</p>
+        </div>
+      </div>
+
+      <!-- FAQ 5 -->
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFAQ(this)">
+          <span class="q-text">📍 What areas do you cover?</span>
+          <span class="q-icon">▾</span>
+        </div>
+        <div class="faq-answer">
+          <p>We currently focus on <strong>Kundasang, Ranau, and surrounding villages</strong> – including Bundu Tuhan, Mesilou, Desa, Kampung Kinasaraban, and more.</p>
+        </div>
+      </div>
+
+      <!-- FAQ 6 -->
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFAQ(this)">
+          <span class="q-text">📞 How do I contact support?</span>
+          <span class="q-icon">▾</span>
+        </div>
+        <div class="faq-answer">
+          <p>You can email us at <a href="mailto:hello@kundasanghomestay.my" class="text-[#0F382E] font-semibold hover:underline">hello@kundasanghomestay.my</a> or use the contact form below. We typically respond within 24 hours.</p>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -295,19 +381,30 @@
 
 <script>
 // =============================================================
-// FAQ TOGGLE
+// FAQ TOGGLE (Improved)
 // =============================================================
 function toggleFAQ(el) {
-  const answer = el.nextElementSibling;
-  const isOpen = answer.classList.contains('open');
-  // Close all others
-  document.querySelectorAll('.faq-answer').forEach(a => a.classList.remove('open'));
-  document.querySelectorAll('.faq-question span:last-child').forEach(s => s.textContent = '+');
+  const item = el.closest('.faq-item');
+  const isOpen = item.classList.contains('open');
+  
+  // Close all other items
+  document.querySelectorAll('.faq-item').forEach(f => {
+    f.classList.remove('open');
+  });
+  
+  // Toggle the clicked one
   if (!isOpen) {
-    answer.classList.add('open');
-    el.querySelector('span:last-child').textContent = '−';
+    item.classList.add('open');
   }
 }
+
+// Open the first FAQ by default
+document.addEventListener('DOMContentLoaded', function() {
+  const firstFaq = document.querySelector('.faq-item');
+  if (firstFaq) {
+    firstFaq.classList.add('open');
+  }
+});
 
 // =============================================================
 // CONTACT EMAIL
