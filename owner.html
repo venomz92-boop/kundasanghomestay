@@ -16,6 +16,8 @@
     .btn-warning { background: #f59e0b; color: white; padding: 8px 16px; font-weight: 600; text-transform: uppercase; font-size: 11px; }
     .btn-danger { background: #dc2626; color: white; padding: 8px 16px; font-weight: 600; text-transform: uppercase; font-size: 11px; }
     .btn-outline { background: transparent; border: 1px solid #d1d5db; padding: 8px 16px; font-weight: 600; font-size: 11px; }
+    .btn-whatsapp-sm { background: #25D366; color: white; padding: 6px 14px; font-weight: 600; font-size: 11px; border-radius: 2px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-whatsapp-sm:hover { background: #1ebe5d; }
   </style>
 </head>
 <body>
@@ -66,6 +68,7 @@
     const API_BASE = "/api";
     let ownerToken = sessionStorage.getItem('kd_owner_token') || '';
     let ownerHomestayId = null;
+    let bookings = [];
 
     // =============================================
     // OWNER FORGOT PASSWORD
@@ -152,7 +155,7 @@
           headers: { 'Owner-Authorization': 'Bearer ' + ownerToken }
         });
         if (!res.ok) throw new Error('Failed to fetch');
-        const bookings = await res.json();
+        bookings = await res.json();
 
         if (bookings.length === 0) {
           listDiv.innerHTML = '<div class="text-sm text-zinc-500">No upcoming bookings.</div>';
@@ -190,6 +193,13 @@
             actionButtons = `<span class="text-xs text-zinc-400">✅ Paid out on ${b.payoutDate ? new Date(b.payoutDate).toLocaleDateString('en-MY') : 'N/A'}</span>`;
           }
 
+          // WhatsApp button - available for all bookings with guest phone
+          const guestPhone = b.guestPhone || '';
+          const hasPhone = guestPhone.replace(/[^0-9]/g, '').length >= 10;
+          const waBtn = hasPhone ? 
+            `<button onclick="openWhatsappToGuest('${b.id}')" class="btn-whatsapp-sm">💬 WhatsApp Guest</button>` : 
+            `<span class="text-xs text-zinc-400">No guest phone</span>`;
+
           return `
             <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
               <div class="flex-1">
@@ -197,6 +207,9 @@
                 <div class="text-xs text-zinc-500">${b.checkin} → ${b.checkout} • ${b.nights || '?'} nights • Guest: ${b.guestName || b.guestEmail}</div>
                 <div class="text-xs font-semibold mt-1">Base: RM${b.base} • Total Paid: RM${b.total}</div>
                 <div class="mt-1">${statusBadge}</div>
+                <div class="mt-1 flex flex-wrap gap-2">
+                  ${waBtn}
+                </div>
               </div>
               <div class="flex flex-wrap gap-2 mt-2 md:mt-0">
                 ${actionButtons}
@@ -211,10 +224,76 @@
     }
 
     // =============================================
-    // CONFIRM CHECK-IN (Owner triggers payout)
+    // OPEN WHATSAPP TO GUEST (Auto-push after check-in)
+    // =============================================
+    function openWhatsappToGuest(bookingId) {
+      const booking = bookings.find(b => String(b.id) === String(bookingId));
+      if (!booking) { alert('Booking not found'); return; }
+
+      // Get guest phone number
+      let rawPhone = booking.guestPhone || '';
+      // Try to get from guestPhone field, fallback to guestWhatsapp or guestContact
+      if (!rawPhone) rawPhone = booking.guestWhatsapp || '';
+      if (!rawPhone) rawPhone = booking.guestContact || '';
+      
+      // Clean the phone number
+      let phone = String(rawPhone).replace(/[^0-9]/g, '');
+      if (!phone || phone.length < 10) {
+        alert('Guest phone number not available or invalid. Cannot open WhatsApp.');
+        return;
+      }
+
+      // Format for WhatsApp: remove leading 0, add 60 if needed
+      if (phone.startsWith('0')) {
+        phone = '60' + phone.substring(1);
+      }
+      if (phone.length < 10) {
+        alert('Invalid phone number format.');
+        return;
+      }
+
+      // Build the message
+      const guestName = booking.guestName || 'Guest';
+      const homestayName = booking.homestay || 'your homestay';
+      const checkin = booking.checkin || 'N/A';
+      const checkout = booking.checkout || 'N/A';
+      const nights = booking.nights || '?';
+      const bookingIdDisplay = booking.id || 'N/A';
+      const ownerName = document.getElementById('welcomeName')?.innerText || 'Owner';
+
+      const message = `Hi ${guestName}! 🎉\n\n` +
+        `Your check-in at **${homestayName}** has been confirmed!\n\n` +
+        `📅 Check-in: ${checkin}\n` +
+        `📅 Check-out: ${checkout}\n` +
+        `🌙 Nights: ${nights}\n` +
+        `🆔 Booking ID: ${bookingIdDisplay}\n\n` +
+        `We hope you enjoy your stay! For any assistance, please contact us directly.\n\n` +
+        `🏔️ Welcome to Kundasang!`;
+
+      // Open WhatsApp
+      const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      
+      try {
+        const win = window.open(waUrl, '_blank');
+        if (!win) {
+          // Popup blocked, try alternative
+          window.location.href = waUrl;
+        }
+      } catch(e) {
+        // Fallback: copy to clipboard
+        navigator.clipboard.writeText(message).then(() => {
+          alert('✅ Message copied to clipboard! You can paste it in WhatsApp.\n\nPhone: ' + phone);
+        }).catch(() => {
+          alert('❌ Could not open WhatsApp. Please send this message manually:\n\nPhone: ' + phone + '\n\nMessage:\n' + message);
+        });
+      }
+    }
+
+    // =============================================
+    // CONFIRM CHECK-IN (Owner triggers payout + WhatsApp)
     // =============================================
     async function confirmCheckIn(bookingId) {
-      if (!confirm(`Confirm check-in for booking ${bookingId}?\n\nYou will receive your payment at your bank account via ToyyibPay in 1-4 business day.`)) return;
+      if (!confirm(`Confirm check-in for booking ${bookingId}?\n\nYou will receive your payment at your bank account via ToyyibPay in 1-4 business days.\n\nA WhatsApp message will be sent to the guest to confirm their check-in.`)) return;
       
       try {
         const res = await fetch(API_BASE + '/owner-update-booking', {
@@ -231,7 +310,20 @@
         const data = await res.json();
         if (data.success) {
           alert('✅ ' + data.message);
-          loadBookings();
+          await loadBookings();
+          
+          // ===== AUTO-PUSH WHATSAPP TO GUEST =====
+          // Small delay to let the booking update, then send WhatsApp
+          setTimeout(() => {
+            const shouldSendWhatsapp = confirm(
+              '📱 Send WhatsApp confirmation to the guest?\n\n' +
+              'This will open WhatsApp with a pre-filled message confirming their check-in.'
+            );
+            if (shouldSendWhatsapp) {
+              openWhatsappToGuest(bookingId);
+            }
+          }, 500);
+          
         } else {
           alert('❌ Failed: ' + (data.error || data.message));
         }
@@ -244,7 +336,6 @@
     // CHANGE BOOKING DATES
     // =============================================
     async function changeBookingDates(bookingId) {
-      // First, get current booking info from the DOM or fetch it
       const currentCheckin = prompt('Enter new check-in date (YYYY-MM-DD):', '');
       if (!currentCheckin) return;
       const currentCheckout = prompt('Enter new check-out date (YYYY-MM-DD):', '');
