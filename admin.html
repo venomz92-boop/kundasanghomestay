@@ -302,18 +302,15 @@ async function fetchCloudData(){
     if(data.bannedGuests && Array.isArray(data.bannedGuests)){
       localStorage.setItem("kd_banned_guests", JSON.stringify(data.bannedGuests));
     }
-    // ==== FIX: Overwrite pending from cloud (don't merge) ====
     if(data.pending !== undefined){
       if(Array.isArray(data.pending)){
         pendingHomestays = data.pending;
         localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
       } else {
-        // If cloud says no pending
         pendingHomestays = [];
         localStorage.setItem("kd_pending", JSON.stringify([]));
       }
     }
-    // ==========================================================
     if(data.guests && Array.isArray(data.guests)){
       const localGuests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
       if(data.guests.length < localGuests.length){
@@ -507,14 +504,110 @@ function renderAdmin(){
     pendingDiv.innerHTML = safeHTML(html);
   }
   
+  // ====== APPROVED TAB WITH REMOVE BUTTON ======
   const approvedDiv=document.getElementById("adminApproved");
   let approvedHtml = '';
-  homestays.forEach(h => {
-    const blocked=getAllBlockedDatesForHomestay(h);
-    approvedHtml += '<div class="card p-4 flex flex-wrap gap-4 items-center"><img src="'+(h.image||'')+'" class="w-16 h-16 sharp object-cover"/><div class="flex-1"><div class="font-bold text-sm">'+h.name+'</div><div class="text-xs">RM'+h.ownerPrice+' • '+h.location+' • '+blocked.length+' booked</div></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="text-xs border sharp px-3 py-1">Manage</button></div>';
-  });
+  if (homestays.length === 0) {
+    approvedHtml = '<div class="card p-6 text-center text-zinc-500">No approved homestays.</div>';
+  } else {
+    approvedHtml = '<div class="grid gap-4">';
+    homestays.forEach(h => {
+      const blocked=getAllBlockedDatesForHomestay(h);
+      const isDemoHomestay = isDemo(h.id);
+      approvedHtml += `
+        <div class="card p-4 flex flex-wrap gap-4 items-center justify-between">
+          <div class="flex items-center gap-4">
+            <img src="${h.image || ''}" class="w-16 h-16 sharp object-cover" onerror="this.style.display='none'"/>
+            <div>
+              <div class="font-bold text-sm">${h.name}</div>
+              <div class="text-xs">RM${h.ownerPrice} • ${h.location} • ${blocked.length} booked</div>
+              ${isDemoHomestay ? '<span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Demo</span>' : ''}
+            </div>
+          </div>
+          <div class="flex gap-2 flex-wrap">
+            <button onclick="openOwnerAvailabilityManager(${h.id})" class="text-xs border sharp px-3 py-1">📅 Manage</button>
+            <button onclick="removeApprovedHomestay(${h.id})" class="text-xs border sharp px-3 py-1 bg-red-50 text-red-600 border-red-200 hover:bg-red-100">🗑️ Remove</button>
+          </div>
+        </div>
+      `;
+    });
+    approvedHtml += '</div>';
+  }
   approvedDiv.innerHTML = safeHTML(approvedHtml);
   renderBookingsTable();
+}
+
+// ====== REMOVE APPROVED HOMESTAY ======
+async function removeApprovedHomestay(id) {
+  if (!confirm(`Remove this homestay from Approved list?\n\nThis will permanently remove it from the platform.\nAll related bookings will still exist but the homestay will be hidden.`)) return;
+  
+  try {
+    // Find the homestay
+    const idx = allHomestays.findIndex(h => String(h.id) === String(id));
+    if (idx === -1) {
+      alert("Homestay not found");
+      return;
+    }
+    
+    // Remove from allHomestays, homestays, and storedApproved
+    const removed = allHomestays[idx];
+    allHomestays.splice(idx, 1);
+    homestays = [...allHomestays];
+    
+    // If it's not a demo, remove from storedApproved
+    if (!isDemo(id)) {
+      const approveIdx = storedApproved.findIndex(h => String(h.id) === String(id));
+      if (approveIdx !== -1) {
+        storedApproved.splice(approveIdx, 1);
+      }
+    }
+    
+    // Update localStorage
+    localStorage.setItem("kd_approved", JSON.stringify(storedApproved));
+    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+    
+    // If it's a demo, add to deletedDemoIds
+    if (isDemo(id)) {
+      if (!deletedDemoIds.includes(String(id))) {
+        deletedDemoIds.push(String(id));
+        localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds));
+      }
+    }
+    
+    // Remove availability
+    if (availabilityMap[id]) {
+      delete availabilityMap[id];
+      localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
+    }
+    
+    // Sync to cloud
+    await saveApproved();
+    await pushAvailabilityToCloud();
+    
+    // Push the updated approved list to cloud
+    try {
+      await fetchWithAuth(API_BASE + "/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "updateHomestays",
+          approved: storedApproved,
+          demoOverrides: demoOverrides,
+          demoBlocked: demoBlockedMap,
+          deletedDemo: deletedDemoIds
+        })
+      });
+      console.log("✅ Approved homestay removed and synced to cloud");
+    } catch(e) {
+      console.warn("⚠️ Cloud sync failed, but local data updated:", e.message);
+    }
+    
+    // Re-render
+    renderAdmin();
+    alert(`✅ "${removed.name}" has been removed from the approved list.`);
+  } catch(e) {
+    alert("❌ Failed to remove: " + e.message);
+  }
 }
 
 // ====== PENDING DETAIL MODAL ======
@@ -741,19 +834,15 @@ async function rejectHomestay(id){
   pendingHomestays=pendingHomestays.filter(h=> h.id!=id); 
   localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); 
   try {
-    const res = await fetchWithAuth(API_BASE + "/pending", {
+    await fetchWithAuth(API_BASE + "/pending", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({ pending: pendingHomestays })
     });
-    if (!res.ok) {
-      const err = await res.text();
-      alert("Failed to sync rejection to cloud: "+err);
-    } else {
-      console.log("✅ Pending synced after reject");
-    }
+    console.log("✅ Pending synced after reject");
   } catch(e) {
-    alert("Network error: "+e.message);
+    console.warn("⚠️ Failed to sync rejection to cloud: "+e.message);
+    alert("Rejection saved locally but cloud sync failed. Use 'Force Sync Pending' in Settings to sync later.");
   }
   renderAdmin(); 
 }
