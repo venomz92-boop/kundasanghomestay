@@ -999,14 +999,28 @@ async function clearAllBookingsCloud() {
 }
 
 function renderAvailabilityTab(){ 
-  const div=document.getElementById("availabilityTable"); 
+  const div = document.getElementById("availabilityTable"); 
+  if (!div) return;
+  
   let html = '<div class="grid md:grid-cols-2 gap-4">';
   homestays.forEach(h => {
-    html += '<div class="border sharp p-3"><div class="font-bold text-sm">'+h.name+'</div><div id="cal-'+h.id+'" class="mt-2"></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="mt-2 text-xs border sharp px-2 py-1">Manage</button></div>';
+    const blocked = getAllBlockedDatesForHomestay(h);
+    const blockedStr = blocked.length 
+      ? blocked.map(d => `<span class="text-xs bg-red-100 px-1.5 py-0.5 rounded">${d}</span>`).join(' ') 
+      : '<span class="text-xs text-zinc-400">No blocked dates</span>';
+    html += `
+      <div class="border sharp p-3">
+        <div class="font-bold text-sm flex justify-between">
+          <span>${h.name}</span>
+          <span class="text-xs text-zinc-500">${blocked.length} blocked</span>
+        </div>
+        <div class="mt-1 flex flex-wrap gap-1 max-h-32 overflow-y-auto">${blockedStr}</div>
+        <button onclick="openOwnerAvailabilityManager(${h.id})" class="mt-2 text-xs border sharp px-3 py-1 bg-white hover:bg-zinc-50">📅 Manage</button>
+      </div>
+    `;
   });
   html += '</div>';
   div.innerHTML = safeHTML(html);
-  homestays.forEach(h=> renderAvailabilityCalendar(h, 'cal-'+h.id)); 
 }
 
 function renderGuestsTable(){ 
