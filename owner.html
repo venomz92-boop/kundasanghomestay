@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Owner Dashboard - Kundasang Homestays</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Poppins', sans-serif; background: #F8F5F0; }
+    .sharp { border-radius: 2px; }
+    .card { background: white; border: 1px solid rgba(0,0,0,0.04); box-shadow: 0 2px 20px rgba(0,0,0,0.05); }
+    .btn-primary { background: #0F382E; color: white; padding: 10px 24px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; }
+    .btn-success { background: #16a34a; color: white; padding: 8px 16px; font-weight: 600; text-transform: uppercase; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <header class="bg-white shadow-sm p-4 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+      <div class="w-[38px] h-[38px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800 text-[20px]">K</div>
+      <div class="font-800 text-[20px] text-[#212121]">KUNDASANG <span class="text-sm font-normal text-zinc-500">• Owner Panel</span></div>
+    </div>
+    <div id="ownerNav" class="hidden">
+      <span id="ownerNameDisplay" class="text-sm font-semibold mr-4"></span>
+      <button onclick="logoutOwner()" class="text-xs bg-red-100 text-red-700 px-4 py-2 sharp">Logout</button>
+    </div>
+  </header>
+
+  <div class="max-w-5xl mx-auto p-6">
+    <!-- LOGIN FORM -->
+    <div id="loginSection" class="max-w-md mx-auto card p-8 mt-10">
+      <h2 class="text-2xl font-bold">Owner Login</h2>
+      <p class="text-xs text-zinc-500 mt-1">Login with your WhatsApp number</p>
+      <input id="ownerWhatsapp" type="tel" placeholder="6012-3456789" class="w-full border sharp px-4 py-3 mt-4" />
+      <input id="ownerPassword" type="password" placeholder="Password" class="w-full border sharp px-4 py-3 mt-3" />
+      <button onclick="ownerLogin()" class="btn-primary w-full mt-4 py-3">Login</button>
+      <div id="loginError" class="text-red-600 text-xs mt-2 hidden"></div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboardSection" class="hidden">
+      <h2 class="text-2xl font-bold mb-2">Welcome, <span id="welcomeName"></span>!</h2>
+      <p class="text-sm text-zinc-500">Your homestay: <span id="homestayNameDisplay" class="font-semibold"></span></p>
+
+      <div class="grid md:grid-cols-2 gap-6 mt-6">
+        <!-- Upcoming Bookings -->
+        <div class="card p-6 md:col-span-2">
+          <h3 class="font-bold text-lg">📅 Your Bookings</h3>
+          <div id="ownerBookingsList" class="mt-4 space-y-4">
+            <div class="text-sm text-zinc-400">Loading bookings...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "/api";
+    let ownerToken = sessionStorage.getItem('kd_owner_token') || '';
+    let ownerHomestayId = null;
+
+    async function ownerLogin() {
+      const whatsapp = document.getElementById('ownerWhatsapp').value.replace(/[^0-9]/g, '');
+      const password = document.getElementById('ownerPassword').value;
+      const errorEl = document.getElementById('loginError');
+      errorEl.classList.add('hidden');
+
+      if (!whatsapp || !password) { alert("Fill all fields"); return; }
+
+      try {
+        const res = await fetch(API_BASE + '/owner-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ whatsapp, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          ownerToken = data.token;
+          sessionStorage.setItem('kd_owner_token', ownerToken);
+          ownerHomestayId = data.homestay.id;
+          document.getElementById('loginSection').classList.add('hidden');
+          document.getElementById('dashboardSection').classList.remove('hidden');
+          document.getElementById('ownerNav').classList.remove('hidden');
+          document.getElementById('welcomeName').innerText = data.homestay.ownerName;
+          document.getElementById('homestayNameDisplay').innerText = data.homestay.name;
+          document.getElementById('ownerNameDisplay').innerText = data.homestay.ownerName;
+          loadBookings();
+        } else {
+          errorEl.innerText = data.error || "Login failed";
+          errorEl.classList.remove('hidden');
+        }
+      } catch(e) {
+        alert("Network error: " + e.message);
+      }
+    }
+
+    async function loadBookings() {
+      if (!ownerToken) return;
+      const listDiv = document.getElementById('ownerBookingsList');
+      listDiv.innerHTML = '<div class="text-sm text-zinc-400">Loading...</div>';
+
+      try {
+        // Fetch all bookings from the public API (or we can create a private endpoint, but for simplicity we fetch all and filter)
+        // Since we are on the client side, we fetch the public bookings endpoint.
+        // NOTE: The public bookings endpoint (admin required) is behind admin auth.
+        // We need a public endpoint to fetch bookings for owners.
+        // For now, we use the same endpoint but pass the owner token as a Bearer token to the admin endpoint (which accepts it).
+        // But the admin endpoint requires ADMIN_TOKEN, not OWNER_TOKEN.
+        // We need to create a simple GET endpoint for owners.
+        // For now, I'll hardcode a fetch to a new endpoint or just use the admin endpoint with a hack.
+        // LET'S CREATE A SIMPLE ENDPOINT IN THE CODE BELOW (owner-bookings.js) to list their bookings.
+        const res = await fetch(API_BASE + '/owner-bookings', {
+          headers: { 'Owner-Authorization': 'Bearer ' + ownerToken }
+        });
+        if (!res.ok) throw new Error('Failed to fetch');
+        const bookings = await res.json();
+
+        if (bookings.length === 0) {
+          listDiv.innerHTML = '<div class="text-sm text-zinc-500">No upcoming bookings.</div>';
+          return;
+        }
+
+        listDiv.innerHTML = bookings.map(b => `
+          <div class="border p-4 sharp flex justify-between items-center">
+            <div>
+              <div class="font-bold text-sm">${b.homestay}</div>
+              <div class="text-xs text-zinc-500">${b.checkin} → ${b.checkout} • ${b.nights} nights • Guest: ${b.guestName || b.guestEmail}</div>
+              <div class="text-xs font-semibold mt-1">Base: RM${b.base} • Status: <span class="text-yellow-600">${b.status}</span></div>
+            </div>
+            ${b.status && b.status.toLowerCase().includes('paid') && !b.payoutDate ? 
+              `<button onclick="checkInGuest('${b.id}')" class="btn-success sharp">✅ Check In & Pay Owner</button>` : 
+              `<span class="text-xs text-zinc-400">${b.payoutDate ? 'Paid out' : 'Waiting for payment'}</span>`
+            }
+          </div>
+        `).join('');
+      } catch(e) {
+        listDiv.innerHTML = '<div class="text-sm text-red-600">Error loading bookings.</div>';
+        console.error(e);
+      }
+    }
+
+    async function checkInGuest(bookingId) {
+      if (!confirm(`Confirm check-in for booking ${bookingId}?\nThis will send the Base amount (RM) to your bank account.`)) return;
+      try {
+        const res = await fetch(API_BASE + '/owner-checkin', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Owner-Authorization': 'Bearer ' + ownerToken
+          },
+          body: JSON.stringify({ bookingId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('✅ ' + data.message);
+          loadBookings(); // refresh list
+        } else {
+          alert('❌ Failed: ' + (data.error || data.message));
+        }
+      } catch(e) {
+        alert('Network error: ' + e.message);
+      }
+    }
+
+    function logoutOwner() {
+      sessionStorage.removeItem('kd_owner_token');
+      ownerToken = '';
+      document.getElementById('loginSection').classList.remove('hidden');
+      document.getElementById('dashboardSection').classList.add('hidden');
+      document.getElementById('ownerNav').classList.add('hidden');
+    }
+
+    // Auto-login if token exists
+    (function init() {
+      const token = sessionStorage.getItem('kd_owner_token');
+      if (token) {
+        ownerToken = token;
+        // Try to decode to get owner name
+        try {
+          const data = JSON.parse(atob(token));
+          ownerHomestayId = data.ownerId;
+          document.getElementById('loginSection').classList.add('hidden');
+          document.getElementById('dashboardSection').classList.remove('hidden');
+          document.getElementById('ownerNav').classList.remove('hidden');
+          document.getElementById('welcomeName').innerText = data.ownerName || 'Owner';
+          document.getElementById('homestayNameDisplay').innerText = 'Your Homestay';
+          document.getElementById('ownerNameDisplay').innerText = data.ownerName || 'Owner';
+          loadBookings();
+        } catch(e) { logoutOwner(); }
+      }
+    })();
+  </script>
+</body>
+</html>
