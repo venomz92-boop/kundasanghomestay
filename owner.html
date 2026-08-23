@@ -33,6 +33,13 @@
       <p class="text-xs text-zinc-500 mt-1">Login with your WhatsApp number</p>
       <input id="ownerWhatsapp" type="tel" placeholder="6012-3456789" class="w-full border sharp px-4 py-3 mt-4" />
       <input id="ownerPassword" type="password" placeholder="Password" class="w-full border sharp px-4 py-3 mt-3" />
+      
+      <!-- ====== FORGOT PASSWORD LINK (Owner) ====== -->
+      <div class="text-right mt-2">
+        <button onclick="openOwnerForgotPassword()" class="text-[11px] text-purple-600 hover:underline">Forgot Password?</button>
+      </div>
+      <!-- ========================================= -->
+      
       <button onclick="ownerLogin()" class="btn-primary w-full mt-4 py-3">Login</button>
       <div id="loginError" class="text-red-600 text-xs mt-2 hidden"></div>
     </div>
@@ -43,7 +50,6 @@
       <p class="text-sm text-zinc-500">Your homestay: <span id="homestayNameDisplay" class="font-semibold"></span></p>
 
       <div class="grid md:grid-cols-2 gap-6 mt-6">
-        <!-- Upcoming Bookings -->
         <div class="card p-6 md:col-span-2">
           <h3 class="font-bold text-lg">📅 Your Bookings</h3>
           <div id="ownerBookingsList" class="mt-4 space-y-4">
@@ -59,6 +65,42 @@
     let ownerToken = sessionStorage.getItem('kd_owner_token') || '';
     let ownerHomestayId = null;
 
+    // =============================================
+    // OWNER FORGOT PASSWORD (Fallback Prompt)
+    // =============================================
+    function openOwnerForgotPassword() {
+      const email = prompt('Enter your registered email address to reset your owner password:');
+      if (email && email.trim()) {
+        const statusEl = document.getElementById('loginError');
+        statusEl.textContent = 'Sending reset link...';
+        statusEl.className = 'text-blue-600 text-xs mt-2';
+        statusEl.classList.remove('hidden');
+
+        fetch(API_BASE + '/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), userType: 'owner' })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            alert(data.message || 'If an account exists, a reset link has been sent to your email.');
+            statusEl.classList.add('hidden');
+          } else {
+            alert(data.error || 'Request failed. Please try again.');
+            statusEl.classList.add('hidden');
+          }
+        })
+        .catch(() => {
+          alert('Network error. Please try again.');
+          statusEl.classList.add('hidden');
+        });
+      }
+    }
+
+    // =============================================
+    // OWNER LOGIN
+    // =============================================
     async function ownerLogin() {
       const whatsapp = document.getElementById('ownerWhatsapp').value.replace(/[^0-9]/g, '');
       const password = document.getElementById('ownerPassword').value;
@@ -87,6 +129,7 @@
           loadBookings();
         } else {
           errorEl.innerText = data.error || "Login failed";
+          errorEl.className = 'text-red-600 text-xs mt-2';
           errorEl.classList.remove('hidden');
         }
       } catch(e) {
@@ -94,21 +137,15 @@
       }
     }
 
+    // =============================================
+    // LOAD BOOKINGS
+    // =============================================
     async function loadBookings() {
       if (!ownerToken) return;
       const listDiv = document.getElementById('ownerBookingsList');
       listDiv.innerHTML = '<div class="text-sm text-zinc-400">Loading...</div>';
 
       try {
-        // Fetch all bookings from the public API (or we can create a private endpoint, but for simplicity we fetch all and filter)
-        // Since we are on the client side, we fetch the public bookings endpoint.
-        // NOTE: The public bookings endpoint (admin required) is behind admin auth.
-        // We need a public endpoint to fetch bookings for owners.
-        // For now, we use the same endpoint but pass the owner token as a Bearer token to the admin endpoint (which accepts it).
-        // But the admin endpoint requires ADMIN_TOKEN, not OWNER_TOKEN.
-        // We need to create a simple GET endpoint for owners.
-        // For now, I'll hardcode a fetch to a new endpoint or just use the admin endpoint with a hack.
-        // LET'S CREATE A SIMPLE ENDPOINT IN THE CODE BELOW (owner-bookings.js) to list their bookings.
         const res = await fetch(API_BASE + '/owner-bookings', {
           headers: { 'Owner-Authorization': 'Bearer ' + ownerToken }
         });
@@ -121,7 +158,7 @@
         }
 
         listDiv.innerHTML = bookings.map(b => `
-          <div class="border p-4 sharp flex justify-between items-center">
+          <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
             <div>
               <div class="font-bold text-sm">${b.homestay}</div>
               <div class="text-xs text-zinc-500">${b.checkin} → ${b.checkout} • ${b.nights} nights • Guest: ${b.guestName || b.guestEmail}</div>
@@ -139,6 +176,9 @@
       }
     }
 
+    // =============================================
+    // CHECK-IN GUEST
+    // =============================================
     async function checkInGuest(bookingId) {
       if (!confirm(`Confirm check-in for booking ${bookingId}?\nThis will send the Base amount (RM) to your bank account.`)) return;
       try {
@@ -153,7 +193,7 @@
         const data = await res.json();
         if (data.success) {
           alert('✅ ' + data.message);
-          loadBookings(); // refresh list
+          loadBookings();
         } else {
           alert('❌ Failed: ' + (data.error || data.message));
         }
@@ -162,6 +202,9 @@
       }
     }
 
+    // =============================================
+    // LOGOUT
+    // =============================================
     function logoutOwner() {
       sessionStorage.removeItem('kd_owner_token');
       ownerToken = '';
@@ -170,12 +213,13 @@
       document.getElementById('ownerNav').classList.add('hidden');
     }
 
-    // Auto-login if token exists
+    // =============================================
+    // INIT
+    // =============================================
     (function init() {
       const token = sessionStorage.getItem('kd_owner_token');
       if (token) {
         ownerToken = token;
-        // Try to decode to get owner name
         try {
           const data = JSON.parse(atob(token));
           ownerHomestayId = data.ownerId;

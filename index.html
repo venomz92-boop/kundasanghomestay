@@ -65,9 +65,8 @@
       <button onclick="showPage('list')" id="navList" class="setsail-nav-link">List Your Homestay</button>
       <button onclick="showPage('about')" id="navAbout" class="setsail-nav-link">About</button>
       
-      <!-- ======== NEW: AGENT LOGIN TAB ======== -->
+      <!-- AGENT LOGIN TAB -->
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
-      <!-- ====================================== -->
 
       <div id="guestNav" class="ml-4 flex items-center gap-3">
         <button onclick="openGuestAuth('login')" id="guestLoginBtn" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
@@ -86,9 +85,8 @@
       <button onclick="showPage('list'); toggleMobileMenu()" id="mNavList" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">➕ List Your Homestay</button>
       <button onclick="showPage('about'); toggleMobileMenu()" id="mNavAbout" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">ℹ️ About</button>
       
-      <!-- ======== NEW: AGENT LOGIN (MOBILE) ======== -->
+      <!-- AGENT LOGIN (MOBILE) -->
       <a href="/owner.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="display:block; text-decoration:none;">🔑 Agent Login</a>
-      <!-- ============================================ -->
 
       <div class="pt-2"><div id="mGuestNav" class="space-y-3"><button onclick="openGuestAuth('login'); toggleMobileMenu()" class="w-full px-6 h-[44px] border border-[#3FD0D4] text-[#3FD0D4] font-600 text-[12px] uppercase tracking-wider sharp">Login</button><button onclick="openGuestAuth('register'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#3FD0D4] text-white font-600 text-[12px] uppercase tracking-wider sharp">Register</button></div><div id="mGuestProfileNav" class="hidden space-y-3"><div class="flex items-center gap-3 bg-[#212121] text-white px-4 py-3 sharp"><div id="mGuestAvatar" class="guest-avatar bg-[#3FD0D4]">G</div><div><div id="mGuestNameNav" class="text-sm font-bold">Guest</div><div class="text-[11px] text-white/60">Verified guest</div></div><button onclick="logoutGuest()" class="ml-auto text-xs bg-white/20 px-3 py-1.5 sharp">Logout</button></div><button onclick="showPage('mybookings'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#212121] text-white font-600 text-[12px] uppercase tracking-wider sharp">📅 My Bookings</button></div></div>
     </div>
@@ -126,6 +124,13 @@
           <div><label class="text-xs font-semibold">Owner Name *</label><input id="listOwnerName" placeholder="Nama penuh as per IC / Lesen" class="w-full mt-1 border rounded-xl px-4 py-2.5"/></div>
           <div><label class="text-xs font-semibold">WhatsApp Number *</label><input id="listWhatsapp" placeholder="6012-3456789" required inputmode="numeric" autocomplete="tel" class="w-full mt-1 border rounded-xl px-4 py-2.5"/></div>
         </div>
+        
+        <!-- ====== NEW: OWNER EMAIL FIELD ====== -->
+        <div class="grid md:grid-cols-1 gap-4">
+          <div><label class="text-xs font-semibold">Owner Email *</label><input id="listOwnerEmail" type="email" placeholder="owner@email.com" required class="w-full mt-1 border rounded-xl px-4 py-2.5"/></div>
+        </div>
+        <!-- ==================================== -->
+
         <div class="grid md:grid-cols-2 gap-4">
           <div><label class="text-xs font-semibold">Homestay Name *</label><input id="listHomestayName" placeholder="e.g. A-Frame Cabin Kinabalu View" class="w-full mt-1 border rounded-xl px-4 py-2.5"/></div>
           <div><label class="text-xs font-semibold">Location / Area *</label><select id="listArea" class="w-full mt-1 border rounded-xl px-4 py-2.5"><option value="Bundu Tuhan">Mesilou</option><option value="Desa">Pekan Kundasang</option><option value="Mesilau">Bundu Tuhan</option><option value="Kundasang">Kampung Kinasaraban</option><option value="Ranau">Kampung Lembah Permai</option><option value="Bundu Tuhan">Kampung Cinta Mata</option><option value="Desa">Kampung Kauluan</option><option value="Mesilau">Kampung Sosondoton</option><option value="Kundasang">Kampung Mentoki</option><option value="Ranau">Kampung Dumpiring</option><option value="Bundu Tuhan">Kampung Bambangan</option><option value="Desa">Kampung Mohimboyon</option></select></div>
@@ -170,17 +175,16 @@
           </div>
         </div>
 
-        <!-- ========== OWNER PASSWORD FIELD ========== -->
+        <!-- OWNER PASSWORD FIELD -->
         <div class="bg-purple-50 border border-purple-200 p-4 rounded-xl">
           <h4 class="font-bold text-sm">🔑 Owner Account Setup</h4>
-          <p class="text-[11px] text-zinc-600 mt-1">Set a password so you can log in to the <b>Agent Login</b> to check-in guests and receive payments directly to your bank account. (1 to 4 business days via Toyyibpay)</p>
+          <p class="text-[11px] text-zinc-600 mt-1">Set a password so you can log in to the <b>Owner Panel</b> (<code>/owner.html</code>) to check-in guests and receive payments directly to your bank account.</p>
           <div class="mt-3">
             <label class="text-xs font-semibold">Set Password (min 6 chars) *</label>
             <input id="listOwnerPassword" type="password" placeholder="Create a password for owner login" class="w-full mt-1 border rounded-xl px-4 py-2.5" />
-            <div class="text-[10px] text-zinc-500 mt-1">We never store your plaintext password.</div>
+            <div class="text-[10px] text-zinc-500 mt-1">This password is hashed on your device before being sent to our servers. We never store your plaintext password.</div>
           </div>
         </div>
-        <!-- ========================================= -->
 
         <!-- Availability Calendar -->
         <div class="bg-green-50 border border-green-200 p-4 rounded-xl">
@@ -203,7 +207,7 @@
 <!-- ABOUT PAGE -->
 <section id="aboutPage" class="hidden max-w-[1000px] mx-auto px-5 md:px-8 py-10">
   <div class="grid md:grid-cols-2 gap-8">
-    <div class="card p-8"><h2 class="text-3xl font-bold">About Kundasang Homestays</h2><p class="mt-4 text-sm leading-relaxed text-zinc-600">Kundasang Homestay is an online platform. All verified hosts are solely responsible for ensuring their property complies with all applicable local laws, including short-term rental regulations. We are local made for locals platform for verified homestay owners in Kundasang Area to prevent scams.<br/><br/><b>Why Verified Owner badge?</b> We verify Bank account holder must match owner name. New listings start as Pending approval and only show after admin checks.<br/><br/><b>Payment safety:</b> All payment will go through this website, no outside payment - direct to listing owners. Secured by ToyyibPay FPX.</p><div class="mt-6 flex gap-2"><span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs">Verified Owner</span><span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">ToyyibPay FPX Secured</span></div></div>
+    <div class="card p-8"><h2 class="text-3xl font-bold">About Kundasang Homestays</h2><p class="mt-4 text-sm leading-relaxed text-zinc-600">We are local made for locals platform for verified homestay owners in Kundasang Area to prevent scams.<br/><br/><b>Why Verified Owner badge?</b> We verify Bank account holder must match owner name. New listings start as Pending approval and only show after admin checks.<br/><br/><b>Payment safety:</b> All payment will go through this website, no outside payment - direct to listing owners. Secured by ToyyibPay FPX.</p><div class="mt-6 flex gap-2"><span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs">Verified Owner</span><span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">ToyyibPay FPX Secured</span></div></div>
     <div class="card p-8"><h3 class="text-xl font-bold">Contact</h3><div class="mt-4 space-y-3 text-sm"><div>✉️ Email: <span id="contactEmail">hello@kundasanghomestay.my</span></div><div>🕒 Response: 9am - 10pm everyday</div><div class="text-xs text-zinc-500 mt-2">For problems / support, email us here.</div></div><div class="mt-6"><h4 class="font-bold text-sm">Send Message</h4><div class="mt-3 space-y-2"><input id="contactName" placeholder="Your Name" class="w-full border rounded-xl px-4 py-2"/><input id="contactEmailInput" placeholder="Your Email" type="email" class="w-full border rounded-xl px-4 py-2"/><textarea id="contactMessage" placeholder="Describe your problem / message" rows="3" class="w-full border rounded-xl px-4 py-2"></textarea><button class="btn-primary w-full" onclick="sendContactEmail()">Send Email</button></div></div></div>
   </div>
 </section>
@@ -252,11 +256,21 @@
     <div class="flex justify-between items-center"><h3 id="guestAuthTitle" class="text-2xl font-bold">Guest Login</h3><button onclick="closeGuestAuth()" class="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center">✕</button></div>
     <div id="guestAuthMessage" class="hidden mt-4 p-3 rounded-xl text-xs"></div>
     <div class="mt-4 flex gap-2 p-1 bg-zinc-100 rounded-full"><button onclick="switchGuestAuth('login')" id="guestTabLogin" class="flex-1 py-2 rounded-full bg-[var(--primary)] text-white text-sm font-semibold">Login</button><button onclick="switchGuestAuth('register')" id="guestTabRegister" class="flex-1 py-2 rounded-full bg-white text-sm">Register</button></div>
+    
+    <!-- ====== GUEST LOGIN FORM ====== -->
     <div id="guestLoginForm" class="mt-6 space-y-4">
       <div><label class="text-xs font-semibold">Email *</label><input id="loginEmail" type="email" placeholder="you@email.com" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
       <div><label class="text-xs font-semibold">Password *</label><input id="loginPassword" type="password" placeholder="••••••••" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
+      
+      <!-- ====== FORGOT PASSWORD LINK ====== -->
+      <div class="text-right">
+        <button onclick="openForgotPassword('guest')" class="text-[11px] text-[#3FD0D4] hover:underline">Forgot Password?</button>
+      </div>
+      <!-- ================================= -->
+      
       <button onclick="loginGuest()" class="btn-primary w-full py-2.5">Login</button>
     </div>
+    
     <div id="guestRegisterForm" class="hidden mt-6 space-y-4">
       <div><label class="text-xs font-semibold">Full Name *</label><input id="regName" placeholder="Your full name" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
       <div><label class="text-xs font-semibold">Email *</label><input id="regEmail" type="email" placeholder="you@email.com" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
@@ -273,6 +287,26 @@
   <div class="flex items-center justify-between"><h2 class="text-3xl font-bold">My Bookings</h2><button onclick="showPage('home')" class="px-4 py-2 rounded-full border bg-white text-sm">Back to Home</button></div>
   <div id="guestInfoCard" class="card p-5 mt-6"></div>
   <div id="myBookingsList" class="mt-6 grid gap-4"></div>
+</div>
+
+<!-- ====== FORGOT PASSWORD MODAL (Guest) ====== -->
+<div id="forgotPasswordModal" class="fixed inset-0 z-[70] hidden bg-black/60 p-3 md:p-5 overflow-y-auto">
+  <div class="max-w-[420px] mx-auto card p-6 md:p-8 mt-10">
+    <div class="flex justify-between items-center">
+      <h3 class="text-2xl font-bold">Reset Password</h3>
+      <button onclick="closeForgotPassword()" class="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center">✕</button>
+    </div>
+    <p class="text-xs text-zinc-500 mt-2">Enter your email and we'll send you a reset link.</p>
+    <div class="mt-4">
+      <label class="text-xs font-semibold">Email *</label>
+      <input id="fpEmail" type="email" placeholder="you@email.com" class="w-full mt-1 border rounded-full px-4 py-2.5" />
+    </div>
+    <div id="fpStatus" class="hidden mt-3 p-2 rounded-lg text-xs"></div>
+    <div class="mt-4 flex gap-3">
+      <button onclick="closeForgotPassword()" class="flex-1 border rounded-full py-2.5 bg-white">Cancel</button>
+      <button onclick="requestPasswordReset()" class="flex-1 btn-primary py-2.5">Send Reset Link</button>
+    </div>
+  </div>
 </div>
 
 <footer class="bg-[#212121] text-white/70 mt-20"><div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10"><div><div class="flex items-center gap-3"><div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div><div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div></div><p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local - Kundasang version. Mountain homestays with Kinabalu soul.</p></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div><div class="space-y-2 text-[13px] font-poppins"><div class="hover:text-white cursor-pointer" onclick="showPage('home')">Homestays</div><div class="hover:text-white cursor-pointer" onclick="showPage('list')">List Property</div><div class="hover:text-white cursor-pointer" onclick="showPage('about')">About</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div><div class="space-y-2 text-[13px] font-poppins"><div>Host Guidelines</div><div>ToyyibPay FPX Secured</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div><p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p></div></div><div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay</div></footer>
@@ -669,6 +703,68 @@ function switchGuestAuth(mode) {
   }
 }
 
+// =============================================================
+// FORGOT PASSWORD (Guest)
+// =============================================================
+let forgotPasswordType = 'guest';
+
+function openForgotPassword(type) {
+  forgotPasswordType = type || 'guest';
+  closeGuestAuth();
+  const modal = document.getElementById('forgotPasswordModal');
+  if (modal) modal.classList.remove('hidden');
+  document.getElementById('fpStatus').classList.add('hidden');
+  document.getElementById('fpEmail').value = '';
+}
+
+function closeForgotPassword() {
+  const modal = document.getElementById('forgotPasswordModal');
+  if (modal) modal.classList.add('hidden');
+  document.getElementById('fpEmail').value = '';
+  document.getElementById('fpStatus').classList.add('hidden');
+}
+
+async function requestPasswordReset() {
+  const email = document.getElementById('fpEmail').value.trim().toLowerCase();
+  const statusEl = document.getElementById('fpStatus');
+  
+  if (!email) {
+    statusEl.textContent = 'Please enter your email.';
+    statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200';
+    statusEl.classList.remove('hidden');
+    return;
+  }
+
+  statusEl.textContent = 'Sending reset link...';
+  statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-blue-50 text-blue-700 border border-blue-200';
+  statusEl.classList.remove('hidden');
+
+  try {
+    const res = await fetch(API_BASE + '/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, userType: forgotPasswordType })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      statusEl.textContent = data.message || 'If an account exists, a reset link has been sent.';
+      statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-green-50 text-green-700 border border-green-200';
+    } else {
+      statusEl.textContent = data.error || 'Request failed. Please try again.';
+      statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200';
+    }
+    statusEl.classList.remove('hidden');
+  } catch(e) {
+    statusEl.textContent = 'Network error: ' + e.message;
+    statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200';
+    statusEl.classList.remove('hidden');
+  }
+}
+
+// =============================================================
+// UPDATE BOOKING FORM WITH GUEST
+// =============================================================
 function updateBookingFormWithGuest() {
   const nameEl = document.getElementById("guestName");
   const emailEl = document.getElementById("guestEmail");
@@ -1355,13 +1451,23 @@ function renderAvailabilityCalendar(homestay, containerId) {
 }
 
 // =============================================================
-// SUBMIT HOMESTAY (UPDATED WITH OWNER PASSWORD)
+// SUBMIT HOMESTAY (UPDATED WITH OWNER PASSWORD & EMAIL)
 // =============================================================
 async function submitHomestay() {
   try {
     const ownerName = document.getElementById("listOwnerName").value.trim();
     const whatsapp = document.getElementById("listWhatsapp").value.trim();
     if(!whatsapp){ alert("WhatsApp number is required! Owner must put WhatsApp."); document.getElementById("listWhatsapp").focus(); return; }
+    
+    // ====== GET OWNER EMAIL ======
+    const ownerEmail = document.getElementById("listOwnerEmail").value.trim();
+    if (!ownerEmail) {
+      alert("Please enter owner email address.");
+      document.getElementById("listOwnerEmail").focus();
+      return;
+    }
+    // =============================
+
     const homestayName = document.getElementById("listHomestayName").value.trim();
     const areaEl = document.getElementById("listArea");
     const area = areaEl ? areaEl.value : "Kundasang";
@@ -1424,6 +1530,9 @@ async function submitHomestay() {
       images: tempPhotos,
       ownerName,
       whatsapp,
+      // ====== ADD OWNER EMAIL ======
+      ownerEmail: ownerEmail,
+      // =============================
       ownerBank: bankName,
       ownerBankAccount: bankAccount,
       bankHolder,
@@ -1451,6 +1560,7 @@ async function submitHomestay() {
     document.getElementById("listHomestayName").value = "";
     document.getElementById("listPrice").value = "";
     document.getElementById("listDescription").value = "";
+    document.getElementById("listOwnerEmail").value = "";
     const icNameReset = document.getElementById("listIcName");
     if (icNameReset) icNameReset.value = "";
     const icNumReset = document.getElementById("listIcNumber");
