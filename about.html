@@ -18,6 +18,7 @@
     .btn-primary:hover{background:var(--primary-light);transform:translateY(-1px);}
     .btn-whatsapp{background:#25D366;color:white;border-radius:2px;padding:10px 20px;font-weight:700;font-family:"Poppins",sans-serif;text-transform:uppercase;letter-spacing:0.05em;font-size:12px;transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
     .btn-whatsapp:hover{background:#1ebe5d;transform:translateY(-1px);}
+    .guest-avatar{width:32px;height:32px;border-radius:999px;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;}
     .setsail-nav-link{position:relative;font-family:"Poppins",sans-serif;font-weight:600;font-size:13px;letter-spacing:0.3px;text-transform:uppercase;color:#212121;padding:8px 0;cursor:pointer;background:none;border:none;}
     .setsail-nav-link::after{content:'';position:absolute;left:0;bottom:-2px;width:0;height:2px;background:#3FD0D4;transition:width 0.3s;}
     .setsail-nav-link:hover::after,.setsail-nav-link.active::after{width:100%;}
@@ -98,11 +99,188 @@
     /* ================== */
 
     .step-number{width:48px;height:48px;border-radius:999px;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;flex-shrink:0;}
+
+    /* ===== MOBILE MENU – ANIMATION ===== */
+    #mobileNav {
+      position: fixed;
+      top: 80px;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: white;
+      border-top: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      transform: translateY(-10px);
+      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity 0.3s ease,
+                  transform 0.3s ease;
+    }
+
+    #mobileNav.open {
+      max-height: 80vh;
+      opacity: 1;
+      overflow-y: auto;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    #mobileNav a,
+    #mobileNav button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 14px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #212121;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      transition: background 0.15s, color 0.15s;
+      background: white;
+    }
+
+    #mobileNav a:hover,
+    #mobileNav button:hover {
+      background: #f8f5f0;
+      color: #3FD0D4;
+    }
+
+    #mobileNav .mobile-agent-link {
+      color: #7c3aed !important;
+      border: 1px solid #7c3aed !important;
+      margin: 8px 16px;
+      padding: 10px 16px !important;
+      border-radius: 2px !important;
+      width: auto !important;
+      display: inline-block !important;
+    }
+
+    #mobileNav .mobile-agent-link:hover {
+      background: #7c3aed !important;
+      color: white !important;
+    }
+
+    #mobileNav .guest-btn {
+      border: 1px solid #3FD0D4;
+      color: #3FD0D4;
+      background: white;
+      text-align: center;
+      border-radius: 2px;
+      padding: 12px 24px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      width: 100%;
+    }
+
+    #mobileNav .guest-btn-primary {
+      background: #3FD0D4;
+      color: white;
+      border: none;
+    }
+
+    #mobileNav .guest-btn:hover {
+      background: #3FD0D4;
+      color: white;
+    }
+
+    #mobileNav .guest-btn-primary:hover {
+      background: #2bbfc4;
+    }
+
+    #mobileNav .profile-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #212121;
+      color: white;
+      padding: 10px 14px;
+      border-radius: 2px;
+      margin-bottom: 8px;
+      flex-wrap: nowrap;
+    }
+
+    #mobileNav .profile-card .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: #3FD0D4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    #mobileNav .profile-card .info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    #mobileNav .profile-card .name {
+      font-weight: 700;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #mobileNav .profile-card .sub {
+      font-size: 10px;
+      color: rgba(255,255,255,0.6);
+    }
+
+    #mobileNav .profile-card .logout-btn {
+      width: auto !important;
+      display: inline-block !important;
+      flex-shrink: 0;
+      font-size: 10px;
+      background: rgba(255,255,255,0.15);
+      padding: 4px 12px;
+      border-radius: 2px;
+      cursor: pointer;
+      border: none;
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: background 0.15s;
+    }
+
+    #mobileNav .profile-card .logout-btn:hover {
+      background: rgba(255,255,255,0.25);
+    }
+
+    #mobileNav .my-bookings-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: #212121;
+      color: white;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 16px;
+      border-radius: 2px;
+      transition: background 0.15s;
+    }
+
+    #mobileNav .my-bookings-btn:hover {
+      background: #333;
+    }
   </style>
 </head>
 <body>
 
-<!-- HEADER -->
+<!-- ===== HEADER (with DB-Validated Guest Sync) ===== -->
 <header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
@@ -119,21 +297,48 @@
         <button onclick="window.location.href='/?login'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
         <button onclick="window.location.href='/?register'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp">Register</button>
       </div>
+      <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
+        <a href="/mybookings.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</a>
+        <div class="flex items-center gap-2 bg-[#212121] text-white px-4 h-[38px] sharp">
+          <div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div>
+          <span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span>
+          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-2 py-1 sharp uppercase tracking-wider">Logout</button>
+        </div>
+      </div>
     </nav>
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 sharp bg-[#212121] text-white items-center justify-center"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
   </div>
-  <div id="mobileNav" class="hidden lg:hidden absolute top-[80px] left-0 right-0 bg-white border-t border-black/10 z-50 shadow-xl">
-    <div class="p-6 space-y-4">
-      <a href="/" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">🏠 Home</a>
-      <a href="/list.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">➕ List Your Homestay</a>
-      <a href="/about.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-700 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-[#3FD0D4] block">ℹ️ About</a>
-      <a href="/owner.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-purple-600 mobile-agent-link block" style="text-decoration:none;">🔑 Agent Login</a>
-      <div class="pt-2"><button onclick="window.location.href='/?login'; toggleMobileMenu()" class="w-full px-6 h-[44px] border border-[#3FD0D4] text-[#3FD0D4] font-600 text-[12px] uppercase tracking-wider sharp">Login</button><button onclick="window.location.href='/?register'; toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#3FD0D4] text-white font-600 text-[12px] uppercase tracking-wider sharp mt-2">Register</button></div>
+
+  <!-- ===== MOBILE NAV ===== -->
+  <div id="mobileNav" class="lg:hidden">
+    <div class="p-4 space-y-1">
+      <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+      <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
+      <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-[#3FD0D4]">ℹ️ About</a>
+      <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+
+      <div class="pt-3 space-y-3">
+        <div id="mGuestNav">
+          <button onclick="window.location.href='/?login'; toggleMobileMenu()" class="guest-btn">Login</button>
+          <button onclick="window.location.href='/?register'; toggleMobileMenu()" class="guest-btn guest-btn-primary">Register</button>
+        </div>
+        <div id="mGuestProfileNav" class="hidden space-y-2">
+          <div class="profile-card">
+            <div id="mGuestAvatar" class="avatar">G</div>
+            <div class="info">
+              <div id="mGuestNameNav" class="name">Guest</div>
+              <div class="sub">Verified guest</div>
+            </div>
+            <button onclick="logoutGuest()" class="logout-btn">Logout</button>
+          </div>
+          <a href="/mybookings.html" onclick="toggleMobileMenu()" class="my-bookings-btn">📅 My Bookings</a>
+        </div>
+      </div>
     </div>
   </div>
 </header>
 
-<!-- HERO / HEADER SECTION -->
+<!-- ===== HERO / HEADER SECTION ===== -->
 <section class="relative w-full h-[320px] md:h-[400px] overflow-hidden">
   <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=original" alt="Mount Kinabalu" class="absolute inset-0 w-full h-full object-cover" />
   <div class="absolute inset-0 bg-black/40"></div>
@@ -144,7 +349,7 @@
   </div>
 </section>
 
-<!-- MAIN CONTENT -->
+<!-- ===== MAIN CONTENT ===== -->
 <main class="max-w-[1100px] mx-auto px-5 md:px-8 py-12">
 
   <!-- Who We Are -->
@@ -214,15 +419,15 @@
         <div class="space-y-4">
           <div class="flex items-start gap-4">
             <div class="step-number">1</div>
-            <div><div class="font-semibold text-sm">List Your Homestay</div><div class="text-sm text-zinc-600">It’s FREE! Submit your homestay for admin approval.</div></div>
+            <div><div class="font-semibold text-sm">List Your Homestay</div><div class="text-sm text-zinc-600">It's FREE! Submit your homestay for admin approval.</div></div>
           </div>
           <div class="flex items-start gap-4">
             <div class="step-number">2</div>
-            <div><div class="font-semibold text-sm">Get Bookings</div><div class="text-sm text-zinc-600">Guests book directly. You’ll receive notifications instantly.</div></div>
+            <div><div class="font-semibold text-sm">Get Bookings</div><div class="text-sm text-zinc-600">Guests book directly. You'll receive notifications instantly.</div></div>
           </div>
           <div class="flex items-start gap-4">
             <div class="step-number">3</div>
-            <div><div class="font-semibold text-sm">Check-in &amp; Get Paid</div><div class="text-sm text-zinc-600">Confirm the guest’s arrival, and your payment is sent automatically.</div></div>
+            <div><div class="font-semibold text-sm">Check-in &amp; Get Paid</div><div class="text-sm text-zinc-600">Confirm the guest's arrival, and your payment is sent automatically.</div></div>
           </div>
         </div>
       </div>
@@ -235,7 +440,7 @@
     <h2 class="text-2xl md:text-3xl font-bold">Support Local, Stay Local</h2>
     <div class="w-[40px] h-[2px] bg-[#3FD0D4] mx-auto mt-2 mb-4"></div>
     <p class="text-sm md:text-base leading-relaxed max-w-2xl mx-auto text-white/90">
-      Every booking on <span class="font-semibold text-[#3FD0D4]">Kundasang Homestay</span> helps sustain local or tourist families and the vibrant community that makes Kundasang such a special place. By choosing us, you’re saying <span class="font-semibold">no to SCAMMERS and say YES to authentic, verified & trustful platform.</span>
+      Every booking on <span class="font-semibold text-[#3FD0D4]">Kundasang Homestay</span> helps sustain local or tourist families and the vibrant community that makes Kundasang such a special place. By choosing us, you're saying <span class="font-semibold">no to SCAMMERS and say YES to authentic, verified & trustful platform.</span>
     </p>
     <p class="text-sm md:text-base leading-relaxed max-w-2xl mx-auto mt-3 text-white/80">
       <span class="font-semibold">Start your Kundasang adventure today with us.</span>
@@ -246,7 +451,7 @@
     </div>
   </div>
 
-  <!-- ===== FAQ SECTION (REDESIGNED) ===== -->
+  <!-- ===== FAQ SECTION ===== -->
   <div class="mb-10">
     <h2 class="text-2xl md:text-3xl font-bold text-center mb-2">Frequently Asked Questions</h2>
     <div class="w-[40px] h-[2px] bg-[#3FD0D4] mx-auto mb-6"></div>
@@ -326,7 +531,7 @@
   <div class="card p-6 md:p-10">
     <h2 class="text-2xl md:text-3xl font-bold text-center mb-2">Get In Touch</h2>
     <div class="w-[40px] h-[2px] bg-[#3FD0D4] mx-auto mb-4"></div>
-    <p class="text-sm text-zinc-600 text-center mb-6">Have a question, feedback, or need help? We’re here for you.</p>
+    <p class="text-sm text-zinc-600 text-center mb-6">Have a question, feedback, or need help? We're here for you.</p>
     <div class="max-w-lg mx-auto space-y-4">
       <div>
         <label class="text-xs font-semibold">Your Name *</label>
@@ -341,13 +546,13 @@
         <textarea id="contactMessage" rows="4" placeholder="Describe your problem or message..." class="w-full mt-1 border rounded-xl px-4 py-2.5 text-sm"></textarea>
       </div>
       <button onclick="sendContactEmail()" class="btn-primary w-full py-3">Send Email</button>
-      <p class="text-[11px] text-zinc-500 text-center mt-2">We’ll get back to you within 24 hours.</p>
+      <p class="text-[11px] text-zinc-500 text-center mt-2">We'll get back to you within 24 hours.</p>
     </div>
   </div>
 
 </main>
 
-<!-- FOOTER -->
+<!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-10">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div>
@@ -382,24 +587,21 @@
 
 <script>
 // =============================================================
-// FAQ TOGGLE (Improved)
+// FAQ TOGGLE
 // =============================================================
 function toggleFAQ(el) {
   const item = el.closest('.faq-item');
   const isOpen = item.classList.contains('open');
   
-  // Close all other items
   document.querySelectorAll('.faq-item').forEach(f => {
     f.classList.remove('open');
   });
   
-  // Toggle the clicked one
   if (!isOpen) {
     item.classList.add('open');
   }
 }
 
-// Open the first FAQ by default
 document.addEventListener('DOMContentLoaded', function() {
   const firstFaq = document.querySelector('.faq-item');
   if (firstFaq) {
@@ -429,17 +631,104 @@ function sendContactEmail() {
 // =============================================================
 function toggleMobileMenu() {
   const nav = document.getElementById('mobileNav');
-  if (nav) nav.classList.toggle('hidden');
+  if (nav) {
+    nav.classList.toggle('open');
+  }
 }
+
 document.addEventListener('click', function(e) {
   const nav = document.getElementById('mobileNav');
   const btn = document.getElementById('mobileMenuBtn');
-  if (!nav || nav.classList.contains('hidden')) return;
-  if (nav.contains(e.target) || (btn && btn.contains(e.target))) return;
-  nav.classList.add('hidden');
+  if (!nav || !btn) return;
+  if (nav.classList.contains('open') && 
+      !nav.contains(e.target) && 
+      !btn.contains(e.target)) {
+    nav.classList.remove('open');
+  }
 });
 
-console.log("✅ About page loaded.");
+// =============================================================
+// GUEST SYSTEM – DB-VALIDATED SESSION
+// =============================================================
+const API_BASE = "/api";
+let currentGuest = null;
+
+// Try loading guest from localStorage initially
+try {
+  const saved = localStorage.getItem('kd_guest');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (parsed && parsed.id) {
+      currentGuest = parsed;
+    }
+  }
+} catch(e) { currentGuest = null; }
+
+// ===== FETCH FROM CLOUD (D1) AND VALIDATE =====
+async function fetchCloudData() {
+  try {
+    const res = await fetch(`${API_BASE}/bookings`, { cache: "no-store" });
+    if (!res.ok) throw new Error("Failed to fetch cloud data");
+    const data = await res.json();
+    
+    // Check if current guest is banned in the database
+    if (data.bannedGuests && currentGuest && data.bannedGuests.includes(currentGuest.email?.toLowerCase())) {
+      console.log("🚫 Guest is banned, logging out");
+      currentGuest = null;
+      localStorage.removeItem('kd_guest');
+      renderGuestNav();
+    }
+    
+    return true;
+  } catch(e) {
+    console.warn("Cloud fetch failed:", e.message);
+    return false;
+  }
+}
+
+function renderGuestNav() {
+  const loginNav = document.getElementById("guestNav");
+  const profileNav = document.getElementById("guestProfileNav");
+  const mLoginNav = document.getElementById("mGuestNav");
+  const mProfileNav = document.getElementById("mGuestProfileNav");
+  const mAvatar = document.getElementById("mGuestAvatar");
+  const mNameNav = document.getElementById("mGuestNameNav");
+
+  if (currentGuest) {
+    if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
+    if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
+    const avatar = document.getElementById("guestAvatar");
+    const nameNav = document.getElementById("guestNameNav");
+    if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
+    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
+    if (mAvatar) mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+  } else {
+    if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
+    if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
+    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
+  }
+}
+
+function logoutGuest() {
+  if (!confirm("Logout?")) return;
+  currentGuest = null;
+  localStorage.removeItem('kd_guest');
+  renderGuestNav();
+  window.location.href = '/';
+}
+
+// =============================================================
+// INIT – Validate session against DB
+// =============================================================
+(async function init() {
+  await fetchCloudData();
+  renderGuestNav();
+  console.log("✅ About page loaded with DB-validated guest sync.");
+})();
 </script>
 
 </body>
