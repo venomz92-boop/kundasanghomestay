@@ -7,8 +7,12 @@ export async function onRequestGet({ env }) {
   //   "false" = SIMULATION (no real money)
   // ============================================================
   const isLive = (env.TOYYIBPAY_PAYOUT_ENABLED === "true");
+  
+  // Check if keys exist (for information only)
   const hasSecret = !!(env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_CATEGORY_CODE);
-  const enabled = isLive && hasSecret;
+  
+  // ===== FIX: enabled = isLive ONLY (don't require keys for the toggle) =====
+  const enabled = isLive;
   
   return new Response(JSON.stringify({
     enabled: enabled,
