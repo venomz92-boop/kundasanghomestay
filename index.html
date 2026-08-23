@@ -628,21 +628,29 @@ function switchGuestAuth(mode) {
   }
 }
 
+// ========== UPDATED: Lock booking fields when logged in ==========
 function updateBookingFormWithGuest() {
-  const banner = document.getElementById("guestDetectedBanner");
-  if (!currentGuest) {
-    if (banner) banner.classList.add("hidden");
-    return;
-  }
   const nameEl = document.getElementById("guestName");
   const emailEl = document.getElementById("guestEmail");
   const phoneEl = document.getElementById("guestPhone");
-  if (nameEl) nameEl.value = currentGuest.name || "";
-  if (emailEl) emailEl.value = currentGuest.email || "";
-  if (phoneEl) phoneEl.value = currentGuest.phone || "";
-  if (banner) {
-    banner.classList.remove("hidden");
-    banner.innerHTML = safeHTML("✓ Guest detected: <b>" + currentGuest.name + "</b> (" + currentGuest.email + ") — This booking will be linked to your account. <a onclick=\"showPage('mybookings')\" class=\"underline\">View My Bookings</a>");
+  const banner = document.getElementById("guestDetectedBanner");
+  
+  if (currentGuest) {
+    // Fill in and DISABLE the fields so they can't change them
+    if (nameEl) { nameEl.value = currentGuest.name || ""; nameEl.disabled = true; }
+    if (emailEl) { emailEl.value = currentGuest.email || ""; emailEl.disabled = true; }
+    if (phoneEl) { phoneEl.value = currentGuest.phone || ""; phoneEl.disabled = true; }
+    
+    if (banner) {
+      banner.classList.remove("hidden");
+      banner.innerHTML = safeHTML("✅ Logged in as <b>" + currentGuest.name + "</b> (" + currentGuest.email + "). This booking is linked to your account.");
+    }
+  } else {
+    // Clear and ENABLE the fields for guests (should be blocked anyway)
+    if (nameEl) { nameEl.value = ""; nameEl.disabled = false; }
+    if (emailEl) { emailEl.value = ""; emailEl.disabled = false; }
+    if (phoneEl) { phoneEl.value = ""; phoneEl.disabled = false; }
+    if (banner) banner.classList.add("hidden");
   }
 }
 
@@ -898,9 +906,19 @@ function updateDetailPrice() {
 function closeDetail() { document.getElementById("detailModal").classList.add("hidden"); }
 
 // =============================================================
-// BOOKING MODAL
+// BOOKING MODAL (UPDATED TO FORCE LOGIN)
 // =============================================================
 function openBooking() {
+  // --- FORCE LOGIN / REGISTER FIRST ---
+  if (!currentGuest) {
+    alert("🔐 Please login or register first to make a booking.");
+    // Close booking modal if it's somehow open, then show auth modal
+    document.getElementById("bookingModal").classList.add("hidden");
+    openGuestAuth('login');
+    return;
+  }
+
+  // --- Existing logic (only runs if logged in) ---
   const ci = document.getElementById("detailCheckin")?.value;
   const co = document.getElementById("detailCheckout")?.value;
   if (ci) document.getElementById("bookingCheckin").value = ci;
@@ -908,13 +926,10 @@ function openBooking() {
   updateBookingPrice();
   document.getElementById("bookingModal").classList.remove("hidden");
   updateBookingFormWithGuest();
+  
   const noteEl = document.getElementById("toyyibpayNote");
   if (noteEl) {
-    if (currentGuest) {
-      noteEl.innerHTML = safeHTML("Logged in as <b>" + currentGuest.name + "</b> (" + currentGuest.email + ") — Booking will be saved to your account<br>" + (CONFIG.toyyibpay.enabled ? "Live: Redirect to ToyyibPay FPX, auto-split RM"+selectedHomestay.ownerPrice+" to owner" : "Simulation mode — enable ToyyibPay in Admin > Settings when ready"));
-    } else {
-      noteEl.innerHTML = safeHTML((CONFIG.toyyibpay.enabled ? "Live: Redirect to ToyyibPay FPX, auto-split RM"+selectedHomestay.ownerPrice+" to owner" : "Simulation mode — enable ToyyibPay in Admin > Settings when ready") + " — <a onclick=\"openGuestAuth('register')\" class=\"underline cursor-pointer\">Register to track</a>");
-    }
+    noteEl.innerHTML = safeHTML("Logged in as <b>" + currentGuest.name + "</b> (" + currentGuest.email + "). Booking will be linked to your account.");
   }
 }
 
@@ -937,9 +952,17 @@ function updateBookingPrice() {
 function closeBooking() { document.getElementById("bookingModal").classList.add("hidden"); }
 
 // =============================================================
-// PAYMENT FUNCTION
+// PAYMENT FUNCTION (UPDATED WITH LOGIN CHECK)
 // =============================================================
 async function processPayment() {
+  // --- DOUBLE-CHECK LOGIN (Safety net) ---
+  if (!currentGuest) {
+    alert("🔐 You must be logged in to complete a booking.");
+    openGuestAuth('login');
+    return;
+  }
+
+  // --- Existing logic continues ---
   const guestName = document.getElementById("guestName").value.trim();
   const guestEmail = document.getElementById("guestEmail").value.trim();
   const guestPhone = document.getElementById("guestPhone").value.trim();
