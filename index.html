@@ -24,11 +24,18 @@
     .guest-avatar{width:32px;height:32px;border-radius:999px;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;}
     .badge-available{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:2px;}
     .badge-booked{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:2px;}
-    .calendar-mini{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
-    .calendar-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:11px;font-weight:500;border:1px solid #e5e7eb;}
+    .calendar-mini{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+    .calendar-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:2px;font-size:10px;font-weight:500;border:1px solid #e5e7eb;cursor:default;}
     .calendar-day.available{background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
     .calendar-day.booked{background:#fef2f2;border-color:#fecaca;color:#991b1b;text-decoration:line-through;}
     .calendar-day.today{border-color:var(--primary);border-width:2px;}
+    .calendar-day.empty{background:transparent;border-color:transparent;}
+    .calendar-day.past{background:#f9fafb;border-color:#e5e7eb;color:#9ca3af;}
+    .calendar-nav-btn{background:var(--primary);color:white;border:none;width:28px;height:28px;border-radius:2px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background 0.2s;}
+    .calendar-nav-btn:hover{background:var(--primary-light);}
+    .calendar-month-label{font-weight:600;font-size:13px;color:#212121;}
+    .calendar-view-all-btn{background:transparent;border:1px solid #d1d5db;border-radius:2px;padding:3px 10px;font-size:10px;cursor:pointer;color:#6b7280;transition:all 0.2s;}
+    .calendar-view-all-btn:hover{background:#f3f4f6;border-color:#9ca3af;}
     .blocked-date-chip{display:inline-flex;align-items:center;gap:6px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;padding:4px 10px;border-radius:999px;font-size:12px;}
     *{-webkit-tap-highlight-color:transparent;} html{overflow-x:hidden;} body{overflow-x:hidden;-webkit-text-size-adjust:100%;} input,select,textarea{font-size:16px;}
     .setsail-nav-link{position:relative;font-family:"Poppins",sans-serif;font-weight:600;font-size:13px;letter-spacing:0.3px;text-transform:uppercase;color:#212121;padding:8px 0;cursor:pointer;background:none;border:none;}
@@ -49,6 +56,12 @@
     .nav-link-list { position:relative; font-family:"Poppins",sans-serif; font-weight:600; font-size:13px; letter-spacing:0.3px; text-transform:uppercase; color:#212121; padding:8px 0; cursor:pointer; background:none; border:none; text-decoration:none; }
     .nav-link-list::after { content:''; position:absolute; left:0; bottom:-2px; width:0; height:2px; background:#3FD0D4; transition:width 0.3s; }
     .nav-link-list:hover::after, .nav-link-list.active::after { width:100%; }
+    .calendar-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 10px; color: #6b7280; margin-top: 6px; }
+    .calendar-legend span { display: flex; align-items: center; gap: 4px; }
+    .calendar-legend .dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+    .calendar-legend .dot.green { background: #f0fdf4; border: 1px solid #bbf7d0; }
+    .calendar-legend .dot.red { background: #fef2f2; border: 1px solid #fecaca; }
+    .calendar-legend .dot.today-dot { border: 2px solid var(--primary); background: white; width: 10px; height: 10px; }
   </style>
 </head>
 <body>
@@ -63,16 +76,9 @@
     </div>
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
       <button onclick="showPage('home')" id="navHome" class="setsail-nav-link active">Home</button>
-      
-      <!-- ====== LIST YOUR HOMESTAY (LINK TO LIST.HTML) ====== -->
       <a href="/list.html" id="navList" class="nav-link-list">List Your Homestay</a>
-      <!-- ==================================================== -->
-      
       <button onclick="showPage('about')" id="navAbout" class="setsail-nav-link">About</button>
-      
-      <!-- AGENT LOGIN TAB -->
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
-
       <div id="guestNav" class="ml-4 flex items-center gap-3">
         <button onclick="openGuestAuth('login')" id="guestLoginBtn" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
         <button onclick="openGuestAuth('register')" id="guestRegisterBtn" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp">Register</button>
@@ -87,16 +93,9 @@
   <div id="mobileNav" class="hidden lg:hidden absolute top-[80px] left-0 right-0 bg-white border-t border-black/10 z-50 shadow-xl">
     <div class="p-6 space-y-4">
       <button onclick="showPage('home'); toggleMobileMenu()" id="mNavHome" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">🏠 Home</button>
-      
-      <!-- ====== LIST YOUR HOMESTAY (MOBILE LINK) ====== -->
       <a href="/list.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-[#212121] block" style="text-decoration:none;">➕ List Your Homestay</a>
-      <!-- ============================================= -->
-      
       <button onclick="showPage('about'); toggleMobileMenu()" id="mNavAbout" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">ℹ️ About</button>
-      
-      <!-- AGENT LOGIN (MOBILE) -->
       <a href="/owner.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="display:block; text-decoration:none;">🔑 Agent Login</a>
-
       <div class="pt-2"><div id="mGuestNav" class="space-y-3"><button onclick="openGuestAuth('login'); toggleMobileMenu()" class="w-full px-6 h-[44px] border border-[#3FD0D4] text-[#3FD0D4] font-600 text-[12px] uppercase tracking-wider sharp">Login</button><button onclick="openGuestAuth('register'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#3FD0D4] text-white font-600 text-[12px] uppercase tracking-wider sharp">Register</button></div><div id="mGuestProfileNav" class="hidden space-y-3"><div class="flex items-center gap-3 bg-[#212121] text-white px-4 py-3 sharp"><div id="mGuestAvatar" class="guest-avatar bg-[#3FD0D4]">G</div><div><div id="mGuestNameNav" class="text-sm font-bold">Guest</div><div class="text-[11px] text-white/60">Verified guest</div></div><button onclick="logoutGuest()" class="ml-auto text-xs bg-white/20 px-3 py-1.5 sharp">Logout</button></div><button onclick="showPage('mybookings'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#212121] text-white font-600 text-[12px] uppercase tracking-wider sharp">📅 My Bookings</button></div></div>
     </div>
   </div>
@@ -462,44 +461,34 @@ try {
 } catch(e) { currentGuest = null; }
 
 function renderGuestNav() {
-  // --- DESKTOP NAV ---
   const loginNav = document.getElementById("guestNav");
   const profileNav = document.getElementById("guestProfileNav");
-  
-  // --- MOBILE NAV ---
   const mLoginNav = document.getElementById("mGuestNav");
   const mProfileNav = document.getElementById("mGuestProfileNav");
   const mAvatar = document.getElementById("mGuestAvatar");
   const mNameNav = document.getElementById("mGuestNameNav");
 
   if (currentGuest) {
-    // --- DESKTOP: Show profile, hide login ---
     if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
     if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
     const avatar = document.getElementById("guestAvatar");
     const nameNav = document.getElementById("guestNameNav");
     if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
     if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
-
-    // --- MOBILE: Show profile, hide login ---
     if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
     if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
     if (mAvatar) mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
     if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
-
   } else {
-    // --- DESKTOP: Show login, hide profile ---
     if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
     if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-
-    // --- MOBILE: Show login, hide profile ---
     if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
     if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
   }
 }
 
 // =============================================================
-// GUEST REGISTER & LOGIN (secure endpoints)
+// GUEST REGISTER & LOGIN
 // =============================================================
 async function registerGuest() {
   const name = document.getElementById("regName").value.trim();
@@ -514,7 +503,6 @@ async function registerGuest() {
     alert("Password must be at least 6 characters");
     return;
   }
-
   try {
     const res = await fetch(API_BASE + "/register", {
       method: "POST",
@@ -545,7 +533,6 @@ async function loginGuest() {
     alert("Fill email & password");
     return;
   }
-
   try {
     const res = await fetch(API_BASE + "/login", {
       method: "POST",
@@ -636,18 +623,15 @@ function closeForgotPassword() {
 async function requestPasswordReset() {
   const email = document.getElementById('fpEmail').value.trim().toLowerCase();
   const statusEl = document.getElementById('fpStatus');
-  
   if (!email) {
     statusEl.textContent = 'Please enter your email.';
     statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200';
     statusEl.classList.remove('hidden');
     return;
   }
-
   statusEl.textContent = 'Sending reset link...';
   statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-blue-50 text-blue-700 border border-blue-200';
   statusEl.classList.remove('hidden');
-
   try {
     const res = await fetch(API_BASE + '/forgot-password', {
       method: 'POST',
@@ -655,7 +639,6 @@ async function requestPasswordReset() {
       body: JSON.stringify({ email, userType: forgotPasswordType })
     });
     const data = await res.json();
-
     if (data.success) {
       statusEl.textContent = data.message || 'If an account exists, a reset link has been sent.';
       statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-green-50 text-green-700 border border-green-200';
@@ -679,7 +662,6 @@ function updateBookingFormWithGuest() {
   const emailEl = document.getElementById("guestEmail");
   const phoneEl = document.getElementById("guestPhone");
   const banner = document.getElementById("guestDetectedBanner");
-  
   if (currentGuest) {
     if (nameEl) { nameEl.value = currentGuest.name || ""; nameEl.disabled = true; }
     if (emailEl) { emailEl.value = currentGuest.email || ""; emailEl.disabled = true; }
@@ -957,7 +939,6 @@ function openBooking() {
     openGuestAuth('login');
     return;
   }
-
   const ci = document.getElementById("detailCheckin")?.value;
   const co = document.getElementById("detailCheckout")?.value;
   if (ci) document.getElementById("bookingCheckin").value = ci;
@@ -998,7 +979,6 @@ async function processPayment() {
     openGuestAuth('login');
     return;
   }
-
   const guestName = document.getElementById("guestName").value.trim();
   const guestEmail = document.getElementById("guestEmail").value.trim();
   const guestPhone = document.getElementById("guestPhone").value.trim();
@@ -1017,7 +997,6 @@ async function processPayment() {
   const price = calculatePrice(selectedHomestay.ownerPrice, nights);
   const bookingId = "KDH-" + Date.now().toString().slice(-6);
 
-  // ====== FIXED: Add ownerWhatsapp to booking ======
   const booking = {
     id: bookingId,
     homestay: selectedHomestay.name,
@@ -1043,7 +1022,6 @@ async function processPayment() {
     bankHolder: selectedHomestay.bankHolder || selectedHomestay.ownerName,
   };
 
-  // --- PUBLIC SAVE BEFORE PAYMENT ---
   try {
     const saveRes = await fetch(API_BASE + "/bookings", {
       method: "POST",
@@ -1061,7 +1039,6 @@ async function processPayment() {
     return;
   }
 
-  // ---- Proceed with payment ----
   if (!CONFIG.toyyibpay.enabled) {
     booking.status = "Paid - Awaiting Check-in";
     bookings.push(booking);
@@ -1074,7 +1051,6 @@ async function processPayment() {
     return;
   }
 
-  // LIVE - ToyyibPay
   try {
     const res = await fetch(API_BASE + "/toyyibpay-create", {
       method: "POST",
@@ -1121,19 +1097,16 @@ async function processPayment() {
 function processBillplzPayment() { processPayment(); }
 
 // =============================================================
-// SHOW PAYMENT RECEIPT (Enhanced version with transaction details)
+// SHOW PAYMENT RECEIPT
 // =============================================================
-// ====== GLOBAL VARIABLES FOR WHATSAPP ======
 let lastBookingWhatsapp = "";
 
 function showPaymentReceipt(bookingId, nights, checkin, checkout, total, billcode, transactionId) {
-  // Set the values
   document.getElementById("successBookingId").textContent = bookingId;
   document.getElementById("successNights").textContent = nights + " nights";
   document.getElementById("successDates").textContent = checkin + " → " + checkout;
   document.getElementById("successTotal").textContent = "RM" + total.toFixed(2);
   
-  // ====== STORE WHATSAPP FROM BOOKING ======
   const b = bookings.find(x => String(x.id) === String(bookingId));
   if (b && b.ownerWhatsapp) {
     lastBookingWhatsapp = b.ownerWhatsapp;
@@ -1142,9 +1115,7 @@ function showPaymentReceipt(bookingId, nights, checkin, checkout, total, billcod
   } else {
     lastBookingWhatsapp = "";
   }
-  // =====================================
   
-  // Add transaction details if available
   const receiptDetails = document.getElementById("receiptDetails");
   if (receiptDetails) {
     let html = '<div class="mt-3 pt-3 border-t border-black/10 text-left text-xs text-zinc-600">';
@@ -1157,10 +1128,7 @@ function showPaymentReceipt(bookingId, nights, checkin, checkout, total, billcod
     receiptDetails.classList.remove('hidden');
   }
   
-  // Show the modal
   document.getElementById("bookingSuccessModal").style.display = "flex";
-  
-  // Store for WhatsApp sharing
   lastBookingId = bookingId;
   lastBookingNights = nights;
   lastBookingCi = checkin;
@@ -1260,7 +1228,6 @@ function showBookingSuccess(bookingId, nights, ci, co, total){
   const billcode = params.get("billcode");
   const transactionId = params.get("transaction_id");
   
-  // ====== STORE WHATSAPP FROM BOOKING (for simulation mode) ======
   const b = bookings.find(x => String(x.id) === String(bookingId));
   if (b && b.ownerWhatsapp) {
     lastBookingWhatsapp = b.ownerWhatsapp;
@@ -1290,32 +1257,22 @@ function closeBookingSuccess(){
   closeBooking(); closeDetail(); renderGrid();
 }
 
-// ====== UPDATED whatsappWithBookingId() with WhatsApp from booking ======
 function whatsappWithBookingId(){
-  // ====== USE WHATSAPP FROM BOOKING ======
   let waNumber = lastBookingWhatsapp || "";
-  
-  // Fallback: try to get from selectedHomestay (simulation mode)
   if (!waNumber && selectedHomestay) {
     waNumber = selectedHomestay.whatsapp || "";
   }
-  
-  // Clean the number
   if (waNumber) {
     waNumber = String(waNumber).replace(/[^0-9]/g, '');
     if (waNumber.startsWith('0')) waNumber = '60' + waNumber.substring(1);
   }
-  
   if (!waNumber) {
     alert('WhatsApp not found - owner must add WhatsApp at listing.');
     return;
   }
-  // ====================================
   
   const homestayName = (typeof selectedHomestay !== 'undefined' && selectedHomestay) ? selectedHomestay.name : 'Homestay';
   const ownerName = (typeof selectedHomestay !== 'undefined' && selectedHomestay && selectedHomestay.ownerName) ? selectedHomestay.ownerName : 'Owner';
-  
-  // Get receipt details
   const bookingId = lastBookingId;
   const total = lastBookingTotal;
   const nights = lastBookingNights;
@@ -1335,7 +1292,6 @@ function whatsappWithBookingId(){
     (billcode ? "\nBill Code: " + billcode : "") + 
     (transactionId ? "\nTransaction ID: " + transactionId : "") + 
     "\n\nPlease confirm my check-in. Thanks!";
-  
   openWhatsAppLink(waNumber, message);
 }
 
@@ -1411,43 +1367,49 @@ function sendContactEmail(){
 }
 
 // =============================================================
-// RENDER AVAILABILITY CALENDAR (for detail modal)
+// RENDER AVAILABILITY CALENDAR (COMPACT – LIKE WINDOWS CALENDAR)
 // =============================================================
 function renderAvailabilityCalendar(homestay, containerId) {
   const container = document.getElementById(containerId);
   if (!container || !homestay) return;
+  
   const blocked = getAllBlockedDatesForHomestay(homestay);
   const today = new Date();
   today.setHours(0,0,0,0);
   const todayIso = dateToIso(today);
   
-  let htmlCal = `<div class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
-    <div class="text-[11px] text-zinc-500 font-medium">Next 12 months • 1 year view — scroll to check availability</div>
-    <div class="flex flex-wrap gap-3 text-[10px] md:text-[11px]">
-      <span class="flex items-center gap-1"><span class="w-3 h-3 bg-green-100 border border-green-300 rounded inline-block"></span> Available</span>
-      <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-100 border border-red-300 rounded inline-block"></span> Fully Booked</span>
-      <span class="flex items-center gap-1"><span class="w-3 h-3 border-2 border-[var(--primary)] rounded inline-block"></span> Today</span>
-    </div>
-  </div>`;
-  htmlCal += `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">`;
+  // Store current month state (per container)
+  if (!container._currentMonth) {
+    container._currentMonth = today.getMonth();
+    container._currentYear = today.getFullYear();
+  }
   
-  for (let m = 0; m < 12; m++) {
-    const firstOfMonth = new Date(today.getFullYear(), today.getMonth() + m, 1);
-    const year = firstOfMonth.getFullYear();
-    const month = firstOfMonth.getMonth();
-    const monthLabel = firstOfMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  function renderMonth() {
+    const month = container._currentMonth;
+    const year = container._currentYear;
+    const monthLabel = new Date(year, month, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const startDay = new Date(year, month, 1).getDay();
-    const isCurrentMonth = m === 0;
+    const isCurrentMonth = (month === today.getMonth() && year === today.getFullYear());
     
-    htmlCal += `<div class="bg-[#F8F5F0] rounded-xl p-3 md:p-3 border ${isCurrentMonth ? 'border-[var(--primary)]/30 bg-white shadow-sm' : 'border-zinc-100'}">
-      <div class="font-bold text-[13px] mb-2 flex justify-between items-center"><span>${monthLabel}</span>${isCurrentMonth ? '<span class="text-[9px] bg-[var(--primary)] text-white px-2 py-0.5 rounded-full">This month</span>' : ''}</div>
-      <div class="calendar-mini">`;
-    const dayNames = ["S","M","T","W","T","F","S"];
-    dayNames.forEach(d => { htmlCal += `<div class="text-[9px] text-center font-bold text-zinc-400 py-1">${d}</div>`; });
+    let html = `
+      <div class="flex items-center justify-between mb-2">
+        <button onclick="navigateCalendar(this, -1, '${containerId}')" class="calendar-nav-btn">‹</button>
+        <span class="calendar-month-label">${monthLabel}</span>
+        <button onclick="navigateCalendar(this, 1, '${containerId}')" class="calendar-nav-btn">›</button>
+      </div>
+      <div class="calendar-mini">
+    `;
+    
+    const dayNames = ["S", "M", "T", "W", "T", "F", "S"];
+    dayNames.forEach(d => {
+      html += `<div class="text-[9px] text-center font-bold text-zinc-400 py-1">${d}</div>`;
+    });
+    
     for (let e = 0; e < startDay; e++) {
-      htmlCal += `<div></div>`;
+      html += `<div class="calendar-day empty"></div>`;
     }
+    
     for (let day = 1; day <= daysInMonth; day++) {
       const d = new Date(year, month, day);
       d.setHours(0,0,0,0);
@@ -1455,26 +1417,47 @@ function renderAvailabilityCalendar(homestay, containerId) {
       const isBlocked = blocked.includes(iso);
       const isToday = iso === todayIso;
       const isPast = d < today;
+      
       let cls = "calendar-day";
       if (isPast) {
-        cls += " opacity-30 bg-zinc-50 text-zinc-400";
+        cls += " past";
       } else {
         cls += isBlocked ? " booked" : " available";
       }
       if (isToday) cls += " today";
-      htmlCal += `<div class="${cls}" title="${iso} ${isBlocked ? '(Booked)' : isPast ? '(Past)' : '(Available)'}">${day}</div>`;
+      
+      html += `<div class="${cls}" title="${iso} ${isBlocked ? '(Booked)' : isPast ? '(Past)' : '(Available)'}">${day}</div>`;
     }
-    htmlCal += `</div></div>`;
+    
+    html += `</div>`;
+    html += `
+      <div class="calendar-legend">
+        <span><span class="dot green"></span> Available</span>
+        <span><span class="dot red"></span> Booked</span>
+        ${isCurrentMonth ? `<span><span class="dot today-dot"></span> Today</span>` : ''}
+        <span style="margin-left:auto;font-size:9px;color:#9ca3af;">${blocked.length} booked</span>
+      </div>
+    `;
+    
+    container.innerHTML = safeHTML(html);
   }
-  htmlCal += `</div>`;
-  const nextYear = new Date(today);
-  nextYear.setFullYear(today.getFullYear() + 1);
-  const blockedNextYear = blocked.filter(d => {
-    const dd = isoToDate(d);
-    return dd >= today && dd < nextYear;
-  }).length;
-  htmlCal += `<div class="mt-4 text-[11px] text-zinc-500 bg-white border rounded-xl p-3">Showing 12 months from <b>${todayIso}</b> • <b class="text-red-700">${blockedNextYear} dates</b> Fully Booked in next year • Total blocked: ${blocked.length}</div>`;
-  container.innerHTML = safeHTML(htmlCal);
+  
+  // Attach navigation function to window so onclick works
+  window.navigateCalendar = function(btn, direction, containerId) {
+    const c = document.getElementById(containerId);
+    if (!c) return;
+    c._currentMonth = (c._currentMonth || today.getMonth()) + direction;
+    if (c._currentMonth > 11) { c._currentMonth = 0; c._currentYear = (c._currentYear || today.getFullYear()) + 1; }
+    if (c._currentMonth < 0) { c._currentMonth = 11; c._currentYear = (c._currentYear || today.getFullYear()) - 1; }
+    if (!c._currentYear) c._currentYear = today.getFullYear();
+    renderMonth.call(c);
+  };
+  
+  // Store the render function on the container
+  container._render = renderMonth;
+  
+  // Initial render
+  renderMonth.call(container);
 }
 
 // =============================================================
@@ -1491,20 +1474,16 @@ function resetDemoEdits() { /* Admin function - only used in admin panel */ }
   await fetchCloudData();
   renderGrid();
   
-  // ====== FETCH PAYMENT MODE FROM SERVER ======
   try {
-  // Add a random timestamp to prevent caching
-  const res = await fetch(API_BASE + "/payment-mode?t=" + Date.now());
-  const data = await res.json();
-  CONFIG.toyyibpay.enabled = data.enabled;
-  console.log("💳 Payment mode:", data.message);
-} catch(e) {
-  console.warn("⚠️ Failed to fetch payment mode, defaulting to simulation");
-  CONFIG.toyyibpay.enabled = false;
-}
-  // ============================================
+    const res = await fetch(API_BASE + "/payment-mode?t=" + Date.now());
+    const data = await res.json();
+    CONFIG.toyyibpay.enabled = data.enabled;
+    console.log("💳 Payment mode:", data.message);
+  } catch(e) {
+    console.warn("⚠️ Failed to fetch payment mode, defaulting to simulation");
+    CONFIG.toyyibpay.enabled = false;
+  }
   
-  // ====== HANDLE TOYYIBPAY REDIRECT ======
   try {
     const params = new URLSearchParams(window.location.search);
     const bookingIdParam = params.get("booking");
@@ -1515,18 +1494,12 @@ function resetDemoEdits() { /* Admin function - only used in admin panel */ }
     
     if (bookingIdParam && paidParam === "1") {
       console.log("🎯 Processing payment redirect for booking:", bookingIdParam);
-      
-      // First, try to find the booking in the local bookings array
       let b = bookings.find(x => String(x.id) === String(bookingIdParam));
-      
-      // If not found locally, fetch from cloud
       if (!b) {
         await fetchCloudData();
         b = bookings.find(x => String(x.id) === String(bookingIdParam));
       }
-      
       if (b) {
-        // Update status if still pending
         if ((b.status || "").toLowerCase().includes("pending")) {
           b.status = "Paid - Awaiting Check-in";
           b.statusUpdated = new Date().toISOString();
@@ -1534,11 +1507,7 @@ function resetDemoEdits() { /* Admin function - only used in admin panel */ }
           b.toyyibpay_transaction_id = transactionId;
           b.toyyibpay_status_id = statusId;
           b.paid_at = new Date().toISOString();
-          
-          // Save locally
           localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-          
-          // Update availability
           const dates = getDatesInRange(b.checkin, b.checkout);
           if (b.homestayId) {
             if (!availabilityMap[b.homestayId]) availabilityMap[b.homestayId] = [];
@@ -1549,8 +1518,6 @@ function resetDemoEdits() { /* Admin function - only used in admin panel */ }
             });
             saveAvailabilityMap();
           }
-          
-          // Sync to cloud (using public endpoint so guests can update)
           try {
             const updateRes = await fetch(`${API_BASE}/bookings`, {
               method: "POST",
@@ -1573,32 +1540,24 @@ function resetDemoEdits() { /* Admin function - only used in admin panel */ }
             }
           } catch(e) { console.warn("Cloud sync error:", e); }
         }
-        
-        // Show the booking success modal with receipt details
         const nights = b.nights || calculateNights(b.checkin, b.checkout);
         const total = b.total || 0;
-        
-        // Show enhanced success modal with receipt
         showPaymentReceipt(b.id, nights, b.checkin, b.checkout, total, billcode, transactionId);
-        
       } else {
         console.warn("⚠️ Booking not found for ID:", bookingIdParam);
         alert("✅ Payment successful! Your booking has been confirmed.\n\nBooking ID: " + bookingIdParam + "\nTransaction ID: " + (transactionId || 'N/A'));
       }
-      
-      // Remove the query parameters from the URL so refresh doesn't re-trigger
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   } catch(e) { 
     console.warn("Paid redirect handler fail", e); 
   }
-  // ============================================
 })();
 
 console.log("✅ Kundasang Homestay public page loaded (secure).");
 </script>
 
-<!-- BOOKING SUCCESS MODAL (Enhanced with Receipt) -->
+<!-- BOOKING SUCCESS MODAL -->
 <div id="bookingSuccessModal" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; padding:20px; overflow-y:auto;">
   <div class="bg-white sharp max-w-[480px] w-full p-6 md:p-8" style="max-height:90vh; overflow-y:auto;">
     <div class="text-center">
@@ -1607,15 +1566,12 @@ console.log("✅ Kundasang Homestay public page loaded (secure).");
       <p class="text-[12px] text-[#212121]/60 mt-2">Your booking is confirmed. Please save this receipt.</p>
     </div>
     
-    <!-- Receipt Card -->
     <div class="bg-[#F8F5F0] sharp p-5 mt-4 border border-black/5">
       <div class="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-3">Payment Receipt</div>
-      
       <div class="flex justify-between py-2 border-b border-black/5">
         <span class="text-[11px] text-zinc-500">Booking ID</span>
         <span id="successBookingId" class="font-800 text-[14px] text-[#dc2626]">-</span>
       </div>
-      
       <div class="flex justify-between py-2 border-b border-black/5">
         <span class="text-[11px] text-zinc-500">Duration</span>
         <span class="text-[13px] font-semibold">
@@ -1623,13 +1579,10 @@ console.log("✅ Kundasang Homestay public page loaded (secure).");
           <span id="successDates" class="text-[12px] font-normal text-zinc-600">-</span>
         </span>
       </div>
-      
       <div class="flex justify-between py-2 border-b border-black/5">
         <span class="text-[11px] text-zinc-500">Total Paid</span>
         <span id="successTotal" class="font-800 text-[20px] text-[#0F382E]">-</span>
       </div>
-      
-      <!-- Receipt Details (hidden by default, shown when transaction data available) -->
       <div id="receiptDetails" class="hidden mt-2 pt-2 border-t border-black/10 text-[11px] text-zinc-500"></div>
     </div>
     
@@ -1644,7 +1597,6 @@ console.log("✅ Kundasang Homestay public page loaded (secure).");
       </button>
       <button onclick="closeBookingSuccess()" class="w-full bg-[#212121] text-white sharp py-3.5 font-600 text-[13px] uppercase tracking-wider">OK, Got It</button>
     </div>
-    
     <p class="text-[10px] text-zinc-400 text-center mt-3">Please screenshot this receipt for your records.</p>
   </div>
 </div>
