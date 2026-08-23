@@ -1,4 +1,4 @@
-// /api/payment-mode.js - Uses TOYYIBPAY_PAYOUT_ENABLED from env
+// /api/payment-mode.js - WITH DIAGNOSTIC
 
 export async function onRequestGet({ env }) {
   // ============================================================
@@ -6,12 +6,15 @@ export async function onRequestGet({ env }) {
   //   "true"  = LIVE (ToyyibPay)
   //   "false" = SIMULATION (no real money)
   // ============================================================
-  const isLive = (env.TOYYIBPAY_PAYOUT_ENABLED === "true");
+  
+  // Read the raw value for debugging
+  const rawPayoutEnabled = env.TOYYIBPAY_PAYOUT_ENABLED;
+  const isLive = (rawPayoutEnabled === "true");
   
   // Check if keys exist (for information only)
   const hasSecret = !!(env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_CATEGORY_CODE);
   
-  // ===== FIX: enabled = isLive ONLY (don't require keys for the toggle) =====
+  // ===== FIX: enabled = isLive ONLY =====
   const enabled = isLive;
   
   return new Response(JSON.stringify({
@@ -19,8 +22,12 @@ export async function onRequestGet({ env }) {
     isLive: isLive,
     hasSecret: hasSecret,
     mode: isLive ? "live" : "simulation",
-    message: enabled ? "LIVE - Payments go to ToyyibPay" : "SIMULATION - No real money",
-    version: "2.0"
+    // ===== DIAGNOSTIC: show the raw value =====
+    rawPayoutEnabled: rawPayoutEnabled,
+    // ===== DEPLOYMENT STAMP =====
+    version: "2.1",
+    deployedAt: new Date().toISOString(),
+    message: enabled ? "LIVE - Payments go to ToyyibPay" : "SIMULATION - No real money"
   }), {
     status: 200,
     headers: {
