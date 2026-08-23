@@ -976,7 +976,7 @@ function updateBookingPrice() {
 function closeBooking() { document.getElementById("bookingModal").classList.add("hidden"); }
 
 // =============================================================
-// PAYMENT FUNCTION
+// PAYMENT FUNCTION (PATCHED with CLOUD SYNC)
 // =============================================================
 async function processPayment() {
   if (!currentGuest) {
@@ -1045,20 +1045,36 @@ async function processPayment() {
     return;
   }
 
-  // ---- Proceed with payment ----
+  // =============================================================
+  // ========== SIMULATION MODE ==========
+  // =============================================================
   if (!CONFIG.toyyibpay.enabled) {
     booking.status = "Paid - Awaiting Check-in";
     bookings.push(booking);
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+    
+    // ====== FIX: SYNC TO CLOUD ======
     const bookedDates = getDatesInRange(ci, co);
     if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
     bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
     saveAvailabilityMap();
+    
+    // Push to cloud (D1) so Owner Panel can see it
+    try {
+      await pushBookingToCloud(booking, bookedDates);
+      console.log("☁️ Simulation booking synced to cloud");
+    } catch(e) {
+      console.warn("⚠️ Failed to sync simulation booking to cloud:", e);
+    }
+    // ================================
+    
     showBookingSuccess(bookingId, nights, ci, co, price.total);
     return;
   }
 
-  // LIVE - ToyyibPay
+  // =============================================================
+  // ========== LIVE MODE - ToyyibPay ==========
+  // =============================================================
   try {
     const res = await fetch(API_BASE + "/toyyibpay-create", {
       method: "POST",
@@ -1078,6 +1094,16 @@ async function processPayment() {
       if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
       bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
       saveAvailabilityMap();
+      
+      // ====== FIX: SYNC TO CLOUD ======
+      try {
+        await pushBookingToCloud(booking, bookedDates);
+        console.log("☁️ Simulation booking synced to cloud");
+      } catch(e) {
+        console.warn("⚠️ Failed to sync simulation booking to cloud:", e);
+      }
+      // ================================
+      
       showBookingSuccess(bookingId, nights, ci, co, price.total);
       return;
     }
@@ -1098,6 +1124,16 @@ async function processPayment() {
     if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
     bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
     saveAvailabilityMap();
+    
+    // ====== FIX: SYNC TO CLOUD ======
+    try {
+      await pushBookingToCloud(booking, bookedDates);
+      console.log("☁️ Fallback booking synced to cloud");
+    } catch(e) {
+      console.warn("⚠️ Failed to sync fallback booking to cloud:", e);
+    }
+    // ================================
+    
     showBookingSuccess(bookingId, nights, ci, co, price.total);
   }
 }
