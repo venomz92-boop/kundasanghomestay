@@ -85,7 +85,7 @@
         <button onclick="openGuestAuth('register')" id="guestRegisterBtn" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp">Register</button>
       </div>
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
-        <button onclick="showPage('mybookings')" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</button>
+        <a href="/mybookings.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</a>
         <div class="flex items-center gap-2 bg-[#212121] text-white px-4 h-[38px] sharp"><div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div><span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span><button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-2 py-1 sharp uppercase tracking-wider">Logout</button></div>
       </div>
     </nav>
@@ -97,7 +97,7 @@
       <a href="/list.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">➕ List Your Homestay</a>
       <a href="/about.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">ℹ️ About</a>
       <a href="/owner.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-purple-600 mobile-agent-link block" style="text-decoration:none;">🔑 Agent Login</a>
-      <div class="pt-2"><div id="mGuestNav" class="space-y-3"><button onclick="openGuestAuth('login'); toggleMobileMenu()" class="w-full px-6 h-[44px] border border-[#3FD0D4] text-[#3FD0D4] font-600 text-[12px] uppercase tracking-wider sharp">Login</button><button onclick="openGuestAuth('register'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#3FD0D4] text-white font-600 text-[12px] uppercase tracking-wider sharp">Register</button></div><div id="mGuestProfileNav" class="hidden space-y-3"><div class="flex items-center gap-3 bg-[#212121] text-white px-4 py-3 sharp"><div id="mGuestAvatar" class="guest-avatar bg-[#3FD0D4]">G</div><div><div id="mGuestNameNav" class="text-sm font-bold">Guest</div><div class="text-[11px] text-white/60">Verified guest</div></div><button onclick="logoutGuest()" class="ml-auto text-xs bg-white/20 px-3 py-1.5 sharp">Logout</button></div><button onclick="showPage('mybookings'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#212121] text-white font-600 text-[12px] uppercase tracking-wider sharp">📅 My Bookings</button></div></div>
+      <div class="pt-2"><div id="mGuestNav" class="space-y-3"><button onclick="openGuestAuth('login'); toggleMobileMenu()" class="w-full px-6 h-[44px] border border-[#3FD0D4] text-[#3FD0D4] font-600 text-[12px] uppercase tracking-wider sharp">Login</button><button onclick="openGuestAuth('register'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#3FD0D4] text-white font-600 text-[12px] uppercase tracking-wider sharp">Register</button></div><div id="mGuestProfileNav" class="hidden space-y-3"><div class="flex items-center gap-3 bg-[#212121] text-white px-4 py-3 sharp"><div id="mGuestAvatar" class="guest-avatar bg-[#3FD0D4]">G</div><div><div id="mGuestNameNav" class="text-sm font-bold">Guest</div><div class="text-[11px] text-white/60">Verified guest</div></div><button onclick="logoutGuest()" class="ml-auto text-xs bg-white/20 px-3 py-1.5 sharp">Logout</button></div><a href="/mybookings.html" onclick="toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#212121] text-white font-600 text-[12px] uppercase tracking-wider sharp text-center block leading-[44px]">📅 My Bookings</a></div></div>
     </div>
   </div>
 </header>
@@ -185,13 +185,6 @@
       <p class="text-[11px] text-center text-zinc-500">By registering, your bookings will be tracked</p>
     </div>
   </div>
-</div>
-
-<!-- MY BOOKINGS PAGE -->
-<div id="myBookingsPage" class="hidden max-w-[1000px] mx-auto px-5 md:px-8 py-10">
-  <div class="flex items-center justify-between"><h2 class="text-3xl font-bold">My Bookings</h2><button onclick="showPage('home')" class="px-4 py-2 rounded-full border bg-white text-sm">Back to Home</button></div>
-  <div id="guestInfoCard" class="card p-5 mt-6"></div>
-  <div id="myBookingsList" class="mt-6 grid gap-4"></div>
 </div>
 
 <!-- FORGOT PASSWORD MODAL (Guest) -->
@@ -505,7 +498,6 @@ async function registerGuest() {
       alert("Account created and logged in as " + data.guest.name);
       closeGuestAuth();
       updateBookingFormWithGuest();
-      renderMyBookings();
     } else {
       alert(data.error || "Registration failed");
     }
@@ -535,7 +527,6 @@ async function loginGuest() {
       alert("Welcome back " + data.guest.name);
       closeGuestAuth();
       updateBookingFormWithGuest();
-      renderMyBookings();
     } else {
       alert(data.error || "Login failed");
     }
@@ -549,8 +540,6 @@ function logoutGuest() {
   currentGuest = null;
   localStorage.removeItem('kd_guest');
   renderGuestNav();
-  // Clear saved page state and go home
-  sessionStorage.removeItem('kd_last_page');
   window.location.href = '/';
 }
 
@@ -666,24 +655,6 @@ function updateBookingFormWithGuest() {
     if (phoneEl) { phoneEl.value = ""; phoneEl.disabled = false; }
     if (banner) banner.classList.add("hidden");
   }
-}
-
-function renderMyBookings() {
-  const infoCard = document.getElementById("guestInfoCard");
-  const listDiv = document.getElementById("myBookingsList");
-  if (!infoCard || !listDiv) return;
-  if (!currentGuest) {
-    infoCard.innerHTML = safeHTML("<div class='text-sm'>Please <button onclick=\"openGuestAuth('login')\" class='underline font-semibold'>login</button> to see your bookings.</div>");
-    listDiv.innerHTML = "";
-    return;
-  }
-  infoCard.innerHTML = safeHTML("<div class='flex gap-4 items-center'><div class='guest-avatar w-12 h-12 text-lg'>" + (currentGuest.name||"G").charAt(0).toUpperCase() + "</div><div><div class='font-bold'>" + currentGuest.name + "</div><div class='text-xs text-zinc-500'>" + currentGuest.email + " • " + currentGuest.phone + "</div><div class='text-[11px] mt-1'>ID: " + currentGuest.id + " • Guest account detected</div></div></div>");
-  const myBookings = bookings.filter(b => (b.guestEmail && b.guestEmail.toLowerCase() === currentGuest.email.toLowerCase()) || (b.guestId && b.guestId === currentGuest.id));
-  if (myBookings.length === 0) {
-    listDiv.innerHTML = safeHTML("<div class='card p-8 text-center text-zinc-500'>No bookings yet. <br><button onclick=\"window.location.href='/'\" class='mt-3 btn-primary'>Browse Homestays</button></div>");
-    return;
-  }
-  listDiv.innerHTML = safeHTML(myBookings.map(b => "<div class='card p-5'><div class='flex justify-between'><div class='font-bold'>" + b.homestay + "</div><span class='text-[11px] px-2 py-1 rounded-full bg-green-100 text-green-800'>" + (b.status||'Paid') + "</span></div><div class='text-xs text-zinc-500 mt-1'>ID " + b.id + " • " + (b.nights||0) + " nights • " + b.checkin + " → " + b.checkout + "</div><div class='mt-3 flex justify-between text-sm'><span>Total Paid</span><span class='font-bold'>RM" + b.total + "</span></div><div class='text-xs mt-1'>RM" + b.base + " With Service Fee RM" + b.fee + "</div><div class='mt-3 flex gap-2'><button onclick=\"chatWithOwnerFromBooking('" + b.id + "')\" class='text-xs px-3 py-1.5 rounded-full bg-[#25D366] text-white'>Chat Owner</button><button onclick=\"alert('Booking: " + b.id + "')\" class='text-xs px-3 py-1.5 rounded-full border bg-white'>Details</button></div></div>").join(""));
 }
 
 // =============================================================
@@ -1286,50 +1257,20 @@ function whatsappWithBookingId(){
 }
 
 // =============================================================
-// PAGE NAVIGATION (with state saving)
+// PAGE NAVIGATION (simplified to Home only)
 // =============================================================
-
-// Save current page to sessionStorage
-function saveCurrentPage(page) {
-    sessionStorage.setItem('kd_last_page', page);
-}
-
-function showPage(page) {
+function showHome() {
   const homePage = document.getElementById("homePage");
   const hero = document.getElementById("hero");
-  const myB = document.getElementById("myBookingsPage");
   
-  // Save the page state
-  saveCurrentPage(page);
+  if (homePage) homePage.classList.remove("hidden");
+  if (hero) hero.classList.remove("hidden");
   
-  if (homePage) homePage.classList.add("hidden");
-  if (hero) hero.classList.add("hidden");
-  if (myB) myB.classList.add("hidden");
+  // Update nav link active state
+  const active = document.getElementById("navHome");
+  if (active) active.className = "setsail-nav-link active";
   
-  const navBtns = ["navHome"];
-  navBtns.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.className = "setsail-nav-link";
-  });
-  const mNavBtns = ["mNavHome"];
-  mNavBtns.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.className = "w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5";
-  });
-  
-  if (page === "home") {
-    if (homePage) homePage.classList.remove("hidden");
-    if (hero) hero.classList.remove("hidden");
-    const active = document.getElementById("navHome");
-    if (active) active.className = "setsail-nav-link active";
-    const mActive = document.getElementById("mNavHome");
-    if (mActive) mActive.className = "w-full text-left font-poppins font-700 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-[#3FD0D4]";
-    renderGrid();
-  } else if (page === "mybookings") {
-    if (myB) myB.classList.remove("hidden");
-    renderMyBookings();
-    // Highlight the My Bookings link (optional)
-  }
+  renderGrid();
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
@@ -1441,6 +1382,7 @@ function renderAvailabilityCalendar(homestay, containerId) {
   renderGuestNav();
   await fetchCloudData();
   renderGrid();
+  showHome(); // always show home on load
   
   try {
     const res = await fetch(API_BASE + "/payment-mode?t=" + Date.now());
@@ -1452,15 +1394,6 @@ function renderAvailabilityCalendar(homestay, containerId) {
     CONFIG.toyyibpay.enabled = false;
   }
   
-  // --- Restore last visited page ---
-  const lastPage = sessionStorage.getItem('kd_last_page') || 'home';
-  if (lastPage === 'mybookings') {
-    showPage('mybookings');
-  } else {
-    showPage('home');
-  }
-  
-  // Handle payment redirect (existing code)
   try {
     const params = new URLSearchParams(window.location.search);
     const bookingIdParam = params.get("booking");

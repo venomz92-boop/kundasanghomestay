@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>My Bookings - Kundasang Homestay</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary:#0F382E; --primary-light:#1a4d3e; --accent:#3FD0D4; --accent-hover:#2bbfc4; --bg:#F8F5F0; --card:#ffffff; --muted:#6b7280; --danger:#dc2626; --dark:#212121; }
+    h1,h2,h3{font-family:"Poppins",sans-serif;}
+    .font-poppins{font-family:"Poppins",sans-serif;} .font-satisfy{font-family:"Satisfy",cursive;}
+    body{font-family:"Poppins","Inter",sans-serif;background:var(--bg);}
+    .sharp{border-radius:2px !important;}
+    .card{border-radius:2px;background:var(--card);box-shadow:0 2px 20px rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.04);}
+    .btn-primary{background:var(--primary);color:white;border-radius:2px;padding:10px 20px;font-weight:700;font-family:"Poppins",sans-serif;text-transform:uppercase;letter-spacing:0.08em;font-size:12px;transition:all .2s;}
+    .btn-primary:hover{background:var(--primary-light);transform:translateY(-1px);}
+    .guest-avatar{width:32px;height:32px;border-radius:999px;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;}
+    .setsail-nav-link{position:relative;font-family:"Poppins",sans-serif;font-weight:600;font-size:13px;letter-spacing:0.3px;text-transform:uppercase;color:#212121;padding:8px 0;cursor:pointer;background:none;border:none;}
+    .setsail-nav-link::after{content:'';position:absolute;left:0;bottom:-2px;width:0;height:2px;background:#3FD0D4;transition:width 0.3s;}
+    .setsail-nav-link:hover::after,.setsail-nav-link.active::after{width:100%;}
+    .setsail-nav-link.agent{color:#7c3aed;border:1px solid #7c3aed;padding:6px 16px;border-radius:2px;}
+    .setsail-nav-link.agent::after{display:none;}
+    .setsail-nav-link.agent:hover{background:#7c3aed;color:white;}
+    @media (max-width:768px){#desktopNav{display:none !important;}#mobileMenuBtn{display:flex !important;}}
+    .nav-link-list { position:relative; font-family:"Poppins",sans-serif; font-weight:600; font-size:13px; letter-spacing:0.3px; text-transform:uppercase; color:#212121; padding:8px 0; cursor:pointer; background:none; border:none; text-decoration:none; }
+    .nav-link-list::after { content:''; position:absolute; left:0; bottom:-2px; width:0; height:2px; background:#3FD0D4; transition:width 0.3s; }
+    .nav-link-list:hover::after, .nav-link-list.active::after { width:100%; }
+    .mobile-agent-link { color: #7c3aed !important; border: 1px solid #7c3aed !important; border-radius: 2px !important; padding: 8px 16px !important; display: inline-block !important; margin-top: 4px; }
+    *{-webkit-tap-highlight-color:transparent;} html{overflow-x:hidden;} body{overflow-x:hidden;-webkit-text-size-adjust:100%;}
+    @media (max-width:768px){#desktopNav{display:none !important;}#mobileMenuBtn{display:flex !important;}}
+    @media (min-width:769px){#mobileNav{display:none !important;}}
+  </style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
+  <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
+    <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
+      <img src="/logo.svg" alt="Kundasang Homestay" class="w-20 h-20" />
+      <div class="font-poppins font-800 text-[22px] tracking-[-0.5px] text-[#212121] leading-none">KUNDASANG<span class="font-600 text-[#212121]/60 text-[18px]"> • Homestay</span>
+        <div class="font-500 text-[11px] tracking-[2px] uppercase text-[#212121]/50 -mt-23">Verified • Homestays</div></div>
+    </div>
+    <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
+      <a href="/" id="navHome" class="setsail-nav-link">Home</a>
+      <a href="/list.html" id="navList" class="nav-link-list">List Your Homestay</a>
+      <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
+      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
+      <div id="guestNav" class="ml-4 flex items-center gap-3">
+        <button onclick="openGuestAuth('login')" id="guestLoginBtn" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
+        <button onclick="openGuestAuth('register')" id="guestRegisterBtn" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp">Register</button>
+      </div>
+      <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
+        <a href="/mybookings.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</a>
+        <div class="flex items-center gap-2 bg-[#212121] text-white px-4 h-[38px] sharp"><div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div><span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span><button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-2 py-1 sharp uppercase tracking-wider">Logout</button></div>
+      </div>
+    </nav>
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 sharp bg-[#212121] text-white items-center justify-center"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+  </div>
+  <div id="mobileNav" class="hidden lg:hidden absolute top-[80px] left-0 right-0 bg-white border-t border-black/10 z-50 shadow-xl">
+    <div class="p-6 space-y-4">
+      <a href="/" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">🏠 Home</a>
+      <a href="/list.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">➕ List Your Homestay</a>
+      <a href="/about.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">ℹ️ About</a>
+      <a href="/owner.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-purple-600 mobile-agent-link block" style="text-decoration:none;">🔑 Agent Login</a>
+      <div class="pt-2"><div id="mGuestNav" class="space-y-3"><button onclick="openGuestAuth('login'); toggleMobileMenu()" class="w-full px-6 h-[44px] border border-[#3FD0D4] text-[#3FD0D4] font-600 text-[12px] uppercase tracking-wider sharp">Login</button><button onclick="openGuestAuth('register'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#3FD0D4] text-white font-600 text-[12px] uppercase tracking-wider sharp">Register</button></div><div id="mGuestProfileNav" class="hidden space-y-3"><div class="flex items-center gap-3 bg-[#212121] text-white px-4 py-3 sharp"><div id="mGuestAvatar" class="guest-avatar bg-[#3FD0D4]">G</div><div><div id="mGuestNameNav" class="text-sm font-bold">Guest</div><div class="text-[11px] text-white/60">Verified guest</div></div><button onclick="logoutGuest()" class="ml-auto text-xs bg-white/20 px-3 py-1.5 sharp">Logout</button></div><a href="/mybookings.html" onclick="toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#212121] text-white font-600 text-[12px] uppercase tracking-wider sharp text-center block leading-[44px]">📅 My Bookings</a></div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ===== MAIN CONTENT ===== -->
+<main class="max-w-[1000px] mx-auto px-5 md:px-8 py-10">
+  <div class="flex items-center justify-between mb-6">
+    <h2 class="text-3xl font-bold">My Bookings</h2>
+    <a href="/" class="px-4 py-2 rounded-full border bg-white text-sm hover:bg-zinc-50 transition">← Back to Home</a>
+  </div>
+  
+  <div id="guestInfoCard" class="card p-5 mt-2"></div>
+  <div id="myBookingsList" class="mt-6 grid gap-4"></div>
+</main>
+
+<!-- ===== GUEST AUTH MODAL ===== -->
+<div id="guestAuthModal" class="fixed inset-0 z-[60] hidden bg-black/60 p-3 md:p-5 overflow-y-auto">
+  <div class="max-w-[420px] mx-auto card p-6 md:p-8 mt-10">
+    <div class="flex justify-between items-center"><h3 id="guestAuthTitle" class="text-2xl font-bold">Guest Login</h3><button onclick="closeGuestAuth()" class="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center">✕</button></div>
+    <div id="guestAuthMessage" class="hidden mt-4 p-3 rounded-xl text-xs"></div>
+    <div class="mt-4 flex gap-2 p-1 bg-zinc-100 rounded-full"><button onclick="switchGuestAuth('login')" id="guestTabLogin" class="flex-1 py-2 rounded-full bg-[var(--primary)] text-white text-sm font-semibold">Login</button><button onclick="switchGuestAuth('register')" id="guestTabRegister" class="flex-1 py-2 rounded-full bg-white text-sm">Register</button></div>
+    
+    <div id="guestLoginForm" class="mt-6 space-y-4">
+      <div><label class="text-xs font-semibold">Email *</label><input id="loginEmail" type="email" placeholder="you@email.com" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
+      <div><label class="text-xs font-semibold">Password *</label><input id="loginPassword" type="password" placeholder="••••••••" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
+      <div class="text-right">
+        <button onclick="openForgotPassword('guest')" class="text-[11px] text-[#3FD0D4] hover:underline">Forgot Password?</button>
+      </div>
+      <button onclick="loginGuest()" class="btn-primary w-full py-2.5">Login</button>
+    </div>
+    
+    <div id="guestRegisterForm" class="hidden mt-6 space-y-4">
+      <div><label class="text-xs font-semibold">Full Name *</label><input id="regName" placeholder="Your full name" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
+      <div><label class="text-xs font-semibold">Email *</label><input id="regEmail" type="email" placeholder="you@email.com" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
+      <div><label class="text-xs font-semibold">WhatsApp *</label><input id="regPhone" placeholder="6012-3456789" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
+      <div><label class="text-xs font-semibold">Password *</label><input id="regPassword" type="password" placeholder="Min 6 chars" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
+      <button onclick="registerGuest()" class="btn-primary w-full py-2.5">Create Account</button>
+      <p class="text-[11px] text-center text-zinc-500">By registering, your bookings will be tracked</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FORGOT PASSWORD MODAL ===== -->
+<div id="forgotPasswordModal" class="fixed inset-0 z-[70] hidden bg-black/60 p-3 md:p-5 overflow-y-auto">
+  <div class="max-w-[420px] mx-auto card p-6 md:p-8 mt-10">
+    <div class="flex justify-between items-center">
+      <h3 class="text-2xl font-bold">Reset Password</h3>
+      <button onclick="closeForgotPassword()" class="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center">✕</button>
+    </div>
+    <p class="text-xs text-zinc-500 mt-2">Enter your email and we'll send you a reset link.</p>
+    <div class="mt-4">
+      <label class="text-xs font-semibold">Email *</label>
+      <input id="fpEmail" type="email" placeholder="you@email.com" class="w-full mt-1 border rounded-full px-4 py-2.5" />
+    </div>
+    <div id="fpStatus" class="hidden mt-3 p-2 rounded-lg text-xs"></div>
+    <div class="mt-4 flex gap-3">
+      <button onclick="closeForgotPassword()" class="flex-1 border rounded-full py-2.5 bg-white">Cancel</button>
+      <button onclick="requestPasswordReset()" class="flex-1 btn-primary py-2.5">Send Reset Link</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer class="bg-[#212121] text-white/70 mt-20">
+  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+    <div><div class="flex items-center gap-3"><div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div><div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div></div><p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local - Kundasang version. Mountain homestays with Kinabalu soul.</p></div>
+    <div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div><div class="space-y-2 text-[13px] font-poppins"><a href="/" class="hover:text-white block">Homestays</a><a href="/list.html" class="hover:text-white block">List Property</a><a href="/about.html" class="hover:text-white block">About</a></div></div>
+    <div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div><div class="space-y-2 text-[13px] font-poppins"><div>Host Guidelines</div><div>ToyyibPay FPX Secured</div></div></div>
+    <div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div><p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p></div>
+  </div>
+  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay - All payment is secured by Toyyibpay</div>
+</footer>
+
+<script>
+// =============================================================
+// SECURE HELPER
+// =============================================================
+function safeHTML(html) {
+  if (!html) return '';
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['div','span','p','a','img','br','b','i','u','strong','em','h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th','button','input','form','label','select','option','textarea','section','article','header','footer','nav','main','aside','code','pre','blockquote','hr','small','sub','sup','svg','path'],
+    ALLOWED_ATTR: ['id','class','style','href','src','alt','title','rel','target','onclick','onchange','oninput','onload','onerror','method','action','type','name','value','placeholder','checked','disabled','readonly','required','multiple','min','max','step','pattern','autocomplete','inputmode','viewBox','fill','stroke','stroke-width','d'],
+    ADD_ATTR: ['target']
+  });
+}
+
+// =============================================================
+// SHA256 HELPER
+// =============================================================
+async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function generateSalt() {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
+}
+
+// =============================================================
+// CONFIG
+// =============================================================
+const API_BASE = "/api";
+const DEMO_HOMESTAYS = [
+  { id: 1, name: "A-Frame Cabin with Kinabalu View", location: "Bundu Tuhan", ownerPrice: 300, rating: 4.9, reviews: 127, guests: 4, bedrooms: 2, image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800", images: [], approved: true, verified: true, ownerName: "Ali", ownerBank: "CIMB", ownerBankAccount: "8600-123456", whatsapp: "60123456789", description: "View Gunung Kinabalu terus dari bilik.", blockedDates: [] },
+  { id: 2, name: "Desa Cattle Farm View Homestay", location: "Desa", ownerPrice: 250, rating: 4.8, reviews: 89, guests: 6, bedrooms: 3, image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800", images: [], approved: true, verified: true, ownerName: "Maria", ownerBank: "Maybank", ownerBankAccount: "1140-987654", whatsapp: "60123456789", description: "5 min to Desa Cattle Farm, ada dapur.", blockedDates: [] }
+];
+
+let bookings = [];
+let allHomestays = [];
+let homestays = [];
+let availabilityMap = {};
+let currentGuest = null;
+
+// =============================================================
+// GUEST SYSTEM
+// =============================================================
+try {
+  const saved = localStorage.getItem('kd_guest');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (parsed && parsed.id) currentGuest = parsed;
+  }
+} catch(e) { currentGuest = null; }
+
+function renderGuestNav() {
+  const loginNav = document.getElementById("guestNav");
+  const profileNav = document.getElementById("guestProfileNav");
+  const mLoginNav = document.getElementById("mGuestNav");
+  const mProfileNav = document.getElementById("mGuestProfileNav");
+  const mAvatar = document.getElementById("mGuestAvatar");
+  const mNameNav = document.getElementById("mGuestNameNav");
+
+  if (currentGuest) {
+    if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
+    if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
+    const avatar = document.getElementById("guestAvatar");
+    const nameNav = document.getElementById("guestNameNav");
+    if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
+    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
+    if (mAvatar) mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+  } else {
+    if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
+    if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
+    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
+  }
+}
+
+function logoutGuest() {
+  if (!confirm("Logout?")) return;
+  currentGuest = null;
+  localStorage.removeItem('kd_guest');
+  renderGuestNav();
+  window.location.href = '/';
+}
+
+function openGuestAuth(mode) {
+  const modal = document.getElementById("guestAuthModal");
+  if (modal) modal.classList.remove("hidden");
+  switchGuestAuth(mode);
+}
+function closeGuestAuth() {
+  const modal = document.getElementById("guestAuthModal");
+  if (modal) modal.classList.add("hidden");
+  const msgEl = document.getElementById("guestAuthMessage");
+  if (msgEl) { msgEl.classList.add("hidden"); msgEl.innerHTML = ""; msgEl.className = "hidden mt-4 p-3 rounded-xl text-xs"; }
+}
+function switchGuestAuth(mode) {
+  const msgEl2 = document.getElementById("guestAuthMessage");
+  if (msgEl2) { msgEl2.classList.add("hidden"); msgEl2.innerHTML = ""; msgEl2.className = "hidden mt-4 p-3 rounded-xl text-xs"; }
+  const loginForm = document.getElementById("guestLoginForm");
+  const regForm = document.getElementById("guestRegisterForm");
+  const tabLogin = document.getElementById("guestTabLogin");
+  const tabReg = document.getElementById("guestTabRegister");
+  const title = document.getElementById("guestAuthTitle");
+  if (!loginForm || !regForm) return;
+  if (mode === 'login') {
+    loginForm.classList.remove("hidden");
+    regForm.classList.add("hidden");
+    if (tabLogin) tabLogin.className = "flex-1 py-2 rounded-full bg-[var(--primary)] text-white text-sm font-semibold";
+    if (tabReg) tabReg.className = "flex-1 py-2 rounded-full bg-white text-sm";
+    if (title) title.innerText = "Guest Login";
+  } else {
+    loginForm.classList.add("hidden");
+    regForm.classList.remove("hidden");
+    if (tabLogin) tabLogin.className = "flex-1 py-2 rounded-full bg-white text-sm";
+    if (tabReg) tabReg.className = "flex-1 py-2 rounded-full bg-[var(--primary)] text-white text-sm font-semibold";
+    if (title) title.innerText = "Guest Register";
+  }
+}
+
+async function registerGuest() {
+  const name = document.getElementById("regName").value.trim();
+  const email = document.getElementById("regEmail").value.trim().toLowerCase();
+  const phone = document.getElementById("regPhone").value.trim();
+  const password = document.getElementById("regPassword").value;
+  if (!name || !email || !phone || !password) { alert("Please fill all fields"); return; }
+  if (password.length < 6) { alert("Password must be at least 6 characters"); return; }
+  try {
+    const res = await fetch(API_BASE + "/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, phone, password })
+    });
+    const data = await res.json();
+    if (data.success) {
+      currentGuest = data.guest;
+      localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
+      renderGuestNav();
+      alert("Account created and logged in as " + data.guest.name);
+      closeGuestAuth();
+      renderMyBookings();
+    } else {
+      alert(data.error || "Registration failed");
+    }
+  } catch(e) { alert("Network error: " + e.message); }
+}
+
+async function loginGuest() {
+  const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+  const password = document.getElementById("loginPassword").value;
+  if (!email || !password) { alert("Fill email & password"); return; }
+  try {
+    const res = await fetch(API_BASE + "/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (data.success) {
+      currentGuest = data.guest;
+      localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
+      renderGuestNav();
+      alert("Welcome back " + data.guest.name);
+      closeGuestAuth();
+      renderMyBookings();
+    } else {
+      alert(data.error || "Login failed");
+    }
+  } catch(e) { alert("Network error: " + e.message); }
+}
+
+// =============================================================
+// FORGOT PASSWORD
+// =============================================================
+let forgotPasswordType = 'guest';
+function openForgotPassword(type) {
+  forgotPasswordType = type || 'guest';
+  closeGuestAuth();
+  const modal = document.getElementById('forgotPasswordModal');
+  if (modal) modal.classList.remove('hidden');
+  document.getElementById('fpStatus').classList.add('hidden');
+  document.getElementById('fpEmail').value = '';
+}
+function closeForgotPassword() {
+  const modal = document.getElementById('forgotPasswordModal');
+  if (modal) modal.classList.add('hidden');
+  document.getElementById('fpEmail').value = '';
+  document.getElementById('fpStatus').classList.add('hidden');
+}
+async function requestPasswordReset() {
+  const email = document.getElementById('fpEmail').value.trim().toLowerCase();
+  const statusEl = document.getElementById('fpStatus');
+  if (!email) {
+    statusEl.textContent = 'Please enter your email.';
+    statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200';
+    statusEl.classList.remove('hidden'); return;
+  }
+  statusEl.textContent = 'Sending reset link...';
+  statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-blue-50 text-blue-700 border border-blue-200';
+  statusEl.classList.remove('hidden');
+  try {
+    const res = await fetch(API_BASE + '/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, userType: forgotPasswordType })
+    });
+    const data = await res.json();
+    if (data.success) {
+      statusEl.textContent = data.message || 'If an account exists, a reset link has been sent.';
+      statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-green-50 text-green-700 border border-green-200';
+    } else {
+      statusEl.textContent = data.error || 'Request failed. Please try again.';
+      statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200';
+    }
+    statusEl.classList.remove('hidden');
+  } catch(e) {
+    statusEl.textContent = 'Network error: ' + e.message;
+    statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200';
+    statusEl.classList.remove('hidden');
+  }
+}
+
+// =============================================================
+// HELPER FUNCTIONS
+// =============================================================
+function isoToDate(str) { return new Date(str + 'T00:00:00'); }
+function dateToIso(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth()+1).padStart(2,'0');
+  const d = String(date.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+function getDatesInRange(checkin, checkout) {
+  if (!checkin || !checkout) return [];
+  const dates = [];
+  const start = isoToDate(checkin);
+  const end = isoToDate(checkout);
+  if (isNaN(start) || isNaN(end) || start >= end) return [];
+  const cur = new Date(start);
+  while (cur < end) {
+    dates.push(dateToIso(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+function calculateNights(checkin, checkout) {
+  if (!checkin || !checkout) return 1;
+  const d1 = new Date(checkin);
+  const d2 = new Date(checkout);
+  const diff = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+  return diff > 0 ? diff : 1;
+}
+
+// =============================================================
+// FETCH CLOUD DATA
+// =============================================================
+async function fetchCloudData() {
+  try {
+    const res = await fetch(`${API_BASE}/bookings`, { cache: "no-store" });
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    console.log("Cloud sync:", data.bookings?.length || 0, "bookings");
+    if (data.bookings) { bookings = data.bookings; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
+    if (data.availability) { availabilityMap = data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
+    return true;
+  } catch(e) { console.warn("Cloud sync fail", e); return false; }
+}
+
+// =============================================================
+// RENDER MY BOOKINGS
+// =============================================================
+function renderMyBookings() {
+  const infoCard = document.getElementById("guestInfoCard");
+  const listDiv = document.getElementById("myBookingsList");
+  if (!infoCard || !listDiv) return;
+  if (!currentGuest) {
+    infoCard.innerHTML = safeHTML("<div class='text-sm'>Please <button onclick=\"openGuestAuth('login')\" class='underline font-semibold'>login</button> to see your bookings.</div>");
+    listDiv.innerHTML = "";
+    return;
+  }
+  infoCard.innerHTML = safeHTML("<div class='flex gap-4 items-center'><div class='guest-avatar w-12 h-12 text-lg'>" + (currentGuest.name||"G").charAt(0).toUpperCase() + "</div><div><div class='font-bold'>" + currentGuest.name + "</div><div class='text-xs text-zinc-500'>" + currentGuest.email + " • " + currentGuest.phone + "</div><div class='text-[11px] mt-1'>ID: " + currentGuest.id + " • Guest account detected</div></div></div>");
+  
+  const myBookings = bookings.filter(b => (b.guestEmail && b.guestEmail.toLowerCase() === currentGuest.email.toLowerCase()) || (b.guestId && b.guestId === currentGuest.id));
+  if (myBookings.length === 0) {
+    listDiv.innerHTML = safeHTML("<div class='card p-8 text-center text-zinc-500'>No bookings yet. <br><a href='/' class='mt-3 btn-primary inline-block'>Browse Homestays</a></div>");
+    return;
+  }
+  listDiv.innerHTML = safeHTML(myBookings.map(b => "<div class='card p-5'><div class='flex justify-between'><div class='font-bold'>" + b.homestay + "</div><span class='text-[11px] px-2 py-1 rounded-full bg-green-100 text-green-800'>" + (b.status||'Paid') + "</span></div><div class='text-xs text-zinc-500 mt-1'>ID " + b.id + " • " + (b.nights||0) + " nights • " + b.checkin + " → " + b.checkout + "</div><div class='mt-3 flex justify-between text-sm'><span>Total Paid</span><span class='font-bold'>RM" + b.total + "</span></div><div class='text-xs mt-1'>RM" + b.base + " With Service Fee RM" + b.fee + "</div><div class='mt-3 flex gap-2'><button onclick=\"chatWithOwnerFromBooking('" + b.id + "')\" class='text-xs px-3 py-1.5 rounded-full bg-[#25D366] text-white'>Chat Owner</button><button onclick=\"alert('Booking: " + b.id + "')\" class='text-xs px-3 py-1.5 rounded-full border bg-white'>Details</button></div></div>").join(""));
+}
+
+// =============================================================
+// WHATSAPP FUNCTIONS
+// =============================================================
+function openWhatsAppLink(waNumber, message) {
+  const encoded = encodeURIComponent(message);
+  const waUrl = "https://wa.me/" + waNumber + "?text=" + encoded;
+  try {
+    const a = document.createElement('a');
+    a.href = waUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { if (a.parentNode) a.parentNode.removeChild(a); }, 1000);
+    return waUrl;
+  } catch(e) {
+    try {
+      const win = window.open(waUrl, '_blank', 'noopener,noreferrer');
+      if (!win) window.open(waUrl, '_blank');
+      return waUrl;
+    } catch(e2) {
+      alert("Could not open WhatsApp automatically. Please use this link: " + waUrl);
+      return waUrl;
+    }
+  }
+}
+function chatWithOwnerFromBooking(bookingId) {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (!booking) { alert('Booking not found'); return; }
+  let raw = booking.ownerWhatsapp || '';
+  let num = String(raw).replace(/[^0-9]/g, '');
+  if (num.startsWith('0')) num = '60' + num.substring(1);
+  if (!num) { alert('Owner WhatsApp not available'); return; }
+  const message = "Hi, I have made a booking for " + booking.homestay + "\n\nBooking ID: " + booking.id + "\nCheck-in: " + booking.checkin + "\nCheck-out: " + booking.checkout + "\nNights: " + booking.nights + "\n\nGuest: " + (booking.guestName || '-') + "\n\nPlease confirm my booking. Thank you!";
+  openWhatsAppLink(num, message);
+}
+
+// =============================================================
+// MOBILE MENU
+// =============================================================
+function toggleMobileMenu() {
+  const nav = document.getElementById('mobileNav');
+  if (nav) nav.classList.toggle('hidden');
+}
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('mobileNav');
+  const btn = document.getElementById('mobileMenuBtn');
+  if (!nav || nav.classList.contains('hidden')) return;
+  if (nav.contains(e.target) || (btn && btn.contains(e.target))) return;
+  nav.classList.add('hidden');
+});
+
+// =============================================================
+// INIT
+// =============================================================
+(async function init() {
+  renderGuestNav();
+  await fetchCloudData();
+  renderMyBookings();
+})();
+
+console.log("✅ My Bookings page loaded.");
+</script>
+</body>
+</html>
