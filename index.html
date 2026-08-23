@@ -286,15 +286,42 @@ async function fetchCloudData(){
   if(!CLOUD_ENABLED) return false;
   try{
     const res=await fetch(`${API_BASE}/bookings`, {cache:"no-store"});
-    if(!res.ok) throw new Error(res.status);
+    if(!res.ok) {
+      console.warn("Cloud fetch failed:", res.status);
+      return false;
+    }
     const data=await res.json();
-    console.log("Cloud sync:", data.bookings?.length||0, "bookings,", data.guests?.length||0, "guests, banned:", data.bannedGuests?.length||0);
-    if(data.bookings){ bookings=data.bookings; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
-    if(data.availability){ availabilityMap=data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
-    if(data.approved !== undefined){ localStorage.setItem("kd_approved", JSON.stringify(data.approved)); storedApproved = data.approved; }
-    if(data.demoOverrides !== undefined){ localStorage.setItem("kd_demo_overrides", JSON.stringify(data.demoOverrides)); demoOverrides = data.demoOverrides; }
-    if(data.demoBlocked !== undefined){ localStorage.setItem("kd_demo_blocked", JSON.stringify(data.demoBlocked)); demoBlockedMap = data.demoBlocked; }
-    if(data.deletedDemo !== undefined){ localStorage.setItem("kd_deleted_demo", JSON.stringify(data.deletedDemo)); deletedDemoIds = data.deletedDemo; }
+    console.log("✅ Cloud sync:", data.bookings?.length||0, "bookings,", data.guests?.length||0, "guests");
+    
+    // CRITICAL: Update ALL data stores
+    if(data.bookings){ 
+      bookings=data.bookings; 
+      localStorage.setItem("kd_bookings", JSON.stringify(bookings)); 
+    }
+    if(data.availability){ 
+      availabilityMap=data.availability; 
+      localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); 
+    }
+    if(data.approved !== undefined){ 
+      localStorage.setItem("kd_approved", JSON.stringify(data.approved)); 
+      storedApproved = data.approved; 
+    }
+    if(data.demoOverrides !== undefined){ 
+      localStorage.setItem("kd_demo_overrides", JSON.stringify(data.demoOverrides)); 
+      demoOverrides = data.demoOverrides; 
+    }
+    if(data.demoBlocked !== undefined){ 
+      localStorage.setItem("kd_demo_blocked", JSON.stringify(data.demoBlocked)); 
+      demoBlockedMap = data.demoBlocked; 
+    }
+    if(data.deletedDemo !== undefined){ 
+      localStorage.setItem("kd_deleted_demo", JSON.stringify(data.deletedDemo)); 
+      deletedDemoIds = data.deletedDemo; 
+    }
+    if(data.pending !== undefined && Array.isArray(data.pending)){ 
+      pendingHomestays = data.pending; 
+      localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); 
+    }
     if(data.bannedGuests !== undefined && Array.isArray(data.bannedGuests)){
       localStorage.setItem("kd_banned_guests", JSON.stringify(data.bannedGuests));
       if(currentGuest && data.bannedGuests.includes(currentGuest.email?.toLowerCase())){
@@ -303,13 +330,16 @@ async function fetchCloudData(){
         renderGuestNav();
       }
     }
+    
+    // Rebuild homestays
     try{
-      let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id)) && !deletedDemoIds.includes(d.id)).map(d => {
+      let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id))).map(d => {
         let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
         if(demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
         return merged;
       });
       allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
+      allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = []; return h; });
       homestays = [...allHomestays];
     }catch(e){}
     return true;
