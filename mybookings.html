@@ -32,6 +32,198 @@
     *{-webkit-tap-highlight-color:transparent;} html{overflow-x:hidden;} body{overflow-x:hidden;-webkit-text-size-adjust:100%;}
     @media (max-width:768px){#desktopNav{display:none !important;}#mobileMenuBtn{display:flex !important;}}
     @media (min-width:769px){#mobileNav{display:none !important;}}
+
+    /* ===== MOBILE MENU – ANIMATION ===== */
+    #mobileNav {
+      position: fixed;
+      top: 80px;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: white;
+      border-top: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      transform: translateY(-10px);
+      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity 0.3s ease,
+                  transform 0.3s ease;
+    }
+
+    #mobileNav.open {
+      max-height: 80vh;
+      opacity: 1;
+      overflow-y: auto;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    #mobileNav a,
+    #mobileNav button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 14px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #212121;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      transition: background 0.15s, color 0.15s;
+      background: white;
+    }
+
+    #mobileNav a:hover,
+    #mobileNav button:hover {
+      background: #f8f5f0;
+      color: #3FD0D4;
+    }
+
+    #mobileNav .mobile-agent-link {
+      color: #7c3aed !important;
+      border: 1px solid #7c3aed !important;
+      margin: 8px 16px;
+      padding: 10px 16px !important;
+      border-radius: 2px !important;
+      width: auto !important;
+      display: inline-block !important;
+    }
+
+    #mobileNav .mobile-agent-link:hover {
+      background: #7c3aed !important;
+      color: white !important;
+    }
+
+    #mobileNav .guest-btn {
+      border: 1px solid #3FD0D4;
+      color: #3FD0D4;
+      background: white;
+      text-align: center;
+      border-radius: 2px;
+      padding: 12px 24px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      width: 100%;
+    }
+
+    #mobileNav .guest-btn-primary {
+      background: #3FD0D4;
+      color: white;
+      border: none;
+    }
+
+    #mobileNav .guest-btn:hover {
+      background: #3FD0D4;
+      color: white;
+    }
+
+    #mobileNav .guest-btn-primary:hover {
+      background: #2bbfc4;
+    }
+
+    #mobileNav .profile-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #212121;
+      color: white;
+      padding: 10px 14px;
+      border-radius: 2px;
+      margin-bottom: 8px;
+      flex-wrap: nowrap;
+    }
+
+    #mobileNav .profile-card .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: #3FD0D4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    #mobileNav .profile-card .info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    #mobileNav .profile-card .name {
+      font-weight: 700;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #mobileNav .profile-card .sub {
+      font-size: 10px;
+      color: rgba(255,255,255,0.6);
+    }
+
+    #mobileNav .profile-card .logout-btn {
+      width: auto !important;
+      display: inline-block !important;
+      flex-shrink: 0;
+      font-size: 10px;
+      background: rgba(255,255,255,0.15);
+      padding: 4px 12px;
+      border-radius: 2px;
+      cursor: pointer;
+      border: none;
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: background 0.15s;
+    }
+
+    #mobileNav .profile-card .logout-btn:hover {
+      background: rgba(255,255,255,0.25);
+    }
+
+    #mobileNav .my-bookings-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: #212121;
+      color: white;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 16px;
+      border-radius: 2px;
+      transition: background 0.15s;
+    }
+
+    #mobileNav .my-bookings-btn:hover {
+      background: #333;
+    }
+
+    .btn-whatsapp-sm {
+      background: #25D366;
+      color: white;
+      padding: 4px 12px;
+      font-weight: 600;
+      font-size: 11px;
+      border-radius: 2px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-whatsapp-sm:hover { background: #1ebe5d; }
   </style>
 </head>
 <body>
@@ -50,8 +242,8 @@
       <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
-        <button onclick="openGuestAuth('login')" id="guestLoginBtn" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
-        <button onclick="openGuestAuth('register')" id="guestRegisterBtn" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp">Register</button>
+        <button onclick="window.location.href='/?login'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
+        <button onclick="window.location.href='/?register'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp">Register</button>
       </div>
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
         <a href="/mybookings.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</a>
@@ -60,13 +252,32 @@
     </nav>
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 sharp bg-[#212121] text-white items-center justify-center"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
   </div>
-  <div id="mobileNav" class="hidden lg:hidden absolute top-[80px] left-0 right-0 bg-white border-t border-black/10 z-50 shadow-xl">
-    <div class="p-6 space-y-4">
-      <a href="/" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">🏠 Home</a>
-      <a href="/list.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">➕ List Your Homestay</a>
-      <a href="/about.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">ℹ️ About</a>
-      <a href="/owner.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-purple-600 mobile-agent-link block" style="text-decoration:none;">🔑 Agent Login</a>
-      <div class="pt-2"><div id="mGuestNav" class="space-y-3"><button onclick="openGuestAuth('login'); toggleMobileMenu()" class="w-full px-6 h-[44px] border border-[#3FD0D4] text-[#3FD0D4] font-600 text-[12px] uppercase tracking-wider sharp">Login</button><button onclick="openGuestAuth('register'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#3FD0D4] text-white font-600 text-[12px] uppercase tracking-wider sharp">Register</button></div><div id="mGuestProfileNav" class="hidden space-y-3"><div class="flex items-center gap-3 bg-[#212121] text-white px-4 py-3 sharp"><div id="mGuestAvatar" class="guest-avatar bg-[#3FD0D4]">G</div><div><div id="mGuestNameNav" class="text-sm font-bold">Guest</div><div class="text-[11px] text-white/60">Verified guest</div></div><button onclick="logoutGuest()" class="ml-auto text-xs bg-white/20 px-3 py-1.5 sharp">Logout</button></div><a href="/mybookings.html" onclick="toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#212121] text-white font-600 text-[12px] uppercase tracking-wider sharp text-center block leading-[44px]">📅 My Bookings</a></div></div>
+
+  <!-- ===== MOBILE NAV ===== -->
+  <div id="mobileNav" class="lg:hidden">
+    <div class="p-4 space-y-1">
+      <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+      <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
+      <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
+      <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+
+      <div class="pt-3 space-y-3">
+        <div id="mGuestNav">
+          <button onclick="window.location.href='/?login'; toggleMobileMenu()" class="guest-btn">Login</button>
+          <button onclick="window.location.href='/?register'; toggleMobileMenu()" class="guest-btn guest-btn-primary">Register</button>
+        </div>
+        <div id="mGuestProfileNav" class="hidden space-y-2">
+          <div class="profile-card">
+            <div id="mGuestAvatar" class="avatar">G</div>
+            <div class="info">
+              <div id="mGuestNameNav" class="name">Guest</div>
+              <div class="sub">Verified guest</div>
+            </div>
+            <button onclick="logoutGuest()" class="logout-btn">Logout</button>
+          </div>
+          <a href="/mybookings.html" onclick="toggleMobileMenu()" class="my-bookings-btn">📅 My Bookings</a>
+        </div>
+      </div>
     </div>
   </div>
 </header>
@@ -75,59 +286,15 @@
 <main class="max-w-[1000px] mx-auto px-5 md:px-8 py-10">
   <div class="flex items-center justify-between mb-6">
     <h2 class="text-3xl font-bold">My Bookings</h2>
-    <a href="/" class="px-4 py-2 rounded-full border bg-white text-sm hover:bg-zinc-50 transition">← Back to Home</a>
+    <div class="flex gap-3">
+      <button onclick="renderMyBookings()" class="px-4 py-2 rounded-full border bg-white text-sm hover:bg-zinc-50 transition">🔄 Refresh</button>
+      <a href="/" class="px-4 py-2 rounded-full border bg-white text-sm hover:bg-zinc-50 transition">← Back</a>
+    </div>
   </div>
   
   <div id="guestInfoCard" class="card p-5 mt-2"></div>
   <div id="myBookingsList" class="mt-6 grid gap-4"></div>
 </main>
-
-<!-- ===== GUEST AUTH MODAL ===== -->
-<div id="guestAuthModal" class="fixed inset-0 z-[60] hidden bg-black/60 p-3 md:p-5 overflow-y-auto">
-  <div class="max-w-[420px] mx-auto card p-6 md:p-8 mt-10">
-    <div class="flex justify-between items-center"><h3 id="guestAuthTitle" class="text-2xl font-bold">Guest Login</h3><button onclick="closeGuestAuth()" class="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center">✕</button></div>
-    <div id="guestAuthMessage" class="hidden mt-4 p-3 rounded-xl text-xs"></div>
-    <div class="mt-4 flex gap-2 p-1 bg-zinc-100 rounded-full"><button onclick="switchGuestAuth('login')" id="guestTabLogin" class="flex-1 py-2 rounded-full bg-[var(--primary)] text-white text-sm font-semibold">Login</button><button onclick="switchGuestAuth('register')" id="guestTabRegister" class="flex-1 py-2 rounded-full bg-white text-sm">Register</button></div>
-    
-    <div id="guestLoginForm" class="mt-6 space-y-4">
-      <div><label class="text-xs font-semibold">Email *</label><input id="loginEmail" type="email" placeholder="you@email.com" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
-      <div><label class="text-xs font-semibold">Password *</label><input id="loginPassword" type="password" placeholder="••••••••" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
-      <div class="text-right">
-        <button onclick="openForgotPassword('guest')" class="text-[11px] text-[#3FD0D4] hover:underline">Forgot Password?</button>
-      </div>
-      <button onclick="loginGuest()" class="btn-primary w-full py-2.5">Login</button>
-    </div>
-    
-    <div id="guestRegisterForm" class="hidden mt-6 space-y-4">
-      <div><label class="text-xs font-semibold">Full Name *</label><input id="regName" placeholder="Your full name" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
-      <div><label class="text-xs font-semibold">Email *</label><input id="regEmail" type="email" placeholder="you@email.com" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
-      <div><label class="text-xs font-semibold">WhatsApp *</label><input id="regPhone" placeholder="6012-3456789" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
-      <div><label class="text-xs font-semibold">Password *</label><input id="regPassword" type="password" placeholder="Min 6 chars" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
-      <button onclick="registerGuest()" class="btn-primary w-full py-2.5">Create Account</button>
-      <p class="text-[11px] text-center text-zinc-500">By registering, your bookings will be tracked</p>
-    </div>
-  </div>
-</div>
-
-<!-- ===== FORGOT PASSWORD MODAL ===== -->
-<div id="forgotPasswordModal" class="fixed inset-0 z-[70] hidden bg-black/60 p-3 md:p-5 overflow-y-auto">
-  <div class="max-w-[420px] mx-auto card p-6 md:p-8 mt-10">
-    <div class="flex justify-between items-center">
-      <h3 class="text-2xl font-bold">Reset Password</h3>
-      <button onclick="closeForgotPassword()" class="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center">✕</button>
-    </div>
-    <p class="text-xs text-zinc-500 mt-2">Enter your email and we'll send you a reset link.</p>
-    <div class="mt-4">
-      <label class="text-xs font-semibold">Email *</label>
-      <input id="fpEmail" type="email" placeholder="you@email.com" class="w-full mt-1 border rounded-full px-4 py-2.5" />
-    </div>
-    <div id="fpStatus" class="hidden mt-3 p-2 rounded-lg text-xs"></div>
-    <div class="mt-4 flex gap-3">
-      <button onclick="closeForgotPassword()" class="flex-1 border rounded-full py-2.5 bg-white">Cancel</button>
-      <button onclick="requestPasswordReset()" class="flex-1 btn-primary py-2.5">Send Reset Link</button>
-    </div>
-  </div>
-</div>
 
 <!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
@@ -171,6 +338,17 @@ function generateSalt() {
 // CONFIG
 // =============================================================
 const API_BASE = "/api";
+const CONFIG = {
+  platformFeePercent: 11,
+  toyyibpay: {
+    sandbox: true,
+    apiKey: "YOUR_TOYYIBPAY_KEY",
+    collectionId: "YOUR_COLLECTION_ID",
+    xSignature: "YOUR_X_SIGNATURE",
+    gatewayFee: 1,
+    splitEnabled: true,
+  }
+};
 const DEMO_HOMESTAYS = [
   { id: 1, name: "A-Frame Cabin with Kinabalu View", location: "Bundu Tuhan", ownerPrice: 300, rating: 4.9, reviews: 127, guests: 4, bedrooms: 2, image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800", images: [], approved: true, verified: true, ownerName: "Ali", ownerBank: "CIMB", ownerBankAccount: "8600-123456", whatsapp: "60123456789", description: "View Gunung Kinabalu terus dari bilik.", blockedDates: [] },
   { id: 2, name: "Desa Cattle Farm View Homestay", location: "Desa", ownerPrice: 250, rating: 4.8, reviews: 89, guests: 6, bedrooms: 3, image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800", images: [], approved: true, verified: true, ownerName: "Maria", ownerBank: "Maybank", ownerBankAccount: "1140-987654", whatsapp: "60123456789", description: "5 min to Desa Cattle Farm, ada dapur.", blockedDates: [] }
@@ -228,174 +406,6 @@ function logoutGuest() {
   window.location.href = '/';
 }
 
-function openGuestAuth(mode) {
-  const modal = document.getElementById("guestAuthModal");
-  if (modal) modal.classList.remove("hidden");
-  switchGuestAuth(mode);
-}
-function closeGuestAuth() {
-  const modal = document.getElementById("guestAuthModal");
-  if (modal) modal.classList.add("hidden");
-  const msgEl = document.getElementById("guestAuthMessage");
-  if (msgEl) { msgEl.classList.add("hidden"); msgEl.innerHTML = ""; msgEl.className = "hidden mt-4 p-3 rounded-xl text-xs"; }
-}
-function switchGuestAuth(mode) {
-  const msgEl2 = document.getElementById("guestAuthMessage");
-  if (msgEl2) { msgEl2.classList.add("hidden"); msgEl2.innerHTML = ""; msgEl2.className = "hidden mt-4 p-3 rounded-xl text-xs"; }
-  const loginForm = document.getElementById("guestLoginForm");
-  const regForm = document.getElementById("guestRegisterForm");
-  const tabLogin = document.getElementById("guestTabLogin");
-  const tabReg = document.getElementById("guestTabRegister");
-  const title = document.getElementById("guestAuthTitle");
-  if (!loginForm || !regForm) return;
-  if (mode === 'login') {
-    loginForm.classList.remove("hidden");
-    regForm.classList.add("hidden");
-    if (tabLogin) tabLogin.className = "flex-1 py-2 rounded-full bg-[var(--primary)] text-white text-sm font-semibold";
-    if (tabReg) tabReg.className = "flex-1 py-2 rounded-full bg-white text-sm";
-    if (title) title.innerText = "Guest Login";
-  } else {
-    loginForm.classList.add("hidden");
-    regForm.classList.remove("hidden");
-    if (tabLogin) tabLogin.className = "flex-1 py-2 rounded-full bg-white text-sm";
-    if (tabReg) tabReg.className = "flex-1 py-2 rounded-full bg-[var(--primary)] text-white text-sm font-semibold";
-    if (title) title.innerText = "Guest Register";
-  }
-}
-
-async function registerGuest() {
-  const name = document.getElementById("regName").value.trim();
-  const email = document.getElementById("regEmail").value.trim().toLowerCase();
-  const phone = document.getElementById("regPhone").value.trim();
-  const password = document.getElementById("regPassword").value;
-  if (!name || !email || !phone || !password) { alert("Please fill all fields"); return; }
-  if (password.length < 6) { alert("Password must be at least 6 characters"); return; }
-  try {
-    const res = await fetch(API_BASE + "/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, phone, password })
-    });
-    const data = await res.json();
-    if (data.success) {
-      currentGuest = data.guest;
-      localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
-      renderGuestNav();
-      alert("Account created and logged in as " + data.guest.name);
-      closeGuestAuth();
-      renderMyBookings();
-    } else {
-      alert(data.error || "Registration failed");
-    }
-  } catch(e) { alert("Network error: " + e.message); }
-}
-
-async function loginGuest() {
-  const email = document.getElementById("loginEmail").value.trim().toLowerCase();
-  const password = document.getElementById("loginPassword").value;
-  if (!email || !password) { alert("Fill email & password"); return; }
-  try {
-    const res = await fetch(API_BASE + "/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await res.json();
-    if (data.success) {
-      currentGuest = data.guest;
-      localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
-      renderGuestNav();
-      alert("Welcome back " + data.guest.name);
-      closeGuestAuth();
-      renderMyBookings();
-    } else {
-      alert(data.error || "Login failed");
-    }
-  } catch(e) { alert("Network error: " + e.message); }
-}
-
-// =============================================================
-// FORGOT PASSWORD
-// =============================================================
-let forgotPasswordType = 'guest';
-function openForgotPassword(type) {
-  forgotPasswordType = type || 'guest';
-  closeGuestAuth();
-  const modal = document.getElementById('forgotPasswordModal');
-  if (modal) modal.classList.remove('hidden');
-  document.getElementById('fpStatus').classList.add('hidden');
-  document.getElementById('fpEmail').value = '';
-}
-function closeForgotPassword() {
-  const modal = document.getElementById('forgotPasswordModal');
-  if (modal) modal.classList.add('hidden');
-  document.getElementById('fpEmail').value = '';
-  document.getElementById('fpStatus').classList.add('hidden');
-}
-async function requestPasswordReset() {
-  const email = document.getElementById('fpEmail').value.trim().toLowerCase();
-  const statusEl = document.getElementById('fpStatus');
-  if (!email) {
-    statusEl.textContent = 'Please enter your email.';
-    statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200';
-    statusEl.classList.remove('hidden'); return;
-  }
-  statusEl.textContent = 'Sending reset link...';
-  statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-blue-50 text-blue-700 border border-blue-200';
-  statusEl.classList.remove('hidden');
-  try {
-    const res = await fetch(API_BASE + '/forgot-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, userType: forgotPasswordType })
-    });
-    const data = await res.json();
-    if (data.success) {
-      statusEl.textContent = data.message || 'If an account exists, a reset link has been sent.';
-      statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-green-50 text-green-700 border border-green-200';
-    } else {
-      statusEl.textContent = data.error || 'Request failed. Please try again.';
-      statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200';
-    }
-    statusEl.classList.remove('hidden');
-  } catch(e) {
-    statusEl.textContent = 'Network error: ' + e.message;
-    statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200';
-    statusEl.classList.remove('hidden');
-  }
-}
-
-// =============================================================
-// HELPER FUNCTIONS
-// =============================================================
-function isoToDate(str) { return new Date(str + 'T00:00:00'); }
-function dateToIso(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth()+1).padStart(2,'0');
-  const d = String(date.getDate()).padStart(2,'0');
-  return `${y}-${m}-${d}`;
-}
-function getDatesInRange(checkin, checkout) {
-  if (!checkin || !checkout) return [];
-  const dates = [];
-  const start = isoToDate(checkin);
-  const end = isoToDate(checkout);
-  if (isNaN(start) || isNaN(end) || start >= end) return [];
-  const cur = new Date(start);
-  while (cur < end) {
-    dates.push(dateToIso(cur));
-    cur.setDate(cur.getDate() + 1);
-  }
-  return dates;
-}
-function calculateNights(checkin, checkout) {
-  if (!checkin || !checkout) return 1;
-  const d1 = new Date(checkin);
-  const d2 = new Date(checkout);
-  const diff = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
-  return diff > 0 ? diff : 1;
-}
-
 // =============================================================
 // FETCH CLOUD DATA
 // =============================================================
@@ -407,6 +417,27 @@ async function fetchCloudData() {
     console.log("Cloud sync:", data.bookings?.length || 0, "bookings");
     if (data.bookings) { bookings = data.bookings; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
     if (data.availability) { availabilityMap = data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
+    if (data.approved) {
+      let storedApproved = data.approved;
+      let deletedDemoIds = JSON.parse(localStorage.getItem("kd_deleted_demo") || "[]");
+      let demoOverrides = JSON.parse(localStorage.getItem("kd_demo_overrides") || "{}");
+      let demoBlockedMap = JSON.parse(localStorage.getItem("kd_demo_blocked") || "{}");
+      let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id))).map(d => {
+        let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
+        if (demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
+        return merged;
+      });
+      allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
+      allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = []; return h; });
+      homestays = [...allHomestays];
+    }
+    if (data.bannedGuests && currentGuest && data.bannedGuests.includes(currentGuest.email?.toLowerCase())) {
+      currentGuest = null;
+      localStorage.removeItem('kd_guest');
+      renderGuestNav();
+      alert("Your account has been banned. Please contact support.");
+      window.location.href = '/';
+    }
     return true;
   } catch(e) { console.warn("Cloud sync fail", e); return false; }
 }
@@ -419,7 +450,7 @@ function renderMyBookings() {
   const listDiv = document.getElementById("myBookingsList");
   if (!infoCard || !listDiv) return;
   if (!currentGuest) {
-    infoCard.innerHTML = safeHTML("<div class='text-sm'>Please <button onclick=\"openGuestAuth('login')\" class='underline font-semibold'>login</button> to see your bookings.</div>");
+    infoCard.innerHTML = safeHTML("<div class='text-sm'>Please <a href='/?login' class='underline font-semibold'>login</a> to see your bookings.</div>");
     listDiv.innerHTML = "";
     return;
   }
@@ -430,7 +461,114 @@ function renderMyBookings() {
     listDiv.innerHTML = safeHTML("<div class='card p-8 text-center text-zinc-500'>No bookings yet. <br><a href='/' class='mt-3 btn-primary inline-block'>Browse Homestays</a></div>");
     return;
   }
-  listDiv.innerHTML = safeHTML(myBookings.map(b => "<div class='card p-5'><div class='flex justify-between'><div class='font-bold'>" + b.homestay + "</div><span class='text-[11px] px-2 py-1 rounded-full bg-green-100 text-green-800'>" + (b.status||'Paid') + "</span></div><div class='text-xs text-zinc-500 mt-1'>ID " + b.id + " • " + (b.nights||0) + " nights • " + b.checkin + " → " + b.checkout + "</div><div class='mt-3 flex justify-between text-sm'><span>Total Paid</span><span class='font-bold'>RM" + b.total + "</span></div><div class='text-xs mt-1'>RM" + b.base + " With Service Fee RM" + b.fee + "</div><div class='mt-3 flex gap-2'><button onclick=\"chatWithOwnerFromBooking('" + b.id + "')\" class='text-xs px-3 py-1.5 rounded-full bg-[#25D366] text-white'>Chat Owner</button><button onclick=\"alert('Booking: " + b.id + "')\" class='text-xs px-3 py-1.5 rounded-full border bg-white'>Details</button></div></div>").join(""));
+
+  listDiv.innerHTML = safeHTML(myBookings.map(b => {
+    const status = b.status || 'Unknown';
+    const isPending = status.toLowerCase().includes('pending');
+    const isPaid = status.toLowerCase().includes('paid') || status.toLowerCase().includes('awaiting');
+    const isCompleted = status.toLowerCase().includes('completed') || status.toLowerCase().includes('payout');
+    let statusBadgeClass = 'bg-gray-100 text-gray-800';
+    if (isPending) statusBadgeClass = 'bg-red-100 text-red-800';
+    else if (isPaid) statusBadgeClass = 'bg-yellow-100 text-yellow-800';
+    else if (isCompleted) statusBadgeClass = 'bg-green-100 text-green-800';
+
+    let retryButton = '';
+    if (isPending) {
+      retryButton = `
+        <div class="mt-3 pt-3 border-t border-black/10">
+          <p class="text-xs text-red-600 mb-2">⚠️ Payment not completed. Click below to retry.</p>
+          <button onclick="retryPayment('${b.id}')" class="px-4 py-2 bg-[#3FD0D4] text-white text-xs font-bold rounded-full hover:bg-[#2bbfc4] transition">🔄 Retry Payment</button>
+        </div>
+      `;
+    }
+
+    return `
+      <div class='card p-5'>
+        <div class='flex justify-between items-start flex-wrap gap-2'>
+          <div class='font-bold'>${b.homestay}</div>
+          <span class='text-[11px] px-2 py-1 rounded-full ${statusBadgeClass}'>${status}</span>
+        </div>
+        <div class='text-xs text-zinc-500 mt-1'>ID ${b.id} • ${b.nights||0} nights • ${b.checkin} → ${b.checkout}</div>
+        <div class='mt-3 flex justify-between text-sm'>
+          <span>Total Paid</span>
+          <span class='font-bold'>RM${b.total}</span>
+        </div>
+        <div class='text-xs mt-1'>RM${b.base} + Service Fee RM${b.fee}</div>
+        <div class='mt-3 flex flex-wrap gap-2'>
+          <button onclick="chatWithOwnerFromBooking('${b.id}')" class='text-xs px-3 py-1.5 rounded-full bg-[#25D366] text-white'>💬 Chat Owner</button>
+          <button onclick="alert('Booking: ${b.id}')" class='text-xs px-3 py-1.5 rounded-full border bg-white'>📋 Details</button>
+        </div>
+        ${retryButton}
+      </div>
+    `;
+  }).join(""));
+}
+
+// =============================================================
+// RETRY PAYMENT
+// =============================================================
+async function retryPayment(bookingId) {
+  if (!currentGuest) {
+    alert("Please login first.");
+    window.location.href = '/?login';
+    return;
+  }
+  const booking = bookings.find(b => String(b.id) === String(bookingId));
+  if (!booking) { alert("Booking not found."); return; }
+  if (!booking.status || !booking.status.toLowerCase().includes('pending')) {
+    alert("This booking is not pending payment. Status: " + booking.status);
+    return;
+  }
+
+  // Verify ownership
+  if (booking.guestEmail && booking.guestEmail.toLowerCase() !== currentGuest.email.toLowerCase() &&
+      booking.guestId && booking.guestId !== currentGuest.id) {
+    alert("You are not authorized to retry payment for this booking.");
+    return;
+  }
+
+  // Double-check availability (optional but good)
+  // We'll just proceed and let the backend handle it.
+
+  // Confirm with user
+  if (!confirm(`Retry payment for ${booking.homestay}?\n\nTotal: RM${booking.total}\nCheck-in: ${booking.checkin}\nCheck-out: ${booking.checkout}\n\nYou will be redirected to the payment page.`)) return;
+
+  try {
+    // Call the same ToyyibPay creation endpoint
+    const res = await fetch(API_BASE + "/toyyibpay-create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bookingId: booking.id,
+        homestayId: booking.homestayId,
+        checkin: booking.checkin,
+        checkout: booking.checkout,
+        guestEmail: currentGuest.email,
+        guestName: currentGuest.name,
+        guestPhone: currentGuest.phone,
+        total: booking.total,
+        base: booking.base,
+        fee: booking.fee
+      })
+    });
+    const data = await res.json();
+    if (data.url) {
+      // Update booking status to "Pending Payment - Retry" (optional)
+      // For simplicity, we just redirect
+      window.location.href = data.url;
+    } else if (data.simulation) {
+      // Fallback simulation - mark as paid locally
+      alert("Payment simulation: Booking would be marked as paid. (Live payment not configured)");
+      booking.status = "Paid - Awaiting Check-in";
+      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+      await fetchCloudData(); // re-sync
+      renderMyBookings();
+    } else {
+      alert("Failed to create payment: " + (data.error || "Unknown error"));
+    }
+  } catch(e) {
+    alert("Network error: " + e.message);
+  }
 }
 
 // =============================================================
@@ -460,6 +598,7 @@ function openWhatsAppLink(waNumber, message) {
     }
   }
 }
+
 function chatWithOwnerFromBooking(bookingId) {
   const booking = bookings.find(b => b.id === bookingId);
   if (!booking) { alert('Booking not found'); return; }
@@ -467,23 +606,28 @@ function chatWithOwnerFromBooking(bookingId) {
   let num = String(raw).replace(/[^0-9]/g, '');
   if (num.startsWith('0')) num = '60' + num.substring(1);
   if (!num) { alert('Owner WhatsApp not available'); return; }
-  const message = "Hi, I have made a booking for " + booking.homestay + "\n\nBooking ID: " + booking.id + "\nCheck-in: " + booking.checkin + "\nCheck-out: " + booking.checkout + "\nNights: " + booking.nights + "\n\nGuest: " + (booking.guestName || '-') + "\n\nPlease confirm my booking. Thank you!";
+  const message = "Hi, I have a booking for " + booking.homestay + "\n\nBooking ID: " + booking.id + "\nCheck-in: " + booking.checkin + "\nCheck-out: " + booking.checkout + "\nNights: " + booking.nights + "\n\nGuest: " + (booking.guestName || '-') + "\n\nPlease confirm my booking. Thank you!";
   openWhatsAppLink(num, message);
 }
 
 // =============================================================
-// MOBILE MENU
+// MOBILE MENU TOGGLE
 // =============================================================
 function toggleMobileMenu() {
   const nav = document.getElementById('mobileNav');
-  if (nav) nav.classList.toggle('hidden');
+  if (nav) {
+    nav.classList.toggle('open');
+  }
 }
 document.addEventListener('click', function(e) {
   const nav = document.getElementById('mobileNav');
   const btn = document.getElementById('mobileMenuBtn');
-  if (!nav || nav.classList.contains('hidden')) return;
-  if (nav.contains(e.target) || (btn && btn.contains(e.target))) return;
-  nav.classList.add('hidden');
+  if (!nav || !btn) return;
+  if (nav.classList.contains('open') && 
+      !nav.contains(e.target) && 
+      !btn.contains(e.target)) {
+    nav.classList.remove('open');
+  }
 });
 
 // =============================================================
@@ -495,7 +639,7 @@ document.addEventListener('click', function(e) {
   renderMyBookings();
 })();
 
-console.log("✅ My Bookings page loaded.");
+console.log("✅ My Bookings page loaded with retry payment.");
 </script>
 </body>
 </html>
