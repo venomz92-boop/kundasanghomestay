@@ -1017,6 +1017,7 @@ async function processPayment() {
   const price = calculatePrice(selectedHomestay.ownerPrice, nights);
   const bookingId = "KDH-" + Date.now().toString().slice(-6);
 
+  // ====== FIXED: Add ownerWhatsapp to booking ======
   const booking = {
     id: bookingId,
     homestay: selectedHomestay.name,
@@ -1025,6 +1026,7 @@ async function processPayment() {
     ownerBank: selectedHomestay.ownerBankAccount,
     ownerBankCode: selectedHomestay.bankCode || "MBBEMYKL",
     ownerAcc: selectedHomestay.ownerBankAccount || "",
+    ownerWhatsapp: selectedHomestay.whatsapp || "",
     nights,
     base: price.base,
     fee: price.fee,
@@ -1121,12 +1123,26 @@ function processBillplzPayment() { processPayment(); }
 // =============================================================
 // SHOW PAYMENT RECEIPT (Enhanced version with transaction details)
 // =============================================================
+// ====== GLOBAL VARIABLES FOR WHATSAPP ======
+let lastBookingWhatsapp = "";
+
 function showPaymentReceipt(bookingId, nights, checkin, checkout, total, billcode, transactionId) {
   // Set the values
   document.getElementById("successBookingId").textContent = bookingId;
   document.getElementById("successNights").textContent = nights + " nights";
   document.getElementById("successDates").textContent = checkin + " → " + checkout;
   document.getElementById("successTotal").textContent = "RM" + total.toFixed(2);
+  
+  // ====== STORE WHATSAPP FROM BOOKING ======
+  const b = bookings.find(x => String(x.id) === String(bookingId));
+  if (b && b.ownerWhatsapp) {
+    lastBookingWhatsapp = b.ownerWhatsapp;
+  } else if (selectedHomestay && selectedHomestay.whatsapp) {
+    lastBookingWhatsapp = selectedHomestay.whatsapp;
+  } else {
+    lastBookingWhatsapp = "";
+  }
+  // =====================================
   
   // Add transaction details if available
   const receiptDetails = document.getElementById("receiptDetails");
@@ -1240,17 +1256,23 @@ let lastBookingCo = "";
 let lastBookingTotal = "";
 
 function showBookingSuccess(bookingId, nights, ci, co, total){
-  // If this is from a redirect with billcode/transactionId, use the enhanced version
   const params = new URLSearchParams(window.location.search);
   const billcode = params.get("billcode");
   const transactionId = params.get("transaction_id");
+  
+  // ====== STORE WHATSAPP FROM BOOKING (for simulation mode) ======
+  const b = bookings.find(x => String(x.id) === String(bookingId));
+  if (b && b.ownerWhatsapp) {
+    lastBookingWhatsapp = b.ownerWhatsapp;
+  } else if (selectedHomestay && selectedHomestay.whatsapp) {
+    lastBookingWhatsapp = selectedHomestay.whatsapp;
+  }
   
   if (billcode || transactionId) {
     showPaymentReceipt(bookingId, nights, ci, co, total, billcode, transactionId);
     return;
   }
   
-  // Fallback to original success modal for simulation mode
   lastBookingId = bookingId;
   lastBookingNights = nights;
   lastBookingCi = ci;
@@ -1267,9 +1289,29 @@ function closeBookingSuccess(){
   document.getElementById("bookingSuccessModal").style.display="none";
   closeBooking(); closeDetail(); renderGrid();
 }
+
+// ====== UPDATED whatsappWithBookingId() with WhatsApp from booking ======
 function whatsappWithBookingId(){
-  const waNumber = getOwnerWhatsAppNumber();
-  if(!waNumber){ alert('WhatsApp not found - owner must add WhatsApp at listing.'); return; }
+  // ====== USE WHATSAPP FROM BOOKING ======
+  let waNumber = lastBookingWhatsapp || "";
+  
+  // Fallback: try to get from selectedHomestay (simulation mode)
+  if (!waNumber && selectedHomestay) {
+    waNumber = selectedHomestay.whatsapp || "";
+  }
+  
+  // Clean the number
+  if (waNumber) {
+    waNumber = String(waNumber).replace(/[^0-9]/g, '');
+    if (waNumber.startsWith('0')) waNumber = '60' + waNumber.substring(1);
+  }
+  
+  if (!waNumber) {
+    alert('WhatsApp not found - owner must add WhatsApp at listing.');
+    return;
+  }
+  // ====================================
+  
   const homestayName = (typeof selectedHomestay !== 'undefined' && selectedHomestay) ? selectedHomestay.name : 'Homestay';
   const ownerName = (typeof selectedHomestay !== 'undefined' && selectedHomestay && selectedHomestay.ownerName) ? selectedHomestay.ownerName : 'Owner';
   
@@ -1293,6 +1335,7 @@ function whatsappWithBookingId(){
     (billcode ? "\nBill Code: " + billcode : "") + 
     (transactionId ? "\nTransaction ID: " + transactionId : "") + 
     "\n\nPlease confirm my check-in. Thanks!";
+  
   openWhatsAppLink(waNumber, message);
 }
 
