@@ -1493,14 +1493,15 @@ function resetDemoEdits() { /* Admin function - only used in admin panel */ }
   
   // ====== FETCH PAYMENT MODE FROM SERVER ======
   try {
-    const res = await fetch(API_BASE + "/payment-mode");
-    const data = await res.json();
-    CONFIG.toyyibpay.enabled = data.enabled;
-    console.log("💳 Payment mode:", data.message);
-  } catch(e) {
-    console.warn("⚠️ Failed to fetch payment mode, defaulting to simulation");
-    CONFIG.toyyibpay.enabled = false;
-  }
+  // Add a random timestamp to prevent caching
+  const res = await fetch(API_BASE + "/payment-mode?t=" + Date.now());
+  const data = await res.json();
+  CONFIG.toyyibpay.enabled = data.enabled;
+  console.log("💳 Payment mode:", data.message);
+} catch(e) {
+  console.warn("⚠️ Failed to fetch payment mode, defaulting to simulation");
+  CONFIG.toyyibpay.enabled = false;
+}
   // ============================================
   
   // ====== HANDLE TOYYIBPAY REDIRECT ======
