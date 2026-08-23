@@ -1,30 +1,31 @@
-// /api/payment-mode.js - AUTO-TOGGLE (env + fallback)
+// /api/payment-mode.js - DIAGNOSTIC (shows raw env)
 
 export async function onRequestGet({ env }) {
-  // ============================================================
-  // If the environment variable is NOT set or is undefined,
-  // this default value will be used.
-  // Set this to 'false' for simulation, 'true' for live.
-  // Once the env var works, this fallback is ignored.
-  // ============================================================
-  const FALLBACK_MODE = 'false'; // <-- Change this to 'true' if you want live by default
-  // ============================================================
-  
-  // Read the environment variable – if missing, use the fallback
+  // Get the raw value from the environment
   const rawValue = env.TOYYIBPAY_PAYOUT_ENABLED;
-  const payoutEnabled = (rawValue !== undefined && rawValue !== null) ? rawValue : FALLBACK_MODE;
-  const isLive = payoutEnabled.toLowerCase() === 'true';
-  const hasSecret = !!env.TOYYIBPAY_SECRET_KEY;
-  const enabled = isLive && hasSecret;
+  const secretKey = env.TOYYIBPAY_SECRET_KEY ? 'present' : 'missing';
+  
+  // Determine if it's true/false/undefined
+  const isTrue = rawValue === 'true';
+  const isFalse = rawValue === 'false';
+  const isUndefined = rawValue === undefined || rawValue === null;
+  
+  // Compute live status (only if both are true)
+  const isLive = isTrue && !!env.TOYYIBPAY_SECRET_KEY;
   
   return new Response(JSON.stringify({
-    enabled: enabled,
-    isLive: isLive,
-    hasSecret: hasSecret,
-    message: enabled ? "LIVE - Payments go to ToyyibPay" : "SIMULATION - No real money",
-    // Include the raw value for debugging
-    envValue: rawValue,
-    usedFallback: rawValue === undefined || rawValue === null,
+    // Raw value from Cloudflare
+    rawValue: rawValue,
+    isTrue,
+    isFalse,
+    isUndefined,
+    secretKey,
+    isLive,
+    // This is what the frontend will use
+    enabled: isLive,
+    message: isLive ? "LIVE - Payments go to ToyyibPay" : "SIMULATION - No real money",
+    // Extra debug
+    allKeys: Object.keys(env),
   }), {
     status: 200,
     headers: {
