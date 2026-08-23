@@ -22,6 +22,10 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 .calendar-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:2px;font-size:10px;font-weight:600;border:1px solid #e5e7eb;}
 .calendar-day.available{background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
 .calendar-day.booked{background:#fef2f2;border-color:#fecaca;color:#991b1b;}
+.verification-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:600;}
+.verification-badge.pass{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
+.verification-badge.fail{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
+.verification-badge.warn{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
 </style>
 </head>
 <body>
@@ -76,7 +80,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
         Callback: /api/toyyibpay-webhook
       </div>
       <div id="liveBankInfo" class="mt-3 p-3 bg-zinc-50 border sharp text-xs">Loading locked bank...</div>
-      <div class="flex gap-2 mt-4"><button onclick="restoreDemos()" class="text-xs border sharp px-3 py-1">Restore Demos</button><button onclick="resetDemoEdits()" class="text-xs border sharp px-3 py-1">Reset Edits</button><button onclick="if(confirm('Clear all bookings?')){localStorage.removeItem('kd_bookings'); bookings=[]; renderAdmin();}" class="text-xs border sharp px-3 py-1 bg-red-50">Clear Bookings (fix duplicates)</button><button onclick="clearAllBookingsCloud()" class="text-xs border sharp px-3 py-1 bg-red-600 text-white">PURGE CLOUD D1 (Fix F5 bug)</button></div>
+      <div class="flex gap-2 mt-4 flex-wrap"><button onclick="restoreDemos()" class="text-xs border sharp px-3 py-1">Restore Demos</button><button onclick="resetDemoEdits()" class="text-xs border sharp px-3 py-1">Reset Edits</button><button onclick="if(confirm('Clear all bookings?')){localStorage.removeItem('kd_bookings'); bookings=[]; renderAdmin();}" class="text-xs border sharp px-3 py-1 bg-red-50">Clear Bookings (fix duplicates)</button><button onclick="clearAllBookingsCloud()" class="text-xs border sharp px-3 py-1 bg-red-600 text-white">PURGE CLOUD D1 (Fix F5 bug)</button></div>
     </div>
   </div>
 </div>
@@ -151,10 +155,6 @@ function toMYDateTime(dateInput){
     return d.toLocaleString('en-MY', {timeZone: MY_TZ, year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', hour12:true}) + " MYT";
   }catch(e){ return dateInput; }
 }
-function nowMYISOString(){ return new Date().toISOString(); }
-function nowMYLocale(){
-  return new Date().toLocaleString('en-MY', {timeZone: MY_TZ, year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true}) + " MYT";
-}
 
 const CONFIG = {
   adminPasswordHash: "b9276e0bc88047b500d985a7bf9f7bf543cd428b9ca1906128cdf9797bb83d33",
@@ -226,7 +226,6 @@ async function fetchCloudData(){
     const data=await res.json();
     console.log("✅ Cloud data received:", Object.keys(data));
     
-    // --- SYNC BOOKINGS ---
     if(data.bookings && Array.isArray(data.bookings)){
       const map=new Map();
       data.bookings.forEach(b=>{ if(b && b.id) map.set(String(b.id), b); });
@@ -237,42 +236,35 @@ async function fetchCloudData(){
       localStorage.setItem("kd_bookings", JSON.stringify(bookings));
     }
     
-    // --- SYNC AVAILABILITY ---
     if(data.availability){
       availabilityMap=data.availability;
       localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
     }
     
-    // --- SYNC APPROVED ---
     if(data.approved !== undefined){
       storedApproved=data.approved;
       localStorage.setItem("kd_approved", JSON.stringify(storedApproved));
     }
     
-    // --- SYNC DEMO OVERRIDES ---
     if(data.demoOverrides !== undefined){
       demoOverrides=data.demoOverrides;
       localStorage.setItem("kd_demo_overrides", JSON.stringify(demoOverrides));
     }
     
-    // --- SYNC DEMO BLOCKED ---
     if(data.demoBlocked !== undefined){
       demoBlockedMap=data.demoBlocked;
       localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap));
     }
     
-    // --- SYNC DELETED DEMO ---
     if(data.deletedDemo !== undefined){
       deletedDemoIds=data.deletedDemo;
       localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds));
     }
     
-    // --- SYNC BANNED ---
     if(data.bannedGuests && Array.isArray(data.bannedGuests)){
       localStorage.setItem("kd_banned_guests", JSON.stringify(data.bannedGuests));
     }
     
-    // --- SYNC PENDING ---
     if(data.pending && Array.isArray(data.pending)){
       if(data.pending.length > 0){
         const map=new Map();
@@ -282,7 +274,6 @@ async function fetchCloudData(){
       }
     }
     
-    // --- SYNC GUESTS ---
     if(data.guests && Array.isArray(data.guests)){
       const localGuests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
       if(data.guests.length < localGuests.length){
@@ -297,7 +288,6 @@ async function fetchCloudData(){
       }
     }
     
-    // --- REBUILD HOMESTAYS ---
     try{
       let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id))).map(d => {
         let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
@@ -426,7 +416,7 @@ function logoutAdmin() {
   location.reload();
 }
 
-// ========== RENDER FUNCTIONS (All use safeHTML) ==========
+// ========== RENDER FUNCTIONS ==========
 function showAdminTab(tab){
   ["adminPending","adminApproved","adminBookings","adminAvailability","adminGuests","adminSettings"].forEach(id=> document.getElementById(id).classList.add("hidden"));
   ["tabPending","tabApproved","tabBookings","tabAvailability","tabGuests","tabSettings"].forEach(id=>{ const el=document.getElementById(id); if(el) el.className="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600"; });
@@ -452,8 +442,62 @@ function renderAdmin(){
     pendingHomestays.forEach(h => {
       const icName=(h.icName||'').toLowerCase().trim();
       const bankHolder=(h.bankHolder||'').toLowerCase().trim();
-      const match=(icName && bankHolder && (icName.includes(bankHolder.split(' ')[0]) || bankHolder.includes(icName.split(' ')[0]))) ? '✓ Match' : '⚠️ Check';
-      html += '<div class="card p-5"><div class="flex gap-4"><img src="'+(h.image||'')+'" class="w-24 h-24 sharp object-cover"/><div class="flex-1"><div class="font-bold">'+(h.name||'Unnamed')+' — '+(h.location||'')+' <span class="text-[10px] bg-zinc-100 px-2 py-0.5 sharp">'+match+'</span></div><div class="text-xs">Owner '+(h.ownerName||'')+' • '+(h.whatsapp||'')+'</div><div class="text-[11px] mt-1 text-zinc-500">'+(h.description||'')+'</div><div class="mt-2 p-2 bg-yellow-50 border sharp text-[11px]">Bank: '+(h.ownerBank||'')+' • Acc: '+(h.ownerBankAccount||'')+' • Holder: '+(h.bankHolder||'')+'</div></div></div><div class="flex gap-2 mt-3"><button onclick="approveHomestay('+h.id+')" class="px-4 py-1.5 bg-green-600 text-white sharp text-xs">Approve</button><button onclick="rejectHomestay('+h.id+')" class="px-4 py-1.5 bg-red-100 text-red-700 sharp text-xs">Reject</button></div></div>';
+      const match = (icName && bankHolder) ? (icName.includes(bankHolder.split(' ')[0]) || bankHolder.includes(icName.split(' ')[0])) : false;
+      
+      // Verification badges
+      let nameMatchBadge = match ? '<span class="verification-badge pass">✅ Name matches</span>' : '<span class="verification-badge fail">❌ Name mismatch</span>';
+      let icUploaded = h.icImage ? '<span class="verification-badge pass">✅ IC uploaded</span>' : '<span class="verification-badge fail">❌ IC missing</span>';
+      let qrUploaded = h.bankQRImage ? '<span class="verification-badge pass">✅ QR uploaded</span>' : '<span class="verification-badge warn">⚠️ QR missing</span>';
+      
+      html += `
+        <div class="card p-5 mb-4">
+          <div class="flex flex-wrap gap-4">
+            <div class="flex-1 min-w-[250px]">
+              <div class="font-bold text-lg">${h.name || 'Unnamed'} — ${h.location || ''}</div>
+              <div class="text-sm mt-1">Owner: <b>${h.ownerName || ''}</b> • ${h.whatsapp || ''}</div>
+              <div class="text-sm">Email: ${h.ownerEmail || 'Not provided'}</div>
+              <div class="text-xs mt-1 text-zinc-500">${h.description || ''}</div>
+            </div>
+            <div class="text-sm bg-yellow-50 border border-yellow-200 p-3 rounded-xl min-w-[200px]">
+              <div class="font-bold text-xs uppercase text-zinc-500">Bank Details</div>
+              <div>${h.ownerBank || 'N/A'}</div>
+              <div class="font-mono font-bold">${h.ownerBankAccount || 'N/A'}</div>
+              <div class="text-xs">Holder: ${h.bankHolder || 'N/A'}</div>
+            </div>
+          </div>
+          
+          <!-- Verification Badges -->
+          <div class="flex flex-wrap gap-2 mt-3">
+            ${nameMatchBadge}
+            ${icUploaded}
+            ${qrUploaded}
+          </div>
+          
+          <!-- IC Image -->
+          ${h.icImage ? `
+            <div class="mt-3 border rounded-xl p-3 bg-blue-50">
+              <div class="text-xs font-bold uppercase text-zinc-500 mb-2">IC Front (Watermarked)</div>
+              <img src="${h.icImage}" class="max-w-[300px] max-h-[200px] rounded-lg border-2 border-blue-300 object-contain" />
+              <div class="text-[10px] text-zinc-500 mt-1">Uploaded: ${h.icUploadDate ? toMYDate(h.icUploadDate) : 'Unknown'}</div>
+            </div>
+          ` : ''}
+          
+          <!-- Bank QR -->
+          ${h.bankQRImage ? `
+            <div class="mt-3 border rounded-xl p-3 bg-green-50">
+              <div class="text-xs font-bold uppercase text-zinc-500 mb-2">Bank QR / DuitNow</div>
+              <img src="${h.bankQRImage}" class="max-w-[200px] max-h-[200px] rounded-lg border-2 border-green-300 object-contain" />
+            </div>
+          ` : ''}
+          
+          <!-- Action Buttons -->
+          <div class="flex gap-2 mt-4 flex-wrap">
+            <button onclick="approveHomestay(${h.id})" class="px-4 py-1.5 bg-green-600 text-white sharp text-xs font-bold">✅ Approve</button>
+            <button onclick="rejectHomestay(${h.id})" class="px-4 py-1.5 bg-red-100 text-red-700 sharp text-xs font-bold">✕ Reject</button>
+            <button onclick="viewPendingDetails(${h.id})" class="px-4 py-1.5 bg-blue-100 text-blue-700 sharp text-xs">🔍 View Full</button>
+          </div>
+        </div>
+      `;
     });
     pendingDiv.innerHTML = safeHTML(html);
   }
@@ -462,10 +506,17 @@ function renderAdmin(){
   let approvedHtml = '';
   homestays.forEach(h => {
     const blocked=getAllBlockedDatesForHomestay(h);
-    approvedHtml += '<div class="card p-4 flex gap-4 items-center"><img src="'+(h.image||'')+'" class="w-16 h-16 sharp object-cover"/><div class="flex-1"><div class="font-bold text-sm">'+h.name+'</div><div class="text-xs">RM'+h.ownerPrice+' • '+h.location+' • '+blocked.length+' booked</div></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="text-xs border sharp px-3 py-1">Manage</button></div>';
+    approvedHtml += '<div class="card p-4 flex flex-wrap gap-4 items-center"><img src="'+(h.image||'')+'" class="w-16 h-16 sharp object-cover"/><div class="flex-1"><div class="font-bold text-sm">'+h.name+'</div><div class="text-xs">RM'+h.ownerPrice+' • '+h.location+' • '+blocked.length+' booked</div></div><button onclick="openOwnerAvailabilityManager('+h.id+')" class="text-xs border sharp px-3 py-1">Manage</button></div>';
   });
   approvedDiv.innerHTML = safeHTML(approvedHtml);
   renderBookingsTable();
+}
+
+function viewPendingDetails(id) {
+  const h = pendingHomestays.find(p => p.id === id);
+  if (!h) return;
+  const details = JSON.stringify(h, null, 2);
+  alert("Full Pending Details:\n\n" + details);
 }
 
 function renderBookingsTable(){
@@ -571,8 +622,31 @@ async function changeBookingDates(id){ const b=bookings.find(x=> String(x.id)===
 function openOwnerAvailabilityManager(id){ const h=allHomestays.find(x=> String(x.id)===String(id)); if(!h) return; const blocked=getAllBlockedDatesForHomestay(h); const a=prompt("Manage "+h.name+"\nBlocked: "+(blocked.join(", ")||"None")+"\nEnter YYYY-MM-DD, START,END, or clear"); if(a===null) return; if(a==='clear'){ h.blockedDates=[]; availabilityMap[h.id]=[]; if(isDemo(h.id)){demoBlockedMap[h.id]=[]; saveDemoBlocked();} saveAvailabilityMap(); saveApproved(); renderAdmin(); return; } if(a.includes(",")){ const parts=a.split(",").map(x=>x.trim()); const range=getDatesInRange(parts[0],parts[1]); range.forEach(d=>{ if(h.blockedDates.includes(d)) h.blockedDates=h.blockedDates.filter(x=>x!==d); else h.blockedDates.push(d); }); h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); return; } if(h.blockedDates.includes(a)) h.blockedDates=h.blockedDates.filter(d=>d!==a); else h.blockedDates.push(a); h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); }
 
 // ========== OTHER ADMIN FUNCTIONS ==========
-function approveHomestay(id){ const idx=pendingHomestays.findIndex(h=> h.id==id); if(idx===-1) return; const h=pendingHomestays[idx]; h.approved=true; h.verified=true; allHomestays.push(h); homestays.push(h); storedApproved.push(h); saveApproved(); pendingHomestays.splice(idx,1); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
-function rejectHomestay(id){ if(!confirm("Reject?")) return; pendingHomestays=pendingHomestays.filter(h=> h.id!=id); localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); renderAdmin(); }
+function approveHomestay(id){ 
+  const idx=pendingHomestays.findIndex(h=> h.id==id); 
+  if(idx===-1) return; 
+  const h=pendingHomestays[idx]; 
+  h.approved=true; 
+  h.verified=true; 
+  allHomestays.push(h); 
+  homestays.push(h); 
+  storedApproved.push(h); 
+  saveApproved(); 
+  pendingHomestays.splice(idx,1); 
+  localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); 
+  // Also sync pending deletion to cloud
+  fetchWithAuth(API_BASE + "/pending", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ pending: pendingHomestays })}).catch(()=>{});
+  renderAdmin(); 
+}
+
+function rejectHomestay(id){ 
+  if(!confirm("Reject this homestay?")) return; 
+  pendingHomestays=pendingHomestays.filter(h=> h.id!=id); 
+  localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); 
+  fetchWithAuth(API_BASE + "/pending", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ pending: pendingHomestays })}).catch(()=>{});
+  renderAdmin(); 
+}
+
 function restoreDemos(){ if(!confirm("Restore?")) return; localStorage.removeItem("kd_deleted_demo"); deletedDemoIds=[]; const base=DEMO_HOMESTAYS.map(d=> demoOverrides[d.id]?{...d, ...demoOverrides[d.id]}:d); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
 function resetDemoEdits(){ if(!confirm("Reset?")) return; localStorage.removeItem("kd_demo_overrides"); demoOverrides={}; const base=DEMO_HOMESTAYS.filter(d=> !deletedDemoIds.includes(d.id)); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
 
