@@ -1,4 +1,4 @@
-// /api/owner-update-booking.js - Owner can change booking dates
+// /api/owner-update-booking.js - Owner can change booking dates and confirm check-in
 
 function corsHeaders() {
   return {
@@ -118,10 +118,16 @@ export async function onRequestPost({ request, env }) {
 
       // Check availability (excluding this booking's own dates)
       const oldDates = getDatesInRange(booking.checkin, booking.checkout);
+      
+      // Get availability from DB
+      const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
+      let availabilityMap = {};
+      if (availRes && availRes.data) { try { availabilityMap = JSON.parse(availRes.data); } catch(e) {} }
+      
       const allBlocked = [];
       if (homestay.blockedDates) allBlocked.push(...homestay.blockedDates);
-      if (availabilityMap && availabilityMap[homestay.id]) allBlocked.push(...availabilityMap[homestay.id]);
-      // Remove this booking's own dates from blocked check
+      if (availabilityMap[homestay.id]) allBlocked.push(...availabilityMap[homestay.id]);
+      
       const blockedWithoutThis = allBlocked.filter(d => !oldDates.includes(d));
       const newDates = getDatesInRange(checkin, checkout);
       const overlap = newDates.filter(d => blockedWithoutThis.includes(d));
@@ -146,12 +152,7 @@ export async function onRequestPost({ request, env }) {
       bookings[idx].youReceive = price.youReceive;
       bookings[idx].statusUpdated = new Date().toISOString();
 
-      // Update availability (remove old dates, add new dates)
-      // We need to fetch availabilityMap from DB
-      const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
-      let availabilityMap = {};
-      if (availRes && availRes.data) { try { availabilityMap = JSON.parse(availRes.data); } catch(e) {} }
-
+      // Update availability
       if (!availabilityMap[homestay.id]) availabilityMap[homestay.id] = [];
       availabilityMap[homestay.id] = availabilityMap[homestay.id].filter(d => !oldDates.includes(d));
       newDates.forEach(d => {
@@ -207,6 +208,9 @@ export async function onRequestPost({ request, env }) {
         return new Response(JSON.stringify({ error: "Homestay not found" }), { status: 404, headers: corsHeaders() });
       }
 
+      // Get the bank code from the booking (which came from the homestay)
+      const ownerBankCode = booking.ownerBankCode || homestay.bankCode || 'MBBEMYKL';
+
       // Now trigger the actual payout
       const payoutReq = await fetch(`${env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my'}/api/payout`, {
         method: 'POST',
@@ -220,7 +224,7 @@ export async function onRequestPost({ request, env }) {
           yourFee: yourFee,
           fee: booking.fee,
           total: booking.total,
-          ownerBankCode: homestay.bankCode || 'MBBEMYKL',
+          ownerBankCode: ownerBankCode,
           ownerAcc: homestay.ownerBankAccount || '',
           ownerName: homestay.bankHolder || homestay.ownerName || 'Owner',
           checkin: booking.checkin
@@ -240,9 +244,11 @@ export async function onRequestPost({ request, env }) {
         .bind("kd_bookings", JSON.stringify(bookings))
         .run();
 
+      // Return the success message with the fee
+      const finalFee = yourFee < 0 ? 0 : yourFee;
       return new Response(JSON.stringify({
         success: true,
-        message: `✅ Check-in confirmed! Owner (${homestay.ownerName}) received RM${ownerAmount}. Your fee RM${yourFee} is available for withdrawal.`,
+        message: `✅ Check-in confirmed! Owner (${homestay.ownerName}) received RM${ownerAmount}. Your fee RM${finalFee} is available for withdrawal.`,
         booking: bookings[idx],
         payout: payoutData
       }), { status: 200, headers: corsHeaders() });

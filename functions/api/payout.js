@@ -7,13 +7,14 @@
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
-  const expectedToken = env.ADMIN_TOKEN;
+  const expectedToken = env.ADMIN_TOKEN || "";
+  if (!expectedToken) {
+    return new Response(JSON.stringify({ error: "Server misconfigured" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...cors() }
+    });
+  }
   const expected = "Bearer " + expectedToken;
-  
-  console.log("🔐 Payout Auth Check:");
-  console.log("  Received:", auth ? "Present" : "Missing");
-  console.log("  Expected:", expected ? "Present" : "Missing");
-  
   if (auth !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -33,27 +34,21 @@ function cors() {
 }
 
 function validateBankAccount(account) {
-  // Must be at least 10 digits (Malaysian bank accounts are 10-15 digits)
   const clean = String(account).replace(/[^0-9]/g, '');
   return clean.length >= 10 && clean.length <= 15;
 }
 
-// ========== SIMPLE RATE LIMITING (in-memory) ==========
-// For production, use Cloudflare KV or D1 for persistence
+// ========== SIMPLE RATE LIMITING ==========
 const payoutAttempts = new Map();
 
 function checkRateLimit(ip) {
   const key = ip || 'unknown';
   const now = Date.now();
   const attempts = payoutAttempts.get(key) || [];
-  
-  // Clean old attempts (older than 5 minutes)
   const recent = attempts.filter(t => now - t < 5 * 60 * 1000);
-  
   if (recent.length >= 3) {
     return { blocked: true, remaining: 0 };
   }
-  
   return { blocked: false, remaining: 3 - recent.length };
 }
 
@@ -75,7 +70,6 @@ export async function onRequestPost({ request, env }) {
   try {
     const clientIP = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
     
-    // --- Rate limiting ---
     const rateLimit = checkRateLimit(clientIP);
     if (rateLimit.blocked) {
       console.log(`🚫 Payout rate limit exceeded for IP: ${clientIP}`);
@@ -194,10 +188,11 @@ export async function onRequestPost({ request, env }) {
     // --- AUTO PAYOUT VIA TOYYIBPAY ---
     const formData = new FormData();
     formData.append("userSecretKey", env.TOYYIBPAY_SECRET_KEY);
-    formData.append("bankCode", ownerBankCode || env.YOUR_BANK_CODE || "MBBEMYKL");
+    // Use the provided bank code, or fallback to MBBEMYKL
+    formData.append("bankCode", ownerBankCode || "MBBEMYKL");
     formData.append("bankAccountNumber", cleanOwnerAcc);
     formData.append("accountHolderName", ownerName || "Homestay Owner");
-    formData.append("amount", Math.round(payoutAmount * 100)); // in cents
+    formData.append("amount", Math.round(payoutAmount * 100));
     formData.append("payoutDescription", `KDH ${bookingId} owner payout RM${payoutAmount}`);
     formData.append("payoutReferenceNo", bookingId);
 
@@ -245,7 +240,6 @@ export async function onRequestPost({ request, env }) {
         let bookings = res ? JSON.parse(res.data) : [];
         const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
         if (idx !== -1) {
-          // Don't overwrite if already paid (extra safety)
           if (!bookings[idx].payoutDate) {
             bookings[idx].status = isSuccess
               ? "Completed - Owner Paid RM" + payoutAmount + " via ToyyibPay"
@@ -267,12 +261,11 @@ export async function onRequestPost({ request, env }) {
         console.error("❌ Failed to update booking status after payout:", e.message);
       }
 
-      // --- Fee earnings (only if not already recorded) ---
+      // --- Fee earnings ---
       try {
         const feeRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
         let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
         
-        // Check if fee already recorded
         const alreadyRecorded = feeEarnings.history?.some(h => h.bookingId === bookingId && h.type === "earning");
         
         if (!alreadyRecorded) {
@@ -335,7 +328,7 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// === GET (Public - show payout config status) ===
+// === GET ===
 export async function onRequestGet({ env }) {
   const isLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
   return new Response(JSON.stringify({
