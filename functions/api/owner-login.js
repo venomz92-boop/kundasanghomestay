@@ -1,4 +1,4 @@
-// /api/owner-login.js - Owner Login (WhatsApp + Password)
+// /api/owner-login.js - Owner Login (WhatsApp + Password) with homestay name in token
 
 async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
@@ -45,20 +45,14 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: "Server error" }), { status: 500, headers: corsHeaders() });
     }
 
-    // We need to search for the owner in BOTH pending and approved homestays.
-    // First, get approved homestays
+    // Get approved homestays
     const r1 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
     let homestays = [];
     if (r1 && r1.data) { try { homestays = JSON.parse(r1.data); } catch(e) {} }
 
-    // Also check pending (in case they haven't been approved yet, but they might still need to login? 
-    // Usually only approved owners login, but we'll include pending just in case).
+    // Also check pending (just in case)
     const r2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
     if (r2 && r2.data) { try { homestays = [...homestays, ...JSON.parse(r2.data)]; } catch(e) {} }
-
-    // Also check demo homestays (for testing)
-    const r3 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_demo_overrides").first();
-    // Just to be safe, but owners won't have passwords there initially.
 
     // Find owner by whatsapp
     const ownerHomestay = homestays.find(h => {
@@ -79,11 +73,11 @@ export async function onRequestPost({ request, env }) {
     // Login successful - clear attempts
     loginAttempts.delete(key);
 
-    // Generate owner token (contains the homestay ID(s) they own)
-    // In this system, one WhatsApp number is linked to one homestay ID.
+    // ===== FIX: include homestay name in token =====
     const tokenData = {
       ownerId: ownerHomestay.id,
       ownerName: ownerHomestay.ownerName,
+      homestayName: ownerHomestay.name,   // <-- ADDED
       whatsapp: cleanWhatsapp,
       ts: Date.now()
     };
