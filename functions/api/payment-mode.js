@@ -6,7 +6,7 @@ export async function onRequestGet({ env }) {
   //   true  = LIVE (redirect to ToyyibPay)
   //   false = SIMULATION (no real money)
   // ============================================================
-  const IS_LIVE = true; // <-- Set to true for LIVE, false for SIMULATION
+  const IS_LIVE = false; // <-- Set to true for LIVE, false for SIMULATION
   // ============================================================
   
   // Check if secret key exists (for safety)
