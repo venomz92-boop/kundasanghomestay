@@ -69,15 +69,15 @@
 <!-- HEADER -->
 <header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
-    <div class="flex items-center gap-3 cursor-pointer" onclick="showPage('home')">
+    <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
       <div class="w-[38px] h-[38px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-poppins font-800 text-[20px] leading-none">K</div>
       <div class="font-poppins font-800 text-[22px] tracking-[-0.5px] text-[#212121] leading-none">KUNDASANG<span class="font-600 text-[#212121]/60 text-[18px]"> • Homestay</span>
         <div class="font-500 text-[11px] tracking-[2px] uppercase text-[#212121]/50 -mt-23">Verified • Homestays</div></div>
     </div>
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
-      <button onclick="showPage('home')" id="navHome" class="setsail-nav-link active">Home</button>
+      <a href="/" id="navHome" class="setsail-nav-link active">Home</a>
       <a href="/list.html" id="navList" class="nav-link-list">List Your Homestay</a>
-      <button onclick="showPage('about')" id="navAbout" class="setsail-nav-link">About</button>
+      <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
         <button onclick="openGuestAuth('login')" id="guestLoginBtn" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
@@ -92,10 +92,10 @@
   </div>
   <div id="mobileNav" class="hidden lg:hidden absolute top-[80px] left-0 right-0 bg-white border-t border-black/10 z-50 shadow-xl">
     <div class="p-6 space-y-4">
-      <button onclick="showPage('home'); toggleMobileMenu()" id="mNavHome" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">🏠 Home</button>
-      <a href="/list.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-[#212121] block" style="text-decoration:none;">➕ List Your Homestay</a>
-      <button onclick="showPage('about'); toggleMobileMenu()" id="mNavAbout" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">ℹ️ About</button>
-      <a href="/owner.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="display:block; text-decoration:none;">🔑 Agent Login</a>
+      <a href="/" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">🏠 Home</a>
+      <a href="/list.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">➕ List Your Homestay</a>
+      <a href="/about.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">ℹ️ About</a>
+      <a href="/owner.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-purple-600 mobile-agent-link block" style="text-decoration:none;">🔑 Agent Login</a>
       <div class="pt-2"><div id="mGuestNav" class="space-y-3"><button onclick="openGuestAuth('login'); toggleMobileMenu()" class="w-full px-6 h-[44px] border border-[#3FD0D4] text-[#3FD0D4] font-600 text-[12px] uppercase tracking-wider sharp">Login</button><button onclick="openGuestAuth('register'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#3FD0D4] text-white font-600 text-[12px] uppercase tracking-wider sharp">Register</button></div><div id="mGuestProfileNav" class="hidden space-y-3"><div class="flex items-center gap-3 bg-[#212121] text-white px-4 py-3 sharp"><div id="mGuestAvatar" class="guest-avatar bg-[#3FD0D4]">G</div><div><div id="mGuestNameNav" class="text-sm font-bold">Guest</div><div class="text-[11px] text-white/60">Verified guest</div></div><button onclick="logoutGuest()" class="ml-auto text-xs bg-white/20 px-3 py-1.5 sharp">Logout</button></div><button onclick="showPage('mybookings'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#212121] text-white font-600 text-[12px] uppercase tracking-wider sharp">📅 My Bookings</button></div></div>
     </div>
   </div>
@@ -120,14 +120,6 @@
   <div class="text-center mb-12"><div class="font-satisfy text-[#3FD0D4] text-[30px] leading-none">Go & Discover</div><h2 class="font-poppins font-700 text-[32px] md:text-[40px] text-[#212121] tracking-[-0.8px] mt-1">Breathtaking Homestays</h2><div class="w-[48px] h-[2px] bg-[#3FD0D4] mx-auto mt-4"></div><p class="font-poppins text-[13px] text-[#212121]/60 max-w-[520px] mx-auto mt-4 leading-[1.6]">Verified homestays only — book direct with trusted local hosts.</p><div class="mt-4 flex items-center justify-center gap-2 flex-wrap"><div id="pendingInfo" class="text-[11px] bg-amber-50 border border-amber-200 px-3 py-1.5 sharp hidden font-600">Pending: <span id="pendingCount">0</span> waiting approval</div><div class="text-[11px] bg-[#3FD0D4]/10 border border-[#3FD0D4]/20 px-3 py-1.5 sharp font-600 text-[#212121]/70">All payment via website • FPX secured</div></div></div>
   <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
 </main>
-
-<!-- ABOUT PAGE -->
-<section id="aboutPage" class="hidden max-w-[1000px] mx-auto px-5 md:px-8 py-10">
-  <div class="grid md:grid-cols-2 gap-8">
-    <div class="card p-8"><h2 class="text-3xl font-bold">About Kundasang Homestays</h2><p class="mt-4 text-sm leading-relaxed text-zinc-600">We are local made for locals platform for verified homestay owners in Kundasang Area to prevent scams.<br/><br/><b>Why Verified Owner badge?</b> We verify Bank account holder must match owner name. New listings start as Pending approval and only show after admin checks.<br/><br/><b>Payment safety:</b> All payment will go through this website, no outside payment - direct to listing owners. Secured by ToyyibPay FPX.</p><div class="mt-6 flex gap-2"><span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs">Verified Owner</span><span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">ToyyibPay FPX Secured</span></div></div>
-    <div class="card p-8"><h3 class="text-xl font-bold">Contact</h3><div class="mt-4 space-y-3 text-sm"><div>✉️ Email: <span id="contactEmail">hello@kundasanghomestay.my</span></div><div>🕒 Response: 9am - 10pm everyday</div><div class="text-xs text-zinc-500 mt-2">For problems / support, email us here.</div></div><div class="mt-6"><h4 class="font-bold text-sm">Send Message</h4><div class="mt-3 space-y-2"><input id="contactName" placeholder="Your Name" class="w-full border rounded-xl px-4 py-2"/><input id="contactEmailInput" placeholder="Your Email" type="email" class="w-full border rounded-xl px-4 py-2"/><textarea id="contactMessage" placeholder="Describe your problem / message" rows="3" class="w-full border rounded-xl px-4 py-2"></textarea><button class="btn-primary w-full" onclick="sendContactEmail()">Send Email</button></div></div></div>
-  </div>
-</section>
 
 <!-- DETAIL MODAL -->
 <div id="detailModal" class="fixed inset-0 z-50 hidden bg-black/60 p-3 md:p-5 overflow-y-auto">
@@ -174,16 +166,12 @@
     <div id="guestAuthMessage" class="hidden mt-4 p-3 rounded-xl text-xs"></div>
     <div class="mt-4 flex gap-2 p-1 bg-zinc-100 rounded-full"><button onclick="switchGuestAuth('login')" id="guestTabLogin" class="flex-1 py-2 rounded-full bg-[var(--primary)] text-white text-sm font-semibold">Login</button><button onclick="switchGuestAuth('register')" id="guestTabRegister" class="flex-1 py-2 rounded-full bg-white text-sm">Register</button></div>
     
-    <!-- GUEST LOGIN FORM -->
     <div id="guestLoginForm" class="mt-6 space-y-4">
       <div><label class="text-xs font-semibold">Email *</label><input id="loginEmail" type="email" placeholder="you@email.com" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
       <div><label class="text-xs font-semibold">Password *</label><input id="loginPassword" type="password" placeholder="••••••••" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
-      
-      <!-- FORGOT PASSWORD LINK -->
       <div class="text-right">
         <button onclick="openForgotPassword('guest')" class="text-[11px] text-[#3FD0D4] hover:underline">Forgot Password?</button>
       </div>
-      
       <button onclick="loginGuest()" class="btn-primary w-full py-2.5">Login</button>
     </div>
     
@@ -225,7 +213,7 @@
   </div>
 </div>
 
-<footer class="bg-[#212121] text-white/70 mt-20"><div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10"><div><div class="flex items-center gap-3"><div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div><div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div></div><p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local - Kundasang version. Mountain homestays with Kinabalu soul.</p></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div><div class="space-y-2 text-[13px] font-poppins"><div class="hover:text-white cursor-pointer" onclick="showPage('home')">Homestays</div><a href="/list.html" class="hover:text-white block">List Property</a><div class="hover:text-white cursor-pointer" onclick="showPage('about')">About</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div><div class="space-y-2 text-[13px] font-poppins"><div>Host Guidelines</div><div>ToyyibPay FPX Secured</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div><p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p></div></div><div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay - All payment is secured by Toyyibpay</div></footer>
+<footer class="bg-[#212121] text-white/70 mt-20"><div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10"><div><div class="flex items-center gap-3"><div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div><div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div></div><p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local - Kundasang version. Mountain homestays with Kinabalu soul.</p></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div><div class="space-y-2 text-[13px] font-poppins"><a href="/" class="hover:text-white block">Homestays</a><a href="/list.html" class="hover:text-white block">List Property</a><a href="/about.html" class="hover:text-white block">About</a></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div><div class="space-y-2 text-[13px] font-poppins"><div>Host Guidelines</div><div>ToyyibPay FPX Secured</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div><p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p></div></div><div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay - All payment is secured by Toyyibpay</div></footer>
 
 <script>
 // =============================================================
@@ -273,7 +261,6 @@ function generateSalt() {
 const CONFIG = {
   platformFeePercent: 11,
   toyyibpay: {
-    // enabled: <-- will be set by /api/payment-mode
     sandbox: true,
     apiKey: "YOUR_TOYYIBPAY_KEY",
     collectionId: "YOUR_COLLECTION_ID",
@@ -287,7 +274,6 @@ const CONFIG = {
 const CLOUD_ENABLED = true;
 const API_BASE = "/api";
 
-// Helper for auth (only used in admin functions, not public)
 async function fetchWithAuth(url, options = {}) {
   const token = sessionStorage.getItem('kd_admin_token') || '';
   const headers = options.headers || {};
@@ -561,7 +547,7 @@ function logoutGuest() {
   currentGuest = null;
   localStorage.removeItem('kd_guest');
   renderGuestNav();
-  showPage('home');
+  window.location.href = '/';
 }
 
 function openGuestAuth(mode) {
@@ -690,7 +676,7 @@ function renderMyBookings() {
   infoCard.innerHTML = safeHTML("<div class='flex gap-4 items-center'><div class='guest-avatar w-12 h-12 text-lg'>" + (currentGuest.name||"G").charAt(0).toUpperCase() + "</div><div><div class='font-bold'>" + currentGuest.name + "</div><div class='text-xs text-zinc-500'>" + currentGuest.email + " • " + currentGuest.phone + "</div><div class='text-[11px] mt-1'>ID: " + currentGuest.id + " • Guest account detected</div></div></div>");
   const myBookings = bookings.filter(b => (b.guestEmail && b.guestEmail.toLowerCase() === currentGuest.email.toLowerCase()) || (b.guestId && b.guestId === currentGuest.id));
   if (myBookings.length === 0) {
-    listDiv.innerHTML = safeHTML("<div class='card p-8 text-center text-zinc-500'>No bookings yet. <br><button onclick=\"showPage('home')\" class='mt-3 btn-primary'>Browse Homestays</button></div>");
+    listDiv.innerHTML = safeHTML("<div class='card p-8 text-center text-zinc-500'>No bookings yet. <br><button onclick=\"window.location.href='/'\" class='mt-3 btn-primary'>Browse Homestays</button></div>");
     return;
   }
   listDiv.innerHTML = safeHTML(myBookings.map(b => "<div class='card p-5'><div class='flex justify-between'><div class='font-bold'>" + b.homestay + "</div><span class='text-[11px] px-2 py-1 rounded-full bg-green-100 text-green-800'>" + (b.status||'Paid') + "</span></div><div class='text-xs text-zinc-500 mt-1'>ID " + b.id + " • " + (b.nights||0) + " nights • " + b.checkin + " → " + b.checkout + "</div><div class='mt-3 flex justify-between text-sm'><span>Total Paid</span><span class='font-bold'>RM" + b.total + "</span></div><div class='text-xs mt-1'>RM" + b.base + " With Service Fee RM" + b.fee + "</div><div class='mt-3 flex gap-2'><button onclick=\"chatWithOwnerFromBooking('" + b.id + "')\" class='text-xs px-3 py-1.5 rounded-full bg-[#25D366] text-white'>Chat Owner</button><button onclick=\"alert('Booking: " + b.id + "')\" class='text-xs px-3 py-1.5 rounded-full border bg-white'>Details</button></div></div>").join(""));
@@ -1296,27 +1282,28 @@ function whatsappWithBookingId(){
 }
 
 // =============================================================
-// PAGE NAVIGATION & MOBILE
+// PAGE NAVIGATION
 // =============================================================
 function showPage(page) {
   const homePage = document.getElementById("homePage");
   const hero = document.getElementById("hero");
-  const aboutPage = document.getElementById("aboutPage");
   const myB = document.getElementById("myBookingsPage");
+  
   if (homePage) homePage.classList.add("hidden");
   if (hero) hero.classList.add("hidden");
-  if (aboutPage) aboutPage.classList.add("hidden");
   if (myB) myB.classList.add("hidden");
-  const navBtns = ["navHome","navAbout"];
+  
+  const navBtns = ["navHome"];
   navBtns.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.className = "setsail-nav-link";
   });
-  const mNavBtns = ["mNavHome","mNavAbout"];
+  const mNavBtns = ["mNavHome"];
   mNavBtns.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.className = "w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5";
   });
+  
   if (page === "home") {
     if (homePage) homePage.classList.remove("hidden");
     if (hero) hero.classList.remove("hidden");
@@ -1325,18 +1312,13 @@ function showPage(page) {
     const mActive = document.getElementById("mNavHome");
     if (mActive) mActive.className = "w-full text-left font-poppins font-700 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-[#3FD0D4]";
     renderGrid();
-  } else if (page === "about") {
-    if (aboutPage) aboutPage.classList.remove("hidden");
-    const active = document.getElementById("navAbout");
-    if (active) active.className = "setsail-nav-link active";
-    const mActive = document.getElementById("mNavAbout");
-    if (mActive) mActive.className = "w-full text-left font-poppins font-700 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-[#3FD0D4]";
   } else if (page === "mybookings") {
     if (myB) myB.classList.remove("hidden");
     renderMyBookings();
   }
   window.scrollTo({top:0, behavior:'smooth'});
 }
+
 function toggleMobileMenu() {
   const nav = document.getElementById('mobileNav');
   if (nav) nav.classList.toggle('hidden');
@@ -1350,23 +1332,6 @@ document.addEventListener('click', function(e) {
 });
 
 // =============================================================
-// CONTACT EMAIL
-// =============================================================
-function sendContactEmail(){
-  const name = document.getElementById('contactName')?.value.trim() || '';
-  const email = document.getElementById('contactEmailInput')?.value.trim() || '';
-  const msg = document.getElementById('contactMessage')?.value.trim() || '';
-  if(!name || !email || !msg){
-    alert('Please fill Name, Email and Message');
-    return;
-  }
-  const adminEmail = document.getElementById('contactEmail')?.textContent.trim() || 'hello@kundasanghomestay.my';
-  const subject = encodeURIComponent('[Support] ' + name + ' - Kundasang Homestays');
-  const body = encodeURIComponent('Name: ' + name + '\nEmail: ' + email + '\n\nMessage:\n' + msg);
-  window.location.href = 'mailto:' + adminEmail + '?subject=' + subject + '&body=' + body;
-}
-
-// =============================================================
 // RENDER AVAILABILITY CALENDAR (COMPACT – LIKE WINDOWS CALENDAR)
 // =============================================================
 function renderAvailabilityCalendar(homestay, containerId) {
@@ -1378,7 +1343,6 @@ function renderAvailabilityCalendar(homestay, containerId) {
   today.setHours(0,0,0,0);
   const todayIso = dateToIso(today);
   
-  // Store current month state (per container)
   if (!container._currentMonth) {
     container._currentMonth = today.getMonth();
     container._currentYear = today.getFullYear();
@@ -1442,7 +1406,6 @@ function renderAvailabilityCalendar(homestay, containerId) {
     container.innerHTML = safeHTML(html);
   }
   
-  // Attach navigation function to window so onclick works
   window.navigateCalendar = function(btn, direction, containerId) {
     const c = document.getElementById(containerId);
     if (!c) return;
@@ -1453,18 +1416,9 @@ function renderAvailabilityCalendar(homestay, containerId) {
     renderMonth.call(c);
   };
   
-  // Store the render function on the container
   container._render = renderMonth;
-  
-  // Initial render
   renderMonth.call(container);
 }
-
-// =============================================================
-// RESTORE DEMOS (admin functions)
-// =============================================================
-function restoreDemos() { /* Admin function - only used in admin panel */ }
-function resetDemoEdits() { /* Admin function - only used in admin panel */ }
 
 // =============================================================
 // INIT

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About - Kundasang Homestay</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary:#0F382E; --primary-light:#1a4d3e; --accent:#3FD0D4; --accent-hover:#2bbfc4; --bg:#F8F5F0; --card:#ffffff; --muted:#6b7280; --danger:#dc2626; --dark:#212121; }
+    h1,h2,h3{font-family:"Poppins",sans-serif;}
+    .font-poppins{font-family:"Poppins",sans-serif;} .font-satisfy{font-family:"Satisfy",cursive;}
+    body{font-family:"Poppins","Inter",sans-serif;background:var(--bg);}
+    .sharp{border-radius:2px !important;}
+    .card{border-radius:2px;background:var(--card);box-shadow:0 2px 20px rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.04);}
+    .btn-primary{background:var(--primary);color:white;border-radius:2px;padding:10px 20px;font-weight:700;font-family:"Poppins",sans-serif;text-transform:uppercase;letter-spacing:0.08em;font-size:12px;transition:all .2s;}
+    .btn-primary:hover{background:var(--primary-light);transform:translateY(-1px);}
+    .btn-whatsapp{background:#25D366;color:white;border-radius:2px;padding:10px 20px;font-weight:700;font-family:"Poppins",sans-serif;text-transform:uppercase;letter-spacing:0.05em;font-size:12px;transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
+    .btn-whatsapp:hover{background:#1ebe5d;transform:translateY(-1px);}
+    .setsail-nav-link{position:relative;font-family:"Poppins",sans-serif;font-weight:600;font-size:13px;letter-spacing:0.3px;text-transform:uppercase;color:#212121;padding:8px 0;cursor:pointer;background:none;border:none;}
+    .setsail-nav-link::after{content:'';position:absolute;left:0;bottom:-2px;width:0;height:2px;background:#3FD0D4;transition:width 0.3s;}
+    .setsail-nav-link:hover::after,.setsail-nav-link.active::after{width:100%;}
+    .setsail-nav-link.agent{color:#7c3aed;border:1px solid #7c3aed;padding:6px 16px;border-radius:2px;}
+    .setsail-nav-link.agent::after{display:none;}
+    .setsail-nav-link.agent:hover{background:#7c3aed;color:white;}
+    @media (max-width:768px){#desktopNav{display:none !important;}#mobileMenuBtn{display:flex !important;}}
+    .nav-link-list { position:relative; font-family:"Poppins",sans-serif; font-weight:600; font-size:13px; letter-spacing:0.3px; text-transform:uppercase; color:#212121; padding:8px 0; cursor:pointer; background:none; border:none; text-decoration:none; }
+    .nav-link-list::after { content:''; position:absolute; left:0; bottom:-2px; width:0; height:2px; background:#3FD0D4; transition:width 0.3s; }
+    .nav-link-list:hover::after, .nav-link-list.active::after { width:100%; }
+    .mobile-agent-link { color: #7c3aed !important; border: 1px solid #7c3aed !important; border-radius: 2px !important; padding: 8px 16px !important; display: inline-block !important; margin-top: 4px; }
+    *{-webkit-tap-highlight-color:transparent;} html{overflow-x:hidden;} body{overflow-x:hidden;-webkit-text-size-adjust:100%;}
+    .faq-question{cursor:pointer;transition:background 0.2s;}
+    .faq-question:hover{background:#f3f4f6;}
+    .faq-answer{max-height:0;overflow:hidden;transition:max-height 0.3s ease;}
+    .faq-answer.open{max-height:300px;}
+    .step-number{width:48px;height:48px;border-radius:999px;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;flex-shrink:0;}
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
+  <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
+    <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
+      <div class="w-[38px] h-[38px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-poppins font-800 text-[20px] leading-none">K</div>
+      <div class="font-poppins font-800 text-[22px] tracking-[-0.5px] text-[#212121] leading-none">KUNDASANG<span class="font-600 text-[#212121]/60 text-[18px]"> • Homestay</span>
+        <div class="font-500 text-[11px] tracking-[2px] uppercase text-[#212121]/50 -mt-23">Verified • Homestays</div></div>
+    </div>
+    <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
+      <a href="/" id="navHome" class="nav-link-list">Home</a>
+      <a href="/list.html" id="navList" class="nav-link-list">List Your Homestay</a>
+      <a href="/about.html" id="navAbout" class="setsail-nav-link active">About</a>
+      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
+      <div id="guestNav" class="ml-4 flex items-center gap-3">
+        <button onclick="window.location.href='/?login'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
+        <button onclick="window.location.href='/?register'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp">Register</button>
+      </div>
+    </nav>
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 sharp bg-[#212121] text-white items-center justify-center"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+  </div>
+  <div id="mobileNav" class="hidden lg:hidden absolute top-[80px] left-0 right-0 bg-white border-t border-black/10 z-50 shadow-xl">
+    <div class="p-6 space-y-4">
+      <a href="/" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">🏠 Home</a>
+      <a href="/list.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">➕ List Your Homestay</a>
+      <a href="/about.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-700 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-[#3FD0D4] block">ℹ️ About</a>
+      <a href="/owner.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-purple-600 mobile-agent-link block" style="text-decoration:none;">🔑 Agent Login</a>
+      <div class="pt-2"><button onclick="window.location.href='/?login'; toggleMobileMenu()" class="w-full px-6 h-[44px] border border-[#3FD0D4] text-[#3FD0D4] font-600 text-[12px] uppercase tracking-wider sharp">Login</button><button onclick="window.location.href='/?register'; toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#3FD0D4] text-white font-600 text-[12px] uppercase tracking-wider sharp mt-2">Register</button></div>
+    </div>
+  </div>
+</header>
+
+<!-- HERO / HEADER SECTION -->
+<section class="relative w-full h-[320px] md:h-[400px] overflow-hidden">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=original" alt="Mount Kinabalu" class="absolute inset-0 w-full h-full object-cover" />
+  <div class="absolute inset-0 bg-black/40"></div>
+  <div class="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
+    <div class="font-satisfy text-white text-[28px] md:text-[38px] leading-none mb-2 drop-shadow-sm">About</div>
+    <h1 class="font-poppins font-700 text-white text-[34px] md:text-[52px] leading-[1.1] tracking-[-1px] drop-shadow-sm">Kundasang Homestays</h1>
+    <p class="mt-3 font-poppins font-400 text-white/80 text-[14px] md:text-[16px] max-w-[600px] leading-[1.6]">Discover the real Kundasang – stay with verified local hosts, support the community, and experience the mountains like a local.</p>
+  </div>
+</section>
+
+<!-- MAIN CONTENT -->
+<main class="max-w-[1100px] mx-auto px-5 md:px-8 py-12">
+
+  <!-- Who We Are -->
+  <div class="card p-6 md:p-10 mb-10">
+    <div class="flex items-center gap-2 mb-2"><span class="text-2xl">🏔️</span><h2 class="text-2xl md:text-3xl font-bold">Who We Are</h2></div>
+    <div class="w-[40px] h-[2px] bg-[#3FD0D4] mt-1 mb-4"></div>
+    <p class="text-sm md:text-base leading-relaxed text-zinc-700">
+      <span class="font-semibold">Kundasang Homestay</span> was born out of a simple need: to connect travelers directly with genuine local hosts in Kundasang, without the hefty fees and impersonality of big booking platforms. We are a <span class="font-semibold">locally run, independent platform</span> built for Malaysians, by Malaysians.
+    </p>
+    <p class="text-sm md:text-base leading-relaxed text-zinc-700 mt-3">
+      Our mission is to empower homestay owners in the Kundasang area by giving them a direct, transparent, and scam‑free way to welcome guests, while providing travelers with <span class="font-semibold">authentic mountain experiences</span> at fair prices.
+    </p>
+  </div>
+
+  <!-- Why Choose Us (Benefits) -->
+  <div class="mb-10">
+    <h2 class="text-2xl md:text-3xl font-bold text-center mb-2">Why Choose Us</h2>
+    <div class="w-[40px] h-[2px] bg-[#3FD0D4] mx-auto mb-6"></div>
+    <div class="grid md:grid-cols-3 gap-5">
+      <div class="card p-6 text-center hover:-translate-y-1 transition-transform duration-300">
+        <div class="text-4xl mb-3">🔐</div>
+        <h3 class="font-bold text-lg">Verified &amp; Trusted</h3>
+        <p class="text-sm text-zinc-600 mt-2 leading-relaxed">Every owner is verified via IC and bank account matching. <span class="font-semibold">No fake listings, no scammers.</span></p>
+      </div>
+      <div class="card p-6 text-center hover:-translate-y-1 transition-transform duration-300">
+        <div class="text-4xl mb-3">💰</div>
+        <h3 class="font-bold text-lg">Fair Pricing</h3>
+        <p class="text-sm text-zinc-600 mt-2 leading-relaxed">No hidden charges. You pay exactly what you see, and <span class="font-semibold">most of it goes directly to the owner.</span></p>
+      </div>
+      <div class="card p-6 text-center hover:-translate-y-1 transition-transform duration-300">
+        <div class="text-4xl mb-3">🏡</div>
+        <h3 class="font-bold text-lg">Local Hosts, Real Experiences</h3>
+        <p class="text-sm text-zinc-600 mt-2 leading-relaxed">Get insider tips on the best sunrise spots, local food, and hidden trails from <span class="font-semibold">people who actually live there.</span></p>
+      </div>
+      <div class="card p-6 text-center hover:-translate-y-1 transition-transform duration-300 md:col-span-3 max-w-md mx-auto w-full">
+        <div class="text-4xl mb-3">🔒</div>
+        <h3 class="font-bold text-lg">Secure Payments</h3>
+        <p class="text-sm text-zinc-600 mt-2 leading-relaxed">All transactions are powered by <span class="font-semibold">ToyyibPay FPX</span>, a licensed Malaysian payment gateway. Your money is safe.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- How It Works -->
+  <div class="bg-[#0F382E]/5 rounded-xl p-6 md:p-10 mb-10 border border-[#0F382E]/10">
+    <h2 class="text-2xl md:text-3xl font-bold text-center mb-2">How It Works</h2>
+    <div class="w-[40px] h-[2px] bg-[#3FD0D4] mx-auto mb-6"></div>
+    <div class="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+      <div>
+        <h3 class="font-bold text-lg mb-3 text-center md:text-left">🧑‍🤝‍🧑 For Guests</h3>
+        <div class="space-y-4">
+          <div class="flex items-start gap-4">
+            <div class="step-number">1</div>
+            <div><div class="font-semibold text-sm">Browse</div><div class="text-sm text-zinc-600">Explore verified homestays with real photos and owner profiles.</div></div>
+          </div>
+          <div class="flex items-start gap-4">
+            <div class="step-number">2</div>
+            <div><div class="font-semibold text-sm">Book &amp; Pay</div><div class="text-sm text-zinc-600">Book online and pay securely via ToyyibPay FPX.</div></div>
+          </div>
+          <div class="flex items-start gap-4">
+            <div class="step-number">3</div>
+            <div><div class="font-semibold text-sm">Arrive &amp; Enjoy</div><div class="text-sm text-zinc-600">Show up, check in, and experience Kundasang like a local.</div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3 class="font-bold text-lg mb-3 text-center md:text-left">👨‍🌾 For Owners</h3>
+        <div class="space-y-4">
+          <div class="flex items-start gap-4">
+            <div class="step-number">1</div>
+            <div><div class="font-semibold text-sm">List Your Homestay</div><div class="text-sm text-zinc-600">It’s free! Submit your homestay for admin approval.</div></div>
+          </div>
+          <div class="flex items-start gap-4">
+            <div class="step-number">2</div>
+            <div><div class="font-semibold text-sm">Get Bookings</div><div class="text-sm text-zinc-600">Guests book directly. You’ll receive notifications instantly.</div></div>
+          </div>
+          <div class="flex items-start gap-4">
+            <div class="step-number">3</div>
+            <div><div class="font-semibold text-sm">Check-in &amp; Get Paid</div><div class="text-sm text-zinc-600">Confirm the guest’s arrival, and your payment is sent automatically.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Support Local -->
+  <div class="card p-6 md:p-10 mb-10 text-center bg-gradient-to-br from-[#0F382E] to-[#1a4d3e] text-white">
+    <div class="text-4xl mb-3">🌿</div>
+    <h2 class="text-2xl md:text-3xl font-bold">Support Local, Stay Local</h2>
+    <div class="w-[40px] h-[2px] bg-[#3FD0D4] mx-auto mt-2 mb-4"></div>
+    <p class="text-sm md:text-base leading-relaxed max-w-2xl mx-auto text-white/90">
+      Every booking on <span class="font-semibold text-[#3FD0D4]">Kundasang Homestay</span> helps sustain a local family and the vibrant community that makes Kundasang such a special place. By choosing us, you’re saying <span class="font-semibold">no to big corporate OTAs</span> and yes to authentic, meaningful travel.
+    </p>
+    <p class="text-sm md:text-base leading-relaxed max-w-2xl mx-auto mt-3 text-white/80">
+      <span class="font-semibold">Start your Kundasang adventure today.</span>
+    </p>
+    <div class="mt-5 flex flex-wrap gap-3 justify-center">
+      <a href="/" class="px-6 py-2.5 bg-[#3FD0D4] text-white font-700 text-[11px] uppercase tracking-wider sharp hover:bg-[#2bbfc4] transition-colors">Browse Homestays</a>
+      <a href="/list.html" class="px-6 py-2.5 bg-white/20 text-white font-700 text-[11px] uppercase tracking-wider sharp hover:bg-white/30 transition-colors border border-white/30">List Your Homestay</a>
+    </div>
+  </div>
+
+  <!-- FAQ Section -->
+  <div class="mb-10">
+    <h2 class="text-2xl md:text-3xl font-bold text-center mb-2">Frequently Asked Questions</h2>
+    <div class="w-[40px] h-[2px] bg-[#3FD0D4] mx-auto mb-6"></div>
+    <div class="max-w-3xl mx-auto space-y-3">
+      <div class="card overflow-hidden">
+        <div class="faq-question px-5 py-3.5 flex justify-between items-center" onclick="toggleFAQ(this)">
+          <span class="font-semibold text-sm">Is it safe to book here?</span>
+          <span class="text-xl font-light">+</span>
+        </div>
+        <div class="faq-answer px-5 pb-4 text-sm text-zinc-600 leading-relaxed">
+          Yes. All payments are processed via <span class="font-semibold">ToyyibPay</span> (a licensed Malaysian payment gateway) with FPX banking. Your money is safe, and we never store your card details.
+        </div>
+      </div>
+      <div class="card overflow-hidden">
+        <div class="faq-question px-5 py-3.5 flex justify-between items-center" onclick="toggleFAQ(this)">
+          <span class="font-semibold text-sm">How are homestays verified?</span>
+          <span class="text-xl font-light">+</span>
+        </div>
+        <div class="faq-answer px-5 pb-4 text-sm text-zinc-600 leading-relaxed">
+          Owners must submit a photo of their IC and bank account. Our admin team reviews and approves every listing before it goes live. We cross‑check that the bank account holder matches the owner’s IC name.
+        </div>
+      </div>
+      <div class="card overflow-hidden">
+        <div class="faq-question px-5 py-3.5 flex justify-between items-center" onclick="toggleFAQ(this)">
+          <span class="font-semibold text-sm">Can I cancel my booking?</span>
+          <span class="text-xl font-light">+</span>
+        </div>
+        <div class="faq-answer px-5 pb-4 text-sm text-zinc-600 leading-relaxed">
+          Please contact the owner directly or email us at <a href="mailto:hello@kundasanghomestay.my" class="text-[#0F382E] font-semibold hover:underline">hello@kundasanghomestay.my</a>. Cancellation policies are set by each owner and displayed during booking.
+        </div>
+      </div>
+      <div class="card overflow-hidden">
+        <div class="faq-question px-5 py-3.5 flex justify-between items-center" onclick="toggleFAQ(this)">
+          <span class="font-semibold text-sm">How much does it cost to list my homestay?</span>
+          <span class="text-xl font-light">+</span>
+        </div>
+        <div class="faq-answer px-5 pb-4 text-sm text-zinc-600 leading-relaxed">
+          It’s <span class="font-semibold">free</span> to list! We only take a small <span class="font-semibold">11% platform fee</span> when a booking is confirmed, which covers our hosting, support, and payment processing costs.
+        </div>
+      </div>
+      <div class="card overflow-hidden">
+        <div class="faq-question px-5 py-3.5 flex justify-between items-center" onclick="toggleFAQ(this)">
+          <span class="font-semibold text-sm">What areas do you cover?</span>
+          <span class="text-xl font-light">+</span>
+        </div>
+        <div class="faq-answer px-5 pb-4 text-sm text-zinc-600 leading-relaxed">
+          We currently focus on <span class="font-semibold">Kundasang, Ranau, and surrounding villages</span> – including Bundu Tuhan, Mesilou, Desa, Kampung Kinasaraban, and more.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact Form -->
+  <div class="card p-6 md:p-10">
+    <h2 class="text-2xl md:text-3xl font-bold text-center mb-2">Get In Touch</h2>
+    <div class="w-[40px] h-[2px] bg-[#3FD0D4] mx-auto mb-4"></div>
+    <p class="text-sm text-zinc-600 text-center mb-6">Have a question, feedback, or need help? We’re here for you.</p>
+    <div class="max-w-lg mx-auto space-y-4">
+      <div>
+        <label class="text-xs font-semibold">Your Name *</label>
+        <input id="contactName" placeholder="Your full name" class="w-full mt-1 border rounded-xl px-4 py-2.5 text-sm" />
+      </div>
+      <div>
+        <label class="text-xs font-semibold">Your Email *</label>
+        <input id="contactEmailInput" type="email" placeholder="you@email.com" class="w-full mt-1 border rounded-xl px-4 py-2.5 text-sm" />
+      </div>
+      <div>
+        <label class="text-xs font-semibold">Message *</label>
+        <textarea id="contactMessage" rows="4" placeholder="Describe your problem or message..." class="w-full mt-1 border rounded-xl px-4 py-2.5 text-sm"></textarea>
+      </div>
+      <button onclick="sendContactEmail()" class="btn-primary w-full py-3">Send Email</button>
+      <p class="text-[11px] text-zinc-500 text-center mt-2">We’ll get back to you within 24 hours.</p>
+    </div>
+  </div>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="bg-[#212121] text-white/70 mt-10">
+  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+    <div>
+      <div class="flex items-center gap-3">
+        <div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div>
+        <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div>
+      </div>
+      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local - Kundasang version. Mountain homestays with Kinabalu soul.</p>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div>
+      <div class="space-y-2 text-[13px] font-poppins">
+        <a href="/" class="hover:text-white block">Homestays</a>
+        <a href="/list.html" class="hover:text-white block">List Property</a>
+        <a href="/about.html" class="hover:text-white block text-white/80">About</a>
+      </div>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div>
+      <div class="space-y-2 text-[13px] font-poppins">
+        <div>Host Guidelines</div>
+        <div>ToyyibPay FPX Secured</div>
+      </div>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div>
+      <p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p>
+    </div>
+  </div>
+  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay</div>
+</footer>
+
+<script>
+// =============================================================
+// FAQ TOGGLE
+// =============================================================
+function toggleFAQ(el) {
+  const answer = el.nextElementSibling;
+  const isOpen = answer.classList.contains('open');
+  // Close all others
+  document.querySelectorAll('.faq-answer').forEach(a => a.classList.remove('open'));
+  document.querySelectorAll('.faq-question span:last-child').forEach(s => s.textContent = '+');
+  if (!isOpen) {
+    answer.classList.add('open');
+    el.querySelector('span:last-child').textContent = '−';
+  }
+}
+
+// =============================================================
+// CONTACT EMAIL
+// =============================================================
+function sendContactEmail() {
+  const name = document.getElementById('contactName')?.value.trim() || '';
+  const email = document.getElementById('contactEmailInput')?.value.trim() || '';
+  const msg = document.getElementById('contactMessage')?.value.trim() || '';
+  if (!name || !email || !msg) {
+    alert('Please fill Name, Email and Message');
+    return;
+  }
+  const adminEmail = 'hello@kundasanghomestay.my';
+  const subject = encodeURIComponent('[Support] ' + name + ' - Kundasang Homestays');
+  const body = encodeURIComponent('Name: ' + name + '\nEmail: ' + email + '\n\nMessage:\n' + msg);
+  window.location.href = 'mailto:' + adminEmail + '?subject=' + subject + '&body=' + body;
+}
+
+// =============================================================
+// MOBILE MENU
+// =============================================================
+function toggleMobileMenu() {
+  const nav = document.getElementById('mobileNav');
+  if (nav) nav.classList.toggle('hidden');
+}
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('mobileNav');
+  const btn = document.getElementById('mobileMenuBtn');
+  if (!nav || nav.classList.contains('hidden')) return;
+  if (nav.contains(e.target) || (btn && btn.contains(e.target))) return;
+  nav.classList.add('hidden');
+});
+
+console.log("✅ About page loaded.");
+</script>
+
+</body>
+</html>
