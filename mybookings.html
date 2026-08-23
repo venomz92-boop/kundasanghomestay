@@ -505,7 +505,7 @@ function renderMyBookings() {
 }
 
 // =============================================================
-// RETRY PAYMENT
+// RETRY PAYMENT – FIXED: simulation BEFORE url
 // =============================================================
 async function retryPayment(bookingId) {
   if (!currentGuest) {
@@ -527,14 +527,10 @@ async function retryPayment(bookingId) {
     return;
   }
 
-  // Double-check availability (optional but good)
-  // We'll just proceed and let the backend handle it.
-
   // Confirm with user
   if (!confirm(`Retry payment for ${booking.homestay}?\n\nTotal: RM${booking.total}\nCheck-in: ${booking.checkin}\nCheck-out: ${booking.checkout}\n\nYou will be redirected to the payment page.`)) return;
 
   try {
-    // Call the same ToyyibPay creation endpoint
     const res = await fetch(API_BASE + "/toyyibpay-create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -552,17 +548,34 @@ async function retryPayment(bookingId) {
       })
     });
     const data = await res.json();
-    if (data.url) {
-      // Update booking status to "Pending Payment - Retry" (optional)
-      // For simplicity, we just redirect
-      window.location.href = data.url;
-    } else if (data.simulation) {
-      // Fallback simulation - mark as paid locally
-      alert("Payment simulation: Booking would be marked as paid. (Live payment not configured)");
+    
+    // ===== FIX: Check simulation BEFORE url =====
+    if (data.simulation) {
+      // Simulation mode – mark as paid locally
+      alert("✅ Payment simulation: Booking would be marked as paid. (Live payment not configured)");
       booking.status = "Paid - Awaiting Check-in";
+      booking.statusUpdated = new Date().toISOString();
       localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-      await fetchCloudData(); // re-sync
+      // Push to cloud
+      try {
+        await fetch(API_BASE + "/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "publicUpdateStatus",
+            id: booking.id,
+            status: "Paid - Awaiting Check-in"
+          })
+        });
+        console.log("✅ Booking status synced to cloud (simulation)");
+      } catch(e) { console.warn("Cloud sync error:", e); }
+      await fetchCloudData();
       renderMyBookings();
+      return;
+    }
+    
+    if (data.url) {
+      window.location.href = data.url;
     } else {
       alert("Failed to create payment: " + (data.error || "Unknown error"));
     }
@@ -639,7 +652,7 @@ document.addEventListener('click', function(e) {
   renderMyBookings();
 })();
 
-console.log("✅ My Bookings page loaded with retry payment.");
+console.log("✅ My Bookings page loaded with retry payment simulation fix.");
 </script>
 </body>
 </html>
