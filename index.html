@@ -260,7 +260,7 @@ function safeHTML(html) {
 const CONFIG = {
   platformFeePercent: 11,
   toyyibpay: {
-    enabled: false,
+    // enabled: <-- will be set by /api/payment-mode
     sandbox: true,
     apiKey: "YOUR_TOYYIBPAY_KEY",
     collectionId: "YOUR_COLLECTION_ID",
@@ -1367,39 +1367,26 @@ function resetDemoEdits() { /* Admin function - only used in admin panel */ }
   renderGuestNav();
   await fetchCloudData();
   renderGrid();
-  const saved = localStorage.getItem("kd_toyyibpay");
-  if (saved) { try { CONFIG.toyyibpay = { ...CONFIG.toyyibpay, ...JSON.parse(saved) }; } catch(e) {} }
+  
+  // ====== FETCH PAYMENT MODE FROM SERVER ======
+  try {
+    const res = await fetch(API_BASE + "/payment-mode");
+    const data = await res.json();
+    CONFIG.toyyibpay.enabled = data.enabled;
+    console.log("💳 Payment mode:", data.message);
+  } catch(e) {
+    console.warn("⚠️ Failed to fetch payment mode, defaulting to simulation");
+    CONFIG.toyyibpay.enabled = false;
+  }
+  // ============================================
+  
   // Handle redirect from ToyyibPay
   try {
     const params = new URLSearchParams(window.location.search);
     const bookingIdParam = params.get("booking");
     const paidParam = params.get("paid");
     if (bookingIdParam && paidParam === "1") {
-      const b = bookings.find(x => String(x.id) === String(bookingIdParam));
-      if (b) {
-        if ((b.status || "").toLowerCase().includes("pending")) {
-          b.status = "Paid - Awaiting Check-in";
-          b.statusUpdated = new Date().toISOString();
-          localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-          const dates = getDatesInRange(b.checkin, b.checkout);
-          if (b.homestayId) {
-            if (!availabilityMap[b.homestayId]) availabilityMap[b.homestayId] = [];
-            dates.forEach(d => { if (!availabilityMap[b.homestayId].includes(d)) availabilityMap[b.homestayId].push(d); });
-            saveAvailabilityMap();
-          }
-          fetchWithAuth(`${API_BASE}/bookings`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "updateStatus", id: b.id, status: b.status, booking: b }) }).catch(()=>{});
-        }
-        const nights = b.nights || calculateNights(b.checkin, b.checkout);
-        showBookingSuccess(b.id, nights, b.checkin, b.checkout, b.total);
-      } else {
-        await fetchCloudData();
-        const b2 = bookings.find(x => String(x.id) === String(bookingIdParam));
-        if (b2) {
-          const nights = b2.nights || calculateNights(b2.checkin, b2.checkout);
-          showBookingSuccess(b2.id, nights, b2.checkin, b2.checkout, b2.total);
-        }
-      }
-      window.history.replaceState({}, document.title, window.location.pathname);
+      // ... existing code ...
     }
   } catch(e) { console.warn("Paid redirect handler fail", e); }
 })();
