@@ -1,4 +1,4 @@
-// /api/owner-bookings.js - Fetch bookings for the logged-in owner
+// /api/owner-bookings.js - Fetch bookings for ALL homestays the owner manages
 
 function corsHeaders() {
   return {
@@ -15,6 +15,7 @@ function verifyOwner(request) {
   try {
     const token = auth.replace("Bearer ", "");
     const data = JSON.parse(atob(token));
+    // Check expiry (24h)
     if (data.ownerId && data.ts && (Date.now() - data.ts < 24 * 60 * 60 * 1000)) {
       return data;
     }
@@ -38,11 +39,18 @@ export async function onRequestGet({ request, env }) {
     let bookings = [];
     if (res && res.data) { try { bookings = JSON.parse(res.data); } catch(e) {} }
 
-    // Filter bookings by homestayId
-    const myBookings = bookings.filter(b => String(b.homestayId) === String(ownerData.ownerId));
+    // Get all homestay IDs the owner manages
+    const ownerHomestayIds = ownerData.homestayIds || [ownerData.ownerId];
+
+    // Filter bookings where homestayId matches any of the owner's homestays
+    const myBookings = bookings.filter(b => {
+      const bId = String(b.homestayId);
+      return ownerHomestayIds.some(id => String(id) === bId);
+    });
 
     return new Response(JSON.stringify(myBookings), { status: 200, headers: corsHeaders() });
   } catch(e) {
+    console.error("Owner bookings error:", e);
     return new Response(JSON.stringify({ error: "Failed to load bookings" }), { status: 500, headers: corsHeaders() });
   }
 }
