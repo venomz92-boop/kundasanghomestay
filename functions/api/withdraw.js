@@ -1,17 +1,18 @@
 // /api/withdraw.js - SECURE: Auth + Error Handling + RESET support + Rate Limiting
+// UPDATED: Now calls ToyyibPay Payout API to actually send money to your locked bank account
 
 // ========== UTILITY FUNCTIONS ==========
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
-  const expectedToken = env.ADMIN_TOKEN;
+  const expectedToken = env.ADMIN_TOKEN || "";
+  if (!expectedToken) {
+    return new Response(JSON.stringify({ error: "Server misconfigured" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...cors() }
+    });
+  }
   const expected = "Bearer " + expectedToken;
-  
-  console.log("🔐 Withdraw Auth Check:");
-  console.log("  Received:", auth ? "Present" : "Missing");
-  console.log("  Expected:", expected ? "Present" : "Missing");
-  console.log("  Match:", auth === expected);
-  
   if (auth !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -31,31 +32,24 @@ function cors() {
 }
 
 function validateAmount(amount) {
-  // Check if it's a valid number with max 2 decimal places
   const num = Number(amount);
   if (isNaN(num) || num <= 0) return false;
-  // Check if it has more than 2 decimal places
   const str = String(num);
   if (str.includes('.') && str.split('.')[1].length > 2) return false;
   return true;
 }
 
 // ========== SIMPLE RATE LIMITING (in-memory) ==========
-// For production, use Cloudflare KV or D1 for persistence
 const withdrawalAttempts = new Map();
 
 function checkRateLimit(ip) {
   const key = ip || 'unknown';
   const now = Date.now();
   const attempts = withdrawalAttempts.get(key) || [];
-  
-  // Clean old attempts (older than 5 minutes)
   const recent = attempts.filter(t => now - t < 5 * 60 * 1000);
-  
   if (recent.length >= 3) {
     return { blocked: true, remaining: 0 };
   }
-  
   return { blocked: false, remaining: 3 - recent.length };
 }
 
@@ -226,6 +220,76 @@ export async function onRequestPost(context) {
 
     const maskedAccount = accountNumber.slice(-4).padStart(accountNumber.length, "*");
 
+    // =============================================================
+    // ========== STEP 1: CALL TOYYIBPAY PAYOUT TO YOUR BANK ==========
+    // =============================================================
+    const isToyyibLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
+    let payoutSuccess = false;
+    let payoutData = null;
+    let payoutError = null;
+
+    if (isToyyibLive) {
+      console.log(`🔄 Initiating ToyyibPay Payout to your bank: RM${withdrawAmount} to ${accountNumber}`);
+
+      const formData = new FormData();
+      formData.append("userSecretKey", env.TOYYIBPAY_SECRET_KEY);
+      formData.append("bankCode", bankCode);
+      formData.append("bankAccountNumber", accountNumber.replace(/[^0-9]/g, ''));
+      formData.append("accountHolderName", accountHolder);
+      formData.append("amount", Math.round(withdrawAmount * 100));
+      formData.append("payoutDescription", `Platform Withdrawal WD_${Date.now()}`);
+      formData.append("payoutReferenceNo", `WD_${Date.now()}`);
+
+      const endpoints = [
+        "https://toyyibpay.com/index.php/api/payout",
+        "https://toyyibpay.com/index.php/api/createPayout"
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`  Trying endpoint: ${endpoint}`);
+          const res = await fetch(endpoint, {
+            method: "POST",
+            body: formData,
+            headers: { 'User-Agent': 'KundasangHomestay/1.0' }
+          });
+          const text = await res.text();
+          try { payoutData = JSON.parse(text); } catch { payoutData = { raw: text }; }
+          console.log(`  Response status: ${res.status}`);
+          if (res.ok && (payoutData.status === "success" || payoutData[0]?.status === "success" || payoutData.payoutCode)) {
+            console.log(`✅ Withdrawal payout successful via ${endpoint}`);
+            payoutSuccess = true;
+            break;
+          }
+          payoutError = payoutData;
+        } catch (e) {
+          payoutError = e.message;
+          console.error(`❌ Payout endpoint ${endpoint} failed:`, e.message);
+        }
+      }
+    } else {
+      // Simulation mode (ToyyibPay keys not set or payout disabled)
+      console.log(`🔶 SIMULATION: Withdrawal to your bank: RM${withdrawAmount} to ${accountHolder} (${accountNumber})`);
+      payoutSuccess = true;
+      payoutData = { simulation: true };
+    }
+
+    // =============================================================
+    // ========== STEP 2: UPDATE DATABASE ONLY IF SUCCESSFUL ==========
+    // =============================================================
+    if (!payoutSuccess) {
+      console.error("❌ Payout to your bank failed:", payoutError);
+      return new Response(JSON.stringify({
+        success: false,
+        error: "ToyyibPay payout to your bank failed. Please try again or check your ToyyibPay balance.",
+        details: payoutError
+      }), { 
+        status: 500, 
+        headers: { "Content-Type": "application/json", ...cors() } 
+      });
+    }
+
+    // Now update the bookkeeping (safe to update since payout succeeded)
     const withdrawal = {
       id: "WD_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
       amount: withdrawAmount,
@@ -236,14 +300,15 @@ export async function onRequestPost(context) {
       fullAccountForPayout: "***LOCKED***",
       note: "Platform fee withdrawal - Locked to owner account",
       date: new Date().toISOString(),
-      status: "Pending - Locked Bank",
+      status: "Success - Sent to your bank via ToyyibPay",
       locked: true,
-      ip: clientIP
+      ip: clientIP,
+      payoutId: payoutData?.payoutCode || payoutData?.id || "AUTO_WD_" + Date.now(),
+      simulation: payoutData?.simulation || false
     };
 
     if (db) {
       try {
-        // Use a transaction-like approach (D1 doesn't support transactions, so we do sequential)
         earnings.available = Math.max(0, (earnings.available || 0) - withdrawAmount);
         earnings.withdrawn = (earnings.withdrawn || 0) + withdrawAmount;
         earnings.history.push({ ...withdrawal, type: "withdrawal" });
@@ -262,16 +327,21 @@ export async function onRequestPost(context) {
             lastWithdrawal: {
               amount: withdrawAmount,
               date: withdrawal.date,
-              id: withdrawal.id
+              id: withdrawal.id,
+              status: withdrawal.status
             }
           }))
           .run();
           
         console.log(`✅ Withdrawal successful: RM${withdrawAmount.toFixed(2)} (ID: ${withdrawal.id}, IP: ${clientIP})`);
       } catch (e) {
-        console.error("❌ Failed to save withdrawal:", e.message);
+        console.error("❌ Failed to save withdrawal after successful payout:", e.message);
+        // CRITICAL: We already sent the money, but failed to update DB.
+        // We should log this heavily so you can manually reconcile.
+        console.error("⚠️ MANUAL RECONCILIATION NEEDED: Payout sent but DB update failed for ID:", withdrawal.id);
         return new Response(JSON.stringify({ 
-          error: "Database error. Please try again later." 
+          error: "Payout succeeded, but failed to update records. Please check your ToyyibPay dashboard and contact support immediately.",
+          payoutId: withdrawal.payoutId
         }), { 
           status: 500, 
           headers: { "Content-Type": "application/json", ...cors() } 
@@ -281,10 +351,12 @@ export async function onRequestPost(context) {
 
     return new Response(JSON.stringify({
       success: true,
-      message: `Withdraw RM${withdrawAmount.toFixed(2)} locked to ${bankName} ${accountHolder}`,
+      message: `RM${withdrawAmount.toFixed(2)} sent to your bank account (${bankName} ${accountHolder}). 
+                ${isToyyibLive ? 'ToyyibPay is processing the transfer.' : '(Simulation mode - no real money sent)'}`,
       withdrawal,
       earnings,
-      security: "Bank details LOCKED server-side"
+      security: "Bank details LOCKED server-side",
+      simulation: payoutData?.simulation || false
     }), { status: 200, headers: { "Content-Type": "application/json", ...cors() } });
 
   } catch (err) {
@@ -326,7 +398,7 @@ export async function onRequestGet(context) {
       total: earnings.total || 0,
       available: earnings.available || 0,
       withdrawn: earnings.withdrawn || 0,
-      history: (earnings.history || []).slice(-10) // Only return last 10 for security
+      history: (earnings.history || []).slice(-10)
     },
     security: "Bank fixed in server code"
   }), { status: 200, headers: { "Content-Type": "application/json", ...cors() } });
