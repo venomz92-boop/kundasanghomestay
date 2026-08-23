@@ -628,57 +628,28 @@ function renderAdmin(){
 
 // ====== REMOVE APPROVED HOMESTAY ======
 async function removeApprovedHomestay(id) {
-  if (!confirm(`Remove this homestay from Approved list?\n\nThis will permanently remove it from the platform.\nAll related bookings will still exist but the homestay will be hidden.`)) return;
-  
+  if (!confirm(`Remove this homestay from Approved list?`)) return;
   try {
-    const idx = allHomestays.findIndex(h => String(h.id) === String(id));
-    if (idx === -1) {
-      alert("Homestay not found");
-      return;
+    const isDemoHomestay = isDemo(id);
+    const res = await fetchWithAuth(API_BASE + "/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "removeApprovedHomestay",
+        id: id,
+        isDemo: isDemoHomestay
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await fetchCloudData();
+      renderAdmin();
+      alert(`✅ "${data.removed?.name || 'Homestay'}" removed and synced to cloud!`);
+    } else {
+      alert("❌ Removal failed: " + (data.error || "Unknown error"));
     }
-    const removed = allHomestays[idx];
-    allHomestays.splice(idx, 1);
-    homestays = [...allHomestays];
-    if (!isDemo(id)) {
-      const approveIdx = storedApproved.findIndex(h => String(h.id) === String(id));
-      if (approveIdx !== -1) {
-        storedApproved.splice(approveIdx, 1);
-      }
-    }
-    localStorage.setItem("kd_approved", JSON.stringify(storedApproved));
-    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    if (isDemo(id)) {
-      if (!deletedDemoIds.includes(String(id))) {
-        deletedDemoIds.push(String(id));
-        localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds));
-      }
-    }
-    if (availabilityMap[id]) {
-      delete availabilityMap[id];
-      localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
-    }
-    await saveApproved();
-    await pushAvailabilityToCloud();
-    try {
-      await fetchWithAuth(API_BASE + "/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "updateHomestays",
-          approved: storedApproved,
-          demoOverrides: demoOverrides,
-          demoBlocked: demoBlockedMap,
-          deletedDemo: deletedDemoIds
-        })
-      });
-      console.log("✅ Approved homestay removed and synced to cloud");
-    } catch(e) {
-      console.warn("⚠️ Cloud sync failed, but local data updated:", e.message);
-    }
-    renderAdmin();
-    alert(`✅ "${removed.name}" has been removed from the approved list.`);
   } catch(e) {
-    alert("❌ Failed to remove: " + e.message);
+    alert("Error: " + e.message);
   }
 }
 
