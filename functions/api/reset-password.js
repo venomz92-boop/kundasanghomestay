@@ -1,0 +1,147 @@
+// /api/reset-password.js - Reset password with token
+
+async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function corsHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type"
+  };
+}
+
+export async function onRequestPost({ request, env }) {
+  try {
+    const { token, password, userType } = await request.json();
+
+    if (!token || !password || !userType) {
+      return new Response(JSON.stringify({ error: "Missing required fields" }), {
+        status: 400,
+        headers: corsHeaders()
+      });
+    }
+
+    if (password.length < 6) {
+      return new Response(JSON.stringify({ error: "Password must be at least 6 characters" }), {
+        status: 400,
+        headers: corsHeaders()
+      });
+    }
+
+    const db = env.DB;
+    if (!db) {
+      return new Response(JSON.stringify({ error: "Server error" }), {
+        status: 500,
+        headers: corsHeaders()
+      });
+    }
+
+    // Verify token
+    const r = await db.prepare(`
+      SELECT * FROM password_resets WHERE token = ? AND used = 0 AND expires_at > datetime('now')
+    `).bind(token).first();
+
+    if (!r) {
+      return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
+        status: 400,
+        headers: corsHeaders()
+      });
+    }
+
+    // Mark token as used
+    await db.prepare(`UPDATE password_resets SET used = 1 WHERE token = ?`).bind(token).run();
+
+    // Update password based on user type
+    if (userType === 'guest') {
+      // Update guest password
+      const guestsR = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
+      let guests = [];
+      if (guestsR && guestsR.data) { try { guests = JSON.parse(guestsR.data); } catch(e) {} }
+
+      const idx = guests.findIndex(g => g.id === r.user_id);
+      if (idx === -1) {
+        return new Response(JSON.stringify({ error: "User not found" }), {
+          status: 404,
+          headers: corsHeaders()
+        });
+      }
+
+      // Generate new salt and hash
+      const salt = Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
+      const hashedPassword = await sha256(password + salt);
+
+      guests[idx].password = hashedPassword;
+      guests[idx].salt = salt;
+      guests[idx].passwordUpdated = new Date().toISOString();
+
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_guests", JSON.stringify(guests))
+        .run();
+
+    } else if (userType === 'owner') {
+      // Update owner password
+      const r1 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
+      let homestays = [];
+      if (r1 && r1.data) { try { homestays = JSON.parse(r1.data); } catch(e) {} }
+      const r2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
+      if (r2 && r2.data) { try { homestays = [...homestays, ...JSON.parse(r2.data)]; } catch(e) {} }
+
+      const idx = homestays.findIndex(h => String(h.id) === String(r.user_id));
+      if (idx === -1) {
+        return new Response(JSON.stringify({ error: "Owner not found" }), {
+          status: 404,
+          headers: corsHeaders()
+        });
+      }
+
+      const salt = Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
+      const hashedPassword = await sha256(password + salt);
+
+      homestays[idx].ownerPasswordHash = hashedPassword;
+      homestays[idx].ownerSalt = salt;
+      homestays[idx].passwordUpdated = new Date().toISOString();
+
+      // Update both approved and pending
+      const approved = homestays.filter(h => h.approved === true || h.verified === true);
+      const pending = homestays.filter(h => h.approved === false && h.verified === false);
+
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_approved", JSON.stringify(approved))
+        .run();
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_pending", JSON.stringify(pending))
+        .run();
+
+    } else {
+      return new Response(JSON.stringify({ error: "Invalid user type" }), {
+        status: 400,
+        headers: corsHeaders()
+      });
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: "Password reset successful. You can now log in."
+    }), {
+      status: 200,
+      headers: corsHeaders()
+    });
+
+  } catch (e) {
+    console.error("❌ Reset password error:", e.message);
+    return new Response(JSON.stringify({ error: "Failed to reset password" }), {
+      status: 500,
+      headers: corsHeaders()
+    });
+  }
+}
+
+export async function onRequestOptions() {
+  return new Response(null, { headers: corsHeaders() });
+}

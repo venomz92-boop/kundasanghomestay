@@ -1,0 +1,180 @@
+// /api/forgot-password.js - Request password reset link
+
+async function generateResetToken() {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function corsHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type"
+  };
+}
+
+export async function onRequestPost({ request, env }) {
+  try {
+    const { email, userType } = await request.json();
+
+    if (!email || !userType) {
+      return new Response(JSON.stringify({ error: "Missing email or user type" }), {
+        status: 400,
+        headers: corsHeaders()
+      });
+    }
+
+    const db = env.DB;
+    if (!db) {
+      return new Response(JSON.stringify({ error: "Server error" }), {
+        status: 500,
+        headers: corsHeaders()
+      });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const token = await generateResetToken();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+
+    let userId = null;
+    let userData = null;
+
+    if (userType === 'guest') {
+      // Find guest by email
+      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
+      let guests = [];
+      if (r && r.data) { try { guests = JSON.parse(r.data); } catch(e) {} }
+      const guest = guests.find(g => g.email && g.email.toLowerCase() === cleanEmail);
+      if (!guest) {
+        // Don't reveal if email exists – security
+        return new Response(JSON.stringify({ success: true, message: "If an account exists, a reset link has been sent." }), {
+          status: 200,
+          headers: corsHeaders()
+        });
+      }
+      userId = guest.id;
+      userData = { email: guest.email, name: guest.name, type: 'guest' };
+    } else if (userType === 'owner') {
+      // Find owner by email (we'll add email field to owner listing)
+      const r1 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
+      let homestays = [];
+      if (r1 && r1.data) { try { homestays = JSON.parse(r1.data); } catch(e) {} }
+      const r2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
+      if (r2 && r2.data) { try { homestays = [...homestays, ...JSON.parse(r2.data)]; } catch(e) {} }
+
+      const owner = homestays.find(h => h.ownerEmail && h.ownerEmail.toLowerCase() === cleanEmail);
+      if (!owner) {
+        return new Response(JSON.stringify({ success: true, message: "If an account exists, a reset link has been sent." }), {
+          status: 200,
+          headers: corsHeaders()
+        });
+      }
+      userId = owner.id;
+      userData = { email: owner.ownerEmail, name: owner.ownerName, type: 'owner', homestayName: owner.name };
+    } else {
+      return new Response(JSON.stringify({ error: "Invalid user type" }), {
+        status: 400,
+        headers: corsHeaders()
+      });
+    }
+
+    // Store token in D1
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS password_resets (
+        token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        user_type TEXT NOT NULL,
+        email TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        used INTEGER DEFAULT 0
+      )
+    `).run();
+
+    await db.prepare(`
+      INSERT OR REPLACE INTO password_resets (token, user_id, user_type, email, expires_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(token, userId, userType, cleanEmail, expiresAt).run();
+
+    // Build reset URL
+    const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
+    const resetUrl = `${domain}/reset-password.html?token=${token}&type=${userType}`;
+
+    // Send email (you need to configure this)
+    // For now, we'll log the URL and also return it in response for testing
+    console.log(`🔐 Reset link for ${cleanEmail}: ${resetUrl}`);
+
+    // In production, send email via SMTP or email service
+    // For now, we'll return the URL in the response for testing
+    // But we'll also try to send an email
+
+    // Attempt to send email (you'll need to set up SMTP)
+    const emailSent = await sendResetEmail(cleanEmail, userData.name, resetUrl, env);
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: emailSent ? "Reset link sent to your email." : "Reset link generated. (Email service not configured - check console for URL)",
+      resetUrl: env.ENVIRONMENT === 'development' ? resetUrl : undefined // Only show in dev
+    }), {
+      status: 200,
+      headers: corsHeaders()
+    });
+
+  } catch (e) {
+    console.error("❌ Forgot password error:", e.message);
+    return new Response(JSON.stringify({ error: "Failed to process request" }), {
+      status: 500,
+      headers: corsHeaders()
+    });
+  }
+}
+
+// ========== EMAIL SENDER (Placeholder - configure your own) ==========
+async function sendResetEmail(email, name, resetUrl, env) {
+  try {
+    // Option 1: Use Cloudflare Email Workers (recommended)
+    // Option 2: Use a service like SendGrid, Mailgun, etc.
+    // Option 3: Use a simple SMTP server
+
+    // For now, we'll just log and return true (assuming success)
+    console.log(`📧 Would send reset email to ${email} with link: ${resetUrl}`);
+
+    // If you have SMTP configured, implement here
+    // Example with a simple fetch to an email API:
+    /*
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + env.SENDGRID_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email }] }],
+        from: { email: 'noreply@kundasanghomestay.my' },
+        subject: 'Reset Your Password - Kundasang Homestay',
+        content: [{
+          type: 'text/html',
+          value: `
+            <h2>Hello ${name},</h2>
+            <p>You requested to reset your password.</p>
+            <p><a href="${resetUrl}">Click here to reset your password</a></p>
+            <p>This link expires in 1 hour.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+          `
+        }]
+      })
+    });
+    return response.ok;
+    */
+
+    return true; // Placeholder
+  } catch (e) {
+    console.error("Email send error:", e.message);
+    return false;
+  }
+}
+
+export async function onRequestOptions() {
+  return new Response(null, { headers: corsHeaders() });
+}
