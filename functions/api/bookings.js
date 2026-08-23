@@ -1,4 +1,4 @@
-// /api/bookings.js - GET is PUBLIC, POST/DELETE require admin auth
+// /api/bookings.js - SECURE: GET is PUBLIC, POST/DELETE require admin auth
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
@@ -88,7 +88,6 @@ export async function onRequestGet(context) {
             case "kd_pending": data.pending = parsed; break;
             case "kd_guests": 
               if (Array.isArray(parsed)) {
-                // Remove password field for public safety
                 data.guests = parsed.map(g => {
                   const { password, salt, ...rest } = g;
                   return rest;
@@ -111,11 +110,10 @@ export async function onRequestGet(context) {
 export async function onRequestPost(context) {
   const { request, env } = context;
   
-  // Parse body first
   const body = await request.json().catch(() => ({}));
   const action = body.action;
 
-  // ========== PUBLIC: Create booking (no auth needed) ==========
+  // ========== PUBLIC: Create booking ==========
   if (action === "createPublicBooking" && body.booking) {
     const booking = body.booking;
     const required = ['id', 'homestay', 'homestayId', 'checkin', 'checkout', 'guestEmail', 'guestName', 'total', 'base', 'fee'];
@@ -155,41 +153,35 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ success: true, bookingId: booking.id }), { status: 200, headers: corsHeaders() });
   }
 
-  // ========== PUBLIC: Update booking status (no auth needed) ==========
+  // ========== PUBLIC: Update booking status ==========
   if (action === "publicUpdateStatus" && body.id && body.status) {
     const db = env.DB;
     if (!db) {
       return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders() });
     }
-    
     try {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
       let bookings = [];
       if (r && r.data) { try { bookings = JSON.parse(r.data); } catch(e) {} }
-      
       const idx = bookings.findIndex(b => String(b.id) === String(body.id));
       if (idx === -1) {
         return new Response(JSON.stringify({ error: "Booking not found" }), { status: 404, headers: corsHeaders() });
       }
-      
       bookings[idx].status = body.status;
       bookings[idx].statusUpdated = new Date().toISOString();
       if (body.toyyibpay_billcode) bookings[idx].toyyibpay_billcode = body.toyyibpay_billcode;
       if (body.toyyibpay_transaction_id) bookings[idx].toyyibpay_transaction_id = body.toyyibpay_transaction_id;
       if (body.toyyibpay_status_id) bookings[idx].toyyibpay_status_id = body.toyyibpay_status_id;
       if (body.paid_at) bookings[idx].paid_at = body.paid_at;
-      
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_bookings", JSON.stringify(bookings))
         .run();
-      
       // Also update availability
       try {
         const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
         let availability = {};
         if (availRes && availRes.data) { try { availability = JSON.parse(availRes.data); } catch(e) {} }
-        
         const booking = bookings[idx];
         if (booking.homestayId && booking.checkin && booking.checkout) {
           if (!availability[booking.homestayId]) availability[booking.homestayId] = [];
@@ -205,7 +197,6 @@ export async function onRequestPost(context) {
             .run();
         }
       } catch(e) { console.warn("Availability update failed:", e.message); }
-      
       return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
         status: 200,
         headers: corsHeaders()
@@ -228,12 +219,79 @@ export async function onRequestPost(context) {
   try {
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
+    // ===== NEW: UPDATE DATES (Admin change booking dates) =====
+    if (action === "updateDates" && body.id) {
+      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+      let bookings = [];
+      if (r && r.data) { try { bookings = JSON.parse(r.data); } catch(e) {} }
+      const idx = bookings.findIndex(b => String(b.id) === String(body.id));
+      if (idx === -1) {
+        return new Response(JSON.stringify({ error: "Booking not found" }), { status: 404, headers: corsHeaders() });
+      }
+      // Update the booking fields
+      bookings[idx].checkin = body.checkin;
+      bookings[idx].checkout = body.checkout;
+      bookings[idx].nights = body.nights;
+      bookings[idx].base = body.base;
+      bookings[idx].fee = body.fee;
+      bookings[idx].total = body.total;
+      bookings[idx].youReceive = body.youReceive;
+      bookings[idx].statusUpdated = new Date().toISOString();
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_bookings", JSON.stringify(bookings))
+        .run();
+
+      // Also update availability map to reflect new dates
+      try {
+        const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
+        let availability = {};
+        if (availRes && availRes.data) { try { availability = JSON.parse(availRes.data); } catch(e) {} }
+        
+        const booking = bookings[idx];
+        if (booking.homestayId && booking.checkin && booking.checkout) {
+          // Rebuild availability for this homestay from all bookings
+          const allBookings = bookings.filter(b => String(b.homestayId) === String(booking.homestayId));
+          const allDates = new Set();
+          allBookings.forEach(b => {
+            if (b.checkin && b.checkout) {
+              const dates = getDatesInRange(b.checkin, b.checkout);
+              dates.forEach(d => allDates.add(d));
+            }
+          });
+          // Also include manually blocked dates from the homestay (we need to preserve them)
+          // Fetch the homestay to get its blockedDates
+          const homestayRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
+          let homestays = [];
+          if (homestayRes && homestayRes.data) { try { homestays = JSON.parse(homestayRes.data); } catch(e) {} }
+          const homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
+          if (homestay && homestay.blockedDates) {
+            homestay.blockedDates.forEach(d => allDates.add(d));
+          }
+          if (allDates.size === 0) {
+            delete availability[booking.homestayId];
+          } else {
+            availability[booking.homestayId] = [...allDates].sort();
+          }
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+            .bind("kd_availability", JSON.stringify(availability))
+            .run();
+        }
+      } catch(e) { console.warn("Availability update failed on date change:", e.message); }
+
+      return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
+        status: 200,
+        headers: corsHeaders()
+      });
+    }
+
+    // ===== CLEAR ALL =====
     if (action === "clearAll") {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify([])).run();
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify({})).run();
       return new Response(JSON.stringify({ success: true, bookings: [] }), { status: 200, headers: corsHeaders() });
     }
 
+    // ===== UPDATE PENDING =====
     if (action === "updatePending" || body.pending !== undefined) {
       let existingPending = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
@@ -245,6 +303,7 @@ export async function onRequestPost(context) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(merged)).run();
     }
 
+    // ===== UPDATE GUESTS =====
     if (action === "updateGuests" || action === "overwriteGuests" || action === "banGuest" || body.guests !== undefined) {
       let existingGuests = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
@@ -267,6 +326,7 @@ export async function onRequestPost(context) {
       }
     }
 
+    // ===== UPDATE HOMESTAYS =====
     if (action === "updateHomestays" || body.approved !== undefined) {
       if (body.approved !== undefined) {
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_approved", JSON.stringify(body.approved)).run();
@@ -282,6 +342,7 @@ export async function onRequestPost(context) {
       }
     }
 
+    // ===== UPDATE AVAILABILITY =====
     if (action === "updateAvailability" || body.availability !== undefined) {
       const avail = body.availability || body.availability;
       if (avail) {
@@ -289,24 +350,22 @@ export async function onRequestPost(context) {
       }
     }
 
+    // ===== UPDATE BOOKINGS =====
     if (action === "updateBookings" || body.bookings !== undefined) {
       const b = body.bookings || body.bookings;
       if (b && Array.isArray(b)) {
         let existing = [];
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
         if (r && r.data) existing = JSON.parse(r.data);
-        if (b.length === 0 && existing.length > 0) {
-          console.log("Bookings empty, keeping existing:", existing.length);
-        } else {
-          const map = new Map();
-          [...existing, ...b].forEach(book => { if (book && book.id) map.set(String(book.id), book); });
-          const merged = [...map.values()];
-          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
-        }
+        const map = new Map();
+        [...existing, ...b].forEach(book => { if (book && book.id) map.set(String(book.id), book); });
+        const merged = [...map.values()];
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
       }
     }
 
-    if (body.id && body.action !== "updateBookings" && body.action !== "createPublicBooking") {
+    // ===== GENERIC FALLBACK (saves single booking) =====
+    if (body.id && body.action !== "updateBookings" && body.action !== "createPublicBooking" && body.action !== "updateDates") {
       let existing = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
       if (r && r.data) existing = JSON.parse(r.data);
@@ -353,6 +412,7 @@ export async function onRequestDelete(context) {
       if (r2 && r2.data) avail = JSON.parse(r2.data);
       const homestayId = toDelete.homestayId || toDelete.homestay || toDelete.homestay_id;
       if (homestayId) {
+        // Rebuild availability from remaining bookings
         const remainingDates = new Set();
         bookings.filter(b =>
           String(b.homestayId) === String(homestayId) ||
@@ -369,6 +429,17 @@ export async function onRequestDelete(context) {
             } catch (e) { console.error("Failed to parse dates:", e.message); }
           }
         });
+        // Also preserve manually blocked dates from the homestay
+        try {
+          const homestayRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
+          let homestays = [];
+          if (homestayRes && homestayRes.data) { try { homestays = JSON.parse(homestayRes.data); } catch(e) {} }
+          const homestay = homestays.find(h => String(h.id) === String(homestayId));
+          if (homestay && homestay.blockedDates) {
+            homestay.blockedDates.forEach(d => remainingDates.add(d));
+          }
+        } catch(e) {}
+        
         if (remainingDates.size === 0) {
           delete avail[homestayId];
         } else {
