@@ -92,7 +92,13 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
         Callback: /api/toyyibpay-webhook
       </div>
       <div id="liveBankInfo" class="mt-3 p-3 bg-zinc-50 border sharp text-xs">Loading locked bank...</div>
-      <div class="flex gap-2 mt-4 flex-wrap"><button onclick="restoreDemos()" class="text-xs border sharp px-3 py-1">Restore Demos</button><button onclick="resetDemoEdits()" class="text-xs border sharp px-3 py-1">Reset Edits</button><button onclick="if(confirm('Clear all bookings?')){localStorage.removeItem('kd_bookings'); bookings=[]; renderAdmin();}" class="text-xs border sharp px-3 py-1 bg-red-50">Clear Bookings (fix duplicates)</button><button onclick="clearAllBookingsCloud()" class="text-xs border sharp px-3 py-1 bg-red-600 text-white">PURGE CLOUD D1 (Fix F5 bug)</button></div>
+      <div class="flex gap-2 mt-4 flex-wrap">
+        <button onclick="restoreDemos()" class="text-xs border sharp px-3 py-1">Restore Demos</button>
+        <button onclick="resetDemoEdits()" class="text-xs border sharp px-3 py-1">Reset Edits</button>
+        <button onclick="forceSyncPending()" class="text-xs border sharp px-3 py-1 bg-blue-500 text-white">🔄 Force Sync Pending</button>
+        <button onclick="if(confirm('Clear all bookings?')){localStorage.removeItem('kd_bookings'); bookings=[]; renderAdmin();}" class="text-xs border sharp px-3 py-1 bg-red-50">Clear Bookings (fix duplicates)</button>
+        <button onclick="clearAllBookingsCloud()" class="text-xs border sharp px-3 py-1 bg-red-600 text-white">PURGE CLOUD D1 (Fix F5 bug)</button>
+      </div>
     </div>
   </div>
 </div>
@@ -100,7 +106,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 <!-- ====== WITHDRAW MODAL ====== -->
 <div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw Earnings</h3><div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after RM1) - Auto payout to owners via ToyyibPay<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button, not here.</div><div class="mt-3 p-2 bg-green-50 border border-green-200 sharp text-[11px]">🔒 Locked Bank: Loading...<br>Change only in Cloudflare env YOUR_BANK_*</div><input id="kdBankName" placeholder="Bank Name (Locked - ignored)" disabled class="w-full border sharp px-3 py-2 mt-3 bg-zinc-100 text-zinc-500" value="Maybank - Locked"/><input id="kdAmt" type="number" placeholder="Amount RM" min="1" step="0.01" class="w-full border sharp px-3 py-2 mt-2"/><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm Withdraw</button></div><div id="kdWithdrawMsg" class="mt-3 text-[11px] text-zinc-500"></div></div></div>
 
-<!-- ====== PENDING DETAIL MODAL (Large View) ====== -->
+<!-- ====== PENDING DETAIL MODAL ====== -->
 <div id="pendingDetailModal" class="fixed inset-0 z-[100] hidden bg-black/70 p-4 overflow-y-auto" onclick="if(event.target===this) closePendingDetail()">
   <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl p-6 md:p-8 relative mt-10 mb-10">
     <button onclick="closePendingDetail()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-2xl hover:bg-zinc-200 transition">✕</button>
@@ -149,7 +155,6 @@ function closeLightbox() {
     document.body.style.overflow = '';
   }
 }
-// Close lightbox with Escape key
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeLightbox();
 });
@@ -297,14 +302,18 @@ async function fetchCloudData(){
     if(data.bannedGuests && Array.isArray(data.bannedGuests)){
       localStorage.setItem("kd_banned_guests", JSON.stringify(data.bannedGuests));
     }
-    if(data.pending && Array.isArray(data.pending)){
-      if(data.pending.length > 0){
-        const map=new Map();
-        [...pendingHomestays, ...data.pending].forEach(h=>{ if(h && h.id) map.set(String(h.id), h); });
-        pendingHomestays=[...map.values()];
+    // ==== FIX: Overwrite pending from cloud (don't merge) ====
+    if(data.pending !== undefined){
+      if(Array.isArray(data.pending)){
+        pendingHomestays = data.pending;
         localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
+      } else {
+        // If cloud says no pending
+        pendingHomestays = [];
+        localStorage.setItem("kd_pending", JSON.stringify([]));
       }
     }
+    // ==========================================================
     if(data.guests && Array.isArray(data.guests)){
       const localGuests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
       if(data.guests.length < localGuests.length){
@@ -508,15 +517,13 @@ function renderAdmin(){
   renderBookingsTable();
 }
 
-// ====== PENDING DETAIL MODAL WITH LIGHTBOX ======
+// ====== PENDING DETAIL MODAL ======
 function viewPendingDetails(id) {
   const h = pendingHomestays.find(p => p.id === id);
   if (!h) return;
-  
   const content = document.getElementById('pendingDetailContent');
   const title = document.getElementById('detailModalTitle');
   title.textContent = `🔍 ${h.name || 'Unnamed'} — Pending Review`;
-  
   let html = `
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div>
@@ -540,7 +547,6 @@ function viewPendingDetails(id) {
         </div>
       </div>
     </div>
-    
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
       <div>
         <div class="text-sm font-semibold text-zinc-500">Bank Details</div>
@@ -566,8 +572,6 @@ function viewPendingDetails(id) {
       </div>
     </div>
   `;
-  
-  // IC Image - with lightbox
   if (h.icImage) {
     html += `
       <div class="mt-4">
@@ -579,8 +583,6 @@ function viewPendingDetails(id) {
       </div>
     `;
   }
-  
-  // QR Image - with lightbox
   if (h.bankQRImage) {
     html += `
       <div class="mt-4">
@@ -592,8 +594,6 @@ function viewPendingDetails(id) {
       </div>
     `;
   }
-  
-  // Full JSON (collapsed)
   html += `
     <div class="mt-4">
       <button onclick="toggleJsonView()" class="text-xs text-blue-600 underline">Show Full JSON Data</button>
@@ -602,7 +602,6 @@ function viewPendingDetails(id) {
       </div>
     </div>
   `;
-  
   content.innerHTML = safeHTML(html);
   document.getElementById('pendingDetailModal').classList.remove('hidden');
 }
@@ -623,9 +622,7 @@ function renderBookingsTable(){
     div.innerHTML = safeHTML('<div class="text-center text-zinc-500 py-6">No bookings yet.</div>'); 
     return; 
   }
-  
   let html = '<div class="mb-3 text-[11px] text-zinc-500">Flow: Check-in → Complete → Owner gets Base via ToyyibPay → You keep Fee • No F5 needed <button onclick="renderAdmin()" class="ml-2 border sharp px-2 py-0.5 bg-white">Reload</button></div><div class="space-y-4">';
-  
   bookings.forEach(b => {
     const status=b.status||"Paid - Awaiting Check-in";
     const isAwaiting=status.toLowerCase().includes("awaiting");
@@ -720,7 +717,7 @@ async function changeBookingDates(id){ const b=bookings.find(x=> String(x.id)===
 function openOwnerAvailabilityManager(id){ const h=allHomestays.find(x=> String(x.id)===String(id)); if(!h) return; const blocked=getAllBlockedDatesForHomestay(h); const a=prompt("Manage "+h.name+"\nBlocked: "+(blocked.join(", ")||"None")+"\nEnter YYYY-MM-DD, START,END, or clear"); if(a===null) return; if(a==='clear'){ h.blockedDates=[]; availabilityMap[h.id]=[]; if(isDemo(h.id)){demoBlockedMap[h.id]=[]; saveDemoBlocked();} saveAvailabilityMap(); saveApproved(); renderAdmin(); return; } if(a.includes(",")){ const parts=a.split(",").map(x=>x.trim()); const range=getDatesInRange(parts[0],parts[1]); range.forEach(d=>{ if(h.blockedDates.includes(d)) h.blockedDates=h.blockedDates.filter(x=>x!==d); else h.blockedDates.push(d); }); h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); return; } if(h.blockedDates.includes(a)) h.blockedDates=h.blockedDates.filter(d=>d!==a); else h.blockedDates.push(a); h.blockedDates.sort(); if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();} saveApproved(); saveAvailabilityMap(); renderAdmin(); }
 
 // ========== OTHER ADMIN FUNCTIONS ==========
-function approveHomestay(id){ 
+async function approveHomestay(id){ 
   const idx=pendingHomestays.findIndex(h=> h.id==id); 
   if(idx===-1) return; 
   const h=pendingHomestays[idx]; 
@@ -732,16 +729,52 @@ function approveHomestay(id){
   saveApproved(); 
   pendingHomestays.splice(idx,1); 
   localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); 
-  fetchWithAuth(API_BASE + "/pending", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ pending: pendingHomestays })}).catch(()=>{});
+  try {
+    await fetchWithAuth(API_BASE + "/pending", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ pending: pendingHomestays })});
+    console.log("✅ Pending synced after approve");
+  } catch(e) { alert("Sync failed: "+e.message); }
   renderAdmin(); 
 }
 
-function rejectHomestay(id){ 
+async function rejectHomestay(id){ 
   if(!confirm("Reject this homestay?")) return; 
   pendingHomestays=pendingHomestays.filter(h=> h.id!=id); 
   localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); 
-  fetchWithAuth(API_BASE + "/pending", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ pending: pendingHomestays })}).catch(()=>{});
+  try {
+    const res = await fetchWithAuth(API_BASE + "/pending", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ pending: pendingHomestays })
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      alert("Failed to sync rejection to cloud: "+err);
+    } else {
+      console.log("✅ Pending synced after reject");
+    }
+  } catch(e) {
+    alert("Network error: "+e.message);
+  }
   renderAdmin(); 
+}
+
+// Force sync pending from localStorage to cloud
+async function forceSyncPending(){
+  if (!confirm("Force sync pending data from localStorage to cloud?")) return;
+  try {
+    const res = await fetchWithAuth(API_BASE + "/pending", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ pending: pendingHomestays })
+    });
+    if (res.ok) {
+      alert("Sync successful!");
+    } else {
+      alert("Sync failed: "+await res.text());
+    }
+  } catch(e) {
+    alert("Sync error: "+e.message);
+  }
 }
 
 function restoreDemos(){ if(!confirm("Restore?")) return; localStorage.removeItem("kd_deleted_demo"); deletedDemoIds=[]; const base=DEMO_HOMESTAYS.map(d=> demoOverrides[d.id]?{...d, ...demoOverrides[d.id]}:d); allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin(); }
