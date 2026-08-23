@@ -1,30 +1,26 @@
-// /api/payment-mode.js - AUTO-TOGGLE (env + fallback)
+// /api/payment-mode.js - HARDCODED TOGGLE (Guaranteed to work)
 
 export async function onRequestGet({ env }) {
   // ============================================================
-  // If the environment variable is NOT set or is undefined,
-  // this default value will be used.
-  // Set this to 'false' for simulation, 'true' for live.
-  // Once the env var works, this fallback is ignored.
+  // CHANGE THIS LINE to switch modes:
+  //   true  = LIVE (redirect to ToyyibPay)
+  //   false = SIMULATION (no real money)
   // ============================================================
-  const FALLBACK_MODE = 'false'; // <-- Change this to 'true' if you want live by default
+  const IS_LIVE = false; // <-- Set to true for LIVE, false for SIMULATION
   // ============================================================
   
-  // Read the environment variable – if missing, use the fallback
-  const rawValue = env.TOYYIBPAY_PAYOUT_ENABLED;
-  const payoutEnabled = (rawValue !== undefined && rawValue !== null) ? rawValue : FALLBACK_MODE;
-  const isLive = payoutEnabled.toLowerCase() === 'true';
+  // Check if secret key exists (for safety)
   const hasSecret = !!env.TOYYIBPAY_SECRET_KEY;
-  const enabled = isLive && hasSecret;
+  const enabled = IS_LIVE && hasSecret;
   
   return new Response(JSON.stringify({
     enabled: enabled,
-    isLive: isLive,
+    isLive: IS_LIVE,
     hasSecret: hasSecret,
     message: enabled ? "LIVE - Payments go to ToyyibPay" : "SIMULATION - No real money",
-    // Include the raw value for debugging
-    envValue: rawValue,
-    usedFallback: rawValue === undefined || rawValue === null,
+    // Version stamp to verify deployment
+    version: "2.0",
+    mode: IS_LIVE ? "live" : "simulation"
   }), {
     status: 200,
     headers: {
