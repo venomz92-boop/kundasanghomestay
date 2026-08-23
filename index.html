@@ -226,7 +226,7 @@
   </div>
 </div>
 
-<footer class="bg-[#212121] text-white/70 mt-20"><div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10"><div><div class="flex items-center gap-3"><div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div><div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div></div><p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local - Kundasang version. Mountain homestays with Kinabalu soul.</p></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div><div class="space-y-2 text-[13px] font-poppins"><div class="hover:text-white cursor-pointer" onclick="showPage('home')">Homestays</div><a href="/list.html" class="hover:text-white block">List Property</a><div class="hover:text-white cursor-pointer" onclick="showPage('about')">About</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div><div class="space-y-2 text-[13px] font-poppins"><div>Host Guidelines</div><div>ToyyibPay FPX Secured</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div><p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p></div></div><div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay - Toyyibpay Secured</div></footer>
+<footer class="bg-[#212121] text-white/70 mt-20"><div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10"><div><div class="flex items-center gap-3"><div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div><div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div></div><p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local - Kundasang version. Mountain homestays with Kinabalu soul.</p></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div><div class="space-y-2 text-[13px] font-poppins"><div class="hover:text-white cursor-pointer" onclick="showPage('home')">Homestays</div><a href="/list.html" class="hover:text-white block">List Property</a><div class="hover:text-white cursor-pointer" onclick="showPage('about')">About</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div><div class="space-y-2 text-[13px] font-poppins"><div>Host Guidelines</div><div>ToyyibPay FPX Secured</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div><p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p></div></div><div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay</div></footer>
 
 <script>
 // =============================================================
@@ -252,6 +252,20 @@ function safeHTML(html) {
     ],
     ADD_ATTR: ['target']
   });
+}
+
+// =============================================================
+// SHA256 HELPER
+// =============================================================
+async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function generateSalt() {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
 }
 
 // =============================================================
@@ -976,7 +990,7 @@ function updateBookingPrice() {
 function closeBooking() { document.getElementById("bookingModal").classList.add("hidden"); }
 
 // =============================================================
-// PAYMENT FUNCTION (PATCHED with CLOUD SYNC)
+// PAYMENT FUNCTION
 // =============================================================
 async function processPayment() {
   if (!currentGuest) {
@@ -1045,49 +1059,20 @@ async function processPayment() {
     return;
   }
 
-  // =============================================================
-  // ========== SIMULATION MODE ==========
-  // =============================================================
+  // ---- Proceed with payment ----
   if (!CONFIG.toyyibpay.enabled) {
     booking.status = "Paid - Awaiting Check-in";
     bookings.push(booking);
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    
-    // ====== FIX: SYNC TO CLOUD ======
     const bookedDates = getDatesInRange(ci, co);
     if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
     bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
     saveAvailabilityMap();
-    
-    // Push to cloud (D1) with the UPDATED status
-    try {
-      // Create a new booking object with the updated status
-      const updatedBooking = { ...booking, status: "Paid - Awaiting Check-in" };
-      
-      // Update the booking in the cloud using the public endpoint
-      const updateRes = await fetch(API_BASE + "/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "createPublicBooking", booking: updatedBooking })
-      });
-      
-      if (updateRes.ok) {
-        console.log("☁️ Simulation booking synced to cloud with PAID status");
-      } else {
-        console.warn("⚠️ Failed to sync simulation booking to cloud:", await updateRes.text());
-      }
-    } catch(e) {
-      console.warn("⚠️ Failed to sync simulation booking to cloud:", e);
-    }
-    // ================================
-    
     showBookingSuccess(bookingId, nights, ci, co, price.total);
     return;
   }
 
-  // =============================================================
-  // ========== LIVE MODE - ToyyibPay ==========
-  // =============================================================
+  // LIVE - ToyyibPay
   try {
     const res = await fetch(API_BASE + "/toyyibpay-create", {
       method: "POST",
@@ -1107,23 +1092,6 @@ async function processPayment() {
       if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
       bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
       saveAvailabilityMap();
-      
-      // ====== FIX: SYNC TO CLOUD ======
-      try {
-        const updatedBooking = { ...booking, status: "Paid - Awaiting Check-in" };
-        const updateRes = await fetch(API_BASE + "/bookings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "createPublicBooking", booking: updatedBooking })
-        });
-        if (updateRes.ok) {
-          console.log("☁️ Simulation booking synced to cloud");
-        }
-      } catch(e) {
-        console.warn("⚠️ Failed to sync simulation booking to cloud:", e);
-      }
-      // ================================
-      
       showBookingSuccess(bookingId, nights, ci, co, price.total);
       return;
     }
@@ -1144,28 +1112,45 @@ async function processPayment() {
     if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
     bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
     saveAvailabilityMap();
-    
-    // ====== FIX: SYNC TO CLOUD ======
-    try {
-      const updatedBooking = { ...booking, status: "Paid - Awaiting Check-in" };
-      const updateRes = await fetch(API_BASE + "/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "createPublicBooking", booking: updatedBooking })
-      });
-      if (updateRes.ok) {
-        console.log("☁️ Fallback booking synced to cloud");
-      }
-    } catch(e) {
-      console.warn("⚠️ Failed to sync fallback booking to cloud:", e);
-    }
-    // ================================
-    
     showBookingSuccess(bookingId, nights, ci, co, price.total);
   }
 }
 
 function processBillplzPayment() { processPayment(); }
+
+// =============================================================
+// SHOW PAYMENT RECEIPT (Enhanced version with transaction details)
+// =============================================================
+function showPaymentReceipt(bookingId, nights, checkin, checkout, total, billcode, transactionId) {
+  // Set the values
+  document.getElementById("successBookingId").textContent = bookingId;
+  document.getElementById("successNights").textContent = nights + " nights";
+  document.getElementById("successDates").textContent = checkin + " → " + checkout;
+  document.getElementById("successTotal").textContent = "RM" + total.toFixed(2);
+  
+  // Add transaction details if available
+  const receiptDetails = document.getElementById("receiptDetails");
+  if (receiptDetails) {
+    let html = '<div class="mt-3 pt-3 border-t border-black/10 text-left text-xs text-zinc-600">';
+    if (billcode) html += '<div><span class="font-semibold">Bill Code:</span> ' + billcode + '</div>';
+    if (transactionId) html += '<div><span class="font-semibold">Transaction ID:</span> ' + transactionId + '</div>';
+    html += '<div><span class="font-semibold">Payment Method:</span> FPX (Online Banking)</div>';
+    html += '<div><span class="font-semibold">Status:</span> <span class="text-green-600 font-bold">✓ Paid</span></div>';
+    html += '</div>';
+    receiptDetails.innerHTML = html;
+    receiptDetails.classList.remove('hidden');
+  }
+  
+  // Show the modal
+  document.getElementById("bookingSuccessModal").style.display = "flex";
+  
+  // Store for WhatsApp sharing
+  lastBookingId = bookingId;
+  lastBookingNights = nights;
+  lastBookingCi = checkin;
+  lastBookingCo = checkout;
+  lastBookingTotal = total;
+}
 
 // =============================================================
 // WHATSAPP FUNCTIONS
@@ -1255,6 +1240,17 @@ let lastBookingCo = "";
 let lastBookingTotal = "";
 
 function showBookingSuccess(bookingId, nights, ci, co, total){
+  // If this is from a redirect with billcode/transactionId, use the enhanced version
+  const params = new URLSearchParams(window.location.search);
+  const billcode = params.get("billcode");
+  const transactionId = params.get("transaction_id");
+  
+  if (billcode || transactionId) {
+    showPaymentReceipt(bookingId, nights, ci, co, total, billcode, transactionId);
+    return;
+  }
+  
+  // Fallback to original success modal for simulation mode
   lastBookingId = bookingId;
   lastBookingNights = nights;
   lastBookingCi = ci;
@@ -1266,6 +1262,7 @@ function showBookingSuccess(bookingId, nights, ci, co, total){
   document.getElementById("successTotal").textContent="RM"+total;
   document.getElementById("bookingSuccessModal").style.display="flex";
 }
+
 function closeBookingSuccess(){
   document.getElementById("bookingSuccessModal").style.display="none";
   closeBooking(); closeDetail(); renderGrid();
@@ -1275,7 +1272,27 @@ function whatsappWithBookingId(){
   if(!waNumber){ alert('WhatsApp not found - owner must add WhatsApp at listing.'); return; }
   const homestayName = (typeof selectedHomestay !== 'undefined' && selectedHomestay) ? selectedHomestay.name : 'Homestay';
   const ownerName = (typeof selectedHomestay !== 'undefined' && selectedHomestay && selectedHomestay.ownerName) ? selectedHomestay.ownerName : 'Owner';
-  const message = "Hi " + ownerName + ", I just booked " + homestayName + " on Kundasang Homestays!\n\n*ID: " + lastBookingId + "*\n*" + lastBookingNights + " nights* " + lastBookingCi + " → " + lastBookingCo + "\nTotal RM" + lastBookingTotal + "\n\nPlease confirm my check-in. Thanks!";
+  
+  // Get receipt details
+  const bookingId = lastBookingId;
+  const total = lastBookingTotal;
+  const nights = lastBookingNights;
+  const dates = lastBookingCi + " → " + lastBookingCo;
+  const receiptDetails = document.getElementById("receiptDetails");
+  let billcode = '';
+  let transactionId = '';
+  if (receiptDetails) {
+    const text = receiptDetails.textContent || '';
+    const billMatch = text.match(/Bill Code:\s*([a-z0-9]+)/i);
+    const transMatch = text.match(/Transaction ID:\s*([a-z0-9]+)/i);
+    if (billMatch) billcode = billMatch[1];
+    if (transMatch) transactionId = transMatch[1];
+  }
+  
+  const message = "Hi " + ownerName + ", I just booked " + homestayName + " on Kundasang Homestays!\n\n*ID: " + bookingId + "*\n*" + nights + " nights* " + dates + "\nTotal RM" + total.toFixed(2) + 
+    (billcode ? "\nBill Code: " + billcode : "") + 
+    (transactionId ? "\nTransaction ID: " + transactionId : "") + 
+    "\n\nPlease confirm my check-in. Thanks!";
   openWhatsAppLink(waNumber, message);
 }
 
@@ -1443,35 +1460,141 @@ function resetDemoEdits() { /* Admin function - only used in admin panel */ }
   }
   // ============================================
   
-  // Handle redirect from ToyyibPay
+  // ====== HANDLE TOYYIBPAY REDIRECT ======
   try {
     const params = new URLSearchParams(window.location.search);
     const bookingIdParam = params.get("booking");
     const paidParam = params.get("paid");
+    const billcode = params.get("billcode");
+    const transactionId = params.get("transaction_id");
+    const statusId = params.get("status_id");
+    
     if (bookingIdParam && paidParam === "1") {
-      // ... existing code ...
+      console.log("🎯 Processing payment redirect for booking:", bookingIdParam);
+      
+      // First, try to find the booking in the local bookings array
+      let b = bookings.find(x => String(x.id) === String(bookingIdParam));
+      
+      // If not found locally, fetch from cloud
+      if (!b) {
+        await fetchCloudData();
+        b = bookings.find(x => String(x.id) === String(bookingIdParam));
+      }
+      
+      if (b) {
+        // Update status if still pending
+        if ((b.status || "").toLowerCase().includes("pending")) {
+          b.status = "Paid - Awaiting Check-in";
+          b.statusUpdated = new Date().toISOString();
+          b.toyyibpay_billcode = billcode || b.toyyibpay_billcode;
+          b.toyyibpay_transaction_id = transactionId;
+          b.toyyibpay_status_id = statusId;
+          b.paid_at = new Date().toISOString();
+          
+          // Save locally
+          localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+          
+          // Update availability
+          const dates = getDatesInRange(b.checkin, b.checkout);
+          if (b.homestayId) {
+            if (!availabilityMap[b.homestayId]) availabilityMap[b.homestayId] = [];
+            dates.forEach(d => { 
+              if (!availabilityMap[b.homestayId].includes(d)) {
+                availabilityMap[b.homestayId].push(d); 
+              }
+            });
+            saveAvailabilityMap();
+          }
+          
+          // Sync to cloud
+          try {
+            await fetchWithAuth(`${API_BASE}/bookings`, { 
+              method: "POST", 
+              headers: { "Content-Type": "application/json" }, 
+              body: JSON.stringify({ 
+                action: "updateStatus", 
+                id: b.id, 
+                status: b.status, 
+                booking: b 
+              }) 
+            });
+            console.log("☁️ Booking status synced to cloud");
+          } catch(e) { console.warn("Cloud sync failed:", e); }
+        }
+        
+        // Show the booking success modal with receipt details
+        const nights = b.nights || calculateNights(b.checkin, b.checkout);
+        const total = b.total || 0;
+        
+        // Show enhanced success modal with receipt
+        showPaymentReceipt(b.id, nights, b.checkin, b.checkout, total, billcode, transactionId);
+        
+      } else {
+        console.warn("⚠️ Booking not found for ID:", bookingIdParam);
+        // Still show a generic success message
+        alert("✅ Payment successful! Your booking has been confirmed.\n\nBooking ID: " + bookingIdParam + "\nTransaction ID: " + (transactionId || 'N/A'));
+      }
+      
+      // Remove the query parameters from the URL so refresh doesn't re-trigger
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
-  } catch(e) { console.warn("Paid redirect handler fail", e); }
+  } catch(e) { 
+    console.warn("Paid redirect handler fail", e); 
+  }
+  // ============================================
 })();
 
 console.log("✅ Kundasang Homestay public page loaded (secure).");
 </script>
 
-<!-- BOOKING SUCCESS MODAL -->
-<div id="bookingSuccessModal" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; padding:20px;">
-  <div class="bg-white sharp max-w-[420px] w-full p-8">
+<!-- BOOKING SUCCESS MODAL (Enhanced with Receipt) -->
+<div id="bookingSuccessModal" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; padding:20px; overflow-y:auto;">
+  <div class="bg-white sharp max-w-[480px] w-full p-6 md:p-8" style="max-height:90vh; overflow-y:auto;">
     <div class="text-center">
-      <div class="w-14 h-14 bg-[#dcfce7] sharp flex items-center justify-center mx-auto mb-5 text-[28px]">✓</div>
-      <h3 class="font-poppins font-800 text-[20px] uppercase">Booking Success!</h3>
-      <p class="text-[12px] text-[#212121]/60 mt-3">Screenshot this ID for check-in.</p>
-      <div class="bg-[#F8F5F0] sharp p-5 text-left mt-6 border border-black/5">
-        <div class="flex justify-between mb-3"><span class="text-[11px] uppercase">Booking ID</span><span id="successBookingId" class="font-800 text-[16px] text-[#dc2626]"></span></div>
-        <div class="flex justify-between mb-3"><span class="text-[11px] uppercase">Duration</span><span><span id="successNights" class="font-800 text-[#dc2626]"></span> <span id="successDates"></span></span></div>
-        <div class="flex justify-between pt-3 border-t"><span class="text-[11px] uppercase">Total Paid</span><span id="successTotal" class="font-800 text-[18px]"></span></div>
-      </div>
-      <button onclick="whatsappWithBookingId()" class="w-full bg-[#25D366] text-white sharp py-3.5 mt-6">WhatsApp Owner with ID</button>
-      <button onclick="closeBookingSuccess()" class="w-full bg-[#212121] text-white sharp py-3.5 mt-3">OK, Got It</button>
+      <div class="w-16 h-16 bg-green-100 sharp flex items-center justify-center mx-auto mb-4 text-3xl">✅</div>
+      <h3 class="font-poppins font-800 text-[22px] uppercase text-[#212121]">Payment Successful!</h3>
+      <p class="text-[12px] text-[#212121]/60 mt-2">Your booking is confirmed. Please save this receipt.</p>
     </div>
+    
+    <!-- Receipt Card -->
+    <div class="bg-[#F8F5F0] sharp p-5 mt-4 border border-black/5">
+      <div class="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-3">Payment Receipt</div>
+      
+      <div class="flex justify-between py-2 border-b border-black/5">
+        <span class="text-[11px] text-zinc-500">Booking ID</span>
+        <span id="successBookingId" class="font-800 text-[14px] text-[#dc2626]">-</span>
+      </div>
+      
+      <div class="flex justify-between py-2 border-b border-black/5">
+        <span class="text-[11px] text-zinc-500">Duration</span>
+        <span class="text-[13px] font-semibold">
+          <span id="successNights">-</span> • 
+          <span id="successDates" class="text-[12px] font-normal text-zinc-600">-</span>
+        </span>
+      </div>
+      
+      <div class="flex justify-between py-2 border-b border-black/5">
+        <span class="text-[11px] text-zinc-500">Total Paid</span>
+        <span id="successTotal" class="font-800 text-[20px] text-[#0F382E]">-</span>
+      </div>
+      
+      <!-- Receipt Details (hidden by default, shown when transaction data available) -->
+      <div id="receiptDetails" class="hidden mt-2 pt-2 border-t border-black/10 text-[11px] text-zinc-500"></div>
+    </div>
+    
+    <div class="mt-4 text-[11px] text-center text-zinc-400">
+      <span class="inline-block bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-semibold">✓ Payment Verified</span>
+    </div>
+    
+    <div class="mt-5 flex flex-col gap-3">
+      <button onclick="whatsappWithBookingId()" class="w-full bg-[#25D366] text-white sharp py-3.5 font-700 text-[13px] uppercase tracking-wider flex items-center justify-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.46 2.13 11.94c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.79 9.79 0 0 0 4.68 1.19h.01c5.46 0 9.91-4.46 9.91-9.94a9.86 9.86 0 0 0-2.8-6.96zm-7.01 15.1h-.01a8.1 8.1 0 0 1-4.13-1.13l-.3-.18-3.12.82.83-3.04-.2-.31a8.18 8.18 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 0 1 2.41 5.83c0 4.54-3.7 8.23-8.24 8.23zm4.52-6.16c-.25-.12-1.47-.73-1.7-.81-.23-.08-.4-.12-.57.12s-.66.81-.81.98-.3.19-.55.07a6.7 6.7 0 0 1-1.97-1.22 7.38 7.38 0 0 1-1.36-1.69c-.14-.25-.01-.38.11-.5.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43s-.57-1.38-.78-1.89c-.2-.49-.41-.42-.57-.43h-.49c-.17 0-.43.06-.66.31s-.87.85-.87 2.08.89 2.41 1.01 2.58c.12.17 1.75 2.67 4.23 3.75.59.25 1.05.4 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.2-.58.2-1.07.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
+        WhatsApp Owner with Receipt
+      </button>
+      <button onclick="closeBookingSuccess()" class="w-full bg-[#212121] text-white sharp py-3.5 font-600 text-[13px] uppercase tracking-wider">OK, Got It</button>
+    </div>
+    
+    <p class="text-[10px] text-zinc-400 text-center mt-3">Please screenshot this receipt for your records.</p>
   </div>
 </div>
 
