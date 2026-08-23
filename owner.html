@@ -20,6 +20,7 @@
     .btn-whatsapp-sm:hover { background: #1ebe5d; }
     .refresh-btn { background: #3FD0D4; color: white; padding: 6px 16px; border-radius: 2px; border: none; font-weight: 600; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
     .refresh-btn:hover { background: #2bbfc4; }
+    .homestay-selector { border: 1px solid #d1d5db; border-radius: 2px; padding: 6px 12px; font-size: 13px; background: white; }
   </style>
 </head>
 <body>
@@ -52,13 +53,22 @@
 
     <!-- DASHBOARD -->
     <div id="dashboardSection" class="hidden">
-      <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
         <h2 class="text-2xl font-bold">Welcome, <span id="welcomeName"></span>!</h2>
         <button onclick="loadBookings()" class="refresh-btn">🔄 Refresh</button>
       </div>
-      <p class="text-sm text-zinc-500">Your homestay: <span id="homestayNameDisplay" class="font-semibold"></span></p>
+      <p class="text-sm text-zinc-500">Manage your homestays:</p>
+      
+      <!-- Homestay Selector -->
+      <div class="mt-2 flex items-center gap-3 flex-wrap">
+        <label for="homestaySelector" class="text-sm text-zinc-600 font-medium">Showing:</label>
+        <select id="homestaySelector" class="homestay-selector">
+          <option value="all">All Homestays</option>
+        </select>
+        <span id="selectedHomestayName" class="text-sm text-zinc-500 italic"></span>
+      </div>
 
-      <div class="grid md:grid-cols-2 gap-6 mt-6">
+      <div class="grid md:grid-cols-2 gap-6 mt-4">
         <div class="card p-6 md:col-span-2">
           <h3 class="font-bold text-lg">📅 Your Bookings</h3>
           <div id="ownerBookingsList" class="mt-4 space-y-4">
@@ -72,8 +82,10 @@
   <script>
     const API_BASE = "/api";
     let ownerToken = sessionStorage.getItem('kd_owner_token') || '';
-    let ownerHomestayId = null;
+    let ownerHomestayIds = [];
+    let allHomestays = [];
     let bookings = [];
+    let currentHomestayId = 'all';
 
     // =============================================
     // OWNER FORGOT PASSWORD
@@ -129,13 +141,30 @@
         if (data.success) {
           ownerToken = data.token;
           sessionStorage.setItem('kd_owner_token', ownerToken);
-          ownerHomestayId = data.homestay.id;
+          
+          // Store homestays from login response
+          allHomestays = data.homestays || [];
+          ownerHomestayIds = allHomestays.map(h => h.id);
+          
+          // Populate the selector
+          const selector = document.getElementById('homestaySelector');
+          selector.innerHTML = '<option value="all">All Homestays</option>';
+          allHomestays.forEach(h => {
+            const opt = document.createElement('option');
+            opt.value = h.id;
+            opt.textContent = h.name;
+            selector.appendChild(opt);
+          });
+          
+          // Set default selection
+          currentHomestayId = 'all';
+          selector.value = 'all';
+          
           document.getElementById('loginSection').classList.add('hidden');
           document.getElementById('dashboardSection').classList.remove('hidden');
           document.getElementById('ownerNav').classList.remove('hidden');
-          document.getElementById('welcomeName').innerText = data.homestay.ownerName;
-          document.getElementById('homestayNameDisplay').innerText = data.homestay.name;
-          document.getElementById('ownerNameDisplay').innerText = data.homestay.ownerName;
+          document.getElementById('welcomeName').innerText = allHomestays[0]?.ownerName || 'Owner';
+          document.getElementById('ownerNameDisplay').innerText = allHomestays[0]?.ownerName || 'Owner';
           loadBookings();
         } else {
           errorEl.innerText = data.error || "Login failed";
@@ -166,12 +195,27 @@
         if (!res.ok) throw new Error('Failed to fetch');
         bookings = await res.json();
 
-        if (bookings.length === 0) {
-          listDiv.innerHTML = '<div class="text-sm text-zinc-500">No upcoming bookings.</div>';
+        // Filter by selected homestay
+        let filteredBookings = bookings;
+        if (currentHomestayId !== 'all') {
+          filteredBookings = bookings.filter(b => String(b.homestayId) === String(currentHomestayId));
+        }
+
+        // Update the selected homestay name display
+        const nameSpan = document.getElementById('selectedHomestayName');
+        if (currentHomestayId === 'all') {
+          nameSpan.textContent = `(${bookings.length} total bookings across ${allHomestays.length} homestays)`;
+        } else {
+          const hs = allHomestays.find(h => String(h.id) === String(currentHomestayId));
+          nameSpan.textContent = `(${filteredBookings.length} bookings for ${hs?.name || 'selected homestay'})`;
+        }
+
+        if (filteredBookings.length === 0) {
+          listDiv.innerHTML = '<div class="text-sm text-zinc-500">No bookings found for the selected homestay.</div>';
           return;
         }
 
-        listDiv.innerHTML = bookings.map(b => {
+        listDiv.innerHTML = filteredBookings.map(b => {
           const isPaid = b.status && b.status.toLowerCase().includes('paid');
           const isCompleted = b.payoutDate || (b.status && b.status.toLowerCase().includes('completed'));
           const isPending = b.status && b.status.toLowerCase().includes('pending');
@@ -233,7 +277,7 @@
     }
 
     // =============================================
-    // OPEN WHATSAPP TO GUEST – ALWAYS NEW TAB
+    // OPEN WHATSAPP TO GUEST
     // =============================================
     function openWhatsappToGuest(bookingId) {
       const booking = bookings.find(b => String(b.id) === String(bookingId));
@@ -272,10 +316,8 @@
       const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
       
       try {
-        // Open WhatsApp in a new tab (always)
         const win = window.open(waUrl, '_blank');
         if (!win || win.closed || typeof win.closed === 'undefined') {
-          // Popup was blocked – offer alternative
           const shouldCopy = confirm(
             '⚠️ WhatsApp popup was blocked by your browser.\n\n' +
             'Click OK to copy the message to your clipboard, then paste it in WhatsApp.\n\n' +
@@ -296,7 +338,6 @@
           console.log('✅ WhatsApp opened in new tab');
         }
       } catch(e) {
-        // Fallback: copy message
         navigator.clipboard.writeText(message).then(() => {
           alert('✅ Message copied to clipboard!\n\n' +
             'Phone: ' + phone + '\n\n' +
@@ -310,7 +351,7 @@
     }
 
     // =============================================
-    // CONFIRM CHECK-IN (Owner triggers payout + WhatsApp)
+    // CONFIRM CHECK-IN
     // =============================================
     async function confirmCheckIn(bookingId) {
       if (!confirm(`Confirm check-in for booking ${bookingId}?\n\nYou will receive your payment at your bank account via ToyyibPay in 1-4 business days.\n\nA WhatsApp message will be sent to the guest to confirm their check-in.`)) return;
@@ -414,16 +455,35 @@
         ownerToken = token;
         try {
           const data = JSON.parse(atob(token));
-          ownerHomestayId = data.ownerId;
+          ownerHomestayIds = data.homestayIds || [data.ownerId];
+          allHomestays = data.homestays || [{ id: data.ownerId, name: 'Your Homestay' }];
+          
+          // Populate selector
+          const selector = document.getElementById('homestaySelector');
+          selector.innerHTML = '<option value="all">All Homestays</option>';
+          allHomestays.forEach(h => {
+            const opt = document.createElement('option');
+            opt.value = h.id;
+            opt.textContent = h.name;
+            selector.appendChild(opt);
+          });
+          currentHomestayId = 'all';
+          selector.value = 'all';
+          
           document.getElementById('loginSection').classList.add('hidden');
           document.getElementById('dashboardSection').classList.remove('hidden');
           document.getElementById('ownerNav').classList.remove('hidden');
           document.getElementById('welcomeName').innerText = data.ownerName || 'Owner';
-          document.getElementById('homestayNameDisplay').innerText = 'Your Homestay';
           document.getElementById('ownerNameDisplay').innerText = data.ownerName || 'Owner';
           loadBookings();
         } catch(e) { logoutOwner(); }
       }
+
+      // Event listener for homestay selector
+      document.getElementById('homestaySelector').addEventListener('change', function() {
+        currentHomestayId = this.value;
+        loadBookings();
+      });
     })();
   </script>
 </body>
