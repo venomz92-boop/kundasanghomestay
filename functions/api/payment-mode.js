@@ -1,38 +1,31 @@
-// /api/payment-mode.js - DIAGNOSTIC WITH ENV DUMP
+// /api/payment-mode.js - AUTO-TOGGLE (env + fallback)
 
-export async function onRequestGet({ env, request }) {
-  // Get the raw value
-  const payoutEnabled = env.TOYYIBPAY_PAYOUT_ENABLED;
-  const secretKey = env.TOYYIBPAY_SECRET_KEY ? 'present' : 'missing';
+export async function onRequestGet({ env }) {
+  // ============================================================
+  // If the environment variable is NOT set or is undefined,
+  // this default value will be used.
+  // Set this to 'false' for simulation, 'true' for live.
+  // Once the env var works, this fallback is ignored.
+  // ============================================================
+  const FALLBACK_MODE = 'false'; // <-- Change this to 'true' if you want live by default
+  // ============================================================
   
-  // Create a response with diagnostic info
-  const result = {
-    // The actual value from env
-    TOYYIBPAY_PAYOUT_ENABLED: payoutEnabled,
-    
-    // Interpreted values
-    isTrue: payoutEnabled === 'true',
-    isFalse: payoutEnabled === 'false',
-    isUndefined: payoutEnabled === undefined || payoutEnabled === null,
-    rawType: typeof payoutEnabled,
-    rawLength: payoutEnabled ? payoutEnabled.length : 0,
-    
-    // Secret key status
-    TOYYIBPAY_SECRET_KEY: secretKey,
-    
-    // Computed result
-    enabled: payoutEnabled === 'true' && !!env.TOYYIBPAY_SECRET_KEY,
-    
-    // Debug: all env keys (without values for security)
-    allKeys: Object.keys(env),
-    
-    // The actual message
-    message: payoutEnabled === 'true' && !!env.TOYYIBPAY_SECRET_KEY 
-      ? "LIVE - Payments go to ToyyibPay" 
-      : "SIMULATION - No real money"
-  };
+  // Read the environment variable – if missing, use the fallback
+  const rawValue = env.TOYYIBPAY_PAYOUT_ENABLED;
+  const payoutEnabled = (rawValue !== undefined && rawValue !== null) ? rawValue : FALLBACK_MODE;
+  const isLive = payoutEnabled.toLowerCase() === 'true';
+  const hasSecret = !!env.TOYYIBPAY_SECRET_KEY;
+  const enabled = isLive && hasSecret;
   
-  return new Response(JSON.stringify(result, null, 2), {
+  return new Response(JSON.stringify({
+    enabled: enabled,
+    isLive: isLive,
+    hasSecret: hasSecret,
+    message: enabled ? "LIVE - Payments go to ToyyibPay" : "SIMULATION - No real money",
+    // Include the raw value for debugging
+    envValue: rawValue,
+    usedFallback: rawValue === undefined || rawValue === null,
+  }), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
