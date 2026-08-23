@@ -1059,10 +1059,23 @@ async function processPayment() {
     bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
     saveAvailabilityMap();
     
-    // Push to cloud (D1) so Owner Panel can see it
+    // Push to cloud (D1) with the UPDATED status
     try {
-      await pushBookingToCloud(booking, bookedDates);
-      console.log("☁️ Simulation booking synced to cloud");
+      // Create a new booking object with the updated status
+      const updatedBooking = { ...booking, status: "Paid - Awaiting Check-in" };
+      
+      // Update the booking in the cloud using the public endpoint
+      const updateRes = await fetch(API_BASE + "/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "createPublicBooking", booking: updatedBooking })
+      });
+      
+      if (updateRes.ok) {
+        console.log("☁️ Simulation booking synced to cloud with PAID status");
+      } else {
+        console.warn("⚠️ Failed to sync simulation booking to cloud:", await updateRes.text());
+      }
     } catch(e) {
       console.warn("⚠️ Failed to sync simulation booking to cloud:", e);
     }
@@ -1097,8 +1110,15 @@ async function processPayment() {
       
       // ====== FIX: SYNC TO CLOUD ======
       try {
-        await pushBookingToCloud(booking, bookedDates);
-        console.log("☁️ Simulation booking synced to cloud");
+        const updatedBooking = { ...booking, status: "Paid - Awaiting Check-in" };
+        const updateRes = await fetch(API_BASE + "/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "createPublicBooking", booking: updatedBooking })
+        });
+        if (updateRes.ok) {
+          console.log("☁️ Simulation booking synced to cloud");
+        }
       } catch(e) {
         console.warn("⚠️ Failed to sync simulation booking to cloud:", e);
       }
@@ -1127,8 +1147,15 @@ async function processPayment() {
     
     // ====== FIX: SYNC TO CLOUD ======
     try {
-      await pushBookingToCloud(booking, bookedDates);
-      console.log("☁️ Fallback booking synced to cloud");
+      const updatedBooking = { ...booking, status: "Paid - Awaiting Check-in" };
+      const updateRes = await fetch(API_BASE + "/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "createPublicBooking", booking: updatedBooking })
+      });
+      if (updateRes.ok) {
+        console.log("☁️ Fallback booking synced to cloud");
+      }
     } catch(e) {
       console.warn("⚠️ Failed to sync fallback booking to cloud:", e);
     }
