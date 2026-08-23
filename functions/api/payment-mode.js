@@ -1,24 +1,38 @@
-// /api/payment-mode.js - Returns ToyyibPay status from env vars
+// /api/payment-mode.js - DIAGNOSTIC WITH ENV DUMP
 
-export async function onRequestGet({ env }) {
-  // Read the environment variable, case-insensitive
-  const payoutEnabled = env.TOYYIBPAY_PAYOUT_ENABLED || 'false';
-  const isLive = payoutEnabled.toLowerCase() === 'true';
+export async function onRequestGet({ env, request }) {
+  // Get the raw value
+  const payoutEnabled = env.TOYYIBPAY_PAYOUT_ENABLED;
+  const secretKey = env.TOYYIBPAY_SECRET_KEY ? 'present' : 'missing';
   
-  // Also check if secret key exists (optional extra check)
-  const hasSecret = !!env.TOYYIBPAY_SECRET_KEY;
+  // Create a response with diagnostic info
+  const result = {
+    // The actual value from env
+    TOYYIBPAY_PAYOUT_ENABLED: payoutEnabled,
+    
+    // Interpreted values
+    isTrue: payoutEnabled === 'true',
+    isFalse: payoutEnabled === 'false',
+    isUndefined: payoutEnabled === undefined || payoutEnabled === null,
+    rawType: typeof payoutEnabled,
+    rawLength: payoutEnabled ? payoutEnabled.length : 0,
+    
+    // Secret key status
+    TOYYIBPAY_SECRET_KEY: secretKey,
+    
+    // Computed result
+    enabled: payoutEnabled === 'true' && !!env.TOYYIBPAY_SECRET_KEY,
+    
+    // Debug: all env keys (without values for security)
+    allKeys: Object.keys(env),
+    
+    // The actual message
+    message: payoutEnabled === 'true' && !!env.TOYYIBPAY_SECRET_KEY 
+      ? "LIVE - Payments go to ToyyibPay" 
+      : "SIMULATION - No real money"
+  };
   
-  const enabled = isLive && hasSecret;
-  
-  return new Response(JSON.stringify({
-    enabled: enabled,
-    isLive: isLive,
-    hasSecret: hasSecret,
-    message: enabled ? "LIVE - Payments go to ToyyibPay" : "SIMULATION - No real money",
-    // Debug info (remove later if you want)
-    rawPayoutEnv: payoutEnabled,
-    payoutEnabled: env.TOYYIBPAY_PAYOUT_ENABLED
-  }), {
+  return new Response(JSON.stringify(result, null, 2), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
