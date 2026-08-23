@@ -44,10 +44,11 @@
     input[type="date"] { display: block; width: 100%; min-width: 0; -webkit-appearance: none; }
     @media (max-width: 768px) { #hero .card { overflow: hidden !important; width: 100% !important; max-width: calc(100vw - 32px) !important; box-sizing: border-box !important; margin-left: auto !important; margin-right: auto !important; } #detailContent .grid.grid-cols-2, #bookingModal .grid.grid-cols-2 { grid-template-columns: 1fr !important; } }
     @media (min-width: 769px) { #mobileNav { display: none !important; } }
-    #listPage input, #listPage select, #listPage textarea { border-radius: 2px !important; font-family: "Poppins", sans-serif; font-size: 13px; }
-    #listPage .card { padding: 32px; }
     #detailModal .card, #bookingModal .card, #guestAuthModal .card { border-radius: 2px !important; }
     .mobile-agent-link { color: #7c3aed !important; border: 1px solid #7c3aed !important; border-radius: 2px !important; padding: 8px 16px !important; display: inline-block !important; margin-top: 4px; }
+    .nav-link-list { position:relative; font-family:"Poppins",sans-serif; font-weight:600; font-size:13px; letter-spacing:0.3px; text-transform:uppercase; color:#212121; padding:8px 0; cursor:pointer; background:none; border:none; text-decoration:none; }
+    .nav-link-list::after { content:''; position:absolute; left:0; bottom:-2px; width:0; height:2px; background:#3FD0D4; transition:width 0.3s; }
+    .nav-link-list:hover::after, .nav-link-list.active::after { width:100%; }
   </style>
 </head>
 <body>
@@ -62,7 +63,11 @@
     </div>
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
       <button onclick="showPage('home')" id="navHome" class="setsail-nav-link active">Home</button>
-      <button onclick="showPage('list')" id="navList" class="setsail-nav-link">List Your Homestay</button>
+      
+      <!-- ====== LIST YOUR HOMESTAY (LINK TO LIST.HTML) ====== -->
+      <a href="/list.html" id="navList" class="nav-link-list">List Your Homestay</a>
+      <!-- ==================================================== -->
+      
       <button onclick="showPage('about')" id="navAbout" class="setsail-nav-link">About</button>
       
       <!-- AGENT LOGIN TAB -->
@@ -82,7 +87,11 @@
   <div id="mobileNav" class="hidden lg:hidden absolute top-[80px] left-0 right-0 bg-white border-t border-black/10 z-50 shadow-xl">
     <div class="p-6 space-y-4">
       <button onclick="showPage('home'); toggleMobileMenu()" id="mNavHome" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">🏠 Home</button>
-      <button onclick="showPage('list'); toggleMobileMenu()" id="mNavList" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">➕ List Your Homestay</button>
+      
+      <!-- ====== LIST YOUR HOMESTAY (MOBILE LINK) ====== -->
+      <a href="/list.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-[#212121] block" style="text-decoration:none;">➕ List Your Homestay</a>
+      <!-- ============================================= -->
+      
       <button onclick="showPage('about'); toggleMobileMenu()" id="mNavAbout" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">ℹ️ About</button>
       
       <!-- AGENT LOGIN (MOBILE) -->
@@ -112,97 +121,6 @@
   <div class="text-center mb-12"><div class="font-satisfy text-[#3FD0D4] text-[30px] leading-none">Go & Discover</div><h2 class="font-poppins font-700 text-[32px] md:text-[40px] text-[#212121] tracking-[-0.8px] mt-1">Breathtaking Homestays</h2><div class="w-[48px] h-[2px] bg-[#3FD0D4] mx-auto mt-4"></div><p class="font-poppins text-[13px] text-[#212121]/60 max-w-[520px] mx-auto mt-4 leading-[1.6]">Verified homestays only — book direct with trusted local hosts.</p><div class="mt-4 flex items-center justify-center gap-2 flex-wrap"><div id="pendingInfo" class="text-[11px] bg-amber-50 border border-amber-200 px-3 py-1.5 sharp hidden font-600">Pending: <span id="pendingCount">0</span> waiting approval</div><div class="text-[11px] bg-[#3FD0D4]/10 border border-[#3FD0D4]/20 px-3 py-1.5 sharp font-600 text-[#212121]/70">All payment via website • FPX secured</div></div></div>
   <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
 </main>
-
-<!-- LIST PAGE -->
-<section id="listPage" class="hidden max-w-[800px] mx-auto px-5 md:px-8 py-10">
-    <div class="card p-6 md:p-8">
-      <h2 class="text-3xl font-bold">List Your Homestay</h2>
-      <p class="text-sm text-zinc-500 mt-2">New listings start as <span class="font-semibold text-yellow-700">Pending approval</span> and only show on homepage after admin approves.</p>
-      <div class="mt-6 grid gap-5">
-        <!-- Owner Info -->
-        <div class="grid md:grid-cols-2 gap-4">
-          <div><label class="text-xs font-semibold">Owner Name *</label><input id="listOwnerName" placeholder="Nama penuh as per IC / Lesen" class="w-full mt-1 border rounded-xl px-4 py-2.5"/></div>
-          <div><label class="text-xs font-semibold">WhatsApp Number *</label><input id="listWhatsapp" placeholder="6012-3456789" required inputmode="numeric" autocomplete="tel" class="w-full mt-1 border rounded-xl px-4 py-2.5"/></div>
-        </div>
-        
-        <!-- ====== NEW: OWNER EMAIL FIELD ====== -->
-        <div class="grid md:grid-cols-1 gap-4">
-          <div><label class="text-xs font-semibold">Owner Email *</label><input id="listOwnerEmail" type="email" placeholder="owner@email.com" required class="w-full mt-1 border rounded-xl px-4 py-2.5"/></div>
-        </div>
-        <!-- ==================================== -->
-
-        <div class="grid md:grid-cols-2 gap-4">
-          <div><label class="text-xs font-semibold">Homestay Name *</label><input id="listHomestayName" placeholder="e.g. A-Frame Cabin Kinabalu View" class="w-full mt-1 border rounded-xl px-4 py-2.5"/></div>
-          <div><label class="text-xs font-semibold">Location / Area *</label><select id="listArea" class="w-full mt-1 border rounded-xl px-4 py-2.5"><option value="Bundu Tuhan">Mesilou</option><option value="Desa">Pekan Kundasang</option><option value="Mesilau">Bundu Tuhan</option><option value="Kundasang">Kampung Kinasaraban</option><option value="Ranau">Kampung Lembah Permai</option><option value="Bundu Tuhan">Kampung Cinta Mata</option><option value="Desa">Kampung Kauluan</option><option value="Mesilau">Kampung Sosondoton</option><option value="Kundasang">Kampung Mentoki</option><option value="Ranau">Kampung Dumpiring</option><option value="Bundu Tuhan">Kampung Bambangan</option><option value="Desa">Kampung Mohimboyon</option></select></div>
-        </div>
-        <div class="grid md:grid-cols-2 gap-4">
-          <div><label class="text-xs font-semibold">Price per Night (RM) *</label><input id="listPrice" type="number" inputmode="numeric" placeholder="300" class="w-full mt-1 border rounded-xl px-4 py-2.5"/><div id="listPricePreview" class="text-[11px] mt-1 text-green-700"></div></div>
-          <div><label class="text-xs font-semibold">Guests / Bedrooms</label><div class="flex gap-2 mt-1"><input id="listGuests" type="number" placeholder="Guests 4" class="w-1/2 border rounded-xl px-4 py-2.5"/><input id="listBedrooms" type="number" placeholder="Bedrooms 2" class="w-1/2 border rounded-xl px-4 py-2.5"/></div></div>
-        </div>
-        <!-- Bank Account -->
-        <div class="bg-yellow-50 border border-yellow-200 p-4 rounded-xl">
-          <h4 class="font-bold text-sm">Bank Account — Must same as owner / business account</h4>
-          <p class="text-[11px] text-zinc-600 mt-1">Homestay payment will go directly to this account. Must match owner name & IC name. Scam prevention: we verify bank proof.</p>
-          <div class="grid md:grid-cols-3 gap-3 mt-3">
-            <input id="listBankName" placeholder="Bank e.g. Maybank / CIMB" class="border rounded-xl px-4 py-2.5"/>
-            <input id="listBankAccount" placeholder="Account Number" class="border rounded-xl px-4 py-2.5"/>
-            <input id="listBankHolder" placeholder="Account Holder Name (must match IC)" class="border rounded-xl px-4 py-2.5" oninput="syncBankHolder()"/>
-          </div>
-          <div class="mt-3 bg-white border border-amber-200 p-3 rounded-xl">
-            <label class="text-xs font-bold">🏦 DuitNow / Bank QR Code (MUST UPLOAD)</label>
-            <p class="text-[11px] text-zinc-600 mt-1">Upload your DuitNow QR or bank QR. Admins need it to verify account name matches IC.</p>
-            <input id="listBankQR" type="file" accept="image/*" class="w-full mt-2 text-xs border rounded-lg p-2" onchange="handleBankQRUpload(this)"/>
-            <div id="bankQRPreview" class="mt-2 hidden"><img id="bankQRImg" class="w-[180px] h-[180px] object-contain rounded-lg border-2 border-green-300 bg-white p-2" /><p class="text-[10px] text-zinc-500 mt-1">QR for admin manual scan check</p><button onclick="removeBankQR()" class="mt-1 text-[11px] px-3 py-1 border rounded-full bg-white">✕ Remove QR</button></div>
-          </div>
-          <label class="flex gap-2 mt-3 text-xs"><input id="listBankConfirm" type="checkbox" class="mt-1"/><span>I confirm this account is under my name / my business same as owner name above. I understand fake bank proof = permanent ban + police report.</span></label>
-        </div>
-        <div><label class="text-xs font-semibold">Photos (3-5 photos) *</label><input id="listPhotos" type="file" multiple accept="image/*" class="w-full mt-1 border rounded-xl px-4 py-2.5"/><div id="photoPreview" class="grid grid-cols-4 gap-2 mt-2"></div></div>
-        <div><label class="text-xs font-semibold">Description *</label><textarea id="listDescription" rows="4" placeholder="View Gunung Kinabalu, ada dapur, parking 4x4, 5 min to Desa Cattle..." class="w-full mt-1 border rounded-xl px-4 py-2.5"></textarea></div>
-        <!-- IC Verification -->
-        <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl">
-          <h4 class="font-bold text-sm">🪪 Owner Verification — IC (Front) *</h4>
-          <p class="text-[11px] text-zinc-600 mt-1">Upload IC front for verification. We auto-add watermark <b>"For KundasangHomestay Verification Only"</b> to protect your IC. Admin will check if IC name matches Bank Account name.</p>
-          <div class="grid md:grid-cols-2 gap-3 mt-3">
-            <div><label class="text-xs font-semibold">Name as per IC *</label><input id="listIcName" placeholder="e.g. ALI BIN ABU" class="w-full mt-1 border rounded-xl px-4 py-2.5 uppercase" /><div class="text-[10px] text-zinc-500 mt-1">Must match Bank Account Holder name</div></div>
-            <div><label class="text-xs font-semibold">IC Number (optional, will be blurred)</label><input id="listIcNumber" placeholder="e.g. 900101-12-1234 (optional)" class="w-full mt-1 border rounded-xl px-4 py-2.5" /></div>
-          </div>
-          <div class="mt-3">
-            <label class="text-xs font-semibold">Upload IC Front (JPG/PNG) *</label>
-            <input id="listIcFront" type="file" accept="image/*" class="w-full mt-1 border rounded-xl px-4 py-2.5 bg-white" />
-            <div class="text-[10px] text-zinc-500 mt-1">Max 5MB. Watermark added automatically in browser, original never uploaded.</div>
-            <div id="icPreviewWrap" class="mt-3 hidden"><div class="text-[11px] font-semibold mb-1">Preview with Watermark — This is what admin sees:</div><img id="icPreview" class="w-full max-w-[400px] rounded-xl border-2 border-blue-300 shadow" /><div id="icWatermarkInfo" class="text-[10px] text-green-700 mt-2 bg-green-50 border border-green-200 rounded-lg p-2"></div><button onclick="removeIc()" type="button" class="mt-2 text-[11px] px-3 py-1 border rounded-full bg-white">✕ Remove IC</button></div>
-            <canvas id="icCanvas" class="hidden"></canvas><canvas id="bankCanvas" class="hidden"></canvas><canvas id="qrCanvas" class="hidden"></canvas>
-          </div>
-        </div>
-
-        <!-- OWNER PASSWORD FIELD -->
-        <div class="bg-purple-50 border border-purple-200 p-4 rounded-xl">
-          <h4 class="font-bold text-sm">🔑 Owner Account Setup</h4>
-          <p class="text-[11px] text-zinc-600 mt-1">Set a password so you can log in to the <b>Owner Panel</b> (<code>/owner.html</code>) to check-in guests and receive payments directly to your bank account.</p>
-          <div class="mt-3">
-            <label class="text-xs font-semibold">Set Password (min 6 chars) *</label>
-            <input id="listOwnerPassword" type="password" placeholder="Create a password for owner login" class="w-full mt-1 border rounded-xl px-4 py-2.5" />
-            <div class="text-[10px] text-zinc-500 mt-1">This password is hashed on your device before being sent to our servers. We never store your plaintext password.</div>
-          </div>
-        </div>
-
-        <!-- Availability Calendar -->
-        <div class="bg-green-50 border border-green-200 p-4 rounded-xl">
-          <h4 class="font-bold text-sm">📅 Availability Calendar — Mark Fully Booked Dates</h4>
-          <p class="text-[11px] text-zinc-600 mt-1">Select dates when your homestay is NOT available. Guests searching those dates will see it as <b>Fully Booked</b>. Leave empty if always available. Bookings will auto-block dates.</p>
-          <div class="mt-3 flex flex-col md:flex-row gap-2">
-            <input id="listBlockedDateInput" type="date" class="border rounded-xl px-4 py-2.5 text-sm flex-1"/>
-            <div class="flex gap-2"><button onclick="addBlockedDate()" type="button" class="px-4 py-2 rounded-full bg-[var(--primary)] text-white text-sm">+ Add Date</button><button onclick="addBlockedRange()" type="button" class="px-4 py-2 rounded-full border bg-white text-sm">Block Range</button></div>
-          </div>
-          <div id="blockedDatesList" class="mt-3 flex flex-wrap gap-2"></div>
-          <div id="blockedDatesCount" class="mt-2 text-[11px] text-zinc-500">0 dates blocked • Available for all other dates</div>
-          <div class="mt-3 grid md:grid-cols-2 gap-2 text-[11px]"><div class="bg-white p-2 rounded-lg border"><span class="inline-block w-3 h-3 bg-green-100 border border-green-300 rounded mr-1"></span> Available</div><div class="bg-white p-2 rounded-lg border"><span class="inline-block w-3 h-3 bg-red-100 border border-red-300 rounded mr-1"></span> Fully Booked / Blocked</div></div>
-        </div>
-        <div class="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-800">⚠️ All payment will go through this website, no outside payment — to protect guests and owners from scam. ToyyibPay FPX secured.</div>
-        <button onclick="submitHomestay()" class="btn-primary w-full py-3">Submit for Approval — Pending</button>
-      </div>
-    </div>
-  </section>
 
 <!-- ABOUT PAGE -->
 <section id="aboutPage" class="hidden max-w-[1000px] mx-auto px-5 md:px-8 py-10">
@@ -257,16 +175,15 @@
     <div id="guestAuthMessage" class="hidden mt-4 p-3 rounded-xl text-xs"></div>
     <div class="mt-4 flex gap-2 p-1 bg-zinc-100 rounded-full"><button onclick="switchGuestAuth('login')" id="guestTabLogin" class="flex-1 py-2 rounded-full bg-[var(--primary)] text-white text-sm font-semibold">Login</button><button onclick="switchGuestAuth('register')" id="guestTabRegister" class="flex-1 py-2 rounded-full bg-white text-sm">Register</button></div>
     
-    <!-- ====== GUEST LOGIN FORM ====== -->
+    <!-- GUEST LOGIN FORM -->
     <div id="guestLoginForm" class="mt-6 space-y-4">
       <div><label class="text-xs font-semibold">Email *</label><input id="loginEmail" type="email" placeholder="you@email.com" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
       <div><label class="text-xs font-semibold">Password *</label><input id="loginPassword" type="password" placeholder="••••••••" class="w-full mt-1 border rounded-full px-4 py-2.5"/></div>
       
-      <!-- ====== FORGOT PASSWORD LINK ====== -->
+      <!-- FORGOT PASSWORD LINK -->
       <div class="text-right">
         <button onclick="openForgotPassword('guest')" class="text-[11px] text-[#3FD0D4] hover:underline">Forgot Password?</button>
       </div>
-      <!-- ================================= -->
       
       <button onclick="loginGuest()" class="btn-primary w-full py-2.5">Login</button>
     </div>
@@ -289,7 +206,7 @@
   <div id="myBookingsList" class="mt-6 grid gap-4"></div>
 </div>
 
-<!-- ====== FORGOT PASSWORD MODAL (Guest) ====== -->
+<!-- FORGOT PASSWORD MODAL (Guest) -->
 <div id="forgotPasswordModal" class="fixed inset-0 z-[70] hidden bg-black/60 p-3 md:p-5 overflow-y-auto">
   <div class="max-w-[420px] mx-auto card p-6 md:p-8 mt-10">
     <div class="flex justify-between items-center">
@@ -309,7 +226,7 @@
   </div>
 </div>
 
-<footer class="bg-[#212121] text-white/70 mt-20"><div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10"><div><div class="flex items-center gap-3"><div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div><div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div></div><p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local - Kundasang version. Mountain homestays with Kinabalu soul.</p></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div><div class="space-y-2 text-[13px] font-poppins"><div class="hover:text-white cursor-pointer" onclick="showPage('home')">Homestays</div><div class="hover:text-white cursor-pointer" onclick="showPage('list')">List Property</div><div class="hover:text-white cursor-pointer" onclick="showPage('about')">About</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div><div class="space-y-2 text-[13px] font-poppins"><div>Host Guidelines</div><div>ToyyibPay FPX Secured</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div><p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p></div></div><div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay</div></footer>
+<footer class="bg-[#212121] text-white/70 mt-20"><div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10"><div><div class="flex items-center gap-3"><div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div><div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div></div><p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local - Kundasang version. Mountain homestays with Kinabalu soul.</p></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div><div class="space-y-2 text-[13px] font-poppins"><div class="hover:text-white cursor-pointer" onclick="showPage('home')">Homestays</div><a href="/list.html" class="hover:text-white block">List Property</a><div class="hover:text-white cursor-pointer" onclick="showPage('about')">About</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div><div class="space-y-2 text-[13px] font-poppins"><div>Host Guidelines</div><div>ToyyibPay FPX Secured</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div><p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p></div></div><div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay</div></footer>
 
 <script>
 // =============================================================
@@ -335,20 +252,6 @@ function safeHTML(html) {
     ],
     ADD_ATTR: ['target']
   });
-}
-
-// =============================================================
-// SHA256 HELPER (for hashing owner password)
-// =============================================================
-async function sha256(message) {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-function generateSalt() {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
 }
 
 // =============================================================
@@ -527,14 +430,6 @@ allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = [];
 let homestays = [...allHomestays];
 let bookings = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
 let selectedHomestay = null;
-let tempPhotos = [];
-let tempBlockedDates = [];
-let tempIcWatermarked = "";
-let tempBankProofWatermarked = "";
-let tempBankProofOriginalName = "";
-let tempBankQRWatermarked = "";
-let tempBankQROriginalName = "";
-let tempIcOriginalName = "";
 let availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}");
 
 // =============================================================
@@ -904,7 +799,7 @@ function renderGrid() {
     if (checkinVal && checkoutVal) {
       grid.innerHTML = safeHTML(`<div class="col-span-3 text-center py-10"><div class="text-zinc-500">No homestays available for ${checkinVal} → ${checkoutVal}</div><div class="text-xs mt-2">${bookedCount} homestay(s) are Fully Booked for those dates</div><button onclick="document.getElementById('checkin').value=''; document.getElementById('checkout').value=''; renderGrid()" class="mt-4 px-4 py-2 rounded-full border bg-white text-sm">Clear dates & show all</button></div>`);
     } else {
-      grid.innerHTML = safeHTML(`<div class="col-span-3 text-center py-10 text-zinc-500">No approved homestays yet. List your homestay and wait for admin approval.</div>`);
+      grid.innerHTML = safeHTML(`<div class="col-span-3 text-center py-10 text-zinc-500">No approved homestays yet. <a href="/list.html" class="underline text-[#3FD0D4]">List your homestay</a></div>`);
     }
     return;
   }
@@ -1210,381 +1105,6 @@ async function processPayment() {
 function processBillplzPayment() { processPayment(); }
 
 // =============================================================
-// IC & BANK UPLOAD HANDLERS
-// =============================================================
-function handleIcFile(input) {
-  const file = input.files[0];
-  if (!file) return;
-  if (file.size > 5*1024*1024) { alert("IC file too large, max 5MB"); input.value=""; return; }
-  tempIcOriginalName = file.name;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      const canvas = document.getElementById("icCanvas");
-      const maxW = 1200;
-      let w = img.width, h = img.height;
-      if (w > maxW) { h = h * (maxW / w); w = maxW; }
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, w, h);
-      const ownerName = (document.getElementById("listOwnerName")?.value || document.getElementById("listIcName")?.value || "OWNER").toUpperCase();
-      const dateStr = new Date().toISOString().split('T')[0];
-      ctx.save();
-      ctx.globalAlpha = 0.22;
-      ctx.font = `bold ${Math.max(18, w*0.035)}px Inter, sans-serif`;
-      ctx.fillStyle = "#1e40af";
-      ctx.translate(w/2, h/2);
-      ctx.rotate(-0.5);
-      const watermarkText = "For KundasangHomestay Verification Only";
-      const watermark2 = dateStr + " • " + ownerName;
-      for (let y = -h; y < h; y += 80) {
-        for (let x = -w; x < w; x += 350) {
-          ctx.fillText(watermarkText, x, y);
-          ctx.font = `bold ${Math.max(12, w*0.02)}px Inter, sans-serif`;
-          ctx.fillText(watermark2, x, y+22);
-          ctx.font = `bold ${Math.max(18, w*0.035)}px Inter, sans-serif`;
-        }
-      }
-      ctx.restore();
-      ctx.globalAlpha = 0.85;
-      ctx.fillStyle = "rgba(15,56,46,0.9)";
-      ctx.fillRect(0, h-36, w, 36);
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = "white";
-      ctx.font = "bold 11px Inter, sans-serif";
-      ctx.fillText(`VERIFICATION ONLY • ${dateStr} • ${ownerName} • KundasangHomestay.netlify.app`, 10, h-14);
-      tempIcWatermarked = canvas.toDataURL("image/jpeg", 0.85);
-      const preview = document.getElementById("icPreview");
-      preview.src = tempIcWatermarked;
-      document.getElementById("icPreviewWrap").classList.remove("hidden");
-      document.getElementById("icWatermarkInfo").innerHTML = safeHTML(`✓ Watermarked: <b>${watermarkText}</b><br>✓ Date: ${dateStr} • Owner: ${ownerName}<br>✓ Original never saved, only watermarked version stored<br>✓ Size: ${(tempIcWatermarked.length/1024).toFixed(0)}KB`);
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-function removeIc() {
-  tempIcWatermarked = "";
-  tempIcOriginalName = "";
-  const el = document.getElementById("listIcFront");
-  if (el) el.value = "";
-  document.getElementById("icPreviewWrap").classList.add("hidden");
-  const pv = document.getElementById("icPreview");
-  if (pv) pv.src = "";
-}
-function syncBankHolder() {
-  const icName = (document.getElementById("listIcName")?.value || "").toLowerCase().trim();
-  const bankHolder = (document.getElementById("listBankHolder")?.value || "").toLowerCase().trim();
-  const status = document.getElementById("bankProofStatus");
-  if (!icName || !bankHolder) return;
-  if (status) {
-    const icFirst = icName.split(" ")[0];
-    if (bankHolder.includes(icFirst) || icName.includes(bankHolder.split(" ")[0])) {
-      status.classList.add("hidden");
-    } else {
-      status.classList.remove("hidden");
-      status.className = "text-[11px] mt-2 text-red-600";
-      status.innerHTML = `⚠️ Bank Holder "${document.getElementById("listBankHolder").value}" does NOT match IC Name "${document.getElementById("listIcName").value}" - will be flagged`;
-    }
-  }
-}
-function handleBankProofUpload(input) {
-  const file = input.files[0];
-  if (!file) return;
-  if (file.size > 5*1024*1024) { alert("Bank proof too large, max 5MB"); input.value=""; return; }
-  tempBankProofOriginalName = file.name;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      const canvas = document.getElementById("bankCanvas");
-      const maxW = 1200;
-      let w = img.width, h = img.height;
-      if (w > maxW) { h = h * (maxW / w); w = maxW; }
-      canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, w, h);
-      const ownerName = (document.getElementById("listOwnerName")?.value || document.getElementById("listBankHolder")?.value || "OWNER").toUpperCase();
-      const dateStr = new Date().toISOString().split('T')[0];
-      ctx.save(); ctx.globalAlpha = 0.22;
-      ctx.font = `bold ${Math.max(18, w*0.035)}px Inter, sans-serif`;
-      ctx.fillStyle = "#b45309"; ctx.translate(w/2, h/2); ctx.rotate(-0.5);
-      const txt = "For KundasangHomestay Bank Verification Only";
-      const txt2 = dateStr + " • " + ownerName + " • " + (document.getElementById("listBankAccount")?.value || "");
-      for (let y = -h; y < h; y += 80) { for (let x = -w; x < w; x += 350) { ctx.fillText(txt, x, y); ctx.font = `bold ${Math.max(12, w*0.02)}px Inter, sans-serif`; ctx.fillText(txt2, x, y+22); ctx.font = `bold ${Math.max(18, w*0.035)}px Inter, sans-serif`; } }
-      ctx.restore(); ctx.globalAlpha = 0.85; ctx.fillStyle = "rgba(120,53,15,0.9)"; ctx.fillRect(0, h-36, w, 36); ctx.globalAlpha = 1; ctx.fillStyle = "white"; ctx.font = "bold 11px Inter, sans-serif";
-      ctx.fillText(`BANK VERIFICATION ONLY • ${dateStr} • ${ownerName} • ${document.getElementById("listBankAccount")?.value || ""}`, 10, h-14);
-      tempBankProofWatermarked = canvas.toDataURL("image/jpeg", 0.85);
-      document.getElementById("bankProofImg").src = tempBankProofWatermarked;
-      document.getElementById("bankProofPreview").classList.remove("hidden");
-      const s = document.getElementById("bankProofStatus"); if (s) { s.classList.remove("hidden"); s.className="text-[11px] mt-2 text-green-600"; s.innerHTML=`✓ Bank proof watermarked • Size: ${(tempBankProofWatermarked.length/1024).toFixed(0)}KB`; }
-    }; img.src = e.target.result;
-  }; reader.readAsDataURL(file);
-}
-function removeBankProof() {
-  tempBankProofWatermarked=""; tempBankProofOriginalName=""; const el=document.getElementById("listBankProof"); if(el) el.value=""; document.getElementById("bankProofPreview").classList.add("hidden"); const pv=document.getElementById("bankProofImg"); if(pv) pv.src="";
-}
-function handleBankQRUpload(input) {
-  const file = input.files[0]; if (!file) return;
-  if (file.size > 3*1024*1024) { alert("QR too large max 3MB"); input.value=""; return; }
-  tempBankQROriginalName = file.name;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    tempBankQRWatermarked = e.target.result;
-    document.getElementById("bankQRImg").src = tempBankQRWatermarked;
-    document.getElementById("bankQRPreview").classList.remove("hidden");
-  };
-  reader.readAsDataURL(file);
-}
-function removeBankQR(){ tempBankQRWatermarked=""; tempBankQROriginalName=""; const el=document.getElementById("listBankQR"); if(el) el.value=""; document.getElementById("bankQRPreview").classList.add("hidden"); const pv=document.getElementById("bankQRImg"); if(pv) pv.src=""; }
-
-// =============================================================
-// AVAILABILITY HELPERS (for listing form)
-// =============================================================
-function addBlockedDate() {
-  const input = document.getElementById("listBlockedDateInput");
-  if (!input || !input.value) { alert("Pick a date first"); return; }
-  const dateStr = input.value;
-  if (tempBlockedDates.includes(dateStr)) { alert("Date already blocked"); return; }
-  tempBlockedDates.push(dateStr);
-  tempBlockedDates.sort();
-  renderBlockedDatesList();
-  input.value = "";
-}
-function addBlockedRange() {
-  const input = document.getElementById("listBlockedDateInput");
-  const start = input ? input.value : "";
-  if (!start) { alert("Pick start date first, then you'll be asked for end date"); return; }
-  const end = prompt("Block until date (inclusive) - YYYY-MM-DD:", start);
-  if (!end) return;
-  const range = getDatesInRange(start, dateToIso(new Date(isoToDate(end).getTime() + 24*60*60*1000)));
-  let added = 0;
-  range.forEach(d => {
-    if (!tempBlockedDates.includes(d)) { tempBlockedDates.push(d); added++; }
-  });
-  tempBlockedDates.sort();
-  renderBlockedDatesList();
-  alert(added + " dates blocked from " + start + " to " + end);
-  if (input) input.value = "";
-}
-function removeBlockedDate(dateStr) {
-  tempBlockedDates = tempBlockedDates.filter(d => d !== dateStr);
-  renderBlockedDatesList();
-}
-function renderBlockedDatesList() {
-  const listDiv = document.getElementById("blockedDatesList");
-  const countDiv = document.getElementById("blockedDatesCount");
-  if (!listDiv) return;
-  if (tempBlockedDates.length === 0) {
-    listDiv.innerHTML = safeHTML("<span class='text-xs text-zinc-400'>No blocked dates yet — homestay will show as Available for all dates</span>");
-  } else {
-    listDiv.innerHTML = safeHTML(tempBlockedDates.map(d => `<span class="blocked-date-chip">${d} <button onclick="removeBlockedDate('${d}')" class="ml-1 font-bold">✕</button></span>`).join(""));
-  }
-  if (countDiv) {
-    countDiv.innerText = tempBlockedDates.length + " dates blocked • " + (tempBlockedDates.length === 0 ? "Available for all other dates" : "Guests searching these dates will see Fully Booked");
-  }
-}
-function renderAvailabilityCalendar(homestay, containerId) {
-  const container = document.getElementById(containerId);
-  if (!container || !homestay) return;
-  const blocked = getAllBlockedDatesForHomestay(homestay);
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  const todayIso = dateToIso(today);
-  
-  let htmlCal = `<div class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
-    <div class="text-[11px] text-zinc-500 font-medium">Next 12 months • 1 year view — scroll to check availability</div>
-    <div class="flex flex-wrap gap-3 text-[10px] md:text-[11px]">
-      <span class="flex items-center gap-1"><span class="w-3 h-3 bg-green-100 border border-green-300 rounded inline-block"></span> Available</span>
-      <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-100 border border-red-300 rounded inline-block"></span> Fully Booked</span>
-      <span class="flex items-center gap-1"><span class="w-3 h-3 border-2 border-[var(--primary)] rounded inline-block"></span> Today</span>
-    </div>
-  </div>`;
-  htmlCal += `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">`;
-  
-  for (let m = 0; m < 12; m++) {
-    const firstOfMonth = new Date(today.getFullYear(), today.getMonth() + m, 1);
-    const year = firstOfMonth.getFullYear();
-    const month = firstOfMonth.getMonth();
-    const monthLabel = firstOfMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const startDay = new Date(year, month, 1).getDay();
-    const isCurrentMonth = m === 0;
-    
-    htmlCal += `<div class="bg-[#F8F5F0] rounded-xl p-3 md:p-3 border ${isCurrentMonth ? 'border-[var(--primary)]/30 bg-white shadow-sm' : 'border-zinc-100'}">
-      <div class="font-bold text-[13px] mb-2 flex justify-between items-center"><span>${monthLabel}</span>${isCurrentMonth ? '<span class="text-[9px] bg-[var(--primary)] text-white px-2 py-0.5 rounded-full">This month</span>' : ''}</div>
-      <div class="calendar-mini">`;
-    const dayNames = ["S","M","T","W","T","F","S"];
-    dayNames.forEach(d => { htmlCal += `<div class="text-[9px] text-center font-bold text-zinc-400 py-1">${d}</div>`; });
-    for (let e = 0; e < startDay; e++) {
-      htmlCal += `<div></div>`;
-    }
-    for (let day = 1; day <= daysInMonth; day++) {
-      const d = new Date(year, month, day);
-      d.setHours(0,0,0,0);
-      const iso = dateToIso(d);
-      const isBlocked = blocked.includes(iso);
-      const isToday = iso === todayIso;
-      const isPast = d < today;
-      let cls = "calendar-day";
-      if (isPast) {
-        cls += " opacity-30 bg-zinc-50 text-zinc-400";
-      } else {
-        cls += isBlocked ? " booked" : " available";
-      }
-      if (isToday) cls += " today";
-      htmlCal += `<div class="${cls}" title="${iso} ${isBlocked ? '(Booked)' : isPast ? '(Past)' : '(Available)'}">${day}</div>`;
-    }
-    htmlCal += `</div></div>`;
-  }
-  htmlCal += `</div>`;
-  const nextYear = new Date(today);
-  nextYear.setFullYear(today.getFullYear() + 1);
-  const blockedNextYear = blocked.filter(d => {
-    const dd = isoToDate(d);
-    return dd >= today && dd < nextYear;
-  }).length;
-  htmlCal += `<div class="mt-4 text-[11px] text-zinc-500 bg-white border rounded-xl p-3">Showing 12 months from <b>${todayIso}</b> • <b class="text-red-700">${blockedNextYear} dates</b> Fully Booked in next year • Total blocked: ${blocked.length}</div>`;
-  container.innerHTML = safeHTML(htmlCal);
-}
-
-// =============================================================
-// SUBMIT HOMESTAY (UPDATED WITH OWNER PASSWORD & EMAIL)
-// =============================================================
-async function submitHomestay() {
-  try {
-    const ownerName = document.getElementById("listOwnerName").value.trim();
-    const whatsapp = document.getElementById("listWhatsapp").value.trim();
-    if(!whatsapp){ alert("WhatsApp number is required! Owner must put WhatsApp."); document.getElementById("listWhatsapp").focus(); return; }
-    
-    // ====== GET OWNER EMAIL ======
-    const ownerEmail = document.getElementById("listOwnerEmail").value.trim();
-    if (!ownerEmail) {
-      alert("Please enter owner email address.");
-      document.getElementById("listOwnerEmail").focus();
-      return;
-    }
-    // =============================
-
-    const homestayName = document.getElementById("listHomestayName").value.trim();
-    const areaEl = document.getElementById("listArea");
-    const area = areaEl ? areaEl.value : "Kundasang";
-    const price = parseInt(document.getElementById("listPrice").value);
-    const numGuests = parseInt(document.getElementById("listGuests").value) || 4;
-    const bedrooms = parseInt(document.getElementById("listBedrooms").value) || 2;
-    const bankName = document.getElementById("listBankName").value.trim();
-    const bankAccount = document.getElementById("listBankAccount").value.trim();
-    const bankHolder = document.getElementById("listBankHolder").value.trim();
-    const description = document.getElementById("listDescription").value.trim();
-    const bankConfirm = document.getElementById("listBankConfirm").checked;
-    const icNameEl = document.getElementById("listIcName");
-    const icName = icNameEl ? icNameEl.value.trim() : "";
-    
-    // --- OWNER PASSWORD ---
-    const ownerPassword = document.getElementById("listOwnerPassword").value.trim();
-    if (ownerPassword.length < 6) {
-      alert("Please set an owner password (minimum 6 characters). This is used to log in to the owner panel.");
-      document.getElementById("listOwnerPassword").focus();
-      return;
-    }
-
-    if (!ownerName || !whatsapp || !homestayName || !price || !bankAccount || !bankHolder || !icName) {
-      alert("Please fill all required fields * including IC Name");
-      return;
-    }
-    if (!tempIcWatermarked) {
-      alert("Please upload IC Front - required for verification. Watermark added automatically.");
-      return;
-    }
-    if (!bankConfirm) {
-      alert("Please confirm bank account is under owner / business account same as owner name");
-      return;
-    }
-    if (tempPhotos.length === 0) {
-      alert("Please upload at least 1 photo");
-      return;
-    }
-    const firstName = ownerName.split(" ")[0].toLowerCase();
-    if (!bankHolder.toLowerCase().includes(firstName) && bankHolder.length > 3) {
-      if (!confirm(`Bank holder "${bankHolder}" does not contain owner name "${ownerName}". Are you sure this account is same as owner/business? Continue?`)) {
-        return;
-      }
-    }
-
-    // --- HASH OWNER PASSWORD (client-side) ---
-    const ownerSalt = generateSalt();
-    const ownerPasswordHash = await sha256(ownerPassword + ownerSalt);
-
-    const icNumberEl = document.getElementById("listIcNumber");
-    const icNumber = icNumberEl ? icNumberEl.value.trim() : "";
-    const newHome = {
-      id: Date.now(),
-      name: homestayName,
-      location: area,
-      ownerPrice: price,
-      guests: numGuests,
-      bedrooms,
-      image: tempPhotos[0],
-      images: tempPhotos,
-      ownerName,
-      whatsapp,
-      // ====== ADD OWNER EMAIL ======
-      ownerEmail: ownerEmail,
-      // =============================
-      ownerBank: bankName,
-      ownerBankAccount: bankAccount,
-      bankHolder,
-      icName: icName,
-      icNumber: icNumber ? icNumber.substring(0,3) + "****" + icNumber.slice(-4) : "",
-      icImage: tempIcWatermarked,
-      icOriginalName: tempIcOriginalName,
-      icUploadDate: new Date().toISOString(),
-      bankQRImage: tempBankQRWatermarked,
-      bankQROriginalName: tempBankQROriginalName,
-      description,
-      blockedDates: [...tempBlockedDates],
-      approved: false,
-      verified: false,
-      rating: 0,
-      reviews: 0,
-      // Owner login credentials (hashed)
-      ownerPasswordHash: ownerPasswordHash,
-      ownerSalt: ownerSalt
-    };
-    pendingHomestays.push(newHome);
-    localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
-    alert(`Submitted!\n\n"${homestayName}" is now Pending approval.\nOnly shows on homepage after admin approves.\nYou will get Verified Owner badge after approval.\n\n🔑 You can now log in to the Owner Panel at /owner.html using your WhatsApp and the password you just set.`);
-    document.getElementById("listOwnerName").value = "";
-    document.getElementById("listHomestayName").value = "";
-    document.getElementById("listPrice").value = "";
-    document.getElementById("listDescription").value = "";
-    document.getElementById("listOwnerEmail").value = "";
-    const icNameReset = document.getElementById("listIcName");
-    if (icNameReset) icNameReset.value = "";
-    const icNumReset = document.getElementById("listIcNumber");
-    if (icNumReset) icNumReset.value = "";
-    const icFileReset = document.getElementById("listIcFront");
-    if (icFileReset) icFileReset.value = "";
-    const icWrap = document.getElementById("icPreviewWrap");
-    if (icWrap) icWrap.classList.add("hidden");
-    document.getElementById("listOwnerPassword").value = "";
-    tempPhotos = [];
-    tempBlockedDates = [];
-    tempIcWatermarked = "";
-    tempIcOriginalName = "";
-    renderBlockedDatesList();
-    const pp = document.getElementById("photoPreview");
-    if (pp) pp.innerHTML = "";
-    showPage('home');
-  } catch (err) {
-    console.error('Submit error:', err);
-    alert('Error submitting: ' + err.message + '\n\nCheck console F12 for details. Make sure all * fields filled, IC uploaded, and bank confirm ticked.');
-  }
-}
-
-// =============================================================
 // WHATSAPP FUNCTIONS
 // =============================================================
 function getOwnerWhatsAppNumber() {
@@ -1702,20 +1222,18 @@ function whatsappWithBookingId(){
 function showPage(page) {
   const homePage = document.getElementById("homePage");
   const hero = document.getElementById("hero");
-  const listPage = document.getElementById("listPage");
   const aboutPage = document.getElementById("aboutPage");
   const myB = document.getElementById("myBookingsPage");
   if (homePage) homePage.classList.add("hidden");
   if (hero) hero.classList.add("hidden");
-  if (listPage) listPage.classList.add("hidden");
   if (aboutPage) aboutPage.classList.add("hidden");
   if (myB) myB.classList.add("hidden");
-  const navBtns = ["navHome","navList","navAbout"];
+  const navBtns = ["navHome","navAbout"];
   navBtns.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.className = "setsail-nav-link";
   });
-  const mNavBtns = ["mNavHome","mNavList","mNavAbout"];
+  const mNavBtns = ["mNavHome","mNavAbout"];
   mNavBtns.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.className = "w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5";
@@ -1728,12 +1246,6 @@ function showPage(page) {
     const mActive = document.getElementById("mNavHome");
     if (mActive) mActive.className = "w-full text-left font-poppins font-700 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-[#3FD0D4]";
     renderGrid();
-  } else if (page === "list") {
-    if (listPage) listPage.classList.remove("hidden");
-    const active = document.getElementById("navList");
-    if (active) active.className = "setsail-nav-link active";
-    const mActive = document.getElementById("mNavList");
-    if (mActive) mActive.className = "w-full text-left font-poppins font-700 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-[#3FD0D4]";
   } else if (page === "about") {
     if (aboutPage) aboutPage.classList.remove("hidden");
     const active = document.getElementById("navAbout");
@@ -1773,6 +1285,73 @@ function sendContactEmail(){
   const subject = encodeURIComponent('[Support] ' + name + ' - Kundasang Homestays');
   const body = encodeURIComponent('Name: ' + name + '\nEmail: ' + email + '\n\nMessage:\n' + msg);
   window.location.href = 'mailto:' + adminEmail + '?subject=' + subject + '&body=' + body;
+}
+
+// =============================================================
+// RENDER AVAILABILITY CALENDAR (for detail modal)
+// =============================================================
+function renderAvailabilityCalendar(homestay, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container || !homestay) return;
+  const blocked = getAllBlockedDatesForHomestay(homestay);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const todayIso = dateToIso(today);
+  
+  let htmlCal = `<div class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
+    <div class="text-[11px] text-zinc-500 font-medium">Next 12 months • 1 year view — scroll to check availability</div>
+    <div class="flex flex-wrap gap-3 text-[10px] md:text-[11px]">
+      <span class="flex items-center gap-1"><span class="w-3 h-3 bg-green-100 border border-green-300 rounded inline-block"></span> Available</span>
+      <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-100 border border-red-300 rounded inline-block"></span> Fully Booked</span>
+      <span class="flex items-center gap-1"><span class="w-3 h-3 border-2 border-[var(--primary)] rounded inline-block"></span> Today</span>
+    </div>
+  </div>`;
+  htmlCal += `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">`;
+  
+  for (let m = 0; m < 12; m++) {
+    const firstOfMonth = new Date(today.getFullYear(), today.getMonth() + m, 1);
+    const year = firstOfMonth.getFullYear();
+    const month = firstOfMonth.getMonth();
+    const monthLabel = firstOfMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startDay = new Date(year, month, 1).getDay();
+    const isCurrentMonth = m === 0;
+    
+    htmlCal += `<div class="bg-[#F8F5F0] rounded-xl p-3 md:p-3 border ${isCurrentMonth ? 'border-[var(--primary)]/30 bg-white shadow-sm' : 'border-zinc-100'}">
+      <div class="font-bold text-[13px] mb-2 flex justify-between items-center"><span>${monthLabel}</span>${isCurrentMonth ? '<span class="text-[9px] bg-[var(--primary)] text-white px-2 py-0.5 rounded-full">This month</span>' : ''}</div>
+      <div class="calendar-mini">`;
+    const dayNames = ["S","M","T","W","T","F","S"];
+    dayNames.forEach(d => { htmlCal += `<div class="text-[9px] text-center font-bold text-zinc-400 py-1">${d}</div>`; });
+    for (let e = 0; e < startDay; e++) {
+      htmlCal += `<div></div>`;
+    }
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(year, month, day);
+      d.setHours(0,0,0,0);
+      const iso = dateToIso(d);
+      const isBlocked = blocked.includes(iso);
+      const isToday = iso === todayIso;
+      const isPast = d < today;
+      let cls = "calendar-day";
+      if (isPast) {
+        cls += " opacity-30 bg-zinc-50 text-zinc-400";
+      } else {
+        cls += isBlocked ? " booked" : " available";
+      }
+      if (isToday) cls += " today";
+      htmlCal += `<div class="${cls}" title="${iso} ${isBlocked ? '(Booked)' : isPast ? '(Past)' : '(Available)'}">${day}</div>`;
+    }
+    htmlCal += `</div></div>`;
+  }
+  htmlCal += `</div>`;
+  const nextYear = new Date(today);
+  nextYear.setFullYear(today.getFullYear() + 1);
+  const blockedNextYear = blocked.filter(d => {
+    const dd = isoToDate(d);
+    return dd >= today && dd < nextYear;
+  }).length;
+  htmlCal += `<div class="mt-4 text-[11px] text-zinc-500 bg-white border rounded-xl p-3">Showing 12 months from <b>${todayIso}</b> • <b class="text-red-700">${blockedNextYear} dates</b> Fully Booked in next year • Total blocked: ${blocked.length}</div>`;
+  container.innerHTML = safeHTML(htmlCal);
 }
 
 // =============================================================
