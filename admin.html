@@ -31,7 +31,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 </head>
 <body>
 <header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
-  <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
+  <div class="max-w-[1200px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3">
       <div class="w-[38px] h-[38px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800 text-[20px]">K</div>
       <div class="font-800 text-[22px] tracking-[-0.5px] text-[#212121] leading-none">KUNDASANG<span class="font-600 text-[#212121]/60 text-[18px]">.stays</span><div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 -mt-1">ADMIN • ToyyibPay Auto</div></div>
@@ -483,7 +483,7 @@ function renderAdmin(){
           </div>
           
           <div class="flex flex-wrap gap-2 mt-3">
-            ${h.icImage ? `<button onclick="viewPendingDetails(${h.id})" class="px-3 py-1.5 bg-blue-600 text-white sharp text-xs font-bold">🔍 View Full Details</button>` : `<button onclick="viewPendingDetails(${h.id})" class="px-3 py-1.5 bg-blue-600 text-white sharp text-xs font-bold">🔍 View Full Details</button>`}
+            <button onclick="viewPendingDetails(${h.id})" class="px-3 py-1.5 bg-blue-600 text-white sharp text-xs font-bold">🔍 View Full Details</button>
             <button onclick="approveHomestay(${h.id})" class="px-4 py-1.5 bg-green-600 text-white sharp text-xs font-bold">✅ Approve</button>
             <button onclick="rejectHomestay(${h.id})" class="px-4 py-1.5 bg-red-100 text-red-700 sharp text-xs font-bold">✕ Reject</button>
           </div>
@@ -503,7 +503,7 @@ function renderAdmin(){
   renderBookingsTable();
 }
 
-// ====== PENDING DETAIL MODAL ======
+// ====== PENDING DETAIL MODAL (FIXED IMAGE ENLARGE) ======
 function viewPendingDetails(id) {
   const h = pendingHomestays.find(p => p.id === id);
   if (!h) return;
@@ -562,26 +562,30 @@ function viewPendingDetails(id) {
     </div>
   `;
   
-  // IC Image - Large
+  // IC Image - FIXED: using <a> tag with target="_blank" instead of window.open()
   if (h.icImage) {
     html += `
       <div class="mt-4">
-        <div class="text-sm font-semibold text-zinc-500">IC Front (Watermarked) — Click to enlarge</div>
+        <div class="text-sm font-semibold text-zinc-500">IC Front (Watermarked)</div>
         <div class="mt-2 border rounded-xl p-3 bg-blue-50">
-          <img src="${h.icImage}" class="detail-modal-img max-h-[500px] w-auto mx-auto cursor-pointer" onclick="window.open('${h.icImage}', '_blank')" />
+          <a href="${h.icImage}" target="_blank" rel="noopener noreferrer">
+            <img src="${h.icImage}" class="detail-modal-img max-h-[500px] w-auto mx-auto cursor-pointer" />
+          </a>
           <div class="text-[10px] text-zinc-500 mt-2 text-center">Click image to open in new tab for full resolution</div>
         </div>
       </div>
     `;
   }
   
-  // QR Image - Large
+  // QR Image - FIXED: using <a> tag with target="_blank" instead of window.open()
   if (h.bankQRImage) {
     html += `
       <div class="mt-4">
-        <div class="text-sm font-semibold text-zinc-500">Bank QR / DuitNow — Click to enlarge</div>
+        <div class="text-sm font-semibold text-zinc-500">Bank QR / DuitNow</div>
         <div class="mt-2 border rounded-xl p-3 bg-green-50">
-          <img src="${h.bankQRImage}" class="detail-modal-img max-h-[400px] w-auto mx-auto cursor-pointer" onclick="window.open('${h.bankQRImage}', '_blank')" />
+          <a href="${h.bankQRImage}" target="_blank" rel="noopener noreferrer">
+            <img src="${h.bankQRImage}" class="detail-modal-img max-h-[400px] w-auto mx-auto cursor-pointer" />
+          </a>
           <div class="text-[10px] text-zinc-500 mt-2 text-center">Click image to open in new tab for full resolution</div>
         </div>
       </div>
