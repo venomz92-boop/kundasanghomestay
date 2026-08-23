@@ -63,7 +63,7 @@
     .calendar-legend .dot.today-dot { border: 2px solid var(--primary); background: white; width: 10px; height: 10px; }
 
     /* ===== MOBILE MENU – COMPLETELY ISOLATED ===== */
-    #mobileNav {
+  #mobileNav {
   position: fixed;
   top: 80px;
   left: 0;
@@ -72,16 +72,25 @@
   background: white;
   border-top: 1px solid rgba(0,0,0,0.08);
   box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-  max-height: 80vh;
-  overflow-y: auto;
-  display: none;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translateY(-10px);
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.3s ease,
+              transform 0.3s ease;
 }
 
 #mobileNav.open {
-  display: block;
+  max-height: 80vh;
+  opacity: 1;
+  overflow-y: auto;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
-/* General links & buttons – but we'll override for .logout-btn */
+/* General links & buttons */
 #mobileNav a,
 #mobileNav button {
   display: block;
