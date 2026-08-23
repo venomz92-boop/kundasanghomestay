@@ -34,6 +34,9 @@
     .setsail-nav-link{position:relative;font-family:"Poppins",sans-serif;font-weight:600;font-size:13px;letter-spacing:0.3px;text-transform:uppercase;color:#212121;padding:8px 0;cursor:pointer;background:none;border:none;}
     .setsail-nav-link::after{content:'';position:absolute;left:0;bottom:-2px;width:0;height:2px;background:#3FD0D4;transition:width 0.3s;}
     .setsail-nav-link:hover::after,.setsail-nav-link.active::after{width:100%;}
+    .setsail-nav-link.agent{color:#7c3aed;border:1px solid #7c3aed;padding:6px 16px;border-radius:2px;}
+    .setsail-nav-link.agent::after{display:none;}
+    .setsail-nav-link.agent:hover{background:#7c3aed;color:white;}
     @media (max-width:768px){#desktopNav{display:none !important;}#mobileMenuBtn{display:flex !important;}#hero{height:600px !important;}#homePage{padding:80px 20px 60px !important;}#homestayGrid{grid-template-columns:1fr !important;gap:20px !important;}}
     *, *::before, *::after { box-sizing: border-box; }
     .card { overflow: hidden; max-width: 100%; }
@@ -44,6 +47,7 @@
     #listPage input, #listPage select, #listPage textarea { border-radius: 2px !important; font-family: "Poppins", sans-serif; font-size: 13px; }
     #listPage .card { padding: 32px; }
     #detailModal .card, #bookingModal .card, #guestAuthModal .card { border-radius: 2px !important; }
+    .mobile-agent-link { color: #7c3aed !important; border: 1px solid #7c3aed !important; border-radius: 2px !important; padding: 8px 16px !important; display: inline-block !important; margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -60,6 +64,11 @@
       <button onclick="showPage('home')" id="navHome" class="setsail-nav-link active">Home</button>
       <button onclick="showPage('list')" id="navList" class="setsail-nav-link">List Your Homestay</button>
       <button onclick="showPage('about')" id="navAbout" class="setsail-nav-link">About</button>
+      
+      <!-- ======== NEW: AGENT LOGIN TAB ======== -->
+      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
+      <!-- ====================================== -->
+
       <div id="guestNav" class="ml-4 flex items-center gap-3">
         <button onclick="openGuestAuth('login')" id="guestLoginBtn" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
         <button onclick="openGuestAuth('register')" id="guestRegisterBtn" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp">Register</button>
@@ -76,6 +85,11 @@
       <button onclick="showPage('home'); toggleMobileMenu()" id="mNavHome" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">🏠 Home</button>
       <button onclick="showPage('list'); toggleMobileMenu()" id="mNavList" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">➕ List Your Homestay</button>
       <button onclick="showPage('about'); toggleMobileMenu()" id="mNavAbout" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5">ℹ️ About</button>
+      
+      <!-- ======== NEW: AGENT LOGIN (MOBILE) ======== -->
+      <a href="/owner.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="display:block; text-decoration:none;">🔑 Agent Login</a>
+      <!-- ============================================ -->
+
       <div class="pt-2"><div id="mGuestNav" class="space-y-3"><button onclick="openGuestAuth('login'); toggleMobileMenu()" class="w-full px-6 h-[44px] border border-[#3FD0D4] text-[#3FD0D4] font-600 text-[12px] uppercase tracking-wider sharp">Login</button><button onclick="openGuestAuth('register'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#3FD0D4] text-white font-600 text-[12px] uppercase tracking-wider sharp">Register</button></div><div id="mGuestProfileNav" class="hidden space-y-3"><div class="flex items-center gap-3 bg-[#212121] text-white px-4 py-3 sharp"><div id="mGuestAvatar" class="guest-avatar bg-[#3FD0D4]">G</div><div><div id="mGuestNameNav" class="text-sm font-bold">Guest</div><div class="text-[11px] text-white/60">Verified guest</div></div><button onclick="logoutGuest()" class="ml-auto text-xs bg-white/20 px-3 py-1.5 sharp">Logout</button></div><button onclick="showPage('mybookings'); toggleMobileMenu()" class="w-full px-6 h-[44px] bg-[#212121] text-white font-600 text-[12px] uppercase tracking-wider sharp">📅 My Bookings</button></div></div>
     </div>
   </div>
@@ -156,7 +170,7 @@
           </div>
         </div>
 
-        <!-- ========== NEW: OWNER PASSWORD FIELD ========== -->
+        <!-- ========== OWNER PASSWORD FIELD ========== -->
         <div class="bg-purple-50 border border-purple-200 p-4 rounded-xl">
           <h4 class="font-bold text-sm">🔑 Owner Account Setup</h4>
           <p class="text-[11px] text-zinc-600 mt-1">Set a password so you can log in to the <b>Owner Panel</b> (<code>/owner.html</code>) to check-in guests and receive payments directly to your bank account.</p>
@@ -166,7 +180,7 @@
             <div class="text-[10px] text-zinc-500 mt-1">This password is hashed on your device before being sent to our servers. We never store your plaintext password.</div>
           </div>
         </div>
-        <!-- ============================================= -->
+        <!-- ========================================= -->
 
         <!-- Availability Calendar -->
         <div class="bg-green-50 border border-green-200 p-4 rounded-xl">
