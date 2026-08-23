@@ -17,10 +17,24 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 .kd-w-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.48);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:.25s}
 .kd-w-overlay.open{opacity:1;pointer-events:auto}
 .kd-w-modal{background:#fff;width:100%;max-width:480px;max-height:92vh;overflow:auto;border-radius:2px}
-.calendar-mini{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
-.calendar-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:2px;font-size:10px;font-weight:600;border:1px solid #e5e7eb;}
+/* ===== COMPACT CALENDAR STYLES ===== */
+.calendar-mini{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.calendar-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:2px;font-size:10px;font-weight:500;border:1px solid #e5e7eb;cursor:default;}
 .calendar-day.available{background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
-.calendar-day.booked{background:#fef2f2;border-color:#fecaca;color:#991b1b;}
+.calendar-day.booked{background:#fef2f2;border-color:#fecaca;color:#991b1b;text-decoration:line-through;}
+.calendar-day.today{border-color:var(--primary);border-width:2px;}
+.calendar-day.empty{background:transparent;border-color:transparent;}
+.calendar-day.past{background:#f9fafb;border-color:#e5e7eb;color:#9ca3af;}
+.calendar-nav-btn{background:var(--primary);color:white;border:none;width:28px;height:28px;border-radius:2px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background 0.2s;}
+.calendar-nav-btn:hover{background:var(--primary-light);}
+.calendar-month-label{font-weight:600;font-size:13px;color:#212121;}
+.calendar-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:10px;color:#6b7280;margin-top:6px;}
+.calendar-legend span{display:flex;align-items:center;gap:4px;}
+.calendar-legend .dot{width:10px;height:10px;border-radius:2px;display:inline-block;}
+.calendar-legend .dot.green{background:#f0fdf4;border:1px solid #bbf7d0;}
+.calendar-legend .dot.red{background:#fef2f2;border:1px solid #fecaca;}
+.calendar-legend .dot.today-dot{border:2px solid var(--primary);background:white;width:10px;height:10px;}
+/* ================================== */
 .verification-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:600;}
 .verification-badge.pass{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
 .verification-badge.fail{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
@@ -382,20 +396,94 @@ function getDatesInRange(ci,co){ if(!ci||!co) return []; const dates=[]; const a
 function getAllBlockedDatesForHomestay(h){ if(!h) return []; let blk=[]; if(h.blockedDates) blk=[...blk,...h.blockedDates]; if(availabilityMap[h.id]) blk=[...blk,...availabilityMap[h.id]]; const rel=bookings.filter(b=> b.homestay===h.name || String(b.homestayId)===String(h.id)); rel.forEach(b=>{ if(b.checkin&&b.checkout) blk=[...blk,...getDatesInRange(b.checkin,b.checkout)]; }); return [...new Set(blk)].sort(); }
 function calculateNights(ci,co){ if(!ci||!co) return 1; const d1=new Date(ci), d2=new Date(co); const diff=Math.round((d2-d1)/86400000); return diff>0?diff:1; }
 function calculatePrice(p,n){ n=n||1; const base=p*n; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gw=CONFIG.toyyibpay.enabled?CONFIG.toyyibpay.gatewayFee:0; return {nights:n, base:base, fee:fee, gatewayFee:gw, total:base+fee+gw, youReceive:fee-gw, ownerReceives:base}; }
-function renderAvailabilityCalendar(h,id){ 
-  const c=document.getElementById(id); 
-  if(!c||!h) return; 
-  const blk=getAllBlockedDatesForHomestay(h); 
-  const today=new Date(); today.setHours(0,0,0,0); 
-  let html='<div class="calendar-mini">'; 
-  ["S","M","T","W","T","F","S"].forEach(d=> html+='<div class="text-[10px] text-center font-bold text-zinc-400">'+d+'</div>'); 
-  for(let i=0;i<35;i++){ 
-    const d=new Date(today); d.setDate(today.getDate()+i); 
-    const iso=dateToIso(d); const b=blk.includes(iso); 
-    html+='<div class="calendar-day '+(b?'booked':'available')+'">'+d.getDate()+'</div>'; 
-  } 
-  html+='</div>'; 
-  c.innerHTML = safeHTML(html); 
+
+// ========== COMPACT CALENDAR RENDER (Windows-like) ==========
+function renderAvailabilityCalendar(h, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container || !h) return;
+  
+  const blocked = getAllBlockedDatesForHomestay(h);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const todayIso = dateToIso(today);
+  
+  // Store current month state per container
+  if (!container._currentMonth) {
+    container._currentMonth = today.getMonth();
+    container._currentYear = today.getFullYear();
+  }
+  
+  function renderMonth() {
+    const month = container._currentMonth;
+    const year = container._currentYear;
+    const monthLabel = new Date(year, month, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startDay = new Date(year, month, 1).getDay();
+    const isCurrentMonth = (month === today.getMonth() && year === today.getFullYear());
+    
+    let html = `
+      <div class="flex items-center justify-between mb-2">
+        <button onclick="navigateCalendar(this, -1, '${containerId}')" class="calendar-nav-btn">‹</button>
+        <span class="calendar-month-label">${monthLabel}</span>
+        <button onclick="navigateCalendar(this, 1, '${containerId}')" class="calendar-nav-btn">›</button>
+      </div>
+      <div class="calendar-mini">
+    `;
+    
+    const dayNames = ["S", "M", "T", "W", "T", "F", "S"];
+    dayNames.forEach(d => {
+      html += `<div class="text-[9px] text-center font-bold text-zinc-400 py-1">${d}</div>`;
+    });
+    
+    for (let e = 0; e < startDay; e++) {
+      html += `<div class="calendar-day empty"></div>`;
+    }
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(year, month, day);
+      d.setHours(0,0,0,0);
+      const iso = dateToIso(d);
+      const isBlocked = blocked.includes(iso);
+      const isToday = iso === todayIso;
+      const isPast = d < today;
+      
+      let cls = "calendar-day";
+      if (isPast) {
+        cls += " past";
+      } else {
+        cls += isBlocked ? " booked" : " available";
+      }
+      if (isToday) cls += " today";
+      
+      html += `<div class="${cls}" title="${iso} ${isBlocked ? '(Booked)' : isPast ? '(Past)' : '(Available)'}">${day}</div>`;
+    }
+    
+    html += `</div>`;
+    html += `
+      <div class="calendar-legend">
+        <span><span class="dot green"></span> Available</span>
+        <span><span class="dot red"></span> Booked</span>
+        ${isCurrentMonth ? `<span><span class="dot today-dot"></span> Today</span>` : ''}
+        <span style="margin-left:auto;font-size:9px;color:#9ca3af;">${blocked.length} booked</span>
+      </div>
+    `;
+    
+    container.innerHTML = safeHTML(html);
+  }
+  
+  // Attach navigation function to window
+  window.navigateCalendar = function(btn, direction, containerId) {
+    const c = document.getElementById(containerId);
+    if (!c) return;
+    c._currentMonth = (c._currentMonth || today.getMonth()) + direction;
+    if (c._currentMonth > 11) { c._currentMonth = 0; c._currentYear = (c._currentYear || today.getFullYear()) + 1; }
+    if (c._currentMonth < 0) { c._currentMonth = 11; c._currentYear = (c._currentYear || today.getFullYear()) - 1; }
+    if (!c._currentYear) c._currentYear = today.getFullYear();
+    renderMonth.call(c);
+  };
+  
+  container._render = renderMonth;
+  renderMonth.call(container);
 }
 
 // ========== ADMIN LOGIN ==========
@@ -504,7 +592,7 @@ function renderAdmin(){
     pendingDiv.innerHTML = safeHTML(html);
   }
   
-  // ====== APPROVED TAB WITH REMOVE BUTTON ======
+  // APPROVED TAB
   const approvedDiv=document.getElementById("adminApproved");
   let approvedHtml = '';
   if (homestays.length === 0) {
@@ -542,49 +630,34 @@ async function removeApprovedHomestay(id) {
   if (!confirm(`Remove this homestay from Approved list?\n\nThis will permanently remove it from the platform.\nAll related bookings will still exist but the homestay will be hidden.`)) return;
   
   try {
-    // Find the homestay
     const idx = allHomestays.findIndex(h => String(h.id) === String(id));
     if (idx === -1) {
       alert("Homestay not found");
       return;
     }
-    
-    // Remove from allHomestays, homestays, and storedApproved
     const removed = allHomestays[idx];
     allHomestays.splice(idx, 1);
     homestays = [...allHomestays];
-    
-    // If it's not a demo, remove from storedApproved
     if (!isDemo(id)) {
       const approveIdx = storedApproved.findIndex(h => String(h.id) === String(id));
       if (approveIdx !== -1) {
         storedApproved.splice(approveIdx, 1);
       }
     }
-    
-    // Update localStorage
     localStorage.setItem("kd_approved", JSON.stringify(storedApproved));
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    
-    // If it's a demo, add to deletedDemoIds
     if (isDemo(id)) {
       if (!deletedDemoIds.includes(String(id))) {
         deletedDemoIds.push(String(id));
         localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds));
       }
     }
-    
-    // Remove availability
     if (availabilityMap[id]) {
       delete availabilityMap[id];
       localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
     }
-    
-    // Sync to cloud
     await saveApproved();
     await pushAvailabilityToCloud();
-    
-    // Push the updated approved list to cloud
     try {
       await fetchWithAuth(API_BASE + "/bookings", {
         method: "POST",
@@ -601,8 +674,6 @@ async function removeApprovedHomestay(id) {
     } catch(e) {
       console.warn("⚠️ Cloud sync failed, but local data updated:", e.message);
     }
-    
-    // Re-render
     renderAdmin();
     alert(`✅ "${removed.name}" has been removed from the approved list.`);
   } catch(e) {
@@ -847,7 +918,6 @@ async function rejectHomestay(id){
   renderAdmin(); 
 }
 
-// Force sync pending from localStorage to cloud
 async function forceSyncPending(){
   if (!confirm("Force sync pending data from localStorage to cloud?")) return;
   try {
