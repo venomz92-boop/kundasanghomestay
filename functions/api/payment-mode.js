@@ -7,7 +7,7 @@ export async function onRequestGet({ env }) {
   //   "false" = SIMULATION (no real money)
   // ============================================================
   const rawPayoutEnabled = env.TOYYIBPAY_PAYOUT_ENABLED;
-  const isLive = (rawPayoutEnabled === "true");
+  const isLive = (rawPayoutEnabled === "false");
   
   // Check if keys exist (for information only)
   const hasSecret = !!(env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_CATEGORY_CODE);
