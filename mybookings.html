@@ -443,12 +443,13 @@ async function fetchCloudData() {
 }
 
 // =============================================================
-// GUEST-FRIENDLY STATUS DISPLAY
+// GUEST-FRIENDLY STATUS DISPLAY (UPDATED)
 // =============================================================
 function getGuestFriendlyStatus(rawStatus) {
   const s = (rawStatus || '').toLowerCase();
   if (s.includes('pending')) return '⏳ Pending Payment';
-  if (s.includes('completed') || s.includes('enjoy')) return '✅ Stay Completed';
+  // ===== CHANGED HERE: Completed status now shows "✅ Completed" =====
+  if (s.includes('completed') || s.includes('enjoy')) return '✅ Completed';
   if (s.includes('paid') || s.includes('awaiting')) return '✅ Paid – Awaiting Check‑in';
   return '🔄 Processing';
 }
