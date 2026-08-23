@@ -2,7 +2,13 @@
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
-  const expectedToken = env.ADMIN_TOKEN;
+  const expectedToken = env.ADMIN_TOKEN || "";
+  if (!expectedToken) {
+    return new Response(JSON.stringify({ error: "Server misconfigured" }), {
+      status: 500,
+      headers: corsHeaders()
+    });
+  }
   const expected = "Bearer " + expectedToken;
   if (auth !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized - Token mismatch" }), {
@@ -97,10 +103,11 @@ export async function onRequestPost(context) {
   // PUBLIC: create a pending booking without auth (used before payment)
   if (action === "createPublicBooking" && body.booking) {
     const booking = body.booking;
-    // --- INPUT VALIDATION ---
+    // --- INPUT VALIDATION (FIXED: allows 0 values) ---
     const required = ['id', 'homestay', 'homestayId', 'checkin', 'checkout', 'guestEmail', 'guestName', 'total', 'base', 'fee'];
     for (const field of required) {
-      if (!booking[field]) {
+      // Allow 0 values (e.g., fee can be 0 for RM1 bookings)
+      if (booking[field] === undefined || booking[field] === null || booking[field] === '') {
         return new Response(JSON.stringify({ error: `Missing required field: ${field}` }), {
           status: 400,
           headers: corsHeaders()
@@ -118,7 +125,7 @@ export async function onRequestPost(context) {
     if (!emailRe.test(booking.guestEmail)) {
       return new Response(JSON.stringify({ error: "Invalid guest email" }), { status: 400, headers: corsHeaders() });
     }
-    // Validate numeric fields
+    // Validate numeric fields (allow 0)
     if (isNaN(booking.total) || isNaN(booking.base) || isNaN(booking.fee)) {
       return new Response(JSON.stringify({ error: "Invalid price fields" }), { status: 400, headers: corsHeaders() });
     }
