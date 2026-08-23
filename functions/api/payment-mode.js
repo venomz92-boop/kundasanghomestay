@@ -7,7 +7,7 @@ export async function onRequestGet({ env }) {
   // Set this to 'false' for simulation, 'true' for live.
   // Once the env var works, this fallback is ignored.
   // ============================================================
-  const FALLBACK_MODE = 'false'; // <-- Change this to 'true' if you want live by default
+  const FALLBACK_MODE = 'true'; // <-- Change this to 'true' if you want live by default
   // ============================================================
   
   // Read the environment variable – if missing, use the fallback
