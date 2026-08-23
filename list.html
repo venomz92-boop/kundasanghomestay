@@ -57,11 +57,48 @@
       <div class="bg-yellow-50 border border-yellow-200 p-4 rounded-xl">
         <h4 class="font-bold text-sm">Bank Account — Must same as owner / business account</h4>
         <p class="text-[11px] text-zinc-600 mt-1">Homestay payment will go directly to this account. Must match owner name & IC name.</p>
-        <div class="grid md:grid-cols-3 gap-3 mt-3">
-          <input id="listBankName" placeholder="Bank e.g. Maybank / CIMB" class="border rounded-xl px-4 py-2.5"/>
-          <input id="listBankAccount" placeholder="Account Number" class="border rounded-xl px-4 py-2.5"/>
-          <input id="listBankHolder" placeholder="Account Holder Name (must match IC)" class="border rounded-xl px-4 py-2.5"/>
+        
+        <div class="grid md:grid-cols-4 gap-3 mt-3">
+          <!-- Bank Name Dropdown -->
+          <div>
+            <label class="text-xs font-semibold">Bank Name *</label>
+            <select id="listBankName" class="w-full border rounded-xl px-4 py-2.5">
+              <option value="">Select Bank</option>
+              <option value="Maybank">Maybank</option>
+              <option value="CIMB Bank">CIMB Bank</option>
+              <option value="Public Bank">Public Bank</option>
+              <option value="RHB Bank">RHB Bank</option>
+              <option value="Hong Leong Bank">Hong Leong Bank</option>
+              <option value="AmBank">AmBank</option>
+              <option value="Bank Islam">Bank Islam</option>
+              <option value="Bank Rakyat">Bank Rakyat</option>
+              <option value="Affin Bank">Affin Bank</option>
+              <option value="Alliance Bank">Alliance Bank</option>
+              <option value="OCBC Bank">OCBC Bank</option>
+              <option value="UOB Bank">UOB Bank</option>
+              <option value="Standard Chartered">Standard Chartered</option>
+              <option value="HSBC">HSBC</option>
+              <option value="MBSB">MBSB</option>
+              <option value="Other">Other (specify code below)</option>
+            </select>
+          </div>
+          
+          <!-- Manual Bank Code (hidden by default, shown when "Other" selected) -->
+          <div id="manualBankCodeWrap" class="hidden">
+            <label class="text-xs font-semibold">Bank Code (if Other)</label>
+            <input id="listBankCode" placeholder="e.g. MBBEMYKL" class="w-full border rounded-xl px-4 py-2.5 text-xs font-mono"/>
+          </div>
+          
+          <div>
+            <label class="text-xs font-semibold">Account Number *</label>
+            <input id="listBankAccount" placeholder="Account Number" class="w-full border rounded-xl px-4 py-2.5"/>
+          </div>
+          <div>
+            <label class="text-xs font-semibold">Account Holder Name *</label>
+            <input id="listBankHolder" placeholder="Account Holder Name" class="w-full border rounded-xl px-4 py-2.5"/>
+          </div>
         </div>
+        
         <div class="mt-3 bg-white border border-amber-200 p-3 rounded-xl">
           <label class="text-xs font-bold">🏦 DuitNow / Bank QR Code (MUST UPLOAD)</label>
           <p class="text-[11px] text-zinc-600 mt-1">Upload your DuitNow QR or bank QR.</p>
@@ -152,6 +189,27 @@ function safeHTML(html) {
 }
 
 // =============================================================
+// BANK CODE MAPPING
+// =============================================================
+const BANK_CODES = {
+  'Maybank': 'MBBEMYKL',
+  'CIMB Bank': 'CIMBMYKL',
+  'Public Bank': 'PBBEMYKL',
+  'RHB Bank': 'RHBMYKL',
+  'Hong Leong Bank': 'HLBBMYKL',
+  'AmBank': 'ARBMYKL',
+  'Bank Islam': 'BIMBMYKL',
+  'Bank Rakyat': 'BKRMMYKL',
+  'Affin Bank': 'AFFIMYKL',
+  'Alliance Bank': 'ABMBMYKL',
+  'OCBC Bank': 'OCBCMYKL',
+  'UOB Bank': 'UOVBMYKL',
+  'Standard Chartered': 'SCBLMYKX',
+  'HSBC': 'HBMBMYKL',
+  'MBSB': 'MBSBMYKL'
+};
+
+// =============================================================
 // STATE
 // =============================================================
 let tempPhotos = [];
@@ -160,6 +218,19 @@ let tempIcWatermarked = "";
 let tempIcOriginalName = "";
 let tempBankQRWatermarked = "";
 let tempBankQROriginalName = "";
+
+// =============================================================
+// BANK NAME DROPDOWN HANDLER
+// =============================================================
+document.getElementById('listBankName').addEventListener('change', function() {
+  const wrap = document.getElementById('manualBankCodeWrap');
+  if (this.value === 'Other') {
+    wrap.classList.remove('hidden');
+  } else {
+    wrap.classList.add('hidden');
+    document.getElementById('listBankCode').value = '';
+  }
+});
 
 // =============================================================
 // PHOTOS
@@ -182,7 +253,7 @@ function handlePhotos(input) {
 }
 
 // =============================================================
-// IC UPLOAD (FIXED)
+// IC UPLOAD
 // =============================================================
 function handleIcFile(input) {
   const file = input.files[0];
@@ -338,7 +409,7 @@ function renderBlockedDatesList() {
 }
 
 // =============================================================
-// SUBMIT HOMESTAY (FIXED - WITH CLOUD SYNC VERIFICATION)
+// SUBMIT HOMESTAY (FIXED - WITH BANK CODE)
 // =============================================================
 async function submitHomestay() {
   const statusEl = document.getElementById('submitStatus');
@@ -356,7 +427,7 @@ async function submitHomestay() {
     const price = parseInt(document.getElementById("listPrice").value);
     const numGuests = parseInt(document.getElementById("listGuests").value) || 4;
     const bedrooms = parseInt(document.getElementById("listBedrooms").value) || 2;
-    const bankName = document.getElementById("listBankName").value.trim();
+    const bankName = document.getElementById("listBankName").value;
     const bankAccount = document.getElementById("listBankAccount").value.trim();
     const bankHolder = document.getElementById("listBankHolder").value.trim();
     const description = document.getElementById("listDescription").value.trim();
@@ -365,12 +436,20 @@ async function submitHomestay() {
     const icNumber = document.getElementById("listIcNumber").value.trim();
     const ownerPassword = document.getElementById("listOwnerPassword").value.trim();
 
+    // --- Get Bank Code ---
+    let bankCode = BANK_CODES[bankName] || '';
+    if (bankName === 'Other') {
+      bankCode = document.getElementById('listBankCode').value.trim().toUpperCase();
+    }
+    if (!bankCode) bankCode = 'MBBEMYKL';
+
     // --- Validation ---
     if (!ownerName) { alert("Owner Name is required"); document.getElementById("listOwnerName").focus(); return; }
     if (!whatsapp) { alert("WhatsApp number is required"); document.getElementById("listWhatsapp").focus(); return; }
     if (!ownerEmail) { alert("Owner Email is required"); document.getElementById("listOwnerEmail").focus(); return; }
     if (!homestayName) { alert("Homestay Name is required"); document.getElementById("listHomestayName").focus(); return; }
     if (!price || isNaN(price) || price <= 0) { alert("Valid Price is required"); document.getElementById("listPrice").focus(); return; }
+    if (!bankName) { alert("Please select your bank"); document.getElementById("listBankName").focus(); return; }
     if (!bankAccount) { alert("Bank Account is required"); document.getElementById("listBankAccount").focus(); return; }
     if (!bankHolder) { alert("Bank Holder is required"); document.getElementById("listBankHolder").focus(); return; }
     if (!icName) { alert("IC Name is required"); document.getElementById("listIcName").focus(); return; }
@@ -378,7 +457,7 @@ async function submitHomestay() {
     if (tempPhotos.length === 0) { alert("Please upload at least 1 photo"); return; }
     if (ownerPassword.length < 6) { alert("Owner password must be at least 6 characters"); document.getElementById("listOwnerPassword").focus(); return; }
 
-    // --- CRITICAL: IC UPLOAD CHECK ---
+    // --- IC UPLOAD CHECK ---
     if (!tempIcWatermarked) {
       alert("Please upload IC Front - required for verification. Watermark added automatically.");
       document.getElementById("listIcFront").focus();
@@ -403,8 +482,9 @@ async function submitHomestay() {
       ownerName: ownerName,
       whatsapp: whatsapp,
       ownerEmail: ownerEmail,
-      ownerBank: bankName || "Not specified",
+      ownerBank: bankName,
       ownerBankAccount: bankAccount,
+      bankCode: bankCode,
       bankHolder: bankHolder,
       icName: icName,
       icNumber: icNumber ? icNumber.substring(0, 3) + "****" + icNumber.slice(-4) : "",
@@ -425,13 +505,12 @@ async function submitHomestay() {
 
     console.log("✅ Homestay object created:", newHome.name);
 
-    // --- STEP 1: Save to localStorage (for immediate UI) ---
+    // --- Save to localStorage ---
     let pending = JSON.parse(localStorage.getItem("kd_pending") || "[]");
     pending.push(newHome);
     localStorage.setItem("kd_pending", JSON.stringify(pending));
-    console.log("✅ Saved to localStorage");
 
-    // --- STEP 2: Sync to Cloud (D1 Database) ---
+    // --- Sync to cloud ---
     statusEl.className = 'block mt-3 p-3 rounded-xl text-sm bg-blue-50 text-blue-700 border border-blue-200';
     statusEl.textContent = '⏳ Syncing your homestay to the cloud...';
     statusEl.classList.remove('hidden');
@@ -472,6 +551,7 @@ async function submitHomestay() {
     document.getElementById("listBankName").value = "";
     document.getElementById("listBankAccount").value = "";
     document.getElementById("listBankHolder").value = "";
+    document.getElementById("listBankCode").value = "";
     document.getElementById("listDescription").value = "";
     document.getElementById("listIcName").value = "";
     document.getElementById("listIcNumber").value = "";
@@ -480,6 +560,7 @@ async function submitHomestay() {
     document.getElementById("listBankQR").value = "";
     document.getElementById("listPhotos").value = "";
     document.getElementById("listBankConfirm").checked = false;
+    document.getElementById('manualBankCodeWrap').classList.add('hidden');
     tempPhotos = [];
     tempBlockedDates = [];
     tempIcWatermarked = "";
