@@ -63,6 +63,69 @@
     .calendar-legend .dot.green { background: #f0fdf4; border: 1px solid #bbf7d0; }
     .calendar-legend .dot.red { background: #fef2f2; border: 1px solid #fecaca; }
     .calendar-legend .dot.today-dot { border: 2px solid var(--primary); background: white; width: 10px; height: 10px; }
+
+    /* ===== MOBILE MENU ANIMATION ===== */
+    #mobileNav {
+      display: block;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity 0.3s ease,
+                  transform 0.3s ease;
+      background: white;
+      border-top: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    }
+
+    #mobileNav.open {
+      max-height: 600px;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #mobileNav a,
+    #mobileNav button {
+      color: #212121;
+      font-weight: 600;
+      transition: color 0.2s, background 0.2s;
+      border-bottom: 1px solid rgba(0,0,0,0.04);
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 12px 0;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    #mobileNav a:hover,
+    #mobileNav button:hover {
+      color: #3FD0D4;
+    }
+
+    #mobileNav .mobile-agent-link {
+      color: #7c3aed !important;
+      border: 1px solid #7c3aed !important;
+      padding: 8px 16px !important;
+      border-radius: 2px !important;
+      display: inline-block !important;
+      margin-top: 4px;
+    }
+
+    #mobileNav .mobile-agent-link:hover {
+      background: #7c3aed !important;
+      color: white !important;
+    }
+
+    #mobileNav .active-mobile {
+      color: #3FD0D4 !important;
+    }
+
+    #mobileNav .sharp {
+      border-radius: 2px;
+    }
   </style>
 </head>
 <body>
@@ -91,7 +154,7 @@
     </nav>
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 sharp bg-[#212121] text-white items-center justify-center"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
   </div>
-  <div id="mobileNav" class="hidden lg:hidden absolute top-[80px] left-0 right-0 bg-white border-t border-black/10 z-50 shadow-xl">
+  <div id="mobileNav" class="lg:hidden absolute top-[80px] left-0 right-0 z-50">
     <div class="p-6 space-y-4">
       <a href="/" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">🏠 Home</a>
       <a href="/list.html" onclick="toggleMobileMenu()" class="w-full text-left font-poppins font-600 text-[13px] uppercase tracking-wider py-3 border-b border-black/5 block">➕ List Your Homestay</a>
@@ -1274,16 +1337,25 @@ function showHome() {
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
+// =============================================================
+// MOBILE MENU TOGGLE (with animation)
+// =============================================================
 function toggleMobileMenu() {
   const nav = document.getElementById('mobileNav');
-  if (nav) nav.classList.toggle('hidden');
+  if (nav) {
+    nav.classList.toggle('open');
+  }
 }
+
 document.addEventListener('click', function(e) {
   const nav = document.getElementById('mobileNav');
   const btn = document.getElementById('mobileMenuBtn');
-  if (!nav || nav.classList.contains('hidden')) return;
-  if (nav.contains(e.target) || (btn && btn.contains(e.target))) return;
-  nav.classList.add('hidden');
+  if (!nav || !btn) return;
+  if (nav.classList.contains('open') && 
+      !nav.contains(e.target) && 
+      !btn.contains(e.target)) {
+    nav.classList.remove('open');
+  }
 });
 
 // =============================================================
