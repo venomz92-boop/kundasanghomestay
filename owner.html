@@ -447,43 +447,63 @@
     }
 
     // =============================================
-    // INIT
+    // INIT – reads homestays from token or forces re-login
     // =============================================
     (function init() {
       const token = sessionStorage.getItem('kd_owner_token');
       if (token) {
-        ownerToken = token;
         try {
           const data = JSON.parse(atob(token));
-          ownerHomestayIds = data.homestayIds || [data.ownerId];
-          allHomestays = data.homestays || [{ id: data.ownerId, name: 'Your Homestay' }];
+          console.log("🔐 Token data:", data);
           
-          // Populate selector
-          const selector = document.getElementById('homestaySelector');
-          selector.innerHTML = '<option value="all">All Homestays</option>';
-          allHomestays.forEach(h => {
-            const opt = document.createElement('option');
-            opt.value = h.id;
-            opt.textContent = h.name;
-            selector.appendChild(opt);
-          });
-          currentHomestayId = 'all';
-          selector.value = 'all';
-          
-          document.getElementById('loginSection').classList.add('hidden');
-          document.getElementById('dashboardSection').classList.remove('hidden');
-          document.getElementById('ownerNav').classList.remove('hidden');
-          document.getElementById('welcomeName').innerText = data.ownerName || 'Owner';
-          document.getElementById('ownerNameDisplay').innerText = data.ownerName || 'Owner';
-          loadBookings();
-        } catch(e) { logoutOwner(); }
+          // Check if token has homestays array
+          if (data.homestays && data.homestays.length > 0) {
+            allHomestays = data.homestays;
+            ownerHomestayIds = allHomestays.map(h => h.id);
+            
+            // Populate selector
+            const selector = document.getElementById('homestaySelector');
+            selector.innerHTML = '<option value="all">All Homestays</option>';
+            allHomestays.forEach(h => {
+              const opt = document.createElement('option');
+              opt.value = h.id;
+              opt.textContent = h.name;
+              selector.appendChild(opt);
+            });
+            currentHomestayId = 'all';
+            selector.value = 'all';
+            
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('dashboardSection').classList.remove('hidden');
+            document.getElementById('ownerNav').classList.remove('hidden');
+            document.getElementById('welcomeName').innerText = data.ownerName || 'Owner';
+            document.getElementById('ownerNameDisplay').innerText = data.ownerName || 'Owner';
+            loadBookings();
+          } else {
+            // Token is outdated – force re-login
+            console.warn("Token missing homestays. Forcing re-login.");
+            alert("Your session is outdated. Please login again.");
+            logoutOwner();
+          }
+        } catch(e) {
+          console.error("Token parse error:", e);
+          logoutOwner();
+        }
+      } else {
+        // No token – show login
+        document.getElementById('loginSection').classList.remove('hidden');
+        document.getElementById('dashboardSection').classList.add('hidden');
+        document.getElementById('ownerNav').classList.add('hidden');
       }
 
-      // Event listener for homestay selector
-      document.getElementById('homestaySelector').addEventListener('change', function() {
-        currentHomestayId = this.value;
-        loadBookings();
-      });
+      // Event listener for homestay selector (if it exists)
+      const selector = document.getElementById('homestaySelector');
+      if (selector) {
+        selector.addEventListener('change', function() {
+          currentHomestayId = this.value;
+          loadBookings();
+        });
+      }
     })();
   </script>
 </body>
