@@ -21,7 +21,7 @@
   <header class="bg-white shadow-sm p-4 flex justify-between items-center">
     <div class="flex items-center gap-3">
       <div class="w-[38px] h-[38px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800 text-[20px]">K</div>
-      <div class="font-800 text-[20px] text-[#212121]">KUNDASANG <span class="text-sm font-normal text-zinc-500">• Owner Panel</span></div>
+      <div class="font-800 text-[20px] text-[#212121]">KUNDASANG HOMESTAY<span class="text-sm font-normal text-zinc-500">• Owner Panel</span></div>
     </div>
     <div id="ownerNav" class="hidden">
       <span id="ownerNameDisplay" class="text-sm font-semibold mr-4"></span>
@@ -33,7 +33,7 @@
     <!-- LOGIN FORM -->
     <div id="loginSection" class="max-w-md mx-auto card p-8 mt-10">
       <h2 class="text-2xl font-bold">Owner Login</h2>
-      <p class="text-xs text-zinc-500 mt-1">Login with your WhatsApp number</p>
+      <p class="text-xs text-zinc-500 mt-1">Login with your Registered WhatsApp number</p>
       <input id="ownerWhatsapp" type="tel" placeholder="6012-3456789" class="w-full border sharp px-4 py-3 mt-4" />
       <input id="ownerPassword" type="password" placeholder="Password" class="w-full border sharp px-4 py-3 mt-3" />
       
@@ -213,7 +213,7 @@
     // CONFIRM CHECK-IN (Owner triggers payout)
     // =============================================
     async function confirmCheckIn(bookingId) {
-      if (!confirm(`Confirm check-in for booking ${bookingId}?\n\nThis will send the Base amount to your bank account via ToyyibPay.`)) return;
+      if (!confirm(`Confirm check-in for booking ${bookingId}?\n\nYou will receive your payment at your bank account via ToyyibPay in 1-4 business day.`)) return;
       
       try {
         const res = await fetch(API_BASE + '/owner-update-booking', {
