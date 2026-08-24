@@ -28,14 +28,28 @@
 <body>
 
 <!-- ===== HEADER (unchanged) ===== -->
-<header class="bg-white shadow-sm p-4 flex justify-between items-center">
-  <div class="flex items-center gap-3">
-    <img src="/logo.svg" alt="Kundasang Homestay" class="w-20 h-20" />
-    <div class="font-800 text-[20px] text-[#212121]">KUNDASANG HOMESTAY<span class="text-sm font-normal text-zinc-500">• Owner Panel</span></div>
-  </div>
-  <div id="ownerNav" class="hidden">
-    <span id="ownerNameDisplay" class="text-sm font-semibold mr-4"></span>
-    <button onclick="logoutOwner()" class="text-xs bg-red-100 text-red-700 px-4 py-2 sharp">Logout</button>
+<header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
+  <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
+    <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
+      <img src="/logo.svg" alt="Kundasang Homestay" class="w-20 h-20" />
+      <div class="font-poppins font-800 text-[22px] tracking-[-0.5px] text-[#212121] leading-none">KUNDASANG<span class="font-600 text-[#212121]/60 text-[18px]"> • Homestay</span>
+        <div class="font-500 text-[11px] tracking-[2px] uppercase text-[#212121]/50 -mt-23">Verified • Homestays</div></div>
+    </div>
+    <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
+      <a href="/" id="navHome" class="setsail-nav-link">Home</a>
+      <a href="/list.html" id="navList" class="nav-link-list">List Your Homestay</a>
+      <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
+      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
+      <div id="guestNav" class="ml-4 flex items-center gap-3">
+        <button onclick="window.location.href='/?login'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
+        <button onclick="window.location.href='/?register'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp">Register</button>
+      </div>
+      <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
+        <a href="/mybookings.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</a>
+        <div class="flex items-center gap-2 bg-[#212121] text-white px-4 h-[38px] sharp"><div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div><span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span><button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-2 py-1 sharp uppercase tracking-wider">Logout</button></div>
+      </div>
+    </nav>
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 sharp bg-[#212121] text-white items-center justify-center"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
   </div>
 </header>
 
