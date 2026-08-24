@@ -457,9 +457,140 @@
         #mobileNav .my-bookings-btn:hover {
             background: #333;
         }
+
+        /* ===== CUSTOM MODAL ===== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(6px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-box {
+            background: white;
+            max-width: 480px;
+            width: 100%;
+            border-radius: 2px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            animation: modalIn 0.25s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-header {
+            padding: 20px 24px 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .modal-header h3 {
+            font-family: "Poppins", sans-serif;
+            font-weight: 700;
+            font-size: 18px;
+            color: #212121;
+            margin: 0;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .modal-close:hover {
+            color: #212121;
+        }
+        .modal-body {
+            padding: 12px 24px 20px 24px;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #4b5563;
+        }
+        .modal-body input {
+            width: 100%;
+            margin-top: 10px;
+            padding: 10px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 2px;
+            font-size: 14px;
+            font-family: "Poppins", sans-serif;
+        }
+        .modal-body input:focus {
+            outline: none;
+            border-color: #3FD0D4;
+            box-shadow: 0 0 0 3px rgba(63,208,212,0.15);
+        }
+        .modal-footer {
+            padding: 12px 24px 20px 24px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            border-top: 1px solid #f3f4f6;
+        }
+        .modal-footer .btn {
+            padding: 8px 20px;
+            border-radius: 2px;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: "Poppins", sans-serif;
+        }
+        .modal-footer .btn-primary {
+            background: #0F382E;
+            color: white;
+        }
+        .modal-footer .btn-primary:hover {
+            background: #1a4d3e;
+        }
+        .modal-footer .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        .modal-footer .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+        .modal-footer .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+        .modal-footer .btn-danger:hover {
+            background: #b91c1c;
+        }
     </style>
 </head>
 <body>
+
+<!-- ===== CUSTOM MODAL ===== -->
+<div id="customModal" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 id="modalTitle">Title</h3>
+            <button onclick="closeModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body" id="modalBody">Message</div>
+        <div class="modal-footer" id="modalFooter">
+            <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
+        </div>
+    </div>
+</div>
 
 <!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
@@ -829,6 +960,127 @@ function safeHTML(html) {
 }
 
 // =============================================================
+// CUSTOM MODAL SYSTEM
+// =============================================================
+let modalResolve = null;
+let modalReject = null;
+
+function showModal(title, message, buttons) {
+    return new Promise((resolve, reject) => {
+        const overlay = document.getElementById('customModal');
+        const titleEl = document.getElementById('modalTitle');
+        const bodyEl = document.getElementById('modalBody');
+        const footerEl = document.getElementById('modalFooter');
+
+        titleEl.textContent = title || 'Notice';
+        bodyEl.innerHTML = typeof message === 'string' ? message : '';
+        footerEl.innerHTML = '';
+
+        buttons.forEach(btn => {
+            const el = document.createElement('button');
+            el.textContent = btn.label;
+            el.className = `btn ${btn.class || 'btn-primary'}`;
+            el.onclick = () => {
+                closeModal();
+                if (btn.value !== undefined) resolve(btn.value);
+                else resolve(true);
+            };
+            footerEl.appendChild(el);
+        });
+
+        modalResolve = resolve;
+        modalReject = reject;
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    });
+}
+
+function closeModal() {
+    const overlay = document.getElementById('customModal');
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+    if (modalReject) modalReject('cancelled');
+}
+
+function modalConfirm() {
+    closeModal();
+    if (modalResolve) modalResolve(true);
+}
+
+// ---- Public API ----
+function showAlert(title, message) {
+    return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
+}
+
+function showConfirm(title, message) {
+    return showModal(title, message, [
+        { label: 'Cancel', class: 'btn-secondary', value: false },
+        { label: 'Confirm', class: 'btn-primary', value: true }
+    ]);
+}
+
+function showPrompt(title, message, defaultValue) {
+    const input = `<input type="text" id="modalInput" value="${defaultValue || ''}" placeholder="Enter value..." />`;
+    return new Promise((resolve, reject) => {
+        const overlay = document.getElementById('customModal');
+        const titleEl = document.getElementById('modalTitle');
+        const bodyEl = document.getElementById('modalBody');
+        const footerEl = document.getElementById('modalFooter');
+
+        titleEl.textContent = title || 'Enter value';
+        bodyEl.innerHTML = (message || '') + input;
+        footerEl.innerHTML = '';
+
+        const okBtn = document.createElement('button');
+        okBtn.textContent = 'OK';
+        okBtn.className = 'btn btn-primary';
+        okBtn.onclick = () => {
+            const val = document.getElementById('modalInput')?.value || '';
+            closeModal();
+            resolve(val);
+        };
+        footerEl.appendChild(okBtn);
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.className = 'btn btn-secondary';
+        cancelBtn.onclick = () => {
+            closeModal();
+            resolve(null);
+        };
+        footerEl.appendChild(cancelBtn);
+
+        modalResolve = resolve;
+        modalReject = reject;
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => {
+            const inp = document.getElementById('modalInput');
+            if (inp) inp.focus();
+        }, 200);
+    });
+}
+
+// ---- Handle ESC key ----
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('customModal');
+        if (overlay.classList.contains('active')) {
+            closeModal();
+            if (modalResolve) modalResolve(null);
+        }
+    }
+});
+
+// ---- Click outside to close ----
+document.getElementById('customModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+        if (modalResolve) modalResolve(null);
+    }
+});
+
+// =============================================================
 // SHA256 HELPER (with PEPPER)
 // =============================================================
 const PEPPER = "kundasang-homestay-2026";
@@ -970,9 +1222,12 @@ function handlePhotos(input) {
 // =============================================================
 function handleIcFile(input) {
     const file = input.files[0];
-    if (!file) { alert("No file selected"); return; }
-    if (file.size > 5 * 1024 * 1024) { alert("IC file too large, max 5MB");
-        input.value = ""; return; }
+    if (!file) { showAlert("No File", "No file selected"); return; }
+    if (file.size > 5 * 1024 * 1024) { 
+        showAlert("File Too Large", "IC file too large, max 5MB");
+        input.value = ""; 
+        return; 
+    }
 
     tempIcOriginalName = file.name;
     const reader = new FileReader();
@@ -1048,8 +1303,11 @@ function removeIc() {
 function handleBankQRUpload(input) {
     const file = input.files[0];
     if (!file) return;
-    if (file.size > 3 * 1024 * 1024) { alert("QR too large max 3MB");
-        input.value = ""; return; }
+    if (file.size > 3 * 1024 * 1024) { 
+        showAlert("File Too Large", "QR too large max 3MB");
+        input.value = ""; 
+        return; 
+    }
     tempBankQROriginalName = file.name;
     const reader = new FileReader();
     reader.onload = function(e) {
@@ -1069,24 +1327,33 @@ function removeBankQR() {
 }
 
 // =============================================================
-// BLOCKED DATES
+// BLOCKED DATES (with custom prompt)
 // =============================================================
-function addBlockedDate() {
+async function addBlockedDate() {
     const input = document.getElementById("listBlockedDateInput");
-    if (!input || !input.value) { alert("Pick a date first"); return; }
+    if (!input || !input.value) {
+        await showAlert("No Date", "Pick a date first");
+        return;
+    }
     const dateStr = input.value;
-    if (tempBlockedDates.includes(dateStr)) { alert("Date already blocked"); return; }
+    if (tempBlockedDates.includes(dateStr)) {
+        await showAlert("Already Blocked", "Date already blocked");
+        return;
+    }
     tempBlockedDates.push(dateStr);
     tempBlockedDates.sort();
     renderBlockedDatesList();
     input.value = "";
 }
 
-function addBlockedRange() {
+async function addBlockedRange() {
     const input = document.getElementById("listBlockedDateInput");
     const start = input ? input.value : "";
-    if (!start) { alert("Pick start date first"); return; }
-    const end = prompt("Block until date (inclusive) - YYYY-MM-DD:", start);
+    if (!start) {
+        await showAlert("No Start Date", "Pick start date first");
+        return;
+    }
+    const end = await showPrompt("Block Range", "Block until date (inclusive) - YYYY-MM-DD:", start);
     if (!end) return;
     let current = new Date(start);
     const endDate = new Date(end);
@@ -1099,7 +1366,7 @@ function addBlockedRange() {
     }
     tempBlockedDates.sort();
     renderBlockedDatesList();
-    alert(added + " dates blocked from " + start + " to " + end);
+    await showAlert("Blocked", added + " dates blocked from " + start + " to " + end);
     input.value = "";
 }
 
@@ -1125,7 +1392,7 @@ function renderBlockedDatesList() {
 }
 
 // =============================================================
-// SUBMIT HOMESTAY (FIXED – includes PEPPER in password hash)
+// SUBMIT HOMESTAY (with all alerts converted)
 // =============================================================
 async function submitHomestay() {
     const statusEl = document.getElementById('submitStatus');
@@ -1136,7 +1403,7 @@ async function submitHomestay() {
 
         const ownerName = document.getElementById("listOwnerName").value.trim();
         const rawWhatsapp = document.getElementById("listWhatsapp").value.trim();
-        const whatsapp = rawWhatsapp.replace(/[^0-9]/g, ''); // keep only digits
+        const whatsapp = rawWhatsapp.replace(/[^0-9]/g, '');
         const ownerEmail = document.getElementById("listOwnerEmail").value.trim();
         const homestayName = document.getElementById("listHomestayName").value.trim();
         const area = document.getElementById("listArea").value;
@@ -1159,35 +1426,25 @@ async function submitHomestay() {
         if (!bankCode) bankCode = 'MBBEMYKL';
 
         // --- Validation ---
-        if (!ownerName) { alert("Owner Name is required");
-            document.getElementById("listOwnerName").focus(); return; }
-        if (!whatsapp) { alert("WhatsApp number is required");
-            document.getElementById("listWhatsapp").focus(); return; }
-        if (!ownerEmail) { alert("Owner Email is required");
-            document.getElementById("listOwnerEmail").focus(); return; }
-        if (!homestayName) { alert("Homestay Name is required");
-            document.getElementById("listHomestayName").focus(); return; }
-        if (!price || isNaN(price) || price <= 0) { alert("Valid Price is required");
-            document.getElementById("listPrice").focus(); return; }
-        if (!bankName) { alert("Please select your bank");
-            document.getElementById("listBankName").focus(); return; }
-        if (!bankAccount) { alert("Bank Account is required");
-            document.getElementById("listBankAccount").focus(); return; }
-        if (!bankHolder) { alert("Bank Holder is required");
-            document.getElementById("listBankHolder").focus(); return; }
-        if (!icName) { alert("IC Name is required");
-            document.getElementById("listIcName").focus(); return; }
-        if (!bankConfirm) { alert("Please confirm bank account is under your name"); return; }
-        if (tempPhotos.length === 0) { alert("Please upload at least 1 photo"); return; }
-        if (ownerPassword.length < 6) { alert("Owner password must be at least 6 characters");
-            document.getElementById("listOwnerPassword").focus(); return; }
+        if (!ownerName) { await showAlert("Missing", "Owner Name is required"); document.getElementById("listOwnerName").focus(); return; }
+        if (!whatsapp) { await showAlert("Missing", "WhatsApp number is required"); document.getElementById("listWhatsapp").focus(); return; }
+        if (!ownerEmail) { await showAlert("Missing", "Owner Email is required"); document.getElementById("listOwnerEmail").focus(); return; }
+        if (!homestayName) { await showAlert("Missing", "Homestay Name is required"); document.getElementById("listHomestayName").focus(); return; }
+        if (!price || isNaN(price) || price <= 0) { await showAlert("Missing", "Valid Price is required"); document.getElementById("listPrice").focus(); return; }
+        if (!bankName) { await showAlert("Missing", "Please select your bank"); document.getElementById("listBankName").focus(); return; }
+        if (!bankAccount) { await showAlert("Missing", "Bank Account is required"); document.getElementById("listBankAccount").focus(); return; }
+        if (!bankHolder) { await showAlert("Missing", "Bank Holder is required"); document.getElementById("listBankHolder").focus(); return; }
+        if (!icName) { await showAlert("Missing", "IC Name is required"); document.getElementById("listIcName").focus(); return; }
+        if (!bankConfirm) { await showAlert("Missing", "Please confirm bank account is under your name"); return; }
+        if (tempPhotos.length === 0) { await showAlert("Missing", "Please upload at least 1 photo"); return; }
+        if (ownerPassword.length < 6) { await showAlert("Invalid", "Owner password must be at least 6 characters"); document.getElementById("listOwnerPassword").focus(); return; }
         if (!tempIcWatermarked) {
-            alert("Please upload IC Front - required for verification. Watermark added automatically.");
+            await showAlert("Missing", "Please upload IC Front - required for verification. Watermark added automatically.");
             document.getElementById("listIcFront").focus();
             return;
         }
 
-        // --- Hash password using PEPPER (matches owner-login.js) ---
+        // --- Hash password using PEPPER ---
         const ownerSalt = generateSalt();
         const ownerPasswordHash = await sha256(PEPPER + ownerPassword + ownerSalt);
 
@@ -1202,7 +1459,7 @@ async function submitHomestay() {
             image: tempPhotos[0],
             images: tempPhotos,
             ownerName: ownerName,
-            whatsapp: whatsapp, // store clean digits
+            whatsapp: whatsapp,
             ownerEmail: ownerEmail,
             ownerBank: bankName,
             ownerBankAccount: bankAccount,
@@ -1251,9 +1508,7 @@ async function submitHomestay() {
                 'block mt-3 p-3 rounded-sm text-sm bg-red-50 text-red-700 border border-red-200';
             statusEl.textContent = '⚠️ Homestay saved locally but failed to sync to cloud. Please try again later.';
             statusEl.classList.remove('hidden');
-            alert(
-                `✅ Homestay saved locally!\n\nBut cloud sync failed. Please try again later or contact support.\n\nError: ${syncData.error || 'Unknown error'}`
-                );
+            await showAlert("Sync Failed", `✅ Homestay saved locally!\n\nBut cloud sync failed. Please try again later or contact support.\n\nError: ${syncData.error || 'Unknown error'}`);
             return;
         }
 
@@ -1264,9 +1519,9 @@ async function submitHomestay() {
         statusEl.classList.remove('hidden');
 
         // --- Success ---
-        alert(
-            `✅ Submitted!\n\n"${homestayName}" is now Pending approval.\nOnly shows on homepage after admin approves.\n\n🔑 You can log in to the Owner Panel at /owner.html using your WhatsApp and password.`
-            );
+        await showAlert("Submitted!", 
+            `✅ "${homestayName}" is now Pending approval.\nOnly shows on homepage after admin approves.\n\n🔑 You can log in to the Owner Panel at /owner.html using your WhatsApp and password.`
+        );
 
         // Reset form
         document.getElementById("listOwnerName").value = "";
@@ -1309,7 +1564,7 @@ async function submitHomestay() {
         statusEl.className = 'block mt-3 p-3 rounded-sm text-sm bg-red-50 text-red-700 border border-red-200';
         statusEl.textContent = '⚠️ Error: ' + err.message;
         statusEl.classList.remove('hidden');
-        alert("Error submitting: " + err.message + "\n\nCheck console for details.");
+        await showAlert("Error", "Error submitting: " + err.message + "\n\nCheck console for details.");
     }
 }
 
@@ -1323,15 +1578,26 @@ function toggleMobileMenu() {
     }
 }
 
+// Close mobile menu when clicking outside
+document.addEventListener('click', function(e) {
+    const nav = document.getElementById('mobileNav');
+    const btn = document.getElementById('mobileMenuBtn');
+    if (!nav || !btn) return;
+    if (nav.classList.contains('open') && 
+        !nav.contains(e.target) && 
+        !btn.contains(e.target)) {
+        nav.classList.remove('open');
+    }
+});
+
 // =============================================================
 // INIT
 // =============================================================
 (async function init() {
     renderGuestNav();
     renderBlockedDatesList();
-    console.log("✅ List Your Homestay page loaded with animations.");
+    console.log("✅ List Your Homestay page loaded with animations and custom modals.");
 })();
 </script>
-
 </body>
 </html>
