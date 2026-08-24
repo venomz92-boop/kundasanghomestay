@@ -1,9 +1,8 @@
-// /api/owner-login.js - COMPLETE with security fixes
-import { corsHeaders, getClientIP, sha256, generateSalt, enforceHttps } from './_utils.js';
+// /functions/api/owner-login.js - Owner Login for Pages Functions
+import { corsHeaders, getClientIP, sha256, enforceHttps } from '../_utils.js';
 
 const PEPPER = "kundasang-homestay-2026";
 
-// Rate limiting
 const loginAttempts = new Map();
 
 export async function onRequestPost({ request, env }) {
@@ -62,7 +61,6 @@ export async function onRequestPost({ request, env }) {
     }
 
     const firstMatch = ownerHomestays[0];
-    // ✅ Use stored salt
     const hashedInput = await sha256(PEPPER + cleanPassword + firstMatch.ownerSalt);
     if (hashedInput !== firstMatch.ownerPasswordHash) {
       return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
