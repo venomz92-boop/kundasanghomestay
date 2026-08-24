@@ -539,7 +539,30 @@ function getGuestFriendlyStatus(rawStatus) {
 }
 
 // =============================================================
-// RENDER MY BOOKINGS (FIXED - removed animate-on-scroll)
+// SHOW BOOKING DETAILS (FIXED - uses safe string)
+// =============================================================
+function showBookingDetails(bookingId) {
+  const booking = bookings.find(b => String(b.id) === String(bookingId));
+  if (!booking) {
+    showAlert('Not Found', 'Booking not found.');
+    return;
+  }
+  
+  const details = 
+    '📋 Booking Details\n\n' +
+    'ID: ' + booking.id + '\n' +
+    'Homestay: ' + booking.homestay + '\n' +
+    'Check-in: ' + booking.checkin + '\n' +
+    'Check-out: ' + booking.checkout + '\n' +
+    'Nights: ' + (booking.nights || '?') + '\n' +
+    'Total: RM' + (booking.total || 0) + '\n\n' +
+    'Status: ' + (booking.status || 'Unknown');
+  
+  showAlert('Booking Details', details.replace(/\n/g, '<br>'));
+}
+
+// =============================================================
+// RENDER MY BOOKINGS
 // =============================================================
 async function renderMyBookings() {
   const infoCard = document.getElementById("guestInfoCard");
@@ -622,7 +645,7 @@ async function renderMyBookings() {
         <div class='text-xs mt-1'>RM${b.base} + Service Fee RM${b.fee}</div>
         <div class='mt-3 flex flex-wrap gap-2'>
           <button onclick="chatWithOwnerFromBooking('${b.id}')" class='text-xs px-3 py-1.5 rounded-full bg-[#25D366] text-white'>💬 Chat Owner</button>
-          <button onclick="showAlert('Booking Details', 'Booking ID: ${b.id}\nHomestay: ${b.homestay}\nCheck-in: ${b.checkin}\nCheck-out: ${b.checkout}\nNights: ${b.nights}\nTotal: RM${b.total}')" class='text-xs px-3 py-1.5 rounded-full border bg-white'>📋 Details</button>
+          <button onclick="showBookingDetails('${b.id}')" class='text-xs px-3 py-1.5 rounded-full border bg-white'>📋 Details</button>
         </div>
         ${retryButton}
       </div>
