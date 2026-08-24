@@ -1,9 +1,5 @@
-// /api/payout.js - SECURE: AUTO via ToyyibPay Payout with idempotency
-// Flow: Check-in -> ToyyibPay auto transfers Base to owner -> Fee stays with you
-// Requires: TOYYIBPAY_SECRET_KEY + TOYYIBPAY_PAYOUT_ENABLED=true
-// If payout not enabled, falls back to manual instruction
-
-// ========== UTILITY FUNCTIONS ==========
+// /api/payout.js - COMPLETE with security fixes
+import { corsHeaders, getClientIP, logAction, enforceHttps } from './_utils.js';
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
@@ -11,26 +7,17 @@ function verifyAdmin(request, env) {
   if (!expectedToken) {
     return new Response(JSON.stringify({ error: "Server misconfigured" }), {
       status: 500,
-      headers: { "Content-Type": "application/json", ...cors() }
+      headers: corsHeaders(request)
     });
   }
   const expected = "Bearer " + expectedToken;
   if (auth !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
-      headers: { "Content-Type": "application/json", ...cors() }
+      headers: corsHeaders(request)
     });
   }
   return null;
-}
-
-function cors() {
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-  };
 }
 
 function validateBankAccount(account) {
@@ -38,7 +25,6 @@ function validateBankAccount(account) {
   return clean.length >= 10 && clean.length <= 15;
 }
 
-// ========== SIMPLE RATE LIMITING ==========
 const payoutAttempts = new Map();
 
 function checkRateLimit(ip) {
@@ -61,58 +47,56 @@ function recordPayoutAttempt(ip) {
   payoutAttempts.set(key, recent);
 }
 
-// ========== MAIN HANDLERS ==========
-
 export async function onRequestPost({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+  
   const authError = verifyAdmin(request, env);
   if (authError) return authError;
 
   try {
-    const clientIP = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
+    const clientIP = getClientIP(request);
     
     const rateLimit = checkRateLimit(clientIP);
     if (rateLimit.blocked) {
-      console.log(`🚫 Payout rate limit exceeded for IP: ${clientIP}`);
       return new Response(JSON.stringify({ 
         error: "Too many payout attempts. Please wait 5 minutes." 
       }), { 
         status: 429, 
-        headers: { "Content-Type": "application/json", ...cors() } 
+        headers: corsHeaders(request) 
       });
     }
 
     const body = await request.json();
     const { bookingId, amount, fee, ownerBankCode, ownerAcc, ownerName } = body;
 
-    // --- Validate required fields ---
     if (!bookingId) {
       return new Response(JSON.stringify({ error: "Missing bookingId" }), { 
         status: 400, 
-        headers: { "Content-Type": "application/json", ...cors() } 
+        headers: corsHeaders(request) 
       });
     }
 
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
       return new Response(JSON.stringify({ error: "Invalid amount" }), { 
         status: 400, 
-        headers: { "Content-Type": "application/json", ...cors() } 
+        headers: corsHeaders(request) 
       });
     }
 
     if (!ownerName) {
       return new Response(JSON.stringify({ error: "Missing owner name" }), { 
         status: 400, 
-        headers: { "Content-Type": "application/json", ...cors() } 
+        headers: corsHeaders(request) 
       });
     }
 
-    // --- Validate owner account ---
     if (!validateBankAccount(ownerAcc)) {
       return new Response(JSON.stringify({ 
         error: "Invalid owner bank account. Must be at least 10 digits." 
       }), { 
         status: 400, 
-        headers: { "Content-Type": "application/json", ...cors() } 
+        headers: corsHeaders(request) 
       });
     }
 
@@ -125,14 +109,12 @@ export async function onRequestPost({ request, env }) {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
     }
 
-    // --- CHECK FOR DUPLICATE PAYOUT (Idempotency) ---
     if (db) {
       try {
         const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
         let bookings = res ? JSON.parse(res.data) : [];
         const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
         if (idx !== -1 && bookings[idx].payoutDate) {
-          console.log(`⚠️ Duplicate payout attempt for booking ${bookingId} (already paid on ${bookings[idx].payoutDate})`);
           return new Response(JSON.stringify({
             success: true,
             warning: true,
@@ -140,18 +122,15 @@ export async function onRequestPost({ request, env }) {
             alreadyPaid: true,
             payoutAmount: bookings[idx].payoutAmount,
             payoutDate: bookings[idx].payoutDate
-          }), { headers: { "Content-Type": "application/json", ...cors() } });
+          }), { headers: corsHeaders(request) });
         }
       } catch (e) {
         console.error("Failed to check duplicate payout:", e.message);
       }
     }
 
-    // --- Record attempt ---
     recordPayoutAttempt(clientIP);
-    console.log(`📝 Payout attempt for booking ${bookingId} (Amount: RM${payoutAmount}, Owner: ${ownerName}, IP: ${clientIP})`);
 
-    // --- MANUAL FALLBACK ---
     if (!isToyyibLive) {
       if (db) {
         try {
@@ -166,8 +145,18 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].completedDate = new Date().toISOString();
             bookings[idx].payoutAttempts = (bookings[idx].payoutAttempts || 0) + 1;
             bookings[idx].payoutIP = clientIP;
-            await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
-            console.log(`✅ Manual payout recorded for booking ${bookingId}`);
+            await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+              .bind("kd_bookings", JSON.stringify(bookings))
+              .run();
+            
+            await logAction({
+              db,
+              action: 'payout_manual',
+              admin: 'admin',
+              details: `Manual payout for booking ${bookingId}: RM${payoutAmount}`,
+              ip: clientIP,
+              userId: ownerName
+            });
           }
         } catch (e) {
           console.error("❌ Failed to update booking (manual fallback):", e.message);
@@ -182,13 +171,11 @@ export async function onRequestPost({ request, env }) {
         owner: ownerName,
         instruction: `Enable ToyyibPay Payout to make this auto. For now transfer RM${payoutAmount} to ${ownerName}`,
         nextStep: "Contact ToyyibPay support: Enable Payout feature for your account"
-      }), { headers: { "Content-Type": "application/json", ...cors() } });
+      }), { headers: corsHeaders(request) });
     }
 
-    // --- AUTO PAYOUT VIA TOYYIBPAY ---
     const formData = new FormData();
     formData.append("userSecretKey", env.TOYYIBPAY_SECRET_KEY);
-    // Use the provided bank code, or fallback to MBBEMYKL
     formData.append("bankCode", ownerBankCode || "MBBEMYKL");
     formData.append("bankAccountNumber", cleanOwnerAcc);
     formData.append("accountHolderName", ownerName || "Homestay Owner");
@@ -206,11 +193,8 @@ export async function onRequestPost({ request, env }) {
     let payoutRes = null;
     let lastError = null;
 
-    console.log(`🔄 Attempting ToyyibPay payout for booking ${bookingId}...`);
-
     for (const endpoint of payoutEndpoints) {
       try {
-        console.log(`  Trying endpoint: ${endpoint}`);
         payoutRes = await fetch(endpoint, { 
           method: "POST", 
           body: formData,
@@ -220,9 +204,7 @@ export async function onRequestPost({ request, env }) {
         });
         const text = await payoutRes.text();
         try { payoutData = JSON.parse(text); } catch { payoutData = { raw: text }; }
-        console.log(`  Response status: ${payoutRes.status}`);
         if (payoutRes.ok && (payoutData.status === "success" || payoutData[0]?.status === "success" || payoutData.payoutCode)) {
-          console.log(`✅ Payout successful via ${endpoint}`);
           break;
         }
         lastError = payoutData;
@@ -252,16 +234,24 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].completedDate = new Date().toISOString();
             bookings[idx].payoutAttempts = (bookings[idx].payoutAttempts || 0) + 1;
             bookings[idx].payoutIP = clientIP;
-          } else {
-            console.log(`⚠️ Booking ${bookingId} already has payout date, skipping update`);
           }
-          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+            .bind("kd_bookings", JSON.stringify(bookings))
+            .run();
+          
+          await logAction({
+            db,
+            action: 'payout_auto',
+            admin: 'admin',
+            details: `Auto payout for booking ${bookingId}: RM${payoutAmount} to ${ownerName}`,
+            ip: clientIP,
+            userId: ownerName
+          });
         }
       } catch (e) {
         console.error("❌ Failed to update booking status after payout:", e.message);
       }
 
-      // --- Fee earnings ---
       try {
         const feeRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
         let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
@@ -285,11 +275,10 @@ export async function onRequestPost({ request, env }) {
               method: isSuccess ? "toyyibpay_auto" : "manual_fallback",
               ip: clientIP
             });
-            await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_fee_earnings", JSON.stringify(feeEarnings)).run();
-            console.log(`✅ Fee earnings recorded: RM${finalFee} for booking ${bookingId}`);
+            await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+              .bind("kd_fee_earnings", JSON.stringify(feeEarnings))
+              .run();
           }
-        } else {
-          console.log(`ℹ️ Fee for booking ${bookingId} already recorded, skipping`);
         }
       } catch (e) {
         console.error("❌ Failed to record fee earnings:", e.message);
@@ -305,46 +294,42 @@ export async function onRequestPost({ request, env }) {
         bookingId,
         amount: payoutAmount,
         note: "Contact ToyyibPay to enable Payout: support@toyyibpay.com"
-      }), { headers: { "Content-Type": "application/json", ...cors() } });
+      }), { headers: corsHeaders(request) });
     }
 
-    console.log(`✅ Payout completed successfully for booking ${bookingId}`);
     return new Response(JSON.stringify({
       success: true,
       message: `Auto payout RM${payoutAmount} to ${ownerName} via ToyyibPay`,
       payout: payoutData,
       bookingId,
       flow: "Check-in → Complete → Owner gets Base via ToyyibPay → You keep Fee"
-    }), { headers: { "Content-Type": "application/json", ...cors() } });
+    }), { headers: corsHeaders(request) });
 
   } catch (e) {
-    console.error("❌ Payout request failed:", e.message, e.stack);
+    console.error("❌ Payout request failed:", e.message);
     return new Response(JSON.stringify({ 
       error: "Payout failed. Please try again later." 
     }), { 
       status: 500, 
-      headers: { "Content-Type": "application/json", ...cors() } 
+      headers: corsHeaders(request) 
     });
   }
 }
 
-// === GET ===
-export async function onRequestGet({ env }) {
+export async function onRequestGet({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+  
   const isLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
   return new Response(JSON.stringify({
     message: "Payout API ready",
     toyyibPayPayoutEnabled: isLive,
     mode: isLive ? "AUTO (ToyyibPay)" : "MANUAL (fallback)",
     bankCode: env.YOUR_BANK_CODE || "MBBEMYKL",
-    security: "Admin auth required for POST",
-    payoutEndpoints: [
-      "https://toyyibpay.com/index.php/api/payout",
-      "https://toyyibpay.com/index.php/api/createPayout",
-      "https://toyyibpay.com/index.php/api/runPayout"
-    ]
-  }), { status: 200, headers: cors() });
+    security: "Admin auth required for POST"
+  }), { status: 200, headers: corsHeaders(request) });
 }
 
-export async function onRequestOptions() {
-  return new Response(null, { headers: cors() });
+export async function onRequestOptions({ request }) {
+  return new Response(null, { headers: corsHeaders(request) });
 }
