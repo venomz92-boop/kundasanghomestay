@@ -88,6 +88,7 @@ export async function onRequestPost({ request, env }) {
       VALUES (?, ?, ?, ?, ?)
     `).bind(token, userId, userType, cleanEmail, expiresAt).run();
 
+    // ✅ Use PUBLIC_DOMAIN from env
     const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
     const resetUrl = `${domain}/reset-password.html?token=${token}&type=${userType}`;
 
