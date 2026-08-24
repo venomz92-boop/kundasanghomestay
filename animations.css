@@ -1,0 +1,90 @@
+/* =========================================================
+   ANIMATIONS – Kundasang Homestay
+   Inspired by Urban Rentalhub
+   ========================================================= */
+
+/* ---- Page load fade-in ---- */
+.page-content {
+    opacity: 0;
+    animation: fadeInUp 0.7s ease forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ---- Scroll reveal (cards, sections) ---- */
+.animate-on-scroll {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.7s cubic-bezier(0.2, 0, 0, 1),
+                transform 0.7s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.animate-on-scroll.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ---- Stagger children (optional) ---- */
+.animate-on-scroll.stagger-children > * {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    transition-delay: calc(0.08s * var(--index, 0));
+}
+.animate-on-scroll.stagger-children.visible > * {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ---- Card hover lift (already present, enhanced) ---- */
+.card:hover,
+.homestay-card:hover,
+.listing-card:hover {
+    transform: translateY(-6px) scale(1.01);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+    transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1),
+                box-shadow 0.3s ease;
+}
+
+/* ---- Button hover glow ---- */
+.btn-primary,
+.btn-success,
+.btn-warning,
+.btn-danger,
+.refresh-btn,
+button[class*="btn-"] {
+    transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.btn-primary:hover,
+.refresh-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(63, 208, 212, 0.35);
+}
+
+/* ---- Navbar scroll effect (applied via JS) ---- */
+header.nav-scrolled {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.08) !important;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

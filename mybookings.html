@@ -8,6 +8,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
+  <!-- ===== ANIMATIONS ===== -->
+  <link rel="stylesheet" href="animations.css" />
   <style>
     :root { --primary:#0F382E; --primary-light:#1a4d3e; --accent:#3FD0D4; --accent-hover:#2bbfc4; --bg:#F8F5F0; --card:#ffffff; --muted:#6b7280; --danger:#dc2626; --dark:#212121; }
     h1,h2,h3{font-family:"Poppins",sans-serif;}
@@ -228,7 +230,7 @@
 </head>
 <body>
 
-<!-- ===== HEADER ===== -->
+<!-- ===== HEADER (unchanged) ===== -->
 <header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
@@ -282,9 +284,9 @@
   </div>
 </header>
 
-<!-- ===== MAIN CONTENT ===== -->
-<main class="max-w-[1000px] mx-auto px-5 md:px-8 py-10">
-  <div class="flex items-center justify-between mb-6">
+<!-- ===== MAIN CONTENT (with animations) ===== -->
+<main class="page-content max-w-[1000px] mx-auto px-5 md:px-8 py-10">
+  <div class="flex items-center justify-between mb-6 animate-on-scroll">
     <h2 class="text-3xl font-bold">My Bookings</h2>
     <div class="flex gap-3">
       <button onclick="renderMyBookings()" class="px-4 py-2 rounded-full border bg-white text-sm hover:bg-zinc-50 transition">🔄 Refresh</button>
@@ -292,8 +294,8 @@
     </div>
   </div>
   
-  <div id="guestInfoCard" class="card p-5 mt-2"></div>
-  <div id="myBookingsList" class="mt-6 grid gap-4"></div>
+  <div id="guestInfoCard" class="card p-5 mt-2 animate-on-scroll"></div>
+  <div id="myBookingsList" class="mt-6 grid gap-4 animate-on-scroll"></div>
 </main>
 
 <!-- ===== FOOTER ===== -->
@@ -307,6 +309,8 @@
   <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay - All payment is secured by Toyyibpay</div>
 </footer>
 
+<!-- ===== SCRIPTS (all existing + animations) ===== -->
+<script src="animations.js"></script>
 <script>
 // =============================================================
 // SECURE HELPER
@@ -443,19 +447,18 @@ async function fetchCloudData() {
 }
 
 // =============================================================
-// GUEST-FRIENDLY STATUS DISPLAY (UPDATED)
+// GUEST-FRIENDLY STATUS DISPLAY
 // =============================================================
 function getGuestFriendlyStatus(rawStatus) {
   const s = (rawStatus || '').toLowerCase();
   if (s.includes('pending')) return '⏳ Pending Payment';
-  // ===== CHANGED HERE: Completed status now shows "✅ Completed" =====
   if (s.includes('completed') || s.includes('enjoy')) return '✅ Completed';
   if (s.includes('paid') || s.includes('awaiting')) return '✅ Paid – Awaiting Check‑in';
   return '🔄 Processing';
 }
 
 // =============================================================
-// RENDER MY BOOKINGS
+// RENDER MY BOOKINGS (UPDATED with animate-on-scroll)
 // =============================================================
 function renderMyBookings() {
   const infoCard = document.getElementById("guestInfoCard");
@@ -495,7 +498,7 @@ function renderMyBookings() {
     }
 
     return `
-      <div class='card p-5'>
+      <div class='card p-5 animate-on-scroll'>
         <div class='flex justify-between items-start flex-wrap gap-2'>
           <div class='font-bold'>${b.homestay}</div>
           <span class='text-[11px] px-2 py-1 rounded-full ${statusBadgeClass}'>${friendlyStatus}</span>
@@ -532,7 +535,6 @@ async function retryPayment(bookingId) {
     return;
   }
 
-  // Verify ownership
   if (booking.guestEmail && booking.guestEmail.toLowerCase() !== currentGuest.email.toLowerCase() &&
       booking.guestId && booking.guestId !== currentGuest.id) {
     alert("You are not authorized to retry payment for this booking.");
