@@ -785,7 +785,7 @@ async function ownerLogin() {
 }
 
 // =============================================
-// LOAD BOOKINGS
+// LOAD BOOKINGS (WhatsApp button removed)
 // =============================================
 async function loadBookings() {
   if (!ownerToken) {
@@ -870,11 +870,8 @@ async function loadBookings() {
           actionButtons = `<span class="text-xs text-zinc-400">✅ Paid out on ${payoutDisplay}</span>`;
         }
 
-        const guestPhone = b.guestPhone || '';
-        const hasPhone = guestPhone.replace(/[^0-9]/g, '').length >= 10;
-        const waBtn = hasPhone ?
-          `<button onclick="openWhatsappToGuest('${id}')" class="btn-whatsapp-sm">💬 WhatsApp Guest</button>` : 
-          `<span class="text-xs text-zinc-400">No guest phone</span>`;
+        // WhatsApp button removed
+        const waBtn = '';
 
         html += `
           <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3" style="background:white; border:1px solid #d1d5db; border-radius:2px; opacity:1;">
@@ -883,9 +880,6 @@ async function loadBookings() {
               <div class="text-xs text-zinc-500">${checkin} → ${checkout} • ${nights} nights • Guest: ${guestName}</div>
               <div class="text-xs font-semibold mt-1">Base: RM${base} • Total Paid: RM${total}</div>
               <div class="mt-1">${statusBadge}</div>
-              <div class="mt-1 flex flex-wrap gap-2">
-                ${waBtn}
-              </div>
             </div>
             <div class="flex flex-wrap gap-2 mt-2 md:mt-0">
               ${actionButtons}
@@ -910,7 +904,7 @@ async function loadBookings() {
 }
 
 // =============================================
-// OPEN WHATSAPP TO GUEST
+// OPEN WHATSAPP TO GUEST (kept for reference but not used)
 // =============================================
 function openWhatsappToGuest(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
