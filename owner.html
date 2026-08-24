@@ -822,4 +822,335 @@ async function loadBookings() {
     if (currentHomestayId === 'all') {
       nameSpan.textContent = `(${bookings.length} total bookings across ${allHomestays.length} homestays)`;
     } else {
-      const hs = allHomestays.find(h => String(h.id
+      const hs = allHomestays.find(h => String(h.id) === String(currentHomestayId));
+      nameSpan.textContent = `(${filteredBookings.length} bookings for ${hs?.name || 'selected homestay'})`;
+    }
+
+    if (filteredBookings.length === 0) {
+      listDiv.innerHTML = '<div class="text-sm text-zinc-500">No bookings found for the selected homestay.</div>';
+      return;
+    }
+
+    let html = '';
+    for (let i = 0; i < filteredBookings.length; i++) {
+      try {
+        const b = filteredBookings[i];
+        const id = b.id || 'unknown';
+        const homestayName = b.homestay || b.homestayName || 'Unknown Homestay';
+        const checkin = b.checkin || 'N/A';
+        const checkout = b.checkout || 'N/A';
+        const nights = b.nights || '?';
+        const guestName = b.guestName || b.guestEmail || 'Guest';
+        const base = b.base || 0;
+        const total = b.total || 0;
+        const status = b.status || 'Unknown';
+        const payoutDate = b.payoutDate || null;
+
+        const isPaid = status.toLowerCase().includes('paid');
+        const isCompleted = payoutDate || status.toLowerCase().includes('completed');
+        const isPending = status.toLowerCase().includes('pending');
+
+        let statusBadge = '';
+        if (isCompleted) {
+          statusBadge = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✅ Completed - Guest Checked-in</span>';
+        } else if (isPaid) {
+          statusBadge = '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">🟡 Paid - Ready for Check-in</span>';
+        } else if (isPending) {
+          statusBadge = '<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">⏳ Pending Payment</span>';
+        } else {
+          statusBadge = `<span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">${status}</span>`;
+        }
+
+        let actionButtons = '';
+        if (isPaid && !isCompleted) {
+          actionButtons += `
+            <button onclick="confirmCheckIn('${id}')" class="btn-success sharp">✅ Confirm Check-in</button>
+          `;
+        }
+        if (!isCompleted) {
+          actionButtons += `
+            <button onclick="changeBookingDates('${id}')" class="btn-warning sharp">📅 Change Dates</button>
+          `;
+        }
+        if (isCompleted) {
+          const payoutDisplay = payoutDate ? new Date(payoutDate).toLocaleDateString('en-MY') : 'N/A';
+          actionButtons = `<span class="text-xs text-zinc-400">✅ Paid out on ${payoutDisplay}</span>`;
+        }
+
+        const guestPhone = b.guestPhone || '';
+        const hasPhone = guestPhone.replace(/[^0-9]/g, '').length >= 10;
+        const waBtn = hasPhone ? 
+          `<button onclick="openWhatsappToGuest('${id}')" class="btn-whatsapp-sm">💬 WhatsApp Guest</button>` : 
+          `<span class="text-xs text-zinc-400">No guest phone</span>`;
+
+        html += `
+          <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3" style="background:white; border:1px solid #d1d5db; border-radius:2px; opacity:1;">
+            <div class="flex-1">
+              <div class="font-bold text-sm">${homestayName}</div>
+              <div class="text-xs text-zinc-500">${checkin} → ${checkout} • ${nights} nights • Guest: ${guestName}</div>
+              <div class="text-xs font-semibold mt-1">Base: RM${base} • Total Paid: RM${total}</div>
+              <div class="mt-1">${statusBadge}</div>
+              <div class="mt-1 flex flex-wrap gap-2">
+                ${waBtn}
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 mt-2 md:mt-0">
+              ${actionButtons}
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        console.error("Error rendering booking at index", i, err);
+        html += `<div class="border p-4 sharp text-sm bg-yellow-50 border-yellow-300" style="opacity:1;">
+          <strong>⚠️ Could not render booking</strong><br>
+          <pre style="white-space:pre-wrap;font-size:11px;max-height:200px;overflow:auto;">${JSON.stringify(filteredBookings[i], null, 2)}</pre>
+        </div>`;
+      }
+    }
+
+    console.log("📝 HTML snippet (first 500 chars):", html.substring(0, 500));
+    listDiv.innerHTML = html;
+    console.log("✅ Rendered bookings HTML length:", html.length);
+  } catch(e) {
+    listDiv.innerHTML = '<div class="text-sm text-red-600">Error loading bookings. Please refresh.</div>';
+    console.error("Load bookings error:", e);
+  }
+}
+
+// =============================================
+// OPEN WHATSAPP TO GUEST
+// =============================================
+function openWhatsappToGuest(bookingId) {
+  const booking = bookings.find(b => String(b.id) === String(bookingId));
+  if (!booking) { 
+    showAlert('Not Found', 'Booking not found'); 
+    return; 
+  }
+
+  let rawPhone = booking.guestPhone || booking.guestWhatsapp || booking.guestContact || '';
+  let phone = String(rawPhone).replace(/[^0-9]/g, '');
+  if (!phone || phone.length < 10) {
+    showAlert('Invalid Phone', 'Guest phone number not available or invalid. Cannot open WhatsApp.');
+    return;
+  }
+  if (phone.startsWith('0')) {
+    phone = '60' + phone.substring(1);
+  }
+  if (phone.length < 10) {
+    showAlert('Invalid Phone', 'Invalid phone number format.');
+    return;
+  }
+
+  const guestName = booking.guestName || 'Guest';
+  const homestayName = booking.homestay || 'your homestay';
+  const checkin = booking.checkin || 'N/A';
+  const checkout = booking.checkout || 'N/A';
+  const nights = booking.nights || '?';
+  const bookingIdDisplay = booking.id || 'N/A';
+
+  const message = `Hi ${guestName}! 🎉\n\n` +
+    `Your check-in at **${homestayName}** has been confirmed!\n\n` +
+    `📅 Check-in: ${checkin}\n` +
+    `📅 Check-out: ${checkout}\n` +
+    `🌙 Nights: ${nights}\n` +
+    `🆔 Booking ID: ${bookingIdDisplay}\n\n` +
+    `We hope you enjoy your stay! For any assistance, please contact us directly.\n\n` +
+    `🏔️ Welcome to Kundasang!`;
+
+  const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  
+  try {
+    const win = window.open(waUrl, '_blank');
+    if (!win || win.closed || typeof win.closed === 'undefined') {
+      showConfirm('WhatsApp Blocked', 'WhatsApp popup was blocked by your browser.\n\nClick Confirm to copy the message to your clipboard, then paste it in WhatsApp.\n\nPhone: ' + phone).then(shouldCopy => {
+        if (shouldCopy) {
+          navigator.clipboard.writeText(message).then(() => {
+            showAlert('Copied', '✅ Message copied to clipboard!\n\nPhone: ' + phone + '\n\nPaste the message in WhatsApp.');
+          }).catch(() => {
+            showAlert('Copy Failed', '❌ Could not copy. Please manually send this message:\n\nPhone: ' + phone + '\n\nMessage:\n' + message);
+          });
+        }
+      });
+    } else {
+      console.log('✅ WhatsApp opened in new tab');
+    }
+  } catch(e) {
+    navigator.clipboard.writeText(message).then(() => {
+      showAlert('Copied', '✅ Message copied to clipboard!\n\nPhone: ' + phone + '\n\nPaste it in WhatsApp.');
+    }).catch(() => {
+      showAlert('Manual Send Required', '❌ Could not open WhatsApp. Please send this message manually:\n\nPhone: ' + phone + '\n\nMessage:\n' + message);
+    });
+  }
+}
+
+// =============================================
+// CONFIRM CHECK-IN
+// =============================================
+async function confirmCheckIn(bookingId) {
+  const confirmed = await showConfirm('Confirm Check-in', 
+    `Confirm check-in for booking ${bookingId}?\n\nYou will receive your payment at your bank account via ToyyibPay in 1-4 business days.\n\nA WhatsApp message will be sent to the guest to confirm their check-in.`
+  );
+  if (!confirmed) return;
+  
+  try {
+    const res = await fetch(API_BASE + '/owner-update-booking', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Owner-Authorization': 'Bearer ' + ownerToken
+      },
+      body: JSON.stringify({ 
+        bookingId, 
+        action: 'confirmCheckin' 
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await showAlert('Check-in Confirmed', '✅ ' + data.message);
+      await loadBookings();
+      
+      setTimeout(() => {
+        showConfirm('Send WhatsApp?', '📱 Send WhatsApp confirmation to the guest?\n\nThis will open WhatsApp with a pre-filled message confirming their check-in.').then(shouldSend => {
+          if (shouldSend) {
+            openWhatsappToGuest(bookingId);
+          }
+        });
+      }, 500);
+      
+    } else {
+      await showAlert('Failed', '❌ Failed: ' + (data.error || data.message));
+    }
+  } catch(e) {
+    await showAlert('Network Error', 'Network error: ' + e.message);
+  }
+}
+
+// =============================================
+// CHANGE BOOKING DATES
+// =============================================
+async function changeBookingDates(bookingId) {
+  const currentCheckin = await showPrompt('Change Check-in', 'Enter new check-in date (YYYY-MM-DD):', '');
+  if (!currentCheckin) return;
+  const currentCheckout = await showPrompt('Change Check-out', 'Enter new check-out date (YYYY-MM-DD):', '');
+  if (!currentCheckout) return;
+
+  const d1 = new Date(currentCheckin);
+  const d2 = new Date(currentCheckout);
+  if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
+    await showAlert('Invalid Dates', 'Invalid dates. Check-out must be after check-in.');
+    return;
+  }
+
+  const confirmed = await showConfirm('Confirm Change', `Change booking ${bookingId} dates to ${currentCheckin} → ${currentCheckout}?`);
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(API_BASE + '/owner-update-booking', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Owner-Authorization': 'Bearer ' + ownerToken
+      },
+      body: JSON.stringify({ 
+        bookingId, 
+        action: 'changeDates',
+        checkin: currentCheckin,
+        checkout: currentCheckout
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await showAlert('Dates Changed', '✅ ' + data.message);
+      loadBookings();
+    } else {
+      await showAlert('Failed', '❌ Failed: ' + (data.error || data.message));
+    }
+  } catch(e) {
+    await showAlert('Network Error', 'Network error: ' + e.message);
+  }
+}
+
+// =============================================
+// TOGGLE MOBILE MENU
+// =============================================
+function toggleMobileMenu() {
+  const nav = document.getElementById('mobileNav');
+  if (nav) nav.classList.toggle('open');
+}
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('mobileNav');
+  const btn = document.getElementById('mobileMenuBtn');
+  if (!nav || !btn) return;
+  if (nav.classList.contains('open') && 
+      !nav.contains(e.target) && 
+      !btn.contains(e.target)) {
+    nav.classList.remove('open');
+  }
+});
+
+// =============================================
+// INIT
+// =============================================
+(function init() {
+  renderGuestNav();
+
+  const token = sessionStorage.getItem('kd_owner_token');
+  const loginSection = document.getElementById('loginSection');
+  const dashboardSection = document.getElementById('dashboardSection');
+
+  if (token) {
+    try {
+      const data = JSON.parse(atob(token));
+      console.log("🔐 Token data:", data);
+      
+      if (data.homestays && data.homestays.length > 0) {
+        allHomestays = data.homestays;
+        ownerHomestayIds = allHomestays.map(h => h.id);
+        
+        const selector = document.getElementById('homestaySelector');
+        selector.innerHTML = '<option value="all">All Homestays</option>';
+        allHomestays.forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h.id;
+          opt.textContent = h.name;
+          selector.appendChild(opt);
+        });
+        currentHomestayId = 'all';
+        selector.value = 'all';
+        
+        if (loginSection) loginSection.classList.add('hidden');
+        if (dashboardSection) dashboardSection.classList.remove('hidden');
+        document.getElementById('welcomeName').innerText = data.ownerName || 'Owner';
+        loadBookings();
+      } else {
+        console.warn("Token missing homestays. Forcing re-login.");
+        showAlert('Session Expired', 'Your session is outdated. Please login again.').then(() => {
+          sessionStorage.removeItem('kd_owner_token');
+          ownerToken = '';
+          if (loginSection) loginSection.classList.remove('hidden');
+          if (dashboardSection) dashboardSection.classList.add('hidden');
+        });
+      }
+    } catch(e) {
+      console.error("Token parse error:", e);
+      sessionStorage.removeItem('kd_owner_token');
+      ownerToken = '';
+      if (loginSection) loginSection.classList.remove('hidden');
+      if (dashboardSection) dashboardSection.classList.add('hidden');
+    }
+  } else {
+    if (loginSection) loginSection.classList.remove('hidden');
+    if (dashboardSection) dashboardSection.classList.add('hidden');
+  }
+
+  const selector = document.getElementById('homestaySelector');
+  if (selector) {
+    selector.addEventListener('change', function() {
+      currentHomestayId = this.value;
+      loadBookings();
+    });
+  }
+})();
+</script>
+</body>
+</html>
