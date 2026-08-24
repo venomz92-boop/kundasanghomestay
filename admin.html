@@ -185,7 +185,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
     </div>
     <div class="modal-body" id="modalBody">Message</div>
     <div class="modal-footer" id="modalFooter">
-      <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
+      <button class="btn btn-primary" id="modalConfirmBtn">OK</button>
     </div>
   </div>
 </div>
@@ -275,7 +275,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 <!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
-// ========== CUSTOM MODAL SYSTEM (with silent cancellation) ==========
+// ========== CUSTOM MODAL SYSTEM (FIXED) ==========
 let modalResolve = null;
 let modalReject = null;
 
@@ -290,14 +290,17 @@ function showModal(title, message, buttons) {
     bodyEl.innerHTML = typeof message === 'string' ? message : '';
     footerEl.innerHTML = '';
 
-    buttons.forEach(btn => {
+    buttons.forEach((btn, index) => {
       const el = document.createElement('button');
       el.textContent = btn.label;
       el.className = `btn ${btn.class || 'btn-primary'}`;
-      el.onclick = () => {
+      el.dataset.value = btn.value !== undefined ? btn.value : 'true';
+      el.onclick = function() {
+        const val = this.dataset.value === 'true' ? true : 
+                    this.dataset.value === 'false' ? false : 
+                    this.dataset.value;
         closeModal();
-        if (btn.value !== undefined) resolve(btn.value);
-        else resolve(true);
+        resolve(val);
       };
       footerEl.appendChild(el);
     });
@@ -313,23 +316,9 @@ function closeModal() {
   const overlay = document.getElementById('customModal');
   overlay.classList.remove('active');
   document.body.style.overflow = '';
-  // Don't reject - just resolve with null to avoid "cancelled" errors
-  if (modalResolve) {
-    modalResolve(null);
-    modalResolve = null;
-  }
-  modalReject = null;
 }
 
-function modalConfirm() {
-  closeModal();
-  if (modalResolve) {
-    modalResolve(true);
-    modalResolve = null;
-  }
-}
-
-// ---- Public API (silent cancellation) ----
+// ---- Public API ----
 function showAlert(title, message) {
   return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
 }
@@ -1336,7 +1325,7 @@ async function clearAllBookingsCloud() {
   } 
 }
 
-// ====== CLEAR LOCAL BOOKINGS (was inline confirm) ======
+// ====== CLEAR LOCAL BOOKINGS ======
 async function clearLocalBookings() {
   const confirmed = await showConfirm("Clear Local Bookings", "Clear all bookings from local storage? This will not affect the cloud.");
   if (!confirmed) return;
@@ -1430,10 +1419,10 @@ async function deleteGuest(idx){
   }catch(e){ await showAlert("Error", "Deleted locally but cloud fail: "+e.message); } 
 }
 
-// ====== DELETE BOOKING (FIXED - handles cancellation gracefully) ======
+// ====== DELETE BOOKING (FIXED) ======
 async function deleteBooking(id){ 
   const confirmed = await showConfirm("Delete Booking", "Delete "+id+"? This will free blocked dates?");
-  if (!confirmed) return; // User cancelled
+  if (!confirmed) return;
   
   const toDelete = bookings.find(x=> String(x.id)===String(id)); 
   const homestayId = toDelete?.homestayId || toDelete?.homestay; 
@@ -1470,10 +1459,7 @@ async function deleteBooking(id){
       renderAdmin(); 
     } 
   } catch(e){ 
-    // If user cancelled the fetch, don't show error
-    if (e !== 'cancelled') {
-      await showAlert("Error", "Delete error: "+e.message); 
-    }
+    await showAlert("Error", "Delete error: "+e.message); 
   } 
 }
 
