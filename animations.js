@@ -1,9 +1,10 @@
 // =============================================================
-// animations.js – Step 3: Navbar scroll effect only
+// animations.js – Safe for ALL pages (no errors)
 // =============================================================
 
 document.addEventListener('DOMContentLoaded', function() {
-    // ---- Navbar shrink on scroll ----
+
+    // ---- 1. Navbar scroll effect (only if header exists) ----
     const header = document.querySelector('header');
     if (header) {
         let ticking = false;
@@ -21,7 +22,44 @@ document.addEventListener('DOMContentLoaded', function() {
                 ticking = true;
             }
         }, { passive: true });
+        console.log('✅ Navbar animation loaded');
     }
 
-    console.log('✅ Navbar animation loaded');
+    // ---- 2. Scroll reveal for .animate-on-scroll (only if elements exist) ----
+    // We'll run this after a small delay to ensure content is rendered
+    setTimeout(function() {
+        const revealElements = document.querySelectorAll('.animate-on-scroll');
+        if (revealElements.length > 0) {
+            const observer = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+            
+            revealElements.forEach(function(el) {
+                observer.observe(el);
+            });
+            console.log('✅ Scroll reveal loaded for ' + revealElements.length + ' elements');
+        } else {
+            console.log('ℹ️ No .animate-on-scroll elements found on this page');
+        }
+    }, 200);
+
+    // ---- 3. Smooth anchor scroll (optional) ----
+    document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
+        anchor.addEventListener('click', function(e) {
+            const targetId = this.getAttribute('href');
+            if (targetId === '#') return;
+            const target = document.querySelector(targetId);
+            if (target) {
+                e.preventDefault();
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    });
+
+    console.log('✅ Animations initialized (safe for all pages)');
 });
