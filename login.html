@@ -487,6 +487,13 @@ function showAlert(title, message) {
   return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
 }
 
+function showConfirm(title, message) {
+  return showModal(title, message, [
+    { label: 'Cancel', class: 'btn-secondary', value: false },
+    { label: 'Confirm', class: 'btn-primary', value: true }
+  ]);
+}
+
 // ---- Handle ESC key ----
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
@@ -578,6 +585,7 @@ async function handleLogin(e) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
+    
     const data = await res.json();
 
     if (data.success) {
@@ -591,7 +599,8 @@ async function handleLogin(e) {
       errorEl.classList.remove('hidden');
     }
   } catch(e) {
-    errorEl.textContent = 'Network error: ' + e.message;
+    console.error('Login error:', e);
+    errorEl.textContent = 'Network error: ' + (e.message || 'Please check your connection and try again.');
     errorEl.classList.remove('hidden');
   }
 }
