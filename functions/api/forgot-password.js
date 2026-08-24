@@ -26,6 +26,9 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
+    // ✅ Ensure store table exists
+    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+
     const cleanEmail = email.toLowerCase().trim();
     const token = await generateResetToken();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
