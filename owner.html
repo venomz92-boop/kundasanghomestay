@@ -278,9 +278,147 @@
         display: flex !important;
       }
     }
+
+    /* ===== CUSTOM MODAL ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-box {
+      background: white;
+      max-width: 480px;
+      width: 100%;
+      border-radius: 2px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+      animation: modalIn 0.25s ease;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.95) translateY(10px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-header {
+      padding: 20px 24px 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .modal-header h3 {
+      font-family: "Poppins", sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: #212121;
+      margin: 0;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #9ca3af;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    .modal-close:hover {
+      color: #212121;
+    }
+    .modal-body {
+      padding: 12px 24px 20px 24px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #4b5563;
+    }
+    .modal-body input {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 2px;
+      font-size: 14px;
+      font-family: "Poppins", sans-serif;
+    }
+    .modal-body input:focus {
+      outline: none;
+      border-color: #3FD0D4;
+      box-shadow: 0 0 0 3px rgba(63,208,212,0.15);
+    }
+    .modal-footer {
+      padding: 12px 24px 20px 24px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      border-top: 1px solid #f3f4f6;
+    }
+    .modal-footer .btn {
+      padding: 8px 20px;
+      border-radius: 2px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: "Poppins", sans-serif;
+    }
+    .modal-footer .btn-primary {
+      background: #0F382E;
+      color: white;
+    }
+    .modal-footer .btn-primary:hover {
+      background: #1a4d3e;
+    }
+    .modal-footer .btn-secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+    .modal-footer .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+    .modal-footer .btn-danger {
+      background: #dc2626;
+      color: white;
+    }
+    .modal-footer .btn-danger:hover {
+      background: #b91c1c;
+    }
+    .modal-footer .btn-success {
+      background: #16a34a;
+      color: white;
+    }
+    .modal-footer .btn-success:hover {
+      background: #15803d;
+    }
   </style>
 </head>
 <body>
+
+<!-- ===== CUSTOM MODAL ===== -->
+<div id="customModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modalTitle">Title</h3>
+      <button onclick="closeModal()" class="modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">Message</div>
+    <div class="modal-footer" id="modalFooter">
+      <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
+    </div>
+  </div>
+</div>
 
 <!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
@@ -385,6 +523,130 @@
 <!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
+// =============================================================
+// CUSTOM MODAL SYSTEM
+// =============================================================
+let modalResolve = null;
+let modalReject = null;
+
+function showModal(title, message, buttons) {
+  return new Promise((resolve, reject) => {
+    const overlay = document.getElementById('customModal');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const footerEl = document.getElementById('modalFooter');
+
+    titleEl.textContent = title || 'Notice';
+    bodyEl.innerHTML = typeof message === 'string' ? message : '';
+    footerEl.innerHTML = '';
+
+    buttons.forEach(btn => {
+      const el = document.createElement('button');
+      el.textContent = btn.label;
+      el.className = `btn ${btn.class || 'btn-primary'}`;
+      el.onclick = () => {
+        closeModal();
+        if (btn.value !== undefined) resolve(btn.value);
+        else resolve(true);
+      };
+      footerEl.appendChild(el);
+    });
+
+    modalResolve = resolve;
+    modalReject = reject;
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  });
+}
+
+function closeModal() {
+  const overlay = document.getElementById('customModal');
+  overlay.classList.remove('active');
+  document.body.style.overflow = '';
+  if (modalReject) modalReject('cancelled');
+}
+
+function modalConfirm() {
+  closeModal();
+  if (modalResolve) modalResolve(true);
+}
+
+// ---- Public API ----
+function showAlert(title, message) {
+  return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
+}
+
+function showConfirm(title, message) {
+  return showModal(title, message, [
+    { label: 'Cancel', class: 'btn-secondary', value: false },
+    { label: 'Confirm', class: 'btn-primary', value: true }
+  ]);
+}
+
+function showPrompt(title, message, defaultValue) {
+  const input = `<input type="text" id="modalInput" value="${defaultValue || ''}" placeholder="Enter value..." />`;
+  return new Promise((resolve, reject) => {
+    const overlay = document.getElementById('customModal');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const footerEl = document.getElementById('modalFooter');
+
+    titleEl.textContent = title || 'Enter value';
+    bodyEl.innerHTML = (message || '') + input;
+    footerEl.innerHTML = '';
+
+    const okBtn = document.createElement('button');
+    okBtn.textContent = 'OK';
+    okBtn.className = 'btn btn-primary';
+    okBtn.onclick = () => {
+      const val = document.getElementById('modalInput')?.value || '';
+      closeModal();
+      resolve(val);
+    };
+    footerEl.appendChild(okBtn);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.onclick = () => {
+      closeModal();
+      resolve(null);
+    };
+    footerEl.appendChild(cancelBtn);
+
+    modalResolve = resolve;
+    modalReject = reject;
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+      const inp = document.getElementById('modalInput');
+      if (inp) inp.focus();
+    }, 200);
+  });
+}
+
+// ---- Handle ESC key ----
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('customModal');
+    if (overlay.classList.contains('active')) {
+      closeModal();
+      if (modalResolve) modalResolve(null);
+    }
+  }
+});
+
+// ---- Click outside to close ----
+document.getElementById('customModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    closeModal();
+    if (modalResolve) modalResolve(null);
+  }
+});
+
+// =============================================================
+// GUEST SYSTEM (for header)
+// =============================================================
 const API_BASE = "/api";
 let ownerToken = sessionStorage.getItem('kd_owner_token') || '';
 let ownerHomestayIds = [];
@@ -392,9 +654,6 @@ let allHomestays = [];
 let bookings = [];
 let currentHomestayId = 'all';
 
-// =============================================================
-// GUEST SYSTEM (for header)
-// =============================================================
 let currentGuest = null;
 
 try {
@@ -444,33 +703,34 @@ function logoutGuest() {
 // OWNER FORGOT PASSWORD
 // =============================================
 function openOwnerForgotPassword() {
-  const email = prompt('Enter your registered email address to reset your owner password:');
-  if (email && email.trim()) {
-    const statusEl = document.getElementById('loginError');
-    statusEl.textContent = 'Sending reset link...';
-    statusEl.className = 'text-blue-600 text-xs mt-2';
-    statusEl.classList.remove('hidden');
+  showPrompt('Reset Password', 'Enter your registered email address to reset your owner password:').then(email => {
+    if (email && email.trim()) {
+      const statusEl = document.getElementById('loginError');
+      statusEl.textContent = 'Sending reset link...';
+      statusEl.className = 'text-blue-600 text-xs mt-2';
+      statusEl.classList.remove('hidden');
 
-    fetch(API_BASE + '/forgot-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim(), userType: 'owner' })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        alert(data.message || 'If an account exists, a reset link has been sent to your email.');
+      fetch(API_BASE + '/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), userType: 'owner' })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          showAlert('Reset Link Sent', data.message || 'If an account exists, a reset link has been sent to your email.');
+          statusEl.classList.add('hidden');
+        } else {
+          showAlert('Error', data.error || 'Request failed. Please try again.');
+          statusEl.classList.add('hidden');
+        }
+      })
+      .catch(() => {
+        showAlert('Network Error', 'Network error. Please try again.');
         statusEl.classList.add('hidden');
-      } else {
-        alert(data.error || 'Request failed. Please try again.');
-        statusEl.classList.add('hidden');
-      }
-    })
-    .catch(() => {
-      alert('Network error. Please try again.');
-      statusEl.classList.add('hidden');
-    });
-  }
+      });
+    }
+  });
 }
 
 // =============================================
@@ -482,7 +742,10 @@ async function ownerLogin() {
   const errorEl = document.getElementById('loginError');
   errorEl.classList.add('hidden');
 
-  if (!whatsapp || !password) { alert("Fill all fields"); return; }
+  if (!whatsapp || !password) { 
+    await showAlert('Missing Fields', 'Please fill in all fields');
+    return; 
+  }
 
   try {
     const res = await fetch(API_BASE + '/owner-login', {
@@ -524,12 +787,12 @@ async function ownerLogin() {
       errorEl.classList.remove('hidden');
     }
   } catch(e) {
-    alert("Network error: " + e.message);
+    await showAlert('Network Error', 'Network error: ' + e.message);
   }
 }
 
 // =============================================
-// LOAD BOOKINGS (FIXED - removed animate-on-scroll)
+// LOAD BOOKINGS
 // =============================================
 async function loadBookings() {
   if (!ownerToken) {
@@ -559,341 +822,4 @@ async function loadBookings() {
     if (currentHomestayId === 'all') {
       nameSpan.textContent = `(${bookings.length} total bookings across ${allHomestays.length} homestays)`;
     } else {
-      const hs = allHomestays.find(h => String(h.id) === String(currentHomestayId));
-      nameSpan.textContent = `(${filteredBookings.length} bookings for ${hs?.name || 'selected homestay'})`;
-    }
-
-    if (filteredBookings.length === 0) {
-      listDiv.innerHTML = '<div class="text-sm text-zinc-500">No bookings found for the selected homestay.</div>';
-      return;
-    }
-
-    let html = '';
-    for (let i = 0; i < filteredBookings.length; i++) {
-      try {
-        const b = filteredBookings[i];
-        const id = b.id || 'unknown';
-        const homestayName = b.homestay || b.homestayName || 'Unknown Homestay';
-        const checkin = b.checkin || 'N/A';
-        const checkout = b.checkout || 'N/A';
-        const nights = b.nights || '?';
-        const guestName = b.guestName || b.guestEmail || 'Guest';
-        const base = b.base || 0;
-        const total = b.total || 0;
-        const status = b.status || 'Unknown';
-        const payoutDate = b.payoutDate || null;
-
-        const isPaid = status.toLowerCase().includes('paid');
-        const isCompleted = payoutDate || status.toLowerCase().includes('completed');
-        const isPending = status.toLowerCase().includes('pending');
-
-        let statusBadge = '';
-        if (isCompleted) {
-          statusBadge = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✅ Completed - Guest Checked-in</span>';
-        } else if (isPaid) {
-          statusBadge = '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">🟡 Paid - Ready for Check-in</span>';
-        } else if (isPending) {
-          statusBadge = '<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">⏳ Pending Payment</span>';
-        } else {
-          statusBadge = `<span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">${status}</span>`;
-        }
-
-        let actionButtons = '';
-        if (isPaid && !isCompleted) {
-          actionButtons += `
-            <button onclick="confirmCheckIn('${id}')" class="btn-success sharp">✅ Confirm Check-in</button>
-          `;
-        }
-        if (!isCompleted) {
-          actionButtons += `
-            <button onclick="changeBookingDates('${id}')" class="btn-warning sharp">📅 Change Dates</button>
-          `;
-        }
-        if (isCompleted) {
-          const payoutDisplay = payoutDate ? new Date(payoutDate).toLocaleDateString('en-MY') : 'N/A';
-          actionButtons = `<span class="text-xs text-zinc-400">✅ Paid out on ${payoutDisplay}</span>`;
-        }
-
-        const guestPhone = b.guestPhone || '';
-        const hasPhone = guestPhone.replace(/[^0-9]/g, '').length >= 10;
-        const waBtn = hasPhone ? 
-          `<button onclick="openWhatsappToGuest('${id}')" class="btn-whatsapp-sm">💬 WhatsApp Guest</button>` : 
-          `<span class="text-xs text-zinc-400">No guest phone</span>`;
-
-        // FIX: removed animate-on-scroll, added opacity:1, fixed flex classes
-        html += `
-          <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3" style="background:white; border:1px solid #d1d5db; border-radius:2px; opacity:1;">
-            <div class="flex-1">
-              <div class="font-bold text-sm">${homestayName}</div>
-              <div class="text-xs text-zinc-500">${checkin} → ${checkout} • ${nights} nights • Guest: ${guestName}</div>
-              <div class="text-xs font-semibold mt-1">Base: RM${base} • Total Paid: RM${total}</div>
-              <div class="mt-1">${statusBadge}</div>
-              <div class="mt-1 flex flex-wrap gap-2">
-                ${waBtn}
-              </div>
-            </div>
-            <div class="flex flex-wrap gap-2 mt-2 md:mt-0">
-              ${actionButtons}
-            </div>
-          </div>
-        `;
-      } catch (err) {
-        console.error("Error rendering booking at index", i, err);
-        html += `<div class="border p-4 sharp text-sm bg-yellow-50 border-yellow-300" style="opacity:1;">
-          <strong>⚠️ Could not render booking</strong><br>
-          <pre style="white-space:pre-wrap;font-size:11px;max-height:200px;overflow:auto;">${JSON.stringify(filteredBookings[i], null, 2)}</pre>
-        </div>`;
-      }
-    }
-
-    console.log("📝 HTML snippet (first 500 chars):", html.substring(0, 500));
-    listDiv.innerHTML = html;
-    console.log("✅ Rendered bookings HTML length:", html.length);
-  } catch(e) {
-    listDiv.innerHTML = '<div class="text-sm text-red-600">Error loading bookings. Please refresh.</div>';
-    console.error("Load bookings error:", e);
-  }
-}
-
-// =============================================
-// OPEN WHATSAPP TO GUEST
-// =============================================
-function openWhatsappToGuest(bookingId) {
-  const booking = bookings.find(b => String(b.id) === String(bookingId));
-  if (!booking) { alert('Booking not found'); return; }
-
-  let rawPhone = booking.guestPhone || booking.guestWhatsapp || booking.guestContact || '';
-  let phone = String(rawPhone).replace(/[^0-9]/g, '');
-  if (!phone || phone.length < 10) {
-    alert('Guest phone number not available or invalid. Cannot open WhatsApp.');
-    return;
-  }
-  if (phone.startsWith('0')) {
-    phone = '60' + phone.substring(1);
-  }
-  if (phone.length < 10) {
-    alert('Invalid phone number format.');
-    return;
-  }
-
-  const guestName = booking.guestName || 'Guest';
-  const homestayName = booking.homestay || 'your homestay';
-  const checkin = booking.checkin || 'N/A';
-  const checkout = booking.checkout || 'N/A';
-  const nights = booking.nights || '?';
-  const bookingIdDisplay = booking.id || 'N/A';
-
-  const message = `Hi ${guestName}! 🎉\n\n` +
-    `Your check-in at **${homestayName}** has been confirmed!\n\n` +
-    `📅 Check-in: ${checkin}\n` +
-    `📅 Check-out: ${checkout}\n` +
-    `🌙 Nights: ${nights}\n` +
-    `🆔 Booking ID: ${bookingIdDisplay}\n\n` +
-    `We hope you enjoy your stay! For any assistance, please contact us directly.\n\n` +
-    `🏔️ Welcome to Kundasang!`;
-
-  const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-  
-  try {
-    const win = window.open(waUrl, '_blank');
-    if (!win || win.closed || typeof win.closed === 'undefined') {
-      const shouldCopy = confirm(
-        '⚠️ WhatsApp popup was blocked by your browser.\n\n' +
-        'Click OK to copy the message to your clipboard, then paste it in WhatsApp.\n\n' +
-        'Phone: ' + phone
-      );
-      if (shouldCopy) {
-        navigator.clipboard.writeText(message).then(() => {
-          alert('✅ Message copied to clipboard!\n\n' +
-            'Phone: ' + phone + '\n\n' +
-            'Paste the message in WhatsApp.');
-        }).catch(() => {
-          alert('❌ Could not copy. Please manually send this message:\n\n' +
-            'Phone: ' + phone + '\n\n' +
-            'Message:\n' + message);
-        });
-      }
-    } else {
-      console.log('✅ WhatsApp opened in new tab');
-    }
-  } catch(e) {
-    navigator.clipboard.writeText(message).then(() => {
-      alert('✅ Message copied to clipboard!\n\n' +
-        'Phone: ' + phone + '\n\n' +
-        'Paste it in WhatsApp.');
-    }).catch(() => {
-      alert('❌ Could not open WhatsApp. Please send this message manually:\n\n' +
-        'Phone: ' + phone + '\n\n' +
-        'Message:\n' + message);
-    });
-  }
-}
-
-// =============================================
-// CONFIRM CHECK-IN
-// =============================================
-async function confirmCheckIn(bookingId) {
-  if (!confirm(`Confirm check-in for booking ${bookingId}?\n\nYou will receive your payment at your bank account via ToyyibPay in 1-4 business days.\n\nA WhatsApp message will be sent to the guest to confirm their check-in.`)) return;
-  
-  try {
-    const res = await fetch(API_BASE + '/owner-update-booking', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Owner-Authorization': 'Bearer ' + ownerToken
-      },
-      body: JSON.stringify({ 
-        bookingId, 
-        action: 'confirmCheckin' 
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      alert('✅ ' + data.message);
-      await loadBookings();
-      
-      setTimeout(() => {
-        const shouldSendWhatsapp = confirm(
-          '📱 Send WhatsApp confirmation to the guest?\n\n' +
-          'This will open WhatsApp with a pre-filled message confirming their check-in.'
-        );
-        if (shouldSendWhatsapp) {
-          openWhatsappToGuest(bookingId);
-        }
-      }, 500);
-      
-    } else {
-      alert('❌ Failed: ' + (data.error || data.message));
-    }
-  } catch(e) {
-    alert('Network error: ' + e.message);
-  }
-}
-
-// =============================================
-// CHANGE BOOKING DATES
-// =============================================
-async function changeBookingDates(bookingId) {
-  const currentCheckin = prompt('Enter new check-in date (YYYY-MM-DD):', '');
-  if (!currentCheckin) return;
-  const currentCheckout = prompt('Enter new check-out date (YYYY-MM-DD):', '');
-  if (!currentCheckout) return;
-
-  const d1 = new Date(currentCheckin);
-  const d2 = new Date(currentCheckout);
-  if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
-    alert('Invalid dates. Check-out must be after check-in.');
-    return;
-  }
-
-  if (!confirm(`Change booking ${bookingId} dates to ${currentCheckin} → ${currentCheckout}?`)) return;
-
-  try {
-    const res = await fetch(API_BASE + '/owner-update-booking', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Owner-Authorization': 'Bearer ' + ownerToken
-      },
-      body: JSON.stringify({ 
-        bookingId, 
-        action: 'changeDates',
-        checkin: currentCheckin,
-        checkout: currentCheckout
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      alert('✅ ' + data.message);
-      loadBookings();
-    } else {
-      alert('❌ Failed: ' + (data.error || data.message));
-    }
-  } catch(e) {
-    alert('Network error: ' + e.message);
-  }
-}
-
-// =============================================
-// TOGGLE MOBILE MENU
-// =============================================
-function toggleMobileMenu() {
-  const nav = document.getElementById('mobileNav');
-  if (nav) nav.classList.toggle('open');
-}
-document.addEventListener('click', function(e) {
-  const nav = document.getElementById('mobileNav');
-  const btn = document.getElementById('mobileMenuBtn');
-  if (!nav || !btn) return;
-  if (nav.classList.contains('open') && 
-      !nav.contains(e.target) && 
-      !btn.contains(e.target)) {
-    nav.classList.remove('open');
-  }
-});
-
-// =============================================
-// INIT
-// =============================================
-(function init() {
-  renderGuestNav();
-
-  const token = sessionStorage.getItem('kd_owner_token');
-  const loginSection = document.getElementById('loginSection');
-  const dashboardSection = document.getElementById('dashboardSection');
-
-  if (token) {
-    try {
-      const data = JSON.parse(atob(token));
-      console.log("🔐 Token data:", data);
-      
-      if (data.homestays && data.homestays.length > 0) {
-        allHomestays = data.homestays;
-        ownerHomestayIds = allHomestays.map(h => h.id);
-        
-        const selector = document.getElementById('homestaySelector');
-        selector.innerHTML = '<option value="all">All Homestays</option>';
-        allHomestays.forEach(h => {
-          const opt = document.createElement('option');
-          opt.value = h.id;
-          opt.textContent = h.name;
-          selector.appendChild(opt);
-        });
-        currentHomestayId = 'all';
-        selector.value = 'all';
-        
-        if (loginSection) loginSection.classList.add('hidden');
-        if (dashboardSection) dashboardSection.classList.remove('hidden');
-        document.getElementById('welcomeName').innerText = data.ownerName || 'Owner';
-        loadBookings();
-      } else {
-        console.warn("Token missing homestays. Forcing re-login.");
-        alert("Your session is outdated. Please login again.");
-        sessionStorage.removeItem('kd_owner_token');
-        ownerToken = '';
-        if (loginSection) loginSection.classList.remove('hidden');
-        if (dashboardSection) dashboardSection.classList.add('hidden');
-      }
-    } catch(e) {
-      console.error("Token parse error:", e);
-      sessionStorage.removeItem('kd_owner_token');
-      ownerToken = '';
-      if (loginSection) loginSection.classList.remove('hidden');
-      if (dashboardSection) dashboardSection.classList.add('hidden');
-    }
-  } else {
-    if (loginSection) loginSection.classList.remove('hidden');
-    if (dashboardSection) dashboardSection.classList.add('hidden');
-  }
-
-  const selector = document.getElementById('homestaySelector');
-  if (selector) {
-    selector.addEventListener('change', function() {
-      currentHomestayId = this.value;
-      loadBookings();
-    });
-  }
-})();
-</script>
-</body>
-</html>
+      const hs = allHomestays.find(h => String(h.id
