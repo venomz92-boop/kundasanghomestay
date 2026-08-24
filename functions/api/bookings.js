@@ -1,4 +1,5 @@
-// /api/bookings.js - FULLY FIXED: All admin actions sync to DB
+// /api/bookings.js - COMPLETE with security fixes
+import { corsHeaders, getClientIP, logAction, enforceHttps } from './_utils.js';
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
@@ -6,26 +7,17 @@ function verifyAdmin(request, env) {
   if (!expectedToken) {
     return new Response(JSON.stringify({ error: "Server misconfigured" }), {
       status: 500,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
   }
   const expected = "Bearer " + expectedToken;
   if (auth !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized - Token mismatch" }), {
       status: 401,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
   }
   return null;
-}
-
-function corsHeaders() {
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-  };
 }
 
 function getDatesInRange(checkin, checkout) {
@@ -46,8 +38,10 @@ function getDatesInRange(checkin, checkout) {
 }
 
 // ========== GET - PUBLIC ==========
-export async function onRequestGet(context) {
-  const { env } = context;
+export async function onRequestGet({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+  
   const db = env.DB;
   let data = {
     bookings: [],
@@ -63,7 +57,10 @@ export async function onRequestGet(context) {
 
   if (!db) {
     console.error("No database configured");
-    return new Response(JSON.stringify(data), { status: 200, headers: corsHeaders() });
+    return new Response(JSON.stringify(data), { 
+      status: 200, 
+      headers: corsHeaders(request) 
+    });
   }
 
   try {
@@ -103,14 +100,20 @@ export async function onRequestGet(context) {
     }
   } catch (e) { console.error("DB read error:", e.message); }
 
-  return new Response(JSON.stringify(data), { status: 200, headers: corsHeaders() });
+  return new Response(JSON.stringify(data), { 
+    status: 200, 
+    headers: corsHeaders(request) 
+  });
 }
 
 // ========== POST ==========
-export async function onRequestPost(context) {
-  const { request, env } = context;
+export async function onRequestPost({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+  
   const body = await request.json().catch(() => ({}));
   const action = body.action;
+  const clientIP = getClientIP(request);
 
   // ========== PUBLIC ACTIONS ==========
 
@@ -122,23 +125,32 @@ export async function onRequestPost(context) {
       if (booking[field] === undefined || booking[field] === null || booking[field] === '') {
         return new Response(JSON.stringify({ error: `Missing required field: ${field}` }), {
           status: 400,
-          headers: corsHeaders()
+          headers: corsHeaders(request)
         });
       }
     }
     const d1 = new Date(booking.checkin);
     const d2 = new Date(booking.checkout);
     if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
-      return new Response(JSON.stringify({ error: "Invalid dates" }), { status: 400, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Invalid dates" }), { 
+        status: 400, 
+        headers: corsHeaders(request) 
+      });
     }
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRe.test(booking.guestEmail)) {
-      return new Response(JSON.stringify({ error: "Invalid guest email" }), { status: 400, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Invalid guest email" }), { 
+        status: 400, 
+        headers: corsHeaders(request) 
+      });
     }
 
     const db = env.DB;
     if (!db) {
-      return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "DB not configured" }), { 
+        status: 500, 
+        headers: corsHeaders(request) 
+      });
     }
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
     let existing = [];
@@ -147,15 +159,35 @@ export async function onRequestPost(context) {
     const map = new Map();
     [...existing, booking].forEach(b => { if (b && b.id) map.set(String(b.id), b); });
     const merged = [...map.values()];
-    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
-    return new Response(JSON.stringify({ success: true, bookingId: booking.id }), { status: 200, headers: corsHeaders() });
+    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+      .bind("kd_bookings", JSON.stringify(merged))
+      .run();
+    
+    // Audit log
+    await logAction({
+      db,
+      action: 'booking_created',
+      admin: 'guest',
+      details: `Booking ${booking.id} created for ${booking.homestay}`,
+      ip: clientIP,
+      userId: booking.guestEmail,
+      homestayId: booking.homestayId
+    });
+    
+    return new Response(JSON.stringify({ success: true, bookingId: booking.id }), { 
+      status: 200, 
+      headers: corsHeaders(request) 
+    });
   }
 
   // 2. Public update status (webhook)
   if (action === "publicUpdateStatus" && body.id && body.status) {
     const db = env.DB;
     if (!db) {
-      return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "DB not configured" }), { 
+        status: 500, 
+        headers: corsHeaders(request) 
+      });
     }
     try {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
@@ -164,7 +196,10 @@ export async function onRequestPost(context) {
       if (r && r.data) { try { bookings = JSON.parse(r.data); } catch(e) {} }
       const idx = bookings.findIndex(b => String(b.id) === String(body.id));
       if (idx === -1) {
-        return new Response(JSON.stringify({ error: "Booking not found" }), { status: 404, headers: corsHeaders() });
+        return new Response(JSON.stringify({ error: "Booking not found" }), { 
+          status: 404, 
+          headers: corsHeaders(request) 
+        });
       }
       bookings[idx].status = body.status;
       bookings[idx].statusUpdated = new Date().toISOString();
@@ -174,6 +209,17 @@ export async function onRequestPost(context) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_bookings", JSON.stringify(bookings))
         .run();
+      
+      await logAction({
+        db,
+        action: 'booking_status_updated',
+        admin: 'webhook',
+        details: `Booking ${body.id} status → ${body.status}`,
+        ip: clientIP,
+        userId: bookings[idx].guestEmail,
+        homestayId: bookings[idx].homestayId
+      });
+      
       // Update availability
       try {
         const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
@@ -194,12 +240,16 @@ export async function onRequestPost(context) {
             .run();
         }
       } catch(e) { console.warn("Availability update failed:", e.message); }
+      
       return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
         status: 200,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
       });
     } catch(e) {
-      return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: e.message }), { 
+        status: 500, 
+        headers: corsHeaders(request) 
+      });
     }
   }
 
@@ -209,7 +259,10 @@ export async function onRequestPost(context) {
 
   const db = env.DB;
   if (!db) {
-    return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders() });
+    return new Response(JSON.stringify({ error: "DB not configured" }), { 
+      status: 500, 
+      headers: corsHeaders(request) 
+    });
   }
 
   try {
@@ -222,7 +275,10 @@ export async function onRequestPost(context) {
       if (r && r.data) { try { bookings = JSON.parse(r.data); } catch(e) {} }
       const idx = bookings.findIndex(b => String(b.id) === String(body.id));
       if (idx === -1) {
-        return new Response(JSON.stringify({ error: "Booking not found" }), { status: 404, headers: corsHeaders() });
+        return new Response(JSON.stringify({ error: "Booking not found" }), { 
+          status: 404, 
+          headers: corsHeaders(request) 
+        });
       }
       bookings[idx].checkin = body.checkin;
       bookings[idx].checkout = body.checkout;
@@ -235,41 +291,20 @@ export async function onRequestPost(context) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_bookings", JSON.stringify(bookings))
         .run();
-      // Rebuild availability...
-      try {
-        const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
-        let availability = {};
-        if (availRes && availRes.data) { try { availability = JSON.parse(availRes.data); } catch(e) {} }
-        const booking = bookings[idx];
-        if (booking.homestayId && booking.checkin && booking.checkout) {
-          const allBookings = bookings.filter(b => String(b.homestayId) === String(booking.homestayId));
-          const allDates = new Set();
-          allBookings.forEach(b => {
-            if (b.checkin && b.checkout) {
-              const dates = getDatesInRange(b.checkin, b.checkout);
-              dates.forEach(d => allDates.add(d));
-            }
-          });
-          const homestayRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
-          let homestays = [];
-          if (homestayRes && homestayRes.data) { try { homestays = JSON.parse(homestayRes.data); } catch(e) {} }
-          const homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
-          if (homestay && homestay.blockedDates) {
-            homestay.blockedDates.forEach(d => allDates.add(d));
-          }
-          if (allDates.size === 0) {
-            delete availability[booking.homestayId];
-          } else {
-            availability[booking.homestayId] = [...allDates].sort();
-          }
-          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-            .bind("kd_availability", JSON.stringify(availability))
-            .run();
-        }
-      } catch(e) { console.warn("Availability update failed:", e.message); }
+      
+      await logAction({
+        db,
+        action: 'booking_dates_changed',
+        admin: 'admin',
+        details: `Booking ${body.id} dates changed to ${body.checkin}→${body.checkout}`,
+        ip: clientIP,
+        userId: bookings[idx].guestEmail,
+        homestayId: bookings[idx].homestayId
+      });
+      
       return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
         status: 200,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
       });
     }
 
@@ -280,7 +315,10 @@ export async function onRequestPost(context) {
       if (pendingRes && pendingRes.data) { try { pending = JSON.parse(pendingRes.data); } catch(e) {} }
       const idx = pending.findIndex(h => String(h.id) === String(body.id));
       if (idx === -1) {
-        return new Response(JSON.stringify({ error: "Pending homestay not found" }), { status: 404, headers: corsHeaders() });
+        return new Response(JSON.stringify({ error: "Pending homestay not found" }), { 
+          status: 404, 
+          headers: corsHeaders(request) 
+        });
       }
       const homestay = pending[idx];
       homestay.approved = true;
@@ -296,9 +334,20 @@ export async function onRequestPost(context) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_approved", JSON.stringify(approved))
         .run();
+      
+      await logAction({
+        db,
+        action: 'homestay_approved',
+        admin: 'admin',
+        details: `Approved homestay "${homestay.name}" (ID: ${homestay.id}) by ${homestay.ownerName}`,
+        ip: clientIP,
+        userId: homestay.ownerEmail,
+        homestayId: homestay.id
+      });
+      
       return new Response(JSON.stringify({ success: true, homestay }), {
         status: 200,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
       });
     }
 
@@ -309,25 +358,39 @@ export async function onRequestPost(context) {
       if (pendingRes && pendingRes.data) { try { pending = JSON.parse(pendingRes.data); } catch(e) {} }
       const idx = pending.findIndex(h => String(h.id) === String(body.id));
       if (idx === -1) {
-        return new Response(JSON.stringify({ error: "Pending homestay not found" }), { status: 404, headers: corsHeaders() });
+        return new Response(JSON.stringify({ error: "Pending homestay not found" }), { 
+          status: 404, 
+          headers: corsHeaders(request) 
+        });
       }
+      const homestay = pending[idx];
       pending.splice(idx, 1);
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_pending", JSON.stringify(pending))
         .run();
+      
+      await logAction({
+        db,
+        action: 'homestay_rejected',
+        admin: 'admin',
+        details: `Rejected homestay "${homestay.name}" (ID: ${homestay.id})`,
+        ip: clientIP,
+        userId: homestay.ownerEmail,
+        homestayId: homestay.id
+      });
+      
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
       });
     }
 
-    // ===== REMOVE APPROVED HOMESTAY (FIXED: handles demo + regular) =====
+    // ===== REMOVE APPROVED HOMESTAY =====
     if (action === "removeApprovedHomestay" && body.id) {
       const isDemoHomestay = body.isDemo === true;
+      const removedName = body.name || 'Unknown';
       
       if (isDemoHomestay) {
-        // ===== REMOVE DEMO HOMESTAY =====
-        // 1. Add to deletedDemo list
         const deletedDemoRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_deleted_demo").first();
         let deletedDemo = [];
         if (deletedDemoRes && deletedDemoRes.data) { try { deletedDemo = JSON.parse(deletedDemoRes.data); } catch(e) {} }
@@ -337,7 +400,6 @@ export async function onRequestPost(context) {
             .bind("kd_deleted_demo", JSON.stringify(deletedDemo))
             .run();
         }
-        // 2. Remove from demoBlocked
         const demoBlockedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_demo_blocked").first();
         let demoBlocked = {};
         if (demoBlockedRes && demoBlockedRes.data) { try { demoBlocked = JSON.parse(demoBlockedRes.data); } catch(e) {} }
@@ -347,7 +409,6 @@ export async function onRequestPost(context) {
             .bind("kd_demo_blocked", JSON.stringify(demoBlocked))
             .run();
         }
-        // 3. Remove from demoOverrides
         const demoOverridesRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_demo_overrides").first();
         let demoOverrides = {};
         if (demoOverridesRes && demoOverridesRes.data) { try { demoOverrides = JSON.parse(demoOverridesRes.data); } catch(e) {} }
@@ -357,7 +418,6 @@ export async function onRequestPost(context) {
             .bind("kd_demo_overrides", JSON.stringify(demoOverrides))
             .run();
         }
-        // Also remove from availability map if exists
         const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
         let availability = {};
         if (availRes && availRes.data) { try { availability = JSON.parse(availRes.data); } catch(e) {} }
@@ -367,25 +427,36 @@ export async function onRequestPost(context) {
             .bind("kd_availability", JSON.stringify(availability))
             .run();
         }
+        
+        await logAction({
+          db,
+          action: 'demo_homestay_removed',
+          admin: 'admin',
+          details: `Removed demo homestay ${removedName} (ID: ${body.id})`,
+          ip: clientIP,
+          homestayId: body.id
+        });
+        
         return new Response(JSON.stringify({ success: true, removed: { id: body.id, isDemo: true } }), {
           status: 200,
-          headers: corsHeaders()
+          headers: corsHeaders(request)
         });
       } else {
-        // ===== REMOVE REGULAR APPROVED HOMESTAY =====
         const approvedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
         let approved = [];
         if (approvedRes && approvedRes.data) { try { approved = JSON.parse(approvedRes.data); } catch(e) {} }
         const idx = approved.findIndex(h => String(h.id) === String(body.id));
         if (idx === -1) {
-          return new Response(JSON.stringify({ error: "Approved homestay not found" }), { status: 404, headers: corsHeaders() });
+          return new Response(JSON.stringify({ error: "Approved homestay not found" }), { 
+            status: 404, 
+            headers: corsHeaders(request) 
+          });
         }
         const removed = approved[idx];
         approved.splice(idx, 1);
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
           .bind("kd_approved", JSON.stringify(approved))
           .run();
-        // Also remove from availability map
         const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
         let availability = {};
         if (availRes && availRes.data) { try { availability = JSON.parse(availRes.data); } catch(e) {} }
@@ -395,18 +466,45 @@ export async function onRequestPost(context) {
             .bind("kd_availability", JSON.stringify(availability))
             .run();
         }
+        
+        await logAction({
+          db,
+          action: 'homestay_removed',
+          admin: 'admin',
+          details: `Removed homestay "${removed.name}" (ID: ${removed.id}) by ${removed.ownerName}`,
+          ip: clientIP,
+          userId: removed.ownerEmail,
+          homestayId: removed.id
+        });
+        
         return new Response(JSON.stringify({ success: true, removed }), {
           status: 200,
-          headers: corsHeaders()
+          headers: corsHeaders(request)
         });
       }
     }
 
     // ===== CLEAR ALL =====
     if (action === "clearAll") {
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify([])).run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify({})).run();
-      return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders() });
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_bookings", JSON.stringify([]))
+        .run();
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_availability", JSON.stringify({}))
+        .run();
+      
+      await logAction({
+        db,
+        action: 'clear_all',
+        admin: 'admin',
+        details: 'Cleared all bookings and availability',
+        ip: clientIP
+      });
+      
+      return new Response(JSON.stringify({ success: true }), { 
+        status: 200, 
+        headers: corsHeaders(request) 
+      });
     }
 
     // ===== UPDATE PENDING =====
@@ -418,7 +516,9 @@ export async function onRequestPost(context) {
       const map = new Map();
       [...existingPending, ...incoming].forEach(h => { if (h && h.id) map.set(String(h.id), h); });
       const merged = [...map.values()];
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_pending", JSON.stringify(merged)).run();
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_pending", JSON.stringify(merged))
+        .run();
     }
 
     // ===== UPDATE GUESTS =====
@@ -428,35 +528,58 @@ export async function onRequestPost(context) {
       if (r && r.data) existingGuests = JSON.parse(r.data);
       let incomingGuests = body.guests || [];
       if (action === "overwriteGuests" || action === "deleteGuest") {
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_guests", JSON.stringify(incomingGuests)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_guests", JSON.stringify(incomingGuests))
+          .run();
       } else if (action === "banGuest" && body.email) {
         const email = String(body.email).toLowerCase();
         let banned = [];
         const rb = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_banned_guests").first();
         if (rb && rb.data) banned = JSON.parse(rb.data);
         if (!banned.includes(email)) banned.push(email);
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_banned_guests", JSON.stringify(banned)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_banned_guests", JSON.stringify(banned))
+          .run();
+        
+        await logAction({
+          db,
+          action: 'guest_banned',
+          admin: 'admin',
+          details: `Banned guest: ${email}`,
+          ip: clientIP,
+          userId: email
+        });
       } else {
         const map = new Map();
         [...existingGuests, ...incomingGuests].forEach(g => { if (g && (g.email || g.id)) map.set(String(g.email || g.id).toLowerCase(), g); });
         const merged = [...map.values()];
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_guests", JSON.stringify(merged)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_guests", JSON.stringify(merged))
+          .run();
       }
     }
 
     // ===== UPDATE HOMESTAYS =====
     if (action === "updateHomestays" || body.approved !== undefined) {
       if (body.approved !== undefined) {
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_approved", JSON.stringify(body.approved)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_approved", JSON.stringify(body.approved))
+          .run();
       }
       if (body.demoOverrides !== undefined) {
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_overrides", JSON.stringify(body.demoOverrides)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_demo_overrides", JSON.stringify(body.demoOverrides))
+          .run();
       }
       if (body.demoBlocked !== undefined) {
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_demo_blocked", JSON.stringify(body.demoBlocked)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_demo_blocked", JSON.stringify(body.demoBlocked))
+          .run();
       }
       if (body.deletedDemo !== undefined) {
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_deleted_demo", JSON.stringify(body.deletedDemo)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_deleted_demo", JSON.stringify(body.deletedDemo))
+          .run();
       }
     }
 
@@ -464,7 +587,9 @@ export async function onRequestPost(context) {
     if (action === "updateAvailability" || body.availability !== undefined) {
       const avail = body.availability || body.availability;
       if (avail) {
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(avail)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_availability", JSON.stringify(avail))
+          .run();
       }
     }
 
@@ -478,98 +603,78 @@ export async function onRequestPost(context) {
         const map = new Map();
         [...existing, ...b].forEach(book => { if (book && book.id) map.set(String(book.id), book); });
         const merged = [...map.values()];
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_bookings", JSON.stringify(merged))
+          .run();
       }
-    }
-
-    // ===== GENERIC FALLBACK =====
-    if (body.id && body.action !== "updateBookings" && body.action !== "createPublicBooking" && body.action !== "updateDates" && body.action !== "approveHomestay" && body.action !== "rejectHomestay" && body.action !== "removeApprovedHomestay") {
-      let existing = [];
-      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
-      if (r && r.data) existing = JSON.parse(r.data);
-      const map = new Map();
-      [...existing, body].forEach(b => { if (b && b.id) map.set(String(b.id), b); });
-      const merged = [...map.values()];
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(merged)).run();
     }
 
     return new Response(JSON.stringify({ success: true, message: "Synced" }), {
       status: 200,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
 
   } catch (err) {
     console.error("POST handler error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders() });
+    return new Response(JSON.stringify({ error: err.message }), { 
+      status: 500, 
+      headers: corsHeaders(request) 
+    });
   }
 }
 
 // ========== DELETE ==========
-export async function onRequestDelete(context) {
-  const { request, env } = context;
+export async function onRequestDelete({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+  
   const authError = verifyAdmin(request, env);
   if (authError) return authError;
   
   const db = env.DB;
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
+  const clientIP = getClientIP(request);
+  
   if (!db || !id) {
-    return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders() });
+    return new Response(JSON.stringify({ success: true }), { 
+      status: 200, 
+      headers: corsHeaders(request) 
+    });
   }
   try {
     let bookings = [];
     const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
     if (r && r.data) bookings = JSON.parse(r.data);
+    
+    const deleted = bookings.find(b => String(b.id) === String(id));
     bookings = bookings.filter(b => String(b.id) !== String(id));
-    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
+    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+      .bind("kd_bookings", JSON.stringify(bookings))
+      .run();
     
-    // Rebuild availability...
-    let avail = {};
-    const r2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
-    if (r2 && r2.data) avail = JSON.parse(r2.data);
-    const allDates = new Set();
-    bookings.forEach(b => {
-      if (b.checkin && b.checkout) {
-        const dates = getDatesInRange(b.checkin, b.checkout);
-        dates.forEach(d => allDates.add(d));
-      }
+    await logAction({
+      db,
+      action: 'booking_deleted',
+      admin: 'admin',
+      details: `Deleted booking ${id}`,
+      ip: clientIP,
+      userId: deleted?.guestEmail,
+      homestayId: deleted?.homestayId
     });
-    const homestayRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
-    let homestays = [];
-    if (homestayRes && homestayRes.data) { try { homestays = JSON.parse(homestayRes.data); } catch(e) {} }
-    homestays.forEach(h => {
-      if (h.blockedDates) {
-        h.blockedDates.forEach(d => allDates.add(d));
-      }
-    });
-    // Rebuild availability from scratch
-    const newAvail = {};
-    bookings.forEach(b => {
-      if (b.homestayId && b.checkin && b.checkout) {
-        if (!newAvail[b.homestayId]) newAvail[b.homestayId] = [];
-        const dates = getDatesInRange(b.checkin, b.checkout);
-        dates.forEach(d => {
-          if (!newAvail[b.homestayId].includes(d)) newAvail[b.homestayId].push(d);
-        });
-      }
-    });
-    homestays.forEach(h => {
-      if (h.blockedDates && h.id) {
-        if (!newAvail[h.id]) newAvail[h.id] = [];
-        h.blockedDates.forEach(d => {
-          if (!newAvail[h.id].includes(d)) newAvail[h.id].push(d);
-        });
-      }
-    });
-    Object.keys(newAvail).forEach(key => newAvail[key].sort());
-    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(newAvail)).run();
     
-    return new Response(JSON.stringify({ success: true, deleted: id }), { status: 200, headers: corsHeaders() });
+    return new Response(JSON.stringify({ success: true, deleted: id }), { 
+      status: 200, 
+      headers: corsHeaders(request) 
+    });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders() });
+    return new Response(JSON.stringify({ error: e.message }), { 
+      status: 500, 
+      headers: corsHeaders(request) 
+    });
   }
 }
 
-export async function onRequestOptions() {
-  return new Response(null, { headers: corsHeaders() });
+export async function onRequestOptions({ request }) {
+  return new Response(null, { headers: corsHeaders(request) });
 }
