@@ -69,6 +69,7 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
+    // ✅ Ensure store table exists
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
     const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
