@@ -22,9 +22,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 ticking = true;
             }
         }, { passive: true });
+        console.log('✅ Navbar animation loaded');
     }
 
-    // ---- 2. Scroll reveal ----
+    // ---- 2. Scroll reveal for .animate-on-scroll ----
     setTimeout(function() {
         const revealElements = document.querySelectorAll('.animate-on-scroll');
         if (revealElements.length > 0) {
@@ -40,6 +41,9 @@ document.addEventListener('DOMContentLoaded', function() {
             revealElements.forEach(function(el) {
                 observer.observe(el);
             });
+            console.log('✅ Scroll reveal loaded for ' + revealElements.length + ' elements');
+        } else {
+            console.log('ℹ️ No .animate-on-scroll elements found on this page');
         }
     }, 200);
 
@@ -56,14 +60,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // ---- 4. Mobile Menu Setup (Chrome/Safari compatible) ----
+    // ---- 4. Mobile Menu Setup (works on ALL browsers) ----
     setupMobileMenu();
 
     console.log('✅ Animations loaded (all pages)');
 });
 
 // =============================================================
-// MOBILE MENU – Robust version for ALL browsers
+// MOBILE MENU – Works on Safari, Chrome, all browsers
 // =============================================================
 
 function setupMobileMenu() {
@@ -79,9 +83,9 @@ function setupMobileMenu() {
     const newBtn = menuBtn.cloneNode(true);
     menuBtn.parentNode.replaceChild(newBtn, menuBtn);
 
-    // Add click listener to the button
+    // Click to toggle menu
     newBtn.addEventListener('click', function(e) {
-        e.stopPropagation(); // Prevent event from bubbling
+        e.stopPropagation();
         nav.classList.toggle('open');
         console.log('📱 Menu toggled:', nav.classList.contains('open') ? 'open' : 'closed');
     });
@@ -93,29 +97,25 @@ function setupMobileMenu() {
             e.target !== newBtn && 
             !newBtn.contains(e.target)) {
             nav.classList.remove('open');
-            console.log('📱 Menu closed (outside click)');
         }
     });
 
-    // Close menu on escape key (accessibility)
+    // Close menu on escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && nav.classList.contains('open')) {
             nav.classList.remove('open');
-            console.log('📱 Menu closed (escape key)');
         }
     });
 
-    console.log('✅ Mobile menu setup complete (robust)');
+    console.log('✅ Mobile menu setup complete');
 }
 
-// Global toggle function (fallback for inline onclick)
+// Fallback for inline onclick="toggleMobileMenu()"
 function toggleMobileMenu() {
     const nav = document.getElementById('mobileNav');
     if (nav) {
         nav.classList.toggle('open');
-        console.log('📱 toggleMobileMenu called:', nav.classList.contains('open') ? 'open' : 'closed');
-    } else {
-        console.warn('⚠️ #mobileNav not found');
+        console.log('📱 toggleMobileMenu called');
     }
 }
 window.toggleMobileMenu = toggleMobileMenu;
