@@ -328,7 +328,7 @@
   </div>
   
   <div id="guestInfoCard" class="card p-5 mt-2 animate-on-scroll"></div>
-  <div id="myBookingsList" class="mt-6 grid gap-4 animate-on-scroll"></div>
+  <div id="myBookingsList" class="mt-6 grid gap-4"></div>
 </main>
 
 <footer class="bg-[#212121] text-white/70 mt-20">
@@ -389,6 +389,13 @@ function modalConfirm() {
 
 function showAlert(title, message) {
   return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
+}
+
+function showConfirm(title, message) {
+  return showModal(title, message, [
+    { label: 'Cancel', class: 'btn-secondary', value: false },
+    { label: 'Confirm', class: 'btn-primary', value: true }
+  ]);
 }
 
 document.addEventListener('keydown', function(e) {
@@ -532,7 +539,7 @@ function getGuestFriendlyStatus(rawStatus) {
 }
 
 // =============================================================
-// RENDER MY BOOKINGS (FIXED - more flexible matching)
+// RENDER MY BOOKINGS (FIXED - removed animate-on-scroll)
 // =============================================================
 async function renderMyBookings() {
   const infoCard = document.getElementById("guestInfoCard");
@@ -580,6 +587,7 @@ async function renderMyBookings() {
     return;
   }
 
+  // ✅ FIX: Removed animate-on-scroll, added opacity:1 and visible styles
   listDiv.innerHTML = safeHTML(myBookings.map(b => {
     const rawStatus = b.status || 'Unknown';
     const friendlyStatus = getGuestFriendlyStatus(rawStatus);
@@ -601,7 +609,7 @@ async function renderMyBookings() {
     }
 
     return `
-      <div class='card p-5 animate-on-scroll'>
+      <div class='card p-5' style="opacity:1; transform:none; border:1px solid rgba(0,0,0,0.04);">
         <div class='flex justify-between items-start flex-wrap gap-2'>
           <div class='font-bold'>${b.homestay}</div>
           <span class='text-[11px] px-2 py-1 rounded-full ${statusBadgeClass}'>${friendlyStatus}</span>
