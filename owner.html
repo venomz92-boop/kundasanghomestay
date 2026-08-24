@@ -870,9 +870,6 @@ async function loadBookings() {
           actionButtons = `<span class="text-xs text-zinc-400">✅ Paid out on ${payoutDisplay}</span>`;
         }
 
-        // WhatsApp button removed
-        const waBtn = '';
-
         html += `
           <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3" style="background:white; border:1px solid #d1d5db; border-radius:2px; opacity:1;">
             <div class="flex-1">
@@ -904,7 +901,7 @@ async function loadBookings() {
 }
 
 // =============================================
-// OPEN WHATSAPP TO GUEST (kept for reference but not used)
+// OPEN WHATSAPP TO GUEST (kept for check-in confirmation)
 // =============================================
 function openWhatsappToGuest(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
