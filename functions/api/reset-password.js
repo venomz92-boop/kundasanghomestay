@@ -7,7 +7,7 @@ async function sha256(message) {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function corsHeaders() {
+function corsHeaders(request) {
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -23,14 +23,14 @@ export async function onRequestPost({ request, env }) {
     if (!token || !password || !userType) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
       });
     }
 
     if (password.length < 6) {
       return new Response(JSON.stringify({ error: "Password must be at least 6 characters" }), {
         status: 400,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
       });
     }
 
@@ -38,7 +38,7 @@ export async function onRequestPost({ request, env }) {
     if (!db) {
       return new Response(JSON.stringify({ error: "Server error" }), {
         status: 500,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
       });
     }
 
@@ -50,7 +50,7 @@ export async function onRequestPost({ request, env }) {
     if (!r) {
       return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
         status: 400,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
       });
     }
 
@@ -68,7 +68,7 @@ export async function onRequestPost({ request, env }) {
       if (idx === -1) {
         return new Response(JSON.stringify({ error: "User not found" }), {
           status: 404,
-          headers: corsHeaders()
+          headers: corsHeaders(request)
         });
       }
 
@@ -96,7 +96,7 @@ export async function onRequestPost({ request, env }) {
       if (idx === -1) {
         return new Response(JSON.stringify({ error: "Owner not found" }), {
           status: 404,
-          headers: corsHeaders()
+          headers: corsHeaders(request)
         });
       }
 
@@ -121,7 +121,7 @@ export async function onRequestPost({ request, env }) {
     } else {
       return new Response(JSON.stringify({ error: "Invalid user type" }), {
         status: 400,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
       });
     }
 
@@ -130,18 +130,18 @@ export async function onRequestPost({ request, env }) {
       message: "Password reset successful. You can now log in."
     }), {
       status: 200,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
 
   } catch (e) {
     console.error("❌ Reset password error:", e.message);
     return new Response(JSON.stringify({ error: "Failed to reset password" }), {
       status: 500,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
   }
 }
 
 export async function onRequestOptions() {
-  return new Response(null, { headers: corsHeaders() });
+  return new Response(null, { headers: corsHeaders(request) });
 }
