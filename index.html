@@ -1599,90 +1599,111 @@ function renderAvailabilityCalendar(homestay, containerId) {
 // =============================================================
 // INIT
 // =============================================================
+// =============================================================
+// INIT
+// =============================================================
 (async function init() {
-  renderGuestNav();
-  await fetchCloudData();
-  renderGrid();
-  showHome();
-  
-  try {
-    const res = await fetch(API_BASE + "/payment-mode?t=" + Date.now());
-    const data = await res.json();
-    CONFIG.toyyibpay.enabled = data.enabled;
-    console.log("💳 Payment mode:", data.message);
-  } catch(e) {
-    console.warn("⚠️ Failed to fetch payment mode, defaulting to simulation");
-    CONFIG.toyyibpay.enabled = false;
-  }
-  
-  try {
-    const params = new URLSearchParams(window.location.search);
-    const bookingIdParam = params.get("booking");
-    const paidParam = params.get("paid");
-    const billcode = params.get("billcode");
-    const transactionId = params.get("transaction_id");
-    const statusId = params.get("status_id");
-    
-    if (bookingIdParam && paidParam === "1") {
-      console.log("🎯 Processing payment redirect for booking:", bookingIdParam);
-      let b = bookings.find(x => String(x.id) === String(bookingIdParam));
-      if (!b) {
-        await fetchCloudData();
-        b = bookings.find(x => String(x.id) === String(bookingIdParam));
-      }
-      if (b) {
-        if ((b.status || "").toLowerCase().includes("pending")) {
-          b.status = "Paid - Awaiting Check-in";
-          b.statusUpdated = new Date().toISOString();
-          b.toyyibpay_billcode = billcode || b.toyyibpay_billcode;
-          b.toyyibpay_transaction_id = transactionId;
-          b.toyyibpay_status_id = statusId;
-          b.paid_at = new Date().toISOString();
-          localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-          const dates = getDatesInRange(b.checkin, b.checkout);
-          if (b.homestayId) {
-            if (!availabilityMap[b.homestayId]) availabilityMap[b.homestayId] = [];
-            dates.forEach(d => { 
-              if (!availabilityMap[b.homestayId].includes(d)) {
-                availabilityMap[b.homestayId].push(d); 
-              }
+    renderGuestNav();
+    await fetchCloudData();
+    renderGrid();
+    showHome();
+
+    // ===== SCROLL REVEAL: Fade in cards as you scroll =====
+    setTimeout(() => {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
             });
-            saveAvailabilityMap();
-          }
-          try {
-            const updateRes = await fetch(`${API_BASE}/bookings`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                action: "publicUpdateStatus",
-                id: b.id,
-                status: "Paid - Awaiting Check-in",
-                toyyibpay_billcode: billcode || null,
-                toyyibpay_transaction_id: transactionId || null,
-                toyyibpay_status_id: statusId || null,
-                paid_at: new Date().toISOString()
-              })
-            });
-            if (updateRes.ok) {
-              console.log("☁️ Booking status synced to cloud via public endpoint");
-            } else {
-              const err = await updateRes.text();
-              console.warn("⚠️ Cloud sync failed:", err);
-            }
-          } catch(e) { console.warn("Cloud sync error:", e); }
-        }
-        const nights = b.nights || calculateNights(b.checkin, b.checkout);
-        const total = b.total || 0;
-        showPaymentReceipt(b.id, nights, b.checkin, b.checkout, total, billcode, transactionId);
-      } else {
-        console.warn("⚠️ Booking not found for ID:", bookingIdParam);
-        alert("✅ Payment successful! Your booking has been confirmed.\n\nBooking ID: " + bookingIdParam + "\nTransaction ID: " + (transactionId || 'N/A'));
-      }
-      window.history.replaceState({}, document.title, window.location.pathname);
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.animate-on-scroll').forEach(el => {
+            observer.observe(el);
+        });
+    }, 150);
+
+    // ===== Check payment mode =====
+    try {
+        const res = await fetch(API_BASE + "/payment-mode?t=" + Date.now());
+        const data = await res.json();
+        CONFIG.toyyibpay.enabled = data.enabled;
+        console.log("💳 Payment mode:", data.message);
+    } catch(e) {
+        console.warn("⚠️ Failed to fetch payment mode, defaulting to simulation");
+        CONFIG.toyyibpay.enabled = false;
     }
-  } catch(e) { 
-    console.warn("Paid redirect handler fail", e); 
-  }
+
+    // ===== Handle payment redirect =====
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const bookingIdParam = params.get("booking");
+        const paidParam = params.get("paid");
+        const billcode = params.get("billcode");
+        const transactionId = params.get("transaction_id");
+        const statusId = params.get("status_id");
+
+        if (bookingIdParam && paidParam === "1") {
+            console.log("🎯 Processing payment redirect for booking:", bookingIdParam);
+            let b = bookings.find(x => String(x.id) === String(bookingIdParam));
+            if (!b) {
+                await fetchCloudData();
+                b = bookings.find(x => String(x.id) === String(bookingIdParam));
+            }
+            if (b) {
+                if ((b.status || "").toLowerCase().includes("pending")) {
+                    b.status = "Paid - Awaiting Check-in";
+                    b.statusUpdated = new Date().toISOString();
+                    b.toyyibpay_billcode = billcode || b.toyyibpay_billcode;
+                    b.toyyibpay_transaction_id = transactionId;
+                    b.toyyibpay_status_id = statusId;
+                    b.paid_at = new Date().toISOString();
+                    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+                    const dates = getDatesInRange(b.checkin, b.checkout);
+                    if (b.homestayId) {
+                        if (!availabilityMap[b.homestayId]) availabilityMap[b.homestayId] = [];
+                        dates.forEach(d => {
+                            if (!availabilityMap[b.homestayId].includes(d)) {
+                                availabilityMap[b.homestayId].push(d);
+                            }
+                        });
+                        saveAvailabilityMap();
+                    }
+                    try {
+                        const updateRes = await fetch(`${API_BASE}/bookings`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                action: "publicUpdateStatus",
+                                id: b.id,
+                                status: "Paid - Awaiting Check-in",
+                                toyyibpay_billcode: billcode || null,
+                                toyyibpay_transaction_id: transactionId || null,
+                                toyyibpay_status_id: statusId || null,
+                                paid_at: new Date().toISOString()
+                            })
+                        });
+                        if (updateRes.ok) {
+                            console.log("☁️ Booking status synced to cloud via public endpoint");
+                        } else {
+                            const err = await updateRes.text();
+                            console.warn("⚠️ Cloud sync failed:", err);
+                        }
+                    } catch(e) { console.warn("Cloud sync error:", e); }
+                }
+                const nights = b.nights || calculateNights(b.checkin, b.checkout);
+                const total = b.total || 0;
+                showPaymentReceipt(b.id, nights, b.checkin, b.checkout, total, billcode, transactionId);
+            } else {
+                console.warn("⚠️ Booking not found for ID:", bookingIdParam);
+                alert("✅ Payment successful! Your booking has been confirmed.\n\nBooking ID: " + bookingIdParam + "\nTransaction ID: " + (transactionId || 'N/A'));
+            }
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    } catch(e) {
+        console.warn("Paid redirect handler fail", e);
+    }
 })();
 
 console.log("✅ Kundasang Homestay public page loaded (secure).");
