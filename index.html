@@ -220,6 +220,29 @@
     #mobileNav .my-bookings-btn:hover {
       background: #333;
     }
+
+    /* ---- Loading skeleton ---- */
+    .skeleton-card {
+      background: #f0f0f0;
+      border-radius: 2px;
+      animation: pulse 1.5s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+    .skeleton-card .skeleton-img {
+      height: 200px;
+      background: #e0e0e0;
+    }
+    .skeleton-card .skeleton-line {
+      height: 16px;
+      background: #e0e0e0;
+      margin: 8px 16px;
+      border-radius: 4px;
+    }
+    .skeleton-card .skeleton-line.short { width: 60%; }
   </style>
 </head>
 <body>
@@ -734,7 +757,7 @@ function saveAvailabilityMap() {
 }
 
 // =============================================================
-// RENDER GRID
+// RENDER GRID (with lazy loading)
 // =============================================================
 function renderGrid() {
   const grid = document.getElementById("homestayGrid");
@@ -795,7 +818,7 @@ function renderGrid() {
     return `
       <article class="group bg-white sharp shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-[4px] transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden animate-on-scroll" onclick="openDetail(${h.id})">
         <div class="h-[240px] w-full relative overflow-hidden bg-gradient-to-br from-[#a8e6cf] to-[#88d8c0]">
-          <img src="${h.image}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+          <img src="${h.image}" loading="lazy" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
           <div class="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors"></div>
           <div class="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 sharp flex items-center gap-1 shadow-sm">
             <span class="font-poppins font-700 text-[11px] text-[#212121]">${h.rating ? h.rating.toFixed(1) : '5.0'} ★</span>
@@ -1387,15 +1410,35 @@ function renderAvailabilityCalendar(homestay, containerId) {
 }
 
 // =============================================================
-// INIT
+// INIT (OPTIMIZED – renders cached data first)
 // =============================================================
 (async function init() {
     renderGuestNav();
+
+    // ===== 1. INSTANT RENDER FROM CACHE (if available) =====
+    const cachedHomestays = localStorage.getItem('kd_approved');
+    if (cachedHomestays) {
+      try {
+        const parsed = JSON.parse(cachedHomestays);
+        if (parsed && parsed.length > 0) {
+          // Use cached homestays for instant display
+          // But we need to ensure `homestays` is set so renderGrid works
+          const originalHomestays = homestays;
+          homestays = parsed;
+          renderGrid();
+          showHome();
+          // Restore original (will be overwritten by fetch)
+          homestays = originalHomestays;
+        }
+      } catch(e) { /* ignore */ }
+    }
+
+    // ===== 2. FETCH FRESH DATA =====
     await fetchCloudData();
     renderGrid();
     showHome();
 
-    // ===== SCROLL REVEAL: Fade in cards as you scroll =====
+    // ===== SCROLL REVEAL =====
     setTimeout(() => {
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
