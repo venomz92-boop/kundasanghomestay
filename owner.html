@@ -871,7 +871,8 @@ async function loadBookings() {
         }
 
         const guestPhone = b.guestPhone || '';
-        const waBtn = hasPhone ? 
+        const hasPhone = guestPhone.replace(/[^0-9]/g, '').length >= 10;
+        const waBtn = '';
           `<button onclick="openWhatsappToGuest('${id}')" class="btn-whatsapp-sm">💬 WhatsApp Guest</button>` : 
           `<span class="text-xs text-zinc-400">No guest phone</span>`;
 
