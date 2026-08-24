@@ -1,4 +1,4 @@
-// /api/bookings.js - COMPLETE with security fixes
+// /api/bookings.js - DEBUG VERSION with detailed logging
 import { corsHeaders, getClientIP, logAction, enforceHttps } from './_utils.js';
 
 function verifyAdmin(request, env) {
@@ -100,9 +100,13 @@ export async function onRequestGet({ request, env }) {
     }
   } catch (e) { console.error("DB read error:", e.message); }
 
+  console.log("🔍 GET bookings returned:", data.bookings.length, "bookings");
   return new Response(JSON.stringify(data), { 
     status: 200, 
-    headers: corsHeaders(request) 
+    headers: {
+      ...corsHeaders(request),
+      'Cache-Control': 'public, max-age=300, stale-while-revalidate=60'
+    }
   });
 }
 
@@ -115,6 +119,8 @@ export async function onRequestPost({ request, env }) {
   const action = body.action;
   const clientIP = getClientIP(request);
 
+  console.log("📥 POST /api/bookings - action:", action, "body:", JSON.stringify(body).slice(0, 200));
+
   // ========== PUBLIC ACTIONS ==========
 
   // 1. Create booking
@@ -123,6 +129,7 @@ export async function onRequestPost({ request, env }) {
     const required = ['id', 'homestay', 'homestayId', 'checkin', 'checkout', 'guestEmail', 'guestName', 'total', 'base', 'fee'];
     for (const field of required) {
       if (booking[field] === undefined || booking[field] === null || booking[field] === '') {
+        console.error("❌ Missing required field:", field);
         return new Response(JSON.stringify({ error: `Missing required field: ${field}` }), {
           status: 400,
           headers: corsHeaders(request)
@@ -132,6 +139,7 @@ export async function onRequestPost({ request, env }) {
     const d1 = new Date(booking.checkin);
     const d2 = new Date(booking.checkout);
     if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
+      console.error("❌ Invalid dates:", booking.checkin, booking.checkout);
       return new Response(JSON.stringify({ error: "Invalid dates" }), { 
         status: 400, 
         headers: corsHeaders(request) 
@@ -139,6 +147,7 @@ export async function onRequestPost({ request, env }) {
     }
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRe.test(booking.guestEmail)) {
+      console.error("❌ Invalid guest email:", booking.guestEmail);
       return new Response(JSON.stringify({ error: "Invalid guest email" }), { 
         status: 400, 
         headers: corsHeaders(request) 
@@ -147,37 +156,53 @@ export async function onRequestPost({ request, env }) {
 
     const db = env.DB;
     if (!db) {
+      console.error("❌ DB not configured");
       return new Response(JSON.stringify({ error: "DB not configured" }), { 
         status: 500, 
         headers: corsHeaders(request) 
       });
     }
-    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-    let existing = [];
-    const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
-    if (r && r.data) existing = JSON.parse(r.data);
-    const map = new Map();
-    [...existing, booking].forEach(b => { if (b && b.id) map.set(String(b.id), b); });
-    const merged = [...map.values()];
-    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-      .bind("kd_bookings", JSON.stringify(merged))
-      .run();
-    
-    // Audit log
-    await logAction({
-      db,
-      action: 'booking_created',
-      admin: 'guest',
-      details: `Booking ${booking.id} created for ${booking.homestay}`,
-      ip: clientIP,
-      userId: booking.guestEmail,
-      homestayId: booking.homestayId
-    });
-    
-    return new Response(JSON.stringify({ success: true, bookingId: booking.id }), { 
-      status: 200, 
-      headers: corsHeaders(request) 
-    });
+
+    try {
+      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+      let existing = [];
+      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+      if (r && r.data) existing = JSON.parse(r.data);
+      console.log("📊 Existing bookings count:", existing.length);
+      
+      const map = new Map();
+      [...existing, booking].forEach(b => { if (b && b.id) map.set(String(b.id), b); });
+      const merged = [...map.values()];
+      console.log("📊 Merged bookings count:", merged.length);
+      
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_bookings", JSON.stringify(merged))
+        .run();
+      
+      console.log("✅ Booking saved:", booking.id);
+      
+      // Audit log
+      await logAction({
+        db,
+        action: 'booking_created',
+        admin: 'guest',
+        details: `Booking ${booking.id} created for ${booking.homestay}`,
+        ip: clientIP,
+        userId: booking.guestEmail,
+        homestayId: booking.homestayId
+      });
+      
+      return new Response(JSON.stringify({ success: true, bookingId: booking.id }), { 
+        status: 200, 
+        headers: corsHeaders(request) 
+      });
+    } catch (e) {
+      console.error("❌ Failed to save booking:", e.message, e.stack);
+      return new Response(JSON.stringify({ error: "Database error: " + e.message }), { 
+        status: 500, 
+        headers: corsHeaders(request) 
+      });
+    }
   }
 
   // 2. Public update status (webhook)
@@ -246,6 +271,7 @@ export async function onRequestPost({ request, env }) {
         headers: corsHeaders(request)
       });
     } catch(e) {
+      console.error("publicUpdateStatus error:", e);
       return new Response(JSON.stringify({ error: e.message }), { 
         status: 500, 
         headers: corsHeaders(request) 
