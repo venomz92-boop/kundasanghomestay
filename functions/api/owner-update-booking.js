@@ -214,8 +214,11 @@ export async function onRequestPost({ request, env }) {
       // Get the bank code from the booking (which came from the homestay)
       const ownerBankCode = booking.ownerBankCode || homestay.bankCode || 'MBBEMYKL';
 
+      // ✅ Use PUBLIC_DOMAIN from env
+      const publicDomain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
+
       // Now trigger the actual payout
-      const payoutReq = await fetch(`${env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my'}/api/payout`, {
+      const payoutReq = await fetch(`${publicDomain}/api/payout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
