@@ -1,18 +1,10 @@
 // /api/forgot-password.js - Request password reset link
+import { corsHeaders } from './_utils.js';
 
 async function generateResetToken() {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
   return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-function corsHeaders(request) {
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type"
-  };
 }
 
 export async function onRequestPost({ request, env }) {
@@ -36,19 +28,17 @@ export async function onRequestPost({ request, env }) {
 
     const cleanEmail = email.toLowerCase().trim();
     const token = await generateResetToken();
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
     let userId = null;
     let userData = null;
 
     if (userType === 'guest') {
-      // Find guest by email
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
       let guests = [];
       if (r && r.data) { try { guests = JSON.parse(r.data); } catch(e) {} }
       const guest = guests.find(g => g.email && g.email.toLowerCase() === cleanEmail);
       if (!guest) {
-        // Don't reveal if email exists – security
         return new Response(JSON.stringify({ success: true, message: "If an account exists, a reset link has been sent." }), {
           status: 200,
           headers: corsHeaders(request)
@@ -57,7 +47,6 @@ export async function onRequestPost({ request, env }) {
       userId = guest.id;
       userData = { email: guest.email, name: guest.name, type: 'guest' };
     } else if (userType === 'owner') {
-      // Find owner by email (we'll add email field to owner listing)
       const r1 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
       let homestays = [];
       if (r1 && r1.data) { try { homestays = JSON.parse(r1.data); } catch(e) {} }
@@ -80,7 +69,6 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // Store token in D1
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS password_resets (
         token TEXT PRIMARY KEY,
@@ -97,25 +85,18 @@ export async function onRequestPost({ request, env }) {
       VALUES (?, ?, ?, ?, ?)
     `).bind(token, userId, userType, cleanEmail, expiresAt).run();
 
-    // Build reset URL
     const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
     const resetUrl = `${domain}/reset-password.html?token=${token}&type=${userType}`;
 
-    // Send email (you need to configure this)
-    // For now, we'll log the URL and also return it in response for testing
     console.log(`🔐 Reset link for ${cleanEmail}: ${resetUrl}`);
 
-    // In production, send email via SMTP or email service
-    // For now, we'll return the URL in the response for testing
-    // But we'll also try to send an email
-
-    // Attempt to send email (you'll need to set up SMTP)
+    // ===== Attempt to send email =====
     const emailSent = await sendResetEmail(cleanEmail, userData.name, resetUrl, env);
 
     return new Response(JSON.stringify({
       success: true,
       message: emailSent ? "Reset link sent to your email." : "Reset link generated. (Email service not configured - check console for URL)",
-      resetUrl: env.ENVIRONMENT === 'development' ? resetUrl : undefined // Only show in dev
+      resetUrl: env.ENVIRONMENT === 'development' ? resetUrl : undefined
     }), {
       status: 200,
       headers: corsHeaders(request)
@@ -130,18 +111,33 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// ========== EMAIL SENDER (Placeholder - configure your own) ==========
+// ========== EMAIL SENDER (Placeholder) ==========
 async function sendResetEmail(email, name, resetUrl, env) {
   try {
-    // Option 1: Use Cloudflare Email Workers (recommended)
-    // Option 2: Use a service like SendGrid, Mailgun, etc.
-    // Option 3: Use a simple SMTP server
-
-    // For now, we'll just log and return true (assuming success)
     console.log(`📧 Would send reset email to ${email} with link: ${resetUrl}`);
 
-    // If you have SMTP configured, implement here
-    // Example with a simple fetch to an email API:
+    // ===== Option 1: Cloudflare Email Workers =====
+    // https://developers.cloudflare.com/email-routing/email-workers/
+    /*
+    const msg = {
+      personalizations: [{ to: [{ email }] }],
+      from: { email: 'noreply@kundasanghomestay.my' },
+      subject: 'Reset Your Password - Kundasang Homestay',
+      content: [{
+        type: 'text/html',
+        value: `
+          <h2>Hello ${name},</h2>
+          <p>You requested to reset your password.</p>
+          <p><a href="${resetUrl}">Click here to reset your password</a></p>
+          <p>This link expires in 1 hour.</p>
+          <p>If you didn't request this, please ignore this email.</p>
+        `
+      }]
+    };
+    // Send via Email Worker...
+    */
+
+    // ===== Option 2: SendGrid =====
     /*
     const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -149,32 +145,21 @@ async function sendResetEmail(email, name, resetUrl, env) {
         'Authorization': 'Bearer ' + env.SENDGRID_API_KEY,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        personalizations: [{ to: [{ email }] }],
-        from: { email: 'noreply@kundasanghomestay.my' },
-        subject: 'Reset Your Password - Kundasang Homestay',
-        content: [{
-          type: 'text/html',
-          value: `
-            <h2>Hello ${name},</h2>
-            <p>You requested to reset your password.</p>
-            <p><a href="${resetUrl}">Click here to reset your password</a></p>
-            <p>This link expires in 1 hour.</p>
-            <p>If you didn't request this, please ignore this email.</p>
-          `
-        }]
-      })
+      body: JSON.stringify({ ... })
     });
     return response.ok;
     */
 
-    return true; // Placeholder
+    // ===== Option 3: Your own SMTP =====
+    // Use a service like Resend, Mailgun, etc.
+
+    return true; // Placeholder – return false if email fails
   } catch (e) {
     console.error("Email send error:", e.message);
     return false;
   }
 }
 
-export async function onRequestOptions() {
+export async function onRequestOptions({ request }) {
   return new Response(null, { headers: corsHeaders(request) });
 }
