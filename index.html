@@ -799,23 +799,54 @@ function whatsappOwnerFromThankYou() {
     return;
   }
 
-  // Find the booking in the bookings array
-  const booking = bookings.find(b => String(b.id) === String(bookingId));
+  // Try to find the booking from multiple sources
+  let booking = null;
+  
+  // 1. Try from the bookings array (already loaded)
+  booking = bookings.find(b => String(b.id) === String(bookingId));
+  
+  // 2. If not found, try from the last created booking (for simulation mode)
+  if (!booking && window.lastCreatedBooking) {
+    if (String(window.lastCreatedBooking.id) === String(bookingId)) {
+      booking = window.lastCreatedBooking;
+    }
+  }
+  
+  // 3. If still not found, try to find from selectedHomestay data
+  if (!booking && selectedHomestay) {
+    // Build a minimal booking object from selectedHomestay
+    const guestName = document.getElementById('guestName')?.value || currentGuest?.name || 'Guest';
+    const guestPhone = document.getElementById('guestPhone')?.value || currentGuest?.phone || '';
+    const guestEmail = document.getElementById('guestEmail')?.value || currentGuest?.email || '';
+    const checkin = document.getElementById('bookingCheckin')?.value || 'N/A';
+    const checkout = document.getElementById('bookingCheckout')?.value || 'N/A';
+    const nights = document.getElementById('bookingNights')?.textContent || '?';
+    const totalEl = document.getElementById('successTotal');
+    const total = totalEl ? parseFloat(totalEl.textContent.replace('RM', '')) || 0 : 0;
+    
+    booking = {
+      id: bookingId,
+      homestay: selectedHomestay.name,
+      homestayId: selectedHomestay.id,
+      ownerWhatsapp: selectedHomestay.whatsapp || '',
+      guestName: guestName,
+      guestPhone: guestPhone,
+      guestEmail: guestEmail,
+      checkin: checkin,
+      checkout: checkout,
+      nights: nights,
+      total: total,
+      ownerName: selectedHomestay.ownerName || 'Owner',
+    };
+  }
+
   if (!booking) {
     showAlert('Booking Not Found', 'Could not find booking details. Please check your booking in "My Bookings".');
     return;
   }
 
-  // Get owner WhatsApp number from the booking or homestay
+  // Get owner WhatsApp number from the booking
   let ownerWhatsapp = booking.ownerWhatsapp || '';
-  
-  // If not in booking, try to find from homestay
-  if (!ownerWhatsapp) {
-    const homestay = allHomestays.find(h => String(h.id) === String(booking.homestayId));
-    if (homestay && homestay.whatsapp) {
-      ownerWhatsapp = homestay.whatsapp;
-    }
-  }
 
   // Clean the number
   let phone = String(ownerWhatsapp).replace(/[^0-9]/g, '');
@@ -1463,6 +1494,9 @@ async function processPayment() {
     ownerName: selectedHomestay.ownerName,
     bankHolder: selectedHomestay.bankHolder || selectedHomestay.ownerName,
   };
+
+  // ✅ Store the booking globally for WhatsApp function
+  window.lastCreatedBooking = booking;
 
   try {
     const saveRes = await fetch(API_BASE + "/bookings", {
