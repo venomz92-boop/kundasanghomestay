@@ -10,6 +10,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
   <style>
+    /* ===== EXISTING STYLES (kept as before) ===== */
     :root { --primary:#0F382E; --primary-light:#1a4d3e; --accent:#3FD0D4; --accent-hover:#2bbfc4; --bg:#F8F5F0; --card:#ffffff; --muted:#6b7280; --danger:#dc2626; --dark:#212121; }
     h1,h2,h3{font-family:"Poppins",sans-serif;}
     .font-poppins{font-family:"Poppins",sans-serif;} .font-satisfy{font-family:"Satisfy",cursive;}
@@ -243,6 +244,130 @@
       border-radius: 4px;
     }
     .skeleton-card .skeleton-line.short { width: 60%; }
+
+    /* ===== CUSTOM MODAL STYLES ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-box {
+      background: white;
+      max-width: 480px;
+      width: 100%;
+      border-radius: 2px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+      animation: modalIn 0.25s ease;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.95) translateY(10px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-header {
+      padding: 20px 24px 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .modal-header h3 {
+      font-family: "Poppins", sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: #212121;
+      margin: 0;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #9ca3af;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    .modal-close:hover {
+      color: #212121;
+    }
+    .modal-body {
+      padding: 12px 24px 20px 24px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #4b5563;
+    }
+    .modal-body input {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 2px;
+      font-size: 14px;
+      font-family: "Poppins", sans-serif;
+    }
+    .modal-body input:focus {
+      outline: none;
+      border-color: #3FD0D4;
+      box-shadow: 0 0 0 3px rgba(63,208,212,0.15);
+    }
+    .modal-footer {
+      padding: 12px 24px 20px 24px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      border-top: 1px solid #f3f4f6;
+    }
+    .modal-footer .btn {
+      padding: 8px 20px;
+      border-radius: 2px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: "Poppins", sans-serif;
+    }
+    .modal-footer .btn-primary {
+      background: #0F382E;
+      color: white;
+    }
+    .modal-footer .btn-primary:hover {
+      background: #1a4d3e;
+    }
+    .modal-footer .btn-secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+    .modal-footer .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+    .modal-footer .btn-danger {
+      background: #dc2626;
+      color: white;
+    }
+    .modal-footer .btn-danger:hover {
+      background: #b91c1c;
+    }
+    .modal-footer .btn-success {
+      background: #16a34a;
+      color: white;
+    }
+    .modal-footer .btn-success:hover {
+      background: #15803d;
+    }
   </style>
 </head>
 <body>
@@ -297,6 +422,20 @@
         </div>
         <a href="/mybookings.html" onclick="toggleMobileMenu()" class="my-bookings-btn">📅 My Bookings</a>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CUSTOM MODAL ===== -->
+<div id="customModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modalTitle">Title</h3>
+      <button onclick="closeModal()" class="modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">Message</div>
+    <div class="modal-footer" id="modalFooter">
+      <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
     </div>
   </div>
 </div>
@@ -418,6 +557,128 @@ function safeHTML(html) {
     ADD_ATTR: ['target']
   });
 }
+
+// =============================================================
+// CUSTOM MODAL SYSTEM
+// =============================================================
+let modalResolve = null;
+let modalReject = null;
+
+function showModal(title, message, buttons) {
+  return new Promise((resolve, reject) => {
+    const overlay = document.getElementById('customModal');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const footerEl = document.getElementById('modalFooter');
+
+    titleEl.textContent = title || 'Notice';
+    bodyEl.innerHTML = typeof message === 'string' ? message : '';
+    footerEl.innerHTML = '';
+
+    buttons.forEach(btn => {
+      const el = document.createElement('button');
+      el.textContent = btn.label;
+      el.className = `btn ${btn.class || 'btn-primary'}`;
+      el.onclick = () => {
+        closeModal();
+        if (btn.value !== undefined) resolve(btn.value);
+        else resolve(true);
+      };
+      footerEl.appendChild(el);
+    });
+
+    modalResolve = resolve;
+    modalReject = reject;
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  });
+}
+
+function closeModal() {
+  const overlay = document.getElementById('customModal');
+  overlay.classList.remove('active');
+  document.body.style.overflow = '';
+  if (modalReject) modalReject('cancelled');
+}
+
+function modalConfirm() {
+  // Used by simple OK buttons
+  closeModal();
+  if (modalResolve) modalResolve(true);
+}
+
+// ---- Public API ----
+function showAlert(title, message) {
+  return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
+}
+
+function showConfirm(title, message) {
+  return showModal(title, message, [
+    { label: 'Cancel', class: 'btn-secondary', value: false },
+    { label: 'Confirm', class: 'btn-primary', value: true }
+  ]);
+}
+
+function showPrompt(title, message, defaultValue) {
+  const input = `<input type="text" id="modalInput" value="${defaultValue || ''}" placeholder="Enter value..." />`;
+  return new Promise((resolve, reject) => {
+    const overlay = document.getElementById('customModal');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const footerEl = document.getElementById('modalFooter');
+
+    titleEl.textContent = title || 'Enter value';
+    bodyEl.innerHTML = (message || '') + input;
+    footerEl.innerHTML = '';
+
+    const okBtn = document.createElement('button');
+    okBtn.textContent = 'OK';
+    okBtn.className = 'btn btn-primary';
+    okBtn.onclick = () => {
+      const val = document.getElementById('modalInput')?.value || '';
+      closeModal();
+      resolve(val);
+    };
+    footerEl.appendChild(okBtn);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.onclick = () => {
+      closeModal();
+      resolve(null);
+    };
+    footerEl.appendChild(cancelBtn);
+
+    modalResolve = resolve;
+    modalReject = reject;
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+      const inp = document.getElementById('modalInput');
+      if (inp) inp.focus();
+    }, 200);
+  });
+}
+
+// ---- Handle ESC key ----
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('customModal');
+    if (overlay.classList.contains('active')) {
+      closeModal();
+      if (modalResolve) modalResolve(null);
+    }
+  }
+});
+
+// ---- Click outside to close (optional, but we keep it for convenience) ----
+document.getElementById('customModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    closeModal();
+    if (modalResolve) modalResolve(null);
+  }
+});
 
 // =============================================================
 // SHA256 HELPER
@@ -923,9 +1184,10 @@ function closeDetail() { document.getElementById("detailModal").classList.add("h
 // =============================================================
 function openBooking() {
   if (!currentGuest) {
-    alert("🔐 Please login or register first to make a booking.");
-    document.getElementById("bookingModal").classList.add("hidden");
-    window.location.href = '/login.html';
+    showAlert("Login Required", "🔐 Please login or register first to make a booking.").then(() => {
+      document.getElementById("bookingModal").classList.add("hidden");
+      window.location.href = '/login.html';
+    });
     return;
   }
   const ci = document.getElementById("detailCheckin")?.value;
@@ -960,26 +1222,31 @@ function updateBookingPrice() {
 function closeBooking() { document.getElementById("bookingModal").classList.add("hidden"); }
 
 // =============================================================
-// PAYMENT FUNCTION (FIXED – simulation updates D1)
+// PAYMENT FUNCTION
 // =============================================================
 async function processPayment() {
   if (!currentGuest) {
-    alert("🔐 You must be logged in to complete a booking.");
-    window.location.href = '/login.html';
+    showAlert("Login Required", "🔐 You must be logged in to complete a booking.").then(() => {
+      window.location.href = '/login.html';
+    });
     return;
   }
   const guestName = document.getElementById("guestName").value.trim();
   const guestEmail = document.getElementById("guestEmail").value.trim();
   const guestPhone = document.getElementById("guestPhone").value.trim();
-  if (!guestName || !guestEmail) { alert("Fill name & email"); return; }
+  if (!guestName || !guestEmail) {
+    showAlert("Missing Fields", "Please fill in your name and email.");
+    return;
+  }
   if (currentGuest && guestEmail.toLowerCase() !== currentGuest.email.toLowerCase()) {
-    if (!confirm("You are logged in as " + currentGuest.email + " but booking with " + guestEmail + ". Continue?")) return;
+    const confirmResult = await showConfirm("Email Mismatch", "You are logged in as " + currentGuest.email + " but booking with " + guestEmail + ". Continue?");
+    if (!confirmResult) return;
   }
   const ci = document.getElementById("bookingCheckin").value;
   const co = document.getElementById("bookingCheckout").value;
   const availCheck = isHomestayAvailableForRange(selectedHomestay, ci, co);
   if (!availCheck.available) {
-    alert("✕ Cannot book! Homestay is Fully Booked for: " + (availCheck.blockedDates ? availCheck.blockedDates.join(", ") : ci + " → " + co) + "\nPlease pick different dates.");
+    showAlert("Fully Booked", "✕ Cannot book! Homestay is Fully Booked for: " + (availCheck.blockedDates ? availCheck.blockedDates.join(", ") : ci + " → " + co) + "\nPlease pick different dates.");
     return;
   }
   const nights = calculateNights(ci, co);
@@ -1019,28 +1286,25 @@ async function processPayment() {
     });
     if (!saveRes.ok) {
       const err = await saveRes.text();
-      alert("Failed to save booking: " + err);
+      showAlert("Error", "Failed to save booking: " + err);
       return;
     }
     console.log("✅ Booking saved to cloud, proceeding to payment");
   } catch(e) {
-    alert("Network error while saving booking: " + e.message);
+    showAlert("Network Error", "Network error while saving booking: " + e.message);
     return;
   }
 
   if (!CONFIG.toyyibpay.enabled) {
     booking.status = "Paid - Awaiting Check-in";
-    // Update local cache
     const existing = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
     const map = new Map();
     [...existing, booking].forEach(b => { if (b && b.id) map.set(String(b.id), b); });
     localStorage.setItem("kd_bookings", JSON.stringify([...map.values()]));
-    // Block dates
     const bookedDates = getDatesInRange(ci, co);
     if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
     bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
     saveAvailabilityMap();
-    // ✅ Update D1 status
     try {
       await fetch(API_BASE + "/bookings", {
         method: "POST",
@@ -1070,17 +1334,14 @@ async function processPayment() {
     const data = await res.json();
     if (data.simulation) {
       booking.status = "Paid - Awaiting Check-in (Live env not set)";
-      // Update local cache
       const existing = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
       const map = new Map();
       [...existing, booking].forEach(b => { if (b && b.id) map.set(String(b.id), b); });
       localStorage.setItem("kd_bookings", JSON.stringify([...map.values()]));
-      // Block dates
       const bookedDates = getDatesInRange(ci, co);
       if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
       bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
       saveAvailabilityMap();
-      // ✅ FIX: Update D1 status to Paid
       try {
         await fetch(API_BASE + "/bookings", {
           method: "POST",
@@ -1103,10 +1364,10 @@ async function processPayment() {
       localStorage.setItem("kd_bookings", JSON.stringify(bookings));
       window.location.href = data.url;
     } else {
-      alert("Payment creation failed: " + (data.error || "Unknown"));
+      showAlert("Payment Error", "Payment creation failed: " + (data.error || "Unknown"));
     }
   } catch(e) {
-    alert("Payment error: " + e.message + "\nFalling back to simulation.");
+    showAlert("Payment Error", "Payment error: " + e.message + "\nFalling back to simulation.");
     booking.status = "Paid - Awaiting Check-in (Error fallback)";
     bookings.push(booking);
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
@@ -1114,7 +1375,6 @@ async function processPayment() {
     if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
     bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
     saveAvailabilityMap();
-    // ✅ Also update D1 here for safety
     try {
       await fetch(API_BASE + "/bookings", {
         method: "POST",
@@ -1207,14 +1467,14 @@ function openWhatsAppLink(waNumber, message) {
       if (!win) window.open(apiUrl, '_blank');
       return waUrl;
     } catch(e2) {
-      alert("Could not open WhatsApp automatically. Please use this link: " + waUrl);
+      showAlert("WhatsApp Error", "Could not open WhatsApp automatically. Please use this link: " + waUrl);
       return waUrl;
     }
   }
 }
 function chatWithOwner() {
   try {
-    if (!selectedHomestay) { alert('No homestay selected - please open a homestay first'); return; }
+    if (!selectedHomestay) { showAlert("Error", "No homestay selected - please open a homestay first"); return; }
     const waNumber = getOwnerWhatsAppNumber();
     const ci = document.getElementById("detailCheckin")?.value || document.getElementById("bookingCheckin")?.value || document.getElementById("checkin")?.value || '';
     const co = document.getElementById("detailCheckout")?.value || document.getElementById("bookingCheckout")?.value || document.getElementById("checkout")?.value || '';
@@ -1229,17 +1489,17 @@ function chatWithOwner() {
       "Can you confirm availability and facilities? Thanks!\n\n" +
       "From: Kundasang Homestays (Verified)";
     openWhatsAppLink(waNumber, message);
-  } catch (e) { alert('WhatsApp error: ' + e.message); }
+  } catch (e) { showAlert("WhatsApp Error", 'WhatsApp error: ' + e.message); }
 }
 function chatWithOwnerFromBooking(bookingId) {
   const booking = bookings.find(b => b.id === bookingId);
-  if (!booking) { alert('Booking not found'); return; }
+  if (!booking) { showAlert("Error", 'Booking not found'); return; }
   const h = homestays.find(x => x.name === booking.homestay) || allHomestays.find(x => x.name === booking.homestay) || homestays.find(x => x.id === booking.homestayId) || allHomestays.find(x => x.id === booking.homestayId);
-  if (!h) { alert('Homestay not found'); return; }
+  if (!h) { showAlert("Error", 'Homestay not found'); return; }
   let raw = h.whatsapp || h.phone || '';
   let num = String(raw).replace(/[^0-9]/g, '');
   if (num.startsWith('0')) num = '60' + num.substring(1);
-  if (!num) { alert('Owner WhatsApp not available'); return; }
+  if (!num) { showAlert("Error", 'Owner WhatsApp not available'); return; }
   const message = "Hi " + (h.ownerName || booking.owner || 'Owner') + ", I have made a booking for " + booking.homestay + "\n\n" +
     "Booking ID: " + booking.id + "\n" +
     "Check-in: " + booking.checkin + "\n" +
@@ -1304,7 +1564,7 @@ function whatsappWithBookingId(){
     if (waNumber.startsWith('0')) waNumber = '60' + waNumber.substring(1);
   }
   if (!waNumber) {
-    alert('WhatsApp not found - owner must add WhatsApp at listing.');
+    showAlert("WhatsApp Not Found", 'WhatsApp not found - owner must add WhatsApp at listing.');
     return;
   }
   
@@ -1469,13 +1729,10 @@ function renderAvailabilityCalendar(homestay, containerId) {
       try {
         const parsed = JSON.parse(cachedHomestays);
         if (parsed && parsed.length > 0) {
-          // Use cached homestays for instant display
-          // But we need to ensure `homestays` is set so renderGrid works
           const originalHomestays = homestays;
           homestays = parsed;
           renderGrid();
           showHome();
-          // Restore original (will be overwritten by fetch)
           homestays = originalHomestays;
         }
       } catch(e) { /* ignore */ }
@@ -1575,7 +1832,7 @@ function renderAvailabilityCalendar(homestay, containerId) {
                 showPaymentReceipt(b.id, nights, b.checkin, b.checkout, total, billcode, transactionId);
             } else {
                 console.warn("⚠️ Booking not found for ID:", bookingIdParam);
-                alert("✅ Payment successful! Your booking has been confirmed.\n\nBooking ID: " + bookingIdParam + "\nTransaction ID: " + (transactionId || 'N/A'));
+                showAlert("Payment Success", "✅ Payment successful! Your booking has been confirmed.\n\nBooking ID: " + bookingIdParam + "\nTransaction ID: " + (transactionId || 'N/A'));
             }
             window.history.replaceState({}, document.title, window.location.pathname);
         }
