@@ -29,6 +29,9 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
+    // ✅ Ensure store table exists (for updating guests/owners)
+    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+
     // Verify token
     const r = await db.prepare(`
       SELECT * FROM password_resets WHERE token = ? AND used = 0 AND expires_at > datetime('now')
