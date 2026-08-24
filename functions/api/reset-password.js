@@ -1,20 +1,7 @@
-// /api/reset-password.js - Reset password with token
+// /functions/api/reset-password.js - Reset password with token
+import { corsHeaders, sha256, generateSalt } from './_utils.js';
 
-async function sha256(message) {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-function corsHeaders(request) {
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type"
-  };
-}
+const PEPPER = "kundasang-homestay-2026";
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -54,12 +41,9 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // Mark token as used
     await db.prepare(`UPDATE password_resets SET used = 1 WHERE token = ?`).bind(token).run();
 
-    // Update password based on user type
     if (userType === 'guest') {
-      // Update guest password
       const guestsR = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
       let guests = [];
       if (guestsR && guestsR.data) { try { guests = JSON.parse(guestsR.data); } catch(e) {} }
@@ -72,9 +56,9 @@ export async function onRequestPost({ request, env }) {
         });
       }
 
-      // Generate new salt and hash
-      const salt = Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
-      const hashedPassword = await sha256(password + salt);
+      // ✅ FIXED: Use PEPPER in hash
+      const salt = generateSalt();
+      const hashedPassword = await sha256(PEPPER + password + salt);
 
       guests[idx].password = hashedPassword;
       guests[idx].salt = salt;
@@ -85,7 +69,6 @@ export async function onRequestPost({ request, env }) {
         .run();
 
     } else if (userType === 'owner') {
-      // Update owner password
       const r1 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
       let homestays = [];
       if (r1 && r1.data) { try { homestays = JSON.parse(r1.data); } catch(e) {} }
@@ -100,14 +83,14 @@ export async function onRequestPost({ request, env }) {
         });
       }
 
-      const salt = Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
-      const hashedPassword = await sha256(password + salt);
+      // ✅ FIXED: Use PEPPER in hash
+      const salt = generateSalt();
+      const hashedPassword = await sha256(PEPPER + password + salt);
 
       homestays[idx].ownerPasswordHash = hashedPassword;
       homestays[idx].ownerSalt = salt;
       homestays[idx].passwordUpdated = new Date().toISOString();
 
-      // Update both approved and pending
       const approved = homestays.filter(h => h.approved === true || h.verified === true);
       const pending = homestays.filter(h => h.approved === false && h.verified === false);
 
@@ -142,6 +125,6 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-export async function onRequestOptions() {
+export async function onRequestOptions({ request }) {
   return new Response(null, { headers: corsHeaders(request) });
 }
