@@ -1,6 +1,6 @@
-// /api/toyyibpay-create.js - Uses TOYYIBPAY_PAYOUT_ENABLED
+// /api/toyyibpay-create.js - COMPLETE with security fixes
+import { corsHeaders, getClientIP, logAction, enforceHttps } from './_utils.js';
 
-// ========== HELPER FUNCTIONS ==========
 function calculateNights(checkin, checkout) {
   if (!checkin || !checkout) return 1;
   const d1 = new Date(checkin);
@@ -17,15 +17,6 @@ function calculatePrice(ownerPrice, nights = 1) {
   return { nights, base, fee, gatewayFee, total };
 }
 
-function cors() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type"
-  };
-}
-
-// ========== DEMO HOMESTAYS (fallback) ==========
 const DEMO_HOMESTAYS = [
   {
     id: 1,
@@ -68,6 +59,9 @@ const DEMO_HOMESTAYS = [
 ];
 
 export async function onRequestPost({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+  
   try {
     const body = await request.json();
     const { bookingId, homestayId, checkin, checkout, guestEmail, guestName, guestPhone } = body;
@@ -75,11 +69,11 @@ export async function onRequestPost({ request, env }) {
     if (!bookingId || !homestayId || !checkin || !checkout) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
-        headers: { "Content-Type": "application/json", ...cors() }
+        headers: corsHeaders(request)
       });
     }
 
-    // ========== READ FROM ENV ==========
+    // ✅ CORRECT: Check for "true" (not "false")
     const isLive = (env.TOYYIBPAY_PAYOUT_ENABLED === "true");
     const secretKey = env.TOYYIBPAY_SECRET_KEY;
     const categoryCode = env.TOYYIBPAY_CATEGORY_CODE;
@@ -88,16 +82,14 @@ export async function onRequestPost({ request, env }) {
 
     const publicDomain = env.PUBLIC_DOMAIN || new URL(request.url).origin;
 
-    // ========== FIND HOMESTAY ==========
     const db = env.DB;
     if (!db) {
       return new Response(JSON.stringify({ error: "Server configuration error" }), {
         status: 500,
-        headers: { "Content-Type": "application/json", ...cors() }
+        headers: corsHeaders(request)
       });
     }
 
-    // Try DB
     const r1 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
     let homestays = [];
     if (r1 && r1.data) { try { homestays = JSON.parse(r1.data); } catch(e) {} }
@@ -106,40 +98,32 @@ export async function onRequestPost({ request, env }) {
 
     let homestay = homestays.find(h => String(h.id) === String(homestayId));
 
-    // Fallback to demo
     if (!homestay) {
-      console.log(`⚠️ Homestay ${homestayId} not found in DB, checking demo list...`);
       homestay = DEMO_HOMESTAYS.find(h => String(h.id) === String(homestayId));
-      if (homestay) console.log(`✅ Found demo homestay: ${homestay.name}`);
     }
 
     if (!homestay) {
       return new Response(JSON.stringify({ error: "Homestay not found" }), {
         status: 404,
-        headers: { "Content-Type": "application/json", ...cors() }
+        headers: corsHeaders(request)
       });
     }
 
-    // ========== RECALCULATE PRICE ==========
     const nights = calculateNights(checkin, checkout);
     const price = calculatePrice(homestay.ownerPrice, nights);
     const total = price.total;
     const base = price.base;
     const fee = price.fee;
 
-    console.log(`🔐 Server: mode=${useLive ? 'live' : 'simulation'}, Total RM${total} (${nights} nights)`);
-
-    // ========== SIMULATION MODE ==========
     if (!useLive) {
       return new Response(JSON.stringify({
         simulation: true,
         url: `https://toyyibpay.com/${bookingId}?amount=${total}`,
         id: bookingId,
         message: "SIMULATION MODE – Set TOYYIBPAY_PAYOUT_ENABLED=true for live payments"
-      }), { headers: { "Content-Type": "application/json", ...cors() } });
+      }), { headers: corsHeaders(request) });
     }
 
-    // ========== CREATE TOYYIBPAY BILL ==========
     const formData = new FormData();
     formData.append("userSecretKey", secretKey);
     formData.append("categoryCode", categoryCode);
@@ -168,11 +152,21 @@ export async function onRequestPost({ request, env }) {
     if (!res.ok || !data || data[0]?.BillCode === undefined) {
       return new Response(JSON.stringify({ error: "ToyyibPay create failed", details: data }), {
         status: 400,
-        headers: { "Content-Type": "application/json", ...cors() }
+        headers: corsHeaders(request)
       });
     }
 
     const billCode = data[0].BillCode;
+
+    await logAction({
+      db,
+      action: 'toyyibpay_bill_created',
+      admin: 'guest',
+      details: `Bill ${billCode} created for booking ${bookingId}, total RM${total}`,
+      ip: getClientIP(request),
+      userId: guestEmail,
+      homestayId: homestayId
+    });
 
     return new Response(JSON.stringify({
       success: true,
@@ -181,17 +175,17 @@ export async function onRequestPost({ request, env }) {
       billCode,
       amount: total,
       bookingId
-    }), { headers: { "Content-Type": "application/json", ...cors() } });
+    }), { headers: corsHeaders(request) });
 
   } catch (e) {
     console.error("❌ ToyyibPay error:", e.message);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
-      headers: { "Content-Type": "application/json", ...cors() }
+      headers: corsHeaders(request)
     });
   }
 }
 
-export async function onRequestOptions() {
-  return new Response(null, { headers: cors() });
+export async function onRequestOptions({ request }) {
+  return new Response(null, { headers: corsHeaders(request) });
 }
