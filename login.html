@@ -435,7 +435,7 @@
 <script src="animations.js"></script>
 <script>
 // =============================================================
-// CUSTOM MODAL SYSTEM
+// CUSTOM MODAL SYSTEM (FIXED - no "cancelled" errors)
 // =============================================================
 let modalResolve = null;
 let modalReject = null;
@@ -456,15 +456,14 @@ function showModal(title, message, buttons) {
       el.textContent = btn.label;
       el.className = `btn ${btn.class || 'btn-primary'}`;
       el.onclick = () => {
-        closeModal();
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
         if (btn.value !== undefined) resolve(btn.value);
         else resolve(true);
       };
       footerEl.appendChild(el);
     });
 
-    modalResolve = resolve;
-    modalReject = reject;
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
   });
@@ -474,11 +473,12 @@ function closeModal() {
   const overlay = document.getElementById('customModal');
   overlay.classList.remove('active');
   document.body.style.overflow = '';
-  if (modalReject) modalReject('cancelled');
 }
 
 function modalConfirm() {
-  closeModal();
+  const overlay = document.getElementById('customModal');
+  overlay.classList.remove('active');
+  document.body.style.overflow = '';
   if (modalResolve) modalResolve(true);
 }
 
@@ -494,22 +494,21 @@ function showConfirm(title, message) {
   ]);
 }
 
-// ---- Handle ESC key ----
+// ---- Close modal on ESC or outside click ----
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     const overlay = document.getElementById('customModal');
     if (overlay.classList.contains('active')) {
-      closeModal();
-      if (modalResolve) modalResolve(null);
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
     }
   }
 });
 
-// ---- Click outside to close ----
 document.getElementById('customModal').addEventListener('click', function(e) {
   if (e.target === this) {
-    closeModal();
-    if (modalResolve) modalResolve(null);
+    this.classList.remove('active');
+    document.body.style.overflow = '';
   }
 });
 
@@ -563,7 +562,7 @@ function logoutGuest() {
 }
 
 // =============================================================
-// LOGIN HANDLER
+// LOGIN HANDLER (FIXED - no "cancelled" error)
 // =============================================================
 async function handleLogin(e) {
   e.preventDefault();
