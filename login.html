@@ -441,7 +441,7 @@ let modalResolve = null;
 let modalReject = null;
 
 function showModal(title, message, buttons) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
     const titleEl = document.getElementById('modalTitle');
     const bodyEl = document.getElementById('modalBody');
@@ -479,7 +479,6 @@ function modalConfirm() {
   const overlay = document.getElementById('customModal');
   overlay.classList.remove('active');
   document.body.style.overflow = '';
-  if (modalResolve) modalResolve(true);
 }
 
 // ---- Public API ----
@@ -562,7 +561,7 @@ function logoutGuest() {
 }
 
 // =============================================================
-// LOGIN HANDLER (FIXED - no "cancelled" error)
+// LOGIN HANDLER (FIXED - redirects to My Bookings)
 // =============================================================
 async function handleLogin(e) {
   e.preventDefault();
@@ -591,8 +590,12 @@ async function handleLogin(e) {
       currentGuest = data.guest;
       localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
       renderGuestNav();
-      await showAlert('Welcome Back', 'Welcome back ' + data.guest.name + '!');
-      window.location.href = '/';
+      
+      // ✅ Show welcome alert, then redirect to My Bookings
+      await showAlert('Welcome Back!', 'Welcome back ' + data.guest.name + '! You will be redirected to your bookings.');
+      
+      // ✅ Redirect to My Bookings page
+      window.location.href = '/mybookings.html';
     } else {
       errorEl.textContent = data.error || 'Login failed. Please try again.';
       errorEl.classList.remove('hidden');
