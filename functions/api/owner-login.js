@@ -1,8 +1,7 @@
-// /functions/api/owner-login.js - Owner Login for Pages Functions
+// /functions/api/owner-login.js
 import { corsHeaders, getClientIP, sha256, enforceHttps } from './_utils.js';
 
 const PEPPER = "kundasang-homestay-2026";
-
 const loginAttempts = new Map();
 
 export async function onRequestPost({ request, env }) {
@@ -102,7 +101,6 @@ export async function onRequestPost({ request, env }) {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Set-Cookie': `owner_token=${ownerToken}; HttpOnly; Secure; SameSite=Strict; Max-Age=86400; Path=/`,
         ...corsHeaders(request)
       }
     });
