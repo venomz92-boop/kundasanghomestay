@@ -393,6 +393,19 @@
       color: #4b5563;
       line-height: 1.6;
     }
+    .thankyou-modal .booking-id-display {
+      font-size: 22px;
+      font-weight: 700;
+      color: #0F382E;
+      font-family: monospace;
+      letter-spacing: 1px;
+      background: #f3f4f6;
+      padding: 8px 20px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-top: 4px;
+      border: 2px dashed #3FD0D4;
+    }
   </style>
 </head>
 <body>
@@ -475,11 +488,11 @@
         Your booking has been confirmed.
         <br><br>
         <strong style="color:#0F382E;">Booking Confirmation ID:</strong><br>
-        <span id="thankyouBookingId" style="font-size:20px;font-weight:700;color:#0F382E;font-family:monospace;letter-spacing:1px;background:#f3f4f6;padding:6px 16px;border-radius:4px;display:inline-block;margin-top:4px;">-</span>
+        <span class="booking-id-display" id="thankyouBookingId">-</span>
         <br><br>
         Please save this ID for your reference.
         <br>
-        <span style="font-size:12px;color:#9ca3af;">You can view your bookings details in "My Bookings".</span>
+        <span style="font-size:12px;color:#9ca3af;">You can view your bookings in "My Bookings".</span>
       </div>
     </div>
     <div class="modal-footer" style="justify-content:center; border-top: none; padding-top: 0;">
@@ -730,7 +743,13 @@ document.getElementById('customModal').addEventListener('click', function(e) {
 // =============================================================
 // THANK YOU MODAL
 // =============================================================
-function showThankYouModal() {
+function showThankYouModal(bookingId) {
+  // Set the booking ID in the modal
+  if (bookingId) {
+    document.getElementById('thankyouBookingId').textContent = bookingId;
+  } else {
+    document.getElementById('thankyouBookingId').textContent = lastBookingId || 'N/A';
+  }
   const overlay = document.getElementById('thankyouModal');
   overlay.classList.add('active');
   document.body.style.overflow = 'hidden';
@@ -740,7 +759,6 @@ function closeThankYouAndReload() {
   const overlay = document.getElementById('thankyouModal');
   overlay.classList.remove('active');
   document.body.style.overflow = '';
-  
   // Reload the page to ensure fresh data
   window.location.reload();
 }
@@ -1382,7 +1400,7 @@ async function processPayment() {
         })
       });
     } catch(e) { console.warn("Cloud sync error (simulation):", e); }
-    showThankYouModal();
+    showThankYouModal(bookingId);
     return;
   }
 
@@ -1420,7 +1438,7 @@ async function processPayment() {
         });
         console.log("☁️ Cloud status updated to Paid (simulation)");
       } catch(e) { console.warn("Cloud sync error (simulation):", e); }
-      showThankYouModal();
+      showThankYouModal(bookingId);
       return;
     }
     if (data.url) {
@@ -1452,7 +1470,7 @@ async function processPayment() {
         })
       });
     } catch(e) {}
-    showThankYouModal();
+    showThankYouModal(bookingId);
   }
 }
 
@@ -1618,7 +1636,7 @@ function closeBookingSuccess(){
   document.getElementById("bookingSuccessModal").style.display="none";
   closeBooking(); 
   closeDetail(); 
-  showThankYouModal();
+  showThankYouModal(lastBookingId);
 }
 
 function whatsappWithBookingId(){
@@ -1897,11 +1915,12 @@ function renderAvailabilityCalendar(homestay, containerId) {
                 const nights = b.nights || calculateNights(b.checkin, b.checkout);
                 const total = b.total || 0;
                 showPaymentReceipt(b.id, nights, b.checkin, b.checkout, total, billcode, transactionId);
+                // Store booking ID for thank you modal
+                lastBookingId = b.id;
             } else {
                 console.warn("⚠️ Booking not found for ID:", bookingIdParam);
                 showAlert("Payment Success", "✅ Payment successful! Your booking has been confirmed.\n\nBooking ID: " + bookingIdParam + "\nTransaction ID: " + (transactionId || 'N/A'));
-                // Show thank you modal even if booking not found in local cache
-                showThankYouModal();
+                showThankYouModal(bookingIdParam);
             }
             window.history.replaceState({}, document.title, window.location.pathname);
         }
