@@ -624,7 +624,7 @@ async function loadBookings() {
           `<span class="text-xs text-zinc-400">No guest phone</span>`;
 
         html += `
-          <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3 animate-on-scroll">
+          <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3 animate-on-scroll" style="background:white; border:1px solid #d1d5db; border-radius:2px;">
             <div class="flex-1">
               <div class="font-bold text-sm">${homestayName}</div>
               <div class="text-xs text-zinc-500">${checkin} → ${checkout} • ${nights} nights • Guest: ${guestName}</div>
@@ -641,11 +641,16 @@ async function loadBookings() {
         `;
       } catch (err) {
         console.error("Error rendering booking at index", i, err);
-        // Optionally add a fallback entry for this booking
-        html += `<div class="border p-4 sharp text-sm text-red-500">⚠️ Error displaying booking (ID: ${filteredBookings[i]?.id || 'unknown'})</div>`;
+        // Fallback: show raw booking data as text
+        html += `<div class="border p-4 sharp text-sm bg-yellow-50 border-yellow-300">
+          <strong>⚠️ Could not render booking</strong><br>
+          <pre style="white-space:pre-wrap;font-size:11px;max-height:200px;overflow:auto;">${JSON.stringify(filteredBookings[i], null, 2)}</pre>
+        </div>`;
       }
     }
 
+    // Debug: log the first 500 chars of HTML
+    console.log("📝 HTML snippet (first 500 chars):", html.substring(0, 500));
     listDiv.innerHTML = html;
     console.log("✅ Rendered bookings HTML length:", html.length);
   } catch(e) {
