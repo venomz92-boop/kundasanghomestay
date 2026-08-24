@@ -1,90 +1,123 @@
-/* =========================================================
-   ANIMATIONS – Kundasang Homestay
-   Inspired by Urban Rentalhub
-   ========================================================= */
+// =============================================================
+// animations.js – Safe for ALL pages + Mobile Menu (Chrome fix)
+// =============================================================
 
-/* ---- Page load fade-in ---- */
-.page-content {
-    opacity: 0;
-    animation: fadeInUp 0.7s ease forwards;
-}
+document.addEventListener('DOMContentLoaded', function() {
 
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
+    // ---- 1. Navbar scroll effect ----
+    const header = document.querySelector('header');
+    if (header) {
+        let ticking = false;
+        window.addEventListener('scroll', function() {
+            if (!ticking) {
+                window.requestAnimationFrame(function() {
+                    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+                    if (scrollY > 80) {
+                        header.classList.add('nav-scrolled');
+                    } else {
+                        header.classList.remove('nav-scrolled');
+                    }
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        }, { passive: true });
     }
-    to {
-        opacity: 1;
-        transform: translateY(0);
+
+    // ---- 2. Scroll reveal ----
+    setTimeout(function() {
+        const revealElements = document.querySelectorAll('.animate-on-scroll');
+        if (revealElements.length > 0) {
+            const observer = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+            
+            revealElements.forEach(function(el) {
+                observer.observe(el);
+            });
+        }
+    }, 200);
+
+    // ---- 3. Smooth anchor scroll ----
+    document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
+        anchor.addEventListener('click', function(e) {
+            const targetId = this.getAttribute('href');
+            if (targetId === '#') return;
+            const target = document.querySelector(targetId);
+            if (target) {
+                e.preventDefault();
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    });
+
+    // ---- 4. Mobile Menu Setup (Chrome/Safari compatible) ----
+    setupMobileMenu();
+
+    console.log('✅ Animations loaded (all pages)');
+});
+
+// =============================================================
+// MOBILE MENU – Robust version for ALL browsers
+// =============================================================
+
+function setupMobileMenu() {
+    const menuBtn = document.getElementById('mobileMenuBtn');
+    const nav = document.getElementById('mobileNav');
+
+    if (!menuBtn || !nav) {
+        console.warn('⚠️ Mobile menu elements not found on this page');
+        return;
+    }
+
+    // Remove any existing listeners (prevent duplicates)
+    const newBtn = menuBtn.cloneNode(true);
+    menuBtn.parentNode.replaceChild(newBtn, menuBtn);
+
+    // Add click listener to the button
+    newBtn.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent event from bubbling
+        nav.classList.toggle('open');
+        console.log('📱 Menu toggled:', nav.classList.contains('open') ? 'open' : 'closed');
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', function(e) {
+        if (nav.classList.contains('open') && 
+            !nav.contains(e.target) && 
+            e.target !== newBtn && 
+            !newBtn.contains(e.target)) {
+            nav.classList.remove('open');
+            console.log('📱 Menu closed (outside click)');
+        }
+    });
+
+    // Close menu on escape key (accessibility)
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && nav.classList.contains('open')) {
+            nav.classList.remove('open');
+            console.log('📱 Menu closed (escape key)');
+        }
+    });
+
+    console.log('✅ Mobile menu setup complete (robust)');
+}
+
+// Global toggle function (fallback for inline onclick)
+function toggleMobileMenu() {
+    const nav = document.getElementById('mobileNav');
+    if (nav) {
+        nav.classList.toggle('open');
+        console.log('📱 toggleMobileMenu called:', nav.classList.contains('open') ? 'open' : 'closed');
+    } else {
+        console.warn('⚠️ #mobileNav not found');
     }
 }
+window.toggleMobileMenu = toggleMobileMenu;
 
-/* ---- Scroll reveal (cards, sections) ---- */
-.animate-on-scroll {
-    opacity: 0;
-    transform: translateY(40px);
-    transition: opacity 0.7s cubic-bezier(0.2, 0, 0, 1),
-                transform 0.7s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.animate-on-scroll.visible {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-/* ---- Stagger children (optional) ---- */
-.animate-on-scroll.stagger-children > * {
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 0.5s ease, transform 0.5s ease;
-    transition-delay: calc(0.08s * var(--index, 0));
-}
-.animate-on-scroll.stagger-children.visible > * {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-/* ---- Card hover lift (already present, enhanced) ---- */
-.card:hover,
-.homestay-card:hover,
-.listing-card:hover {
-    transform: translateY(-6px) scale(1.01);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
-    transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1),
-                box-shadow 0.3s ease;
-}
-
-/* ---- Button hover glow ---- */
-.btn-primary,
-.btn-success,
-.btn-warning,
-.btn-danger,
-.refresh-btn,
-button[class*="btn-"] {
-    transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.btn-primary:hover,
-.refresh-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(63, 208, 212, 0.35);
-}
-
-/* ---- Navbar scroll effect (applied via JS) ---- */
-header.nav-scrolled {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.08) !important;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-/* ---- Reduced motion ---- */
-@media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-    }
-}
+console.log('✅ Mobile menu loaded (global)');
