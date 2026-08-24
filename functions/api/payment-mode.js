@@ -1,6 +1,27 @@
 // /api/payment-mode.js - WITH RAW DIAGNOSTIC
 
 export async function onRequestGet({ env }) {
+  // ===== DEBUG: Show raw env value =====
+  const rawValue = env.TOYYIBPAY_PAYOUT_ENABLED;
+  
+  return new Response(JSON.stringify({
+    rawValue: rawValue,
+    type: typeof rawValue,
+    isTrue: rawValue === "true",
+    isFalse: rawValue === "false",
+    isUndefined: rawValue === undefined,
+    isNull: rawValue === null,
+    message: "DEBUG - Check your env value"
+  }), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*"
+    }
+  });
+}
+
+export async function onRequestGet({ env }) {
   // ============================================================
   // TOGGLE LIVE MODE WITH TOYYIBPAY_PAYOUT_ENABLED:
   //   "true"  = LIVE (ToyyibPay)
