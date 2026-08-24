@@ -253,7 +253,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
         <button onclick="restoreDemos()" class="text-xs border sharp px-3 py-1">Restore Demos</button>
         <button onclick="resetDemoEdits()" class="text-xs border sharp px-3 py-1">Reset Edits</button>
         <button onclick="forceSyncPending()" class="text-xs border sharp px-3 py-1 bg-blue-500 text-white">🔄 Force Sync Pending</button>
-        <button onclick="if(confirm('Clear all bookings?')){localStorage.removeItem('kd_bookings'); bookings=[]; renderAdmin();}" class="text-xs border sharp px-3 py-1 bg-red-50">Clear Bookings (fix duplicates)</button>
+        <button onclick="clearLocalBookings()" class="text-xs border sharp px-3 py-1 bg-red-50">Clear Bookings (fix duplicates)</button>
         <button onclick="clearAllBookingsCloud()" class="text-xs border sharp px-3 py-1 bg-red-600 text-white">PURGE CLOUD D1 (Fix F5 bug)</button>
       </div>
     </div>
@@ -275,7 +275,7 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 <!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
-// ========== CUSTOM MODAL SYSTEM ==========
+// ========== CUSTOM MODAL SYSTEM (with silent cancellation) ==========
 let modalResolve = null;
 let modalReject = null;
 
@@ -313,15 +313,23 @@ function closeModal() {
   const overlay = document.getElementById('customModal');
   overlay.classList.remove('active');
   document.body.style.overflow = '';
-  if (modalReject) modalReject('cancelled');
+  // Don't reject - just resolve with null to avoid "cancelled" errors
+  if (modalResolve) {
+    modalResolve(null);
+    modalResolve = null;
+  }
+  modalReject = null;
 }
 
 function modalConfirm() {
   closeModal();
-  if (modalResolve) modalResolve(true);
+  if (modalResolve) {
+    modalResolve(true);
+    modalResolve = null;
+  }
 }
 
-// ---- Public API ----
+// ---- Public API (silent cancellation) ----
 function showAlert(title, message) {
   return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
 }
@@ -381,14 +389,20 @@ document.addEventListener('keydown', function(e) {
     const overlay = document.getElementById('customModal');
     if (overlay.classList.contains('active')) {
       closeModal();
-      if (modalResolve) modalResolve(null);
+      if (modalResolve) {
+        modalResolve(null);
+        modalResolve = null;
+      }
     }
   }
 });
 document.getElementById('customModal').addEventListener('click', function(e) {
   if (e.target === this) {
     closeModal();
-    if (modalResolve) modalResolve(null);
+    if (modalResolve) {
+      modalResolve(null);
+      modalResolve = null;
+    }
   }
 });
 
@@ -1322,6 +1336,16 @@ async function clearAllBookingsCloud() {
   } 
 }
 
+// ====== CLEAR LOCAL BOOKINGS (was inline confirm) ======
+async function clearLocalBookings() {
+  const confirmed = await showConfirm("Clear Local Bookings", "Clear all bookings from local storage? This will not affect the cloud.");
+  if (!confirmed) return;
+  localStorage.removeItem('kd_bookings');
+  bookings = [];
+  renderAdmin();
+  await showAlert("Cleared", "Local bookings cleared. Refresh cloud data to restore.");
+}
+
 function renderAvailabilityTab(){ 
   const div = document.getElementById("availabilityTable"); 
   if (!div) return;
@@ -1406,13 +1430,16 @@ async function deleteGuest(idx){
   }catch(e){ await showAlert("Error", "Deleted locally but cloud fail: "+e.message); } 
 }
 
+// ====== DELETE BOOKING (FIXED - handles cancellation gracefully) ======
 async function deleteBooking(id){ 
   const confirmed = await showConfirm("Delete Booking", "Delete "+id+"? This will free blocked dates?");
-  if (!confirmed) return;
+  if (!confirmed) return; // User cancelled
+  
   const toDelete = bookings.find(x=> String(x.id)===String(id)); 
   const homestayId = toDelete?.homestayId || toDelete?.homestay; 
   bookings=bookings.filter(x=> String(x.id)!==String(id)); 
   localStorage.setItem("kd_bookings", JSON.stringify(bookings)); 
+  
   if(homestayId){ 
     const remainingDates = new Set(); 
     bookings.filter(b => String(b.homestayId)===String(homestayId) || String(b.homestay)===String(homestayId)).forEach(b=>{ 
@@ -1442,7 +1469,12 @@ async function deleteBooking(id){
       await fetchCloudData(); 
       renderAdmin(); 
     } 
-  } catch(e){ await showAlert("Error", "Delete error: "+e.message); } 
+  } catch(e){ 
+    // If user cancelled the fetch, don't show error
+    if (e !== 'cancelled') {
+      await showAlert("Error", "Delete error: "+e.message); 
+    }
+  } 
 }
 
 function saveToyyibPayConfig(){ 
