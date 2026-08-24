@@ -38,13 +38,13 @@ export async function onRequestPost({ request, env }) {
     const cleanEmail = email ? email.toLowerCase().trim() : '';
 
     if (!cleanEmail || !trimmedPassword) {
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
+      return new Response(JSON.stringify({ error: "Email and password are required" }), { 
         status: 400, 
         headers: corsHeaders(request) 
       });
     }
     if (!validateEmail(cleanEmail)) {
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
+      return new Response(JSON.stringify({ error: "Invalid email format" }), { 
         status: 400, 
         headers: corsHeaders(request) 
       });
@@ -63,6 +63,7 @@ export async function onRequestPost({ request, env }) {
 
     const db = env.DB;
     if (!db) {
+      console.error("❌ No database configured");
       return new Response(JSON.stringify({ error: "Server configuration error" }), { 
         status: 500, 
         headers: corsHeaders(request) 
@@ -70,15 +71,42 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ✅ Ensure store table exists
-    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+    try {
+      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+    } catch (e) {
+      console.error("❌ Failed to create store table:", e);
+      return new Response(JSON.stringify({ error: "Database error" }), { 
+        status: 500, 
+        headers: corsHeaders(request) 
+      });
+    }
 
-    const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
+    // Get guests
     let guests = [];
-    if (r && r.data) { try { guests = JSON.parse(r.data); } catch(e) {} }
+    try {
+      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
+      if (r && r.data) { 
+        try { guests = JSON.parse(r.data); } catch(e) { console.error("Failed to parse guests:", e); }
+      }
+    } catch (e) {
+      console.error("❌ Failed to fetch guests:", e);
+      return new Response(JSON.stringify({ error: "Database error" }), { 
+        status: 500, 
+        headers: corsHeaders(request) 
+      });
+    }
 
-    const bannedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_banned_guests").first();
+    // Get banned guests
     let banned = [];
-    if (bannedRes && bannedRes.data) { try { banned = JSON.parse(bannedRes.data); } catch(e) {} }
+    try {
+      const bannedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_banned_guests").first();
+      if (bannedRes && bannedRes.data) { 
+        try { banned = JSON.parse(bannedRes.data); } catch(e) {}
+      }
+    } catch (e) {
+      console.error("❌ Failed to fetch banned guests:", e);
+    }
+
     if (banned.includes(cleanEmail)) {
       recordLoginAttempt(cleanEmail);
       return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
@@ -96,7 +124,7 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // ✅ Use stored salt (not just global pepper)
+    // ✅ Use stored salt
     const hashedInput = await sha256(PEPPER + trimmedPassword + (user.salt || ''));
 
     if (hashedInput !== user.password) {
@@ -114,7 +142,6 @@ export async function onRequestPost({ request, env }) {
 
     const { password: _, salt: __, ...safeUser } = user;
     
-    // ✅ Set HttpOnly cookie
     return new Response(JSON.stringify({
       success: true,
       guest: safeUser,
@@ -131,7 +158,10 @@ export async function onRequestPost({ request, env }) {
 
   } catch (e) {
     console.error("❌ Login error:", e.message);
-    return new Response(JSON.stringify({ error: "Login failed. Please try again later." }), { 
+    console.error("Stack:", e.stack);
+    return new Response(JSON.stringify({ 
+      error: "Login failed: " + e.message 
+    }), { 
       status: 500, 
       headers: corsHeaders(request) 
     });
