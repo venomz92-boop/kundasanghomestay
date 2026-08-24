@@ -829,8 +829,10 @@ function safeHTML(html) {
 }
 
 // =============================================================
-// SHA256 HELPER
+// SHA256 HELPER (with PEPPER)
 // =============================================================
+const PEPPER = "kundasang-homestay-2026";
+
 async function sha256(message) {
     const msgBuffer = new TextEncoder().encode(message);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -1123,7 +1125,7 @@ function renderBlockedDatesList() {
 }
 
 // =============================================================
-// SUBMIT HOMESTAY
+// SUBMIT HOMESTAY (FIXED – includes PEPPER in password hash)
 // =============================================================
 async function submitHomestay() {
     const statusEl = document.getElementById('submitStatus');
@@ -1133,7 +1135,8 @@ async function submitHomestay() {
         console.log("🔍 Starting submit...");
 
         const ownerName = document.getElementById("listOwnerName").value.trim();
-        const whatsapp = document.getElementById("listWhatsapp").value.trim();
+        const rawWhatsapp = document.getElementById("listWhatsapp").value.trim();
+        const whatsapp = rawWhatsapp.replace(/[^0-9]/g, ''); // keep only digits
         const ownerEmail = document.getElementById("listOwnerEmail").value.trim();
         const homestayName = document.getElementById("listHomestayName").value.trim();
         const area = document.getElementById("listArea").value;
@@ -1184,9 +1187,9 @@ async function submitHomestay() {
             return;
         }
 
-        // --- Hash password ---
+        // --- Hash password using PEPPER (matches owner-login.js) ---
         const ownerSalt = generateSalt();
-        const ownerPasswordHash = await sha256(ownerPassword + ownerSalt);
+        const ownerPasswordHash = await sha256(PEPPER + ownerPassword + ownerSalt);
 
         // --- Build homestay object ---
         const newHome = {
@@ -1199,7 +1202,7 @@ async function submitHomestay() {
             image: tempPhotos[0],
             images: tempPhotos,
             ownerName: ownerName,
-            whatsapp: whatsapp,
+            whatsapp: whatsapp, // store clean digits
             ownerEmail: ownerEmail,
             ownerBank: bankName,
             ownerBankAccount: bankAccount,
