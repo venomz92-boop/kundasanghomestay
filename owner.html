@@ -529,7 +529,7 @@ async function ownerLogin() {
 }
 
 // =============================================
-// LOAD BOOKINGS (FIXED with robust rendering)
+// LOAD BOOKINGS (FIXED - removed animate-on-scroll)
 // =============================================
 async function loadBookings() {
   if (!ownerToken) {
@@ -548,7 +548,6 @@ async function loadBookings() {
     bookings = await res.json();
     console.log("📊 Bookings from API:", bookings);
 
-    // Ensure bookings is an array
     if (!Array.isArray(bookings)) bookings = [];
 
     let filteredBookings = bookings;
@@ -569,12 +568,10 @@ async function loadBookings() {
       return;
     }
 
-    // Build HTML with try-catch per booking to avoid breaking the whole list
     let html = '';
     for (let i = 0; i < filteredBookings.length; i++) {
       try {
         const b = filteredBookings[i];
-        // Safely extract fields with fallbacks
         const id = b.id || 'unknown';
         const homestayName = b.homestay || b.homestayName || 'Unknown Homestay';
         const checkin = b.checkin || 'N/A';
@@ -623,8 +620,9 @@ async function loadBookings() {
           `<button onclick="openWhatsappToGuest('${id}')" class="btn-whatsapp-sm">💬 WhatsApp Guest</button>` : 
           `<span class="text-xs text-zinc-400">No guest phone</span>`;
 
+        // FIX: removed animate-on-scroll, added opacity:1, fixed flex classes
         html += `
-          <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3 animate-on-scroll" style="background:white; border:1px solid #d1d5db; border-radius:2px;">
+          <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3" style="background:white; border:1px solid #d1d5db; border-radius:2px; opacity:1;">
             <div class="flex-1">
               <div class="font-bold text-sm">${homestayName}</div>
               <div class="text-xs text-zinc-500">${checkin} → ${checkout} • ${nights} nights • Guest: ${guestName}</div>
@@ -641,15 +639,13 @@ async function loadBookings() {
         `;
       } catch (err) {
         console.error("Error rendering booking at index", i, err);
-        // Fallback: show raw booking data as text
-        html += `<div class="border p-4 sharp text-sm bg-yellow-50 border-yellow-300">
+        html += `<div class="border p-4 sharp text-sm bg-yellow-50 border-yellow-300" style="opacity:1;">
           <strong>⚠️ Could not render booking</strong><br>
           <pre style="white-space:pre-wrap;font-size:11px;max-height:200px;overflow:auto;">${JSON.stringify(filteredBookings[i], null, 2)}</pre>
         </div>`;
       }
     }
 
-    // Debug: log the first 500 chars of HTML
     console.log("📝 HTML snippet (first 500 chars):", html.substring(0, 500));
     listDiv.innerHTML = html;
     console.log("✅ Rendered bookings HTML length:", html.length);
