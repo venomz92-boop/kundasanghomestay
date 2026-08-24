@@ -1,6 +1,6 @@
 // /api/owner-update-booking.js - Owner can change booking dates and confirm check-in
 
-function corsHeaders() {
+function corsHeaders(request) {
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -59,19 +59,19 @@ export async function onRequestPost({ request, env }) {
   try {
     const ownerData = verifyOwner(request);
     if (!ownerData) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders(request) });
     }
 
     const body = await request.json();
     const { bookingId, checkin, checkout, action } = body;
 
     if (!bookingId) {
-      return new Response(JSON.stringify({ error: "Missing bookingId" }), { status: 400, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Missing bookingId" }), { status: 400, headers: corsHeaders(request) });
     }
 
     const db = env.DB;
     if (!db) {
-      return new Response(JSON.stringify({ error: "Server error" }), { status: 500, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Server error" }), { status: 500, headers: corsHeaders(request) });
     }
 
     // Fetch bookings
@@ -81,7 +81,7 @@ export async function onRequestPost({ request, env }) {
 
     const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
     if (idx === -1) {
-      return new Response(JSON.stringify({ error: "Booking not found" }), { status: 404, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Booking not found" }), { status: 404, headers: corsHeaders(request) });
     }
 
     const booking = bookings[idx];
@@ -89,19 +89,19 @@ export async function onRequestPost({ request, env }) {
     // SECURITY: Verify this owner owns this homestay
     if (String(booking.homestayId) !== String(ownerData.ownerId)) {
       console.warn(`⚠️ Owner ${ownerData.whatsapp} tried to modify booking for homestay ${booking.homestayId} but owns ${ownerData.ownerId}`);
-      return new Response(JSON.stringify({ error: "Unauthorized: You do not own this homestay" }), { status: 403, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Unauthorized: You do not own this homestay" }), { status: 403, headers: corsHeaders(request) });
     }
 
     // ========== ACTION: CHANGE DATES ==========
     if (action === "changeDates") {
       if (!checkin || !checkout) {
-        return new Response(JSON.stringify({ error: "Missing checkin or checkout" }), { status: 400, headers: corsHeaders() });
+        return new Response(JSON.stringify({ error: "Missing checkin or checkout" }), { status: 400, headers: corsHeaders(request) });
       }
 
       const d1 = new Date(checkin);
       const d2 = new Date(checkout);
       if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
-        return new Response(JSON.stringify({ error: "Invalid dates" }), { status: 400, headers: corsHeaders() });
+        return new Response(JSON.stringify({ error: "Invalid dates" }), { status: 400, headers: corsHeaders(request) });
       }
 
       // Get homestay to recalculate price
@@ -113,7 +113,7 @@ export async function onRequestPost({ request, env }) {
 
       const homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
       if (!homestay) {
-        return new Response(JSON.stringify({ error: "Homestay not found" }), { status: 404, headers: corsHeaders() });
+        return new Response(JSON.stringify({ error: "Homestay not found" }), { status: 404, headers: corsHeaders(request) });
       }
 
       // Check availability (excluding this booking's own dates)
@@ -134,7 +134,7 @@ export async function onRequestPost({ request, env }) {
       if (overlap.length > 0) {
         return new Response(JSON.stringify({ 
           error: `Dates overlap with existing bookings: ${overlap.join(', ')}` 
-        }), { status: 400, headers: corsHeaders() });
+        }), { status: 400, headers: corsHeaders(request) });
       }
 
       // Recalculate price
@@ -172,7 +172,7 @@ export async function onRequestPost({ request, env }) {
         success: true,
         message: `Booking dates updated to ${checkin} → ${checkout}`,
         booking: bookings[idx]
-      }), { status: 200, headers: corsHeaders() });
+      }), { status: 200, headers: corsHeaders(request) });
     }
 
     // ========== ACTION: CONFIRM CHECK-IN ==========
@@ -182,14 +182,14 @@ export async function onRequestPost({ request, env }) {
         return new Response(JSON.stringify({
           success: false,
           message: `Booking ${bookingId} already checked in on ${booking.payoutDate}`
-        }), { status: 200, headers: corsHeaders() });
+        }), { status: 200, headers: corsHeaders(request) });
       }
 
       // Check if paid
       if (!booking.status || !booking.status.toLowerCase().includes("paid")) {
         return new Response(JSON.stringify({ 
           error: "Booking is not paid yet. Cannot check-in." 
-        }), { status: 400, headers: corsHeaders() });
+        }), { status: 400, headers: corsHeaders(request) });
       }
 
       // Call the payout API
@@ -205,7 +205,7 @@ export async function onRequestPost({ request, env }) {
       const homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
 
       if (!homestay) {
-        return new Response(JSON.stringify({ error: "Homestay not found" }), { status: 404, headers: corsHeaders() });
+        return new Response(JSON.stringify({ error: "Homestay not found" }), { status: 404, headers: corsHeaders(request) });
       }
 
       // Get the bank code from the booking (which came from the homestay)
@@ -251,17 +251,17 @@ export async function onRequestPost({ request, env }) {
         message: `✅ Check-in confirmed! Owner (${homestay.ownerName}) received RM${ownerAmount}. Your fee RM${finalFee} is available for withdrawal.`,
         booking: bookings[idx],
         payout: payoutData
-      }), { status: 200, headers: corsHeaders() });
+      }), { status: 200, headers: corsHeaders(request) });
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action" }), { status: 400, headers: corsHeaders() });
+    return new Response(JSON.stringify({ error: "Invalid action" }), { status: 400, headers: corsHeaders(request) });
 
   } catch (e) {
     console.error("❌ Owner update booking error:", e.message);
-    return new Response(JSON.stringify({ error: "Server error: " + e.message }), { status: 500, headers: corsHeaders() });
+    return new Response(JSON.stringify({ error: "Server error: " + e.message }), { status: 500, headers: corsHeaders(request) });
   }
 }
 
 export async function onRequestOptions() {
-  return new Response(null, { headers: corsHeaders() });
+  return new Response(null, { headers: corsHeaders(request) });
 }
