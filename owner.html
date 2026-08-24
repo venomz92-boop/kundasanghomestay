@@ -23,11 +23,266 @@
     .refresh-btn { background: #3FD0D4; color: white; padding: 6px 16px; border-radius: 2px; border: none; font-weight: 600; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
     .refresh-btn:hover { background: #2bbfc4; }
     .homestay-selector { border: 1px solid #d1d5db; border-radius: 2px; padding: 6px 12px; font-size: 13px; background: white; }
+    /* ===== MOBILE MENU ===== */
+    #mobileNav {
+      position: fixed;
+      top: 80px;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: white;
+      border-top: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      transform: translateY(-10px);
+      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity 0.3s ease,
+                  transform 0.3s ease;
+    }
+    #mobileNav.open {
+      max-height: 80vh;
+      opacity: 1;
+      overflow-y: auto;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    #mobileNav a,
+    #mobileNav button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 14px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #212121;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      transition: background 0.15s, color 0.15s;
+      background: white;
+    }
+    #mobileNav a:hover,
+    #mobileNav button:hover {
+      background: #f8f5f0;
+      color: #3FD0D4;
+    }
+    #mobileNav .mobile-agent-link {
+      color: #7c3aed !important;
+      border: 1px solid #7c3aed !important;
+      margin: 8px 16px;
+      padding: 10px 16px !important;
+      border-radius: 2px !important;
+      width: auto !important;
+      display: inline-block !important;
+    }
+    #mobileNav .mobile-agent-link:hover {
+      background: #7c3aed !important;
+      color: white !important;
+    }
+    #mobileNav .guest-btn {
+      border: 1px solid #3FD0D4;
+      color: #3FD0D4;
+      background: white;
+      text-align: center;
+      border-radius: 2px;
+      padding: 12px 24px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      width: 100%;
+    }
+    #mobileNav .guest-btn-primary {
+      background: #3FD0D4;
+      color: white;
+      border: none;
+    }
+    #mobileNav .guest-btn:hover {
+      background: #3FD0D4;
+      color: white;
+    }
+    #mobileNav .guest-btn-primary:hover {
+      background: #2bbfc4;
+    }
+    #mobileNav .profile-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #212121;
+      color: white;
+      padding: 10px 14px;
+      border-radius: 2px;
+      margin-bottom: 8px;
+      flex-wrap: nowrap;
+    }
+    #mobileNav .profile-card .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: #3FD0D4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: white;
+      flex-shrink: 0;
+    }
+    #mobileNav .profile-card .info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+    #mobileNav .profile-card .name {
+      font-weight: 700;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #mobileNav .profile-card .sub {
+      font-size: 10px;
+      color: rgba(255,255,255,0.6);
+    }
+    #mobileNav .profile-card .logout-btn {
+      width: auto !important;
+      display: inline-block !important;
+      flex-shrink: 0;
+      font-size: 10px;
+      background: rgba(255,255,255,0.15);
+      padding: 4px 12px;
+      border-radius: 2px;
+      cursor: pointer;
+      border: none;
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: background 0.15s;
+    }
+    #mobileNav .profile-card .logout-btn:hover {
+      background: rgba(255,255,255,0.25);
+    }
+    #mobileNav .my-bookings-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: #212121;
+      color: white;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 16px;
+      border-radius: 2px;
+      transition: background 0.15s;
+    }
+    #mobileNav .my-bookings-btn:hover {
+      background: #333;
+    }
+
+    .setsail-nav-link {
+      position: relative;
+      font-family: "Poppins", sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: #212121;
+      padding: 8px 0;
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+    .setsail-nav-link::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: -2px;
+      width: 0;
+      height: 2px;
+      background: #3FD0D4;
+      transition: width 0.3s;
+    }
+    .setsail-nav-link:hover::after,
+    .setsail-nav-link.active::after {
+      width: 100%;
+    }
+    .setsail-nav-link.agent {
+      color: #7c3aed;
+      border: 1px solid #7c3aed;
+      padding: 6px 16px;
+      border-radius: 2px;
+    }
+    .setsail-nav-link.agent::after {
+      display: none;
+    }
+    .setsail-nav-link.agent:hover {
+      background: #7c3aed;
+      color: white;
+    }
+    .nav-link-list {
+      position: relative;
+      font-family: "Poppins", sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: #212121;
+      padding: 8px 0;
+      cursor: pointer;
+      background: none;
+      border: none;
+      text-decoration: none;
+    }
+    .nav-link-list::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: -2px;
+      width: 0;
+      height: 2px;
+      background: #3FD0D4;
+      transition: width 0.3s;
+    }
+    .nav-link-list:hover::after,
+    .nav-link-list.active::after {
+      width: 100%;
+    }
+    .guest-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: #3FD0D4;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .mobile-agent-link {
+      color: #7c3aed !important;
+      border: 1px solid #7c3aed !important;
+      border-radius: 2px !important;
+      padding: 8px 16px !important;
+      display: inline-block !important;
+      margin-top: 4px;
+    }
+    @media (max-width:768px) {
+      #desktopNav {
+        display: none !important;
+      }
+      #mobileMenuBtn {
+        display: flex !important;
+      }
+    }
   </style>
 </head>
 <body>
 
-<!-- ===== HEADER (unchanged) ===== -->
+<!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
@@ -41,8 +296,8 @@
       <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
-        <button onclick="window.location.href='/?login'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
-        <button onclick="window.location.href='/?register'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp">Register</button>
+        <a href="/login.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp flex items-center">Login</a>
+        <a href="/register.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp flex items-center">Register</a>
       </div>
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
         <a href="/mybookings.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</a>
@@ -50,6 +305,34 @@
       </div>
     </nav>
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 sharp bg-[#212121] text-white items-center justify-center"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+  </div>
+
+  <!-- ===== MOBILE NAV ===== -->
+  <div id="mobileNav" class="lg:hidden">
+    <div class="p-4 space-y-1">
+      <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+      <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
+      <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
+      <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+
+      <div class="pt-3 space-y-3">
+        <div id="mGuestNav">
+          <a href="/login.html" onclick="toggleMobileMenu()" class="guest-btn block text-center">Login</a>
+          <a href="/register.html" onclick="toggleMobileMenu()" class="guest-btn guest-btn-primary block text-center">Register</a>
+        </div>
+        <div id="mGuestProfileNav" class="hidden space-y-2">
+          <div class="profile-card">
+            <div id="mGuestAvatar" class="avatar">G</div>
+            <div class="info">
+              <div id="mGuestNameNav" class="name">Guest</div>
+              <div class="sub">Verified guest</div>
+            </div>
+            <button onclick="logoutGuest()" class="logout-btn">Logout</button>
+          </div>
+          <a href="/mybookings.html" onclick="toggleMobileMenu()" class="my-bookings-btn">📅 My Bookings</a>
+        </div>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -99,76 +382,452 @@
   </div>
 </div>
 
-<!-- ===== SCRIPTS (all existing + animations) ===== -->
+<!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
-  const API_BASE = "/api";
-  let ownerToken = sessionStorage.getItem('kd_owner_token') || '';
-  let ownerHomestayIds = [];
-  let allHomestays = [];
-  let bookings = [];
-  let currentHomestayId = 'all';
+const API_BASE = "/api";
+let ownerToken = sessionStorage.getItem('kd_owner_token') || '';
+let ownerHomestayIds = [];
+let allHomestays = [];
+let bookings = [];
+let currentHomestayId = 'all';
 
-  // =============================================
-  // OWNER FORGOT PASSWORD
-  // =============================================
-  function openOwnerForgotPassword() {
-    const email = prompt('Enter your registered email address to reset your owner password:');
-    if (email && email.trim()) {
-      const statusEl = document.getElementById('loginError');
-      statusEl.textContent = 'Sending reset link...';
-      statusEl.className = 'text-blue-600 text-xs mt-2';
-      statusEl.classList.remove('hidden');
+// =============================================================
+// GUEST SYSTEM (for header)
+// =============================================================
+let currentGuest = null;
 
-      fetch(API_BASE + '/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), userType: 'owner' })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          alert(data.message || 'If an account exists, a reset link has been sent to your email.');
-          statusEl.classList.add('hidden');
-        } else {
-          alert(data.error || 'Request failed. Please try again.');
-          statusEl.classList.add('hidden');
-        }
-      })
-      .catch(() => {
-        alert('Network error. Please try again.');
+try {
+  const saved = localStorage.getItem('kd_guest');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (parsed && parsed.id) currentGuest = parsed;
+  }
+} catch(e) { currentGuest = null; }
+
+function renderGuestNav() {
+  const loginNav = document.getElementById("guestNav");
+  const profileNav = document.getElementById("guestProfileNav");
+  const mLoginNav = document.getElementById("mGuestNav");
+  const mProfileNav = document.getElementById("mGuestProfileNav");
+  const mAvatar = document.getElementById("mGuestAvatar");
+  const mNameNav = document.getElementById("mGuestNameNav");
+
+  if (currentGuest) {
+    if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
+    if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
+    const avatar = document.getElementById("guestAvatar");
+    const nameNav = document.getElementById("guestNameNav");
+    if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
+    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
+    if (mAvatar) mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+  } else {
+    if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
+    if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
+    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
+  }
+}
+
+function logoutGuest() {
+  if (!confirm("Logout?")) return;
+  currentGuest = null;
+  localStorage.removeItem('kd_guest');
+  renderGuestNav();
+  window.location.href = '/';
+}
+
+// =============================================
+// OWNER FORGOT PASSWORD
+// =============================================
+function openOwnerForgotPassword() {
+  const email = prompt('Enter your registered email address to reset your owner password:');
+  if (email && email.trim()) {
+    const statusEl = document.getElementById('loginError');
+    statusEl.textContent = 'Sending reset link...';
+    statusEl.className = 'text-blue-600 text-xs mt-2';
+    statusEl.classList.remove('hidden');
+
+    fetch(API_BASE + '/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), userType: 'owner' })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        alert(data.message || 'If an account exists, a reset link has been sent to your email.');
         statusEl.classList.add('hidden');
+      } else {
+        alert(data.error || 'Request failed. Please try again.');
+        statusEl.classList.add('hidden');
+      }
+    })
+    .catch(() => {
+      alert('Network error. Please try again.');
+      statusEl.classList.add('hidden');
+    });
+  }
+}
+
+// =============================================
+// OWNER LOGIN
+// =============================================
+async function ownerLogin() {
+  const whatsapp = document.getElementById('ownerWhatsapp').value.replace(/[^0-9]/g, '');
+  const password = document.getElementById('ownerPassword').value;
+  const errorEl = document.getElementById('loginError');
+  errorEl.classList.add('hidden');
+
+  if (!whatsapp || !password) { alert("Fill all fields"); return; }
+
+  try {
+    const res = await fetch(API_BASE + '/owner-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ whatsapp, password })
+    });
+    const data = await res.json();
+    if (data.success) {
+      ownerToken = data.token;
+      sessionStorage.setItem('kd_owner_token', ownerToken);
+      
+      allHomestays = data.homestays || [];
+      ownerHomestayIds = allHomestays.map(h => h.id);
+      
+      const selector = document.getElementById('homestaySelector');
+      selector.innerHTML = '<option value="all">All Homestays</option>';
+      allHomestays.forEach(h => {
+        const opt = document.createElement('option');
+        opt.value = h.id;
+        opt.textContent = h.name;
+        selector.appendChild(opt);
       });
+      
+      currentHomestayId = 'all';
+      selector.value = 'all';
+      
+      document.getElementById('loginSection').classList.add('hidden');
+      document.getElementById('dashboardSection').classList.remove('hidden');
+      document.getElementById('ownerNav').classList.remove('hidden');
+      document.getElementById('welcomeName').innerText = allHomestays[0]?.ownerName || 'Owner';
+      document.getElementById('ownerNameDisplay').innerText = allHomestays[0]?.ownerName || 'Owner';
+      loadBookings();
+    } else {
+      errorEl.innerText = data.error || "Login failed";
+      errorEl.className = 'text-red-600 text-xs mt-2';
+      errorEl.classList.remove('hidden');
     }
+  } catch(e) {
+    alert("Network error: " + e.message);
+  }
+}
+
+// =============================================
+// LOAD BOOKINGS
+// =============================================
+async function loadBookings() {
+  if (!ownerToken) {
+    console.warn("No owner token");
+    return;
+  }
+  const listDiv = document.getElementById('ownerBookingsList');
+  listDiv.innerHTML = '<div class="text-sm text-zinc-400">Loading...</div>';
+
+  try {
+    const res = await fetch(API_BASE + '/owner-bookings', {
+      headers: { 'Owner-Authorization': 'Bearer ' + ownerToken },
+      cache: 'no-store'
+    });
+    if (!res.ok) throw new Error('Failed to fetch');
+    bookings = await res.json();
+
+    let filteredBookings = bookings;
+    if (currentHomestayId !== 'all') {
+      filteredBookings = bookings.filter(b => String(b.homestayId) === String(currentHomestayId));
+    }
+
+    const nameSpan = document.getElementById('selectedHomestayName');
+    if (currentHomestayId === 'all') {
+      nameSpan.textContent = `(${bookings.length} total bookings across ${allHomestays.length} homestays)`;
+    } else {
+      const hs = allHomestays.find(h => String(h.id) === String(currentHomestayId));
+      nameSpan.textContent = `(${filteredBookings.length} bookings for ${hs?.name || 'selected homestay'})`;
+    }
+
+    if (filteredBookings.length === 0) {
+      listDiv.innerHTML = '<div class="text-sm text-zinc-500">No bookings found for the selected homestay.</div>';
+      return;
+    }
+
+    listDiv.innerHTML = filteredBookings.map(b => {
+      const isPaid = b.status && b.status.toLowerCase().includes('paid');
+      const isCompleted = b.payoutDate || (b.status && b.status.toLowerCase().includes('completed'));
+      const isPending = b.status && b.status.toLowerCase().includes('pending');
+      
+      let statusBadge = '';
+      if (isCompleted) {
+        statusBadge = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✅ Completed - Guest Checked-in</span>';
+      } else if (isPaid) {
+        statusBadge = '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">🟡 Paid - Ready for Check-in</span>';
+      } else if (isPending) {
+        statusBadge = '<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">⏳ Pending Payment</span>';
+      } else {
+        statusBadge = `<span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">${b.status || 'Unknown'}</span>`;
+      }
+
+      let actionButtons = '';
+      if (isPaid && !isCompleted) {
+        actionButtons += `
+          <button onclick="confirmCheckIn('${b.id}')" class="btn-success sharp">✅ Confirm Check-in</button>
+        `;
+      }
+      if (!isCompleted) {
+        actionButtons += `
+          <button onclick="changeBookingDates('${b.id}')" class="btn-warning sharp">📅 Change Dates</button>
+        `;
+      }
+      if (isCompleted) {
+        actionButtons = `<span class="text-xs text-zinc-400">✅ Paid out on ${b.payoutDate ? new Date(b.payoutDate).toLocaleDateString('en-MY') : 'N/A'}</span>`;
+      }
+
+      const guestPhone = b.guestPhone || '';
+      const hasPhone = guestPhone.replace(/[^0-9]/g, '').length >= 10;
+      const waBtn = hasPhone ? 
+        `<button onclick="openWhatsappToGuest('${b.id}')" class="btn-whatsapp-sm">💬 WhatsApp Guest</button>` : 
+        `<span class="text-xs text-zinc-400">No guest phone</span>`;
+
+      return `
+        <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3 animate-on-scroll">
+          <div class="flex-1">
+            <div class="font-bold text-sm">${b.homestay}</div>
+            <div class="text-xs text-zinc-500">${b.checkin} → ${b.checkout} • ${b.nights || '?'} nights • Guest: ${b.guestName || b.guestEmail}</div>
+            <div class="text-xs font-semibold mt-1">Base: RM${b.base} • Total Paid: RM${b.total}</div>
+            <div class="mt-1">${statusBadge}</div>
+            <div class="mt-1 flex flex-wrap gap-2">
+              ${waBtn}
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2 mt-2 md:mt-0">
+            ${actionButtons}
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    listDiv.innerHTML = '<div class="text-sm text-red-600">Error loading bookings. Please refresh.</div>';
+    console.error("Load bookings error:", e);
+  }
+}
+
+// =============================================
+// OPEN WHATSAPP TO GUEST
+// =============================================
+function openWhatsappToGuest(bookingId) {
+  const booking = bookings.find(b => String(b.id) === String(bookingId));
+  if (!booking) { alert('Booking not found'); return; }
+
+  let rawPhone = booking.guestPhone || booking.guestWhatsapp || booking.guestContact || '';
+  let phone = String(rawPhone).replace(/[^0-9]/g, '');
+  if (!phone || phone.length < 10) {
+    alert('Guest phone number not available or invalid. Cannot open WhatsApp.');
+    return;
+  }
+  if (phone.startsWith('0')) {
+    phone = '60' + phone.substring(1);
+  }
+  if (phone.length < 10) {
+    alert('Invalid phone number format.');
+    return;
   }
 
-  // =============================================
-  // OWNER LOGIN
-  // =============================================
-  async function ownerLogin() {
-    const whatsapp = document.getElementById('ownerWhatsapp').value.replace(/[^0-9]/g, '');
-    const password = document.getElementById('ownerPassword').value;
-    const errorEl = document.getElementById('loginError');
-    errorEl.classList.add('hidden');
+  const guestName = booking.guestName || 'Guest';
+  const homestayName = booking.homestay || 'your homestay';
+  const checkin = booking.checkin || 'N/A';
+  const checkout = booking.checkout || 'N/A';
+  const nights = booking.nights || '?';
+  const bookingIdDisplay = booking.id || 'N/A';
 
-    if (!whatsapp || !password) { alert("Fill all fields"); return; }
+  const message = `Hi ${guestName}! 🎉\n\n` +
+    `Your check-in at **${homestayName}** has been confirmed!\n\n` +
+    `📅 Check-in: ${checkin}\n` +
+    `📅 Check-out: ${checkout}\n` +
+    `🌙 Nights: ${nights}\n` +
+    `🆔 Booking ID: ${bookingIdDisplay}\n\n` +
+    `We hope you enjoy your stay! For any assistance, please contact us directly.\n\n` +
+    `🏔️ Welcome to Kundasang!`;
 
+  const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  
+  try {
+    const win = window.open(waUrl, '_blank');
+    if (!win || win.closed || typeof win.closed === 'undefined') {
+      const shouldCopy = confirm(
+        '⚠️ WhatsApp popup was blocked by your browser.\n\n' +
+        'Click OK to copy the message to your clipboard, then paste it in WhatsApp.\n\n' +
+        'Phone: ' + phone
+      );
+      if (shouldCopy) {
+        navigator.clipboard.writeText(message).then(() => {
+          alert('✅ Message copied to clipboard!\n\n' +
+            'Phone: ' + phone + '\n\n' +
+            'Paste the message in WhatsApp.');
+        }).catch(() => {
+          alert('❌ Could not copy. Please manually send this message:\n\n' +
+            'Phone: ' + phone + '\n\n' +
+            'Message:\n' + message);
+        });
+      }
+    } else {
+      console.log('✅ WhatsApp opened in new tab');
+    }
+  } catch(e) {
+    navigator.clipboard.writeText(message).then(() => {
+      alert('✅ Message copied to clipboard!\n\n' +
+        'Phone: ' + phone + '\n\n' +
+        'Paste it in WhatsApp.');
+    }).catch(() => {
+      alert('❌ Could not open WhatsApp. Please send this message manually:\n\n' +
+        'Phone: ' + phone + '\n\n' +
+        'Message:\n' + message);
+    });
+  }
+}
+
+// =============================================
+// CONFIRM CHECK-IN
+// =============================================
+async function confirmCheckIn(bookingId) {
+  if (!confirm(`Confirm check-in for booking ${bookingId}?\n\nYou will receive your payment at your bank account via ToyyibPay in 1-4 business days.\n\nA WhatsApp message will be sent to the guest to confirm their check-in.`)) return;
+  
+  try {
+    const res = await fetch(API_BASE + '/owner-update-booking', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Owner-Authorization': 'Bearer ' + ownerToken
+      },
+      body: JSON.stringify({ 
+        bookingId, 
+        action: 'confirmCheckin' 
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert('✅ ' + data.message);
+      await loadBookings();
+      
+      setTimeout(() => {
+        const shouldSendWhatsapp = confirm(
+          '📱 Send WhatsApp confirmation to the guest?\n\n' +
+          'This will open WhatsApp with a pre-filled message confirming their check-in.'
+        );
+        if (shouldSendWhatsapp) {
+          openWhatsappToGuest(bookingId);
+        }
+      }, 500);
+      
+    } else {
+      alert('❌ Failed: ' + (data.error || data.message));
+    }
+  } catch(e) {
+    alert('Network error: ' + e.message);
+  }
+}
+
+// =============================================
+// CHANGE BOOKING DATES
+// =============================================
+async function changeBookingDates(bookingId) {
+  const currentCheckin = prompt('Enter new check-in date (YYYY-MM-DD):', '');
+  if (!currentCheckin) return;
+  const currentCheckout = prompt('Enter new check-out date (YYYY-MM-DD):', '');
+  if (!currentCheckout) return;
+
+  const d1 = new Date(currentCheckin);
+  const d2 = new Date(currentCheckout);
+  if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
+    alert('Invalid dates. Check-out must be after check-in.');
+    return;
+  }
+
+  if (!confirm(`Change booking ${bookingId} dates to ${currentCheckin} → ${currentCheckout}?`)) return;
+
+  try {
+    const res = await fetch(API_BASE + '/owner-update-booking', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Owner-Authorization': 'Bearer ' + ownerToken
+      },
+      body: JSON.stringify({ 
+        bookingId, 
+        action: 'changeDates',
+        checkin: currentCheckin,
+        checkout: currentCheckout
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert('✅ ' + data.message);
+      loadBookings();
+    } else {
+      alert('❌ Failed: ' + (data.error || data.message));
+    }
+  } catch(e) {
+    alert('Network error: ' + e.message);
+  }
+}
+
+// =============================================
+// LOGOUT
+// =============================================
+function logoutOwner() {
+  sessionStorage.removeItem('kd_owner_token');
+  ownerToken = '';
+  document.getElementById('loginSection').classList.remove('hidden');
+  document.getElementById('dashboardSection').classList.add('hidden');
+  document.getElementById('ownerNav').classList.add('hidden');
+}
+
+// =============================================
+// TOGGLE MOBILE MENU
+// =============================================
+function toggleMobileMenu() {
+  const nav = document.getElementById('mobileNav');
+  if (nav) nav.classList.toggle('open');
+}
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('mobileNav');
+  const btn = document.getElementById('mobileMenuBtn');
+  if (!nav || !btn) return;
+  if (nav.classList.contains('open') && 
+      !nav.contains(e.target) && 
+      !btn.contains(e.target)) {
+    nav.classList.remove('open');
+  }
+});
+
+// =============================================
+// INIT
+// =============================================
+(function init() {
+  // Render guest nav for header
+  renderGuestNav();
+
+  const token = sessionStorage.getItem('kd_owner_token');
+  if (token) {
     try {
-      const res = await fetch(API_BASE + '/owner-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ whatsapp, password })
-      });
-      const data = await res.json();
-      if (data.success) {
-        ownerToken = data.token;
-        sessionStorage.setItem('kd_owner_token', ownerToken);
-        
-        // Store homestays from login response
-        allHomestays = data.homestays || [];
+      const data = JSON.parse(atob(token));
+      console.log("🔐 Token data:", data);
+      
+      if (data.homestays && data.homestays.length > 0) {
+        allHomestays = data.homestays;
         ownerHomestayIds = allHomestays.map(h => h.id);
         
-        // Populate the selector
         const selector = document.getElementById('homestaySelector');
         selector.innerHTML = '<option value="all">All Homestays</option>';
         allHomestays.forEach(h => {
@@ -177,356 +836,38 @@
           opt.textContent = h.name;
           selector.appendChild(opt);
         });
-        
-        // Set default selection
         currentHomestayId = 'all';
         selector.value = 'all';
         
         document.getElementById('loginSection').classList.add('hidden');
         document.getElementById('dashboardSection').classList.remove('hidden');
         document.getElementById('ownerNav').classList.remove('hidden');
-        document.getElementById('welcomeName').innerText = allHomestays[0]?.ownerName || 'Owner';
-        document.getElementById('ownerNameDisplay').innerText = allHomestays[0]?.ownerName || 'Owner';
+        document.getElementById('welcomeName').innerText = data.ownerName || 'Owner';
+        document.getElementById('ownerNameDisplay').innerText = data.ownerName || 'Owner';
         loadBookings();
       } else {
-        errorEl.innerText = data.error || "Login failed";
-        errorEl.className = 'text-red-600 text-xs mt-2';
-        errorEl.classList.remove('hidden');
+        console.warn("Token missing homestays. Forcing re-login.");
+        alert("Your session is outdated. Please login again.");
+        logoutOwner();
       }
     } catch(e) {
-      alert("Network error: " + e.message);
+      console.error("Token parse error:", e);
+      logoutOwner();
     }
-  }
-
-  // =============================================
-  // LOAD BOOKINGS (fresh from DB) – UPDATED with animate-on-scroll
-  // =============================================
-  async function loadBookings() {
-    if (!ownerToken) {
-      console.warn("No owner token");
-      return;
-    }
-    const listDiv = document.getElementById('ownerBookingsList');
-    listDiv.innerHTML = '<div class="text-sm text-zinc-400">Loading...</div>';
-
-    try {
-      const res = await fetch(API_BASE + '/owner-bookings', {
-        headers: { 'Owner-Authorization': 'Bearer ' + ownerToken },
-        cache: 'no-store'
-      });
-      if (!res.ok) throw new Error('Failed to fetch');
-      bookings = await res.json();
-
-      // Filter by selected homestay
-      let filteredBookings = bookings;
-      if (currentHomestayId !== 'all') {
-        filteredBookings = bookings.filter(b => String(b.homestayId) === String(currentHomestayId));
-      }
-
-      // Update the selected homestay name display
-      const nameSpan = document.getElementById('selectedHomestayName');
-      if (currentHomestayId === 'all') {
-        nameSpan.textContent = `(${bookings.length} total bookings across ${allHomestays.length} homestays)`;
-      } else {
-        const hs = allHomestays.find(h => String(h.id) === String(currentHomestayId));
-        nameSpan.textContent = `(${filteredBookings.length} bookings for ${hs?.name || 'selected homestay'})`;
-      }
-
-      if (filteredBookings.length === 0) {
-        listDiv.innerHTML = '<div class="text-sm text-zinc-500">No bookings found for the selected homestay.</div>';
-        return;
-      }
-
-      listDiv.innerHTML = filteredBookings.map(b => {
-        const isPaid = b.status && b.status.toLowerCase().includes('paid');
-        const isCompleted = b.payoutDate || (b.status && b.status.toLowerCase().includes('completed'));
-        const isPending = b.status && b.status.toLowerCase().includes('pending');
-        
-        let statusBadge = '';
-        if (isCompleted) {
-          statusBadge = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✅ Completed - Guest Checked-in</span>';
-        } else if (isPaid) {
-          statusBadge = '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">🟡 Paid - Ready for Check-in</span>';
-        } else if (isPending) {
-          statusBadge = '<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">⏳ Pending Payment</span>';
-        } else {
-          statusBadge = `<span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">${b.status || 'Unknown'}</span>`;
-        }
-
-        let actionButtons = '';
-        if (isPaid && !isCompleted) {
-          actionButtons += `
-            <button onclick="confirmCheckIn('${b.id}')" class="btn-success sharp">✅ Confirm Check-in</button>
-          `;
-        }
-        if (!isCompleted) {
-          actionButtons += `
-            <button onclick="changeBookingDates('${b.id}')" class="btn-warning sharp">📅 Change Dates</button>
-          `;
-        }
-        if (isCompleted) {
-          actionButtons = `<span class="text-xs text-zinc-400">✅ Paid out on ${b.payoutDate ? new Date(b.payoutDate).toLocaleDateString('en-MY') : 'N/A'}</span>`;
-        }
-
-        // WhatsApp button
-        const guestPhone = b.guestPhone || '';
-        const hasPhone = guestPhone.replace(/[^0-9]/g, '').length >= 10;
-        const waBtn = hasPhone ? 
-          `<button onclick="openWhatsappToGuest('${b.id}')" class="btn-whatsapp-sm">💬 WhatsApp Guest</button>` : 
-          `<span class="text-xs text-zinc-400">No guest phone</span>`;
-
-        return `
-          <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3 animate-on-scroll">
-            <div class="flex-1">
-              <div class="font-bold text-sm">${b.homestay}</div>
-              <div class="text-xs text-zinc-500">${b.checkin} → ${b.checkout} • ${b.nights || '?'} nights • Guest: ${b.guestName || b.guestEmail}</div>
-              <div class="text-xs font-semibold mt-1">Base: RM${b.base} • Total Paid: RM${b.total}</div>
-              <div class="mt-1">${statusBadge}</div>
-              <div class="mt-1 flex flex-wrap gap-2">
-                ${waBtn}
-              </div>
-            </div>
-            <div class="flex flex-wrap gap-2 mt-2 md:mt-0">
-              ${actionButtons}
-            </div>
-          </div>
-        `;
-      }).join('');
-    } catch(e) {
-      listDiv.innerHTML = '<div class="text-sm text-red-600">Error loading bookings. Please refresh.</div>';
-      console.error("Load bookings error:", e);
-    }
-  }
-
-  // =============================================
-  // OPEN WHATSAPP TO GUEST
-  // =============================================
-  function openWhatsappToGuest(bookingId) {
-    const booking = bookings.find(b => String(b.id) === String(bookingId));
-    if (!booking) { alert('Booking not found'); return; }
-
-    let rawPhone = booking.guestPhone || booking.guestWhatsapp || booking.guestContact || '';
-    let phone = String(rawPhone).replace(/[^0-9]/g, '');
-    if (!phone || phone.length < 10) {
-      alert('Guest phone number not available or invalid. Cannot open WhatsApp.');
-      return;
-    }
-    if (phone.startsWith('0')) {
-      phone = '60' + phone.substring(1);
-    }
-    if (phone.length < 10) {
-      alert('Invalid phone number format.');
-      return;
-    }
-
-    const guestName = booking.guestName || 'Guest';
-    const homestayName = booking.homestay || 'your homestay';
-    const checkin = booking.checkin || 'N/A';
-    const checkout = booking.checkout || 'N/A';
-    const nights = booking.nights || '?';
-    const bookingIdDisplay = booking.id || 'N/A';
-
-    const message = `Hi ${guestName}! 🎉\n\n` +
-      `Your check-in at **${homestayName}** has been confirmed!\n\n` +
-      `📅 Check-in: ${checkin}\n` +
-      `📅 Check-out: ${checkout}\n` +
-      `🌙 Nights: ${nights}\n` +
-      `🆔 Booking ID: ${bookingIdDisplay}\n\n` +
-      `We hope you enjoy your stay! For any assistance, please contact us directly.\n\n` +
-      `🏔️ Welcome to Kundasang!`;
-
-    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    
-    try {
-      const win = window.open(waUrl, '_blank');
-      if (!win || win.closed || typeof win.closed === 'undefined') {
-        const shouldCopy = confirm(
-          '⚠️ WhatsApp popup was blocked by your browser.\n\n' +
-          'Click OK to copy the message to your clipboard, then paste it in WhatsApp.\n\n' +
-          'Phone: ' + phone
-        );
-        if (shouldCopy) {
-          navigator.clipboard.writeText(message).then(() => {
-            alert('✅ Message copied to clipboard!\n\n' +
-              'Phone: ' + phone + '\n\n' +
-              'Paste the message in WhatsApp.');
-          }).catch(() => {
-            alert('❌ Could not copy. Please manually send this message:\n\n' +
-              'Phone: ' + phone + '\n\n' +
-              'Message:\n' + message);
-          });
-        }
-      } else {
-        console.log('✅ WhatsApp opened in new tab');
-      }
-    } catch(e) {
-      navigator.clipboard.writeText(message).then(() => {
-        alert('✅ Message copied to clipboard!\n\n' +
-          'Phone: ' + phone + '\n\n' +
-          'Paste it in WhatsApp.');
-      }).catch(() => {
-        alert('❌ Could not open WhatsApp. Please send this message manually:\n\n' +
-          'Phone: ' + phone + '\n\n' +
-          'Message:\n' + message);
-      });
-    }
-  }
-
-  // =============================================
-  // CONFIRM CHECK-IN
-  // =============================================
-  async function confirmCheckIn(bookingId) {
-    if (!confirm(`Confirm check-in for booking ${bookingId}?\n\nYou will receive your payment at your bank account via ToyyibPay in 1-4 business days.\n\nA WhatsApp message will be sent to the guest to confirm their check-in.`)) return;
-    
-    try {
-      const res = await fetch(API_BASE + '/owner-update-booking', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Owner-Authorization': 'Bearer ' + ownerToken
-        },
-        body: JSON.stringify({ 
-          bookingId, 
-          action: 'confirmCheckin' 
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('✅ ' + data.message);
-        await loadBookings();
-        
-        setTimeout(() => {
-          const shouldSendWhatsapp = confirm(
-            '📱 Send WhatsApp confirmation to the guest?\n\n' +
-            'This will open WhatsApp with a pre-filled message confirming their check-in.'
-          );
-          if (shouldSendWhatsapp) {
-            openWhatsappToGuest(bookingId);
-          }
-        }, 500);
-        
-      } else {
-        alert('❌ Failed: ' + (data.error || data.message));
-      }
-    } catch(e) {
-      alert('Network error: ' + e.message);
-    }
-  }
-
-  // =============================================
-  // CHANGE BOOKING DATES
-  // =============================================
-  async function changeBookingDates(bookingId) {
-    const currentCheckin = prompt('Enter new check-in date (YYYY-MM-DD):', '');
-    if (!currentCheckin) return;
-    const currentCheckout = prompt('Enter new check-out date (YYYY-MM-DD):', '');
-    if (!currentCheckout) return;
-
-    const d1 = new Date(currentCheckin);
-    const d2 = new Date(currentCheckout);
-    if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
-      alert('Invalid dates. Check-out must be after check-in.');
-      return;
-    }
-
-    if (!confirm(`Change booking ${bookingId} dates to ${currentCheckin} → ${currentCheckout}?`)) return;
-
-    try {
-      const res = await fetch(API_BASE + '/owner-update-booking', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Owner-Authorization': 'Bearer ' + ownerToken
-        },
-        body: JSON.stringify({ 
-          bookingId, 
-          action: 'changeDates',
-          checkin: currentCheckin,
-          checkout: currentCheckout
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('✅ ' + data.message);
-        loadBookings();
-      } else {
-        alert('❌ Failed: ' + (data.error || data.message));
-      }
-    } catch(e) {
-      alert('Network error: ' + e.message);
-    }
-  }
-
-  // =============================================
-  // LOGOUT
-  // =============================================
-  function logoutOwner() {
-    sessionStorage.removeItem('kd_owner_token');
-    ownerToken = '';
+  } else {
     document.getElementById('loginSection').classList.remove('hidden');
     document.getElementById('dashboardSection').classList.add('hidden');
     document.getElementById('ownerNav').classList.add('hidden');
   }
 
-  // =============================================
-  // INIT – reads homestays from token or forces re-login
-  // =============================================
-  (function init() {
-    const token = sessionStorage.getItem('kd_owner_token');
-    if (token) {
-      try {
-        const data = JSON.parse(atob(token));
-        console.log("🔐 Token data:", data);
-        
-        // Check if token has homestays array
-        if (data.homestays && data.homestays.length > 0) {
-          allHomestays = data.homestays;
-          ownerHomestayIds = allHomestays.map(h => h.id);
-          
-          // Populate selector
-          const selector = document.getElementById('homestaySelector');
-          selector.innerHTML = '<option value="all">All Homestays</option>';
-          allHomestays.forEach(h => {
-            const opt = document.createElement('option');
-            opt.value = h.id;
-            opt.textContent = h.name;
-            selector.appendChild(opt);
-          });
-          currentHomestayId = 'all';
-          selector.value = 'all';
-          
-          document.getElementById('loginSection').classList.add('hidden');
-          document.getElementById('dashboardSection').classList.remove('hidden');
-          document.getElementById('ownerNav').classList.remove('hidden');
-          document.getElementById('welcomeName').innerText = data.ownerName || 'Owner';
-          document.getElementById('ownerNameDisplay').innerText = data.ownerName || 'Owner';
-          loadBookings();
-        } else {
-          // Token is outdated – force re-login
-          console.warn("Token missing homestays. Forcing re-login.");
-          alert("Your session is outdated. Please login again.");
-          logoutOwner();
-        }
-      } catch(e) {
-        console.error("Token parse error:", e);
-        logoutOwner();
-      }
-    } else {
-      // No token – show login
-      document.getElementById('loginSection').classList.remove('hidden');
-      document.getElementById('dashboardSection').classList.add('hidden');
-      document.getElementById('ownerNav').classList.add('hidden');
-    }
-
-    // Event listener for homestay selector (if it exists)
-    const selector = document.getElementById('homestaySelector');
-    if (selector) {
-      selector.addEventListener('change', function() {
-        currentHomestayId = this.value;
-        loadBookings();
-      });
-    }
-  })();
+  const selector = document.getElementById('homestaySelector');
+  if (selector) {
+    selector.addEventListener('change', function() {
+      currentHomestayId = this.value;
+      loadBookings();
+    });
+  }
+})();
 </script>
 </body>
 </html>
