@@ -427,7 +427,7 @@
   <div class="flex items-center justify-between mb-6 animate-on-scroll">
     <h2 class="text-3xl font-bold">My Bookings</h2>
     <div class="flex gap-3">
-      <button onclick="renderMyBookings()" class="px-4 py-2 rounded-full border bg-white text-sm hover:bg-zinc-50 transition">🔄 Refresh</button>
+      <button onclick="refreshBookings()" class="px-4 py-2 rounded-full border bg-white text-sm hover:bg-zinc-50 transition">🔄 Refresh</button>
       <a href="/" class="px-4 py-2 rounded-full border bg-white text-sm hover:bg-zinc-50 transition">← Back</a>
     </div>
   </div>
@@ -724,9 +724,6 @@ function getGuestFriendlyStatus(rawStatus) {
 // RENDER MY BOOKINGS
 // =============================================================
 async function renderMyBookings() {
-  // ✅ Refresh cloud data first
-  await fetchCloudData();
-  
   const infoCard = document.getElementById("guestInfoCard");
   const listDiv = document.getElementById("myBookingsList");
   if (!infoCard || !listDiv) return;
@@ -793,6 +790,14 @@ async function renderMyBookings() {
       </div>
     `;
   }).join(""));
+}
+
+// =============================================================
+// REFRESH BOOKINGS (Wrapper for onclick)
+// =============================================================
+async function refreshBookings() {
+  await fetchCloudData();
+  await renderMyBookings();
 }
 
 // =============================================================
