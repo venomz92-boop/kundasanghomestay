@@ -1,5 +1,5 @@
 // /functions/api/owner-login.js
-import { corsHeaders, getClientIP, sha256, enforceHttps } from './_utils.js';
+import { corsHeaders, getClientIP, enforceHttps } from './_utils.js';
 
 const PEPPER = "kundasang-homestay-2026";
 const loginAttempts = new Map();
