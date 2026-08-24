@@ -74,6 +74,9 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: "Server error" }), { status: 500, headers: corsHeaders(request) });
     }
 
+    // ✅ Ensure store table exists
+    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+
     // Fetch bookings
     const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
     let bookings = [];
@@ -262,6 +265,6 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-export async function onRequestOptions() {
+export async function onRequestOptions({ request }) {
   return new Response(null, { headers: corsHeaders(request) });
 }
