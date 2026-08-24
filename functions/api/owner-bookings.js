@@ -31,6 +31,17 @@ export async function onRequestGet({ request, env }) {
     });
   }
 
+  // ✅ Ensure store table exists
+  try {
+    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+  } catch (e) {
+    console.error("Failed to create store table:", e);
+    return new Response(JSON.stringify({ error: "Database error" }), { 
+      status: 500, 
+      headers: corsHeaders(request) 
+    });
+  }
+
   try {
     const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
     let bookings = [];
