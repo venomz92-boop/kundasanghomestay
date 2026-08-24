@@ -474,7 +474,7 @@ function openOwnerForgotPassword() {
 }
 
 // =============================================
-// OWNER LOGIN (FIXED: uses /owner-login with hyphen)
+// OWNER LOGIN
 // =============================================
 async function ownerLogin() {
   const whatsapp = document.getElementById('ownerWhatsapp').value.replace(/[^0-9]/g, '');
@@ -485,7 +485,7 @@ async function ownerLogin() {
   if (!whatsapp || !password) { alert("Fill all fields"); return; }
 
   try {
-    const res = await fetch(API_BASE + '/owner-login', {  // ✅ hyphen, not underscore
+    const res = await fetch(API_BASE + '/owner-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ whatsapp, password })
@@ -515,7 +515,6 @@ async function ownerLogin() {
       document.getElementById('welcomeName').innerText = allHomestays[0]?.ownerName || 'Owner';
       loadBookings();
     } else {
-      // Show detailed error if debug info is present
       let errorMsg = data.error || "Login failed";
       if (data.debug) {
         errorMsg += "\n\nDebug info: " + JSON.stringify(data.debug, null, 2);
@@ -530,7 +529,7 @@ async function ownerLogin() {
 }
 
 // =============================================
-// LOAD BOOKINGS
+// LOAD BOOKINGS (FIXED with fallbacks)
 // =============================================
 async function loadBookings() {
   if (!ownerToken) {
@@ -547,6 +546,10 @@ async function loadBookings() {
     });
     if (!res.ok) throw new Error('Failed to fetch');
     bookings = await res.json();
+    console.log("📊 Bookings from API:", bookings);
+
+    // Ensure bookings is an array
+    if (!Array.isArray(bookings)) bookings = [];
 
     let filteredBookings = bookings;
     if (currentHomestayId !== 'all') {
@@ -566,10 +569,22 @@ async function loadBookings() {
       return;
     }
 
-    listDiv.innerHTML = filteredBookings.map(b => {
-      const isPaid = b.status && b.status.toLowerCase().includes('paid');
-      const isCompleted = b.payoutDate || (b.status && b.status.toLowerCase().includes('completed'));
-      const isPending = b.status && b.status.toLowerCase().includes('pending');
+    // Render each booking with safe fallbacks
+    listDiv.innerHTML = filteredBookings.map((b, index) => {
+      // Ensure all fields exist with defaults
+      const homestayName = b.homestay || b.homestayName || 'Unknown Homestay';
+      const checkin = b.checkin || 'N/A';
+      const checkout = b.checkout || 'N/A';
+      const nights = b.nights || '?';
+      const guestName = b.guestName || b.guestEmail || 'Guest';
+      const base = b.base || 0;
+      const total = b.total || 0;
+      const status = b.status || 'Unknown';
+      const id = b.id || 'unknown';
+
+      const isPaid = status.toLowerCase().includes('paid');
+      const isCompleted = b.payoutDate || status.toLowerCase().includes('completed');
+      const isPending = status.toLowerCase().includes('pending');
       
       let statusBadge = '';
       if (isCompleted) {
@@ -579,18 +594,18 @@ async function loadBookings() {
       } else if (isPending) {
         statusBadge = '<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">⏳ Pending Payment</span>';
       } else {
-        statusBadge = `<span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">${b.status || 'Unknown'}</span>`;
+        statusBadge = `<span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">${status}</span>`;
       }
 
       let actionButtons = '';
       if (isPaid && !isCompleted) {
         actionButtons += `
-          <button onclick="confirmCheckIn('${b.id}')" class="btn-success sharp">✅ Confirm Check-in</button>
+          <button onclick="confirmCheckIn('${id}')" class="btn-success sharp">✅ Confirm Check-in</button>
         `;
       }
       if (!isCompleted) {
         actionButtons += `
-          <button onclick="changeBookingDates('${b.id}')" class="btn-warning sharp">📅 Change Dates</button>
+          <button onclick="changeBookingDates('${id}')" class="btn-warning sharp">📅 Change Dates</button>
         `;
       }
       if (isCompleted) {
@@ -600,15 +615,15 @@ async function loadBookings() {
       const guestPhone = b.guestPhone || '';
       const hasPhone = guestPhone.replace(/[^0-9]/g, '').length >= 10;
       const waBtn = hasPhone ? 
-        `<button onclick="openWhatsappToGuest('${b.id}')" class="btn-whatsapp-sm">💬 WhatsApp Guest</button>` : 
+        `<button onclick="openWhatsappToGuest('${id}')" class="btn-whatsapp-sm">💬 WhatsApp Guest</button>` : 
         `<span class="text-xs text-zinc-400">No guest phone</span>`;
 
       return `
         <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3 animate-on-scroll">
           <div class="flex-1">
-            <div class="font-bold text-sm">${b.homestay}</div>
-            <div class="text-xs text-zinc-500">${b.checkin} → ${b.checkout} • ${b.nights || '?'} nights • Guest: ${b.guestName || b.guestEmail}</div>
-            <div class="text-xs font-semibold mt-1">Base: RM${b.base} • Total Paid: RM${b.total}</div>
+            <div class="font-bold text-sm">${homestayName}</div>
+            <div class="text-xs text-zinc-500">${checkin} → ${checkout} • ${nights} nights • Guest: ${guestName}</div>
+            <div class="text-xs font-semibold mt-1">Base: RM${base} • Total Paid: RM${total}</div>
             <div class="mt-1">${statusBadge}</div>
             <div class="mt-1 flex flex-wrap gap-2">
               ${waBtn}
@@ -804,10 +819,9 @@ document.addEventListener('click', function(e) {
 });
 
 // =============================================
-// INIT (FIXED – null checks)
+// INIT
 // =============================================
 (function init() {
-  // Render guest nav for header
   renderGuestNav();
 
   const token = sessionStorage.getItem('kd_owner_token');
