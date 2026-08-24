@@ -189,7 +189,7 @@ export async function onRequestPost({ request, env }) {
 
     return new Response(JSON.stringify({
       success: true,
-      message: `✅ Check-in confirmed! Owner (${ownerName}) received RM${ownerAmount}. Your fee RM${finalFee} is available for withdrawal.`,
+      message: `✅ Check-in confirmed! You (${ownerName}) will received RM${ownerAmount}. Your money will arrive in 1-4 working business days.`,
       bookingId,
       payout: payoutData
     }), { 
