@@ -1,6 +1,6 @@
 // /api/owner-checkin.js - SECURE Owner Check-In (Ignores frontend data)
 
-function corsHeaders() {
+function corsHeaders(request) {
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -28,19 +28,19 @@ export async function onRequestPost({ request, env }) {
     // 1. Verify Owner Token
     const ownerData = verifyOwner(request);
     if (!ownerData) {
-      return new Response(JSON.stringify({ error: "Unauthorized: Invalid or expired token" }), { status: 401, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Unauthorized: Invalid or expired token" }), { status: 401, headers: corsHeaders(request) });
     }
 
     // 2. Parse request body (we only need the bookingId, we will ignore amount/account)
     const body = await request.json();
     const bookingId = body.bookingId;
     if (!bookingId) {
-      return new Response(JSON.stringify({ error: "Missing bookingId" }), { status: 400, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Missing bookingId" }), { status: 400, headers: corsHeaders(request) });
     }
 
     const db = env.DB;
     if (!db) {
-      return new Response(JSON.stringify({ error: "Server configuration error" }), { status: 500, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Server configuration error" }), { status: 500, headers: corsHeaders(request) });
     }
 
     // 3. Fetch the booking from DB (Server-side read)
@@ -50,14 +50,14 @@ export async function onRequestPost({ request, env }) {
     const booking = bookings.find(b => String(b.id) === String(bookingId));
 
     if (!booking) {
-      return new Response(JSON.stringify({ error: "Booking not found" }), { status: 404, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Booking not found" }), { status: 404, headers: corsHeaders(request) });
     }
 
     // 4. SECURITY: Verify this owner actually OWNS this homestay
     // The token contains `ownerId` which is the homestay ID.
     if (String(booking.homestayId) !== String(ownerData.ownerId)) {
       console.warn(`⚠️ Owner ${ownerData.whatsapp} tried to check-in booking for homestay ${booking.homestayId} but owns ${ownerData.ownerId}`);
-      return new Response(JSON.stringify({ error: "Unauthorized: You do not own this homestay" }), { status: 403, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Unauthorized: You do not own this homestay" }), { status: 403, headers: corsHeaders(request) });
     }
 
     // 5. Check if already processed (Idempotency)
@@ -179,7 +179,7 @@ export async function onRequestPost({ request, env }) {
 
     return new Response(JSON.stringify({
       success: true,
-      message: `✅ Check-in confirmed! Owner (${ownerName}) received RM${ownerAmount}. Your fee RM${finalFee} is available for withdrawal.`,
+      message: `✅ Check-in confirmed! You will (${ownerName}) received RM${ownerAmount} in 1-4 business days`,
       bookingId,
       payout: payoutData
     }), { status: 200, headers: corsHeaders() });
