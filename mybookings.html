@@ -230,7 +230,7 @@
 </head>
 <body>
 
-<!-- ===== HEADER (unchanged) ===== -->
+<!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
@@ -244,8 +244,8 @@
       <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
-        <button onclick="window.location.href='/?login'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
-        <button onclick="window.location.href='/?register'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp">Register</button>
+        <a href="/login.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp flex items-center">Login</a>
+        <a href="/register.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp flex items-center">Register</a>
       </div>
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
         <a href="/mybookings.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</a>
@@ -265,8 +265,8 @@
 
       <div class="pt-3 space-y-3">
         <div id="mGuestNav">
-          <button onclick="window.location.href='/?login'; toggleMobileMenu()" class="guest-btn">Login</button>
-          <button onclick="window.location.href='/?register'; toggleMobileMenu()" class="guest-btn guest-btn-primary">Register</button>
+          <a href="/login.html" onclick="toggleMobileMenu()" class="guest-btn block text-center">Login</a>
+          <a href="/register.html" onclick="toggleMobileMenu()" class="guest-btn guest-btn-primary block text-center">Register</a>
         </div>
         <div id="mGuestProfileNav" class="hidden space-y-2">
           <div class="profile-card">
@@ -284,7 +284,7 @@
   </div>
 </header>
 
-<!-- ===== MAIN CONTENT (with animations) ===== -->
+<!-- ===== MAIN CONTENT ===== -->
 <main class="page-content max-w-[1000px] mx-auto px-5 md:px-8 py-10">
   <div class="flex items-center justify-between mb-6 animate-on-scroll">
     <h2 class="text-3xl font-bold">My Bookings</h2>
@@ -309,7 +309,7 @@
   <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay - All payment is secured by Toyyibpay</div>
 </footer>
 
-<!-- ===== SCRIPTS (all existing + animations) ===== -->
+<!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
 // =============================================================
@@ -458,14 +458,14 @@ function getGuestFriendlyStatus(rawStatus) {
 }
 
 // =============================================================
-// RENDER MY BOOKINGS (UPDATED with animate-on-scroll)
+// RENDER MY BOOKINGS
 // =============================================================
 function renderMyBookings() {
   const infoCard = document.getElementById("guestInfoCard");
   const listDiv = document.getElementById("myBookingsList");
   if (!infoCard || !listDiv) return;
   if (!currentGuest) {
-    infoCard.innerHTML = safeHTML("<div class='text-sm'>Please <a href='/?login' class='underline font-semibold'>login</a> to see your bookings.</div>");
+    infoCard.innerHTML = safeHTML("<div class='text-sm'>Please <a href='/login.html' class='underline font-semibold'>login</a> to see your bookings.</div>");
     listDiv.innerHTML = "";
     return;
   }
@@ -525,7 +525,7 @@ function renderMyBookings() {
 async function retryPayment(bookingId) {
   if (!currentGuest) {
     alert("Please login first.");
-    window.location.href = '/?login';
+    window.location.href = '/login.html';
     return;
   }
   const booking = bookings.find(b => String(b.id) === String(bookingId));
@@ -632,6 +632,26 @@ function chatWithOwnerFromBooking(bookingId) {
   const message = "Hi, I have a booking for " + booking.homestay + "\n\nBooking ID: " + booking.id + "\nCheck-in: " + booking.checkin + "\nCheck-out: " + booking.checkout + "\nNights: " + booking.nights + "\n\nGuest: " + (booking.guestName || '-') + "\n\nPlease confirm my booking. Thank you!";
   openWhatsAppLink(num, message);
 }
+
+// =============================================================
+// TOGGLE MOBILE MENU
+// =============================================================
+function toggleMobileMenu() {
+  const nav = document.getElementById('mobileNav');
+  if (nav) {
+    nav.classList.toggle('open');
+  }
+}
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('mobileNav');
+  const btn = document.getElementById('mobileMenuBtn');
+  if (!nav || !btn) return;
+  if (nav.classList.contains('open') && 
+      !nav.contains(e.target) && 
+      !btn.contains(e.target)) {
+    nav.classList.remove('open');
+  }
+});
 
 // =============================================================
 // INIT
