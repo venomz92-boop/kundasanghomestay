@@ -1,10 +1,10 @@
 // =============================================================
-// animations.js – Safe for ALL pages + Mobile Menu
+// animations.js – Safe for ALL pages + Mobile Menu (Chrome fix)
 // =============================================================
 
 document.addEventListener('DOMContentLoaded', function() {
 
-    // ---- 1. Navbar scroll effect (only if header exists) ----
+    // ---- 1. Navbar scroll effect ----
     const header = document.querySelector('header');
     if (header) {
         let ticking = false;
@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 200);
 
-    // ---- 3. Smooth anchor scroll (optional) ----
+    // ---- 3. Smooth anchor scroll ----
     document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
         anchor.addEventListener('click', function(e) {
             const targetId = this.getAttribute('href');
@@ -60,37 +60,64 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    console.log('✅ Animations initialized (safe for all pages)');
+    // ---- 4. Mobile Menu Setup (works on ALL browsers) ----
+    setupMobileMenu();
+
+    console.log('✅ Animations loaded (all pages)');
 });
 
 // =============================================================
-// MOBILE MENU – Global toggle (works on ALL pages)
+// MOBILE MENU – Works on Safari, Chrome, all browsers
 // =============================================================
 
+function setupMobileMenu() {
+    const menuBtn = document.getElementById('mobileMenuBtn');
+    const nav = document.getElementById('mobileNav');
+
+    if (!menuBtn || !nav) {
+        console.warn('⚠️ Mobile menu elements not found on this page');
+        return;
+    }
+
+    // Remove any existing listeners (prevent duplicates)
+    const newBtn = menuBtn.cloneNode(true);
+    menuBtn.parentNode.replaceChild(newBtn, menuBtn);
+
+    // Click to toggle menu
+    newBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        nav.classList.toggle('open');
+        console.log('📱 Menu toggled:', nav.classList.contains('open') ? 'open' : 'closed');
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', function(e) {
+        if (nav.classList.contains('open') && 
+            !nav.contains(e.target) && 
+            e.target !== newBtn && 
+            !newBtn.contains(e.target)) {
+            nav.classList.remove('open');
+        }
+    });
+
+    // Close menu on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && nav.classList.contains('open')) {
+            nav.classList.remove('open');
+        }
+    });
+
+    console.log('✅ Mobile menu setup complete');
+}
+
+// Fallback for inline onclick="toggleMobileMenu()"
 function toggleMobileMenu() {
     const nav = document.getElementById('mobileNav');
     if (nav) {
         nav.classList.toggle('open');
-        console.log('📱 Mobile menu toggled:', nav.classList.contains('open') ? 'open' : 'closed');
-    } else {
-        console.warn('⚠️ #mobileNav not found on this page');
+        console.log('📱 toggleMobileMenu called');
     }
 }
-
-// Make it available globally (for inline onclick)
 window.toggleMobileMenu = toggleMobileMenu;
-
-// Close mobile menu when clicking outside
-document.addEventListener('click', function(e) {
-    const nav = document.getElementById('mobileNav');
-    const btn = document.getElementById('mobileMenuBtn');
-    if (!nav || !btn) return;
-    if (nav.classList.contains('open') && 
-        !nav.contains(e.target) && 
-        !btn.contains(e.target)) {
-        nav.classList.remove('open');
-        console.log('📱 Mobile menu closed (outside click)');
-    }
-});
 
 console.log('✅ Mobile menu loaded (global)');
