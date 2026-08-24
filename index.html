@@ -8,10 +8,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
-  <!-- ===== ANIMATIONS ===== -->
-  <link rel="stylesheet" href="animations.css" />
   <style>
-    /* Your existing CSS – unchanged */
     :root { --primary:#0F382E; --primary-light:#1a4d3e; --accent:#3FD0D4; --accent-hover:#2bbfc4; --bg:#F8F5F0; --card:#ffffff; --muted:#6b7280; --danger:#dc2626; --dark:#212121; }
     h1,h2,h3{font-family:"Poppins",sans-serif;}
     .font-poppins{font-family:"Poppins",sans-serif;} .font-satisfy{font-family:"Satisfy",cursive;}
@@ -250,7 +247,7 @@
 </head>
 <body>
 
-<!-- ===== HEADER (identical to original) ===== -->
+<!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
@@ -285,10 +282,13 @@
     <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
 
     <div class="pt-3 space-y-3">
+      <!-- Guest Login/Register -->
       <div id="mGuestNav">
         <button onclick="openGuestAuth('login'); toggleMobileMenu()" class="guest-btn">Login</button>
         <button onclick="openGuestAuth('register'); toggleMobileMenu()" class="guest-btn guest-btn-primary">Register</button>
       </div>
+
+      <!-- Guest Profile – COMPACT -->
       <div id="mGuestProfileNav" class="hidden space-y-2">
         <div class="profile-card">
           <div id="mGuestAvatar" class="avatar">G</div>
@@ -319,8 +319,8 @@
 </section>
 
 <!-- ===== HOME PAGE ===== -->
-<main id="homePage" class="page-content max-w-[1300px] mx-auto px-6 lg:px-8 pt-[92px] pb-16">
-  <div class="text-center mb-12 animate-on-scroll">
+<main id="homePage" class="max-w-[1300px] mx-auto px-6 lg:px-8 pt-[92px] pb-16">
+  <div class="text-center mb-12">
     <div class="font-satisfy text-[#3FD0D4] text-[30px] leading-none">Go & Discover</div>
     <h2 class="font-poppins font-700 text-[32px] md:text-[40px] text-[#212121] tracking-[-0.8px] mt-1">Breathtaking Homestays</h2>
     <div class="w-[48px] h-[2px] bg-[#3FD0D4] mx-auto mt-4"></div>
@@ -329,10 +329,6 @@
       <div id="pendingInfo" class="text-[11px] bg-amber-50 border border-amber-200 px-3 py-1.5 sharp hidden font-600">Pending: <span id="pendingCount">0</span> waiting approval</div>
       <div class="text-[11px] bg-[#3FD0D4]/10 border border-[#3FD0D4]/20 px-3 py-1.5 sharp font-600 text-[#212121]/70">All payment via website • FPX secured</div>
     </div>
-  </div>
-  <!-- ===== FALLBACK BANNER ===== -->
-  <div id="fallbackBanner" class="hidden mb-4 bg-yellow-50 border border-yellow-300 text-yellow-800 p-3 rounded-xl text-sm animate-on-scroll">
-    ⚠️ Could not load from cloud – showing sample homestays.
   </div>
   <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
 </main>
@@ -425,21 +421,149 @@
 <!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20"><div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10"><div><div class="flex items-center gap-3"><div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div><div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div></div><p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local - Kundasang version. Mountain homestays with Kinabalu soul.</p></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div><div class="space-y-2 text-[13px] font-poppins"><a href="/" class="hover:text-white block">Homestays</a><a href="/list.html" class="hover:text-white block">List Property</a><a href="/about.html" class="hover:text-white block">About</a></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div><div class="space-y-2 text-[13px] font-poppins"><div>Host Guidelines</div><div>ToyyibPay FPX Secured</div></div></div><div><div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div><p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p></div></div><div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay - All payment is secured by Toyyibpay</div></footer>
 
-<!-- ===== SCRIPTS ===== -->
-<script src="animations.js"></script>
 <script>
 // =============================================================
-// YOUR ORIGINAL SCRIPT – unchanged, except the forced demos at the end.
-// This is a simplified version; for the full code, paste your original
-// index.html script here. The key addition is the forced demo fallback.
+// SECURE HELPER
 // =============================================================
-
-// (Assuming you have all the original functions: safeHTML, sha256, etc.)
-// For brevity, I'm showing the essential part – you already have the full script.
-// The important change is inside the init() function.
+function safeHTML(html) {
+  if (!html) return '';
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th',
+      'button', 'input', 'form', 'label', 'select', 'option', 'textarea',
+      'section', 'article', 'header', 'footer', 'nav', 'main', 'aside',
+      'code', 'pre', 'blockquote', 'hr', 'small', 'sub', 'sup', 'svg', 'path'
+    ],
+    ALLOWED_ATTR: [
+      'id', 'class', 'style', 'href', 'src', 'alt', 'title', 'rel', 'target',
+      'onclick', 'onchange', 'oninput', 'onload', 'onerror',
+      'method', 'action', 'type', 'name', 'value', 'placeholder',
+      'checked', 'disabled', 'readonly', 'required', 'multiple',
+      'min', 'max', 'step', 'pattern', 'autocomplete', 'inputmode',
+      'viewBox', 'fill', 'stroke', 'stroke-width', 'd'
+    ],
+    ADD_ATTR: ['target']
+  });
+}
 
 // =============================================================
-// DEMO DATA (fallback)
+// SHA256 HELPER
+// =============================================================
+async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function generateSalt() {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
+}
+
+// =============================================================
+// CONFIG
+// =============================================================
+const CONFIG = {
+  platformFeePercent: 11,
+  toyyibpay: {
+    sandbox: true,
+    apiKey: "YOUR_TOYYIBPAY_KEY",
+    collectionId: "YOUR_COLLECTION_ID",
+    xSignature: "YOUR_X_SIGNATURE",
+    gatewayFee: 1,
+    splitEnabled: true,
+  }
+};
+
+// === CLOUD SYNC ===
+const CLOUD_ENABLED = true;
+const API_BASE = "/api";
+
+async function fetchWithAuth(url, options = {}) {
+  const token = sessionStorage.getItem('kd_admin_token') || '';
+  const headers = options.headers || {};
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  return fetch(url, { ...options, headers });
+}
+
+async function fetchCloudData(){
+  if(!CLOUD_ENABLED) return false;
+  try{
+    const res=await fetch(`${API_BASE}/bookings`, {cache:"no-store"});
+    if(!res.ok) throw new Error(res.status);
+    const data=await res.json();
+    console.log("Cloud sync:", data.bookings?.length||0, "bookings,", data.guests?.length||0, "guests, banned:", data.bannedGuests?.length||0);
+    if(data.bookings){ bookings=data.bookings; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
+    if(data.availability){ availabilityMap=data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
+    if(data.approved !== undefined){ localStorage.setItem("kd_approved", JSON.stringify(data.approved)); storedApproved = data.approved; }
+    if(data.demoOverrides !== undefined){ localStorage.setItem("kd_demo_overrides", JSON.stringify(data.demoOverrides)); demoOverrides = data.demoOverrides; }
+    if(data.demoBlocked !== undefined){ localStorage.setItem("kd_demo_blocked", JSON.stringify(data.demoBlocked)); demoBlockedMap = data.demoBlocked; }
+    if(data.deletedDemo !== undefined){ localStorage.setItem("kd_deleted_demo", JSON.stringify(data.deletedDemo)); deletedDemoIds = data.deletedDemo; }
+    if(data.pending !== undefined && Array.isArray(data.pending)){ pendingHomestays = data.pending; localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); }
+    if(data.bannedGuests !== undefined && Array.isArray(data.bannedGuests)){
+      localStorage.setItem("kd_banned_guests", JSON.stringify(data.bannedGuests));
+      if(currentGuest && data.bannedGuests.includes(currentGuest.email?.toLowerCase())){
+        currentGuest = null;
+        localStorage.removeItem('kd_guest');
+        renderGuestNav();
+      }
+    }
+    try{
+      let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id)) && !deletedDemoIds.includes(d.id)).map(d => {
+        let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
+        if(demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
+        return merged;
+      });
+      allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
+      homestays = [...allHomestays];
+    }catch(e){}
+    return true;
+  }catch(e){
+    console.warn("Cloud sync fail", e);
+    return false;
+  }
+}
+
+async function pushHomestaysToCloud(){
+  if(!CLOUD_ENABLED) return;
+  try{
+    await fetchWithAuth(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({
+      action:"updateHomestays",
+      approved: storedApproved,
+      demoOverrides: demoOverrides,
+      demoBlocked: demoBlockedMap,
+      deletedDemo: deletedDemoIds
+    })});
+    console.log("☁️ Homestays synced to cloud");
+  }catch(e){ console.warn("Homestays push fail", e); }
+}
+
+async function pushBookingToCloud(booking, bookedDates){
+  if(!CLOUD_ENABLED) return;
+  try{
+    console.log("☁️ Pushing booking:", booking.id);
+    await fetchWithAuth(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(booking)});
+    const allBookings = JSON.parse(localStorage.getItem("kd_bookings")||"[]");
+    await fetchWithAuth(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateBookings", bookings: allBookings})}).catch(()=>{});
+    if(bookedDates && bookedDates.length > 0){
+      const avail = JSON.parse(localStorage.getItem("kd_availability")||"{}");
+      await fetchWithAuth(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: avail})}).catch(()=>{});
+    }
+    console.log("☁️ Pushed to cloud");
+  }catch(e){ console.warn("Push fail", e); }
+}
+
+async function pushAvailabilityToCloud(){
+  if(!CLOUD_ENABLED) return;
+  try{
+    await fetchWithAuth(`${API_BASE}/bookings`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})});
+    console.log("☁️ Availability synced");
+  }catch(e){ console.warn("Availability push fail", e); }
+}
+
+// =============================================================
+// DEMO DATA
 // =============================================================
 const DEMO_HOMESTAYS = [
   {
@@ -484,38 +608,1083 @@ const DEMO_HOMESTAYS = [
   }
 ];
 
+let pendingHomestays = JSON.parse(localStorage.getItem("kd_pending") || "[]");
+let deletedDemoIds = JSON.parse(localStorage.getItem("kd_deleted_demo") || "[]");
+let demoBlockedMap = JSON.parse(localStorage.getItem("kd_demo_blocked") || "{}");
+function saveDemoBlocked(){
+  localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap));
+  pushHomestaysToCloud();
+}
+function isDemo(id){
+  return DEMO_HOMESTAYS.some(d => String(d.id)===String(id));
+}
+function saveApproved(){
+  const toSave = allHomestays.filter(h => !isDemo(h.id));
+  localStorage.setItem("kd_approved", JSON.stringify(toSave));
+  storedApproved = toSave;
+  pushHomestaysToCloud();
+}
+let storedApproved = JSON.parse(localStorage.getItem("kd_approved") || "[]");
+let demoOverrides = JSON.parse(localStorage.getItem("kd_demo_overrides") || "{}");
+let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d => {
+  let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
+  if (demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
+  return merged;
+});
+let allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
+allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = []; return h; });
+let homestays = [...allHomestays];
+let bookings = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
+let selectedHomestay = null;
+let availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}");
+
 // =============================================================
-// UPDATED init() – with forced fallback but NO localStorage
+// GUEST SYSTEM
+// =============================================================
+let currentGuest = null;
+
+try {
+  const saved = localStorage.getItem('kd_guest');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (parsed && parsed.id) {
+      currentGuest = parsed;
+    }
+  }
+} catch(e) { currentGuest = null; }
+
+function renderGuestNav() {
+  const loginNav = document.getElementById("guestNav");
+  const profileNav = document.getElementById("guestProfileNav");
+  const mLoginNav = document.getElementById("mGuestNav");
+  const mProfileNav = document.getElementById("mGuestProfileNav");
+  const mAvatar = document.getElementById("mGuestAvatar");
+  const mNameNav = document.getElementById("mGuestNameNav");
+
+  if (currentGuest) {
+    if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
+    if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
+    const avatar = document.getElementById("guestAvatar");
+    const nameNav = document.getElementById("guestNameNav");
+    if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
+    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
+    if (mAvatar) mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+  } else {
+    if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
+    if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
+    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
+  }
+}
+
+// =============================================================
+// GUEST REGISTER & LOGIN
+// =============================================================
+async function registerGuest() {
+  const name = document.getElementById("regName").value.trim();
+  const email = document.getElementById("regEmail").value.trim().toLowerCase();
+  const phone = document.getElementById("regPhone").value.trim();
+  const password = document.getElementById("regPassword").value;
+  if (!name || !email || !phone || !password) {
+    alert("Please fill all fields");
+    return;
+  }
+  if (password.length < 6) {
+    alert("Password must be at least 6 characters");
+    return;
+  }
+  try {
+    const res = await fetch(API_BASE + "/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, phone, password })
+    });
+    const data = await res.json();
+    if (data.success) {
+      currentGuest = data.guest;
+      localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
+      renderGuestNav();
+      alert("Account created and logged in as " + data.guest.name);
+      closeGuestAuth();
+      updateBookingFormWithGuest();
+    } else {
+      alert(data.error || "Registration failed");
+    }
+  } catch(e) {
+    alert("Network error: " + e.message);
+  }
+}
+
+async function loginGuest() {
+  const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+  const password = document.getElementById("loginPassword").value;
+  if (!email || !password) {
+    alert("Fill email & password");
+    return;
+  }
+  try {
+    const res = await fetch(API_BASE + "/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (data.success) {
+      currentGuest = data.guest;
+      localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
+      renderGuestNav();
+      alert("Welcome back " + data.guest.name);
+      closeGuestAuth();
+      updateBookingFormWithGuest();
+    } else {
+      alert(data.error || "Login failed");
+    }
+  } catch(e) {
+    alert("Network error: " + e.message);
+  }
+}
+
+function logoutGuest() {
+  if (!confirm("Logout?")) return;
+  currentGuest = null;
+  localStorage.removeItem('kd_guest');
+  renderGuestNav();
+  // Close mobile menu
+  document.getElementById('mobileNav').classList.remove('open');
+  window.location.href = '/';
+}
+
+function openGuestAuth(mode) {
+  const modal = document.getElementById("guestAuthModal");
+  if (modal) modal.classList.remove("hidden");
+  switchGuestAuth(mode);
+}
+function closeGuestAuth() {
+  const modal = document.getElementById("guestAuthModal");
+  if (modal) modal.classList.add("hidden");
+  const msgEl = document.getElementById("guestAuthMessage");
+  if (msgEl) { msgEl.classList.add("hidden"); msgEl.innerHTML = ""; msgEl.className = "hidden mt-4 p-3 rounded-xl text-xs"; }
+}
+function switchGuestAuth(mode) {
+  const msgEl2 = document.getElementById("guestAuthMessage");
+  if (msgEl2) { msgEl2.classList.add("hidden"); msgEl2.innerHTML = ""; msgEl2.className = "hidden mt-4 p-3 rounded-xl text-xs"; }
+  const loginForm = document.getElementById("guestLoginForm");
+  const regForm = document.getElementById("guestRegisterForm");
+  const tabLogin = document.getElementById("guestTabLogin");
+  const tabReg = document.getElementById("guestTabRegister");
+  const title = document.getElementById("guestAuthTitle");
+  if (!loginForm || !regForm) return;
+  if (mode === 'login') {
+    loginForm.classList.remove("hidden");
+    regForm.classList.add("hidden");
+    if (tabLogin) tabLogin.className = "flex-1 py-2 rounded-full bg-[var(--primary)] text-white text-sm font-semibold";
+    if (tabReg) tabReg.className = "flex-1 py-2 rounded-full bg-white text-sm";
+    if (title) title.innerText = "Guest Login";
+  } else {
+    loginForm.classList.add("hidden");
+    regForm.classList.remove("hidden");
+    if (tabLogin) tabLogin.className = "flex-1 py-2 rounded-full bg-white text-sm";
+    if (tabReg) tabReg.className = "flex-1 py-2 rounded-full bg-[var(--primary)] text-white text-sm font-semibold";
+    if (title) title.innerText = "Guest Register";
+  }
+}
+
+// =============================================================
+// FORGOT PASSWORD
+// =============================================================
+let forgotPasswordType = 'guest';
+
+function openForgotPassword(type) {
+  forgotPasswordType = type || 'guest';
+  closeGuestAuth();
+  const modal = document.getElementById('forgotPasswordModal');
+  if (modal) modal.classList.remove('hidden');
+  document.getElementById('fpStatus').classList.add('hidden');
+  document.getElementById('fpEmail').value = '';
+}
+
+function closeForgotPassword() {
+  const modal = document.getElementById('forgotPasswordModal');
+  if (modal) modal.classList.add('hidden');
+  document.getElementById('fpEmail').value = '';
+  document.getElementById('fpStatus').classList.add('hidden');
+}
+
+async function requestPasswordReset() {
+  const email = document.getElementById('fpEmail').value.trim().toLowerCase();
+  const statusEl = document.getElementById('fpStatus');
+  if (!email) {
+    statusEl.textContent = 'Please enter your email.';
+    statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200';
+    statusEl.classList.remove('hidden');
+    return;
+  }
+  statusEl.textContent = 'Sending reset link...';
+  statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-blue-50 text-blue-700 border border-blue-200';
+  statusEl.classList.remove('hidden');
+  try {
+    const res = await fetch(API_BASE + '/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, userType: forgotPasswordType })
+    });
+    const data = await res.json();
+    if (data.success) {
+      statusEl.textContent = data.message || 'If an account exists, a reset link has been sent.';
+      statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-green-50 text-green-700 border border-green-200';
+    } else {
+      statusEl.textContent = data.error || 'Request failed. Please try again.';
+      statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200';
+    }
+    statusEl.classList.remove('hidden');
+  } catch(e) {
+    statusEl.textContent = 'Network error: ' + e.message;
+    statusEl.className = 'mt-3 p-2 rounded-lg text-xs bg-red-50 text-red-700 border border-red-200';
+    statusEl.classList.remove('hidden');
+  }
+}
+
+// =============================================================
+// UPDATE BOOKING FORM WITH GUEST
+// =============================================================
+function updateBookingFormWithGuest() {
+  const nameEl = document.getElementById("guestName");
+  const emailEl = document.getElementById("guestEmail");
+  const phoneEl = document.getElementById("guestPhone");
+  const banner = document.getElementById("guestDetectedBanner");
+  if (currentGuest) {
+    if (nameEl) { nameEl.value = currentGuest.name || ""; nameEl.disabled = true; }
+    if (emailEl) { emailEl.value = currentGuest.email || ""; emailEl.disabled = true; }
+    if (phoneEl) { phoneEl.value = currentGuest.phone || ""; phoneEl.disabled = true; }
+    if (banner) {
+      banner.classList.remove("hidden");
+      banner.innerHTML = safeHTML("✅ Logged in as <b>" + currentGuest.name + "</b> (" + currentGuest.email + "). This booking is linked to your account.");
+    }
+  } else {
+    if (nameEl) { nameEl.value = ""; nameEl.disabled = false; }
+    if (emailEl) { emailEl.value = ""; emailEl.disabled = false; }
+    if (phoneEl) { phoneEl.value = ""; phoneEl.disabled = false; }
+    if (banner) banner.classList.add("hidden");
+  }
+}
+
+// =============================================================
+// PRICE & AVAILABILITY HELPERS
+// =============================================================
+function calculateNights(checkin, checkout) {
+  if (!checkin || !checkout) return 1;
+  const d1 = new Date(checkin);
+  const d2 = new Date(checkout);
+  const diff = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+  return diff > 0 ? diff : 1;
+}
+
+function calculatePrice(ownerPrice, nights = 1) {
+  const base = ownerPrice * nights;
+  const fee = Math.round((base*CONFIG.platformFeePercent)/100);
+  const gatewayFee = CONFIG.toyyibpay.enabled ? CONFIG.toyyibpay.gatewayFee : 0;
+  const total = base + fee + gatewayFee;
+  return { nights, base, fee, gatewayFee, total, ownerReceives: base, youReceive: fee - gatewayFee };
+}
+
+function isoToDate(str) { return new Date(str + 'T00:00:00'); }
+function dateToIso(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth()+1).padStart(2,'0');
+  const d = String(date.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+function getDatesInRange(checkin, checkout) {
+  if (!checkin || !checkout) return [];
+  const dates = [];
+  const start = isoToDate(checkin);
+  const end = isoToDate(checkout);
+  if (isNaN(start) || isNaN(end) || start >= end) return [];
+  const cur = new Date(start);
+  while (cur < end) {
+    dates.push(dateToIso(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+function getAllBlockedDatesForHomestay(homestay) {
+  if (!homestay) return [];
+  let blocked = [];
+  if (homestay.blockedDates && Array.isArray(homestay.blockedDates)) blocked = [...blocked, ...homestay.blockedDates];
+  if (availabilityMap[homestay.id] && Array.isArray(availabilityMap[homestay.id])) blocked = [...blocked, ...availabilityMap[homestay.id]];
+  const relatedBookings = bookings.filter(b => b.homestay === homestay.name || String(b.homestayId) === String(homestay.id));
+  relatedBookings.forEach(b => {
+    if (b.checkin && b.checkout) {
+      blocked = [...blocked, ...getDatesInRange(b.checkin, b.checkout)];
+    }
+  });
+  return [...new Set(blocked)].sort();
+}
+
+function isHomestayAvailableForRange(homestay, checkin, checkout) {
+  if (!checkin || !checkout) return { available: true, reason: 'No dates selected' };
+  const requestedDates = getDatesInRange(checkin, checkout);
+  if (requestedDates.length === 0) return { available: true, reason: 'Invalid range' };
+  const blocked = getAllBlockedDatesForHomestay(homestay);
+  const overlap = requestedDates.filter(d => blocked.includes(d));
+  if (overlap.length > 0) {
+    return { available: false, blockedDates: overlap, reason: 'Blocked: ' + overlap.join(', ') };
+  }
+  return { available: true };
+}
+
+function saveAvailabilityMap() {
+  localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
+  pushAvailabilityToCloud();
+}
+
+// =============================================================
+// RENDER GRID
+// =============================================================
+function renderGrid() {
+  const grid = document.getElementById("homestayGrid");
+  const loc = document.getElementById("filterLocation")?.value || "all";
+  const checkinVal = document.getElementById("checkin")?.value;
+  const checkoutVal = document.getElementById("checkout")?.value;
+  let list = homestays.filter(h => h.approved === true);
+  if (loc !== "all") list = list.filter(h => h.location === loc);
+  const pendingCount = pendingHomestays.length;
+  const pcEl = document.getElementById("pendingCount");
+  if (pcEl) pcEl.innerText = pendingCount;
+  const piEl = document.getElementById("pendingInfo");
+  if (piEl) piEl.classList.toggle("hidden", pendingCount === 0);
+  let filteredByAvailability = [];
+  let bookedCount = 0;
+  if (checkinVal && checkoutVal) {
+    list.forEach(h => {
+      const avail = isHomestayAvailableForRange(h, checkinVal, checkoutVal);
+      if (avail.available) { filteredByAvailability.push(h); } else { bookedCount++; }
+    });
+    list = filteredByAvailability;
+  }
+  if (list.length === 0) {
+    if (checkinVal && checkoutVal) {
+      grid.innerHTML = safeHTML(`<div class="col-span-3 text-center py-10"><div class="text-zinc-500">No homestays available for ${checkinVal} → ${checkoutVal}</div><div class="text-xs mt-2">${bookedCount} homestay(s) are Fully Booked for those dates</div><button onclick="document.getElementById('checkin').value=''; document.getElementById('checkout').value=''; renderGrid()" class="mt-4 px-4 py-2 rounded-full border bg-white text-sm">Clear dates & show all</button></div>`);
+    } else {
+      grid.innerHTML = safeHTML(`<div class="col-span-3 text-center py-10 text-zinc-500">No approved homestays yet. <a href="/list.html" class="underline text-[#3FD0D4]">List your homestay</a></div>`);
+    }
+    return;
+  }
+  let banner = "";
+  if (checkinVal && checkoutVal) {
+    banner = safeHTML(`<div class="col-span-3 mb-2 bg-green-50 border border-green-200 p-3 rounded-xl text-sm">Showing <b>${list.length} available</b> homestays for <b>${checkinVal} → ${checkoutVal}</b> • ${bookedCount} Fully Booked hidden <button onclick="document.getElementById('checkin').value=''; document.getElementById('checkout').value=''; renderGrid()" class="ml-2 text-xs underline">Clear dates</button></div>`);
+  }
+  grid.innerHTML = banner + safeHTML(list.map(h => {
+    const price = calculatePrice(h.ownerPrice, 1);
+    const blocked = getAllBlockedDatesForHomestay(h);
+    let availabilityBadge = "";
+    if (checkinVal && checkoutVal) {
+      availabilityBadge = safeHTML(`<div class="absolute top-3 right-3 badge-available text-[11px] px-2.5 py-1 rounded-full font-semibold">✓ Available for your dates</div>`);
+    } else {
+      if (blocked.length > 0) {
+        availabilityBadge = safeHTML(`<div class="absolute top-3 right-3 bg-white/90 backdrop-blur text-[11px] px-2.5 py-1 rounded-full border font-medium">${blocked.length} dates booked</div>`);
+      } else {
+        availabilityBadge = safeHTML(`<div class="absolute top-3 right-3 badge-available text-[11px] px-2.5 py-1 rounded-full font-semibold">✓ Available</div>`);
+      }
+    }
+    let availBadgeHtml = "";
+    if (checkinVal && checkoutVal) {
+      availBadgeHtml = safeHTML(`<div class="absolute top-4 right-4 bg-[#3FD0D4] text-white text-[10px] px-3 py-1 sharp font-700 uppercase tracking-wider">✓ Available</div>`);
+    } else {
+      if (blocked.length > 0) {
+        availBadgeHtml = safeHTML(`<div class="absolute top-4 right-4 bg-white/90 backdrop-blur text-[10px] px-3 py-1 sharp font-600 border border-black/10">${blocked.length} dates booked</div>`);
+      } else {
+        availBadgeHtml = safeHTML(`<div class="absolute top-4 right-4 bg-white sharp text-[10px] px-3 py-1 font-700 uppercase tracking-wider border border-black/5">✓ Available</div>`);
+      }
+    }
+    return `
+      <article class="group bg-white sharp shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-[4px] transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden" onclick="openDetail(${h.id})">
+        <div class="h-[240px] w-full relative overflow-hidden bg-gradient-to-br from-[#a8e6cf] to-[#88d8c0]">
+          <img src="${h.image}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+          <div class="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors"></div>
+          <div class="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 sharp flex items-center gap-1 shadow-sm">
+            <span class="font-poppins font-700 text-[11px] text-[#212121]">${h.rating ? h.rating.toFixed(1) : '5.0'} ★</span>
+          </div>
+          ${h.verified ? safeHTML(`<div class="absolute top-4 left-[78px] bg-[#3FD0D4] text-white text-[10px] px-2.5 py-1 sharp font-700 uppercase tracking-widest">Verified</div>`) : safeHTML(`<div class="absolute top-4 left-[78px] bg-white text-[#212121] text-[10px] px-2.5 py-1 sharp font-600 border">Approved</div>`)}
+          ${availBadgeHtml}
+          <div class="absolute bottom-3 left-3 bg-black/70 text-white text-[10px] px-2.5 py-1 sharp font-500">⚠️ Payment via website only</div>
+        </div>
+        <div class="p-5 flex flex-col flex-1">
+          <div class="flex justify-between items-start gap-2">
+            <h3 class="font-poppins font-700 text-[18px] leading-tight text-[#212121]">${h.name}</h3>
+            <span class="text-[11px] bg-zinc-100 px-2 py-1 sharp shrink-0 font-600 text-[#212121]/70">${h.location}</span>
+          </div>
+          <div class="text-[12px] text-[#212121]/60 mt-2 font-500">${h.guests} guests • ${h.bedrooms} bed • ${h.reviews} reviews</div>
+          <div class="mt-auto pt-4 flex justify-between items-center border-t border-black/5">
+            <div class="font-poppins font-700 text-[18px] text-[#212121]">RM${h.ownerPrice}<span class="font-400 text-[12px] text-[#212121]/60"> /night</span></div>
+            <div class="text-[11px] ${blocked.length > 0 ? 'text-red-600' : 'text-[#3FD0D4]'} font-700 uppercase tracking-wider">${blocked.length > 0 ? blocked.length + ' booked' : 'Available'}</div>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join(""));
+}
+
+// =============================================================
+// DETAIL MODAL
+// =============================================================
+function openDetail(id) {
+  selectedHomestay = homestays.find(h => h.id === id) || pendingHomestays.find(h => h.id === id);
+  if (!selectedHomestay) return;
+  const searchCi = document.getElementById("checkin")?.value;
+  const searchCo = document.getElementById("checkout")?.value;
+  const today = new Date();
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
+  const after = new Date(tomorrow); after.setDate(tomorrow.getDate()+2);
+  const toISO = d => d.toISOString().split('T')[0];
+  const defaultCi = searchCi || toISO(tomorrow);
+  const defaultCo = searchCo || toISO(after);
+  const blocked = getAllBlockedDatesForHomestay(selectedHomestay);
+  const availForDefault = isHomestayAvailableForRange(selectedHomestay, defaultCi, defaultCo);
+  document.getElementById("detailContent").innerHTML = safeHTML(`
+    <img src="${selectedHomestay.image}" class="w-full h-[300px] object-cover rounded-xl"/>
+    <div class="flex gap-2 mt-4 flex-wrap">
+      ${selectedHomestay.verified ? safeHTML(`<span class="badge-verified text-xs px-3 py-1 rounded-full font-semibold">✓ Verified Owner — ${selectedHomestay.ownerName} • ${selectedHomestay.ownerBank} ${selectedHomestay.ownerBankAccount}</span>`) : safeHTML(`<span class="bg-zinc-100 text-xs px-3 py-1 rounded-full">Approved Listing</span>`)}
+      ${availForDefault.available ? safeHTML(`<span class="badge-available text-xs px-3 py-1 rounded-full font-semibold">✓ Available for ${defaultCi} → ${defaultCo}</span>`) : safeHTML(`<span class="badge-booked text-xs px-3 py-1 rounded-full font-semibold">✕ Fully Booked for ${defaultCi} → ${defaultCo}</span>`)}
+    </div>
+    <h2 class="text-3xl font-bold mt-3">${selectedHomestay.name}</h2>
+    <p class="text-sm text-zinc-500">${selectedHomestay.location} • ${selectedHomestay.guests} guests • ${selectedHomestay.bedrooms} bedrooms</p>
+    <p class="text-sm mt-3 leading-relaxed">${selectedHomestay.description || "No description"}</p>
+    <div class="mt-6 bg-white border rounded-xl p-4">
+      <h4 class="font-bold text-sm">📅 Availability — Check before booking</h4>
+      <p class="text-[11px] text-zinc-500 mt-1">Green = free, Red = fully booked. Your search dates are highlighted.</p>
+      <div id="detailAvailabilityCalendar" class="mt-3"></div>
+      <div id="detailAvailabilityStatus" class="mt-3 text-xs p-2 rounded-lg ${availForDefault.available ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}">${availForDefault.available ? '✓ Available for selected dates' : '✕ Not available: ' + (availForDefault.blockedDates ? availForDefault.blockedDates.join(', ') + ' is booked' : 'Fully booked')}</div>
+    </div>
+    <div class="mt-6 grid grid-cols-2 gap-3">
+      <div><label class="text-xs font-semibold">Check-in</label><input id="detailCheckin" type="date" value="${defaultCi}" class="w-full mt-1 border rounded-full px-4 py-2.5" onchange="updateDetailPrice()"/></div>
+      <div><label class="text-xs font-semibold">Check-out</label><input id="detailCheckout" type="date" value="${defaultCo}" class="w-full mt-1 border rounded-full px-4 py-2.5" onchange="updateDetailPrice()"/></div>
+    </div>
+    <div class="mt-2 text-xs">Nights: <span id="detailNights" class="font-bold">2</span></div>
+    <div id="detailPriceBox" class="mt-4 bg-zinc-50 p-4 rounded-xl border"></div>
+    <div class="mt-4 bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-800">⚠️ <b>All payment will go through this website, no outside payment.</b> Do not transfer to personal account outside. All transactions secured by ToyyibPay FPX.</div>
+  `);
+  document.getElementById("detailModal").classList.remove("hidden");
+  renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
+  updateDetailPrice();
+}
+
+function updateDetailPrice() {
+  if (!selectedHomestay) return;
+  const ci = document.getElementById("detailCheckin")?.value;
+  const co = document.getElementById("detailCheckout")?.value;
+  const nights = calculateNights(ci, co);
+  const p = calculatePrice(selectedHomestay.ownerPrice, nights);
+  const avail = isHomestayAvailableForRange(selectedHomestay, ci, co);
+  const el = document.getElementById("detailNights");
+  if (el) el.innerText = nights;
+  const statusEl = document.getElementById("detailAvailabilityStatus");
+  if (statusEl) {
+    if (avail.available) {
+      statusEl.className = "mt-3 text-xs p-2 rounded-lg bg-green-50 text-green-800 border border-green-200";
+      statusEl.innerHTML = safeHTML("✓ Available for " + ci + " → " + co + " (" + nights + " nights)");
+    } else {
+      statusEl.className = "mt-3 text-xs p-2 rounded-lg bg-red-50 text-red-800 border border-red-200";
+      statusEl.innerHTML = safeHTML("✕ Fully Booked for selected dates! Blocked: " + (avail.blockedDates ? avail.blockedDates.join(", ") : "Unavailable") + "<br>Please pick different dates.");
+    }
+  }
+  const box = document.getElementById("detailPriceBox");
+  if (box) {
+    if (!avail.available) {
+      box.innerHTML = safeHTML(`<h4 class="font-bold text-sm text-red-700">✕ Not Available</h4><div class="mt-2 text-sm text-red-600">This homestay is fully booked for ${avail.blockedDates ? avail.blockedDates.join(", ") : "your selected dates"}. Please choose other dates.</div><div class="mt-2 text-xs">Price would be RM${p.total.toFixed(2)} for ${nights} nights if available</div>`);
+    } else {
+      box.innerHTML = safeHTML(`<h4 class="font-bold text-sm">Price Breakdown — Auto Updated</h4><div class="mt-2 text-sm space-y-1"><div class="flex justify-between"><span>Price RM${selectedHomestay.ownerPrice} x ${nights} nights</span><span>RM${p.base}</span></div><div class="flex justify-between"><span>Service fee</span><span>RM${p.fee}</span></div><div class="flex justify-between font-bold border-t pt-2 mt-2 text-base"><span>Total :</span><span>RM${p.total.toFixed(2)}</span></div></div><div class="mt-2 text-[11px] text-green-700">✓ Dates available — you can book now</div>`);
+    }
+  }
+}
+
+function closeDetail() { document.getElementById("detailModal").classList.add("hidden"); }
+
+// =============================================================
+// BOOKING MODAL
+// =============================================================
+function openBooking() {
+  if (!currentGuest) {
+    alert("🔐 Please login or register first to make a booking.");
+    document.getElementById("bookingModal").classList.add("hidden");
+    openGuestAuth('login');
+    return;
+  }
+  const ci = document.getElementById("detailCheckin")?.value;
+  const co = document.getElementById("detailCheckout")?.value;
+  if (ci) document.getElementById("bookingCheckin").value = ci;
+  if (co) document.getElementById("bookingCheckout").value = co;
+  updateBookingPrice();
+  document.getElementById("bookingModal").classList.remove("hidden");
+  updateBookingFormWithGuest();
+  const noteEl = document.getElementById("toyyibpayNote");
+  if (noteEl) {
+    noteEl.innerHTML = safeHTML("Logged in as <b>" + currentGuest.name + "</b> (" + currentGuest.email + "). Booking will be linked to your account.");
+  }
+}
+
+function updateBookingPrice() {
+  if (!selectedHomestay) return;
+  const ci = document.getElementById("bookingCheckin").value;
+  const co = document.getElementById("bookingCheckout").value;
+  const nights = calculateNights(ci, co);
+  const p = calculatePrice(selectedHomestay.ownerPrice, nights);
+  const avail = isHomestayAvailableForRange(selectedHomestay, ci, co);
+  document.getElementById("bookingNights").innerText = nights;
+  const summaryEl = document.getElementById("bookingSummary");
+  if (!avail.available) {
+    summaryEl.innerHTML = safeHTML(`<div class="font-bold text-red-700">✕ Fully Booked for ${ci} → ${co}</div><div class="mt-2 text-xs text-red-600">Blocked dates: ${avail.blockedDates ? avail.blockedDates.join(", ") : "Unavailable"}</div><div class="mt-2 text-xs">Please pick different dates to continue booking</div><div class="mt-2 space-y-1 opacity-50"><div class="flex justify-between"><span>RM${selectedHomestay.ownerPrice} x ${nights}</span><span>RM${p.base}</span></div><div class="flex justify-between"><span>Service Fee</span><span>RM${p.fee}</span></div><div class="flex justify-between font-bold border-t pt-2 mt-2"><span>Total</span><span>RM${p.total.toFixed(2)}</span></div></div>`);
+  } else {
+    summaryEl.innerHTML = safeHTML(`<div class="font-bold">${selectedHomestay.name} — ${nights} nights</div><div class="mt-1 text-[11px] text-green-700">✓ Available for your dates</div><div class="mt-2 space-y-1"><div class="flex justify-between"><span>RM${selectedHomestay.ownerPrice} x ${nights}</span><span>RM${p.base}</span></div><div class="flex justify-between"><span>Service Fee</span><span>RM${p.fee}</span></div><div class="flex justify-between font-bold border-t pt-2 mt-2"><span>Total</span><span>RM${p.total.toFixed(2)}</span></div></div>`);
+  }
+}
+
+function closeBooking() { document.getElementById("bookingModal").classList.add("hidden"); }
+
+// =============================================================
+// PAYMENT FUNCTION
+// =============================================================
+async function processPayment() {
+  if (!currentGuest) {
+    alert("🔐 You must be logged in to complete a booking.");
+    openGuestAuth('login');
+    return;
+  }
+  const guestName = document.getElementById("guestName").value.trim();
+  const guestEmail = document.getElementById("guestEmail").value.trim();
+  const guestPhone = document.getElementById("guestPhone").value.trim();
+  if (!guestName || !guestEmail) { alert("Fill name & email"); return; }
+  if (currentGuest && guestEmail.toLowerCase() !== currentGuest.email.toLowerCase()) {
+    if (!confirm("You are logged in as " + currentGuest.email + " but booking with " + guestEmail + ". Continue?")) return;
+  }
+  const ci = document.getElementById("bookingCheckin").value;
+  const co = document.getElementById("bookingCheckout").value;
+  const availCheck = isHomestayAvailableForRange(selectedHomestay, ci, co);
+  if (!availCheck.available) {
+    alert("✕ Cannot book! Homestay is Fully Booked for: " + (availCheck.blockedDates ? availCheck.blockedDates.join(", ") : ci + " → " + co) + "\nPlease pick different dates.");
+    return;
+  }
+  const nights = calculateNights(ci, co);
+  const price = calculatePrice(selectedHomestay.ownerPrice, nights);
+  const bookingId = "KDH-" + Date.now().toString().slice(-6);
+
+  const booking = {
+    id: bookingId,
+    homestay: selectedHomestay.name,
+    homestayId: selectedHomestay.id,
+    owner: selectedHomestay.ownerName,
+    ownerBank: selectedHomestay.ownerBankAccount,
+    ownerBankCode: selectedHomestay.bankCode || "MBBEMYKL",
+    ownerAcc: selectedHomestay.ownerBankAccount || "",
+    ownerWhatsapp: selectedHomestay.whatsapp || "",
+    nights,
+    base: price.base,
+    fee: price.fee,
+    gatewayFee: price.gatewayFee,
+    total: price.total,
+    youReceive: price.youReceive,
+    guestName, guestEmail, guestPhone,
+    guestId: currentGuest ? currentGuest.id : null,
+    guestDetected: currentGuest ? true : false,
+    checkin: ci, checkout: co,
+    status: "Pending Payment",
+    date: new Date().toISOString(),
+    ownerName: selectedHomestay.ownerName,
+    bankHolder: selectedHomestay.bankHolder || selectedHomestay.ownerName,
+  };
+
+  try {
+    const saveRes = await fetch(API_BASE + "/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "createPublicBooking", booking: booking })
+    });
+    if (!saveRes.ok) {
+      const err = await saveRes.text();
+      alert("Failed to save booking: " + err);
+      return;
+    }
+    console.log("✅ Booking saved to cloud, proceeding to payment");
+  } catch(e) {
+    alert("Network error while saving booking: " + e.message);
+    return;
+  }
+
+  if (!CONFIG.toyyibpay.enabled) {
+    booking.status = "Paid - Awaiting Check-in";
+    bookings.push(booking);
+    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+    const bookedDates = getDatesInRange(ci, co);
+    if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
+    bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
+    saveAvailabilityMap();
+    showBookingSuccess(bookingId, nights, ci, co, price.total);
+    return;
+  }
+
+  try {
+    const res = await fetch(API_BASE + "/toyyibpay-create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bookingId, total: price.total, base: price.base, fee: price.fee,
+        homestayName: selectedHomestay.name, homestayId: selectedHomestay.id,
+        guestEmail, guestName, guestPhone, checkin: ci, checkout: co, nights
+      })
+    });
+    const data = await res.json();
+    if (data.simulation) {
+      booking.status = "Paid - Awaiting Check-in (Live env not set)";
+      bookings.push(booking);
+      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+      const bookedDates = getDatesInRange(ci, co);
+      if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
+      bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
+      saveAvailabilityMap();
+      showBookingSuccess(bookingId, nights, ci, co, price.total);
+      return;
+    }
+    if (data.url) {
+      booking.status = "Pending Payment - Redirected to FPX";
+      bookings.push(booking);
+      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+      window.location.href = data.url;
+    } else {
+      alert("Payment creation failed: " + (data.error || "Unknown"));
+    }
+  } catch(e) {
+    alert("Payment error: " + e.message + "\nFalling back to simulation.");
+    booking.status = "Paid - Awaiting Check-in (Error fallback)";
+    bookings.push(booking);
+    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+    const bookedDates = getDatesInRange(ci, co);
+    if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
+    bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
+    saveAvailabilityMap();
+    showBookingSuccess(bookingId, nights, ci, co, price.total);
+  }
+}
+
+function processBillplzPayment() { processPayment(); }
+
+// =============================================================
+// SHOW PAYMENT RECEIPT
+// =============================================================
+let lastBookingWhatsapp = "";
+
+function showPaymentReceipt(bookingId, nights, checkin, checkout, total, billcode, transactionId) {
+  document.getElementById("successBookingId").textContent = bookingId;
+  document.getElementById("successNights").textContent = nights + " nights";
+  document.getElementById("successDates").textContent = checkin + " → " + checkout;
+  document.getElementById("successTotal").textContent = "RM" + total.toFixed(2);
+  
+  const b = bookings.find(x => String(x.id) === String(bookingId));
+  if (b && b.ownerWhatsapp) {
+    lastBookingWhatsapp = b.ownerWhatsapp;
+  } else if (selectedHomestay && selectedHomestay.whatsapp) {
+    lastBookingWhatsapp = selectedHomestay.whatsapp;
+  } else {
+    lastBookingWhatsapp = "";
+  }
+  
+  const receiptDetails = document.getElementById("receiptDetails");
+  if (receiptDetails) {
+    let html = '<div class="mt-3 pt-3 border-t border-black/10 text-left text-xs text-zinc-600">';
+    if (billcode) html += '<div><span class="font-semibold">Bill Code:</span> ' + billcode + '</div>';
+    if (transactionId) html += '<div><span class="font-semibold">Transaction ID:</span> ' + transactionId + '</div>';
+    html += '<div><span class="font-semibold">Payment Method:</span> FPX (Online Banking)</div>';
+    html += '<div><span class="font-semibold">Status:</span> <span class="text-green-600 font-bold">✓ Paid</span></div>';
+    html += '</div>';
+    receiptDetails.innerHTML = html;
+    receiptDetails.classList.remove('hidden');
+  }
+  
+  document.getElementById("bookingSuccessModal").style.display = "flex";
+  lastBookingId = bookingId;
+  lastBookingNights = nights;
+  lastBookingCi = checkin;
+  lastBookingCo = checkout;
+  lastBookingTotal = total;
+}
+
+// =============================================================
+// WHATSAPP FUNCTIONS
+// =============================================================
+function getOwnerWhatsAppNumber() {
+  let raw = null;
+  if (selectedHomestay && selectedHomestay.whatsapp) raw = selectedHomestay.whatsapp;
+  else if (selectedHomestay && selectedHomestay.ownerPhone) raw = selectedHomestay.ownerPhone;
+  else if (selectedHomestay && selectedHomestay.phone) raw = selectedHomestay.phone;
+  else raw = "";
+  let num = String(raw).replace(/[^0-9]/g, '');
+  if (!num) return "";
+  if (num.startsWith('0')) num = '60' + num.substring(1);
+  return num;
+}
+function openWhatsAppLink(waNumber, message) {
+  const encoded = encodeURIComponent(message);
+  const waUrl = "https://wa.me/" + waNumber + "?text=" + encoded;
+  const apiUrl = "https://api.whatsapp.com/send?phone=" + waNumber + "&text=" + encoded;
+  try {
+    const a = document.createElement('a');
+    a.href = waUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { if (a.parentNode) a.parentNode.removeChild(a); }, 1000);
+    return waUrl;
+  } catch(e) {
+    try {
+      const win = window.open(waUrl, '_blank', 'noopener,noreferrer');
+      if (!win) window.open(apiUrl, '_blank');
+      return waUrl;
+    } catch(e2) {
+      alert("Could not open WhatsApp automatically. Please use this link: " + waUrl);
+      return waUrl;
+    }
+  }
+}
+function chatWithOwner() {
+  try {
+    if (!selectedHomestay) { alert('No homestay selected - please open a homestay first'); return; }
+    const waNumber = getOwnerWhatsAppNumber();
+    const ci = document.getElementById("detailCheckin")?.value || document.getElementById("bookingCheckin")?.value || document.getElementById("checkin")?.value || '';
+    const co = document.getElementById("detailCheckout")?.value || document.getElementById("bookingCheckout")?.value || document.getElementById("checkout")?.value || '';
+    const nightsEl = document.getElementById("detailNights") || document.getElementById("bookingNights");
+    const nights = nightsEl ? nightsEl.innerText : (calculateNights(ci, co) || 2);
+    const message = "Hi " + (selectedHomestay.ownerName || 'Owner') + ", I saw " + selectedHomestay.name + " on Kundasang Homestays website.\n\n" +
+      "I'm interested to book:\n" +
+      "Check-in: " + (ci || 'Flexible') + "\n" +
+      "Check-out: " + (co || 'Flexible') + "\n" +
+      "Nights: " + nights + "\n" +
+      "Guests: " + selectedHomestay.guests + " guests\n\n" +
+      "Can you confirm availability and facilities? Thanks!\n\n" +
+      "From: Kundasang Homestays (Verified)";
+    openWhatsAppLink(waNumber, message);
+  } catch (e) { alert('WhatsApp error: ' + e.message); }
+}
+function chatWithOwnerFromBooking(bookingId) {
+  const booking = bookings.find(b => b.id === bookingId);
+  if (!booking) { alert('Booking not found'); return; }
+  const h = homestays.find(x => x.name === booking.homestay) || allHomestays.find(x => x.name === booking.homestay) || homestays.find(x => x.id === booking.homestayId) || allHomestays.find(x => x.id === booking.homestayId);
+  if (!h) { alert('Homestay not found'); return; }
+  let raw = h.whatsapp || h.phone || '';
+  let num = String(raw).replace(/[^0-9]/g, '');
+  if (num.startsWith('0')) num = '60' + num.substring(1);
+  if (!num) { alert('Owner WhatsApp not available'); return; }
+  const message = "Hi " + (h.ownerName || booking.owner || 'Owner') + ", I have made a booking for " + booking.homestay + "\n\n" +
+    "Booking ID: " + booking.id + "\n" +
+    "Check-in: " + booking.checkin + "\n" +
+    "Check-out: " + booking.checkout + "\n" +
+    "Nights: " + booking.nights + " nights\n\n" +
+    "Guest: " + (booking.guestName || '-') + "\n" +
+    "Can you double confirm my booking? Thank you!\n\n" +
+    "From " + (booking.guestName || 'Guest') + " - Kundasang Homestays";
+  openWhatsAppLink(num, message);
+}
+
+// =============================================================
+// BOOKING SUCCESS MODAL
+// =============================================================
+let lastBookingId = "";
+let lastBookingNights = "";
+let lastBookingCi = "";
+let lastBookingCo = "";
+let lastBookingTotal = "";
+
+function showBookingSuccess(bookingId, nights, ci, co, total){
+  const params = new URLSearchParams(window.location.search);
+  const billcode = params.get("billcode");
+  const transactionId = params.get("transaction_id");
+  
+  const b = bookings.find(x => String(x.id) === String(bookingId));
+  if (b && b.ownerWhatsapp) {
+    lastBookingWhatsapp = b.ownerWhatsapp;
+  } else if (selectedHomestay && selectedHomestay.whatsapp) {
+    lastBookingWhatsapp = selectedHomestay.whatsapp;
+  }
+  
+  if (billcode || transactionId) {
+    showPaymentReceipt(bookingId, nights, ci, co, total, billcode, transactionId);
+    return;
+  }
+  
+  lastBookingId = bookingId;
+  lastBookingNights = nights;
+  lastBookingCi = ci;
+  lastBookingCo = co;
+  lastBookingTotal = total;
+  document.getElementById("successBookingId").textContent=bookingId;
+  document.getElementById("successNights").textContent=nights+" nights";
+  document.getElementById("successDates").textContent=ci+" → "+co;
+  document.getElementById("successTotal").textContent="RM"+total;
+  document.getElementById("bookingSuccessModal").style.display="flex";
+}
+
+function closeBookingSuccess(){
+  document.getElementById("bookingSuccessModal").style.display="none";
+  closeBooking(); closeDetail(); renderGrid();
+}
+
+function whatsappWithBookingId(){
+  let waNumber = lastBookingWhatsapp || "";
+  if (!waNumber && selectedHomestay) {
+    waNumber = selectedHomestay.whatsapp || "";
+  }
+  if (waNumber) {
+    waNumber = String(waNumber).replace(/[^0-9]/g, '');
+    if (waNumber.startsWith('0')) waNumber = '60' + waNumber.substring(1);
+  }
+  if (!waNumber) {
+    alert('WhatsApp not found - owner must add WhatsApp at listing.');
+    return;
+  }
+  
+  const homestayName = (typeof selectedHomestay !== 'undefined' && selectedHomestay) ? selectedHomestay.name : 'Homestay';
+  const ownerName = (typeof selectedHomestay !== 'undefined' && selectedHomestay && selectedHomestay.ownerName) ? selectedHomestay.ownerName : 'Owner';
+  const bookingId = lastBookingId;
+  const total = lastBookingTotal;
+  const nights = lastBookingNights;
+  const dates = lastBookingCi + " → " + lastBookingCo;
+  const receiptDetails = document.getElementById("receiptDetails");
+  let billcode = '';
+  let transactionId = '';
+  if (receiptDetails) {
+    const text = receiptDetails.textContent || '';
+    const billMatch = text.match(/Bill Code:\s*([a-z0-9]+)/i);
+    const transMatch = text.match(/Transaction ID:\s*([a-z0-9]+)/i);
+    if (billMatch) billcode = billMatch[1];
+    if (transMatch) transactionId = transMatch[1];
+  }
+  
+  const message = "Hi " + ownerName + ", I just booked " + homestayName + " on Kundasang Homestays!\n\n*ID: " + bookingId + "*\n*" + nights + " nights* " + dates + "\nTotal RM" + total.toFixed(2) + 
+    (billcode ? "\nBill Code: " + billcode : "") + 
+    (transactionId ? "\nTransaction ID: " + transactionId : "") + 
+    "\n\nPlease confirm my check-in. Thanks!";
+  openWhatsAppLink(waNumber, message);
+}
+
+// =============================================================
+// PAGE NAVIGATION
+// =============================================================
+function showHome() {
+  const homePage = document.getElementById("homePage");
+  const hero = document.getElementById("hero");
+  if (homePage) homePage.classList.remove("hidden");
+  if (hero) hero.classList.remove("hidden");
+  const active = document.getElementById("navHome");
+  if (active) active.className = "setsail-nav-link active";
+  renderGrid();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// =============================================================
+// MOBILE MENU TOGGLE
+// =============================================================
+function toggleMobileMenu() {
+  const nav = document.getElementById('mobileNav');
+  if (nav) {
+    nav.classList.toggle('open');
+  }
+}
+
+// Close mobile menu when clicking outside
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('mobileNav');
+  const btn = document.getElementById('mobileMenuBtn');
+  if (!nav || !btn) return;
+  if (nav.classList.contains('open') && 
+      !nav.contains(e.target) && 
+      !btn.contains(e.target)) {
+    nav.classList.remove('open');
+  }
+});
+
+// =============================================================
+// RENDER AVAILABILITY CALENDAR
+// =============================================================
+function renderAvailabilityCalendar(homestay, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container || !homestay) return;
+  
+  const blocked = getAllBlockedDatesForHomestay(homestay);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const todayIso = dateToIso(today);
+  
+  if (!container._currentMonth) {
+    container._currentMonth = today.getMonth();
+    container._currentYear = today.getFullYear();
+  }
+  
+  function renderMonth() {
+    const month = container._currentMonth;
+    const year = container._currentYear;
+    const monthLabel = new Date(year, month, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startDay = new Date(year, month, 1).getDay();
+    const isCurrentMonth = (month === today.getMonth() && year === today.getFullYear());
+    
+    let html = `
+      <div class="flex items-center justify-between mb-2">
+        <button onclick="navigateCalendar(this, -1, '${containerId}')" class="calendar-nav-btn">‹</button>
+        <span class="calendar-month-label">${monthLabel}</span>
+        <button onclick="navigateCalendar(this, 1, '${containerId}')" class="calendar-nav-btn">›</button>
+      </div>
+      <div class="calendar-mini">
+    `;
+    
+    const dayNames = ["S", "M", "T", "W", "T", "F", "S"];
+    dayNames.forEach(d => {
+      html += `<div class="text-[9px] text-center font-bold text-zinc-400 py-1">${d}</div>`;
+    });
+    
+    for (let e = 0; e < startDay; e++) {
+      html += `<div class="calendar-day empty"></div>`;
+    }
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(year, month, day);
+      d.setHours(0,0,0,0);
+      const iso = dateToIso(d);
+      const isBlocked = blocked.includes(iso);
+      const isToday = iso === todayIso;
+      const isPast = d < today;
+      
+      let cls = "calendar-day";
+      if (isPast) {
+        cls += " past";
+      } else {
+        cls += isBlocked ? " booked" : " available";
+      }
+      if (isToday) cls += " today";
+      
+      html += `<div class="${cls}" title="${iso} ${isBlocked ? '(Booked)' : isPast ? '(Past)' : '(Available)'}">${day}</div>`;
+    }
+    
+    html += `</div>`;
+    html += `
+      <div class="calendar-legend">
+        <span><span class="dot green"></span> Available</span>
+        <span><span class="dot red"></span> Booked</span>
+        ${isCurrentMonth ? `<span><span class="dot today-dot"></span> Today</span>` : ''}
+        <span style="margin-left:auto;font-size:9px;color:#9ca3af;">${blocked.length} booked</span>
+      </div>
+    `;
+    
+    container.innerHTML = safeHTML(html);
+  }
+  
+  window.navigateCalendar = function(btn, direction, containerId) {
+    const c = document.getElementById(containerId);
+    if (!c) return;
+    c._currentMonth = (c._currentMonth || today.getMonth()) + direction;
+    if (c._currentMonth > 11) { c._currentMonth = 0; c._currentYear = (c._currentYear || today.getFullYear()) + 1; }
+    if (c._currentMonth < 0) { c._currentMonth = 11; c._currentYear = (c._currentYear || today.getFullYear()) - 1; }
+    if (!c._currentYear) c._currentYear = today.getFullYear();
+    renderMonth.call(c);
+  };
+  
+  container._render = renderMonth;
+  renderMonth.call(container);
+}
+
+// =============================================================
+// INIT
 // =============================================================
 (async function init() {
   renderGuestNav();
-
-  // Try to load from cloud
-  let cloudSuccess = false;
-  try {
-    cloudSuccess = await fetchCloudData();
-    console.log('Cloud data loaded:', cloudSuccess);
-  } catch(e) {
-    console.warn('Cloud fetch failed:', e);
-  }
-
-  // If still no homestays, force demos (but don't save to localStorage)
-  if (homestays.length === 0) {
-    console.warn('⚠️ No homestays found – showing demo homestays.');
-    // Use a copy of DEMO_HOMESTAYS
-    const forced = DEMO_HOMESTAYS.map(d => ({ ...d, blockedDates: [] }));
-    homestays = forced;
-    allHomestays = forced;
-    // Show the fallback banner
-    const banner = document.getElementById('fallbackBanner');
-    if (banner) banner.classList.remove('hidden');
-  }
-
+  await fetchCloudData();
   renderGrid();
   showHome();
-
-  // ... rest of your init (payment mode, redirect handling) ...
+  
+  try {
+    const res = await fetch(API_BASE + "/payment-mode?t=" + Date.now());
+    const data = await res.json();
+    CONFIG.toyyibpay.enabled = data.enabled;
+    console.log("💳 Payment mode:", data.message);
+  } catch(e) {
+    console.warn("⚠️ Failed to fetch payment mode, defaulting to simulation");
+    CONFIG.toyyibpay.enabled = false;
+  }
+  
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const bookingIdParam = params.get("booking");
+    const paidParam = params.get("paid");
+    const billcode = params.get("billcode");
+    const transactionId = params.get("transaction_id");
+    const statusId = params.get("status_id");
+    
+    if (bookingIdParam && paidParam === "1") {
+      console.log("🎯 Processing payment redirect for booking:", bookingIdParam);
+      let b = bookings.find(x => String(x.id) === String(bookingIdParam));
+      if (!b) {
+        await fetchCloudData();
+        b = bookings.find(x => String(x.id) === String(bookingIdParam));
+      }
+      if (b) {
+        if ((b.status || "").toLowerCase().includes("pending")) {
+          b.status = "Paid - Awaiting Check-in";
+          b.statusUpdated = new Date().toISOString();
+          b.toyyibpay_billcode = billcode || b.toyyibpay_billcode;
+          b.toyyibpay_transaction_id = transactionId;
+          b.toyyibpay_status_id = statusId;
+          b.paid_at = new Date().toISOString();
+          localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+          const dates = getDatesInRange(b.checkin, b.checkout);
+          if (b.homestayId) {
+            if (!availabilityMap[b.homestayId]) availabilityMap[b.homestayId] = [];
+            dates.forEach(d => { 
+              if (!availabilityMap[b.homestayId].includes(d)) {
+                availabilityMap[b.homestayId].push(d); 
+              }
+            });
+            saveAvailabilityMap();
+          }
+          try {
+            const updateRes = await fetch(`${API_BASE}/bookings`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "publicUpdateStatus",
+                id: b.id,
+                status: "Paid - Awaiting Check-in",
+                toyyibpay_billcode: billcode || null,
+                toyyibpay_transaction_id: transactionId || null,
+                toyyibpay_status_id: statusId || null,
+                paid_at: new Date().toISOString()
+              })
+            });
+            if (updateRes.ok) {
+              console.log("☁️ Booking status synced to cloud via public endpoint");
+            } else {
+              const err = await updateRes.text();
+              console.warn("⚠️ Cloud sync failed:", err);
+            }
+          } catch(e) { console.warn("Cloud sync error:", e); }
+        }
+        const nights = b.nights || calculateNights(b.checkin, b.checkout);
+        const total = b.total || 0;
+        showPaymentReceipt(b.id, nights, b.checkin, b.checkout, total, billcode, transactionId);
+      } else {
+        console.warn("⚠️ Booking not found for ID:", bookingIdParam);
+        alert("✅ Payment successful! Your booking has been confirmed.\n\nBooking ID: " + bookingIdParam + "\nTransaction ID: " + (transactionId || 'N/A'));
+      }
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  } catch(e) { 
+    console.warn("Paid redirect handler fail", e); 
+  }
 })();
+
+console.log("✅ Kundasang Homestay public page loaded (secure).");
 </script>
 
 <!-- ===== BOOKING SUCCESS MODAL ===== -->
