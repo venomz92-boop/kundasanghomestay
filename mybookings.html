@@ -8,7 +8,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
-  <!-- ===== ANIMATIONS ===== -->
   <link rel="stylesheet" href="animations.css" />
   <style>
     :root { --primary:#0F382E; --primary-light:#1a4d3e; --accent:#3FD0D4; --accent-hover:#2bbfc4; --bg:#F8F5F0; --card:#ffffff; --muted:#6b7280; --danger:#dc2626; --dark:#212121; }
@@ -35,7 +34,6 @@
     @media (max-width:768px){#desktopNav{display:none !important;}#mobileMenuBtn{display:flex !important;}}
     @media (min-width:769px){#mobileNav{display:none !important;}}
 
-    /* ===== MOBILE MENU – ANIMATION ===== */
     #mobileNav {
       position: fixed;
       top: 80px;
@@ -54,7 +52,6 @@
                   opacity 0.3s ease,
                   transform 0.3s ease;
     }
-
     #mobileNav.open {
       max-height: 80vh;
       opacity: 1;
@@ -62,7 +59,6 @@
       pointer-events: auto;
       transform: translateY(0);
     }
-
     #mobileNav a,
     #mobileNav button {
       display: block;
@@ -76,13 +72,11 @@
       transition: background 0.15s, color 0.15s;
       background: white;
     }
-
     #mobileNav a:hover,
     #mobileNav button:hover {
       background: #f8f5f0;
       color: #3FD0D4;
     }
-
     #mobileNav .mobile-agent-link {
       color: #7c3aed !important;
       border: 1px solid #7c3aed !important;
@@ -92,12 +86,10 @@
       width: auto !important;
       display: inline-block !important;
     }
-
     #mobileNav .mobile-agent-link:hover {
       background: #7c3aed !important;
       color: white !important;
     }
-
     #mobileNav .guest-btn {
       border: 1px solid #3FD0D4;
       color: #3FD0D4;
@@ -111,22 +103,18 @@
       letter-spacing: 0.5px;
       width: 100%;
     }
-
     #mobileNav .guest-btn-primary {
       background: #3FD0D4;
       color: white;
       border: none;
     }
-
     #mobileNav .guest-btn:hover {
       background: #3FD0D4;
       color: white;
     }
-
     #mobileNav .guest-btn-primary:hover {
       background: #2bbfc4;
     }
-
     #mobileNav .profile-card {
       display: flex;
       align-items: center;
@@ -138,7 +126,6 @@
       margin-bottom: 8px;
       flex-wrap: nowrap;
     }
-
     #mobileNav .profile-card .avatar {
       width: 32px;
       height: 32px;
@@ -152,13 +139,11 @@
       color: white;
       flex-shrink: 0;
     }
-
     #mobileNav .profile-card .info {
       flex: 1;
       min-width: 0;
       overflow: hidden;
     }
-
     #mobileNav .profile-card .name {
       font-weight: 700;
       font-size: 13px;
@@ -166,12 +151,10 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-
     #mobileNav .profile-card .sub {
       font-size: 10px;
       color: rgba(255,255,255,0.6);
     }
-
     #mobileNav .profile-card .logout-btn {
       width: auto !important;
       display: inline-block !important;
@@ -188,11 +171,9 @@
       letter-spacing: 0.5px;
       transition: background 0.15s;
     }
-
     #mobileNav .profile-card .logout-btn:hover {
       background: rgba(255,255,255,0.25);
     }
-
     #mobileNav .my-bookings-btn {
       display: block;
       width: 100%;
@@ -207,7 +188,6 @@
       border-radius: 2px;
       transition: background 0.15s;
     }
-
     #mobileNav .my-bookings-btn:hover {
       background: #333;
     }
@@ -227,7 +207,6 @@
     }
     .btn-whatsapp-sm:hover { background: #1ebe5d; }
 
-    /* ===== CUSTOM MODAL ===== */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -240,9 +219,7 @@
       padding: 20px;
       overflow-y: auto;
     }
-    .modal-overlay.active {
-      display: flex;
-    }
+    .modal-overlay.active { display: flex; }
     .modal-box {
       background: white;
       max-width: 480px;
@@ -256,105 +233,27 @@
       from { opacity: 0; transform: scale(0.95) translateY(10px); }
       to { opacity: 1; transform: scale(1) translateY(0); }
     }
-    .modal-header {
-      padding: 20px 24px 0 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .modal-header h3 {
-      font-family: "Poppins", sans-serif;
-      font-weight: 700;
-      font-size: 18px;
-      color: #212121;
-      margin: 0;
-    }
-    .modal-close {
-      background: none;
-      border: none;
-      font-size: 24px;
-      color: #9ca3af;
-      cursor: pointer;
-      padding: 4px;
-      line-height: 1;
-      transition: color 0.2s;
-    }
-    .modal-close:hover {
-      color: #212121;
-    }
-    .modal-body {
-      padding: 12px 24px 20px 24px;
-      font-size: 14px;
-      line-height: 1.6;
-      color: #4b5563;
-    }
-    .modal-body input {
-      width: 100%;
-      margin-top: 10px;
-      padding: 10px 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 2px;
-      font-size: 14px;
-      font-family: "Poppins", sans-serif;
-    }
-    .modal-body input:focus {
-      outline: none;
-      border-color: #3FD0D4;
-      box-shadow: 0 0 0 3px rgba(63,208,212,0.15);
-    }
-    .modal-footer {
-      padding: 12px 24px 20px 24px;
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-      border-top: 1px solid #f3f4f6;
-    }
-    .modal-footer .btn {
-      padding: 8px 20px;
-      border-radius: 2px;
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      border: none;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: "Poppins", sans-serif;
-    }
-    .modal-footer .btn-primary {
-      background: #0F382E;
-      color: white;
-    }
-    .modal-footer .btn-primary:hover {
-      background: #1a4d3e;
-    }
-    .modal-footer .btn-secondary {
-      background: #f3f4f6;
-      color: #374151;
-    }
-    .modal-footer .btn-secondary:hover {
-      background: #e5e7eb;
-    }
-    .modal-footer .btn-danger {
-      background: #dc2626;
-      color: white;
-    }
-    .modal-footer .btn-danger:hover {
-      background: #b91c1c;
-    }
-    .modal-footer .btn-success {
-      background: #16a34a;
-      color: white;
-    }
-    .modal-footer .btn-success:hover {
-      background: #15803d;
-    }
+    .modal-header { padding: 20px 24px 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .modal-header h3 { font-family: "Poppins", sans-serif; font-weight: 700; font-size: 18px; color: #212121; margin: 0; }
+    .modal-close { background: none; border: none; font-size: 24px; color: #9ca3af; cursor: pointer; padding: 4px; line-height: 1; transition: color 0.2s; }
+    .modal-close:hover { color: #212121; }
+    .modal-body { padding: 12px 24px 20px 24px; font-size: 14px; line-height: 1.6; color: #4b5563; }
+    .modal-body input { width: 100%; margin-top: 10px; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 2px; font-size: 14px; font-family: "Poppins", sans-serif; }
+    .modal-body input:focus { outline: none; border-color: #3FD0D4; box-shadow: 0 0 0 3px rgba(63,208,212,0.15); }
+    .modal-footer { padding: 12px 24px 20px 24px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid #f3f4f6; }
+    .modal-footer .btn { padding: 8px 20px; border-radius: 2px; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; border: none; cursor: pointer; transition: all 0.2s; font-family: "Poppins", sans-serif; }
+    .modal-footer .btn-primary { background: #0F382E; color: white; }
+    .modal-footer .btn-primary:hover { background: #1a4d3e; }
+    .modal-footer .btn-secondary { background: #f3f4f6; color: #374151; }
+    .modal-footer .btn-secondary:hover { background: #e5e7eb; }
+    .modal-footer .btn-danger { background: #dc2626; color: white; }
+    .modal-footer .btn-danger:hover { background: #b91c1c; }
+    .modal-footer .btn-success { background: #16a34a; color: white; }
+    .modal-footer .btn-success:hover { background: #15803d; }
   </style>
 </head>
 <body>
 
-<!-- ===== CUSTOM MODAL ===== -->
 <div id="customModal" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-header">
@@ -368,7 +267,6 @@
   </div>
 </div>
 
-<!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
@@ -393,14 +291,12 @@
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 sharp bg-[#212121] text-white items-center justify-center"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
   </div>
 
-  <!-- ===== MOBILE NAV ===== -->
   <div id="mobileNav" class="lg:hidden">
     <div class="p-4 space-y-1">
       <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
       <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
       <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
       <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
-
       <div class="pt-3 space-y-3">
         <div id="mGuestNav">
           <a href="/login.html" onclick="toggleMobileMenu()" class="guest-btn block text-center">Login</a>
@@ -422,7 +318,6 @@
   </div>
 </header>
 
-<!-- ===== MAIN CONTENT ===== -->
 <main class="page-content max-w-[1000px] mx-auto px-5 md:px-8 py-10">
   <div class="flex items-center justify-between mb-6 animate-on-scroll">
     <h2 class="text-3xl font-bold">My Bookings</h2>
@@ -436,7 +331,6 @@
   <div id="myBookingsList" class="mt-6 grid gap-4 animate-on-scroll"></div>
 </main>
 
-<!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div><div class="flex items-center gap-3"><div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div><div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div></div><p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local - Kundasang version. Mountain homestays with Kinabalu soul.</p></div>
@@ -447,17 +341,13 @@
   <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay - All payment is secured by Toyyibpay</div>
 </footer>
 
-<!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
 // =============================================================
 // CUSTOM MODAL SYSTEM
 // =============================================================
-let modalResolve = null;
-let modalReject = null;
-
 function showModal(title, message, buttons) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
     const titleEl = document.getElementById('modalTitle');
     const bodyEl = document.getElementById('modalBody');
@@ -472,15 +362,14 @@ function showModal(title, message, buttons) {
       el.textContent = btn.label;
       el.className = `btn ${btn.class || 'btn-primary'}`;
       el.onclick = () => {
-        closeModal();
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
         if (btn.value !== undefined) resolve(btn.value);
         else resolve(true);
       };
       footerEl.appendChild(el);
     });
 
-    modalResolve = resolve;
-    modalReject = reject;
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
   });
@@ -490,84 +379,32 @@ function closeModal() {
   const overlay = document.getElementById('customModal');
   overlay.classList.remove('active');
   document.body.style.overflow = '';
-  if (modalReject) modalReject('cancelled');
 }
 
 function modalConfirm() {
-  closeModal();
-  if (modalResolve) modalResolve(true);
+  const overlay = document.getElementById('customModal');
+  overlay.classList.remove('active');
+  document.body.style.overflow = '';
 }
 
-// ---- Public API ----
 function showAlert(title, message) {
   return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
 }
 
-function showConfirm(title, message) {
-  return showModal(title, message, [
-    { label: 'Cancel', class: 'btn-secondary', value: false },
-    { label: 'Confirm', class: 'btn-primary', value: true }
-  ]);
-}
-
-function showPrompt(title, message, defaultValue) {
-  const input = `<input type="text" id="modalInput" value="${defaultValue || ''}" placeholder="Enter value..." />`;
-  return new Promise((resolve, reject) => {
-    const overlay = document.getElementById('customModal');
-    const titleEl = document.getElementById('modalTitle');
-    const bodyEl = document.getElementById('modalBody');
-    const footerEl = document.getElementById('modalFooter');
-
-    titleEl.textContent = title || 'Enter value';
-    bodyEl.innerHTML = (message || '') + input;
-    footerEl.innerHTML = '';
-
-    const okBtn = document.createElement('button');
-    okBtn.textContent = 'OK';
-    okBtn.className = 'btn btn-primary';
-    okBtn.onclick = () => {
-      const val = document.getElementById('modalInput')?.value || '';
-      closeModal();
-      resolve(val);
-    };
-    footerEl.appendChild(okBtn);
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.onclick = () => {
-      closeModal();
-      resolve(null);
-    };
-    footerEl.appendChild(cancelBtn);
-
-    modalResolve = resolve;
-    modalReject = reject;
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-    setTimeout(() => {
-      const inp = document.getElementById('modalInput');
-      if (inp) inp.focus();
-    }, 200);
-  });
-}
-
-// ---- Handle ESC key ----
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     const overlay = document.getElementById('customModal');
     if (overlay.classList.contains('active')) {
-      closeModal();
-      if (modalResolve) modalResolve(null);
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
     }
   }
 });
 
-// ---- Click outside to close ----
 document.getElementById('customModal').addEventListener('click', function(e) {
   if (e.target === this) {
-    closeModal();
-    if (modalResolve) modalResolve(null);
+    this.classList.remove('active');
+    document.body.style.overflow = '';
   }
 });
 
@@ -584,34 +421,9 @@ function safeHTML(html) {
 }
 
 // =============================================================
-// SHA256 HELPER
-// =============================================================
-async function sha256(message) {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-function generateSalt() {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
-}
-
-// =============================================================
 // CONFIG
 // =============================================================
 const API_BASE = "/api";
-const CONFIG = {
-  platformFeePercent: 11,
-  toyyibpay: {
-    sandbox: true,
-    apiKey: "YOUR_TOYYIBPAY_KEY",
-    collectionId: "YOUR_COLLECTION_ID",
-    xSignature: "YOUR_X_SIGNATURE",
-    gatewayFee: 1,
-    splitEnabled: true,
-  }
-};
 const DEMO_HOMESTAYS = [
   { id: 1, name: "A-Frame Cabin with Kinabalu View", location: "Bundu Tuhan", ownerPrice: 300, rating: 4.9, reviews: 127, guests: 4, bedrooms: 2, image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800", images: [], approved: true, verified: true, ownerName: "Ali", ownerBank: "CIMB", ownerBankAccount: "8600-123456", whatsapp: "60123456789", description: "View Gunung Kinabalu terus dari bilik.", blockedDates: [] },
   { id: 2, name: "Desa Cattle Farm View Homestay", location: "Desa", ownerPrice: 250, rating: 4.8, reviews: 89, guests: 6, bedrooms: 3, image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800", images: [], approved: true, verified: true, ownerName: "Maria", ownerBank: "Maybank", ownerBankAccount: "1140-987654", whatsapp: "60123456789", description: "5 min to Desa Cattle Farm, ada dapur.", blockedDates: [] }
@@ -619,8 +431,6 @@ const DEMO_HOMESTAYS = [
 
 let bookings = [];
 let allHomestays = [];
-let homestays = [];
-let availabilityMap = {};
 let currentGuest = null;
 
 // =============================================================
@@ -682,7 +492,9 @@ async function fetchCloudData() {
       bookings = data.bookings; 
       localStorage.setItem("kd_bookings", JSON.stringify(bookings)); 
     }
-    if (data.availability) { availabilityMap = data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
+    if (data.availability) { 
+      // Not needed for bookings page but keep for compatibility
+    }
     if (data.approved) {
       let storedApproved = data.approved;
       let deletedDemoIds = JSON.parse(localStorage.getItem("kd_deleted_demo") || "[]");
@@ -695,7 +507,6 @@ async function fetchCloudData() {
       });
       allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
       allHomestays = allHomestays.map(h => { if (!h.blockedDates) h.blockedDates = []; return h; });
-      homestays = [...allHomestays];
     }
     if (data.bannedGuests && currentGuest && data.bannedGuests.includes(currentGuest.email?.toLowerCase())) {
       currentGuest = null;
@@ -721,29 +532,48 @@ function getGuestFriendlyStatus(rawStatus) {
 }
 
 // =============================================================
-// RENDER MY BOOKINGS
+// RENDER MY BOOKINGS (FIXED - more flexible matching)
 // =============================================================
 async function renderMyBookings() {
   const infoCard = document.getElementById("guestInfoCard");
   const listDiv = document.getElementById("myBookingsList");
   if (!infoCard || !listDiv) return;
+  
+  // ✅ Check if user is logged in
   if (!currentGuest) {
     infoCard.innerHTML = safeHTML("<div class='text-sm'>Please <a href='/login.html' class='underline font-semibold'>login</a> to see your bookings.</div>");
     listDiv.innerHTML = "";
     return;
   }
+  
+  // ✅ Display guest info
   infoCard.innerHTML = safeHTML("<div class='flex gap-4 items-center'><div class='guest-avatar w-12 h-12 text-lg'>" + (currentGuest.name||"G").charAt(0).toUpperCase() + "</div><div><div class='font-bold'>" + currentGuest.name + "</div><div class='text-xs text-zinc-500'>" + currentGuest.email + " • " + currentGuest.phone + "</div><div class='text-[11px] mt-1'>ID: " + currentGuest.id + " • Guest account detected</div></div></div>");
   
-  // ✅ Check both guestEmail AND guestId, also check if guestId matches currentGuest.id
+  // ✅ MATCH BOOKINGS - Multiple matching strategies
   const myBookings = bookings.filter(b => {
-    const emailMatch = b.guestEmail && b.guestEmail.toLowerCase() === currentGuest.email.toLowerCase();
-    const idMatch = b.guestId && String(b.guestId) === String(currentGuest.id);
-    // ✅ Also check if the booking was created by this guest (guestDetected flag)
-    const detectedMatch = b.guestDetected === true && b.guestId === currentGuest.id;
-    return emailMatch || idMatch || detectedMatch;
+    // Strategy 1: Guest ID match
+    if (b.guestId && String(b.guestId) === String(currentGuest.id)) {
+      return true;
+    }
+    // Strategy 2: Email match
+    if (b.guestEmail && b.guestEmail.toLowerCase() === currentGuest.email.toLowerCase()) {
+      return true;
+    }
+    // Strategy 3: Guest name match (fallback)
+    if (b.guestName && b.guestName.toLowerCase() === currentGuest.name.toLowerCase()) {
+      return true;
+    }
+    // Strategy 4: Check if booking was made by this guest (guestDetected flag)
+    if (b.guestDetected === true && b.guestId === currentGuest.id) {
+      return true;
+    }
+    return false;
   });
   
-  console.log("📊 My bookings found:", myBookings.length, "Total bookings:", bookings.length);
+  console.log("📊 Guest ID:", currentGuest.id);
+  console.log("📊 Guest Email:", currentGuest.email);
+  console.log("📊 Total bookings:", bookings.length);
+  console.log("📊 My bookings found:", myBookings.length);
   
   if (myBookings.length === 0) {
     listDiv.innerHTML = safeHTML("<div class='card p-8 text-center text-zinc-500'>No bookings yet. <br><a href='/' class='mt-3 btn-primary inline-block'>Browse Homestays</a></div>");
@@ -793,7 +623,7 @@ async function renderMyBookings() {
 }
 
 // =============================================================
-// REFRESH BOOKINGS (Wrapper for onclick)
+// REFRESH BOOKINGS
 // =============================================================
 async function refreshBookings() {
   await fetchCloudData();
@@ -801,7 +631,7 @@ async function refreshBookings() {
 }
 
 // =============================================================
-// RETRY PAYMENT (FIXED – simulation updates D1)
+// RETRY PAYMENT
 // =============================================================
 async function retryPayment(bookingId) {
   if (!currentGuest) {
