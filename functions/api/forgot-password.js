@@ -6,7 +6,7 @@ async function generateResetToken() {
   return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function corsHeaders() {
+function corsHeaders(request) {
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -22,7 +22,7 @@ export async function onRequestPost({ request, env }) {
     if (!email || !userType) {
       return new Response(JSON.stringify({ error: "Missing email or user type" }), {
         status: 400,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
       });
     }
 
@@ -30,7 +30,7 @@ export async function onRequestPost({ request, env }) {
     if (!db) {
       return new Response(JSON.stringify({ error: "Server error" }), {
         status: 500,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
       });
     }
 
@@ -51,7 +51,7 @@ export async function onRequestPost({ request, env }) {
         // Don't reveal if email exists – security
         return new Response(JSON.stringify({ success: true, message: "If an account exists, a reset link has been sent." }), {
           status: 200,
-          headers: corsHeaders()
+          headers: corsHeaders(request)
         });
       }
       userId = guest.id;
@@ -68,7 +68,7 @@ export async function onRequestPost({ request, env }) {
       if (!owner) {
         return new Response(JSON.stringify({ success: true, message: "If an account exists, a reset link has been sent." }), {
           status: 200,
-          headers: corsHeaders()
+          headers: corsHeaders(request)
         });
       }
       userId = owner.id;
@@ -76,7 +76,7 @@ export async function onRequestPost({ request, env }) {
     } else {
       return new Response(JSON.stringify({ error: "Invalid user type" }), {
         status: 400,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
       });
     }
 
@@ -118,14 +118,14 @@ export async function onRequestPost({ request, env }) {
       resetUrl: env.ENVIRONMENT === 'development' ? resetUrl : undefined // Only show in dev
     }), {
       status: 200,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
 
   } catch (e) {
     console.error("❌ Forgot password error:", e.message);
     return new Response(JSON.stringify({ error: "Failed to process request" }), {
       status: 500,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
   }
 }
@@ -176,5 +176,5 @@ async function sendResetEmail(email, name, resetUrl, env) {
 }
 
 export async function onRequestOptions() {
-  return new Response(null, { headers: corsHeaders() });
+  return new Response(null, { headers: corsHeaders(request) });
 }
