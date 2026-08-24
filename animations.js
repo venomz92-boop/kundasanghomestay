@@ -1,5 +1,5 @@
 // =============================================================
-// animations.js – Safe for ALL pages (no errors)
+// animations.js – Safe for ALL pages + Mobile Menu
 // =============================================================
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -25,8 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('✅ Navbar animation loaded');
     }
 
-    // ---- 2. Scroll reveal for .animate-on-scroll (only if elements exist) ----
-    // We'll run this after a small delay to ensure content is rendered
+    // ---- 2. Scroll reveal for .animate-on-scroll ----
     setTimeout(function() {
         const revealElements = document.querySelectorAll('.animate-on-scroll');
         if (revealElements.length > 0) {
