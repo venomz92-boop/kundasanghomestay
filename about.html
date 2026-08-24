@@ -282,7 +282,7 @@
 </head>
 <body>
 
-<!-- ===== HEADER (unchanged) ===== -->
+<!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
@@ -296,8 +296,8 @@
       <a href="/about.html" id="navAbout" class="setsail-nav-link active">About</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
-        <button onclick="window.location.href='/?login'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp">Login</button>
-        <button onclick="window.location.href='/?register'" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp">Register</button>
+        <a href="/login.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp flex items-center">Login</a>
+        <a href="/register.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp flex items-center">Register</a>
       </div>
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
         <a href="/mybookings.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</a>
@@ -321,8 +321,8 @@
 
       <div class="pt-3 space-y-3">
         <div id="mGuestNav">
-          <button onclick="window.location.href='/?login'; toggleMobileMenu()" class="guest-btn">Login</button>
-          <button onclick="window.location.href='/?register'; toggleMobileMenu()" class="guest-btn guest-btn-primary">Register</button>
+          <a href="/login.html" onclick="toggleMobileMenu()" class="guest-btn block text-center">Login</a>
+          <a href="/register.html" onclick="toggleMobileMenu()" class="guest-btn guest-btn-primary block text-center">Register</a>
         </div>
         <div id="mGuestProfileNav" class="hidden space-y-2">
           <div class="profile-card">
@@ -351,7 +351,7 @@
   </div>
 </section>
 
-<!-- ===== MAIN CONTENT (with animations) ===== -->
+<!-- ===== MAIN CONTENT ===== -->
 <main class="page-content max-w-[1100px] mx-auto px-5 md:px-8 py-12">
 
   <!-- Who We Are -->
@@ -587,19 +587,150 @@
   <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay</div>
 </footer>
 
-<!-- ===== SCRIPTS (all existing + animations) ===== -->
+<!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
 // =============================================================
-// All your existing JavaScript from about.html goes here.
-// For brevity, I'm not repeating the entire code, but in your final
-// file you must keep the full script block exactly as it was.
-// The animations.js is already included above.
+// GUEST SYSTEM (DB-Validated)
 // =============================================================
+const API_BASE = "/api";
+let currentGuest = null;
 
-// Placeholder for the existing script – replace with your original content.
-console.log("About page with animations loaded.");
+try {
+  const saved = localStorage.getItem('kd_guest');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (parsed && parsed.id) {
+      currentGuest = parsed;
+    }
+  }
+} catch(e) { currentGuest = null; }
+
+function renderGuestNav() {
+  const loginNav = document.getElementById("guestNav");
+  const profileNav = document.getElementById("guestProfileNav");
+  const mLoginNav = document.getElementById("mGuestNav");
+  const mProfileNav = document.getElementById("mGuestProfileNav");
+  const mAvatar = document.getElementById("mGuestAvatar");
+  const mNameNav = document.getElementById("mGuestNameNav");
+
+  if (currentGuest) {
+    if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
+    if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
+    const avatar = document.getElementById("guestAvatar");
+    const nameNav = document.getElementById("guestNameNav");
+    if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
+    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
+    if (mAvatar) mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+  } else {
+    if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
+    if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
+    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
+  }
+}
+
+function logoutGuest() {
+  if (!confirm("Logout?")) return;
+  currentGuest = null;
+  localStorage.removeItem('kd_guest');
+  renderGuestNav();
+  window.location.href = '/';
+}
+
+// =============================================================
+// FAQ TOGGLE
+// =============================================================
+function toggleFAQ(el) {
+  const item = el.closest('.faq-item');
+  const isOpen = item.classList.contains('open');
+  
+  document.querySelectorAll('.faq-item').forEach(f => {
+    f.classList.remove('open');
+  });
+  
+  if (!isOpen) {
+    item.classList.add('open');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const firstFaq = document.querySelector('.faq-item');
+  if (firstFaq) {
+    firstFaq.classList.add('open');
+  }
+});
+
+// =============================================================
+// CONTACT EMAIL
+// =============================================================
+function sendContactEmail() {
+  const name = document.getElementById('contactName')?.value.trim() || '';
+  const email = document.getElementById('contactEmailInput')?.value.trim() || '';
+  const msg = document.getElementById('contactMessage')?.value.trim() || '';
+  if (!name || !email || !msg) {
+    alert('Please fill Name, Email and Message');
+    return;
+  }
+  const adminEmail = 'hello@kundasanghomestay.my';
+  const subject = encodeURIComponent('[Support] ' + name + ' - Kundasang Homestays');
+  const body = encodeURIComponent('Name: ' + name + '\nEmail: ' + email + '\n\nMessage:\n' + msg);
+  window.location.href = 'mailto:' + adminEmail + '?subject=' + subject + '&body=' + body;
+}
+
+// =============================================================
+// TOGGLE MOBILE MENU
+// =============================================================
+function toggleMobileMenu() {
+  const nav = document.getElementById('mobileNav');
+  if (nav) {
+    nav.classList.toggle('open');
+  }
+}
+
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('mobileNav');
+  const btn = document.getElementById('mobileMenuBtn');
+  if (!nav || !btn) return;
+  if (nav.classList.contains('open') && 
+      !nav.contains(e.target) && 
+      !btn.contains(e.target)) {
+    nav.classList.remove('open');
+  }
+});
+
+// =============================================================
+// FETCH CLOUD DATA (to validate guest session)
+// =============================================================
+async function fetchCloudData() {
+  try {
+    const res = await fetch(`${API_BASE}/bookings`, { cache: "no-store" });
+    if (!res.ok) throw new Error("Failed to fetch cloud data");
+    const data = await res.json();
+    
+    if (data.bannedGuests && currentGuest && data.bannedGuests.includes(currentGuest.email?.toLowerCase())) {
+      currentGuest = null;
+      localStorage.removeItem('kd_guest');
+      renderGuestNav();
+    }
+    return true;
+  } catch(e) {
+    console.warn("Cloud fetch failed:", e.message);
+    return false;
+  }
+}
+
+// =============================================================
+// INIT
+// =============================================================
+(async function init() {
+  await fetchCloudData();
+  renderGuestNav();
+  console.log("✅ About page loaded with DB-validated guest sync.");
+})();
 </script>
-
 </body>
 </html>
