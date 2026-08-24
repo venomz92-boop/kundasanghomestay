@@ -1,20 +1,10 @@
 // /api/pending - dedicated pending endpoint for multi-device sync
-// SECURITY: GET requires admin auth to view full data; POST is public for submissions
+import { corsHeaders, getClientIP, logAction, enforceHttps } from './_utils.js';
 
 function getDB(env){
   return env.DB || env.D1 || env.MY_DB || env.DATABASE || env.KUNDASANG_DB || env.STORE || null;
 }
 
-function corsHeaders(request){
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-  };
-}
-
-// Admin verification
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
   const expectedToken = env.ADMIN_TOKEN || "";
@@ -75,15 +65,12 @@ export async function onRequestPost(context){
   
   try{
     const body = await request.json();
-    // If body is an array directly, use it; if it's { pending: [...] } use that; otherwise empty array
     let pendingData = body;
     if (body.pending !== undefined) {
       pendingData = body.pending;
     }
-    // Ensure it's an array
     let toSave = Array.isArray(pendingData) ? pendingData : [];
     
-    // Validate each item (skip if empty)
     for (const item of toSave) {
       if (!item.id || !item.name) {
         return new Response(JSON.stringify({ error: "Missing required fields in pending item" }), {
@@ -125,7 +112,6 @@ export async function onRequestDelete(context){
     });
   }
   try {
-    // Clear pending entirely
     await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
       .bind("kd_pending", JSON.stringify([]))
       .run();
@@ -141,6 +127,6 @@ export async function onRequestDelete(context){
   }
 }
 
-export async function onRequestOptions(){
+export async function onRequestOptions({ request }){
   return new Response(null, { headers: corsHeaders(request) });
 }
