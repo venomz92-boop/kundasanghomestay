@@ -474,7 +474,7 @@ function openOwnerForgotPassword() {
 }
 
 // =============================================
-// OWNER LOGIN
+// OWNER LOGIN (FIXED: uses /owner-login with hyphen)
 // =============================================
 async function ownerLogin() {
   const whatsapp = document.getElementById('ownerWhatsapp').value.replace(/[^0-9]/g, '');
@@ -485,7 +485,7 @@ async function ownerLogin() {
   if (!whatsapp || !password) { alert("Fill all fields"); return; }
 
   try {
-    const res = await fetch(API_BASE + '/owner-login', {
+    const res = await fetch(API_BASE + '/owner-login', {  // ✅ hyphen, not underscore
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ whatsapp, password })
@@ -515,7 +515,12 @@ async function ownerLogin() {
       document.getElementById('welcomeName').innerText = allHomestays[0]?.ownerName || 'Owner';
       loadBookings();
     } else {
-      errorEl.innerText = data.error || "Login failed";
+      // Show detailed error if debug info is present
+      let errorMsg = data.error || "Login failed";
+      if (data.debug) {
+        errorMsg += "\n\nDebug info: " + JSON.stringify(data.debug, null, 2);
+      }
+      errorEl.innerText = errorMsg;
       errorEl.className = 'text-red-600 text-xs mt-2';
       errorEl.classList.remove('hidden');
     }
@@ -799,7 +804,7 @@ document.addEventListener('click', function(e) {
 });
 
 // =============================================
-// INIT (FIXED)
+// INIT (FIXED – null checks)
 // =============================================
 (function init() {
   // Render guest nav for header
