@@ -368,6 +368,31 @@
     .modal-footer .btn-success:hover {
       background: #15803d;
     }
+
+    /* ===== THANK YOU MODAL ===== */
+    .thankyou-modal .modal-box {
+      max-width: 420px;
+      text-align: center;
+    }
+    .thankyou-modal .modal-body {
+      padding: 24px 24px 20px 24px;
+    }
+    .thankyou-modal .thankyou-icon {
+      font-size: 56px;
+      margin-bottom: 12px;
+    }
+    .thankyou-modal .thankyou-title {
+      font-family: "Poppins", sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      color: #0F382E;
+      margin-bottom: 8px;
+    }
+    .thankyou-modal .thankyou-message {
+      font-size: 14px;
+      color: #4b5563;
+      line-height: 1.6;
+    }
   </style>
 </head>
 <body>
@@ -436,6 +461,24 @@
     <div class="modal-body" id="modalBody">Message</div>
     <div class="modal-footer" id="modalFooter">
       <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== THANK YOU MODAL ===== -->
+<div id="thankyouModal" class="modal-overlay thankyou-modal">
+  <div class="modal-box">
+    <div class="modal-body">
+      <div class="thankyou-icon">🙏</div>
+      <div class="thankyou-title">Thank You for Your Booking!</div>
+      <div class="thankyou-message">
+        Your booking has been confirmed. We will update you with the details later.
+        <br><br>
+        <span style="font-size:12px;color:#9ca3af;">You can view your bookings in "My Bookings".</span>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:center; border-top: none; padding-top: 0;">
+      <button onclick="closeThankYouAndReload()" class="btn btn-primary" style="padding: 10px 40px;">OK, Got It</button>
     </div>
   </div>
 </div>
@@ -602,7 +645,6 @@ function closeModal() {
 }
 
 function modalConfirm() {
-  // Used by simple OK buttons
   closeModal();
   if (modalResolve) modalResolve(true);
 }
@@ -672,13 +714,31 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// ---- Click outside to close (optional, but we keep it for convenience) ----
+// ---- Click outside to close ----
 document.getElementById('customModal').addEventListener('click', function(e) {
   if (e.target === this) {
     closeModal();
     if (modalResolve) modalResolve(null);
   }
 });
+
+// =============================================================
+// THANK YOU MODAL
+// =============================================================
+function showThankYouModal() {
+  const overlay = document.getElementById('thankyouModal');
+  overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeThankYouAndReload() {
+  const overlay = document.getElementById('thankyouModal');
+  overlay.classList.remove('active');
+  document.body.style.overflow = '';
+  
+  // Reload the page to ensure fresh data
+  window.location.reload();
+}
 
 // =============================================================
 // SHA256 HELPER
@@ -1317,7 +1377,7 @@ async function processPayment() {
         })
       });
     } catch(e) { console.warn("Cloud sync error (simulation):", e); }
-    showBookingSuccess(bookingId, nights, ci, co, price.total);
+    showThankYouModal();
     return;
   }
 
@@ -1355,7 +1415,7 @@ async function processPayment() {
         });
         console.log("☁️ Cloud status updated to Paid (simulation)");
       } catch(e) { console.warn("Cloud sync error (simulation):", e); }
-      showBookingSuccess(bookingId, nights, ci, co, price.total);
+      showThankYouModal();
       return;
     }
     if (data.url) {
@@ -1387,7 +1447,7 @@ async function processPayment() {
         })
       });
     } catch(e) {}
-    showBookingSuccess(bookingId, nights, ci, co, price.total);
+    showThankYouModal();
   }
 }
 
@@ -1553,17 +1613,7 @@ function closeBookingSuccess(){
   document.getElementById("bookingSuccessModal").style.display="none";
   closeBooking(); 
   closeDetail(); 
-  // ✅ RELOAD DATA AND RENDER GRID
-  fetchCloudData().then(() => {
-    renderGrid();
-    // Ensure hero and home page are visible
-    document.getElementById("homePage").classList.remove("hidden");
-    document.getElementById("hero").classList.remove("hidden");
-    window.scrollTo({top: 0, behavior: 'smooth'});
-  }).catch(() => {
-    renderGrid();
-    window.scrollTo({top: 0, behavior: 'smooth'});
-  });
+  showThankYouModal();
 }
 
 function whatsappWithBookingId(){
@@ -1845,6 +1895,8 @@ function renderAvailabilityCalendar(homestay, containerId) {
             } else {
                 console.warn("⚠️ Booking not found for ID:", bookingIdParam);
                 showAlert("Payment Success", "✅ Payment successful! Your booking has been confirmed.\n\nBooking ID: " + bookingIdParam + "\nTransaction ID: " + (transactionId || 'N/A'));
+                // Show thank you modal even if booking not found in local cache
+                showThankYouModal();
             }
             window.history.replaceState({}, document.title, window.location.pathname);
         }
@@ -1856,7 +1908,7 @@ function renderAvailabilityCalendar(homestay, containerId) {
 console.log("✅ Kundasang Homestay public page loaded (secure).");
 </script>
 
-<!-- ===== BOOKING SUCCESS MODAL ===== -->
+<!-- ===== BOOKING SUCCESS MODAL (Legacy - kept for redirects) ===== -->
 <div id="bookingSuccessModal" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; padding:20px; overflow-y:auto;">
   <div class="bg-white sharp max-w-[480px] w-full p-6 md:p-8" style="max-height:90vh; overflow-y:auto;">
     <div class="text-center">
