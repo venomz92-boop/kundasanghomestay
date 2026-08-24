@@ -221,6 +221,7 @@
       background: #333;
     }
 
+    /* ---- Loading skeleton ---- */
     .skeleton-card {
       background: #f0f0f0;
       border-radius: 2px;
@@ -959,7 +960,7 @@ function updateBookingPrice() {
 function closeBooking() { document.getElementById("bookingModal").classList.add("hidden"); }
 
 // =============================================================
-// PAYMENT FUNCTION (FIXED – proper error handling)
+// PAYMENT FUNCTION
 // =============================================================
 async function processPayment() {
   if (!currentGuest) {
@@ -1010,41 +1011,23 @@ async function processPayment() {
     bankHolder: selectedHomestay.bankHolder || selectedHomestay.ownerName,
   };
 
-  // ===== SAVE BOOKING TO D1 (WITH PROPER ERROR HANDLING) =====
   try {
     const saveRes = await fetch(API_BASE + "/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "createPublicBooking", booking: booking })
     });
-    
     if (!saveRes.ok) {
       const err = await saveRes.text();
-      console.error("❌ Booking save failed:", err);
-      alert("Failed to save booking. Please try again.\n\nError: " + err);
-      return; // ✅ THIS RETURN PREVENTS THE BOOKING FROM CONTINUING
+      alert("Failed to save booking: " + err);
+      return;
     }
-    
-    const saveData = await saveRes.json();
-    if (!saveData.success) {
-      console.error("❌ Booking save failed:", saveData);
-      alert("Failed to save booking: " + (saveData.error || "Unknown error"));
-      return; // ✅ THIS RETURN PREVENTS THE BOOKING FROM CONTINUING
-    }
-    
-    console.log("✅ Booking saved to D1:", saveData.bookingId);
-    
-    // Save to local state
-    bookings.push(booking);
-    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    
+    console.log("✅ Booking saved to cloud, proceeding to payment");
   } catch(e) {
-    console.error("❌ Network error saving booking:", e);
-    alert("Network error while saving booking. Please try again.\n\n" + e.message);
-    return; // ✅ THIS RETURN PREVENTS THE BOOKING FROM CONTINUING
+    alert("Network error while saving booking: " + e.message);
+    return;
   }
 
-  // ===== PROCEED WITH PAYMENT (ONLY IF BOOKING WAS SAVED) =====
   if (!CONFIG.toyyibpay.enabled) {
     booking.status = "Paid - Awaiting Check-in";
     bookings.push(booking);
@@ -1438,10 +1421,13 @@ function renderAvailabilityCalendar(homestay, containerId) {
       try {
         const parsed = JSON.parse(cachedHomestays);
         if (parsed && parsed.length > 0) {
+          // Use cached homestays for instant display
+          // But we need to ensure `homestays` is set so renderGrid works
           const originalHomestays = homestays;
           homestays = parsed;
           renderGrid();
           showHome();
+          // Restore original (will be overwritten by fetch)
           homestays = originalHomestays;
         }
       } catch(e) { /* ignore */ }
