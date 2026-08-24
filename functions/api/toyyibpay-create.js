@@ -90,6 +90,9 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
+    // ✅ Ensure store table exists
+    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+
     const r1 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
     let homestays = [];
     if (r1 && r1.data) { try { homestays = JSON.parse(r1.data); } catch(e) {} }
