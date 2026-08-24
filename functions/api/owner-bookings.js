@@ -1,6 +1,6 @@
 // /api/owner-bookings.js - Fetch bookings for ALL homestays the owner manages
 
-function corsHeaders() {
+function corsHeaders(request) {
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -26,12 +26,12 @@ function verifyOwner(request) {
 export async function onRequestGet({ request, env }) {
   const ownerData = verifyOwner(request);
   if (!ownerData) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders() });
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders(request) });
   }
 
   const db = env.DB;
   if (!db) {
-    return new Response(JSON.stringify({ error: "Server error" }), { status: 500, headers: corsHeaders() });
+    return new Response(JSON.stringify({ error: "Server error" }), { status: 500, headers: corsHeaders(request) });
   }
 
   try {
@@ -48,13 +48,13 @@ export async function onRequestGet({ request, env }) {
       return ownerHomestayIds.some(id => String(id) === bId);
     });
 
-    return new Response(JSON.stringify(myBookings), { status: 200, headers: corsHeaders() });
+    return new Response(JSON.stringify(myBookings), { status: 200, headers: corsHeaders(request) });
   } catch(e) {
     console.error("Owner bookings error:", e);
-    return new Response(JSON.stringify({ error: "Failed to load bookings" }), { status: 500, headers: corsHeaders() });
+    return new Response(JSON.stringify({ error: "Failed to load bookings" }), { status: 500, headers: corsHeaders(request) });
   }
 }
 
 export async function onRequestOptions() {
-  return new Response(null, { headers: corsHeaders() });
+  return new Response(null, { headers: corsHeaders(request) });
 }
