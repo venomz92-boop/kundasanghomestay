@@ -1166,4 +1166,379 @@ function chatWithOwnerFromBooking(bookingId) {
   const h = homestays.find(x => x.name === booking.homestay) || allHomestays.find(x => x.name === booking.homestay) || homestays.find(x => x.id === booking.homestayId) || allHomestays.find(x => x.id === booking.homestayId);
   if (!h) { alert('Homestay not found'); return; }
   let raw = h.whatsapp || h.phone || '';
-  let num = String(raw).replace(/[^0-9]/g
+  let num = String(raw).replace(/[^0-9]/g, '');
+  if (num.startsWith('0')) num = '60' + num.substring(1);
+  if (!num) { alert('Owner WhatsApp not available'); return; }
+  const message = "Hi " + (h.ownerName || booking.owner || 'Owner') + ", I have made a booking for " + booking.homestay + "\n\n" +
+    "Booking ID: " + booking.id + "\n" +
+    "Check-in: " + booking.checkin + "\n" +
+    "Check-out: " + booking.checkout + "\n" +
+    "Nights: " + booking.nights + " nights\n\n" +
+    "Guest: " + (booking.guestName || '-') + "\n" +
+    "Can you double confirm my booking? Thank you!\n\n" +
+    "From " + (booking.guestName || 'Guest') + " - Kundasang Homestays";
+  openWhatsAppLink(num, message);
+}
+
+// =============================================================
+// BOOKING SUCCESS MODAL
+// =============================================================
+let lastBookingId = "";
+let lastBookingNights = "";
+let lastBookingCi = "";
+let lastBookingCo = "";
+let lastBookingTotal = "";
+
+function showBookingSuccess(bookingId, nights, ci, co, total){
+  const params = new URLSearchParams(window.location.search);
+  const billcode = params.get("billcode");
+  const transactionId = params.get("transaction_id");
+  
+  const b = bookings.find(x => String(x.id) === String(bookingId));
+  if (b && b.ownerWhatsapp) {
+    lastBookingWhatsapp = b.ownerWhatsapp;
+  } else if (selectedHomestay && selectedHomestay.whatsapp) {
+    lastBookingWhatsapp = selectedHomestay.whatsapp;
+  }
+  
+  if (billcode || transactionId) {
+    showPaymentReceipt(bookingId, nights, ci, co, total, billcode, transactionId);
+    return;
+  }
+  
+  lastBookingId = bookingId;
+  lastBookingNights = nights;
+  lastBookingCi = ci;
+  lastBookingCo = co;
+  lastBookingTotal = total;
+  document.getElementById("successBookingId").textContent=bookingId;
+  document.getElementById("successNights").textContent=nights+" nights";
+  document.getElementById("successDates").textContent=ci+" → "+co;
+  document.getElementById("successTotal").textContent="RM"+total;
+  document.getElementById("bookingSuccessModal").style.display="flex";
+}
+
+function closeBookingSuccess(){
+  document.getElementById("bookingSuccessModal").style.display="none";
+  closeBooking(); closeDetail(); renderGrid();
+}
+
+function whatsappWithBookingId(){
+  let waNumber = lastBookingWhatsapp || "";
+  if (!waNumber && selectedHomestay) {
+    waNumber = selectedHomestay.whatsapp || "";
+  }
+  if (waNumber) {
+    waNumber = String(waNumber).replace(/[^0-9]/g, '');
+    if (waNumber.startsWith('0')) waNumber = '60' + waNumber.substring(1);
+  }
+  if (!waNumber) {
+    alert('WhatsApp not found - owner must add WhatsApp at listing.');
+    return;
+  }
+  
+  const homestayName = (typeof selectedHomestay !== 'undefined' && selectedHomestay) ? selectedHomestay.name : 'Homestay';
+  const ownerName = (typeof selectedHomestay !== 'undefined' && selectedHomestay && selectedHomestay.ownerName) ? selectedHomestay.ownerName : 'Owner';
+  const bookingId = lastBookingId;
+  const total = lastBookingTotal;
+  const nights = lastBookingNights;
+  const dates = lastBookingCi + " → " + lastBookingCo;
+  const receiptDetails = document.getElementById("receiptDetails");
+  let billcode = '';
+  let transactionId = '';
+  if (receiptDetails) {
+    const text = receiptDetails.textContent || '';
+    const billMatch = text.match(/Bill Code:\s*([a-z0-9]+)/i);
+    const transMatch = text.match(/Transaction ID:\s*([a-z0-9]+)/i);
+    if (billMatch) billcode = billMatch[1];
+    if (transMatch) transactionId = transMatch[1];
+  }
+  
+  const message = "Hi " + ownerName + ", I just booked " + homestayName + " on Kundasang Homestays!\n\n*ID: " + bookingId + "*\n*" + nights + " nights* " + dates + "\nTotal RM" + total.toFixed(2) + 
+    (billcode ? "\nBill Code: " + billcode : "") + 
+    (transactionId ? "\nTransaction ID: " + transactionId : "") + 
+    "\n\nPlease confirm my check-in. Thanks!";
+  openWhatsAppLink(waNumber, message);
+}
+
+// =============================================================
+// PAGE NAVIGATION
+// =============================================================
+function showHome() {
+  const homePage = document.getElementById("homePage");
+  const hero = document.getElementById("hero");
+  if (homePage) homePage.classList.remove("hidden");
+  if (hero) hero.classList.remove("hidden");
+  const active = document.getElementById("navHome");
+  if (active) active.className = "setsail-nav-link active";
+  renderGrid();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// =============================================================
+// TOGGLE MOBILE MENU (fallback)
+// =============================================================
+function toggleMobileMenu() {
+  const nav = document.getElementById('mobileNav');
+  if (nav) {
+    nav.classList.toggle('open');
+  }
+}
+
+// Close mobile menu when clicking outside
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('mobileNav');
+  const btn = document.getElementById('mobileMenuBtn');
+  if (!nav || !btn) return;
+  if (nav.classList.contains('open') && 
+      !nav.contains(e.target) && 
+      !btn.contains(e.target)) {
+    nav.classList.remove('open');
+  }
+});
+
+// =============================================================
+// RENDER AVAILABILITY CALENDAR
+// =============================================================
+function renderAvailabilityCalendar(homestay, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container || !homestay) return;
+  
+  const blocked = getAllBlockedDatesForHomestay(homestay);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const todayIso = dateToIso(today);
+  
+  if (!container._currentMonth) {
+    container._currentMonth = today.getMonth();
+    container._currentYear = today.getFullYear();
+  }
+  
+  function renderMonth() {
+    const month = container._currentMonth;
+    const year = container._currentYear;
+    const monthLabel = new Date(year, month, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startDay = new Date(year, month, 1).getDay();
+    const isCurrentMonth = (month === today.getMonth() && year === today.getFullYear());
+    
+    let html = `
+      <div class="flex items-center justify-between mb-2">
+        <button onclick="navigateCalendar(this, -1, '${containerId}')" class="calendar-nav-btn">‹</button>
+        <span class="calendar-month-label">${monthLabel}</span>
+        <button onclick="navigateCalendar(this, 1, '${containerId}')" class="calendar-nav-btn">›</button>
+      </div>
+      <div class="calendar-mini">
+    `;
+    
+    const dayNames = ["S", "M", "T", "W", "T", "F", "S"];
+    dayNames.forEach(d => {
+      html += `<div class="text-[9px] text-center font-bold text-zinc-400 py-1">${d}</div>`;
+    });
+    
+    for (let e = 0; e < startDay; e++) {
+      html += `<div class="calendar-day empty"></div>`;
+    }
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(year, month, day);
+      d.setHours(0,0,0,0);
+      const iso = dateToIso(d);
+      const isBlocked = blocked.includes(iso);
+      const isToday = iso === todayIso;
+      const isPast = d < today;
+      
+      let cls = "calendar-day";
+      if (isPast) {
+        cls += " past";
+      } else {
+        cls += isBlocked ? " booked" : " available";
+      }
+      if (isToday) cls += " today";
+      
+      html += `<div class="${cls}" title="${iso} ${isBlocked ? '(Booked)' : isPast ? '(Past)' : '(Available)'}">${day}</div>`;
+    }
+    
+    html += `</div>`;
+    html += `
+      <div class="calendar-legend">
+        <span><span class="dot green"></span> Available</span>
+        <span><span class="dot red"></span> Booked</span>
+        ${isCurrentMonth ? `<span><span class="dot today-dot"></span> Today</span>` : ''}
+        <span style="margin-left:auto;font-size:9px;color:#9ca3af;">${blocked.length} booked</span>
+      </div>
+    `;
+    
+    container.innerHTML = safeHTML(html);
+  }
+  
+  window.navigateCalendar = function(btn, direction, containerId) {
+    const c = document.getElementById(containerId);
+    if (!c) return;
+    c._currentMonth = (c._currentMonth || today.getMonth()) + direction;
+    if (c._currentMonth > 11) { c._currentMonth = 0; c._currentYear = (c._currentYear || today.getFullYear()) + 1; }
+    if (c._currentMonth < 0) { c._currentMonth = 11; c._currentYear = (c._currentYear || today.getFullYear()) - 1; }
+    if (!c._currentYear) c._currentYear = today.getFullYear();
+    renderMonth.call(c);
+  };
+  
+  container._render = renderMonth;
+  renderMonth.call(container);
+}
+
+// =============================================================
+// INIT
+// =============================================================
+(async function init() {
+    renderGuestNav();
+    await fetchCloudData();
+    renderGrid();
+    showHome();
+
+    // ===== SCROLL REVEAL: Fade in cards as you scroll =====
+    setTimeout(() => {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.animate-on-scroll').forEach(el => {
+            observer.observe(el);
+        });
+    }, 150);
+
+    // ===== Check payment mode =====
+    try {
+        const res = await fetch(API_BASE + "/payment-mode?t=" + Date.now());
+        const data = await res.json();
+        CONFIG.toyyibpay.enabled = data.enabled;
+        console.log("💳 Payment mode:", data.message);
+    } catch(e) {
+        console.warn("⚠️ Failed to fetch payment mode, defaulting to simulation");
+        CONFIG.toyyibpay.enabled = false;
+    }
+
+    // ===== Handle payment redirect =====
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const bookingIdParam = params.get("booking");
+        const paidParam = params.get("paid");
+        const billcode = params.get("billcode");
+        const transactionId = params.get("transaction_id");
+        const statusId = params.get("status_id");
+
+        if (bookingIdParam && paidParam === "1") {
+            console.log("🎯 Processing payment redirect for booking:", bookingIdParam);
+            let b = bookings.find(x => String(x.id) === String(bookingIdParam));
+            if (!b) {
+                await fetchCloudData();
+                b = bookings.find(x => String(x.id) === String(bookingIdParam));
+            }
+            if (b) {
+                if ((b.status || "").toLowerCase().includes("pending")) {
+                    b.status = "Paid - Awaiting Check-in";
+                    b.statusUpdated = new Date().toISOString();
+                    b.toyyibpay_billcode = billcode || b.toyyibpay_billcode;
+                    b.toyyibpay_transaction_id = transactionId;
+                    b.toyyibpay_status_id = statusId;
+                    b.paid_at = new Date().toISOString();
+                    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+                    const dates = getDatesInRange(b.checkin, b.checkout);
+                    if (b.homestayId) {
+                        if (!availabilityMap[b.homestayId]) availabilityMap[b.homestayId] = [];
+                        dates.forEach(d => {
+                            if (!availabilityMap[b.homestayId].includes(d)) {
+                                availabilityMap[b.homestayId].push(d);
+                            }
+                        });
+                        saveAvailabilityMap();
+                    }
+                    try {
+                        const updateRes = await fetch(`${API_BASE}/bookings`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                action: "publicUpdateStatus",
+                                id: b.id,
+                                status: "Paid - Awaiting Check-in",
+                                toyyibpay_billcode: billcode || null,
+                                toyyibpay_transaction_id: transactionId || null,
+                                toyyibpay_status_id: statusId || null,
+                                paid_at: new Date().toISOString()
+                            })
+                        });
+                        if (updateRes.ok) {
+                            console.log("☁️ Booking status synced to cloud via public endpoint");
+                        } else {
+                            const err = await updateRes.text();
+                            console.warn("⚠️ Cloud sync failed:", err);
+                        }
+                    } catch(e) { console.warn("Cloud sync error:", e); }
+                }
+                const nights = b.nights || calculateNights(b.checkin, b.checkout);
+                const total = b.total || 0;
+                showPaymentReceipt(b.id, nights, b.checkin, b.checkout, total, billcode, transactionId);
+            } else {
+                console.warn("⚠️ Booking not found for ID:", bookingIdParam);
+                alert("✅ Payment successful! Your booking has been confirmed.\n\nBooking ID: " + bookingIdParam + "\nTransaction ID: " + (transactionId || 'N/A'));
+            }
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    } catch(e) {
+        console.warn("Paid redirect handler fail", e);
+    }
+})();
+
+console.log("✅ Kundasang Homestay public page loaded (secure).");
+</script>
+
+<!-- ===== BOOKING SUCCESS MODAL ===== -->
+<div id="bookingSuccessModal" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; padding:20px; overflow-y:auto;">
+  <div class="bg-white sharp max-w-[480px] w-full p-6 md:p-8" style="max-height:90vh; overflow-y:auto;">
+    <div class="text-center">
+      <div class="w-16 h-16 bg-green-100 sharp flex items-center justify-center mx-auto mb-4 text-3xl">✅</div>
+      <h3 class="font-poppins font-800 text-[22px] uppercase text-[#212121]">Payment Successful!</h3>
+      <p class="text-[12px] text-[#212121]/60 mt-2">Your booking is confirmed. Please save this receipt.</p>
+    </div>
+    
+    <div class="bg-[#F8F5F0] sharp p-5 mt-4 border border-black/5">
+      <div class="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-3">Payment Receipt</div>
+      <div class="flex justify-between py-2 border-b border-black/5">
+        <span class="text-[11px] text-zinc-500">Booking ID</span>
+        <span id="successBookingId" class="font-800 text-[14px] text-[#dc2626]">-</span>
+      </div>
+      <div class="flex justify-between py-2 border-b border-black/5">
+        <span class="text-[11px] text-zinc-500">Duration</span>
+        <span class="text-[13px] font-semibold">
+          <span id="successNights">-</span> • 
+          <span id="successDates" class="text-[12px] font-normal text-zinc-600">-</span>
+        </span>
+      </div>
+      <div class="flex justify-between py-2 border-b border-black/5">
+        <span class="text-[11px] text-zinc-500">Total Paid</span>
+        <span id="successTotal" class="font-800 text-[20px] text-[#0F382E]">-</span>
+      </div>
+      <div id="receiptDetails" class="hidden mt-2 pt-2 border-t border-black/10 text-[11px] text-zinc-500"></div>
+    </div>
+    
+    <div class="mt-4 text-[11px] text-center text-zinc-400">
+      <span class="inline-block bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-semibold">✓ Payment Verified</span>
+    </div>
+    
+    <div class="mt-5 flex flex-col gap-3">
+      <button onclick="whatsappWithBookingId()" class="w-full bg-[#25D366] text-white sharp py-3.5 font-700 text-[13px] uppercase tracking-wider flex items-center justify-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.46 2.13 11.94c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.79 9.79 0 0 0 4.68 1.19h.01c5.46 0 9.91-4.46 9.91-9.94a9.86 9.86 0 0 0-2.8-6.96zm-7.01 15.1h-.01a8.1 8.1 0 0 1-4.13-1.13l-.3-.18-3.12.82.83-3.04-.2-.31a8.18 8.18 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 0 1 2.41 5.83c0 4.54-3.7 8.23-8.24 8.23zm4.52-6.16c-.25-.12-1.47-.73-1.7-.81-.23-.08-.4-.12-.57.12s-.66.81-.81.98-.3.19-.55.07a6.7 6.7 0 0 1-1.97-1.22 7.38 7.38 0 0 1-1.36-1.69c-.14-.25-.01-.38.11-.5.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43s-.57-1.38-.78-1.89c-.2-.49-.41-.42-.57-.43h-.49c-.17 0-.43.06-.66.31s-.87.85-.87 2.08.89 2.41 1.01 2.58c.12.17 1.75 2.67 4.23 3.75.59.25 1.05.4 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.2-.58.2-1.07.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
+        WhatsApp Owner with Receipt
+      </button>
+      <button onclick="closeBookingSuccess()" class="w-full bg-[#212121] text-white sharp py-3.5 font-600 text-[13px] uppercase tracking-wider">OK, Got It</button>
+    </div>
+    <p class="text-[10px] text-zinc-400 text-center mt-3">Please screenshot this receipt for your records.</p>
+  </div>
+</div>
+
+</body>
+</html>
