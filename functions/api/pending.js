@@ -5,7 +5,7 @@ function getDB(env){
   return env.DB || env.D1 || env.MY_DB || env.DATABASE || env.KUNDASANG_DB || env.STORE || null;
 }
 
-function corsHeaders(){
+function corsHeaders(request){
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -21,14 +21,14 @@ function verifyAdmin(request, env) {
   if (!expectedToken) {
     return new Response(JSON.stringify({ error: "Server misconfigured" }), {
       status: 500,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
   }
   const expected = "Bearer " + expectedToken;
   if (auth !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
   }
   return null;
@@ -51,13 +51,13 @@ export async function onRequestGet(context){
   if (authError) {
     return new Response(JSON.stringify({ pending: [], count: pending.length, hasDB: !!db }), {
       status: 200,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
   }
 
   return new Response(JSON.stringify({ pending, count: pending.length, hasDB: !!db }), {
     status: 200,
-    headers: corsHeaders()
+    headers: corsHeaders(request)
   });
 }
 
@@ -69,7 +69,7 @@ export async function onRequestPost(context){
   if(!db) {
     return new Response(JSON.stringify({ error: "DB not configured" }), { 
       status: 500, 
-      headers: corsHeaders() 
+      headers: corsHeaders(request) 
     });
   }
   
@@ -88,7 +88,7 @@ export async function onRequestPost(context){
       if (!item.id || !item.name) {
         return new Response(JSON.stringify({ error: "Missing required fields in pending item" }), {
           status: 400,
-          headers: corsHeaders()
+          headers: corsHeaders(request)
         });
       }
     }
@@ -100,13 +100,13 @@ export async function onRequestPost(context){
 
     return new Response(JSON.stringify({ success: true, count: toSave.length }), {
       status: 200,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
   }catch(e){
     console.error("❌ Pending POST error:", e.message);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
   }
 }
@@ -121,7 +121,7 @@ export async function onRequestDelete(context){
   if(!db) {
     return new Response(JSON.stringify({ error: "DB not configured" }), {
       status: 500,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
   }
   try {
@@ -131,16 +131,16 @@ export async function onRequestDelete(context){
       .run();
     return new Response(JSON.stringify({ success: true, message: "Pending cleared" }), {
       status: 200,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
   } catch(e) {
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
-      headers: corsHeaders()
+      headers: corsHeaders(request)
     });
   }
 }
 
 export async function onRequestOptions(){
-  return new Response(null, { headers: corsHeaders() });
+  return new Response(null, { headers: corsHeaders(request) });
 }
