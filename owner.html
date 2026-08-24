@@ -529,7 +529,7 @@ async function ownerLogin() {
 }
 
 // =============================================
-// LOAD BOOKINGS (FIXED with fallbacks)
+// LOAD BOOKINGS (FIXED with robust rendering)
 // =============================================
 async function loadBookings() {
   if (!ownerToken) {
@@ -569,72 +569,85 @@ async function loadBookings() {
       return;
     }
 
-    // Render each booking with safe fallbacks
-    listDiv.innerHTML = filteredBookings.map((b, index) => {
-      // Ensure all fields exist with defaults
-      const homestayName = b.homestay || b.homestayName || 'Unknown Homestay';
-      const checkin = b.checkin || 'N/A';
-      const checkout = b.checkout || 'N/A';
-      const nights = b.nights || '?';
-      const guestName = b.guestName || b.guestEmail || 'Guest';
-      const base = b.base || 0;
-      const total = b.total || 0;
-      const status = b.status || 'Unknown';
-      const id = b.id || 'unknown';
+    // Build HTML with try-catch per booking to avoid breaking the whole list
+    let html = '';
+    for (let i = 0; i < filteredBookings.length; i++) {
+      try {
+        const b = filteredBookings[i];
+        // Safely extract fields with fallbacks
+        const id = b.id || 'unknown';
+        const homestayName = b.homestay || b.homestayName || 'Unknown Homestay';
+        const checkin = b.checkin || 'N/A';
+        const checkout = b.checkout || 'N/A';
+        const nights = b.nights || '?';
+        const guestName = b.guestName || b.guestEmail || 'Guest';
+        const base = b.base || 0;
+        const total = b.total || 0;
+        const status = b.status || 'Unknown';
+        const payoutDate = b.payoutDate || null;
 
-      const isPaid = status.toLowerCase().includes('paid');
-      const isCompleted = b.payoutDate || status.toLowerCase().includes('completed');
-      const isPending = status.toLowerCase().includes('pending');
-      
-      let statusBadge = '';
-      if (isCompleted) {
-        statusBadge = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✅ Completed - Guest Checked-in</span>';
-      } else if (isPaid) {
-        statusBadge = '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">🟡 Paid - Ready for Check-in</span>';
-      } else if (isPending) {
-        statusBadge = '<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">⏳ Pending Payment</span>';
-      } else {
-        statusBadge = `<span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">${status}</span>`;
-      }
+        const isPaid = status.toLowerCase().includes('paid');
+        const isCompleted = payoutDate || status.toLowerCase().includes('completed');
+        const isPending = status.toLowerCase().includes('pending');
 
-      let actionButtons = '';
-      if (isPaid && !isCompleted) {
-        actionButtons += `
-          <button onclick="confirmCheckIn('${id}')" class="btn-success sharp">✅ Confirm Check-in</button>
-        `;
-      }
-      if (!isCompleted) {
-        actionButtons += `
-          <button onclick="changeBookingDates('${id}')" class="btn-warning sharp">📅 Change Dates</button>
-        `;
-      }
-      if (isCompleted) {
-        actionButtons = `<span class="text-xs text-zinc-400">✅ Paid out on ${b.payoutDate ? new Date(b.payoutDate).toLocaleDateString('en-MY') : 'N/A'}</span>`;
-      }
+        let statusBadge = '';
+        if (isCompleted) {
+          statusBadge = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✅ Completed - Guest Checked-in</span>';
+        } else if (isPaid) {
+          statusBadge = '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">🟡 Paid - Ready for Check-in</span>';
+        } else if (isPending) {
+          statusBadge = '<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">⏳ Pending Payment</span>';
+        } else {
+          statusBadge = `<span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">${status}</span>`;
+        }
 
-      const guestPhone = b.guestPhone || '';
-      const hasPhone = guestPhone.replace(/[^0-9]/g, '').length >= 10;
-      const waBtn = hasPhone ? 
-        `<button onclick="openWhatsappToGuest('${id}')" class="btn-whatsapp-sm">💬 WhatsApp Guest</button>` : 
-        `<span class="text-xs text-zinc-400">No guest phone</span>`;
+        let actionButtons = '';
+        if (isPaid && !isCompleted) {
+          actionButtons += `
+            <button onclick="confirmCheckIn('${id}')" class="btn-success sharp">✅ Confirm Check-in</button>
+          `;
+        }
+        if (!isCompleted) {
+          actionButtons += `
+            <button onclick="changeBookingDates('${id}')" class="btn-warning sharp">📅 Change Dates</button>
+          `;
+        }
+        if (isCompleted) {
+          const payoutDisplay = payoutDate ? new Date(payoutDate).toLocaleDateString('en-MY') : 'N/A';
+          actionButtons = `<span class="text-xs text-zinc-400">✅ Paid out on ${payoutDisplay}</span>`;
+        }
 
-      return `
-        <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3 animate-on-scroll">
-          <div class="flex-1">
-            <div class="font-bold text-sm">${homestayName}</div>
-            <div class="text-xs text-zinc-500">${checkin} → ${checkout} • ${nights} nights • Guest: ${guestName}</div>
-            <div class="text-xs font-semibold mt-1">Base: RM${base} • Total Paid: RM${total}</div>
-            <div class="mt-1">${statusBadge}</div>
-            <div class="mt-1 flex flex-wrap gap-2">
-              ${waBtn}
+        const guestPhone = b.guestPhone || '';
+        const hasPhone = guestPhone.replace(/[^0-9]/g, '').length >= 10;
+        const waBtn = hasPhone ? 
+          `<button onclick="openWhatsappToGuest('${id}')" class="btn-whatsapp-sm">💬 WhatsApp Guest</button>` : 
+          `<span class="text-xs text-zinc-400">No guest phone</span>`;
+
+        html += `
+          <div class="border p-4 sharp flex flex-col md:flex-row justify-between items-start md:items-center gap-3 animate-on-scroll">
+            <div class="flex-1">
+              <div class="font-bold text-sm">${homestayName}</div>
+              <div class="text-xs text-zinc-500">${checkin} → ${checkout} • ${nights} nights • Guest: ${guestName}</div>
+              <div class="text-xs font-semibold mt-1">Base: RM${base} • Total Paid: RM${total}</div>
+              <div class="mt-1">${statusBadge}</div>
+              <div class="mt-1 flex flex-wrap gap-2">
+                ${waBtn}
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 mt-2 md:mt-0">
+              ${actionButtons}
             </div>
           </div>
-          <div class="flex flex-wrap gap-2 mt-2 md:mt-0">
-            ${actionButtons}
-          </div>
-        </div>
-      `;
-    }).join('');
+        `;
+      } catch (err) {
+        console.error("Error rendering booking at index", i, err);
+        // Optionally add a fallback entry for this booking
+        html += `<div class="border p-4 sharp text-sm text-red-500">⚠️ Error displaying booking (ID: ${filteredBookings[i]?.id || 'unknown'})</div>`;
+      }
+    }
+
+    listDiv.innerHTML = html;
+    console.log("✅ Rendered bookings HTML length:", html.length);
   } catch(e) {
     listDiv.innerHTML = '<div class="text-sm text-red-600">Error loading bookings. Please refresh.</div>';
     console.error("Load bookings error:", e);
