@@ -1,26 +1,11 @@
-// /api/login.js - SIMPLEST VERSION (SHA-256 + global pepper)
+// /api/login.js - COMPLETE with security fixes
+import { corsHeaders, getClientIP, sha256, generateSalt, enforceHttps } from './_utils.js';
 
 const PEPPER = "kundasang-homestay-2026";
-
-async function sha256(message) {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 function validateEmail(email) {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(email);
-}
-
-function corsHeaders() {
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type"
-  };
 }
 
 // Rate limiting (in-memory)
@@ -43,6 +28,9 @@ function recordLoginAttempt(email) {
 }
 
 export async function onRequestPost({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+  
   try {
     const { email, password } = await request.json();
 
@@ -50,23 +38,35 @@ export async function onRequestPost({ request, env }) {
     const cleanEmail = email ? email.toLowerCase().trim() : '';
 
     if (!cleanEmail || !trimmedPassword) {
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 400, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
+        status: 400, 
+        headers: corsHeaders(request) 
+      });
     }
     if (!validateEmail(cleanEmail)) {
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 400, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
+        status: 400, 
+        headers: corsHeaders(request) 
+      });
     }
 
     const rateLimit = checkRateLimit(cleanEmail);
     if (rateLimit.blocked) {
-      return new Response(JSON.stringify({ error: "Too many login attempts. Please try again later.", blocked: true }), {
+      return new Response(JSON.stringify({ 
+        error: "Too many login attempts. Please try again later.", 
+        blocked: true 
+      }), {
         status: 429,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
       });
     }
 
     const db = env.DB;
     if (!db) {
-      return new Response(JSON.stringify({ error: "Server configuration error" }), { status: 500, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Server configuration error" }), { 
+        status: 500, 
+        headers: corsHeaders(request) 
+      });
     }
 
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
@@ -80,30 +80,40 @@ export async function onRequestPost({ request, env }) {
     if (bannedRes && bannedRes.data) { try { banned = JSON.parse(bannedRes.data); } catch(e) {} }
     if (banned.includes(cleanEmail)) {
       recordLoginAttempt(cleanEmail);
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
+        status: 401, 
+        headers: corsHeaders(request) 
+      });
     }
 
     const user = guests.find(g => g.email && g.email.toLowerCase() === cleanEmail);
     if (!user) {
       recordLoginAttempt(cleanEmail);
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
+        status: 401, 
+        headers: corsHeaders(request) 
+      });
     }
 
-    // Hash with the same pepper
-    const hashedInput = await sha256(PEPPER + trimmedPassword);
+    // ✅ Use stored salt (not just global pepper)
+    const hashedInput = await sha256(PEPPER + trimmedPassword + (user.salt || ''));
 
     if (hashedInput !== user.password) {
       recordLoginAttempt(cleanEmail);
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
+        status: 401, 
+        headers: corsHeaders(request) 
+      });
     }
 
     loginAttempts.delete(cleanEmail);
 
-    const randomPart = Math.random().toString(36).substring(2, 10);
-    const tokenData = { userId: user.id, email: user.email, ts: Date.now(), rand: randomPart };
+    const tokenData = { userId: user.id, email: user.email, ts: Date.now() };
     const sessionToken = btoa(JSON.stringify(tokenData));
 
-    const { password: _, ...safeUser } = user;
+    const { password: _, salt: __, ...safeUser } = user;
+    
+    // ✅ Set HttpOnly cookie
     return new Response(JSON.stringify({
       success: true,
       guest: safeUser,
@@ -111,15 +121,22 @@ export async function onRequestPost({ request, env }) {
       message: "Login successful"
     }), {
       status: 200,
-      headers: corsHeaders()
+      headers: {
+        'Content-Type': 'application/json',
+        'Set-Cookie': `guest_token=${sessionToken}; HttpOnly; Secure; SameSite=Strict; Max-Age=86400; Path=/`,
+        ...corsHeaders(request)
+      }
     });
 
   } catch (e) {
     console.error("❌ Login error:", e.message);
-    return new Response(JSON.stringify({ error: "Login failed. Please try again later." }), { status: 500, headers: corsHeaders() });
+    return new Response(JSON.stringify({ error: "Login failed. Please try again later." }), { 
+      status: 500, 
+      headers: corsHeaders(request) 
+    });
   }
 }
 
-export async function onRequestOptions() {
-  return new Response(null, { headers: corsHeaders() });
+export async function onRequestOptions({ request }) {
+  return new Response(null, { headers: corsHeaders(request) });
 }
