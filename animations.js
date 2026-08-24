@@ -63,3 +63,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
     console.log('✅ Animations initialized (safe for all pages)');
 });
+
+// =============================================================
+// MOBILE MENU – Global toggle (works on ALL pages)
+// =============================================================
+
+function toggleMobileMenu() {
+    const nav = document.getElementById('mobileNav');
+    if (nav) {
+        nav.classList.toggle('open');
+        console.log('📱 Mobile menu toggled:', nav.classList.contains('open') ? 'open' : 'closed');
+    } else {
+        console.warn('⚠️ #mobileNav not found on this page');
+    }
+}
+
+// Make it available globally (for inline onclick)
+window.toggleMobileMenu = toggleMobileMenu;
+
+// Close mobile menu when clicking outside
+document.addEventListener('click', function(e) {
+    const nav = document.getElementById('mobileNav');
+    const btn = document.getElementById('mobileMenuBtn');
+    if (!nav || !btn) return;
+    if (nav.classList.contains('open') && 
+        !nav.contains(e.target) && 
+        !btn.contains(e.target)) {
+        nav.classList.remove('open');
+        console.log('📱 Mobile menu closed (outside click)');
+    }
+});
+
+console.log('✅ Mobile menu loaded (global)');
