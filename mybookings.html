@@ -678,7 +678,10 @@ async function fetchCloudData() {
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
     console.log("Cloud sync:", data.bookings?.length || 0, "bookings");
-    if (data.bookings) { bookings = data.bookings; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
+    if (data.bookings) { 
+      bookings = data.bookings; 
+      localStorage.setItem("kd_bookings", JSON.stringify(bookings)); 
+    }
     if (data.availability) { availabilityMap = data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
     if (data.approved) {
       let storedApproved = data.approved;
@@ -720,7 +723,10 @@ function getGuestFriendlyStatus(rawStatus) {
 // =============================================================
 // RENDER MY BOOKINGS
 // =============================================================
-function renderMyBookings() {
+async function renderMyBookings() {
+  // ✅ Refresh cloud data first
+  await fetchCloudData();
+  
   const infoCard = document.getElementById("guestInfoCard");
   const listDiv = document.getElementById("myBookingsList");
   if (!infoCard || !listDiv) return;
@@ -731,7 +737,17 @@ function renderMyBookings() {
   }
   infoCard.innerHTML = safeHTML("<div class='flex gap-4 items-center'><div class='guest-avatar w-12 h-12 text-lg'>" + (currentGuest.name||"G").charAt(0).toUpperCase() + "</div><div><div class='font-bold'>" + currentGuest.name + "</div><div class='text-xs text-zinc-500'>" + currentGuest.email + " • " + currentGuest.phone + "</div><div class='text-[11px] mt-1'>ID: " + currentGuest.id + " • Guest account detected</div></div></div>");
   
-  const myBookings = bookings.filter(b => (b.guestEmail && b.guestEmail.toLowerCase() === currentGuest.email.toLowerCase()) || (b.guestId && b.guestId === currentGuest.id));
+  // ✅ Check both guestEmail AND guestId, also check if guestId matches currentGuest.id
+  const myBookings = bookings.filter(b => {
+    const emailMatch = b.guestEmail && b.guestEmail.toLowerCase() === currentGuest.email.toLowerCase();
+    const idMatch = b.guestId && String(b.guestId) === String(currentGuest.id);
+    // ✅ Also check if the booking was created by this guest (guestDetected flag)
+    const detectedMatch = b.guestDetected === true && b.guestId === currentGuest.id;
+    return emailMatch || idMatch || detectedMatch;
+  });
+  
+  console.log("📊 My bookings found:", myBookings.length, "Total bookings:", bookings.length);
+  
   if (myBookings.length === 0) {
     listDiv.innerHTML = safeHTML("<div class='card p-8 text-center text-zinc-500'>No bookings yet. <br><a href='/' class='mt-3 btn-primary inline-block'>Browse Homestays</a></div>");
     return;
@@ -829,12 +845,10 @@ async function retryPayment(bookingId) {
     const data = await res.json();
     
     if (data.simulation) {
-      // ✅ FIX: Update local status
       booking.status = "Paid - Awaiting Check-in";
       booking.statusUpdated = new Date().toISOString();
       localStorage.setItem("kd_bookings", JSON.stringify(bookings));
       
-      // ✅ FIX: Update D1 status
       try {
         await fetch(API_BASE + "/bookings", {
           method: "POST",
@@ -850,7 +864,7 @@ async function retryPayment(bookingId) {
       } catch(e) { console.warn("Cloud sync error (simulation retry):", e); }
       
       await fetchCloudData();
-      renderMyBookings();
+      await renderMyBookings();
       await showAlert('Payment Success', '✅ Booking marked as paid (simulation mode). Owner will see it as Paid.');
       return;
     }
@@ -936,7 +950,7 @@ document.addEventListener('click', function(e) {
 (async function init() {
   renderGuestNav();
   await fetchCloudData();
-  renderMyBookings();
+  await renderMyBookings();
 })();
 
 console.log("✅ My Bookings page loaded with guest-friendly statuses.");
