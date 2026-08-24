@@ -1,6 +1,10 @@
 // /api/toyyibpay-webhook.js - SECURE: verify secret key, reject if not set
+import { corsHeaders, getClientIP, logAction, enforceHttps } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+  
   try {
     const authHeader = request.headers.get('Authorization') || '';
     const customHeader = request.headers.get('X-Toyyibpay-Secret') || '';
@@ -12,18 +16,22 @@ export async function onRequestPost({ request, env }) {
       customHeader === expectedToken ||
       customHeader === 'Bearer ' + expectedToken;
     
-    // CRITICAL FIX: In production, reject if secret not set or invalid
     if (!expectedToken) {
       console.error('🔐 TOYYIBPAY_SECRET_KEY not set – webhook UNSECURED! Rejecting.');
-      return new Response('Unauthorized - Secret key not configured', { status: 401, headers: cors() });
+      return new Response('Unauthorized - Secret key not configured', { 
+        status: 401, 
+        headers: corsHeaders(request) 
+      });
     }
     
     if (!isAuthorized) {
       console.warn('🔐 Webhook unauthorized: missing or invalid secret');
-      return new Response('Unauthorized', { status: 401, headers: cors() });
+      return new Response('Unauthorized', { 
+        status: 401, 
+        headers: corsHeaders(request) 
+      });
     }
 
-    // --- Parse webhook data ---
     const formData = await request.formData();
     const refNo = formData.get('refno');
     const status = formData.get('status');
@@ -36,18 +44,27 @@ export async function onRequestPost({ request, env }) {
 
     if (String(status) !== "1") {
       console.log(`⚠️ Payment not successful - status: ${status}`);
-      return new Response(`Not success - status ${status}`, { status: 200, headers: cors() });
+      return new Response(`Not success - status ${status}`, { 
+        status: 200, 
+        headers: corsHeaders(request) 
+      });
     }
 
     if (!refNo) {
       console.error('❌ Missing refno in webhook');
-      return new Response('Missing refno', { status: 400, headers: cors() });
+      return new Response('Missing refno', { 
+        status: 400, 
+        headers: corsHeaders(request) 
+      });
     }
 
     const db = env.DB;
     if (!db) {
       console.error('❌ No database configured');
-      return new Response('No DB', { status: 500, headers: cors() });
+      return new Response('No DB', { 
+        status: 500, 
+        headers: corsHeaders(request) 
+      });
     }
 
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
@@ -63,7 +80,10 @@ export async function onRequestPost({ request, env }) {
           bookings[idx].status.toLowerCase().includes("paid") && 
           bookings[idx].paid_at) {
         console.log(`✅ Booking ${refNo} already processed, skipping duplicate`);
-        return new Response("Already processed", { status: 200, headers: cors() });
+        return new Response("Already processed", { 
+          status: 200, 
+          headers: corsHeaders(request) 
+        });
       }
       
       console.log(`✅ Updating booking ${refNo} to PAID`);
@@ -100,9 +120,10 @@ export async function onRequestPost({ request, env }) {
       console.log(`✅ Created new booking ${refNo} from webhook data`);
     }
 
-    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_bookings", JSON.stringify(bookings)).run();
+    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+      .bind("kd_bookings", JSON.stringify(bookings))
+      .run();
 
-    // --- Block availability (rest unchanged) ---
     try {
       const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
       let availability = {};
@@ -118,22 +139,33 @@ export async function onRequestPost({ request, env }) {
           }
         });
         availability[updatedBooking.homestayId] = [...new Set(availability[updatedBooking.homestayId])].sort();
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)").bind("kd_availability", JSON.stringify(availability)).run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_availability", JSON.stringify(availability))
+          .run();
         console.log(`📅 Blocked ${dates.length} dates for homestay ${updatedBooking.homestayId}`);
       }
     } catch(e) { console.error('❌ Availability error:', e.message); }
 
     console.log(`✅ Webhook processed successfully for ${refNo}`);
-    return new Response("OK", { status: 200, headers: cors() });
+    return new Response("OK", { 
+      status: 200, 
+      headers: corsHeaders(request) 
+    });
     
   } catch (e) {
     console.error('❌ Webhook error:', e.message, e.stack);
-    return new Response("Error: "+e.message, { status: 500, headers: cors() });
+    return new Response("Error: "+e.message, { 
+      status: 500, 
+      headers: corsHeaders(request) 
+    });
   }
 }
 
-export async function onRequestGet(){ 
-  return new Response("ToyyibPay webhook ready", { status: 200, headers: cors() }); 
+export async function onRequestGet({ request }){ 
+  return new Response("ToyyibPay webhook ready", { 
+    status: 200, 
+    headers: corsHeaders(request) 
+  }); 
 }
 
 function getDatesInRange(checkin, checkout){
@@ -153,14 +185,6 @@ function getDatesInRange(checkin, checkout){
   return dates;
 }
 
-function cors(){ 
-  return { 
-    "Access-Control-Allow-Origin": "*", 
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS", 
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Toyyibpay-Secret" 
-  }; 
-}
-
-export async function onRequestOptions(){ 
-  return new Response(null, { headers: cors() }); 
+export async function onRequestOptions({ request }){ 
+  return new Response(null, { headers: corsHeaders(request) }); 
 }
