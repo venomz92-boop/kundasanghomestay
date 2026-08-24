@@ -960,7 +960,7 @@ function updateBookingPrice() {
 function closeBooking() { document.getElementById("bookingModal").classList.add("hidden"); }
 
 // =============================================================
-// PAYMENT FUNCTION
+// PAYMENT FUNCTION (FIXED – simulation updates D1)
 // =============================================================
 async function processPayment() {
   if (!currentGuest) {
@@ -1030,12 +1030,29 @@ async function processPayment() {
 
   if (!CONFIG.toyyibpay.enabled) {
     booking.status = "Paid - Awaiting Check-in";
-    bookings.push(booking);
-    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+    // Update local cache
+    const existing = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
+    const map = new Map();
+    [...existing, booking].forEach(b => { if (b && b.id) map.set(String(b.id), b); });
+    localStorage.setItem("kd_bookings", JSON.stringify([...map.values()]));
+    // Block dates
     const bookedDates = getDatesInRange(ci, co);
     if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
     bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
     saveAvailabilityMap();
+    // ✅ Update D1 status
+    try {
+      await fetch(API_BASE + "/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "publicUpdateStatus",
+          id: booking.id,
+          status: "Paid - Awaiting Check-in",
+          paid_at: new Date().toISOString()
+        })
+      });
+    } catch(e) { console.warn("Cloud sync error (simulation):", e); }
     showBookingSuccess(bookingId, nights, ci, co, price.total);
     return;
   }
@@ -1053,12 +1070,30 @@ async function processPayment() {
     const data = await res.json();
     if (data.simulation) {
       booking.status = "Paid - Awaiting Check-in (Live env not set)";
-      bookings.push(booking);
-      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+      // Update local cache
+      const existing = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
+      const map = new Map();
+      [...existing, booking].forEach(b => { if (b && b.id) map.set(String(b.id), b); });
+      localStorage.setItem("kd_bookings", JSON.stringify([...map.values()]));
+      // Block dates
       const bookedDates = getDatesInRange(ci, co);
       if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
       bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
       saveAvailabilityMap();
+      // ✅ FIX: Update D1 status to Paid
+      try {
+        await fetch(API_BASE + "/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "publicUpdateStatus",
+            id: booking.id,
+            status: booking.status,
+            paid_at: new Date().toISOString()
+          })
+        });
+        console.log("☁️ Cloud status updated to Paid (simulation)");
+      } catch(e) { console.warn("Cloud sync error (simulation):", e); }
       showBookingSuccess(bookingId, nights, ci, co, price.total);
       return;
     }
@@ -1079,6 +1114,19 @@ async function processPayment() {
     if (!availabilityMap[selectedHomestay.id]) availabilityMap[selectedHomestay.id] = [];
     bookedDates.forEach(d => { if (!availabilityMap[selectedHomestay.id].includes(d)) availabilityMap[selectedHomestay.id].push(d); });
     saveAvailabilityMap();
+    // ✅ Also update D1 here for safety
+    try {
+      await fetch(API_BASE + "/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "publicUpdateStatus",
+          id: booking.id,
+          status: booking.status,
+          paid_at: new Date().toISOString()
+        })
+      });
+    } catch(e) {}
     showBookingSuccess(bookingId, nights, ci, co, price.total);
   }
 }
