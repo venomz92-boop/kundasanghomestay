@@ -1,5 +1,5 @@
 // /functions/api/owner-login.js
-import { corsHeaders, getClientIP, enforceHttps } from './_utils.js';
+import { corsHeaders, getClientIP, sha256, enforceHttps } from './_utils.js';
 
 const PEPPER = "kundasang-homestay-2026";
 const loginAttempts = new Map();
@@ -14,9 +14,9 @@ export async function onRequestPost({ request, env }) {
     const cleanPassword = password ? password.trim() : '';
 
     if (!cleanWhatsapp || !cleanPassword) {
-      return new Response(JSON.stringify({ error: "Missing credentials" }), { 
-        status: 400, 
-        headers: corsHeaders(request) 
+      return new Response(JSON.stringify({ error: "Missing credentials" }), {
+        status: 400,
+        headers: corsHeaders(request)
       });
     }
 
@@ -25,9 +25,9 @@ export async function onRequestPost({ request, env }) {
     const attempts = loginAttempts.get(key) || [];
     const recent = attempts.filter(t => now - t < 15 * 60 * 1000);
     if (recent.length >= 5) {
-      return new Response(JSON.stringify({ error: "Too many attempts" }), { 
-        status: 429, 
-        headers: corsHeaders(request) 
+      return new Response(JSON.stringify({ error: "Too many attempts" }), {
+        status: 429,
+        headers: corsHeaders(request)
       });
     }
     recent.push(now);
@@ -35,9 +35,9 @@ export async function onRequestPost({ request, env }) {
 
     const db = env.DB;
     if (!db) {
-      return new Response(JSON.stringify({ error: "Server error" }), { 
-        status: 500, 
-        headers: corsHeaders(request) 
+      return new Response(JSON.stringify({ error: "Server error - DB not found" }), {
+        status: 500,
+        headers: corsHeaders(request)
       });
     }
 
@@ -53,18 +53,19 @@ export async function onRequestPost({ request, env }) {
     });
 
     if (ownerHomestays.length === 0) {
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
-        status: 401, 
-        headers: corsHeaders(request) 
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), {
+        status: 401,
+        headers: corsHeaders(request)
       });
     }
 
     const firstMatch = ownerHomestays[0];
     const hashedInput = await sha256(PEPPER + cleanPassword + firstMatch.ownerSalt);
+    
     if (hashedInput !== firstMatch.ownerPasswordHash) {
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
-        status: 401, 
-        headers: corsHeaders(request) 
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), {
+        status: 401,
+        headers: corsHeaders(request)
       });
     }
 
@@ -91,7 +92,7 @@ export async function onRequestPost({ request, env }) {
     const ownerToken = btoa(JSON.stringify(tokenData));
 
     const safeHomestays = ownerHomestays.map(({ ownerPasswordHash, ownerSalt, ...rest }) => rest);
-    
+
     return new Response(JSON.stringify({
       success: true,
       token: ownerToken,
@@ -107,9 +108,11 @@ export async function onRequestPost({ request, env }) {
 
   } catch (e) {
     console.error("Owner login error:", e.message);
-    return new Response(JSON.stringify({ error: "Login failed" }), { 
-      status: 500, 
-      headers: corsHeaders(request) 
+    return new Response(JSON.stringify({ 
+      error: "Server error: " + e.message 
+    }), {
+      status: 500,
+      headers: corsHeaders(request)
     });
   }
 }
