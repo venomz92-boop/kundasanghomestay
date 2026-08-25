@@ -1197,7 +1197,7 @@
   </div>
 </div>
 
-<!-- ===== ACCORDION GALLERY - VERTICAL (ALL DEVICES) ===== -->
+<!-- ===== ACCORDION GALLERY - VERTICAL (SMOOTH) ===== -->
 <section class="w-full py-16 bg-[#F8F5F0]">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8">
     <div class="text-center mb-10">
@@ -1210,7 +1210,7 @@
 
   <!-- Full width vertical gallery container -->
   <div class="w-full px-4 md:px-8">
-    <div id="accordionGallery" class="accordion-gallery-vertical w-full max-w-[900px] mx-auto" style="--gap: 12px; --radius: 16px;">
+    <div id="accordionGallery" class="accordion-gallery-vertical w-full max-w-[900px] mx-auto">
       <!-- Items will be rendered by JavaScript -->
     </div>
   </div>
@@ -1221,80 +1221,68 @@
   .accordion-gallery-vertical {
     display: flex;
     flex-direction: column;
-    gap: var(--gap, 12px);
+    gap: 12px;
     width: 100%;
     max-width: 900px;
     margin: 0 auto;
-    perspective: 1400px;
   }
   .accordion-gallery-vertical .ag-item {
     position: relative;
     display: block;
-    flex: 0 0 auto;
-    min-height: 80px;
+    width: 100%;
     height: 80px;
-    cursor: pointer;
     overflow: hidden;
+    cursor: pointer;
     background: #0a0713;
-    text-decoration: none;
-    outline: none;
-    transform-style: preserve-3d;
-    transform-origin: center;
+    border-radius: 16px;
     box-shadow: 0 4px 20px -12px rgba(0,0,0,0.6);
-    border-radius: var(--radius, 16px);
-    transition: height 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-                transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
-                box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: height, transform;
+    transition: height 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: height;
   }
   .accordion-gallery-vertical .ag-item.active {
     height: 420px;
     box-shadow: 0 12px 40px -16px rgba(0,0,0,0.5);
   }
-  .accordion-gallery-vertical .ag-item:focus-visible {
-    box-shadow: 0 0 0 2px #3FD0D4, 0 4px 20px -12px rgba(0,0,0,0.6);
-  }
-  .accordion-gallery-vertical .ag-item .ag-media-wrap {
+  .accordion-gallery-vertical .ag-item img {
     position: absolute;
-    inset: 0;
-    overflow: hidden;
-    border-radius: inherit;
-  }
-  .accordion-gallery-vertical .ag-item .ag-media {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 100%;
-    height: 100%;
-    transform: translate(-50%, -50%) scale(1.1);
-    filter: grayscale(0.8) brightness(0.6);
-    transition: filter 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-                transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: transform, filter;
-  }
-  .accordion-gallery-vertical .ag-item.active .ag-media {
-    filter: grayscale(0) brightness(1);
-    transform: translate(-50%, -50%) scale(1);
-  }
-  .accordion-gallery-vertical .ag-item .ag-media img {
-    display: block;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    user-select: none;
-    -webkit-user-drag: none;
+    filter: grayscale(0.8) brightness(0.6);
+    transition: filter 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: filter;
+  }
+  .accordion-gallery-vertical .ag-item.active img {
+    filter: grayscale(0) brightness(1);
   }
   .accordion-gallery-vertical .ag-item .ag-overlay {
     position: absolute;
     inset: 0;
     pointer-events: none;
     background: linear-gradient(180deg, transparent 40%, rgba(6, 0, 16, 0.85) 100%);
-    background: linear-gradient(180deg, transparent 40%, color-mix(in srgb, #060010 85%, transparent) 100%), 
-                color-mix(in srgb, #060010 calc(var(--ag-dim, 0.5) * 100%), transparent);
-    transition: --ag-dim 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 1;
+    opacity: 0.8;
+    transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .accordion-gallery-vertical .ag-item.active .ag-overlay {
-    --ag-dim: 0;
+    opacity: 0;
+  }
+  .accordion-gallery-vertical .ag-item .ag-number {
+    position: absolute;
+    top: 18px;
+    right: 22px;
+    z-index: 2;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.1em;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.4s ease;
+  }
+  .accordion-gallery-vertical .ag-item.active .ag-number {
+    color: rgba(255,255,255,0.5);
   }
   .accordion-gallery-vertical .ag-item .ag-label-wrap {
     position: absolute;
@@ -1313,11 +1301,9 @@
     flex: none;
     border-radius: 4px;
     background: #3FD0D4;
-    box-shadow: 0 0 20px rgba(63, 208, 212, 0.6);
+    box-shadow: 0 0 20px rgba(63, 208, 212, 0.4);
     opacity: 0.5;
-    transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
-                transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
-                height 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 0.4s ease, height 0.4s ease, transform 0.4s ease;
     transform: scaleY(0.6);
   }
   .accordion-gallery-vertical .ag-item.active .ag-bar {
@@ -1326,62 +1312,40 @@
     height: 40px;
   }
   .accordion-gallery-vertical .ag-item .ag-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: clamp(1.2rem, 1.8vw, 1.8rem);
+    font-size: 18px;
     font-weight: 700;
-    letter-spacing: 0.02em;
     color: #ffffff;
     text-shadow: 0 2px 24px rgba(0,0,0,0.8);
     opacity: 0.7;
-    transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s,
-                transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s,
-                font-size 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-    transform: translateX(-8px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 0.4s ease, transform 0.4s ease, font-size 0.4s ease;
+    transform: translateX(-6px);
   }
   .accordion-gallery-vertical .ag-item.active .ag-label {
     opacity: 1;
     transform: translateX(0);
-    font-size: clamp(1.5rem, 2.2vw, 2.2rem);
+    font-size: 24px;
   }
   .accordion-gallery-vertical .ag-item .ag-sub-label {
     display: none;
-    font-size: clamp(0.8rem, 1vw, 1rem);
+    font-size: 14px;
     font-weight: 400;
-    color: rgba(255,255,255,0.7);
-    margin-left: 10px;
+    color: rgba(255,255,255,0.6);
+    margin-left: 8px;
     opacity: 0;
-    transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s;
+    transition: opacity 0.5s ease 0.1s;
   }
   .accordion-gallery-vertical .ag-item.active .ag-sub-label {
     display: inline;
     opacity: 1;
   }
-  .accordion-gallery-vertical .ag-item .ag-number {
-    position: absolute;
-    top: 20px;
-    right: 24px;
-    z-index: 2;
-    font-size: clamp(0.9rem, 1.1vw, 1.1rem);
-    font-weight: 600;
-    color: rgba(255,255,255,0.25);
-    letter-spacing: 0.1em;
-    transition: color 0.4s ease, opacity 0.4s ease;
-    font-variant-numeric: tabular-nums;
-  }
-  .accordion-gallery-vertical .ag-item.active .ag-number {
-    color: rgba(255,255,255,0.5);
-  }
 
-  /* Hover effects - desktop only */
+  /* Desktop hover */
   @media (min-width: 769px) {
     .accordion-gallery-vertical .ag-item:not(.active):hover {
-      transform: scale(1.01);
       box-shadow: 0 8px 30px -14px rgba(0,0,0,0.5);
-    }
-    .accordion-gallery-vertical .ag-item:not(.active):hover .ag-media {
-      transform: translate(-50%, -50%) scale(1.05);
     }
     .accordion-gallery-vertical .ag-item:not(.active):hover .ag-label {
       opacity: 1;
@@ -1391,20 +1355,9 @@
     }
   }
 
-  /* Reduced motion */
-  @media (prefers-reduced-motion: reduce) {
-    .accordion-gallery-vertical .ag-item,
-    .accordion-gallery-vertical .ag-item .ag-media,
-    .accordion-gallery-vertical .ag-item .ag-bar,
-    .accordion-gallery-vertical .ag-item .ag-label {
-      transition: none !important;
-    }
-  }
-
-  /* Mobile adjustments */
+  /* Mobile */
   @media (max-width: 768px) {
     .accordion-gallery-vertical .ag-item {
-      min-height: 64px;
       height: 64px;
     }
     .accordion-gallery-vertical .ag-item.active {
@@ -1417,10 +1370,10 @@
       gap: 10px;
     }
     .accordion-gallery-vertical .ag-item .ag-label {
-      font-size: 0.95rem;
+      font-size: 14px;
     }
     .accordion-gallery-vertical .ag-item.active .ag-label {
-      font-size: 1.2rem;
+      font-size: 18px;
     }
     .accordion-gallery-vertical .ag-item .ag-bar {
       height: 20px;
@@ -1431,10 +1384,21 @@
     .accordion-gallery-vertical .ag-item .ag-number {
       top: 10px;
       right: 14px;
-      font-size: 0.7rem;
+      font-size: 11px;
     }
     .accordion-gallery-vertical .ag-item .ag-sub-label {
       display: none !important;
+    }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .accordion-gallery-vertical .ag-item,
+    .accordion-gallery-vertical .ag-item img,
+    .accordion-gallery-vertical .ag-item .ag-overlay,
+    .accordion-gallery-vertical .ag-item .ag-bar,
+    .accordion-gallery-vertical .ag-item .ag-label {
+      transition: none !important;
     }
   }
 </style>
@@ -1446,63 +1410,51 @@
     { 
       image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=900&h=600&fit=crop', 
       label: 'Mountain Peaks', 
-      sub: 'Majestic Kinabalu sunrise',
-      alt: 'Mount Kinabalu peaks at sunrise'
+      sub: 'Majestic Kinabalu sunrise'
     },
     { 
       image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=900&h=600&fit=crop', 
       label: 'Valley View', 
-      sub: 'Green valleys with morning mist',
-      alt: 'Green valley with morning mist'
+      sub: 'Green valleys with morning mist'
     },
     { 
       image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&h=600&fit=crop', 
       label: 'Forest Trail', 
-      sub: 'Misty trails through the jungle',
-      alt: 'Misty forest trail in Kundasang'
+      sub: 'Misty trails through the jungle'
     },
     { 
       image: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=900&h=600&fit=crop', 
       label: 'Sunset Glow', 
-      sub: 'Golden hour over the mountains',
-      alt: 'Golden sunset over the mountains'
+      sub: 'Golden hour over the mountains'
     },
     { 
       image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=900&h=600&fit=crop', 
       label: 'Star Gazing', 
-      sub: 'Incredible night sky views',
-      alt: 'Night sky with stars above Kinabalu'
+      sub: 'Incredible night sky views'
     }
   ];
 
   const container = document.getElementById('accordionGallery');
   if (!container) return;
 
+  let activeIndex = 2;
+  let isAnimating = false;
+
   // Clear and render items
   container.innerHTML = '';
   
-  let activeIndex = 2; // default active (middle)
-  
   galleryItems.forEach((item, index) => {
     const el = document.createElement('div');
-    const isActive = index === activeIndex;
     el.className = 'ag-item';
-    if (isActive) el.classList.add('active');
-    el.style.setProperty('--ag-dim', isActive ? '0' : '0.5');
+    if (index === activeIndex) el.classList.add('active');
     el.setAttribute('role', 'listitem');
     el.setAttribute('tabindex', '0');
-    el.setAttribute('aria-label', item.label);
-    if (isActive) el.setAttribute('aria-current', 'true');
     
     const number = String(index + 1).padStart(2, '0');
     
     el.innerHTML = `
-      <span class="ag-media-wrap">
-        <span class="ag-media">
-          <img src="${item.image}" alt="${item.alt || item.label}" draggable="false" loading="lazy" />
-        </span>
-        <span class="ag-overlay" aria-hidden="true"></span>
-      </span>
+      <img src="${item.image}" alt="${item.label}" loading="lazy" />
+      <span class="ag-overlay" aria-hidden="true"></span>
       <span class="ag-number">${number}</span>
       <span class="ag-label-wrap" aria-hidden="true">
         <span class="ag-bar"></span>
@@ -1521,11 +1473,6 @@
       if (window.innerWidth > 768) {
         setActive(index);
       }
-    });
-
-    // Focus
-    el.addEventListener('focus', function() {
-      setActive(index);
     });
 
     // Keyboard navigation
@@ -1547,61 +1494,36 @@
     container.appendChild(el);
   });
 
-  // Set active function
+  // Set active function - simplified for smoothness
   function setActive(index) {
+    if (isAnimating || activeIndex === index) return;
+    isAnimating = true;
+    
     const items = container.querySelectorAll('.ag-item');
-    const count = items.length;
-    
-    // Don't do anything if already active
-    if (activeIndex === index) return;
-    
     activeIndex = index;
-    
-    // Calculate tilt for non-active items
-    const tilt = 3;
     
     items.forEach((item, i) => {
       const isActive = i === index;
       item.classList.toggle('active', isActive);
       item.setAttribute('aria-current', isActive ? 'true' : undefined);
-      item.style.setProperty('--ag-dim', isActive ? '0' : '0.5');
-      
-      // Subtle tilt effect
-      const rot = isActive ? 0 : (i < index ? tilt : -tilt);
-      item.style.transform = `rotateX(${rot}deg)`;
-      
-      // Media scale effect
-      const media = item.querySelector('.ag-media');
-      if (media) {
-        if (!isActive) {
-          const drift = Math.max(-1.5, Math.min(1.5, index - i));
-          const shift = drift * 8;
-          media.style.transform = `translate(-50%, -50%) translateY(${shift}px) scale(1.1)`;
-        } else {
-          media.style.transform = `translate(-50%, -50%) scale(1)`;
-        }
-      }
     });
+    
+    setTimeout(function() {
+      isAnimating = false;
+    }, 650);
   }
 
-  // Force initial layout after a small delay
+  // Initial activation
   setTimeout(function() {
     setActive(2);
-  }, 50);
-
-  // Also run after load
-  window.addEventListener('load', function() {
-    setTimeout(function() {
-      setActive(2);
-    }, 100);
-  });
+  }, 100);
 
   // Handle resize
   let resizeTimer;
   window.addEventListener('resize', function() {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(function() {
-      setActive(activeIndex);
+      // Keep current active state
     }, 200);
   });
 
