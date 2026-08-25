@@ -254,7 +254,7 @@ export async function onRequestPost({ request, env }) {
       const finalFee = yourFee < 0 ? 0 : yourFee;
       return new Response(JSON.stringify({
         success: true,
-        message: `✅ Check-in confirmed! Owner (${homestay.ownerName}) received RM${ownerAmount}. Your fee RM${finalFee} is available for withdrawal.`,
+        message: `✅ Check-in confirmed! You will (${homestay.ownerName}) received RM${ownerAmount} in 1-4 business day.`,
         booking: bookings[idx],
         payout: payoutData
       }), { status: 200, headers: corsHeaders(request) });
