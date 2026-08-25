@@ -1197,7 +1197,7 @@
   </div>
 </div>
 
-<!-- ===== ACCORDION GALLERY - FULL WIDTH ===== -->
+<!-- ===== ACCORDION GALLERY - FULL WIDTH (OPTIMIZED) ===== -->
 <section class="w-full py-16 bg-[#F8F5F0]">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8">
     <div class="text-center mb-10">
@@ -1208,7 +1208,7 @@
     </div>
   </div>
 
-  <!-- Full width gallery container -->
+  <!-- Gallery container -->
   <div class="w-full px-0">
     <div id="accordionGallery" class="accordion-gallery w-full max-w-full" style="height: 460px; --gap: 10px; --radius: 0px;">
       <!-- Items will be rendered by JavaScript -->
@@ -1216,7 +1216,7 @@
   </div>
 </section>
 
-<!-- ===== ACCORDION GALLERY STYLES ===== -->
+<!-- ===== ACCORDION GALLERY STYLES (OPTIMIZED) ===== -->
 <style>
   .accordion-gallery {
     display: flex;
@@ -1242,8 +1242,8 @@
     transform-origin: center;
     box-shadow: 0 10px 30px -18px rgba(0,0,0,0.8);
     border-radius: var(--radius, 16px);
-    transition: flex-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1), 
-                transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: flex-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1), 
+                transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
     will-change: flex-grow, transform;
   }
   .accordion-gallery .ag-item:first-child {
@@ -1269,8 +1269,8 @@
     height: 100%;
     transform: translate(-50%, -50%);
     filter: grayscale(1);
-    transition: filter 0.6s cubic-bezier(0.22, 1, 0.36, 1),
-                transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: filter 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
     will-change: transform, filter;
   }
   .accordion-gallery .ag-item.active .ag-media {
@@ -1291,7 +1291,7 @@
     background: linear-gradient(180deg, transparent 45%, rgba(6, 0, 16, 0.78) 100%);
     background: linear-gradient(180deg, transparent 45%, color-mix(in srgb, #060010 78%, transparent) 100%), 
                 color-mix(in srgb, #060010 calc(var(--ag-dim, 0.35) * 100%), transparent);
-    transition: --ag-dim 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: --ag-dim 0.5s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .accordion-gallery .ag-item.active .ag-overlay {
     --ag-dim: 0;
@@ -1315,8 +1315,8 @@
     background: #ffffff;
     box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
     opacity: 0;
-    transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-                transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
     transform: translateX(-14px);
   }
   .accordion-gallery .ag-item.active .ag-bar {
@@ -1333,29 +1333,58 @@
     color: #ffffff;
     text-shadow: 0 2px 14px rgba(0,0,0,0.55);
     opacity: 0;
-    transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.06s,
-                transform 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.06s;
+    transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.05s,
+                transform 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.05s;
     transform: translateX(-14px);
   }
   .accordion-gallery .ag-item.active .ag-label {
     opacity: 1;
     transform: translateX(0);
   }
+  .accordion-gallery .ag-item .ag-number {
+    position: absolute;
+    top: 18px;
+    right: 22px;
+    z-index: 2;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.1em;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.35s ease;
+  }
+  .accordion-gallery .ag-item.active .ag-number {
+    color: rgba(255,255,255,0.6);
+  }
 
-  /* Mobile: stack vertically */
-  @media (max-width: 520px) {
+  /* Desktop: first and last items have rounded corners on the outer edges */
+  @media (min-width: 769px) {
+    .accordion-gallery .ag-item:first-child {
+      border-radius: var(--radius, 16px) 0 0 var(--radius, 16px);
+    }
+    .accordion-gallery .ag-item:last-child {
+      border-radius: 0 var(--radius, 16px) var(--radius, 16px) 0;
+    }
+    .accordion-gallery .ag-item:first-child:last-child {
+      border-radius: var(--radius, 16px);
+    }
+  }
+
+  /* Mobile: stack vertically BUT KEEP 3D EFFECTS */
+  @media (max-width: 768px) {
     .accordion-gallery {
       flex-direction: column !important;
-      perspective: none !important;
       height: auto !important;
       min-height: 480px;
       padding: 0 10px;
+      perspective: 800px !important;
     }
     .accordion-gallery .ag-item {
-      min-height: 84px;
-      transform: none !important;
-      flex: 1 1 0;
+      min-height: 80px;
+      flex: 1 1 0 !important;
       border-radius: 12px !important;
+      transform-origin: center center !important;
+      transform-style: preserve-3d !important;
     }
     .accordion-gallery .ag-item:first-child {
       border-radius: 12px 12px 0 0 !important;
@@ -1365,23 +1394,25 @@
     }
     .accordion-gallery .ag-item .ag-media {
       width: 100%;
-      height: 320px;
+      height: 100%;
     }
     .accordion-gallery .ag-item.active {
-      flex: 2 1 0;
+      flex: 2 1 0 !important;
+      min-height: 320px;
     }
-  }
-
-  /* Desktop: first and last items have rounded corners on the outer edges */
-  @media (min-width: 521px) {
-    .accordion-gallery .ag-item:first-child {
-      border-radius: var(--radius, 16px) 0 0 var(--radius, 16px);
+    /* Keep tilt effect but reduce angle for mobile */
+    .accordion-gallery .ag-item {
+      transform: rotateX(0deg) !important;
     }
-    .accordion-gallery .ag-item:last-child {
-      border-radius: 0 var(--radius, 16px) var(--radius, 16px) 0;
+    .accordion-gallery .ag-item[data-tilt="up"] {
+      transform: rotateX(3deg) !important;
     }
-    .accordion-gallery .ag-item:first-child:last-child {
-      border-radius: var(--radius, 16px);
+    .accordion-gallery .ag-item[data-tilt="down"] {
+      transform: rotateX(-3deg) !important;
+    }
+    .accordion-gallery .ag-item.active[data-tilt="up"],
+    .accordion-gallery .ag-item.active[data-tilt="down"] {
+      transform: rotateX(0deg) !important;
     }
   }
 
@@ -1396,7 +1427,7 @@
   }
 </style>
 
-<!-- ===== ACCORDION GALLERY SCRIPT ===== -->
+<!-- ===== ACCORDION GALLERY SCRIPT (OPTIMIZED - NO LAG) ===== -->
 <script>
 (function() {
   const galleryItems = [
@@ -1430,18 +1461,25 @@
   const container = document.getElementById('accordionGallery');
   if (!container) return;
 
+  let activeIndex = 2;
+  let isAnimating = false;
+  let animationTimer = null;
+  const isMobile = window.innerWidth <= 768;
+
   // Clear and render items
   container.innerHTML = '';
   
   galleryItems.forEach((item, index) => {
     const el = document.createElement('div');
     el.className = 'ag-item';
-    if (index === 2) el.classList.add('active'); // default active (middle)
-    el.style.setProperty('--ag-dim', index === 2 ? '0' : '0.35');
+    if (index === activeIndex) el.classList.add('active');
+    el.style.setProperty('--ag-dim', index === activeIndex ? '0' : '0.35');
     el.setAttribute('role', 'listitem');
     el.setAttribute('tabindex', '0');
     el.setAttribute('aria-label', item.label);
-    if (index === 2) el.setAttribute('aria-current', 'true');
+    if (index === activeIndex) el.setAttribute('aria-current', 'true');
+    
+    const number = String(index + 1).padStart(2, '0');
     
     el.innerHTML = `
       <span class="ag-media-wrap">
@@ -1450,11 +1488,15 @@
         </span>
         <span class="ag-overlay" aria-hidden="true"></span>
       </span>
+      <span class="ag-number">${number}</span>
       <span class="ag-label-wrap" aria-hidden="true">
         <span class="ag-bar"></span>
         <span class="ag-label">${item.label}</span>
       </span>
     `;
+
+    // Store media element reference for faster access
+    el._media = el.querySelector('.ag-media');
 
     // Click handler
     el.addEventListener('click', function(e) {
@@ -1462,9 +1504,14 @@
       setActive(index);
     });
 
-    // Mouse enter
+    // Mouse enter - with throttling
+    let hoverTimeout = null;
     el.addEventListener('mouseenter', function() {
-      setActive(index);
+      if (hoverTimeout) return;
+      hoverTimeout = setTimeout(() => {
+        setActive(index);
+        hoverTimeout = null;
+      }, 30);
     });
 
     // Focus
@@ -1491,88 +1538,182 @@
     container.appendChild(el);
   });
 
-  // Set active function with GSAP-style animation
+  // Cache all items for faster access
+  const items = container.querySelectorAll('.ag-item');
+  const count = items.length;
+  const expandRatio = 0.52;
+  const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
+  const tiltAngle = isMobile ? 3 : 8;
+  const mediaSize = 320;
+
+  // Set active function - OPTIMIZED with caching and animation lock
   function setActive(index) {
-    const items = container.querySelectorAll('.ag-item');
-    const count = items.length;
+    // Prevent rapid firing
+    if (isAnimating || activeIndex === index) return;
     
-    // Update active state
-    items.forEach((item, i) => {
+    isAnimating = true;
+    activeIndex = index;
+    
+    const isMobileView = window.innerWidth <= 768;
+    const tilt = isMobileView ? 3 : 8;
+    
+    // Use for loop for better performance
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
       const isActive = i === index;
-      item.classList.toggle('active', isActive);
-      item.setAttribute('aria-current', isActive ? 'true' : undefined);
+      
+      // Toggle class
+      if (isActive) {
+        item.classList.add('active');
+        item.setAttribute('aria-current', 'true');
+      } else {
+        item.classList.remove('active');
+        item.removeAttribute('aria-current');
+      }
+      
+      // Update CSS variable
       item.style.setProperty('--ag-dim', isActive ? '0' : '0.35');
       
-      // Calculate tilt
-      const tilt = 8;
+      // Calculate tilt - only apply if not mobile or if mobile with 3D enabled
       const rot = isActive ? 0 : (i < index ? tilt : -tilt);
-      item.style.transform = `rotateY(${rot}deg)`;
       
-      // Media shift (parallax effect)
-      const media = item.querySelector('.ag-media');
+      // On mobile, use data attributes for tilt to avoid transform conflicts
+      if (isMobileView) {
+        if (isActive) {
+          item.style.transform = 'rotateX(0deg)';
+        } else {
+          item.style.transform = `rotateX(${rot}deg)`;
+        }
+      } else {
+        item.style.transform = `rotateY(${rot}deg)`;
+      }
+      
+      // Media shift (parallax effect) - only on desktop
+      const media = item._media;
       if (media) {
-        const drift = Math.max(-1.5, Math.min(1.5, index - i));
-        const shift = drift * 0.5 * 320 * 0.06;
-        if (window.innerWidth > 520) {
+        if (!isMobileView) {
+          const drift = Math.max(-1.5, Math.min(1.5, index - i));
+          const shift = drift * 0.5 * mediaSize * 0.06;
           media.style.transform = `translate(-50%, -50%) translateX(${isActive ? 0 : shift}px)`;
+        } else {
+          // Mobile: simpler transform
+          const drift = Math.max(-1, Math.min(1, index - i));
+          const shift = drift * 4;
+          media.style.transform = `translate(-50%, -50%) translateY(${isActive ? 0 : shift}px)`;
         }
         media.style.filter = `grayscale(${isActive ? 0 : 1})`;
       }
-    });
-
-    // Update flex grow for active item
-    const expandRatio = 0.52;
-    const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
-    items.forEach((item, i) => {
-      const isActive = i === index;
-      // Use CSS transition for flex-grow
+      
+      // Update flex grow
       item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
-    });
+    }
+    
+    // Clear any existing timer
+    if (animationTimer) {
+      clearTimeout(animationTimer);
+      animationTimer = null;
+    }
+    
+    // Unlock after animation completes
+    animationTimer = setTimeout(function() {
+      isAnimating = false;
+      animationTimer = null;
+    }, 550);
   }
 
-  // Initial layout
-  setTimeout(() => {
-    const activeIndex = 2;
-    const items = container.querySelectorAll('.ag-item');
-    const expandRatio = 0.52;
-    const count = items.length;
-    const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
+  // Initial layout - set active with proper animation
+  function initGallery() {
+    const isMobileView = window.innerWidth <= 768;
+    const tilt = isMobileView ? 3 : 8;
     
-    items.forEach((item, i) => {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
       const isActive = i === activeIndex;
-      item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
-      item.style.transform = isActive ? 'rotateY(0deg)' : (i < activeIndex ? 'rotateY(8deg)' : 'rotateY(-8deg)');
-      const media = item.querySelector('.ag-media');
-      if (media) {
-        media.style.filter = `grayscale(${isActive ? 0 : 1})`;
-        if (window.innerWidth > 520) {
-          const drift = Math.max(-1.5, Math.min(1.5, activeIndex - i));
-          const shift = drift * 0.5 * 320 * 0.06;
-          media.style.transform = `translate(-50%, -50%) translateX(${isActive ? 0 : shift}px)`;
-        }
+      
+      if (isActive) {
+        item.classList.add('active');
+        item.setAttribute('aria-current', 'true');
+      } else {
+        item.classList.remove('active');
+        item.removeAttribute('aria-current');
       }
-    });
-  }, 100);
+      
+      item.style.setProperty('--ag-dim', isActive ? '0' : '0.35');
+      
+      const rot = isActive ? 0 : (i < activeIndex ? tilt : -tilt);
+      
+      if (isMobileView) {
+        item.style.transform = isActive ? 'rotateX(0deg)' : `rotateX(${rot}deg)`;
+      } else {
+        item.style.transform = isActive ? 'rotateY(0deg)' : `rotateY(${rot}deg)`;
+      }
+      
+      const media = item._media;
+      if (media) {
+        if (!isMobileView) {
+          const drift = Math.max(-1.5, Math.min(1.5, activeIndex - i));
+          const shift = drift * 0.5 * mediaSize * 0.06;
+          media.style.transform = `translate(-50%, -50%) translateX(${isActive ? 0 : shift}px)`;
+        } else {
+          const drift = Math.max(-1, Math.min(1, activeIndex - i));
+          const shift = drift * 4;
+          media.style.transform = `translate(-50%, -50%) translateY(${isActive ? 0 : shift}px)`;
+        }
+        media.style.filter = `grayscale(${isActive ? 0 : 1})`;
+      }
+      
+      item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
+    }
+  }
 
-  // Handle resize
+  // Initialize
+  setTimeout(initGallery, 50);
+  window.addEventListener('load', function() {
+    setTimeout(initGallery, 100);
+  });
+
+  // Handle resize with debounce
   let resizeTimer;
   window.addEventListener('resize', function() {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      const active = container.querySelector('.ag-item.active');
-      if (active) {
-        const index = Array.from(container.children).indexOf(active);
-        setActive(index);
+    resizeTimer = setTimeout(function() {
+      const isMobileView = window.innerWidth <= 768;
+      const tilt = isMobileView ? 3 : 8;
+      
+      // Re-apply tilt based on current active
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const isActive = i === activeIndex;
+        const rot = isActive ? 0 : (i < activeIndex ? tilt : -tilt);
+        
+        if (isMobileView) {
+          item.style.transform = isActive ? 'rotateX(0deg)' : `rotateX(${rot}deg)`;
+        } else {
+          item.style.transform = isActive ? 'rotateY(0deg)' : `rotateY(${rot}deg)`;
+        }
+        
+        const media = item._media;
+        if (media) {
+          if (!isMobileView) {
+            const drift = Math.max(-1.5, Math.min(1.5, activeIndex - i));
+            const shift = drift * 0.5 * mediaSize * 0.06;
+            media.style.transform = `translate(-50%, -50%) translateX(${isActive ? 0 : shift}px)`;
+          } else {
+            const drift = Math.max(-1, Math.min(1, activeIndex - i));
+            const shift = drift * 4;
+            media.style.transform = `translate(-50%, -50%) translateY(${isActive ? 0 : shift}px)`;
+          }
+        }
       }
-    }, 200);
+    }, 250);
   });
 
   // Handle reduced motion
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   if (prefersReduced.matches) {
-    container.querySelectorAll('.ag-item').forEach(el => {
-      el.style.transition = 'none';
-    });
+    for (let i = 0; i < items.length; i++) {
+      items[i].style.transition = 'none';
+    }
   }
 })();
 </script>
