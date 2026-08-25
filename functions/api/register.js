@@ -1,4 +1,4 @@
-// /api/register.js - COMPLETE with security fixes + CSRF
+// /api/register.js
 import { corsHeaders, getClientIP, sha256, generateSalt, enforceHttps, generateCSRFToken } from './_utils.js';
 
 const PEPPER = "kundasang-homestay-2026";
@@ -83,7 +83,6 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // Per-user salt (not global pepper only)
     const salt = generateSalt();
     const hashedPassword = await sha256(PEPPER + password + salt);
 
@@ -93,7 +92,7 @@ export async function onRequestPost({ request, env }) {
       email: email,
       phone: phone,
       password: hashedPassword,
-      salt: salt, // STORE the salt
+      salt: salt,
       createdAt: new Date().toISOString(),
       bookingsCount: 0,
       verified: false
@@ -106,7 +105,7 @@ export async function onRequestPost({ request, env }) {
 
     const { password: _, salt: __, ...safeGuest } = newGuest;
 
-    // ✅ Generate CSRF token for this user
+    // Generate CSRF token silently
     const csrfToken = generateCSRFToken(newGuest.id);
 
     return new Response(JSON.stringify({ 
@@ -120,8 +119,8 @@ export async function onRequestPost({ request, env }) {
     });
 
   } catch (e) {
-    console.error("❌ Register error:", e.message);
-    return new Response(JSON.stringify({ error: "Registration failed. Please try again later." }), {
+    console.error("Register error:", e.message);
+    return new Response(JSON.stringify({ error: "Registration failed" }), {
       status: 500,
       headers: corsHeaders(request)
     });
