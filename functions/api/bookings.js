@@ -1,4 +1,4 @@
-// /api/bookings.js
+// /api/bookings.js - OPTIMIZED (No separate availability writes)
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken } from './_utils.js';
 
 function verifyAdmin(request, env) {
@@ -37,90 +37,7 @@ function getDatesInRange(checkin, checkout) {
   return dates;
 }
 
-async function addDatesToAvailability(db, homestayId, dates) {
-  if (!homestayId || !dates || dates.length === 0) return;
-  try {
-    const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
-    let availability = {};
-    if (availRes && availRes.data) { try { availability = JSON.parse(availRes.data); } catch(e) {} }
-    if (!availability[homestayId]) availability[homestayId] = [];
-    const existing = new Set(availability[homestayId]);
-    for (const d of dates) {
-      if (!existing.has(d)) {
-        availability[homestayId].push(d);
-      }
-    }
-    availability[homestayId].sort();
-    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-      .bind("kd_availability", JSON.stringify(availability))
-      .run();
-  } catch(e) {
-    console.error("addDatesToAvailability error:", e.message);
-  }
-}
-
-async function removeDatesFromAvailability(db, homestayId, bookingId, dates) {
-  if (!homestayId || !dates || dates.length === 0) return;
-  try {
-    const bookingsRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
-    let allBookings = [];
-    if (bookingsRes && bookingsRes.data) { try { allBookings = JSON.parse(bookingsRes.data); } catch(e) {} }
-    
-    const usedDates = new Set();
-    for (const b of allBookings) {
-      if (String(b.id) === String(bookingId)) continue;
-      if (String(b.homestayId) === String(homestayId) && b.checkin && b.checkout) {
-        const bDates = getDatesInRange(b.checkin, b.checkout);
-        for (const d of bDates) usedDates.add(d);
-      }
-    }
-    const toRemove = dates.filter(d => !usedDates.has(d));
-    if (toRemove.length === 0) return;
-
-    const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
-    let availability = {};
-    if (availRes && availRes.data) { try { availability = JSON.parse(availRes.data); } catch(e) {} }
-    if (!availability[homestayId]) availability[homestayId] = [];
-    availability[homestayId] = availability[homestayId].filter(d => !toRemove.includes(d));
-    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-      .bind("kd_availability", JSON.stringify(availability))
-      .run();
-  } catch(e) {
-    console.error("removeDatesFromAvailability error:", e.message);
-  }
-}
-
-// CSRF Validation
-const publicActions = ['createPublicBooking', 'publicUpdateStatus'];
-
-function validatePublicCSRF(request, body) {
-  if (!publicActions.includes(body.action)) return null;
-  
-  const token = getCSRFToken(request);
-  const guestId = body.booking?.guestId || body.guestId;
-  
-  if (!token || !guestId) {
-    return new Response(JSON.stringify({ 
-      error: "Missing security token" 
-    }), {
-      status: 403,
-      headers: corsHeaders(request)
-    });
-  }
-  
-  if (!validateCSRFToken(token, guestId)) {
-    return new Response(JSON.stringify({ 
-      error: "Invalid security token" 
-    }), {
-      status: 403,
-      headers: corsHeaders(request)
-    });
-  }
-  
-  return null;
-}
-
-// ========== GET ==========
+// ========== GET - PUBLIC ==========
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -148,10 +65,11 @@ export async function onRequestGet({ request, env }) {
   try {
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
     const keys = [
-      "kd_bookings", "kd_availability", "kd_approved",
+      "kd_bookings", "kd_approved",
       "kd_demo_overrides", "kd_demo_blocked", "kd_deleted_demo",
       "kd_pending", "kd_guests", "kd_banned_guests"
     ];
+    // ✅ NOTE: kd_availability is NO LONGER READ - we compute from bookings
     for (const key of keys) {
       try {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
@@ -159,7 +77,6 @@ export async function onRequestGet({ request, env }) {
           const parsed = JSON.parse(r.data);
           switch (key) {
             case "kd_bookings": data.bookings = parsed; break;
-            case "kd_availability": data.availability = parsed; break;
             case "kd_approved": data.approved = parsed; break;
             case "kd_demo_overrides": data.demoOverrides = parsed; break;
             case "kd_demo_blocked": data.demoBlocked = parsed; break;
@@ -200,13 +117,34 @@ export async function onRequestPost({ request, env }) {
   const action = body.action;
   const clientIP = getClientIP(request);
 
+  // CSRF Validation
+  const publicActions = ['createPublicBooking', 'publicUpdateStatus'];
+  
+  function validatePublicCSRF(request, body) {
+    if (!publicActions.includes(body.action)) return null;
+    const token = getCSRFToken(request);
+    const guestId = body.booking?.guestId || body.guestId;
+    if (!token || !guestId) {
+      return new Response(JSON.stringify({ error: "Missing security token" }), {
+        status: 403,
+        headers: corsHeaders(request)
+      });
+    }
+    if (!validateCSRFToken(token, guestId)) {
+      return new Response(JSON.stringify({ error: "Invalid security token" }), {
+        status: 403,
+        headers: corsHeaders(request)
+      });
+    }
+    return null;
+  }
+
   // ========== PUBLIC ACTIONS ==========
 
-  // 1. Create booking
+  // 1. Create booking - OPTIMIZED: Only writes to kd_bookings
   if (action === "createPublicBooking" && body.booking) {
     const booking = body.booking;
     
-    // CSRF Validation
     const csrfError = validatePublicCSRF(request, body);
     if (csrfError) return csrfError;
     
@@ -245,23 +183,21 @@ export async function onRequestPost({ request, env }) {
 
     try {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+      
+      // Read existing bookings
       let existing = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
       if (r && r.data) existing = JSON.parse(r.data);
       
+      // Merge new booking
       const map = new Map();
       [...existing, booking].forEach(b => { if (b && b.id) map.set(String(b.id), b); });
       const merged = [...map.values()];
       
+      // ✅ ONLY ONE WRITE - to kd_bookings (no separate availability write)
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_bookings", JSON.stringify(merged))
         .run();
-      
-      // Block dates in availability
-      const dates = getDatesInRange(booking.checkin, booking.checkout);
-      if (dates.length > 0 && booking.homestayId) {
-        await addDatesToAvailability(db, booking.homestayId, dates);
-      }
       
       await logAction({
         db,
@@ -285,9 +221,8 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
-  // 2. Public update status (cancellation)
+  // 2. Public update status (cancellation) - OPTIMIZED: Only writes to kd_bookings
   if (action === "publicUpdateStatus" && body.id && body.status) {
-    // CSRF Validation
     const csrfError = validatePublicCSRF(request, body);
     if (csrfError) return csrfError;
     
@@ -316,17 +251,7 @@ export async function onRequestPost({ request, env }) {
       if (body.toyyibpay_transaction_id) bookings[idx].toyyibpay_transaction_id = body.toyyibpay_transaction_id;
       if (body.paid_at) bookings[idx].paid_at = body.paid_at;
 
-      // If status is Cancelled, free the dates
-      if (body.status.toLowerCase() === "cancelled") {
-        const booking = bookings[idx];
-        if (booking.homestayId && booking.checkin && booking.checkout) {
-          const dates = getDatesInRange(booking.checkin, booking.checkout);
-          if (dates.length > 0) {
-            await removeDatesFromAvailability(db, booking.homestayId, booking.id, dates);
-          }
-        }
-      }
-
+      // ✅ ONLY ONE WRITE - to kd_bookings (availability is computed on read)
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_bookings", JSON.stringify(bookings))
         .run();
@@ -490,15 +415,12 @@ export async function onRequestPost({ request, env }) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_bookings", JSON.stringify([]))
         .run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-        .bind("kd_availability", JSON.stringify({}))
-        .run();
       
       await logAction({
         db,
         action: 'clear_all',
         admin: 'admin',
-        details: 'Cleared all bookings and availability',
+        details: 'Cleared all bookings',
         ip: clientIP
       });
       
@@ -556,16 +478,6 @@ export async function onRequestPost({ request, env }) {
       if (body.deletedDemo !== undefined) {
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
           .bind("kd_deleted_demo", JSON.stringify(body.deletedDemo))
-          .run();
-      }
-    }
-
-    // ===== UPDATE AVAILABILITY =====
-    if (action === "updateAvailability" || body.availability !== undefined) {
-      const avail = body.availability || body.availability;
-      if (avail) {
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-          .bind("kd_availability", JSON.stringify(avail))
           .run();
       }
     }
