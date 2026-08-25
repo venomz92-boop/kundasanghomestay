@@ -34,40 +34,6 @@
   .goog-te-banner-frame{display:none!important}.goog-te-gadget{font-family:Poppins,sans-serif!important}.goog-te-gadget img{display:none!important}body{top:0!important}.goog-te-gadget .goog-te-combo{display:none!important}
 </style>
 
-<!-- Add before closing </body> -->
-<!-- Translation Widget -->
-<div class="translation-widget" id="translationWidget">
-  <div id="translationPanel" class="translation-panel hidden">
-    <div class="translation-header">
-      <span class="translation-title">🌍 Translate</span>
-      <button id="translationClose" class="translation-close">✕</button>
-    </div>
-    <div class="translation-body">
-      <p class="translation-desc">Select your language:</p>
-      <div class="translation-options">
-        <button class="translation-option active" data-lang="en"><span class="flag">🇬🇧</span><span class="lang-name">English</span><span class="lang-native">(English)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="ms"><span class="flag">🇲🇾</span><span class="lang-name">Bahasa Malaysia</span><span class="lang-native">(Malay)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="zh-CN"><span class="flag">🇨🇳</span><span class="lang-name">中文</span><span class="lang-native">(Chinese)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="ja"><span class="flag">🇯🇵</span><span class="lang-name">日本語</span><span class="lang-native">(Japanese)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="ko"><span class="flag">🇰🇷</span><span class="lang-name">한국어</span><span class="lang-native">(Korean)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="fr"><span class="flag">🇫🇷</span><span class="lang-name">Français</span><span class="lang-native">(French)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="de"><span class="flag">🇩🇪</span><span class="lang-name">Deutsch</span><span class="lang-native">(German)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="es"><span class="flag">🇪🇸</span><span class="lang-name">Español</span><span class="lang-native">(Spanish)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="ar"><span class="flag">🇸🇦</span><span class="lang-name">العربية</span><span class="lang-native">(Arabic)</span><span class="lang-check">✓</span></button>
-      </div>
-      <div class="translation-note"><p>🔹 Powered by Google Translate</p></div>
-    </div>
-  </div>
-  <button id="translationToggle" class="translation-toggle" aria-label="Toggle translation">
-    <span class="translate-icon">🌐</span>
-    <span class="translate-label">EN</span>
-  </button>
-</div>
-<div id="google_translate_element" style="display:none;"></div>
-
-<script>
-(function(){'use strict';var e=localStorage.getItem('kd_language')||'en',t=!1,n=document.getElementById('translationToggle'),o=document.getElementById('translationPanel'),a=document.getElementById('translationClose'),r=document.querySelectorAll('.translation-option'),l={en:'EN',ms:'BM','zh-CN':'中文',ja:'日本語',ko:'한국어',fr:'FR',de:'DE',es:'ES',ar:'AR'};function c(){var e=document.querySelector('.goog-te-combo');if(e){e.value=t;e.dispatchEvent(new Event('change'));localStorage.setItem('kd_language',t);e=t;d(t);setTimeout(function(){isTranslating=false},500)}else{setTimeout(function(){var e=document.querySelector('.goog-te-combo');if(e){e.value=t;e.dispatchEvent(new Event('change'));localStorage.setItem('kd_language',t);e=t;d(t)}isTranslating=false},500)}}function d(e){var t=n.querySelector('.translate-label');t&&(t.textContent=l[e]||'EN');r.forEach(function(t){var n=t.dataset.lang===e;t.classList.toggle('active',n)});i()}function s(){t=!t;o.classList.toggle('hidden',!t)}function i(){t=!1;o.classList.add('hidden')}function u(e){if(e===t)return void i();!function(e){if(document.querySelector('#google-translate-script')){e&&e()}else{var t=document.createElement('script');t.id='google-translate-script';t.src='https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';document.head.appendChild(t);window.googleTranslateElementInit=function(){new google.translate.TranslateElement({pageLanguage:'en',autoDisplay:!1},'google_translate_element');e&&e()}}}(function(){c()})}n.addEventListener('click',function(e){e.stopPropagation();s()});a.addEventListener('click',function(e){e.stopPropagation();i()});r.forEach(function(e){e.addEventListener('click',function(){var e=this.dataset.lang;u(e)})});document.addEventListener('click',function(e){var t=document.getElementById('translationWidget');t&&!t.contains(e.target)&&t&&i()});document.addEventListener('DOMContentLoaded',function(){var e=n.querySelector('.translate-label');e&&(e.textContent=l[t]||'EN');r.forEach(function(e){var n=e.dataset.lang===t;e.classList.toggle('active',n)});setTimeout(function(){!function(e){if(document.querySelector('#google-translate-script')){e&&e()}else{var t=document.createElement('script');t.id='google-translate-script';t.src='https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';document.head.appendChild(t);window.googleTranslateElementInit=function(){new google.translate.TranslateElement({pageLanguage:'en',autoDisplay:!1},'google_translate_element');e&&e()}}}(function(){setTimeout(function(){var e=document.querySelector('.goog-te-combo');if(e&&t!=='en'){e.value=t;e.dispatchEvent(new Event('change'))}},300)})},500)});var m=new MutationObserver(function(e){e.forEach(function(e){var t=e.addedNodes;for(var n=0;n<t.length;n++){var o=t[n];if(o.classList&&o.classList.contains('goog-te-banner-frame')){o.style.display='none'}if(o.classList&&o.classList.contains('goog-te-gadget')){var a=o.querySelector('.goog-te-combo');a&&(a.style.display='none')}}})});m.observe(document.body,{childList:!0,subtree:!0})})();
-</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -876,5 +842,40 @@ document.addEventListener('DOMContentLoaded', function() {
   renderGuestNav();
   console.log('✅ Terms page loaded with modern styling');
 });
+  <!-- Add before closing </body> -->
+<!-- Translation Widget -->
+<div class="translation-widget" id="translationWidget">
+  <div id="translationPanel" class="translation-panel hidden">
+    <div class="translation-header">
+      <span class="translation-title">🌍 Translate</span>
+      <button id="translationClose" class="translation-close">✕</button>
+    </div>
+    <div class="translation-body">
+      <p class="translation-desc">Select your language:</p>
+      <div class="translation-options">
+        <button class="translation-option active" data-lang="en"><span class="flag">🇬🇧</span><span class="lang-name">English</span><span class="lang-native">(English)</span><span class="lang-check">✓</span></button>
+        <button class="translation-option" data-lang="ms"><span class="flag">🇲🇾</span><span class="lang-name">Bahasa Malaysia</span><span class="lang-native">(Malay)</span><span class="lang-check">✓</span></button>
+        <button class="translation-option" data-lang="zh-CN"><span class="flag">🇨🇳</span><span class="lang-name">中文</span><span class="lang-native">(Chinese)</span><span class="lang-check">✓</span></button>
+        <button class="translation-option" data-lang="ja"><span class="flag">🇯🇵</span><span class="lang-name">日本語</span><span class="lang-native">(Japanese)</span><span class="lang-check">✓</span></button>
+        <button class="translation-option" data-lang="ko"><span class="flag">🇰🇷</span><span class="lang-name">한국어</span><span class="lang-native">(Korean)</span><span class="lang-check">✓</span></button>
+        <button class="translation-option" data-lang="fr"><span class="flag">🇫🇷</span><span class="lang-name">Français</span><span class="lang-native">(French)</span><span class="lang-check">✓</span></button>
+        <button class="translation-option" data-lang="de"><span class="flag">🇩🇪</span><span class="lang-name">Deutsch</span><span class="lang-native">(German)</span><span class="lang-check">✓</span></button>
+        <button class="translation-option" data-lang="es"><span class="flag">🇪🇸</span><span class="lang-name">Español</span><span class="lang-native">(Spanish)</span><span class="lang-check">✓</span></button>
+        <button class="translation-option" data-lang="ar"><span class="flag">🇸🇦</span><span class="lang-name">العربية</span><span class="lang-native">(Arabic)</span><span class="lang-check">✓</span></button>
+      </div>
+      <div class="translation-note"><p>🔹 Powered by Google Translate</p></div>
+    </div>
+  </div>
+  <button id="translationToggle" class="translation-toggle" aria-label="Toggle translation">
+    <span class="translate-icon">🌐</span>
+    <span class="translate-label">EN</span>
+  </button>
+</div>
+<div id="google_translate_element" style="display:none;"></div>
+
+<script>
+(function(){'use strict';var e=localStorage.getItem('kd_language')||'en',t=!1,n=document.getElementById('translationToggle'),o=document.getElementById('translationPanel'),a=document.getElementById('translationClose'),r=document.querySelectorAll('.translation-option'),l={en:'EN',ms:'BM','zh-CN':'中文',ja:'日本語',ko:'한국어',fr:'FR',de:'DE',es:'ES',ar:'AR'};function c(){var e=document.querySelector('.goog-te-combo');if(e){e.value=t;e.dispatchEvent(new Event('change'));localStorage.setItem('kd_language',t);e=t;d(t);setTimeout(function(){isTranslating=false},500)}else{setTimeout(function(){var e=document.querySelector('.goog-te-combo');if(e){e.value=t;e.dispatchEvent(new Event('change'));localStorage.setItem('kd_language',t);e=t;d(t)}isTranslating=false},500)}}function d(e){var t=n.querySelector('.translate-label');t&&(t.textContent=l[e]||'EN');r.forEach(function(t){var n=t.dataset.lang===e;t.classList.toggle('active',n)});i()}function s(){t=!t;o.classList.toggle('hidden',!t)}function i(){t=!1;o.classList.add('hidden')}function u(e){if(e===t)return void i();!function(e){if(document.querySelector('#google-translate-script')){e&&e()}else{var t=document.createElement('script');t.id='google-translate-script';t.src='https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';document.head.appendChild(t);window.googleTranslateElementInit=function(){new google.translate.TranslateElement({pageLanguage:'en',autoDisplay:!1},'google_translate_element');e&&e()}}}(function(){c()})}n.addEventListener('click',function(e){e.stopPropagation();s()});a.addEventListener('click',function(e){e.stopPropagation();i()});r.forEach(function(e){e.addEventListener('click',function(){var e=this.dataset.lang;u(e)})});document.addEventListener('click',function(e){var t=document.getElementById('translationWidget');t&&!t.contains(e.target)&&t&&i()});document.addEventListener('DOMContentLoaded',function(){var e=n.querySelector('.translate-label');e&&(e.textContent=l[t]||'EN');r.forEach(function(e){var n=e.dataset.lang===t;e.classList.toggle('active',n)});setTimeout(function(){!function(e){if(document.querySelector('#google-translate-script')){e&&e()}else{var t=document.createElement('script');t.id='google-translate-script';t.src='https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';document.head.appendChild(t);window.googleTranslateElementInit=function(){new google.translate.TranslateElement({pageLanguage:'en',autoDisplay:!1},'google_translate_element');e&&e()}}}(function(){setTimeout(function(){var e=document.querySelector('.goog-te-combo');if(e&&t!=='en'){e.value=t;e.dispatchEvent(new Event('change'))}},300)})},500)});var m=new MutationObserver(function(e){e.forEach(function(e){var t=e.addedNodes;for(var n=0;n<t.length;n++){var o=t[n];if(o.classList&&o.classList.contains('goog-te-banner-frame')){o.style.display='none'}if(o.classList&&o.classList.contains('goog-te-gadget')){var a=o.querySelector('.goog-te-combo');a&&(a.style.display='none')}}})});m.observe(document.body,{childList:!0,subtree:!0})})();
+</script>
+
 </body>
 </html>
