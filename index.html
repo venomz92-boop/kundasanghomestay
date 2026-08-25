@@ -1799,9 +1799,13 @@
 </footer>
 
 <!-- ===== SCRIPTS ===== -->
-<!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
+// Helper to get CSRF header for API calls
+function getCsrfHeader() {
+  const token = localStorage.getItem('kd_csrf_token');
+  return token ? { 'X-CSRF-Token': token } : {};
+}
 // =============================================================
 // SECURE HELPER
 // =============================================================
@@ -2039,6 +2043,8 @@ function logoutGuest() {
   localStorage.removeItem('kd_guest');
   renderGuestNav();
   window.location.href = '/';
+  if (data.csrfToken) {
+  localStorage.setItem('kd_csrf_token', data.csrfToken);
 }
 
 // =============================================================
@@ -2321,7 +2327,6 @@ async function processPayment() {
     homestay: selectedHomestay.name,
     homestayId: selectedHomestay.id,
     ownerWhatsapp: selectedHomestay.whatsapp || "",
-    // === CRITICAL FIX: Add guestId ===
     guestId: currentGuest.id,
     guestName: guestName, 
     guestEmail: guestEmail, 
@@ -2342,7 +2347,8 @@ async function processPayment() {
     await fetch(API_BASE + "/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "createPublicBooking", booking: booking })
+      ...getCsrfHeader()
+      body: JSON.stringify({ action: "createPublicBooking", booking: booking, guestId: currentGuest.id })
     });
   } catch(e) { console.warn("Syncing offline fallback mode"); }
 
