@@ -687,6 +687,12 @@ async function handleLogin(e) {
     if (data.success) {
       currentGuest = data.guest;
       localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
+      
+      // ✅ SAVE CSRF TOKEN
+      if (data.csrfToken) {
+        localStorage.setItem('kd_csrf_token', data.csrfToken);
+      }
+      
       renderGuestNav();
       await showAlert('Welcome Back!', 'Welcome back ' + data.guest.name + '! You will be redirected to your bookings.');
       window.location.href = '/mybookings.html';
