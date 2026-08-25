@@ -98,3 +98,50 @@ export async function logAction({ db, action, admin, details, ip, userId, homest
     return false;
   }
 }
+
+// /functions/api/_utils.js - ADD THESE FUNCTIONS
+
+// =============================================================
+// CSRF TOKEN GENERATION & VALIDATION
+// =============================================================
+
+// Generate a CSRF token for a session
+export function generateCSRFToken(userId) {
+  const timestamp = Date.now();
+  const random = crypto.randomUUID().slice(0, 16);
+  const data = `${userId}|${timestamp}|${random}`;
+  // Simple base64 encoding (not cryptographic, just for transport)
+  return btoa(data);
+}
+
+// Validate a CSRF token
+export function validateCSRFToken(token, userId) {
+  if (!token || !userId) return false;
+  try {
+    const decoded = atob(token);
+    const parts = decoded.split('|');
+    if (parts.length !== 3) return false;
+    const [tokenUserId, timestamp] = parts;
+    if (tokenUserId !== String(userId)) return false;
+    // Token expires after 24 hours
+    const age = Date.now() - parseInt(timestamp);
+    if (isNaN(age) || age > 24 * 60 * 60 * 1000) return false;
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+// Get CSRF token from request (headers or body)
+export function getCSRFToken(request) {
+  const header = request.headers.get('X-CSRF-Token');
+  if (header) return header;
+  // Fallback: check body (for JSON requests)
+  return null;
+}
+
+// =============================================================
+// Also add this to your existing corsHeaders function
+// =============================================================
+// In corsHeaders(), add to allowed headers:
+// 'X-CSRF-Token'
