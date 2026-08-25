@@ -37,6 +37,64 @@ function getDatesInRange(checkin, checkout) {
   return dates;
 }
 
+// Helper to add dates to availability (block)
+async function addDatesToAvailability(db, homestayId, dates) {
+  if (!homestayId || !dates || dates.length === 0) return;
+  try {
+    const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
+    let availability = {};
+    if (availRes && availRes.data) { try { availability = JSON.parse(availRes.data); } catch(e) {} }
+    if (!availability[homestayId]) availability[homestayId] = [];
+    const existing = new Set(availability[homestayId]);
+    for (const d of dates) {
+      if (!existing.has(d)) {
+        availability[homestayId].push(d);
+      }
+    }
+    availability[homestayId].sort();
+    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+      .bind("kd_availability", JSON.stringify(availability))
+      .run();
+  } catch(e) {
+    console.error("❌ addDatesToAvailability error:", e.message);
+  }
+}
+
+// Helper to remove dates from availability ONLY if no other booking uses them
+async function removeDatesFromAvailability(db, homestayId, bookingId, dates) {
+  if (!homestayId || !dates || dates.length === 0) return;
+  try {
+    // Fetch all bookings to check for overlaps
+    const bookingsRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+    let allBookings = [];
+    if (bookingsRes && bookingsRes.data) { try { allBookings = JSON.parse(bookingsRes.data); } catch(e) {} }
+    
+    // Collect all dates used by other bookings (excluding the one being cancelled)
+    const usedDates = new Set();
+    for (const b of allBookings) {
+      if (String(b.id) === String(bookingId)) continue; // skip the current booking
+      if (String(b.homestayId) === String(homestayId) && b.checkin && b.checkout) {
+        const bDates = getDatesInRange(b.checkin, b.checkout);
+        for (const d of bDates) usedDates.add(d);
+      }
+    }
+    // Only remove dates that are NOT used by any other booking
+    const toRemove = dates.filter(d => !usedDates.has(d));
+    if (toRemove.length === 0) return;
+
+    const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
+    let availability = {};
+    if (availRes && availRes.data) { try { availability = JSON.parse(availRes.data); } catch(e) {} }
+    if (!availability[homestayId]) availability[homestayId] = [];
+    availability[homestayId] = availability[homestayId].filter(d => !toRemove.includes(d));
+    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+      .bind("kd_availability", JSON.stringify(availability))
+      .run();
+  } catch(e) {
+    console.error("❌ removeDatesFromAvailability error:", e.message);
+  }
+}
+
 // ========== GET - PUBLIC ==========
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
@@ -180,6 +238,13 @@ export async function onRequestPost({ request, env }) {
         .run();
       
       console.log("✅ Booking saved:", booking.id);
+
+      // ✅ NEW: Block dates in availability
+      const dates = getDatesInRange(booking.checkin, booking.checkout);
+      if (dates.length > 0 && booking.homestayId) {
+        await addDatesToAvailability(db, booking.homestayId, dates);
+        console.log(`📅 Blocked ${dates.length} dates for homestay ${booking.homestayId}`);
+      }
       
       // Audit log
       await logAction({
@@ -205,7 +270,7 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
-  // 2. Public update status (webhook)
+  // 2. Public update status (webhook / cancellation)
   if (action === "publicUpdateStatus" && body.id && body.status) {
     const db = env.DB;
     if (!db) {
@@ -226,11 +291,25 @@ export async function onRequestPost({ request, env }) {
           headers: corsHeaders(request) 
         });
       }
+      const oldStatus = bookings[idx].status;
       bookings[idx].status = body.status;
       bookings[idx].statusUpdated = new Date().toISOString();
       if (body.toyyibpay_billcode) bookings[idx].toyyibpay_billcode = body.toyyibpay_billcode;
       if (body.toyyibpay_transaction_id) bookings[idx].toyyibpay_transaction_id = body.toyyibpay_transaction_id;
       if (body.paid_at) bookings[idx].paid_at = body.paid_at;
+
+      // ✅ NEW: If status is Cancelled, free the dates
+      if (body.status.toLowerCase() === "cancelled") {
+        const booking = bookings[idx];
+        if (booking.homestayId && booking.checkin && booking.checkout) {
+          const dates = getDatesInRange(booking.checkin, booking.checkout);
+          if (dates.length > 0) {
+            await removeDatesFromAvailability(db, booking.homestayId, booking.id, dates);
+            console.log(`📅 Freed ${dates.length} dates for homestay ${booking.homestayId} due to cancellation`);
+          }
+        }
+      }
+
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_bookings", JSON.stringify(bookings))
         .run();
@@ -245,26 +324,28 @@ export async function onRequestPost({ request, env }) {
         homestayId: bookings[idx].homestayId
       });
       
-      // Update availability
-      try {
-        const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
-        let availability = {};
-        if (availRes && availRes.data) { try { availability = JSON.parse(availRes.data); } catch(e) {} }
-        const booking = bookings[idx];
-        if (booking.homestayId && booking.checkin && booking.checkout) {
-          if (!availability[booking.homestayId]) availability[booking.homestayId] = [];
-          const dates = getDatesInRange(booking.checkin, booking.checkout);
-          dates.forEach(d => {
-            if (!availability[booking.homestayId].includes(d)) {
-              availability[booking.homestayId].push(d);
-            }
-          });
-          availability[booking.homestayId] = [...new Set(availability[booking.homestayId])].sort();
-          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-            .bind("kd_availability", JSON.stringify(availability))
-            .run();
-        }
-      } catch(e) { console.warn("Availability update failed:", e.message); }
+      // Update availability for payments (already done in webhook, but keep for safety)
+      if (body.status.toLowerCase().includes("paid") && !body.status.toLowerCase().includes("cancelled")) {
+        try {
+          const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
+          let availability = {};
+          if (availRes && availRes.data) { try { availability = JSON.parse(availRes.data); } catch(e) {} }
+          const booking = bookings[idx];
+          if (booking.homestayId && booking.checkin && booking.checkout) {
+            if (!availability[booking.homestayId]) availability[booking.homestayId] = [];
+            const dates = getDatesInRange(booking.checkin, booking.checkout);
+            dates.forEach(d => {
+              if (!availability[booking.homestayId].includes(d)) {
+                availability[booking.homestayId].push(d);
+              }
+            });
+            availability[booking.homestayId] = [...new Set(availability[booking.homestayId])].sort();
+            await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+              .bind("kd_availability", JSON.stringify(availability))
+              .run();
+          }
+        } catch(e) { console.warn("Availability update failed:", e.message); }
+      }
       
       return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
         status: 200,
