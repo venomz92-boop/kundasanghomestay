@@ -1,5 +1,5 @@
-// /api/login.js - COMPLETE with security fixes
-import { corsHeaders, getClientIP, sha256, generateSalt, enforceHttps } from './_utils.js';
+// /api/login.js - COMPLETE with security fixes + CSRF
+import { corsHeaders, getClientIP, sha256, generateSalt, enforceHttps, generateCSRFToken } from './_utils.js';
 
 const PEPPER = "kundasang-homestay-2026";
 
@@ -70,7 +70,7 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // ✅ Ensure store table exists
+    // Ensure store table exists
     try {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
     } catch (e) {
@@ -124,7 +124,7 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // ✅ Use stored salt
+    // Use stored salt
     const hashedInput = await sha256(PEPPER + trimmedPassword + (user.salt || ''));
 
     if (hashedInput !== user.password) {
@@ -141,11 +141,15 @@ export async function onRequestPost({ request, env }) {
     const sessionToken = btoa(JSON.stringify(tokenData));
 
     const { password: _, salt: __, ...safeUser } = user;
+
+    // ✅ Generate CSRF token for this user
+    const csrfToken = generateCSRFToken(user.id);
     
     return new Response(JSON.stringify({
       success: true,
       guest: safeUser,
       token: sessionToken,
+      csrfToken: csrfToken,
       message: "Login successful"
     }), {
       status: 200,
