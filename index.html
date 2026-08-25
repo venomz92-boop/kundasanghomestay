@@ -82,6 +82,29 @@
     .rounded-2xl { border-radius: 24px !important; }
     .rounded-full { border-radius: 999px !important; }
 
+    /* Fix for mobile date picker overflow */
+@media (max-width: 768px) {
+  #hero {
+    min-height: 580px !important;
+    overflow: visible !important;
+    padding-bottom: 20px !important;
+  }
+  #hero .bg-white\/95 {
+    position: relative;
+    z-index: 20;
+  }
+  .form-input[type="date"] {
+    position: relative;
+    z-index: 40;
+    min-height: 48px;
+  }
+  /* Ensure the calendar picker appears above everything */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    position: relative;
+    z-index: 50;
+  }
+}
+
     /* ===== GLASS ===== */
     .glass {
       background: rgba(255, 255, 255, 0.72);
