@@ -1915,11 +1915,12 @@ function showThankYouModal(bookingId, customBookingData) {
   document.body.style.overflow = 'hidden';
 }
 
+// ✅ FIX: Redirect to mybookings.html after "Done" or after closing the thank you modal
 function closeThankYouAndReload() {
   var overlay = document.getElementById('thankyouModal');
   if (overlay) overlay.classList.remove('active');
   document.body.style.overflow = '';
-  window.location.reload();
+  window.location.href = '/mybookings.html';
 }
 
 function whatsappOwnerFromThankYou() {
@@ -1942,6 +1943,10 @@ function whatsappOwnerFromThankYou() {
 
   if (!booking) {
     showAlert('Notice', 'Booking details found in your "My Bookings" profile tab.');
+    // After showing alert, redirect to mybookings
+    setTimeout(function() {
+      window.location.href = '/mybookings.html';
+    }, 1000);
     return;
   }
 
@@ -1960,6 +1965,10 @@ function whatsappOwnerFromThankYou() {
     'Please assist with check-in instructions. Thank you!';
 
   window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(message), '_blank');
+  // After opening WhatsApp, redirect to mybookings after a short delay
+  setTimeout(function() {
+    window.location.href = '/mybookings.html';
+  }, 1500);
 }
 
 // =============================================================
