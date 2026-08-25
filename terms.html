@@ -33,7 +33,7 @@
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html { scroll-behavior: smooth; overflow-x: hidden; }
     body {
-      font-family: "Poppins", sans-serif;
+      font-family: "Poppins", "Inter", sans-serif;
       background: var(--bg);
       overflow-x: hidden;
       min-height: 100vh;
@@ -57,8 +57,10 @@
       box-shadow: var(--shadow-sm);
       border: 1px solid rgba(0, 0, 0, 0.04);
       transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      padding: 20px;
     }
     .card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+
     .btn-primary {
       background: var(--primary);
       color: white;
@@ -78,7 +80,7 @@
       gap: 8px;
       position: relative;
       overflow: hidden;
-      width: 100%;
+      text-decoration: none;
     }
     .btn-primary::after {
       content: '';
@@ -90,6 +92,7 @@
     }
     .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3); }
     .btn-primary:hover::after { opacity: 1; }
+
     .btn-accent {
       background: var(--accent);
       color: white;
@@ -106,40 +109,10 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      text-decoration: none;
     }
     .btn-accent:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: var(--shadow-glow); }
-    .btn-outline {
-      background: transparent;
-      border: 1.5px solid var(--accent);
-      color: var(--accent);
-      border-radius: 999px;
-      padding: 10px 24px;
-      font-weight: 700;
-      font-family: "Poppins", sans-serif;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 11px;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      cursor: pointer;
-    }
-    .btn-outline:hover { background: var(--accent); color: white; transform: translateY(-2px); }
-    .form-input {
-      width: 100%;
-      border: 2px solid #e2e8f0;
-      border-radius: 999px;
-      padding: 14px 20px;
-      font-size: 14px;
-      font-family: "Poppins", sans-serif;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      background: white;
-    }
-    .form-input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 4px var(--accent-glow);
-      transform: translateY(-1px);
-    }
-    .form-input::placeholder { color: #94a3b8; }
+
     .guest-avatar {
       width: 32px;
       height: 32px;
@@ -152,6 +125,7 @@
       font-weight: 700;
       font-size: 14px;
     }
+
     .setsail-nav-link {
       position: relative;
       font-family: "Poppins", sans-serif;
@@ -188,6 +162,7 @@
     }
     .setsail-nav-link.agent::after { display: none; }
     .setsail-nav-link.agent:hover { background: #7c3aed; color: white; }
+
     #mobileNav {
       position: fixed;
       top: 80px;
@@ -312,6 +287,7 @@
       transition: background 0.2s;
     }
     #mobileNav .my-bookings-btn:hover { background: #333; }
+
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -387,26 +363,31 @@
     .modal-footer .btn-primary:hover { background: var(--primary-light); }
     .modal-footer .btn-secondary { background: #f1f5f9; color: #475569; }
     .modal-footer .btn-secondary:hover { background: #e2e8f0; }
-    .login-hero {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-      position: relative;
-      overflow: hidden;
+
+    /* ===== TERMS SECTION STYLES (SAME AS PRIVACY) ===== */
+    .terms-section {
+      padding: 24px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
     }
-    .login-hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-      opacity: 0.5;
+    .terms-section:last-child {
+      border-bottom: none;
     }
+    .terms-section ul {
+      list-style-type: disc;
+      padding-left: 1.5rem;
+    }
+    .terms-section ul li {
+      margin-bottom: 0.5rem;
+    }
+
     @media (max-width: 768px) {
       #desktopNav { display: none !important; }
       #mobileMenuBtn { display: flex !important; }
-      .login-card { max-width: 100%; margin: 0 16px; }
+      .terms-section { padding: 16px 0; }
     }
     @media (max-width: 480px) {
-      .login-hero h1 { font-size: 28px !important; }
       .btn-primary { padding: 12px 20px; font-size: 11px; }
+      .card { padding: 16px !important; }
     }
   </style>
 </head>
@@ -460,7 +441,6 @@
     </button>
   </div>
 </header>
-
 
 <!-- ===== MOBILE MENU ===== -->
 <div id="mobileNav">
@@ -525,7 +505,7 @@
       <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
         All bookings made through Kundasang Homestay are processed via ToyyibPay FPX, Malaysia's trusted online banking gateway. Payments are held securely and only released to hosts after guest check-in is confirmed.
       </p>
-      <ul class="mt-3 space-y-2 text-sm text-zinc-600 list-disc pl-6">
+      <ul class="mt-3 space-y-2 text-sm text-zinc-600">
         <li>Full payment is required at the time of booking</li>
         <li>Prices are displayed in Malaysian Ringgit (RM)</li>
         <li>A service fee of 11% is applied to each booking</li>
@@ -558,7 +538,7 @@
       <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
         <span class="text-[#3FD0D4] text-2xl">4.</span> Host Responsibilities
       </h2>
-      <ul class="mt-3 space-y-2 text-sm text-zinc-600 list-disc pl-6 leading-relaxed">
+      <ul class="mt-3 space-y-2 text-sm text-zinc-600">
         <li>All listings must be accurate and up-to-date</li>
         <li>Hosts must respond to booking inquiries within 24 hours</li>
         <li>Properties must be clean, safe, and as described</li>
@@ -572,7 +552,7 @@
       <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
         <span class="text-[#3FD0D4] text-2xl">5.</span> Guest Responsibilities
       </h2>
-      <ul class="mt-3 space-y-2 text-sm text-zinc-600 list-disc pl-6 leading-relaxed">
+      <ul class="mt-3 space-y-2 text-sm text-zinc-600">
         <li>Guests must provide accurate personal information</li>
         <li>Guests must respect the property and local community</li>
         <li>Any damage must be reported to the host immediately</li>
