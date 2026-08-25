@@ -973,13 +973,14 @@ async function loadBookings() {
       const isPending = status.toLowerCase().includes('pending');
       const isCancelled = status.toLowerCase().includes('cancelled');
       let statusBadge = '';
+let statusBadge = '';
 if (isCompleted) {
   // ✅ Check if payout success webhook was received
   if (b.payoutSuccess === true && b.payoutSuccessDate) {
     statusBadge = `<span class="text-[10px] bg-green-100 text-green-800 border border-green-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">✅ Payout Success</span>`;
   } else if (payoutDate) {
     // Payout was initiated but not yet confirmed by ToyyibPay
-    statusBadge = `<span class="text-[10px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">⏳ Payout Processing</span>`;
+    statusBadge = `<span class="text-[10px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">⏳ Payout Processing • Guest Checked In</span>`;
   } else {
     statusBadge = '<span class="text-[10px] bg-green-100 text-green-800 border border-green-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">✓ Completed / Guest Checked-in</span>';
   }
@@ -1011,7 +1012,7 @@ if (isCompleted) {
   if (b.payoutSuccess === true && b.payoutSuccessDate) {
     actionButtons = `<span class="text-xs text-green-700 font-bold">✅ Payout success (${payoutDisplay})</span>`;
   } else if (payoutDate) {
-    actionButtons = `<span class="text-xs text-yellow-600 font-bold">⏳ Payout processing since ${payoutDisplay}</span>`;
+    actionButtons = `<span class="text-xs text-yellow-600 font-bold">⏳ Payout processing since ${payoutDisplay} • Guest Checked in</span>`;
   } else {
     actionButtons = `<span class="text-xs text-green-700 font-bold">✓ Completed (${payoutDisplay})</span>`;
   }
