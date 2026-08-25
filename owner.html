@@ -973,32 +973,49 @@ async function loadBookings() {
       const isPending = status.toLowerCase().includes('pending');
       const isCancelled = status.toLowerCase().includes('cancelled');
       let statusBadge = '';
-      if (isCompleted) {
-        statusBadge = '<span class="text-[10px] bg-green-100 text-green-800 border border-green-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">✓ Completed / Guest Checked-in</span>';
-      } else if (isPaid) {
-        statusBadge = '<span class="text-[10px] bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">🟡 Ready for Check-in</span>';
-      } else if (isPending) {
-        statusBadge = '<span class="text-[10px] bg-red-100 text-red-800 border border-red-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">⏳ Unpaid Reservation</span>';
-      } else if (isCancelled) {
-        statusBadge = '<span class="text-[10px] bg-gray-100 text-gray-700 border border-gray-300 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">❌ Cancelled</span>';
-      } else {
-        statusBadge = `<span class="text-[10px] bg-zinc-100 text-zinc-600 border px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">${status}</span>`;
-      }
-      let actionButtons = '';
-      if (isPaid && !isCompleted) {
-        actionButtons += `<button onclick="confirmCheckIn('${id}')" class="btn-success">✓ Confirm Arrival</button>`;
-      }
-      if (!isCompleted && !isCancelled) {
-        actionButtons += `<button onclick="changeBookingDates('${id}')" class="btn-warning">📅 Modify Dates</button>`;
-      }
-      // Cancel button only if not completed and not already cancelled
-      if (!isCompleted && !isCancelled) {
-        actionButtons += `<button onclick="cancelBooking('${id}')" class="btn-danger">✕ Cancel Booking</button>`;
-      }
-      if (isCompleted) {
-        const payoutDisplay = payoutDate ? new Date(payoutDate).toLocaleDateString('en-MY') : 'Check-In Logged';
-        actionButtons = `<span class="text-xs text-green-700 font-bold">Payout processing (${payoutDisplay})</span>`;
-      }
+if (isCompleted) {
+  // ✅ Check if payout success webhook was received
+  if (b.payoutSuccess === true && b.payoutSuccessDate) {
+    statusBadge = `<span class="text-[10px] bg-green-100 text-green-800 border border-green-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">✅ Payout Success</span>`;
+  } else if (payoutDate) {
+    // Payout was initiated but not yet confirmed by ToyyibPay
+    statusBadge = `<span class="text-[10px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">⏳ Payout Processing</span>`;
+  } else {
+    statusBadge = '<span class="text-[10px] bg-green-100 text-green-800 border border-green-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">✓ Completed / Guest Checked-in</span>';
+  }
+} else if (isPaid) {
+  statusBadge = '<span class="text-[10px] bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">🟡 Ready for Check-in</span>';
+} else if (isPending) {
+  statusBadge = '<span class="text-[10px] bg-red-100 text-red-800 border border-red-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">⏳ Unpaid Reservation</span>';
+} else if (isCancelled) {
+  statusBadge = '<span class="text-[10px] bg-gray-100 text-gray-700 border border-gray-300 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">❌ Cancelled</span>';
+} else {
+  statusBadge = `<span class="text-[10px] bg-zinc-100 text-zinc-600 border px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">${status}</span>`;
+}
+
+let actionButtons = '';
+if (isPaid && !isCompleted) {
+  actionButtons += `<button onclick="confirmCheckIn('${id}')" class="btn-success">✓ Confirm Arrival</button>`;
+}
+if (!isCompleted && !isCancelled) {
+  actionButtons += `<button onclick="changeBookingDates('${id}')" class="btn-warning">📅 Modify Dates</button>`;
+}
+if (!isCompleted && !isCancelled) {
+  actionButtons += `<button onclick="cancelBooking('${id}')" class="btn-danger">✕ Cancel Booking</button>`;
+}
+if (isCompleted) {
+  const payoutDisplay = b.payoutSuccess && b.payoutSuccessDate 
+    ? new Date(b.payoutSuccessDate).toLocaleDateString('en-MY') 
+    : (payoutDate ? new Date(payoutDate).toLocaleDateString('en-MY') : 'Check-In Logged');
+  
+  if (b.payoutSuccess === true && b.payoutSuccessDate) {
+    actionButtons = `<span class="text-xs text-green-700 font-bold">✅ Payout success (${payoutDisplay})</span>`;
+  } else if (payoutDate) {
+    actionButtons = `<span class="text-xs text-yellow-600 font-bold">⏳ Payout processing since ${payoutDisplay}</span>`;
+  } else {
+    actionButtons = `<span class="text-xs text-green-700 font-bold">✓ Completed (${payoutDisplay})</span>`;
+  }
+}
       html += `
         <div class="border p-5 rounded-2xl bg-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-all duration-200 hover:border-zinc-300">
           <div class="space-y-1.5 flex-1">
