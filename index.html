@@ -2294,7 +2294,7 @@ function closeBooking() {
 }
 
 async function processPayment() {
-  // Check if user is logged in (double-check)
+  // Check if user is logged in
   if (!currentGuest) {
     showAlert("Login Required", "Please log in to complete your booking.").then(function() {
       window.location.href = '/login.html';
@@ -2339,12 +2339,14 @@ async function processPayment() {
   window.lastCreatedBooking = booking;
 
   try {
-    // ✅ SIMPLE VERSION - NO CSRF FOR TESTING
+    // ✅ GET CSRF HEADER (from localStorage)
+    var csrfHeaders = getCsrfHeader();
+    
     var response = await fetch(API_BASE + "/bookings", {
       method: "POST",
-      headers: { 
+      headers: Object.assign({ 
         "Content-Type": "application/json"
-      },
+      }, csrfHeaders),
       body: JSON.stringify({ 
         action: "createPublicBooking", 
         booking: booking,
