@@ -735,9 +735,9 @@
       box-shadow: 0 14px 30px rgba(37, 211, 102, 0.5);
     }
 
-    /* ===== MOBILE DATE PICKER FIXES ===== */
-/* Fix for date picker overflow on all devices */
-  #hero {
+    /* ===== DATE PICKER FIXES - CLEAN VERSION ===== */
+    /* Hero overflow fixes */
+    #hero {
       overflow: visible !important;
       position: relative;
       z-index: 1;
@@ -914,7 +914,6 @@
         margin-right: 4px !important;
       }
     }
-
   </style>
 </head>
 <body>
@@ -988,8 +987,8 @@
 </div>
 
 <!-- ===== HERO ===== -->
-<section id="hero" class="relative w-full overflow-visible pb-4 md:pb-0">
-  <!-- Background Image -->
+<section id="hero" class="relative w-full overflow-visible">
+  <!-- Background Image Container -->
   <div class="absolute inset-0 w-full h-full overflow-hidden">
     <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu Sunrise" class="w-full h-full object-cover" />
     <div class="absolute inset-0 bg-black/30"></div>
@@ -997,14 +996,16 @@
   </div>
   
   <!-- Content -->
-  <div class="relative z-10 flex flex-col items-center justify-center text-center px-4 py-8 md:py-12 min-h-[520px] md:min-h-[640px]">
-    <div class="font-satisfy text-[#3FD0D4] text-[28px] md:text-[38px] leading-none mb-2 drop-shadow">Breathe The Mountain Air</div>
-    <h1 class="font-poppins font-700 text-white text-[30px] md:text-[62px] leading-[1.0] tracking-[-1px] drop-shadow-md">Handpicked Homestays <br class="hidden md:block"/>in Kundasang</h1>
-    <p class="mt-3 font-poppins font-500 text-white/90 text-[13px] md:text-[16px] max-w-[620px] leading-[1.6] drop-shadow px-2">Verified local hosts, unobstructed Mount Kinabalu views, steamboat amenities & guaranteed safe FPX payments.</p>
+  <div class="relative z-10 flex flex-col items-center justify-start text-center px-4 pt-6 pb-8 md:pt-12 md:pb-16 min-h-[460px] md:min-h-[600px]">
+    <div class="mt-4 md:mt-8">
+      <div class="font-satisfy text-[#3FD0D4] text-[28px] md:text-[38px] leading-none mb-2 drop-shadow">Breathe The Mountain Air</div>
+      <h1 class="font-poppins font-700 text-white text-[30px] md:text-[62px] leading-[1.0] tracking-[-1px] drop-shadow-md">Handpicked Homestays <br class="hidden md:block"/>in Kundasang</h1>
+      <p class="mt-3 font-poppins font-500 text-white/90 text-[13px] md:text-[16px] max-w-[620px] leading-[1.6] drop-shadow px-2">Verified local hosts, unobstructed Mount Kinabalu views, steamboat amenities & guaranteed safe FPX payments.</p>
+    </div>
     
-    <!-- Search Box - MOVED OUTSIDE the min-height container -->
-    <div class="w-full max-w-[920px] mt-6 md:mt-8 px-4 md:px-0">
-      <div class="bg-white/95 backdrop-blur p-4 md:p-5 rounded-2xl shadow-2xl border border-white/40">
+    <!-- Search Box -->
+    <div class="w-full max-w-[920px] mt-6 md:mt-8 px-0">
+      <div class="bg-white/95 backdrop-blur p-4 md:p-5 rounded-2xl shadow-2xl border border-white/40 search-box">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
           <div>
             <label class="block text-[10px] md:text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Area / Location</label>
@@ -1018,11 +1019,11 @@
           </div>
           <div class="date-picker-wrapper">
             <label class="block text-[10px] md:text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Check-in</label>
-            <input id="checkin" type="date" class="form-input text-sm w-full" onchange="renderGrid()" />
+            <input id="checkin" type="date" class="form-input text-sm w-full date-input" onchange="renderGrid()" />
           </div>
           <div class="date-picker-wrapper">
             <label class="block text-[10px] md:text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Check-out</label>
-            <input id="checkout" type="date" class="form-input text-sm w-full" onchange="renderGrid()" />
+            <input id="checkout" type="date" class="form-input text-sm w-full date-input" onchange="renderGrid()" />
           </div>
           <div>
             <button onclick="renderGrid(); document.getElementById('homePage')?.scrollIntoView({behavior:'smooth'})" class="w-full btn-primary py-3 text-sm tracking-widest">
@@ -1260,176 +1261,13 @@ function showConfirm(title, message) {
   ]);
 }
 
-// ESC Key Listener
-// Handle iOS date picker focus to prevent page scroll issues
-(function() {
-  'use strict';
-  
-  let isIOS = false;
-  let isMobile = false;
-  
-  // Detect iOS and mobile
-  function detectDevice() {
-    isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    isMobile = window.innerWidth <= 768;
-    return { isIOS, isMobile };
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeModal();
+    const tModal = document.getElementById('thankyouModal');
+    if (tModal && tModal.classList.contains('active')) tModal.classList.remove('active');
   }
-  
-  // Handle date picker on all devices
-  function setupDatePickers() {
-    const dateInputs = document.querySelectorAll('.date-input');
-    
-    dateInputs.forEach(function(input) {
-      // Remove any existing listeners
-      input.removeEventListener('focus', handleDateFocus);
-      input.removeEventListener('blur', handleDateBlur);
-      input.removeEventListener('click', handleDateClick);
-      
-      // Add new listeners
-      input.addEventListener('focus', handleDateFocus);
-      input.addEventListener('blur', handleDateBlur);
-      input.addEventListener('click', handleDateClick);
-    });
-  }
-  
-  // Handle focus event
-  function handleDateFocus(e) {
-    const input = e.target;
-    const device = detectDevice();
-    
-    if (device.isMobile) {
-      // Prevent body scroll
-      document.body.classList.add('date-picker-open');
-      
-      // Scroll input into view after a small delay
-      setTimeout(function() {
-        input.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center',
-          inline: 'center'
-        });
-      }, 100);
-      
-      // For iOS, ensure the picker is visible
-      if (device.isIOS) {
-        // iOS needs extra help
-        setTimeout(function() {
-          const rect = input.getBoundingClientRect();
-          const windowHeight = window.innerHeight;
-          if (rect.bottom > windowHeight - 100) {
-            window.scrollTo({
-              top: window.scrollY + rect.top - 100,
-              behavior: 'smooth'
-            });
-          }
-        }, 200);
-      }
-    }
-  }
-  
-  // Handle blur event
-  function handleDateBlur() {
-    // Remove the body lock with a delay to prevent flicker
-    setTimeout(function() {
-      document.body.classList.remove('date-picker-open');
-    }, 300);
-  }
-  
-  // Handle click event - opens picker on mobile
-  function handleDateClick(e) {
-    const device = detectDevice();
-    if (device.isMobile) {
-      // On mobile, clicking should open the picker
-      // Native behavior already handles this, but we ensure it works
-      e.target.showPicker && e.target.showPicker();
-    }
-  }
-  
-  // Re-run setup when DOM changes (for dynamic content)
-  function reinitializeDatePickers() {
-    // Use MutationObserver to detect new date inputs
-    const observer = new MutationObserver(function(mutations) {
-      mutations.forEach(function(mutation) {
-        if (mutation.addedNodes.length) {
-          const hasDateInput = Array.from(mutation.addedNodes).some(function(node) {
-            return node.nodeType === 1 && 
-                   (node.matches && node.matches('.date-input') || 
-                    node.querySelector && node.querySelector('.date-input'));
-          });
-          if (hasDateInput) {
-            setupDatePickers();
-          }
-        }
-      });
-    });
-    
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-  }
-  
-  // Handle window resize
-  function handleResize() {
-    const device = detectDevice();
-    if (!device.isMobile) {
-      document.body.classList.remove('date-picker-open');
-    }
-  }
-  
-  // Handle orientation change
-  function handleOrientationChange() {
-    setTimeout(function() {
-      const activeElement = document.activeElement;
-      if (activeElement && activeElement.classList && activeElement.classList.contains('date-input')) {
-        activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 300);
-  }
-  
-  // Handle touch events to prevent zoom issues on iOS
-  function handleTouchStart(e) {
-    const target = e.target;
-    if (target && target.classList && target.classList.contains('date-input')) {
-      // Prevent default zoom behavior on iOS
-      if (isIOS) {
-        // Don't prevent default completely, just ensure picker opens
-      }
-    }
-  }
-  
-  // Initialize
-  function initDatePickerHandler() {
-    detectDevice();
-    setupDatePickers();
-    reinitializeDatePickers();
-    
-    // Add event listeners
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleOrientationChange);
-    document.addEventListener('touchstart', handleTouchStart, { passive: true });
-    
-    // Also re-run when page is fully loaded
-    if (document.readyState === 'complete') {
-      setupDatePickers();
-    } else {
-      window.addEventListener('load', setupDatePickers);
-    }
-    
-    console.log('📅 Date picker handler initialized');
-  }
-  
-  // Run when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initDatePickerHandler);
-  } else {
-    initDatePickerHandler();
-  }
-  
-  // Also expose a function to manually reinitialize
-  window.reinitDatePickers = setupDatePickers;
-  
-})();
+});
 
 // =============================================================
 // THANK YOU & RECEIPT MODAL LOGIC
@@ -1735,11 +1573,6 @@ function renderGrid() {
       </article>
     `;
   }).join(""));
-  
-  // Reinitialize date pickers after grid updates
-  if (window.reinitDatePickers) {
-    setTimeout(window.reinitDatePickers, 100);
-  }
 }
 
 // =============================================================
@@ -1942,149 +1775,6 @@ function renderAvailabilityCalendar(homestay, containerId) {
 function toggleMobileMenu() {
   document.getElementById('mobileNav')?.classList.toggle('open');
 }
-
-// =============================================================
-// iOS DATE PICKER HANDLER - FIXED VERSION
-// =============================================================
-(function() {
-  'use strict';
-  
-  let isIOS = false;
-  let isMobile = false;
-  
-  function detectDevice() {
-    isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    isMobile = window.innerWidth <= 768;
-    return { isIOS, isMobile };
-  }
-  
-  function setupDatePickers() {
-    const dateInputs = document.querySelectorAll('.date-input');
-    
-    dateInputs.forEach(function(input) {
-      input.removeEventListener('focus', handleDateFocus);
-      input.removeEventListener('blur', handleDateBlur);
-      input.removeEventListener('click', handleDateClick);
-      
-      input.addEventListener('focus', handleDateFocus);
-      input.addEventListener('blur', handleDateBlur);
-      input.addEventListener('click', handleDateClick);
-    });
-  }
-  
-  function handleDateFocus(e) {
-    const input = e.target;
-    const device = detectDevice();
-    
-    if (device.isMobile) {
-      document.body.classList.add('date-picker-open');
-      
-      setTimeout(function() {
-        input.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center',
-          inline: 'center'
-        });
-      }, 100);
-      
-      if (device.isIOS) {
-        setTimeout(function() {
-          const rect = input.getBoundingClientRect();
-          const windowHeight = window.innerHeight;
-          if (rect.bottom > windowHeight - 100) {
-            window.scrollTo({
-              top: window.scrollY + rect.top - 100,
-              behavior: 'smooth'
-            });
-          }
-        }, 200);
-      }
-    }
-  }
-  
-  function handleDateBlur() {
-    setTimeout(function() {
-      document.body.classList.remove('date-picker-open');
-    }, 300);
-  }
-  
-  function handleDateClick(e) {
-    const device = detectDevice();
-    if (device.isMobile) {
-      try {
-        if (e.target.showPicker) {
-          e.target.showPicker();
-        }
-      } catch(err) {
-        // Native picker will open automatically
-      }
-    }
-  }
-  
-  function reinitializeDatePickers() {
-    const observer = new MutationObserver(function(mutations) {
-      mutations.forEach(function(mutation) {
-        if (mutation.addedNodes.length) {
-          const hasDateInput = Array.from(mutation.addedNodes).some(function(node) {
-            return node.nodeType === 1 && 
-                   (node.matches && node.matches('.date-input') || 
-                    node.querySelector && node.querySelector('.date-input'));
-          });
-          if (hasDateInput) {
-            setupDatePickers();
-          }
-        }
-      });
-    });
-    
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-  }
-  
-  function handleResize() {
-    const device = detectDevice();
-    if (!device.isMobile) {
-      document.body.classList.remove('date-picker-open');
-    }
-  }
-  
-  function handleOrientationChange() {
-    setTimeout(function() {
-      const activeElement = document.activeElement;
-      if (activeElement && activeElement.classList && activeElement.classList.contains('date-input')) {
-        activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 300);
-  }
-  
-  function initDatePickerHandler() {
-    detectDevice();
-    setupDatePickers();
-    reinitializeDatePickers();
-    
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleOrientationChange);
-    
-    if (document.readyState === 'complete') {
-      setupDatePickers();
-    } else {
-      window.addEventListener('load', setupDatePickers);
-    }
-    
-    console.log('📅 Date picker handler initialized');
-  }
-  
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initDatePickerHandler);
-  } else {
-    initDatePickerHandler();
-  }
-  
-  window.reinitDatePickers = setupDatePickers;
-  
-})();
 
 // =============================================================
 // INITIALIZATION
