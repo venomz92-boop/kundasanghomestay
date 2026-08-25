@@ -1,12 +1,5 @@
 // /api/owner-update-booking.js - Owner can change dates, confirm check-in, and cancel
-function corsHeaders(request) {
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Owner-Authorization"
-  };
-}
+import { corsHeaders, getClientIP, logAction, enforceHttps } from './_utils.js';
 
 function verifyOwner(request) {
   const auth = request.headers.get("Owner-Authorization") || "";
@@ -55,6 +48,11 @@ function getDatesInRange(checkin, checkout) {
 }
 
 export async function onRequestPost({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+
+  const clientIP = getClientIP(request);
+
   try {
     const ownerData = verifyOwner(request);
     if (!ownerData) {
@@ -251,7 +249,7 @@ export async function onRequestPost({ request, env }) {
       const finalFee = yourFee < 0 ? 0 : yourFee;
       return new Response(JSON.stringify({
         success: true,
-        message: `✅ Check-in confirmed! You will (${homestay.ownerName}) received RM${ownerAmount} in 1-4 business day.`,
+        message: `✅ Check-in confirmed! You (${homestay.ownerName}) will receive RM${ownerAmount} in 1-4 business days.`,
         booking: bookings[idx],
         payout: payoutData
       }), { status: 200, headers: corsHeaders(request) });
