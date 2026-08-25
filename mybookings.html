@@ -980,7 +980,7 @@ function cancelBooking(bookingId) {
     .then(function(confirmed) {
       if (!confirmed) return;
       
-      // Get CSRF token
+      // Helper to get CSRF header
       function getCsrfHeader() {
         var token = localStorage.getItem('kd_csrf_token');
         return token ? { 'X-CSRF-Token': token } : {};
