@@ -618,6 +618,10 @@
 </footer>
 <script src="animations.js"></script>
 <script>
+  function getCsrfHeader() {
+  const token = localStorage.getItem('kd_csrf_token');
+  return token ? { 'X-CSRF-Token': token } : {};
+}
 // =============================================================
 // MODAL SYSTEM
 // =============================================================
