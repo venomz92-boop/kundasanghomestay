@@ -2246,21 +2246,13 @@ function openBooking() {
     return;
   }
 
-  // Pre-fill guest details from login session
-  var nameEl = document.getElementById("guestName");
-  var emailEl = document.getElementById("guestEmail");
-  var phoneEl = document.getElementById("guestPhone");
-  if (nameEl) nameEl.value = currentGuest.name || "";
-  if (emailEl) emailEl.value = currentGuest.email || "";
-  if (phoneEl) phoneEl.value = currentGuest.phone || "";
-  
-  var ci = document.getElementById("detailCheckin")?.value;
-  var co = document.getElementById("detailCheckout")?.value;
-  if (ci) document.getElementById("bookingCheckin").value = ci;
-  if (co) document.getElementById("bookingCheckout").value = co;
-  updateBookingPrice();
-  document.getElementById("bookingModal").classList.remove("hidden");
-
+  // ✅ Check if CSRF token exists
+  var csrfToken = localStorage.getItem('kd_csrf_token');
+  if (!csrfToken) {
+    showAlert("Session Expired", "Your session token is missing. Please log out and log back in.");
+    logoutGuest();
+    return;
+  }
 
   // Pre-fill guest details from login session
   var nameEl = document.getElementById("guestName");
@@ -2277,7 +2269,7 @@ function openBooking() {
   updateBookingPrice();
   document.getElementById("bookingModal").classList.remove("hidden");
 }
-
+  
 function updateBookingPrice() {
   if (!selectedHomestay) return;
   var ci = document.getElementById("bookingCheckin").value;
