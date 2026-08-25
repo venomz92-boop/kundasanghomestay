@@ -1,5 +1,5 @@
-// /api/bookings.js - DEBUG VERSION with detailed logging
-import { corsHeaders, getClientIP, logAction, enforceHttps } from './_utils.js';
+// /api/bookings.js - DEBUG VERSION with CSRF protection
+import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken } from './_utils.js';
 
 function verifyAdmin(request, env) {
   const auth = request.headers.get("Authorization") || "";
@@ -95,6 +95,40 @@ async function removeDatesFromAvailability(db, homestayId, bookingId, dates) {
   }
 }
 
+// ========== CSRF VALIDATION FOR PUBLIC ACTIONS ==========
+// Public actions that modify data need CSRF protection
+const publicActions = ['createPublicBooking', 'publicUpdateStatus'];
+
+// Helper function to validate CSRF for public actions
+function validatePublicCSRF(request, body, env) {
+  // Only check public actions
+  if (!publicActions.includes(body.action)) return null;
+  
+  const token = getCSRFToken(request);
+  // Get guestId from the booking data
+  const guestId = body.booking?.guestId || body.guestId;
+  
+  if (!token || !guestId) {
+    return new Response(JSON.stringify({ 
+      error: "Missing security token. Please refresh and try again." 
+    }), {
+      status: 403,
+      headers: corsHeaders(request)
+    });
+  }
+  
+  if (!validateCSRFToken(token, guestId)) {
+    return new Response(JSON.stringify({ 
+      error: "Invalid security token. Please refresh and try again." 
+    }), {
+      status: 403,
+      headers: corsHeaders(request)
+    });
+  }
+  
+  return null; // No error, validation passed
+}
+
 // ========== GET - PUBLIC ==========
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
@@ -184,6 +218,11 @@ export async function onRequestPost({ request, env }) {
   // 1. Create booking
   if (action === "createPublicBooking" && body.booking) {
     const booking = body.booking;
+    
+    // ✅ CSRF Validation
+    const csrfError = validatePublicCSRF(request, body, env);
+    if (csrfError) return csrfError;
+    
     const required = ['id', 'homestay', 'homestayId', 'checkin', 'checkout', 'guestEmail', 'guestName', 'total', 'base', 'fee'];
     for (const field of required) {
       if (booking[field] === undefined || booking[field] === null || booking[field] === '') {
@@ -239,7 +278,7 @@ export async function onRequestPost({ request, env }) {
       
       console.log("✅ Booking saved:", booking.id);
 
-      // ✅ NEW: Block dates in availability
+      // Block dates in availability
       const dates = getDatesInRange(booking.checkin, booking.checkout);
       if (dates.length > 0 && booking.homestayId) {
         await addDatesToAvailability(db, booking.homestayId, dates);
@@ -272,6 +311,10 @@ export async function onRequestPost({ request, env }) {
 
   // 2. Public update status (webhook / cancellation)
   if (action === "publicUpdateStatus" && body.id && body.status) {
+    // ✅ CSRF Validation
+    const csrfError = validatePublicCSRF(request, body, env);
+    if (csrfError) return csrfError;
+    
     const db = env.DB;
     if (!db) {
       return new Response(JSON.stringify({ error: "DB not configured" }), { 
@@ -298,7 +341,7 @@ export async function onRequestPost({ request, env }) {
       if (body.toyyibpay_transaction_id) bookings[idx].toyyibpay_transaction_id = body.toyyibpay_transaction_id;
       if (body.paid_at) bookings[idx].paid_at = body.paid_at;
 
-      // ✅ NEW: If status is Cancelled, free the dates
+      // If status is Cancelled, free the dates
       if (body.status.toLowerCase() === "cancelled") {
         const booking = bookings[idx];
         if (booking.homestayId && booking.checkin && booking.checkout) {
