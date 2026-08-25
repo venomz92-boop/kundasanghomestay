@@ -1197,7 +1197,7 @@
   </div>
 </div>
 
-<!-- ===== ACCORDION GALLERY - VERTICAL (FIXED DESKTOP) ===== -->
+<!-- ===== ACCORDION GALLERY - VERTICAL (SMOOTH) ===== -->
 <section class="w-full py-16 bg-[#F8F5F0]">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8">
     <div class="text-center mb-10">
@@ -1208,200 +1208,196 @@
     </div>
   </div>
 
-  <!-- Full width vertical gallery container -->
+  <!-- Vertical gallery container -->
   <div class="w-full px-4 md:px-8">
-    <div id="accordionGallery" class="accordion-gallery-vertical w-full max-w-[900px] mx-auto">
-      <!-- Items will be rendered by JavaScript -->
+    <div id="accordionGalleryVertical" class="accordion-gallery-vertical w-full max-w-[900px] mx-auto">
+      <!-- Items rendered by JavaScript -->
     </div>
   </div>
 </section>
 
-<!-- ===== VERTICAL ACCORDION GALLERY STYLES ===== -->
 <style>
-  /* Force vertical layout on all screen sizes */
   .accordion-gallery-vertical {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 12px !important;
-    width: 100% !important;
-    max-width: 900px !important;
-    margin: 0 auto !important;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
   }
-  
+
   .accordion-gallery-vertical .ag-item {
-    position: relative !important;
-    display: block !important;
-    width: 100% !important;
-    height: 80px !important;
-    overflow: hidden !important;
-    cursor: pointer !important;
-    background: #0a0713 !important;
-    border-radius: 16px !important;
-    box-shadow: 0 4px 20px -12px rgba(0,0,0,0.6) !important;
-    transition: height 0.6s cubic-bezier(0.22, 1, 0.36, 1) !important;
-    will-change: height !important;
-    flex: none !important;
+    position: relative;
+    width: 100%;
+    height: 80px;
+    overflow: hidden;
+    cursor: pointer;
+    background: #0a0713;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px -12px rgba(0,0,0,0.6);
+    transition: height 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: height;
   }
-  
+
   .accordion-gallery-vertical .ag-item.active {
-    height: 420px !important;
-    box-shadow: 0 12px 40px -16px rgba(0,0,0,0.5) !important;
+    height: 420px;
+    box-shadow: 0 12px 40px -16px rgba(0,0,0,0.5);
   }
-  
+
   .accordion-gallery-vertical .ag-item img {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover !important;
-    filter: grayscale(0.8) brightness(0.6) !important;
-    transition: filter 0.6s cubic-bezier(0.22, 1, 0.36, 1) !important;
-    will-change: filter !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: grayscale(0.8) brightness(0.6);
+    transition: filter 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: filter;
   }
-  
+
   .accordion-gallery-vertical .ag-item.active img {
-    filter: grayscale(0) brightness(1) !important;
+    filter: grayscale(0) brightness(1);
   }
-  
+
   .accordion-gallery-vertical .ag-item .ag-overlay {
-    position: absolute !important;
-    inset: 0 !important;
-    pointer-events: none !important;
-    background: linear-gradient(180deg, transparent 40%, rgba(6, 0, 16, 0.85) 100%) !important;
-    z-index: 1 !important;
-    opacity: 0.8 !important;
-    transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1) !important;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent 40%, rgba(6, 0, 16, 0.85) 100%);
+    z-index: 1;
+    opacity: 0.8;
+    transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   }
-  
+
   .accordion-gallery-vertical .ag-item.active .ag-overlay {
-    opacity: 0 !important;
+    opacity: 0;
   }
-  
+
   .accordion-gallery-vertical .ag-item .ag-number {
-    position: absolute !important;
-    top: 18px !important;
-    right: 22px !important;
-    z-index: 2 !important;
-    font-size: 14px !important;
-    font-weight: 600 !important;
-    color: rgba(255,255,255,0.25) !important;
-    letter-spacing: 0.1em !important;
-    font-variant-numeric: tabular-nums !important;
-    transition: color 0.4s ease !important;
+    position: absolute;
+    top: 18px;
+    right: 22px;
+    z-index: 2;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.1em;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.4s ease;
   }
-  
+
   .accordion-gallery-vertical .ag-item.active .ag-number {
-    color: rgba(255,255,255,0.5) !important;
+    color: rgba(255,255,255,0.5);
   }
-  
+
   .accordion-gallery-vertical .ag-item .ag-label-wrap {
-    position: absolute !important;
-    bottom: 24px !important;
-    left: 28px !important;
-    right: 28px !important;
-    z-index: 2 !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 16px !important;
-    pointer-events: none !important;
+    position: absolute;
+    bottom: 24px;
+    left: 28px;
+    right: 28px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    pointer-events: none;
   }
-  
+
   .accordion-gallery-vertical .ag-item .ag-bar {
-    height: 32px !important;
-    width: 4px !important;
-    flex: none !important;
-    border-radius: 4px !important;
-    background: #3FD0D4 !important;
-    box-shadow: 0 0 20px rgba(63, 208, 212, 0.4) !important;
-    opacity: 0.5 !important;
-    transition: opacity 0.4s ease, height 0.4s ease, transform 0.4s ease !important;
-    transform: scaleY(0.6) !important;
+    height: 32px;
+    width: 4px;
+    flex: none;
+    border-radius: 4px;
+    background: #3FD0D4;
+    box-shadow: 0 0 20px rgba(63, 208, 212, 0.4);
+    opacity: 0.5;
+    transition: opacity 0.4s ease, height 0.4s ease, transform 0.4s ease;
+    transform: scaleY(0.6);
   }
-  
+
   .accordion-gallery-vertical .ag-item.active .ag-bar {
-    opacity: 1 !important;
-    transform: scaleY(1) !important;
-    height: 40px !important;
+    opacity: 1;
+    transform: scaleY(1);
+    height: 40px;
   }
-  
+
   .accordion-gallery-vertical .ag-item .ag-label {
-    font-size: 18px !important;
-    font-weight: 700 !important;
-    color: #ffffff !important;
-    text-shadow: 0 2px 24px rgba(0,0,0,0.8) !important;
-    opacity: 0.7 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    transition: opacity 0.4s ease, transform 0.4s ease, font-size 0.4s ease !important;
-    transform: translateX(-6px) !important;
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 2px 24px rgba(0,0,0,0.8);
+    opacity: 0.7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 0.4s ease, transform 0.4s ease, font-size 0.4s ease;
+    transform: translateX(-6px);
   }
-  
+
   .accordion-gallery-vertical .ag-item.active .ag-label {
-    opacity: 1 !important;
-    transform: translateX(0) !important;
-    font-size: 24px !important;
+    opacity: 1;
+    transform: translateX(0);
+    font-size: 24px;
   }
-  
+
   .accordion-gallery-vertical .ag-item .ag-sub-label {
-    display: none !important;
-    font-size: 14px !important;
-    font-weight: 400 !important;
-    color: rgba(255,255,255,0.6) !important;
-    margin-left: 8px !important;
-    opacity: 0 !important;
-    transition: opacity 0.5s ease 0.1s !important;
+    display: none;
+    font-size: 14px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.6);
+    margin-left: 8px;
+    opacity: 0;
+    transition: opacity 0.5s ease 0.1s;
   }
-  
+
   .accordion-gallery-vertical .ag-item.active .ag-sub-label {
-    display: inline !important;
-    opacity: 1 !important;
+    display: inline;
+    opacity: 1;
   }
 
   /* Desktop hover */
   @media (min-width: 769px) {
     .accordion-gallery-vertical .ag-item:not(.active):hover {
-      box-shadow: 0 8px 30px -14px rgba(0,0,0,0.5) !important;
+      box-shadow: 0 8px 30px -14px rgba(0,0,0,0.5);
     }
     .accordion-gallery-vertical .ag-item:not(.active):hover .ag-label {
-      opacity: 1 !important;
+      opacity: 1;
     }
     .accordion-gallery-vertical .ag-item:not(.active):hover .ag-bar {
-      opacity: 1 !important;
+      opacity: 1;
     }
   }
 
   /* Mobile */
   @media (max-width: 768px) {
     .accordion-gallery-vertical .ag-item {
-      height: 64px !important;
+      height: 64px;
     }
     .accordion-gallery-vertical .ag-item.active {
-      height: 300px !important;
+      height: 300px;
     }
     .accordion-gallery-vertical .ag-item .ag-label-wrap {
-      bottom: 14px !important;
-      left: 16px !important;
-      right: 16px !important;
-      gap: 10px !important;
+      bottom: 14px;
+      left: 16px;
+      right: 16px;
+      gap: 10px;
     }
     .accordion-gallery-vertical .ag-item .ag-label {
-      font-size: 14px !important;
+      font-size: 14px;
     }
     .accordion-gallery-vertical .ag-item.active .ag-label {
-      font-size: 18px !important;
+      font-size: 18px;
     }
     .accordion-gallery-vertical .ag-item .ag-bar {
-      height: 20px !important;
+      height: 20px;
     }
     .accordion-gallery-vertical .ag-item.active .ag-bar {
-      height: 28px !important;
+      height: 28px;
     }
     .accordion-gallery-vertical .ag-item .ag-number {
-      top: 10px !important;
-      right: 14px !important;
-      font-size: 11px !important;
+      top: 10px;
+      right: 14px;
+      font-size: 11px;
     }
     .accordion-gallery-vertical .ag-item .ag-sub-label {
       display: none !important;
@@ -1420,7 +1416,6 @@
   }
 </style>
 
-<!-- ===== VERTICAL ACCORDION GALLERY SCRIPT ===== -->
 <script>
 (function() {
   const galleryItems = [
@@ -1451,7 +1446,7 @@
     }
   ];
 
-  const container = document.getElementById('accordionGallery');
+  const container = document.getElementById('accordionGalleryVertical');
   if (!container) return;
 
   let activeIndex = 2;
@@ -1511,7 +1506,7 @@
     container.appendChild(el);
   });
 
-  // Set active function - simplified for smoothness
+  // Set active function
   function setActive(index) {
     if (isAnimating || activeIndex === index) return;
     isAnimating = true;
@@ -1535,7 +1530,7 @@
     setActive(2);
   }, 100);
 
-  // Also run after load
+  // Also after load
   window.addEventListener('load', function() {
     setTimeout(function() {
       setActive(2);
@@ -1551,7 +1546,7 @@
     }, 200);
   });
 
-  // Handle reduced motion
+  // Reduced motion
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   if (prefersReduced.matches) {
     container.querySelectorAll('.ag-item').forEach(function(el) {
