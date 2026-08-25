@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <!-- Strict Privacy Meta Tags -->
   <title>Owner Dashboard - Kundasang Homestay</title>
   <meta name="robots" content="noindex, nofollow" />
 
@@ -11,862 +13,245 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="animations.css" />
-
+  
   <style>
-    /* ===== ROOT ===== */
-    :root {
-      --primary: #0F382E;
-      --primary-light: #1a4d3e;
-      --accent: #3FD0D4;
-      --accent-hover: #2bbfc4;
-      --accent-glow: rgba(63, 208, 212, 0.25);
-      --bg: #F8F5F0;
-      --card: #ffffff;
-      --dark: #212121;
-      --glass: rgba(255, 255, 255, 0.75);
-      --shadow-sm: 0 2px 20px rgba(0, 0, 0, 0.05);
-      --shadow-md: 0 8px 40px rgba(0, 0, 0, 0.08);
-      --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12);
-      --shadow-glow: 0 8px 30px rgba(63, 208, 212, 0.25);
-    }
+    body { font-family: 'Poppins', sans-serif; background: #F8F5F0; }
+    .sharp { border-radius: 2px !important; }
+    .card { background: white; border: 1px solid rgba(0,0,0,0.04); box-shadow: 0 2px 20px rgba(0,0,0,0.05); }
+    
+    .btn-primary { background: #0F382E; color: white; padding: 12px 24px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; transition: all 0.2s; }
+    .btn-primary:hover { background: #1a4d3e; transform: translateY(-1px); }
+    
+    .btn-success { background: #16a34a; color: white; padding: 10px 18px; font-weight: 700; text-transform: uppercase; font-size: 11px; transition: all 0.2s; }
+    .btn-success:hover { background: #15803d; }
+    
+    .btn-warning { background: #f59e0b; color: white; padding: 10px 18px; font-weight: 700; text-transform: uppercase; font-size: 11px; transition: all 0.2s; }
+    .btn-warning:hover { background: #d97706; }
+    
+    .btn-danger { background: #dc2626; color: white; padding: 10px 18px; font-weight: 700; text-transform: uppercase; font-size: 11px; }
+    
+    .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #475569; padding: 10px 18px; font-weight: 600; font-size: 11px; text-transform: uppercase; transition: all 0.2s; }
+    .btn-outline:hover { background: #f8fafc; border-color: #94a3b8; }
+    
+    .btn-whatsapp-sm { background: #25D366; color: white; padding: 8px 16px; font-weight: 700; font-size: 11px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
+    .btn-whatsapp-sm:hover { background: #1ebe5d; transform: translateY(-1px); }
+    
+    .refresh-btn { background: #3FD0D4; color: white; padding: 8px 18px; border: none; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
+    .refresh-btn:hover { background: #2bbfc4; }
+    
+    .homestay-selector { border: 1px solid #cbd5e1; padding: 10px 16px; font-size: 13px; font-weight: 600; background: white; color: #1e293b; }
+    .homestay-selector:focus { outline: none; border-color: #3FD0D4; }
 
-    * {
-      -webkit-tap-highlight-color: transparent;
-      box-sizing: border-box;
-    }
-    html {
-      scroll-behavior: smooth;
-      overflow-x: hidden;
-    }
-    body {
-      font-family: "Poppins", sans-serif;
-      background: var(--bg);
-      overflow-x: hidden;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    .font-poppins { font-family: "Poppins", sans-serif; }
-    .rounded-xl { border-radius: 16px !important; }
-    .rounded-2xl { border-radius: 24px !important; }
-    .rounded-full { border-radius: 999px !important; }
+    /* Nav Links */
+    .setsail-nav-link { position: relative; font-family: "Poppins", sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.3px; text-transform: uppercase; color: #212121; padding: 8px 0; cursor: pointer; background: none; border: none; text-decoration: none; }
+    .setsail-nav-link::after { content: ''; position: absolute; left: 0; bottom: -2px; width: 0; height: 2px; background: #3FD0D4; transition: width 0.3s; }
+    .setsail-nav-link:hover::after, .setsail-nav-link.active::after { width: 100%; }
+    .setsail-nav-link.agent { color: #7c3aed; border: 1px solid #7c3aed; padding: 6px 16px; border-radius: 2px; }
+    .setsail-nav-link.agent:hover { background: #7c3aed; color: white; }
 
-    /* ===== GLASS ===== */
-    .glass {
-      background: rgba(255, 255, 255, 0.72);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-    }
+    /* Mobile Nav Drawer */
+    #mobileNav { position: fixed; top: 80px; left: 0; right: 0; z-index: 9999; background: white; border-top: 1px solid rgba(0,0,0,0.08); box-shadow: 0 8px 30px rgba(0,0,0,0.12); max-height: 0; opacity: 0; overflow: hidden; pointer-events: none; transform: translateY(-10px); transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, transform 0.3s ease; }
+    #mobileNav.open { max-height: 80vh; opacity: 1; overflow-y: auto; pointer-events: auto; transform: translateY(0); }
+    #mobileNav a, #mobileNav button { display: block; width: 100%; text-align: left; padding: 14px 24px; font-size: 14px; font-weight: 600; color: #212121; border-bottom: 1px solid rgba(0,0,0,0.05); background: white; }
+    #mobileNav .mobile-agent-link { color: #7c3aed !important; border: 1px solid #7c3aed !important; margin: 8px 16px; padding: 10px 16px !important; border-radius: 2px !important; width: auto !important; display: inline-block !important; }
+    #mobileNav .guest-btn { border: 1px solid #3FD0D4; color: #3FD0D4; background: white; text-align: center; border-radius: 2px; padding: 12px 24px; font-weight: 600; font-size: 12px; text-transform: uppercase; width: 100%; }
+    #mobileNav .guest-btn-primary { background: #3FD0D4; color: white; border: none; }
+    #mobileNav .profile-card { display: flex; align-items: center; gap: 10px; background: #212121; color: white; padding: 10px 14px; border-radius: 2px; margin-bottom: 8px; }
+    #mobileNav .profile-card .avatar { width: 32px; height: 32px; border-radius: 999px; background: #3FD0D4; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; }
+    #mobileNav .profile-card .info { flex: 1; min-width: 0; }
+    #mobileNav .profile-card .name { font-weight: 700; font-size: 13px; truncate: true; }
+    #mobileNav .profile-card .logout-btn { background: rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 2px; cursor: pointer; border: none; color: white; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+    #mobileNav .my-bookings-btn { display: block; width: 100%; text-align: center; background: #212121; color: white; font-weight: 600; font-size: 12px; text-transform: uppercase; padding: 10px 16px; border-radius: 2px; }
 
-    /* ===== CARD ===== */
-    .card {
-      background: var(--card);
-      border-radius: 16px;
-      box-shadow: var(--shadow-sm);
-      border: 1px solid rgba(0, 0, 0, 0.04);
-      transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      padding: 20px;
-    }
-    .card:hover {
-      box-shadow: var(--shadow-md);
-      transform: translateY(-2px);
-    }
-
-    /* ===== BUTTONS ===== */
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-      border-radius: 999px;
-      padding: 12px 24px;
-      font-weight: 700;
-      font-family: "Poppins", sans-serif;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 11px;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      border: none;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      position: relative;
-      overflow: hidden;
-      width: 100%;
-    }
-    .btn-primary::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .btn-primary:hover {
-      background: var(--primary-light);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3);
-    }
-    .btn-primary:hover::after { opacity: 1; }
-
-    .btn-success {
-      background: #16a34a;
-      color: white;
-      border-radius: 999px;
-      padding: 8px 18px;
-      font-weight: 700;
-      font-size: 11px;
-      text-transform: uppercase;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      border: none;
-      cursor: pointer;
-      font-family: "Poppins", sans-serif;
-    }
-    .btn-success:hover {
-      background: #15803d;
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(22, 163, 74, 0.3);
-    }
-
-    .btn-warning {
-      background: #f59e0b;
-      color: white;
-      border-radius: 999px;
-      padding: 8px 18px;
-      font-weight: 700;
-      font-size: 11px;
-      text-transform: uppercase;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      border: none;
-      cursor: pointer;
-      font-family: "Poppins", sans-serif;
-    }
-    .btn-warning:hover {
-      background: #d97706;
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(245, 158, 11, 0.3);
-    }
-
-    .btn-outline {
-      background: transparent;
-      border: 1.5px solid #cbd5e1;
-      color: #475569;
-      border-radius: 999px;
-      padding: 8px 18px;
-      font-weight: 600;
-      font-size: 11px;
-      text-transform: uppercase;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      cursor: pointer;
-      font-family: "Poppins", sans-serif;
-    }
-    .btn-outline:hover {
-      background: #f1f5f9;
-      border-color: #94a3b8;
-      transform: translateY(-2px);
-    }
-
-    .btn-whatsapp-sm {
-      background: #25D366;
-      color: white;
-      border-radius: 999px;
-      padding: 6px 14px;
-      font-weight: 700;
-      font-size: 10px;
-      text-transform: uppercase;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      border: none;
-      cursor: pointer;
-      font-family: "Poppins", sans-serif;
-    }
-    .btn-whatsapp-sm:hover {
-      background: #1ebe5d;
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(37, 211, 102, 0.3);
-    }
-
-    .refresh-btn {
-      background: var(--accent);
-      color: white;
-      border-radius: 999px;
-      padding: 10px 20px;
-      border: none;
-      font-weight: 700;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      font-family: "Poppins", sans-serif;
-    }
-    .refresh-btn:hover {
-      background: var(--accent-hover);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-glow);
-    }
-
-    /* ===== GUEST AVATAR ===== */
-    .guest-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 999px;
-      background: var(--accent);
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 14px;
-    }
-
-    /* ===== NAV LINKS ===== */
-    .setsail-nav-link {
-      position: relative;
-      font-family: "Poppins", sans-serif;
-      font-weight: 600;
-      font-size: 13px;
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
-      color: #212121;
-      padding: 8px 0;
-      cursor: pointer;
-      background: none;
-      border: none;
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-    .setsail-nav-link::after {
-      content: '';
-      position: absolute;
-      left: 0;
-      bottom: -2px;
-      width: 0;
-      height: 2.5px;
-      background: var(--accent);
-      border-radius: 999px;
-      transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    }
-    .setsail-nav-link:hover::after,
-    .setsail-nav-link.active::after {
-      width: 100%;
-    }
-    .setsail-nav-link:hover {
-      color: var(--primary);
-    }
-    .setsail-nav-link.agent {
-      color: #7c3aed;
-      border: 1px solid #7c3aed;
-      padding: 6px 16px;
-      border-radius: 999px;
-    }
-    .setsail-nav-link.agent::after { display: none; }
-    .setsail-nav-link.agent:hover {
-      background: #7c3aed;
-      color: white;
-    }
-
-    /* ===== MOBILE NAV ===== */
-    #mobileNav {
-      position: fixed;
-      top: 80px;
-      left: 0;
-      right: 0;
-      z-index: 9999;
-      background: var(--glass);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-top: 1px solid rgba(0, 0, 0, 0.06);
-      box-shadow: var(--shadow-lg);
-      max-height: 0;
-      opacity: 0;
-      overflow: hidden;
-      pointer-events: none;
-      transform: translateY(-10px);
-      transition: max-height 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                  opacity 0.4s ease,
-                  transform 0.4s ease;
-    }
-    #mobileNav.open {
-      max-height: 80vh;
-      opacity: 1;
-      overflow-y: auto;
-      pointer-events: auto;
-      transform: translateY(0);
-    }
-    #mobileNav a,
-    #mobileNav button {
-      display: block;
-      width: 100%;
-      text-align: left;
-      padding: 14px 24px;
-      font-size: 14px;
-      font-weight: 600;
-      color: #212121;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-      transition: background 0.2s, color 0.2s;
-      background: transparent;
-    }
-    #mobileNav a:hover,
-    #mobileNav button:hover {
-      background: #f8f5f0;
-      color: var(--accent);
-    }
-    #mobileNav .mobile-agent-link {
-      color: #7c3aed !important;
-      border: 1px solid #7c3aed !important;
-      margin: 8px 16px;
-      padding: 10px 16px !important;
-      border-radius: 999px !important;
-      width: auto !important;
-      display: inline-block !important;
-    }
-    #mobileNav .mobile-agent-link:hover {
-      background: #7c3aed !important;
-      color: white !important;
-    }
-    #mobileNav .guest-btn {
-      border: 1px solid var(--accent);
-      color: var(--accent);
-      background: transparent;
-      text-align: center;
-      border-radius: 999px;
-      padding: 12px 24px;
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      width: 100%;
-    }
-    #mobileNav .guest-btn-primary {
-      background: var(--accent);
-      color: white;
-      border: none;
-    }
-    #mobileNav .guest-btn:hover {
-      background: var(--accent);
-      color: white;
-    }
-    #mobileNav .guest-btn-primary:hover {
-      background: var(--accent-hover);
-    }
-    #mobileNav .profile-card {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: var(--primary);
-      color: white;
-      padding: 12px 16px;
-      border-radius: 12px;
-      margin-bottom: 8px;
-    }
-    #mobileNav .profile-card .avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 999px;
-      background: var(--accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 14px;
-      color: white;
-      flex-shrink: 0;
-    }
-    #mobileNav .profile-card .info {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-    }
-    #mobileNav .profile-card .name {
-      font-weight: 700;
-      font-size: 14px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    #mobileNav .profile-card .sub {
-      font-size: 10px;
-      color: rgba(255, 255, 255, 0.6);
-    }
-    #mobileNav .profile-card .logout-btn {
-      width: auto !important;
-      display: inline-block !important;
-      flex-shrink: 0;
-      font-size: 10px;
-      background: rgba(255, 255, 255, 0.15);
-      padding: 6px 14px;
-      border-radius: 999px;
-      cursor: pointer;
-      border: none;
-      color: white;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      transition: background 0.2s;
-    }
-    #mobileNav .profile-card .logout-btn:hover {
-      background: rgba(255, 255, 255, 0.25);
-    }
-    #mobileNav .my-bookings-btn {
-      display: block;
-      width: 100%;
-      text-align: center;
-      background: #212121;
-      color: white;
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      padding: 10px 16px;
-      border-radius: 12px;
-      transition: background 0.2s;
-    }
-    #mobileNav .my-bookings-btn:hover {
-      background: #333;
-    }
-
-    /* ===== MODAL ===== */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 99999;
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      overflow-y: auto;
-    }
+    /* Modals */
+    .modal-overlay { position: fixed; inset: 0; z-index: 99999; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 20px; }
     .modal-overlay.active { display: flex; }
-    .modal-box {
-      background: white;
-      max-width: 480px;
-      width: 100%;
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      overflow: hidden;
-      animation: modalIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    }
-    @keyframes modalIn {
-      from { opacity: 0; transform: scale(0.95) translateY(20px); }
-      to { opacity: 1; transform: scale(1) translateY(0); }
-    }
-    .modal-header {
-      padding: 20px 24px 0 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .modal-header h3 {
-      font-family: "Poppins", sans-serif;
-      font-weight: 700;
-      font-size: 20px;
-      color: #212121;
-      margin: 0;
-    }
-    .modal-close {
-      background: none;
-      border: none;
-      font-size: 24px;
-      color: #9ca3af;
-      cursor: pointer;
-      padding: 4px;
-      line-height: 1;
-      transition: color 0.2s;
-      width: 40px;
-      height: 40px;
-      border-radius: 999px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .modal-close:hover {
-      color: #212121;
-      background: #f1f5f9;
-    }
-    .modal-body {
-      padding: 16px 24px 20px 24px;
-      font-size: 14px;
-      line-height: 1.7;
-      color: #4b5563;
-    }
-    .modal-body input {
-      width: 100%;
-      margin-top: 8px;
-      padding: 12px 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 999px;
-      font-size: 14px;
-      font-family: "Poppins", sans-serif;
-      transition: border-color 0.2s;
-    }
-    .modal-body input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 4px var(--accent-glow);
-    }
-    .modal-footer {
-      padding: 12px 24px 20px 24px;
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-      border-top: 1px solid #f1f5f9;
-    }
-    .modal-footer .btn {
-      padding: 10px 24px;
-      border-radius: 999px;
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      border: none;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: "Poppins", sans-serif;
-    }
-    .modal-footer .btn-primary {
-      background: var(--primary);
-      color: white;
-    }
-    .modal-footer .btn-primary:hover {
-      background: var(--primary-light);
-    }
-    .modal-footer .btn-secondary {
-      background: #f1f5f9;
-      color: #475569;
-    }
-    .modal-footer .btn-secondary:hover {
-      background: #e2e8f0;
-    }
-    .modal-footer .btn-outline {
-      background: transparent;
-      border: 1px solid #d1d5db;
-      color: #374151;
-    }
-    .modal-footer .btn-outline:hover {
-      background: #f3f4f6;
-    }
-
-    /* ===== METRIC CARDS ===== */
-    .metric-card {
-      background: white;
-      border-radius: 16px;
-      padding: 20px;
-      text-align: center;
-      border: 1px solid rgba(0, 0, 0, 0.04);
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    }
-    .metric-card:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow-sm);
-    }
-    .metric-card .number {
-      font-size: 28px;
-      font-weight: 800;
-      margin-top: 4px;
-    }
-    .metric-card .label {
-      font-size: 10px;
-      text-transform: uppercase;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      color: #94a3b8;
-    }
-
-    /* ===== HOMESTAY SELECTOR ===== */
-    .homestay-selector {
-      border: 1px solid #cbd5e1;
-      padding: 10px 16px;
-      font-size: 13px;
-      font-weight: 600;
-      background: white;
-      color: #1e293b;
-      font-family: "Poppins", sans-serif;
-      border-radius: 999px;
-      transition: all 0.2s;
-    }
-    .homestay-selector:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 4px var(--accent-glow);
-    }
-
-    /* ===== BOOKING CARD ===== */
-    .booking-card {
-      background: white;
-      border-radius: 16px;
-      padding: 16px 20px;
-      border: 1px solid rgba(0, 0, 0, 0.04);
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    }
-    .booking-card:hover {
-      border-color: #cbd5e1;
-      box-shadow: var(--shadow-sm);
-    }
-
-    /* ===== BADGES ===== */
-    .badge-completed {
-      background: #dcfce7;
-      color: #166534;
-      border: 1px solid #bbf7d0;
-      border-radius: 999px;
-      padding: 3px 12px;
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .badge-paid {
-      background: #fef3c7;
-      color: #92400e;
-      border: 1px solid #fde68a;
-      border-radius: 999px;
-      padding: 3px 12px;
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .badge-pending {
-      background: #fee2e2;
-      color: #991b1b;
-      border: 1px solid #fecaca;
-      border-radius: 999px;
-      padding: 3px 12px;
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .badge-default {
-      background: #f1f5f9;
-      color: #475569;
-      border: 1px solid #e2e8f0;
-      border-radius: 999px;
-      padding: 3px 12px;
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    /* ===== RESPONSIVE ===== */
-    @media (max-width: 768px) {
+    .modal-box { background: white; max-width: 480px; width: 100%; border-radius: 2px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; animation: modalIn 0.25s ease; }
+    @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+    .modal-header { padding: 20px 24px 0 24px; display: flex; align-items: center; justify-content: space-between; }
+    .modal-close { background: none; border: none; font-size: 24px; color: #9ca3af; cursor: pointer; }
+    .modal-body { padding: 12px 24px 20px 24px; font-size: 14px; line-height: 1.6; color: #4b5563; }
+    .modal-footer { padding: 12px 24px 20px 24px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid #f3f4f6; }
+    .modal-footer .btn { padding: 8px 20px; border-radius: 2px; font-weight: 600; font-size: 12px; text-transform: uppercase; cursor: pointer; font-family: "Poppins", sans-serif; }
+    .guest-avatar { width: 32px; height: 32px; border-radius: 999px; background: #3FD0D4; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+    
+    @media (max-width:768px) {
       #desktopNav { display: none !important; }
       #mobileMenuBtn { display: flex !important; }
-      .metric-card .number { font-size: 22px; }
-      .booking-card { padding: 14px 16px; }
-    }
-    @media (max-width: 480px) {
-      .btn-primary, .btn-success, .btn-warning { padding: 10px 16px; font-size: 10px; }
     }
   </style>
 </head>
 <body>
 
-<!-- ===== CUSTOM MODAL ===== -->
+<!-- ===== DYNAMIC SYSTEM NOTICES ===== -->
 <div id="customModal" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-header">
-      <h3 id="modalTitle">Notice</h3>
+      <h3 id="modalTitle" class="font-bold text-[18px]">Verification notice</h3>
       <button onclick="closeModal()" class="modal-close">✕</button>
     </div>
-    <div class="modal-body" id="modalBody">Message</div>
+    <div class="modal-body" id="modalBody">Authentication message logs occur in this dialogue panel.</div>
     <div class="modal-footer" id="modalFooter">
-      <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
+      <button onclick="modalConfirm()" class="btn btn-primary sharp" id="modalConfirmBtn">Acknowledge</button>
     </div>
   </div>
 </div>
 
 <!-- ===== HEADER ===== -->
-<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
+<header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
-
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
-      <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
+      <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
       <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
-        KUNDASANG
-        <span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay</span>
+        KUNDASANG<span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay</span>
         <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Verified • Homestays</div>
       </div>
     </div>
-
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
-      <a href="/" class="setsail-nav-link">Home</a>
-      <a href="/list.html" class="setsail-nav-link">List Your Homestay</a>
-      <a href="/about.html" class="setsail-nav-link">About</a>
+      <a href="/" id="navHome" class="setsail-nav-link">Home</a>
+      <a href="/list.html" id="navList" class="setsail-nav-link">List Your Homestay</a>
+      <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
       <a href="/owner.html" class="setsail-nav-link agent active" style="text-decoration:none;">🔑 Agent Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
-        <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;">Login</a>
-        <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;">Register</a>
+        <a href="/login.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp flex items-center">Login</a>
+        <a href="/register.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp flex items-center">Register</a>
       </div>
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
-        <a href="/mybookings.html" class="setsail-nav-link" style="font-size:12px;">My Bookings</a>
-        <div class="flex items-center gap-2 bg-[#0F382E] text-white px-4 h-[38px] rounded-full">
+        <a href="/mybookings.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</a>
+        <div class="flex items-center gap-2 bg-[#212121] text-white px-4 h-[38px] sharp">
           <div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div>
           <span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span>
-          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider hover:bg-white/30 transition-colors">Logout</button>
+          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-2 py-1 sharp uppercase tracking-wider">Logout</button>
         </div>
       </div>
     </nav>
-
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()"
-            class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors"
-            aria-label="Toggle Navigation">
-      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
-        <path d="M4 6h16M4 12h16M4 18h16"/>
-      </svg>
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 sharp bg-[#212121] text-white items-center justify-center" aria-label="Toggle Navigation">
+      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
+  </div>
+
+  <!-- ===== MOBILE NAV ===== -->
+  <div id="mobileNav" class="lg:hidden">
+    <div class="p-4 space-y-1">
+      <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] py-3 border-b border-black/5">🏠 Home</a>
+      <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] py-3 border-b border-black/5">➕ List Your Homestay</a>
+      <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] py-3 border-b border-black/5">ℹ️ About</a>
+      <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+
+      <div class="pt-3 space-y-3">
+        <div id="mGuestNav">
+          <a href="/login.html" onclick="toggleMobileMenu()" class="guest-btn block text-center">Login</a>
+          <a href="/register.html" onclick="toggleMobileMenu()" class="guest-btn guest-btn-primary block text-center">Register</a>
+        </div>
+        <div id="mGuestProfileNav" class="hidden space-y-2">
+          <div class="profile-card">
+            <div id="mGuestAvatar" class="avatar">G</div>
+            <div class="info">
+              <div id="mGuestNameNav" class="name">Guest</div>
+              <div class="sub text-[10px] text-zinc-400">Verified traveler</div>
+            </div>
+            <button onclick="logoutGuest()" class="logout-btn">Logout</button>
+          </div>
+          <a href="/mybookings.html" onclick="toggleMobileMenu()" class="my-bookings-btn">📅 My Bookings</a>
+        </div>
+      </div>
+    </div>
   </div>
 </header>
 
-<!-- ===== MOBILE MENU ===== -->
-<div id="mobileNav">
-  <div class="p-4 space-y-1">
-    <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
-    <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
-    <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
-    <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+<!-- ===== MAIN CONTENT BODY ===== -->
+<main class="max-w-[1100px] mx-auto p-6 py-12 min-h-[75vh]">
 
-    <div class="pt-3 space-y-3">
-      <div id="mGuestNav">
-        <a href="/login.html" onclick="toggleMobileMenu()" class="guest-btn block text-center">Login</a>
-        <a href="/register.html" onclick="toggleMobileMenu()" class="guest-btn guest-btn-primary block text-center">Register</a>
-      </div>
-      <div id="mGuestProfileNav" class="hidden space-y-2">
-        <div class="profile-card">
-          <div id="mGuestAvatar" class="avatar">G</div>
-          <div class="info">
-            <div id="mGuestNameNav" class="name">Guest</div>
-            <div class="sub">Verified guest</div>
-          </div>
-          <button onclick="logoutGuest()" class="logout-btn">Logout</button>
-        </div>
-        <a href="/mybookings.html" onclick="toggleMobileMenu()" class="my-bookings-btn">📅 My Bookings</a>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ===== MAIN CONTENT ===== -->
-<main class="flex-1 max-w-[1100px] mx-auto px-4 md:px-6 py-8 md:py-12 w-full">
-
-  <!-- ===== LOGIN PANEL ===== -->
-  <div id="loginSection" class="max-w-md mx-auto card p-8 md:p-10 animate-on-scroll">
-    <div class="text-center mb-6">
-      <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Host Console</div>
-      <h2 class="font-poppins font-700 text-[28px] text-[#212121] mt-1">Owner Login</h2>
-      <div class="w-[40px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-2 rounded-full"></div>
-      <p class="text-xs text-zinc-500 mt-2">Sign in using your registered WhatsApp number and password.</p>
-    </div>
-
-    <div class="space-y-4">
+  <!-- LOGIN MODULE -->
+  <div id="loginSection" class="max-w-md mx-auto card p-6 md:p-10 mt-10 animate-on-scroll">
+    <h2 class="text-2xl font-bold font-poppins text-[#212121]">Host Console</h2>
+    <p class="text-xs text-zinc-500 mt-1">Authenticate using your registered WhatsApp number.</p>
+    
+    <div class="mt-6 space-y-4">
       <div>
-        <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-500 mb-1.5">WhatsApp Number</label>
-        <input id="ownerWhatsapp" type="tel" placeholder="e.g. 0123456789"
-               class="form-input w-full border-2 border-zinc-200 rounded-full px-5 py-3 text-sm focus:outline-none focus:border-[#3FD0D4] focus:shadow-[0_0_0_4px_rgba(63,208,212,0.15)] transition-all" />
+        <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-500 mb-1">WhatsApp Number</label>
+        <input id="ownerWhatsapp" type="tel" placeholder="e.g. 0123456789" class="w-full border sharp px-4 py-3 text-sm focus:outline-none focus:border-[#3FD0D4]" />
       </div>
       <div>
-        <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-500 mb-1.5">Password</label>
-        <input id="ownerPassword" type="password" placeholder="Dashboard password"
-               class="form-input w-full border-2 border-zinc-200 rounded-full px-5 py-3 text-sm focus:outline-none focus:border-[#3FD0D4] focus:shadow-[0_0_0_4px_rgba(63,208,212,0.15)] transition-all"
-               onkeydown="if(event.key==='Enter') ownerLogin()" />
+        <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-500 mb-1">Dashboard Password</label>
+        <input id="ownerPassword" type="password" placeholder="Password" class="w-full border sharp px-4 py-3 text-sm focus:outline-none focus:border-[#3FD0D4]" />
       </div>
     </div>
-
-    <div class="text-right mt-2">
-      <button onclick="openOwnerForgotPassword()" class="text-xs text-purple-600 font-semibold hover:underline transition-colors">
-        Forgot Password?
-      </button>
+    
+    <div class="text-right mt-2.5">
+      <button onclick="openOwnerForgotPassword()" class="text-xs text-purple-600 font-semibold hover:underline">Forgot Access Password?</button>
     </div>
-
-    <button onclick="ownerLogin()" class="btn-primary w-full mt-5 py-3.5 text-sm">
-      Enter Dashboard
-    </button>
-    <div id="loginError" class="hidden text-red-600 text-xs mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-center"></div>
+    
+    <button onclick="ownerLogin()" class="btn-primary w-full mt-6 py-3.5 sharp">Enter Dashboard</button>
+    <div id="loginError" class="text-red-600 text-xs mt-3 hidden text-center p-2.5 bg-red-50 border border-red-200 sharp"></div>
   </div>
 
-  <!-- ===== DASHBOARD ===== -->
+  <!-- DASHBOARD HOUSING MODULE -->
   <div id="dashboardSection" class="hidden space-y-6">
-
-    <!-- Welcome Header -->
-    <div class="flex items-center justify-between flex-wrap gap-4 animate-on-scroll">
+    <div class="flex items-center justify-between flex-wrap gap-4 border-b pb-4 animate-on-scroll">
       <div>
-        <h2 class="font-poppins font-700 text-[28px] md:text-[32px] text-[#212121]">
-          Welcome, <span id="welcomeName" class="text-[#0F382E]">Owner</span>!
-        </h2>
-        <p class="text-sm text-zinc-500 mt-0.5">Manage reservations, confirm check-ins, and track earnings.</p>
+        <h2 class="text-2xl font-bold font-poppins text-[#212121]">Host: <span id="welcomeName" class="text-[#0F382E]">Owner</span></h2>
+        <p class="text-xs text-zinc-500 mt-0.5">Physical property audits, reservation modifications & verified check-ins.</p>
       </div>
-      <button onclick="loadBookings()" class="refresh-btn">
-        🔄 Refresh
+      <button onclick="loadBookings()" class="refresh-btn sharp">
+        <span>🔄 Synchronize</span>
       </button>
     </div>
 
-    <!-- Metrics -->
+    <!-- Live Performance Metrics Tracker Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-on-scroll">
-      <div class="metric-card bg-[#0F382E] text-white">
-        <div class="label text-white/60">Total Revenue</div>
-        <div id="metricTotalRevenue" class="number">RM 0.00</div>
-        <div class="text-[10px] text-white/50 mt-1">Paid out 1–4 days after check-in</div>
+      <div class="card p-5 bg-[#0F382E] text-white">
+        <div class="text-[10px] uppercase tracking-wider text-white/60 font-semibold">Consolidated Revenue (Host Share)</div>
+        <div class="text-2xl font-bold mt-1" id="metricTotalRevenue">RM 0.00</div>
+        <div class="text-[10px] text-white/50 mt-1">Disbursed automatically 1-4 days post check-in</div>
       </div>
-      <div class="metric-card">
-        <div class="label">Completed Check-ins</div>
-        <div id="metricCheckinsCount" class="number text-[#0F382E]">0</div>
-        <div class="text-[10px] text-zinc-500 mt-1">Fully completed stays</div>
+      <div class="card p-5 bg-white border border-black/5">
+        <div class="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Confirmed Reservations</div>
+        <div class="text-2xl font-bold mt-1 text-[#212121]" id="metricCheckinsCount">0</div>
+        <div class="text-[10px] text-zinc-500 mt-1">Checked-in and completed transactions</div>
       </div>
-      <div class="metric-card">
-        <div class="label">Awaiting Check-in</div>
-        <div id="metricActiveCount" class="number text-[#3FD0D4]">0</div>
-        <div class="text-[10px] text-zinc-500 mt-1">Paid — ready to confirm arrival</div>
+      <div class="card p-5 bg-white border border-black/5">
+        <div class="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Awaiting Check-in</div>
+        <div class="text-2xl font-bold mt-1 text-[#3FD0D4]" id="metricActiveCount">0</div>
+        <div class="text-[10px] text-zinc-500 mt-1">Guests ready to be confirmed on arrival</div>
       </div>
     </div>
-
-    <!-- Property Filter -->
-    <div class="flex items-center gap-3 flex-wrap bg-white/80 backdrop-blur border p-4 rounded-2xl animate-on-scroll">
-      <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Filter by Property:</span>
-      <select id="homestaySelector" class="homestay-selector"></select>
-      <span id="selectedHomestayName" class="text-xs text-zinc-500 italic"></span>
+    
+    <!-- Property filter mechanisms -->
+    <div class="flex items-center gap-3 flex-wrap bg-zinc-50 border p-4 sharp animate-on-scroll">
+      <span class="text-xs text-zinc-600 font-bold uppercase tracking-wider">Property Scope:</span>
+      <select id="homestaySelector" class="homestay-selector sharp"></select>
+      <span id="selectedHomestayName" class="text-xs text-zinc-500 font-medium italic"></span>
     </div>
 
-    <!-- Bookings List -->
+    <!-- Active Reservations Listing Panel -->
     <div class="card p-6 animate-on-scroll">
-      <h3 class="font-bold text-[20px] text-[#212121] border-b border-black/5 pb-3 mb-5">
-        📅 Reservation List
+      <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2">
+        <span>📅 Reservation Books</span>
       </h3>
       <div id="ownerBookingsList" class="space-y-4">
-        <div class="text-sm text-zinc-400 py-8 text-center">Loading bookings...</div>
+        <div class="text-sm text-zinc-400 py-6 text-center">Loading reservations data...</div>
       </div>
     </div>
-
   </div>
-
 </main>
 
 <!-- ===== FOOTER ===== -->
-<footer class="bg-[#212121] text-white/70 mt-auto">
-  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-10 grid grid-cols-1 md:grid-cols-4 gap-8">
+<footer class="bg-[#212121] text-white/70 mt-20">
+  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div>
       <div class="flex items-center gap-3">
-        <div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div>
+        <div class="w-[32px] h-[32px] sharp bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div>
         <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div>
       </div>
-      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local — Mountain homestays with Kinabalu soul.</p>
+      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local — Kundasang version. Mountain homestays with Kinabalu soul.</p>
     </div>
     <div>
       <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div>
       <div class="space-y-2 text-[13px] font-poppins">
-        <a href="/" class="hover:text-white block transition-colors">Homestays</a>
-        <a href="/list.html" class="hover:text-white block transition-colors">List Property</a>
-        <a href="/about.html" class="hover:text-white block transition-colors">About</a>
+        <a href="/" class="hover:text-white block">Homestays</a>
+        <a href="/list.html" class="hover:text-white block">List Property</a>
+        <a href="/about.html" class="hover:text-white block">About</a>
       </div>
     </div>
     <div>
@@ -877,12 +262,12 @@
       </div>
     </div>
     <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Platform</div>
-      <p class="text-[12px] text-white/50 font-poppins">Kundasang mountain stays — Sabah, Malaysia.</p>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div>
+      <p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p>
     </div>
   </div>
   <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
-    © 2026 Kundasang Homestay — All payments secured by ToyyibPay FPX
+    © 2026 Kundasang Homestay — All payment is secured by Toyyibpay
   </div>
 </footer>
 
@@ -890,25 +275,7 @@
 <script src="animations.js"></script>
 <script>
 // =============================================================
-// GLOBALS
-// =============================================================
-const API_BASE = "/api";
-let ownerToken = sessionStorage.getItem('kd_owner_token') || '';
-let ownerHomestayIds = [];
-let allHomestays = [];
-let bookings = [];
-let currentHomestayId = 'all';
-let lastBookingId = "";
-let lastBookingDetails = null;
-
-let currentGuest = null;
-try {
-  const saved = localStorage.getItem('kd_guest');
-  if (saved) currentGuest = JSON.parse(saved);
-} catch(e) { currentGuest = null; }
-
-// =============================================================
-// MODAL SYSTEM
+// CUSTOM MODAL SYSTEM
 // =============================================================
 function showModal(title, message, buttons) {
   return new Promise((resolve) => {
@@ -917,38 +284,37 @@ function showModal(title, message, buttons) {
     const bodyEl = document.getElementById('modalBody');
     const footerEl = document.getElementById('modalFooter');
 
-    titleEl.textContent = title || 'Notice';
-    bodyEl.innerHTML = typeof message === 'string' ? message : '';
-    footerEl.innerHTML = '';
+    if (titleEl) titleEl.textContent = title || 'Notice';
+    if (bodyEl) bodyEl.innerHTML = typeof message === 'string' ? message : '';
+    if (footerEl) {
+      footerEl.innerHTML = '';
+      buttons.forEach(btn => {
+        const el = document.createElement('button');
+        el.textContent = btn.label;
+        el.className = `btn ${btn.class || 'btn-primary'} sharp text-xs px-4 py-2 uppercase font-bold`;
+        el.onclick = () => {
+          if (overlay) overlay.classList.remove('active');
+          document.body.style.overflow = '';
+          if (btn.value !== undefined) resolve(btn.value);
+          else resolve(true);
+        };
+        footerEl.appendChild(el);
+      });
+    }
 
-    buttons.forEach(btn => {
-      const el = document.createElement('button');
-      el.textContent = btn.label;
-      el.className = `btn ${btn.class || 'btn-primary'}`;
-      el.onclick = () => {
-        overlay.classList.remove('active');
-        document.body.style.overflow = '';
-        if (btn.value !== undefined) resolve(btn.value);
-        else resolve(true);
-      };
-      footerEl.appendChild(el);
-    });
-
-    overlay.classList.add('active');
+    if (overlay) overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
   });
 }
 
 function closeModal() {
   const overlay = document.getElementById('customModal');
-  overlay.classList.remove('active');
+  if (overlay) overlay.classList.remove('active');
   document.body.style.overflow = '';
 }
 
 function modalConfirm() {
-  const overlay = document.getElementById('customModal');
-  overlay.classList.remove('active');
-  document.body.style.overflow = '';
+  closeModal();
 }
 
 function showAlert(title, message) {
@@ -957,259 +323,243 @@ function showAlert(title, message) {
 
 function showConfirm(title, message) {
   return showModal(title, message, [
-    { label: 'Cancel', class: 'btn-secondary', value: false },
-    { label: 'Confirm', class: 'btn-primary', value: true }
+    { label: 'Cancel', class: 'btn-outline', value: false },
+    { label: 'Confirm Action', class: 'btn-primary', value: true }
   ]);
 }
 
 function showPrompt(title, message, defaultValue) {
+  const input = `<input type="text" id="modalInput" value="${defaultValue || ''}" class="w-full border sharp px-3 py-2.5 mt-3 text-sm" placeholder="Enter parameters..." />`;
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
     const titleEl = document.getElementById('modalTitle');
     const bodyEl = document.getElementById('modalBody');
     const footerEl = document.getElementById('modalFooter');
 
-    titleEl.textContent = title || 'Input';
-    bodyEl.innerHTML = `
-      <p style="font-size:13px;color:#4b5563;margin-bottom:4px;">${message || ''}</p>
-      <input type="text" id="modalInput"
-             value="${defaultValue || ''}"
-             placeholder="Enter value..."
-             style="width:100%;margin-top:8px;padding:12px 16px;
-                    border:2px solid #e2e8f0;border-radius:999px;
-                    font-size:14px;font-family:'Poppins',sans-serif;" />
-    `;
+    if (titleEl) titleEl.textContent = title || 'Awaiting entry';
+    if (bodyEl) bodyEl.innerHTML = (message || '') + input;
+    if (footerEl) {
+      footerEl.innerHTML = '';
+      
+      const okBtn = document.createElement('button');
+      okBtn.textContent = 'Save Changes';
+      okBtn.className = 'btn btn-primary sharp';
+      okBtn.onclick = () => {
+        const val = document.getElementById('modalInput')?.value || '';
+        if (overlay) overlay.classList.remove('active');
+        document.body.style.overflow = '';
+        resolve(val);
+      };
+      footerEl.appendChild(okBtn);
 
-    footerEl.innerHTML = '';
-    const okBtn = document.createElement('button');
-    okBtn.textContent = 'Save';
-    okBtn.className = 'btn btn-primary';
-    okBtn.onclick = () => {
-      const val = document.getElementById('modalInput')?.value || '';
-      overlay.classList.remove('active');
-      document.body.style.overflow = '';
-      resolve(val);
-    };
-    footerEl.appendChild(okBtn);
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.className = 'btn btn-outline sharp';
+      cancelBtn.onclick = () => {
+        if (overlay) overlay.classList.remove('active');
+        document.body.style.overflow = '';
+        resolve(null);
+      };
+      footerEl.appendChild(cancelBtn);
+    }
 
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.className = 'btn btn-outline';
-    cancelBtn.onclick = () => {
-      overlay.classList.remove('active');
-      document.body.style.overflow = '';
-      resolve(null);
-    };
-    footerEl.appendChild(cancelBtn);
-
-    overlay.classList.add('active');
+    if (overlay) overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
-    setTimeout(() => document.getElementById('modalInput')?.focus(), 200);
+    setTimeout(() => {
+      const inp = document.getElementById('modalInput');
+      if (inp) inp.focus();
+    }, 200);
   });
 }
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeModal();
+// Global dismissals
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeModal();
+  }
 });
 
-document.getElementById('customModal').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
-});
+// =============================================================
+// GLOBAL METRIC VARIABLES
+// =============================================================
+const API_BASE = "/api";
+let ownerToken = sessionStorage.getItem('kd_owner_token') || '';
+let ownerHomestayIds = [];
+let allHomestays = [];
+let bookings = [];
+let currentHomestayId = 'all';
 
-// =============================================================
-// DOMPurify HELPER
-// =============================================================
-function safeHTML(html) {
-  if (!html) return '';
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['div','span','p','b','strong','br','small','button','svg','path'],
-    ALLOWED_ATTR: ['id','class','style','onclick','xmlns','width','height','viewBox','fill','d']
-  });
-}
+let currentGuest = null;
+try {
+  const saved = localStorage.getItem('kd_guest');
+  if (saved) currentGuest = JSON.parse(saved);
+} catch(e) { currentGuest = null; }
 
-// =============================================================
-// GUEST NAV
-// =============================================================
 function renderGuestNav() {
   const loginNav = document.getElementById("guestNav");
   const profileNav = document.getElementById("guestProfileNav");
   const mLoginNav = document.getElementById("mGuestNav");
   const mProfileNav = document.getElementById("mGuestProfileNav");
-  const mAvatar = document.getElementById("mGuestAvatar");
-  const mNameNav = document.getElementById("mGuestNameNav");
 
-  if (currentGuest) {
+  if (currentGuest && currentGuest.id) {
     if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
     if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
     const avatar = document.getElementById("guestAvatar");
     const nameNav = document.getElementById("guestNameNav");
     if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
     if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
-    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
-    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
-    if (mAvatar) mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+    if (mLoginNav) mLoginNav.classList.add("hidden");
+    if (mProfileNav) mProfileNav.classList.remove("hidden");
   } else {
     if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
     if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
-    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
+    if (mLoginNav) mLoginNav.classList.remove("hidden");
+    if (mProfileNav) mProfileNav.classList.add("hidden");
   }
 }
 
 function logoutGuest() {
-  showConfirm("Logout", "Logout from guest account?").then(confirmed => {
-    if (!confirmed) return;
-    currentGuest = null;
-    localStorage.removeItem('kd_guest');
-    renderGuestNav();
-    window.location.href = '/';
-  });
+  if (!confirm("Confirm guest profile logout?")) return;
+  currentGuest = null;
+  localStorage.removeItem('kd_guest');
+  renderGuestNav();
+  window.location.href = '/';
 }
 
-// =============================================================
-// MOBILE NAV
-// =============================================================
-function toggleMobileMenu() {
-  document.getElementById('mobileNav')?.classList.toggle('open');
-}
-
-document.addEventListener('click', function(e) {
-  const nav = document.getElementById('mobileNav');
-  const btn = document.getElementById('mobileMenuBtn');
-  if (!nav || !btn) return;
-  if (nav.classList.contains('open') &&
-      !nav.contains(e.target) &&
-      !btn.contains(e.target)) {
-    nav.classList.remove('open');
-  }
-});
-
-// =============================================================
-// OWNER FORGOT PASSWORD
-// =============================================================
+// =============================================
+// HOST PASS RECOVERY
+// =============================================
 function openOwnerForgotPassword() {
-  showPrompt('Reset Password', 'Enter your registered host email address:').then(email => {
-    if (!email || !email.trim()) return;
-    const errorEl = document.getElementById('loginError');
-    if (errorEl) {
-      errorEl.textContent = 'Sending reset link...';
-      errorEl.className = 'text-blue-600 text-xs mt-3 p-3 bg-blue-50 border border-blue-200 rounded-xl text-center';
-      errorEl.classList.remove('hidden');
+  showPrompt('Forgot Password', 'Type your registered host email address to receive password adjustments details:').then(email => {
+    if (email && email.trim()) {
+      const errorEl = document.getElementById('loginError');
+      if (errorEl) {
+        errorEl.textContent = 'Processing request...';
+        errorEl.className = 'text-blue-600 text-xs mt-3 block p-2 bg-blue-50 border border-blue-200 sharp';
+        errorEl.classList.remove('hidden');
+      }
+
+      fetch(API_BASE + '/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), userType: 'owner' })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          showAlert('Instruction Dispatch', data.message || 'Verification sequences have been routed to your host mailbox.');
+          if (errorEl) errorEl.classList.add('hidden');
+        } else {
+          showAlert('Request Faulted', data.error || 'Identity matching parameters failed.');
+          if (errorEl) errorEl.classList.add('hidden');
+        }
+      })
+      .catch(() => {
+        showAlert('Network Interrupted', 'Handshake error occurred.');
+        if (errorEl) errorEl.classList.add('hidden');
+      });
     }
-    fetch(`${API_BASE}/forgot-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim(), userType: 'owner' })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (errorEl) errorEl.classList.add('hidden');
-      showAlert(
-        data.success ? 'Reset Link Sent' : 'Request Failed',
-        data.message || data.error || 'Please try again.'
-      );
-    })
-    .catch(() => {
-      if (errorEl) errorEl.classList.add('hidden');
-      showAlert('Network Error', 'Connection failed. Please try again.');
-    });
   });
 }
 
-// =============================================================
-// OWNER LOGIN
-// =============================================================
+// =============================================
+// HOST LOGIN FLOW
+// =============================================
 async function ownerLogin() {
   const whatsapp = document.getElementById('ownerWhatsapp').value.replace(/[^0-9]/g, '');
   const password = document.getElementById('ownerPassword').value;
   const errorEl = document.getElementById('loginError');
   if (errorEl) errorEl.classList.add('hidden');
 
-  if (!whatsapp || !password) {
-    await showAlert('Missing Fields', 'Please enter your WhatsApp number and password.');
-    return;
+  if (!whatsapp || !password) { 
+    await showAlert('Incomplete Form', 'Please provide both your WhatsApp number and Host Account password.');
+    return; 
   }
 
   try {
-    const res = await fetch(`${API_BASE}/owner-login`, {
+    const res = await fetch(API_BASE + '/owner-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ whatsapp, password })
     });
     const data = await res.json();
-
     if (data.success) {
       ownerToken = data.token;
       sessionStorage.setItem('kd_owner_token', ownerToken);
+      
       allHomestays = data.homestays || [];
       ownerHomestayIds = allHomestays.map(h => h.id);
-
-      populateHomestaySelector();
-
+      
+      const selector = document.getElementById('homestaySelector');
+      if (selector) {
+        selector.innerHTML = '<option value="all">📍 All Linked Homestays</option>';
+        allHomestays.forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h.id;
+          opt.textContent = h.name;
+          selector.appendChild(opt);
+        });
+      }
+      
+      currentHomestayId = 'all';
+      if (selector) selector.value = 'all';
+      
       document.getElementById('loginSection').classList.add('hidden');
       document.getElementById('dashboardSection').classList.remove('hidden');
       document.getElementById('welcomeName').innerText = allHomestays[0]?.ownerName || 'Owner';
       loadBookings();
     } else {
+      let errorMsg = data.error || "Host authentication sequence failed.";
       if (errorEl) {
-        errorEl.textContent = data.error || 'Login failed. Please check your credentials.';
-        errorEl.className = 'text-red-600 text-xs mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-center';
+        errorEl.innerText = errorMsg;
+        errorEl.className = 'text-red-600 text-xs mt-3 block p-2 bg-red-50 border border-red-200 sharp';
         errorEl.classList.remove('hidden');
       }
     }
   } catch(e) {
-    await showAlert('Network Error', 'Connection failed: ' + e.message);
+    await showAlert('Handshake Exception', 'Network operations failed: ' + e.message);
   }
 }
 
-// =============================================================
-// HOMESTAY SELECTOR
-// =============================================================
-function populateHomestaySelector() {
-  const selector = document.getElementById('homestaySelector');
-  if (!selector) return;
-  selector.innerHTML = '<option value="all">📍 All My Homestays</option>';
-  allHomestays.forEach(h => {
-    const opt = document.createElement('option');
-    opt.value = h.id;
-    opt.textContent = h.name;
-    selector.appendChild(opt);
-  });
-  currentHomestayId = 'all';
-  selector.value = 'all';
-}
-
-// =============================================================
-// LOAD BOOKINGS
-// =============================================================
+// =============================================
+// RESERVATIONS RENDER PIPELINE
+// =============================================
 async function loadBookings() {
   if (!ownerToken) return;
   const listDiv = document.getElementById('ownerBookingsList');
-  if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 py-8 text-center">Loading...</div>';
+  if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 py-6 text-center">Refreshing dynamic logs...</div>';
 
   try {
-    const res = await fetch(`${API_BASE}/owner-bookings`, {
+    const res = await fetch(API_BASE + '/owner-bookings', {
       headers: { 'Owner-Authorization': 'Bearer ' + ownerToken },
       cache: 'no-store'
     });
-    if (!res.ok) throw new Error('Failed to fetch bookings');
-
+    if (!res.ok) throw new Error('Data sync failure');
     bookings = await res.json();
+
     if (!Array.isArray(bookings)) bookings = [];
 
-    const filteredBookings = currentHomestayId === 'all'
-      ? bookings
-      : bookings.filter(b => String(b.homestayId) === String(currentHomestayId));
+    // Filter by Homestay
+    let filteredBookings = bookings;
+    if (currentHomestayId !== 'all') {
+      filteredBookings = bookings.filter(b => String(b.homestayId) === String(currentHomestayId));
+    }
 
-    // Metrics
-    let totalRevenue = 0, completedCheckins = 0, upcomingCheckins = 0;
-    filteredBookings.forEach(b => {
-      const status = (b.status || '').toLowerCase();
-      const isCompleted = b.payoutDate || status.includes('completed');
-      const isPaid = status.includes('paid') && !isCompleted;
-      if (isCompleted) { totalRevenue += parseFloat(b.base) || 0; completedCheckins++; }
-      else if (isPaid) { upcomingCheckins++; }
+    // Dynamic metrics generation calculations
+    let totalRevenue = 0;
+    let completedCheckins = 0;
+    let upcomingCheckins = 0;
+
+    bookings.forEach(b => {
+      const isPaid = (b.status || '').toLowerCase().includes('paid');
+      const isCompleted = b.payoutDate || (b.status || '').toLowerCase().includes('completed');
+      
+      if (isCompleted) {
+        totalRevenue += parseFloat(b.base) || 0;
+        completedCheckins++;
+      } else if (isPaid) {
+        upcomingCheckins++;
+      }
     });
 
     document.getElementById('metricTotalRevenue').textContent = `RM ${totalRevenue.toFixed(2)}`;
@@ -1219,132 +569,128 @@ async function loadBookings() {
     const nameSpan = document.getElementById('selectedHomestayName');
     if (nameSpan) {
       if (currentHomestayId === 'all') {
-        nameSpan.textContent = `(${filteredBookings.length} bookings across ${allHomestays.length} homestay${allHomestays.length !== 1 ? 's' : ''})`;
+        nameSpan.textContent = `(${bookings.length} overall across ${allHomestays.length} active listings)`;
       } else {
         const hs = allHomestays.find(h => String(h.id) === String(currentHomestayId));
-        nameSpan.textContent = `(${filteredBookings.length} booking${filteredBookings.length !== 1 ? 's' : ''} for "${hs?.name || 'Homestay'}")`;
+        nameSpan.textContent = `(${filteredBookings.length} bookings matching "${hs?.name || 'Selection'}")`;
       }
     }
 
     if (filteredBookings.length === 0) {
-      if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-500 py-8 text-center">No bookings found for the selected property.</div>';
+      if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-500 py-6 text-center">No active reservation cycles discovered.</div>';
       return;
     }
 
     let html = '';
-    filteredBookings.forEach(b => {
+    for (let i = 0; i < filteredBookings.length; i++) {
+      const b = filteredBookings[i];
       const id = b.id || 'N/A';
-      const homestayName = b.homestay || b.homestayName || 'Unnamed Homestay';
+      const homestayName = b.homestay || b.homestayName || 'Unknown Residence';
       const checkin = b.checkin || 'N/A';
       const checkout = b.checkout || 'N/A';
       const nights = b.nights || 1;
-      const guestName = b.guestName || b.guestEmail || 'Guest';
-      const base = parseFloat(b.base) || 0;
-      const total = parseFloat(b.total) || 0;
-      const status = b.status || 'Unknown';
+      const guestName = b.guestName || b.guestEmail || 'Unknown Guest';
+      const base = b.base || 0;
+      const total = b.total || 0;
+      const status = b.status || 'Staged';
       const payoutDate = b.payoutDate || null;
 
-      const statusLower = status.toLowerCase();
-      const isCompleted = payoutDate || statusLower.includes('completed');
-      const isPaid = statusLower.includes('paid') && !isCompleted;
-      const isPending = statusLower.includes('pending');
+      const isPaid = status.toLowerCase().includes('paid');
+      const isCompleted = payoutDate || status.toLowerCase().includes('completed');
+      const isPending = status.toLowerCase().includes('pending');
 
-      let badgeClass = 'badge-default';
-      let badgeLabel = status;
-      if (isCompleted) { badgeClass = 'badge-completed'; badgeLabel = '✓ Completed'; }
-      else if (isPaid) { badgeClass = 'badge-paid'; badgeLabel = '🟡 Ready for Check-in'; }
-      else if (isPending) { badgeClass = 'badge-pending'; badgeLabel = '⏳ Pending Payment'; }
+      let statusBadge = '';
+      if (isCompleted) {
+        statusBadge = '<span class="text-[10px] bg-green-100 text-green-800 border border-green-200 px-2.5 py-1 sharp font-bold uppercase tracking-wider">✓ Completed / Guest Checked-in</span>';
+      } else if (isPaid) {
+        statusBadge = '<span class="text-[10px] bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 sharp font-bold uppercase tracking-wider">🟡 Ready for Check-in</span>';
+      } else if (isPending) {
+        statusBadge = '<span class="text-[10px] bg-red-100 text-red-800 border border-red-200 px-2.5 py-1 sharp font-bold uppercase tracking-wider">⏳ Unpaid Reservation</span>';
+      } else {
+        statusBadge = `<span class="text-[10px] bg-zinc-100 text-zinc-600 border px-2.5 py-1 sharp font-bold uppercase tracking-wider">${status}</span>`;
+      }
 
-      let actions = '';
+      let actionButtons = '';
       if (isPaid && !isCompleted) {
-        actions += `<button onclick="confirmCheckIn('${id}')" class="btn-success">✓ Confirm Check-in</button>`;
+        actionButtons += `
+          <button onclick="confirmCheckIn('${id}')" class="btn-success sharp flex items-center gap-1">✓ Confirm Arrival</button>
+        `;
       }
       if (!isCompleted) {
-        actions += `<button onclick="changeBookingDates('${id}')" class="btn-warning">📅 Change Dates</button>`;
-      }
-      if (isPaid || isCompleted) {
-        actions += `<button onclick="openWhatsappToGuest('${id}')" class="btn-whatsapp-sm">💬 WhatsApp</button>`;
+        actionButtons += `
+          <button onclick="changeBookingDates('${id}')" class="btn-warning sharp">📅 Modify Dates</button>
+        `;
       }
       if (isCompleted) {
-        const payoutDisplay = payoutDate ? new Date(payoutDate).toLocaleDateString('en-MY') : 'Logged';
-        actions = `<span class="text-xs text-green-700 font-semibold bg-green-50 px-3 py-1.5 rounded-full border border-green-200">✓ Payout on ${payoutDisplay}</span>`;
+        const payoutDisplay = payoutDate ? new Date(payoutDate).toLocaleDateString('en-MY') : 'Check-In Logged';
+        actionButtons = `<span class="text-xs text-green-700 font-bold">Payout processing (${payoutDisplay})</span>`;
       }
 
       html += `
-        <div class="booking-card flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div class="space-y-1.5 flex-1 min-w-0">
-            <div class="font-bold text-[15px] text-[#212121] truncate">${homestayName}</div>
+        <div class="border p-5 sharp bg-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-all duration-200 hover:border-zinc-300">
+          <div class="space-y-1.5 flex-1">
+            <div class="font-bold text-sm text-[#212121]">${homestayName}</div>
             <div class="text-xs text-zinc-600">
-              <span class="font-semibold">${checkin}</span> →
-              <span class="font-semibold">${checkout}</span>
-              <span class="text-zinc-400">(${nights} night${nights !== 1 ? 's' : ''})</span>
-              · Guest: <span class="font-semibold text-[#0F382E]">${guestName}</span>
+              <span class="font-semibold text-zinc-800">${checkin} to ${checkout}</span> (${nights} Nights) • Guest: <span class="font-semibold text-[#0F382E]">${guestName}</span>
             </div>
-            <div class="text-xs text-zinc-500">
-              Host earns: <span class="font-bold text-[#0F382E]">RM ${base.toFixed(2)}</span>
-              · Guest paid: <span class="font-semibold">RM ${total.toFixed(2)}</span>
-              · ID: <span class="font-mono text-zinc-400">${id}</span>
-            </div>
-            <div class="pt-0.5"><span class="${badgeClass}">${badgeLabel}</span></div>
+            <div class="text-xs font-semibold text-zinc-500">Host Earnings: <span class="text-[#0F382E]">RM ${base}</span> • Platform total: RM ${total}</div>
+            <div class="pt-1">${statusBadge}</div>
           </div>
-          <div class="flex flex-wrap gap-2 shrink-0">
-            ${actions}
+          <div class="flex flex-wrap gap-2 w-full md:w-auto">
+            ${actionButtons}
           </div>
         </div>
       `;
-    });
-
-    if (listDiv) {
-      listDiv.innerHTML = safeHTML(html);
     }
 
+    if (listDiv) listDiv.innerHTML = html;
   } catch(e) {
-    if (listDiv) {
-      listDiv.innerHTML = '<div class="text-sm text-red-600 text-center py-8 font-semibold">Failed to load bookings. Please click Refresh.</div>';
-    }
-    console.error('loadBookings error:', e);
+    if (listDiv) listDiv.innerHTML = '<div class="text-sm text-red-600 text-center py-6 font-semibold">Synchronization failed. Please reload dashboard view.</div>';
   }
 }
 
-// =============================================================
-// WHATSAPP TO GUEST
-// =============================================================
+// =============================================
+// WHATSAPP OUTGOING INTERACTION TO GUEST
+// =============================================
 function openWhatsappToGuest(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
-  if (!booking) { showAlert('Error', 'Booking not found.'); return; }
+  if (!booking) { 
+    showAlert('Error', 'Target booking index not found'); 
+    return; 
+  }
 
-  let phone = String(booking.guestPhone || booking.guestWhatsapp || '').replace(/[^0-9]/g, '');
+  let rawPhone = booking.guestPhone || booking.guestWhatsapp || '';
+  let phone = String(rawPhone).replace(/[^0-9]/g, '');
   if (!phone || phone.length < 9) {
-    showAlert('No Contact', 'Guest phone number is not available.');
+    showAlert('Notice', 'Guest contact parameter missing.');
     return;
   }
-  if (phone.startsWith('0')) phone = '60' + phone.substring(1);
+  if (phone.startsWith('0')) {
+    phone = '60' + phone.substring(1);
+  }
 
-  const msg =
-    `Hi ${booking.guestName || 'there'}! 🎉\n\n` +
-    `Your check-in at *${booking.homestay || 'Kundasang Homestay'}* is confirmed!\n\n` +
-    `📅 Check-in:  ${booking.checkin || 'N/A'}\n` +
-    `📅 Check-out: ${booking.checkout || 'N/A'}\n` +
-    `🌙 Nights:    ${booking.nights || '?'}\n` +
+  const msg = `Hi ${booking.guestName || 'Guest'}! 🎉\n\n` +
+    `Your check-in at *${booking.homestay || 'Kundasang Homestay'}* has been confirmed!\n\n` +
+    `📅 Check-in: ${booking.checkin}\n` +
+    `📅 Check-out: ${booking.checkout}\n` +
+    `🌙 Nights: ${booking.nights}\n` +
     `🆔 Booking ID: ${booking.id}\n\n` +
-    `We look forward to hosting you. Welcome to Kundasang! 🏔️`;
+    `We hope you enjoy your stay! Welcome to Kundasang! 🏔️`;
 
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-// =============================================================
-// CONFIRM CHECK-IN
-// =============================================================
+// =============================================
+// CONFIRM ARRIVAL CHECK-IN
+// =============================================
 async function confirmCheckIn(bookingId) {
-  const confirmed = await showConfirm(
-    'Confirm Guest Check-in',
-    `Confirm arrival for booking <strong>${bookingId}</strong>?<br><br>
-     Payment will be released to your bank account within 1–4 business days.`
+  const confirmed = await showConfirm('Guest Check-In', 
+    `Confirm guest arrival for reservation ${bookingId}?\n\nEscrow payouts are pushed automatically to your registered bank account. Guest check-in WhatsApp messages will also be auto-generated.`
   );
   if (!confirmed) return;
-
+  
   try {
-    const res = await fetch(`${API_BASE}/owner-update-booking`, {
+    const res = await fetch(API_BASE + '/owner-update-booking', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1353,106 +699,137 @@ async function confirmCheckIn(bookingId) {
       body: JSON.stringify({ bookingId, action: 'confirmCheckin' })
     });
     const data = await res.json();
-
     if (data.success) {
-      await showAlert('Check-in Confirmed ✓', data.message || 'Guest has been checked in successfully.');
+      await showAlert('Check-in Logged', '✓ ' + data.message);
       await loadBookings();
-      const sendWA = await showConfirm('Send WhatsApp?', 'Send a WhatsApp confirmation message to the guest?');
-      if (sendWA) openWhatsappToGuest(bookingId);
+      
+      const shouldNotify = await showConfirm('Generate Notification?', '📱 Launch WhatsApp interface to forward instructions to guest?');
+      if (shouldNotify) {
+        openWhatsappToGuest(bookingId);
+      }
     } else {
-      await showAlert('Failed', '❌ ' + (data.error || data.message || 'Unknown error.'));
+      await showAlert('Operation Faulted', '❌ error: ' + (data.error || data.message));
     }
   } catch(e) {
-    await showAlert('Network Error', e.message);
+    await showAlert('Operation Faulted', 'Network error: ' + e.message);
   }
 }
 
-// =============================================================
-// CHANGE BOOKING DATES
-// =============================================================
+// =============================================
+// ADJUST DATES
+// =============================================
 async function changeBookingDates(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
-  if (!booking) { await showAlert('Error', 'Booking not found.'); return; }
+  if (!booking) return;
 
-  const newCheckin = await showPrompt('New Check-in Date', 'Format: YYYY-MM-DD', booking.checkin || '');
+  const currentCheckin = booking.checkin || '';
+  const currentCheckout = booking.checkout || '';
+  
+  const newCheckin = await showPrompt('Revise Check-in', 'Format date exactly as YYYY-MM-DD:', currentCheckin);
   if (!newCheckin) return;
-
-  const newCheckout = await showPrompt('New Check-out Date', 'Format: YYYY-MM-DD', booking.checkout || '');
+  
+  const newCheckout = await showPrompt('Revise Check-out', 'Format date exactly as YYYY-MM-DD:', currentCheckout);
   if (!newCheckout) return;
 
   const d1 = new Date(newCheckin);
   const d2 = new Date(newCheckout);
-  if (isNaN(d1.getTime()) || isNaN(d2.getTime()) || d1 >= d2) {
-    await showAlert('Invalid Dates', 'Check-out must be after check-in. Please use YYYY-MM-DD format.');
+  if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
+    await showAlert('Invalid Timeline', 'Check-out must be after check-in.');
     return;
   }
 
-  const confirmed = await showConfirm(
-    'Confirm Date Change',
-    `Change dates for booking <strong>${bookingId}</strong>?<br><br>
-     New check-in: <strong>${newCheckin}</strong><br>
-     New check-out: <strong>${newCheckout}</strong>`
-  );
+  const confirmed = await showConfirm('Timeline Shift', `Shift dates for booking ${bookingId} to: ${newCheckin} to ${newCheckout}?`);
   if (!confirmed) return;
 
   try {
-    const res = await fetch(`${API_BASE}/owner-update-booking`, {
+    const res = await fetch(API_BASE + '/owner-update-booking', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Owner-Authorization': 'Bearer ' + ownerToken
       },
-      body: JSON.stringify({ bookingId, action: 'changeDates', checkin: newCheckin, checkout: newCheckout })
+      body: JSON.stringify({ 
+        bookingId, 
+        action: 'changeDates',
+        checkin: newCheckin,
+        checkout: newCheckout
+      })
     });
     const data = await res.json();
-
     if (data.success) {
-      await showAlert('Dates Updated ✓', data.message || 'Booking dates changed successfully.');
+      await showAlert('Timelines Adjusted', '✓ ' + data.message);
       loadBookings();
     } else {
-      await showAlert('Failed', '❌ ' + (data.error || data.message || 'Unknown error.'));
+      await showAlert('Adjustment Faulted', '❌ error: ' + (data.error || data.message));
     }
   } catch(e) {
-    await showAlert('Network Error', e.message);
+    await showAlert('Network exception', 'Network error: ' + e.message);
   }
 }
 
-// =============================================================
-// INIT
-// =============================================================
+function toggleMobileMenu() {
+  document.getElementById('mobileNav')?.classList.toggle('open');
+}
+
+// Click outside drawer dismissals
+document.addEventListener('click', function(e) {
+  const nav = document.getElementById('mobileNav');
+  const btn = document.getElementById('mobileMenuBtn');
+  if (!nav || !btn) return;
+  if (nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
+    nav.classList.remove('open');
+  }
+});
+
+// =============================================
+// CONSOLE SYSTEM BOOTSTRAP
+// =============================================
 (function init() {
   renderGuestNav();
 
+  const token = sessionStorage.getItem('kd_owner_token');
   const loginSection = document.getElementById('loginSection');
   const dashboardSection = document.getElementById('dashboardSection');
-  const token = sessionStorage.getItem('kd_owner_token');
 
   if (token) {
     try {
       const data = JSON.parse(atob(token));
       if (data.homestays && data.homestays.length > 0) {
-        ownerToken = token;
         allHomestays = data.homestays;
         ownerHomestayIds = allHomestays.map(h => h.id);
-        populateHomestaySelector();
-
-        loginSection?.classList.add('hidden');
-        dashboardSection?.classList.remove('hidden');
-        document.getElementById('welcomeName').innerText = data.ownerName || allHomestays[0]?.ownerName || 'Owner';
+        
+        const selector = document.getElementById('homestaySelector');
+        if (selector) {
+          selector.innerHTML = '<option value="all">📍 All Linked Homestays</option>';
+          allHomestays.forEach(h => {
+            const opt = document.createElement('option');
+            opt.value = h.id;
+            opt.textContent = h.name;
+            selector.appendChild(opt);
+          });
+          currentHomestayId = 'all';
+          selector.value = 'all';
+        }
+        
+        if (loginSection) loginSection.classList.add('hidden');
+        if (dashboardSection) dashboardSection.classList.remove('hidden');
+        document.getElementById('welcomeName').innerText = data.ownerName || 'Owner';
         loadBookings();
       } else {
-        throw new Error('No homestays in token');
+        showAlert('Authentication Required', 'Please log in to your host credentials account.').then(() => {
+          sessionStorage.removeItem('kd_owner_token');
+          if (loginSection) loginSection.classList.remove('hidden');
+          if (dashboardSection) dashboardSection.classList.add('hidden');
+        });
       }
     } catch(e) {
-      console.warn('Session expired:', e.message);
       sessionStorage.removeItem('kd_owner_token');
-      ownerToken = '';
-      loginSection?.classList.remove('hidden');
-      dashboardSection?.classList.add('hidden');
+      if (loginSection) loginSection.classList.remove('hidden');
+      if (dashboardSection) dashboardSection.classList.add('hidden');
     }
   } else {
-    loginSection?.classList.remove('hidden');
-    dashboardSection?.classList.add('hidden');
+    if (loginSection) loginSection.classList.remove('hidden');
+    if (dashboardSection) dashboardSection.classList.add('hidden');
   }
 
   const selector = document.getElementById('homestaySelector');
