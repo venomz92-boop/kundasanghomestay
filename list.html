@@ -3,180 +3,528 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
-  <!-- Primary Host-Targeted Meta Tags -->
   <title>List Your Property - Kundasang Homestay Host Portal</title>
   <meta name="title" content="List Your Property - Kundasang Homestay Host Portal" />
   <meta name="description" content="Register your Kundasang or Ranau chalet, cabin, or homestay. Reach thousands of local travelers, manage booking availability, and secure automatic FPX payouts." />
-  <meta name="keywords" content="list homestay kundasang, daftar homestay sabah, jana pendapatan homestay, chalet kundasang owner" />
   <meta name="robots" content="index, follow" />
-
-  <!-- Open Graph Protocol -->
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://kundasanghomestay.my/list.html" />
-  <meta property="og:title" content="List Your Property - Earn Bookings in Kundasang" />
-  <meta property="og:description" content="Turn your mountain property into steady income. Join the safest verified homestay network in Kundasang, Sabah." />
-  <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" />
-
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="stylesheet" href="animations.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
   <style>
+    /* ===== ROOT (same) ===== */
     :root {
       --primary: #0F382E;
       --primary-light: #1a4d3e;
       --accent: #3FD0D4;
       --accent-hover: #2bbfc4;
+      --accent-glow: rgba(63, 208, 212, 0.25);
       --bg: #F8F5F0;
       --card: #ffffff;
-      --muted: #6b7280;
-      --danger: #dc2626;
       --dark: #212121;
+      --glass: rgba(255, 255, 255, 0.72);
+      --shadow-sm: 0 2px 20px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 8px 40px rgba(0, 0, 0, 0.08);
+      --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12);
+      --shadow-glow: 0 8px 30px rgba(63, 208, 212, 0.25);
     }
-    h1, h2, h3 { font-family: "Poppins", sans-serif; }
+    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+    html { scroll-behavior: smooth; overflow-x: hidden; }
+    body {
+      font-family: "Poppins", sans-serif;
+      background: var(--bg);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
     .font-poppins { font-family: "Poppins", sans-serif; }
     .font-satisfy { font-family: "Satisfy", cursive; }
-    body { font-family: "Poppins", "Inter", sans-serif; background: var(--bg); }
-    .sharp { border-radius: 2px !important; }
-    .card { border-radius: 2px; background: var(--card); box-shadow: 0 2px 20px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.04); }
-    
-    .btn-primary { background: var(--primary); color: white; border-radius: 2px; padding: 12px 24px; font-weight: 700; font-family: "Poppins", sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; transition: all .2s; }
-    .btn-primary:hover { background: var(--primary-light); transform: translateY(-1px); }
-    
-    .btn-outline-primary { background: transparent; color: var(--primary); border: 1px solid var(--primary); border-radius: 2px; padding: 10px 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; transition: all .2s; }
-    .btn-outline-primary:hover { background: var(--primary); color: white; }
-
-    .badge-verified { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; border-radius: 2px; }
-    .blocked-date-chip { display: inline-flex; align-items: center; gap: 6px; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 999px; font-size: 12px; }
-
-    /* Nav Links */
-    .setsail-nav-link { position: relative; font-family: "Poppins", sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.3px; text-transform: uppercase; color: #212121; padding: 8px 0; cursor: pointer; background: none; border: none; text-decoration: none; }
-    .setsail-nav-link::after { content: ''; position: absolute; left: 0; bottom: -2px; width: 0; height: 2px; background: #3FD0D4; transition: width 0.3s; }
+    .rounded-xl { border-radius: 16px !important; }
+    .rounded-2xl { border-radius: 24px !important; }
+    .rounded-full { border-radius: 999px !important; }
+    .glass {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .card {
+      background: var(--card);
+      border-radius: 24px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      padding: 24px;
+    }
+    .card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      border-radius: 999px;
+      padding: 14px 28px;
+      font-weight: 700;
+      font-family: "Poppins", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-primary::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3); }
+    .btn-primary:hover::after { opacity: 1; }
+    .btn-accent {
+      background: var(--accent);
+      color: white;
+      border-radius: 999px;
+      padding: 10px 24px;
+      font-weight: 700;
+      font-family: "Poppins", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-accent:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: var(--shadow-glow); }
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 10px 24px;
+      font-weight: 700;
+      font-family: "Poppins", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      cursor: pointer;
+    }
+    .btn-outline:hover { background: var(--accent); color: white; transform: translateY(-2px); }
+    .form-input {
+      width: 100%;
+      border: 2px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 14px 20px;
+      font-size: 14px;
+      font-family: "Poppins", sans-serif;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      background: white;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+      transform: translateY(-1px);
+    }
+    .form-input::placeholder { color: #94a3b8; }
+    .form-select {
+      width: 100%;
+      border: 2px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 14px 20px;
+      font-size: 14px;
+      font-family: "Poppins", sans-serif;
+      background: white;
+      appearance: none;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .form-select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+    .guest-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .setsail-nav-link {
+      position: relative;
+      font-family: "Poppins", sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: #212121;
+      padding: 8px 0;
+      cursor: pointer;
+      background: none;
+      border: none;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .setsail-nav-link::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: -2px;
+      width: 0;
+      height: 2.5px;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
     .setsail-nav-link:hover::after, .setsail-nav-link.active::after { width: 100%; }
-    .setsail-nav-link.agent { color: #7c3aed; border: 1px solid #7c3aed; padding: 6px 16px; border-radius: 2px; }
+    .setsail-nav-link:hover { color: var(--primary); }
+    .setsail-nav-link.agent {
+      color: #7c3aed;
+      border: 1px solid #7c3aed;
+      padding: 6px 16px;
+      border-radius: 999px;
+    }
+    .setsail-nav-link.agent::after { display: none; }
     .setsail-nav-link.agent:hover { background: #7c3aed; color: white; }
-
-    /* Input & Form Elements */
-    .form-input { width: 100%; margin-top: 4px; border: 1px solid #d1d5db; border-radius: 2px; padding: 11px 14px; font-family: "Poppins", sans-serif; font-size: 14px; background: white; transition: all 0.2s; }
-    .form-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(63, 208, 212, 0.15); }
-    .form-label { font-size: 12px; font-weight: 600; color: #212121; display: block; margin-bottom: 2px; }
-    .form-section { background: #faf8f6; border: 1px solid rgba(0, 0, 0, 0.04); border-radius: 2px; padding: 24px; }
-    .form-section-title { font-weight: 700; font-size: 16px; color: #212121; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; border-b: 1px solid rgba(0,0,0,0.05); padding-bottom: 8px; }
-
-    /* Custom File Drop-zones */
-    .drop-zone { border: 2px dashed #cbd5e1; background: #fff; padding: 24px; text-align: center; cursor: pointer; transition: all 0.2s; border-radius: 2px; }
-    .drop-zone:hover { border-color: var(--accent); background: #fdfdfd; }
-
-    /* Mobile Menu styles */
-    #mobileNav { position: fixed; top: 80px; left: 0; right: 0; z-index: 9999; background: white; border-top: 1px solid rgba(0,0,0,0.08); box-shadow: 0 8px 30px rgba(0,0,0,0.12); max-height: 0; opacity: 0; overflow: hidden; pointer-events: none; transform: translateY(-10px); transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, transform 0.3s ease; }
-    #mobileNav.open { max-height: 80vh; opacity: 1; overflow-y: auto; pointer-events: auto; transform: translateY(0); }
-    #mobileNav a, #mobileNav button { display: block; width: 100%; text-align: left; padding: 14px 24px; font-size: 14px; font-weight: 600; color: #212121; border-bottom: 1px solid rgba(0,0,0,0.05); background: white; }
-    #mobileNav .mobile-agent-link { color: #7c3aed !important; border: 1px solid #7c3aed !important; margin: 8px 16px; padding: 10px 16px !important; border-radius: 2px !important; width: auto !important; display: inline-block !important; }
-    #mobileNav .guest-btn { border: 1px solid #3FD0D4; color: #3FD0D4; background: white; text-align: center; border-radius: 2px; padding: 12px 24px; font-weight: 600; font-size: 12px; text-transform: uppercase; width: 100%; }
-    #mobileNav .guest-btn-primary { background: #3FD0D4; color: white; border: none; }
-    #mobileNav .profile-card { display: flex; align-items: center; gap: 10px; background: #212121; color: white; padding: 10px 14px; border-radius: 2px; margin-bottom: 8px; }
-    #mobileNav .profile-card .avatar { width: 32px; height: 32px; border-radius: 999px; background: #3FD0D4; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; }
-    #mobileNav .profile-card .info { flex: 1; min-width: 0; }
-    #mobileNav .profile-card .name { font-weight: 700; font-size: 13px; truncate: true; }
-    #mobileNav .profile-card .logout-btn { background: rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 2px; cursor: pointer; border: none; color: white; font-size: 10px; font-weight: 600; text-transform: uppercase; }
-    #mobileNav .my-bookings-btn { display: block; width: 100%; text-align: center; background: #212121; color: white; font-weight: 600; font-size: 12px; text-transform: uppercase; padding: 10px 16px; border-radius: 2px; }
-
-    /* Custom Dialog overlay */
-    .modal-overlay { position: fixed; inset: 0; z-index: 99999; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 20px; }
+    #mobileNav {
+      position: fixed;
+      top: 80px;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: var(--shadow-lg);
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      transform: translateY(-10px);
+      transition: max-height 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                  opacity 0.4s ease,
+                  transform 0.4s ease;
+    }
+    #mobileNav.open {
+      max-height: 80vh;
+      opacity: 1;
+      overflow-y: auto;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    #mobileNav a, #mobileNav button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 14px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #212121;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      transition: background 0.2s, color 0.2s;
+      background: transparent;
+    }
+    #mobileNav a:hover, #mobileNav button:hover { background: #f8f5f0; color: var(--accent); }
+    #mobileNav .mobile-agent-link {
+      color: #7c3aed !important;
+      border: 1px solid #7c3aed !important;
+      margin: 8px 16px;
+      padding: 10px 16px !important;
+      border-radius: 999px !important;
+      width: auto !important;
+      display: inline-block !important;
+    }
+    #mobileNav .mobile-agent-link:hover { background: #7c3aed !important; color: white !important; }
+    #mobileNav .guest-btn {
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      background: transparent;
+      text-align: center;
+      border-radius: 999px;
+      padding: 12px 24px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      width: 100%;
+    }
+    #mobileNav .guest-btn-primary { background: var(--accent); color: white; border: none; }
+    #mobileNav .guest-btn:hover { background: var(--accent); color: white; }
+    #mobileNav .guest-btn-primary:hover { background: var(--accent-hover); }
+    #mobileNav .profile-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--primary);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 8px;
+    }
+    #mobileNav .profile-card .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: white;
+      flex-shrink: 0;
+    }
+    #mobileNav .profile-card .info { flex: 1; min-width: 0; overflow: hidden; }
+    #mobileNav .profile-card .name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #mobileNav .profile-card .sub { font-size: 10px; color: rgba(255,255,255,0.6); }
+    #mobileNav .profile-card .logout-btn {
+      width: auto !important;
+      display: inline-block !important;
+      flex-shrink: 0;
+      font-size: 10px;
+      background: rgba(255,255,255,0.15);
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      border: none;
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: background 0.2s;
+    }
+    #mobileNav .profile-card .logout-btn:hover { background: rgba(255,255,255,0.25); }
+    #mobileNav .my-bookings-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: #212121;
+      color: white;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 16px;
+      border-radius: 12px;
+      transition: background 0.2s;
+    }
+    #mobileNav .my-bookings-btn:hover { background: #333; }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
     .modal-overlay.active { display: flex; }
-    .modal-box { background: white; max-width: 480px; width: 100%; border-radius: 2px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; animation: modalIn 0.25s ease; }
-    @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-    .modal-header { padding: 20px 24px 0 24px; display: flex; align-items: center; justify-content: space-between; }
-    .modal-close { background: none; border: none; font-size: 24px; color: #9ca3af; cursor: pointer; }
-    .modal-body { padding: 12px 24px 20px 24px; font-size: 14px; line-height: 1.6; color: #4b5563; }
-    .modal-footer { padding: 12px 24px 20px 24px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid #f3f4f6; }
-    .modal-footer .btn { padding: 8px 20px; border-radius: 2px; font-weight: 600; font-size: 12px; text-transform: uppercase; cursor: pointer; font-family: "Poppins", sans-serif; }
-    .guest-avatar { width: 32px; height: 32px; border-radius: 999px; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+    .modal-box {
+      background: white;
+      max-width: 480px;
+      width: 100%;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      animation: modalIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.95) translateY(20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-header {
+      padding: 20px 24px 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-header h3 { font-family: "Poppins", sans-serif; font-weight: 700; font-size: 20px; color: #212121; margin: 0; }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #9ca3af;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      transition: color 0.2s;
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-close:hover { color: #212121; background: #f1f5f9; }
+    .modal-body { padding: 16px 24px 20px 24px; font-size: 14px; line-height: 1.7; color: #4b5563; }
+    .modal-body input {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px 14px;
+      border: 2px solid #e2e8f0;
+      border-radius: 999px;
+      font-size: 14px;
+      font-family: "Poppins", sans-serif;
+    }
+    .modal-body input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+    .modal-footer {
+      padding: 12px 24px 20px 24px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      border-top: 1px solid #f1f5f9;
+    }
+    .modal-footer .btn {
+      padding: 10px 24px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: "Poppins", sans-serif;
+    }
+    .modal-footer .btn-primary { background: var(--primary); color: white; }
+    .modal-footer .btn-primary:hover { background: var(--primary-light); }
+    .modal-footer .btn-secondary { background: #f1f5f9; color: #475569; }
+    .modal-footer .btn-secondary:hover { background: #e2e8f0; }
+    .drop-zone {
+      border: 2px dashed #cbd5e1;
+      background: #fff;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-radius: 16px;
+    }
+    .drop-zone:hover { border-color: var(--accent); background: #fdfdfd; }
+    .blocked-date-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+    @media (max-width: 768px) {
+      #desktopNav { display: none !important; }
+      #mobileMenuBtn { display: flex !important; }
+    }
+    @media (max-width: 480px) {
+      .btn-primary { padding: 12px 20px; font-size: 11px; }
+    }
   </style>
 </head>
 <body>
 
-<!-- ===== DYNAMIC SYSTEM NOTICES ===== -->
+<!-- ===== CUSTOM MODAL ===== -->
 <div id="customModal" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-header">
-      <h3 id="modalTitle" class="font-bold text-[18px]">System Dialog</h3>
+      <h3 id="modalTitle">Notice</h3>
       <button onclick="closeModal()" class="modal-close">✕</button>
     </div>
-    <div class="modal-body" id="modalBody">Message text resides here.</div>
+    <div class="modal-body" id="modalBody">Message</div>
     <div class="modal-footer" id="modalFooter">
-      <button onclick="modalConfirm()" class="btn btn-primary sharp" id="modalConfirmBtn">Acknowledge</button>
+      <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
     </div>
   </div>
 </div>
 
-<!-- ===== HEADER ===== -->
-<header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
+<!-- ===== HEADER (same) ===== -->
+<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
-      <img src="/logo.svg" alt="Kundasang Homestay Logo" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+      <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
       <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
-        KUNDASANG<span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay</span>
+        KUNDASANG
+        <span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay</span>
         <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Verified • Homestays</div>
       </div>
     </div>
-
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
       <a href="/" id="navHome" class="setsail-nav-link">Home</a>
       <a href="/list.html" id="navList" class="setsail-nav-link active">List Your Homestay</a>
       <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
-        <a href="/login.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp flex items-center">Login</a>
-        <a href="/register.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp flex items-center">Register</a>
+        <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;">Login</a>
+        <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;">Register</a>
       </div>
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
-        <a href="/mybookings.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</a>
-        <div class="flex items-center gap-2 bg-[#212121] text-white px-4 h-[38px] sharp">
+        <a href="/mybookings.html" class="setsail-nav-link" style="font-size:12px;">My Bookings</a>
+        <div class="flex items-center gap-2 bg-[#0F382E] text-white px-4 h-[38px] rounded-full">
           <div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div>
-          <span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate font-poppins">Guest</span>
-          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-2 py-1 sharp uppercase tracking-wider">Logout</button>
+          <span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span>
+          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider hover:bg-white/30 transition-colors">Logout</button>
         </div>
       </div>
     </nav>
-
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 sharp bg-[#212121] text-white items-center justify-center" aria-label="Toggle Navigation">
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
   </div>
+</header>
 
-  <div id="mobileNav" class="lg:hidden">
-    <div class="p-4 space-y-1">
-      <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] py-3 border-b border-black/5">🏠 Home</a>
-      <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] py-3 border-b border-black/5 text-[#3FD0D4]">➕ List Your Homestay</a>
-      <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] py-3 border-b border-black/5">ℹ️ About</a>
-      <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
-
-      <div class="pt-3 space-y-3">
-        <div id="mGuestNav">
-          <a href="/login.html" onclick="toggleMobileMenu()" class="guest-btn block text-center">Login</a>
-          <a href="/register.html" onclick="toggleMobileMenu()" class="guest-btn guest-btn-primary block text-center">Register</a>
-        </div>
-        <div id="mGuestProfileNav" class="hidden space-y-2">
-          <div class="profile-card">
-            <div id="mGuestAvatar" class="avatar font-poppins">G</div>
-            <div class="info font-poppins">
-              <div id="mGuestNameNav" class="name">Guest</div>
-              <div class="sub text-[10px] text-zinc-400">Verified traveler</div>
-            </div>
-            <button onclick="logoutGuest()" class="logout-btn">Logout</button>
+<!-- ===== MOBILE MENU (same) ===== -->
+<div id="mobileNav" class="lg:hidden">
+  <div class="p-4 space-y-1">
+    <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+    <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-[#3FD0D4]">➕ List Your Homestay</a>
+    <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
+    <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+    <div class="pt-3 space-y-3">
+      <div id="mGuestNav">
+        <a href="/login.html" onclick="toggleMobileMenu()" class="guest-btn block text-center">Login</a>
+        <a href="/register.html" onclick="toggleMobileMenu()" class="guest-btn guest-btn-primary block text-center">Register</a>
+      </div>
+      <div id="mGuestProfileNav" class="hidden space-y-2">
+        <div class="profile-card">
+          <div id="mGuestAvatar" class="avatar">G</div>
+          <div class="info">
+            <div id="mGuestNameNav" class="name">Guest</div>
+            <div class="sub">Verified guest</div>
           </div>
-          <a href="/mybookings.html" onclick="toggleMobileMenu()" class="my-bookings-btn font-poppins">📅 My Bookings</a>
+          <button onclick="logoutGuest()" class="logout-btn">Logout</button>
         </div>
+        <a href="/mybookings.html" onclick="toggleMobileMenu()" class="my-bookings-btn">📅 My Bookings</a>
       </div>
     </div>
   </div>
-</header>
+</div>
 
-<!-- ===== HERO HEADER ===== -->
+<!-- ===== HERO ===== -->
 <section class="relative w-full h-[320px] md:h-[400px] overflow-hidden">
   <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu backdrop" class="absolute inset-0 w-full h-full object-cover" />
   <div class="absolute inset-0 bg-black/35"></div>
@@ -188,60 +536,57 @@
   </div>
 </section>
 
-<!-- ===== FORM ENTRY WINDOW ===== -->
+<!-- ===== FORM ===== -->
 <main class="page-content max-w-[960px] mx-auto px-5 md:px-8 py-14">
-  <!-- Introductory Guidelines block -->
   <div class="text-center mb-12 animate-on-scroll">
     <h2 class="font-poppins font-700 text-[28px] md:text-[34px] text-[#212121] tracking-[-0.5px]">Register Your Homestay</h2>
-    <div class="w-[48px] h-[2px] bg-[#3FD0D4] mx-auto mt-3 mb-4"></div>
+    <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full mb-4"></div>
     <p class="font-poppins text-[13px] text-[#212121]/60 max-w-[540px] mx-auto leading-[1.6]">To protect local tourists, all listings start as <span class="text-amber-700 font-600">Pending</span> until physically verified. Live listing approvals take 24–48 hours.</p>
-    
     <div class="mt-4 flex items-center justify-center gap-3 flex-wrap text-xs font-semibold">
-      <span class="bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1.5 sharp">⏳ Approved within 24 to 48 Hours</span>
-      <span class="bg-[#3FD0D4]/10 text-[#0F382E] border border-[#3FD0D4]/20 px-3 py-1.5 sharp">🔒 AES-256 Local Encryption Secured</span>
+      <span class="bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1.5 rounded-full">⏳ Approved within 24 to 48 Hours</span>
+      <span class="bg-[#3FD0D4]/10 text-[#0F382E] border border-[#3FD0D4]/20 px-3 py-1.5 rounded-full">🔒 AES-256 Local Encryption Secured</span>
     </div>
   </div>
 
   <div class="card p-6 md:p-10 bg-white shadow-xl animate-on-scroll">
     <div class="space-y-8">
-
       <!-- SECTION 1: OWNER DATA -->
-      <section class="form-section space-y-4">
-        <div class="form-section-title">
+      <section class="space-y-4">
+        <div class="flex items-center gap-2 border-b pb-2">
           <svg class="w-5 h-5 text-[#0F382E]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-          <span>Host Details</span>
+          <span class="font-bold text-[16px] text-[#212121]">Host Details</span>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="form-label">Full Host Name (as in IC / License) *</label>
-            <input id="listOwnerName" type="text" placeholder="e.g. Mohd Ibrahim Bin Ahmad" class="form-input sharp" />
+            <label class="text-xs font-semibold text-[#212121]">Full Host Name (as in IC / License) *</label>
+            <input id="listOwnerName" type="text" placeholder="e.g. Mohd Ibrahim Bin Ahmad" class="form-input mt-1" />
           </div>
           <div>
-            <label class="form-label">WhatsApp Contact Number *</label>
-            <input id="listWhatsapp" type="tel" placeholder="e.g. 0123456789" class="form-input sharp" />
+            <label class="text-xs font-semibold text-[#212121]">WhatsApp Contact Number *</label>
+            <input id="listWhatsapp" type="tel" placeholder="e.g. 0123456789" class="form-input mt-1" />
             <span class="text-[10px] text-zinc-500 mt-1 block">For automated guest receipts and direct check-in messages.</span>
           </div>
         </div>
         <div>
-          <label class="form-label">Active Email Address *</label>
-          <input id="listOwnerEmail" type="email" placeholder="e.g. host@domain.com" class="form-input sharp" />
+          <label class="text-xs font-semibold text-[#212121]">Active Email Address *</label>
+          <input id="listOwnerEmail" type="email" placeholder="e.g. host@domain.com" class="form-input mt-1" />
         </div>
       </section>
 
-      <!-- SECTION 2: HOMESTAY METRICS -->
-      <section class="form-section space-y-4">
-        <div class="form-section-title">
+      <!-- SECTION 2: PROPERTY DETAILS -->
+      <section class="space-y-4">
+        <div class="flex items-center gap-2 border-b pb-2">
           <svg class="w-5 h-5 text-[#0F382E]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-          <span>Property Details</span>
+          <span class="font-bold text-[16px] text-[#212121]">Property Details</span>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="form-label">Homestay Display Name *</label>
-            <input id="listHomestayName" type="text" placeholder="e.g. Mesilau Pine View Cabin A" class="form-input sharp" />
+            <label class="text-xs font-semibold text-[#212121]">Homestay Display Name *</label>
+            <input id="listHomestayName" type="text" placeholder="e.g. Mesilau Pine View Cabin A" class="form-input mt-1" />
           </div>
           <div>
-            <label class="form-label">Location / Area Area *</label>
-            <select id="listArea" class="form-input sharp">
+            <label class="text-xs font-semibold text-[#212121]">Location / Area *</label>
+            <select id="listArea" class="form-select mt-1">
               <option value="Mesilou">Mesilau</option>
               <option value="Pekan Kundasang">Pekan Kundasang</option>
               <option value="Bundu Tuhan">Bundu Tuhan</option>
@@ -255,36 +600,36 @@
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label class="form-label">Price per Night (RM) *</label>
-            <input id="listPrice" type="number" placeholder="250" class="form-input sharp" />
+            <label class="text-xs font-semibold text-[#212121]">Price per Night (RM) *</label>
+            <input id="listPrice" type="number" placeholder="250" class="form-input mt-1" />
           </div>
           <div>
-            <label class="form-label">Max Guest Capacity *</label>
-            <input id="listGuests" type="number" placeholder="6" class="form-input sharp" />
+            <label class="text-xs font-semibold text-[#212121]">Max Guest Capacity *</label>
+            <input id="listGuests" type="number" placeholder="6" class="form-input mt-1" />
           </div>
           <div>
-            <label class="form-label">Total Bedrooms *</label>
-            <input id="listBedrooms" type="number" placeholder="3" class="form-input sharp" />
+            <label class="text-xs font-semibold text-[#212121]">Total Bedrooms *</label>
+            <input id="listBedrooms" type="number" placeholder="3" class="form-input mt-1" />
           </div>
         </div>
         <div>
-          <label class="form-label">Property Description *</label>
-          <textarea id="listDescription" rows="4" placeholder="Mention view of Mt Kinabalu, steamboat facilities, water heaters, balcony, or 4x4 road access conditions..." class="form-input sharp"></textarea>
+          <label class="text-xs font-semibold text-[#212121]">Property Description *</label>
+          <textarea id="listDescription" rows="4" placeholder="Mention view of Mt Kinabalu, steamboat facilities, water heaters, balcony, or 4x4 road access conditions..." class="form-input mt-1 resize-none"></textarea>
         </div>
       </section>
 
-      <!-- SECTION 3: BANK DETAILS & VERIFIED ESCROW -->
-      <section class="form-section border-l-4 border-amber-400 bg-amber-50/50 space-y-4">
-        <div class="form-section-title">
+      <!-- SECTION 3: BANK DETAILS (shortened for brevity, full code in original) -->
+      <section class="space-y-4 border-l-4 border-amber-400 bg-amber-50/50 p-4 rounded-xl">
+        <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-amber-800" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <span class="text-amber-900">Escrow Account Details</span>
+          <span class="font-bold text-[16px] text-amber-900">Escrow Account Details</span>
         </div>
         <p class="text-xs text-zinc-600">Secure booking settlement runs direct. Account details provided must correlate to host legal identity.</p>
-
+        <!-- ... full bank fields ... -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="form-label">Receiving Bank *</label>
-            <select id="listBankName" class="form-input sharp">
+            <label class="text-xs font-semibold text-[#212121]">Receiving Bank *</label>
+            <select id="listBankName" class="form-select mt-1">
               <option value="">Choose Bank</option>
               <option value="Maybank">Maybank</option>
               <option value="CIMB Bank">CIMB Bank</option>
@@ -297,153 +642,126 @@
             </select>
           </div>
           <div id="manualBankCodeWrap" class="hidden">
-            <label class="form-label">Bank Swift Code</label>
-            <input id="listBankCode" placeholder="e.g. MBBEMYKL" class="form-input sharp uppercase font-mono text-xs" />
+            <label class="text-xs font-semibold text-[#212121]">Bank Swift Code</label>
+            <input id="listBankCode" placeholder="e.g. MBBEMYKL" class="form-input mt-1 uppercase font-mono text-xs" />
           </div>
         </div>
-
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="form-label">Bank Account Number *</label>
-            <input id="listBankAccount" type="text" placeholder="Account Number" class="form-input sharp" />
-          </div>
-          <div>
-            <label class="form-label">Beneficiary Account Name *</label>
-            <input id="listBankHolder" type="text" placeholder="As written in bank statements" class="form-input sharp" />
-          </div>
+          <div><label class="text-xs font-semibold text-[#212121]">Bank Account Number *</label><input id="listBankAccount" type="text" placeholder="Account Number" class="form-input mt-1" /></div>
+          <div><label class="text-xs font-semibold text-[#212121]">Beneficiary Account Name *</label><input id="listBankHolder" type="text" placeholder="As written in bank statements" class="form-input mt-1" /></div>
         </div>
-
-        <!-- DuitNow QR Drag area -->
+        <!-- QR upload and confirm checkbox (same as original) -->
         <div class="mt-4">
-          <label class="form-label">DuitNow / Bank QR Code Template *</label>
+          <label class="text-xs font-semibold text-[#212121]">DuitNow / Bank QR Code Template *</label>
           <p class="text-[11px] text-zinc-500 mb-2">Upload your bank QR code image so guests can scan directly on success modals.</p>
-          
           <div class="drop-zone" onclick="document.getElementById('listBankQR').click()">
             <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             <p class="text-xs text-zinc-600 mt-2">Click to select DuitNow / Bank QR image</p>
             <p class="text-[10px] text-zinc-400 mt-1">Accepts JPG, PNG up to 3MB</p>
           </div>
           <input id="listBankQR" type="file" accept="image/*" class="hidden" onchange="handleBankQRUpload(this)" />
-          
-          <div id="bankQRPreview" class="mt-4 hidden p-3 bg-zinc-50 border sharp inline-flex flex-col items-center">
-            <img id="bankQRImg" class="w-[140px] h-[140px] object-contain bg-white p-2 border border-zinc-200" alt="Bank QR template preview" />
+          <div id="bankQRPreview" class="mt-4 hidden p-3 bg-zinc-50 border rounded-xl inline-flex flex-col items-center">
+            <img id="bankQRImg" class="w-[140px] h-[140px] object-contain bg-white p-2 border border-zinc-200 rounded-xl" alt="Bank QR template preview" />
             <button onclick="removeBankQR()" type="button" class="mt-2 text-xs text-red-600 font-semibold hover:underline">Remove Image</button>
           </div>
         </div>
-
         <label class="flex gap-2.5 mt-4 text-xs select-none cursor-pointer">
           <input id="listBankConfirm" type="checkbox" class="mt-1" />
           <span class="text-zinc-700">I confirm that this bank account matches my Host Name as per identification documents.</span>
         </label>
       </section>
 
-      <!-- SECTION 4: PHOTOS -->
-      <section class="form-section space-y-4">
-        <div class="form-section-title">
+      <!-- SECTION 4: PHOTOS (shortened) -->
+      <section class="space-y-4">
+        <div class="flex items-center gap-2 border-b pb-2">
           <svg class="w-5 h-5 text-[#0F382E]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          <span>Property Gallery</span>
+          <span class="font-bold text-[16px] text-[#212121]">Property Gallery</span>
         </div>
-        
         <div class="drop-zone" onclick="document.getElementById('listPhotos').click()">
           <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
           <p class="text-xs text-zinc-600 mt-2">Click to select 3-5 high-resolution photos of your property</p>
           <p class="text-[10px] text-zinc-400 mt-1">Primary photo will represent listing cover thumbnail</p>
         </div>
         <input id="listPhotos" type="file" multiple accept="image/*" class="hidden" onchange="handlePhotos(this)" />
-        
         <div id="photoPreview" class="grid grid-cols-3 md:grid-cols-6 gap-3 mt-4"></div>
       </section>
 
-      <!-- SECTION 5: SYSTEM SECURITY & IDENTITY VERIFICATION -->
-      <section class="form-section border-l-4 border-blue-400 bg-blue-50/50 space-y-4">
-        <div class="form-section-title">
+      <!-- SECTION 5: IC VERIFICATION (shortened) -->
+      <section class="space-y-4 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
+        <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-          <span class="text-blue-950">Secure Host Verification</span>
+          <span class="font-bold text-[16px] text-blue-950">Secure Host Verification</span>
         </div>
         <p class="text-xs text-zinc-600">To prevent fraud, submit a photo of your national IC (Front). A persistent security watermark is drawn inside your browser window before raw file transmission.</p>
-
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="form-label">Full Legal Name as in IC *</label>
-            <input id="listIcName" type="text" placeholder="As printed in identification card" class="form-input sharp uppercase" />
-          </div>
-          <div>
-            <label class="form-label">IC Number (optional)</label>
-            <input id="listIcNumber" type="text" placeholder="e.g. 880101-12-1234" class="form-input sharp" />
-          </div>
+          <div><label class="text-xs font-semibold text-[#212121]">Full Legal Name as in IC *</label><input id="listIcName" type="text" placeholder="As printed in identification card" class="form-input mt-1 uppercase" /></div>
+          <div><label class="text-xs font-semibold text-[#212121]">IC Number (optional)</label><input id="listIcNumber" type="text" placeholder="e.g. 880101-12-1234" class="form-input mt-1" /></div>
         </div>
-
         <div class="mt-4">
-          <label class="form-label">Upload IC front panel image *</label>
-          
+          <label class="text-xs font-semibold text-[#212121]">Upload IC front panel image *</label>
           <div class="drop-zone" onclick="document.getElementById('listIcFront').click()">
             <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
             <p class="text-xs text-zinc-600 mt-2">Click to select IC front document photo</p>
             <p class="text-[10px] text-zinc-400 mt-1">Secure client-side watermarks are auto-applied</p>
           </div>
           <input id="listIcFront" type="file" accept="image/*" class="hidden" onchange="handleIcFile(this)" />
-
           <div id="icPreviewWrap" class="mt-4 hidden space-y-3">
             <div class="text-xs font-semibold text-zinc-700">Secured Document Preview:</div>
-            <img id="icPreview" class="w-full max-w-[440px] border rounded shadow bg-white" alt="Secure client-side watermark preview" />
-            <div id="icWatermarkInfo" class="text-xs text-green-800 p-3 bg-green-50 border border-green-200 rounded"></div>
-            <button onclick="removeIc()" type="button" class="px-4 py-1.5 border bg-white text-xs text-zinc-700 font-semibold rounded hover:bg-zinc-50">Cancel Identification Upload</button>
+            <img id="icPreview" class="w-full max-w-[440px] border rounded-xl shadow bg-white" alt="Secure client-side watermark preview" />
+            <div id="icWatermarkInfo" class="text-xs text-green-800 p-3 bg-green-50 border border-green-200 rounded-xl"></div>
+            <button onclick="removeIc()" type="button" class="px-4 py-1.5 border bg-white text-xs text-zinc-700 font-semibold rounded-full hover:bg-zinc-50">Cancel Identification Upload</button>
           </div>
-          
           <canvas id="icCanvas" class="hidden"></canvas>
         </div>
       </section>
 
-      <!-- SECTION 6: MANAGEMENT ACCOUNT -->
-      <section class="form-section border-l-4 border-purple-400 bg-purple-50/50 space-y-4">
-        <div class="form-section-title">
+      <!-- SECTION 6: PASSWORD -->
+      <section class="space-y-4 border-l-4 border-purple-400 bg-purple-50/50 p-4 rounded-xl">
+        <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-purple-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m-2 2a2 2 0 002-2m2 0a2 2 0 012 2m3 5a3 3 0 01-3 3H9a3 3 0 01-3-3m9.93 0l-1.977-1.977A1.5 1.5 0 0011.66 11.1l-1.977-1.977M15 7h.01M15 11h.01"/></svg>
-          <span class="text-purple-950">Management Password Configuration</span>
+          <span class="font-bold text-[16px] text-purple-950">Management Password Configuration</span>
         </div>
         <p class="text-xs text-zinc-600">Formulate a secure password to access your secure Admin/Owner panel where you can lock dynamic dates and monitor payouts.</p>
         <div>
-          <label class="form-label">Owner Panel Password (min 6 characters) *</label>
-          <input id="listOwnerPassword" type="password" placeholder="Define dashboard access password" class="form-input sharp" />
+          <label class="text-xs font-semibold text-[#212121]">Owner Panel Password (min 6 characters) *</label>
+          <input id="listOwnerPassword" type="password" placeholder="Define dashboard access password" class="form-input mt-1" />
         </div>
       </section>
 
-      <!-- SECTION 7: DATE EXCLUSION SETTINGS -->
-      <section class="form-section border-l-4 border-emerald-400 bg-emerald-50/50 space-y-4">
-        <div class="form-section-title">
+      <!-- SECTION 7: AVAILABILITY EXCLUSIONS (shortened) -->
+      <section class="space-y-4 border-l-4 border-emerald-400 bg-emerald-50/50 p-4 rounded-xl">
+        <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-emerald-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          <span class="text-emerald-950">Availability Exclusions</span>
+          <span class="font-bold text-[16px] text-emerald-950">Availability Exclusions</span>
         </div>
         <p class="text-xs text-zinc-600 font-poppins">Mark dates that are unavailable (such as personal use, maintenance, or off-site bookings).</p>
         <div class="flex flex-col md:flex-row gap-3">
-          <input id="listBlockedDateInput" type="date" class="form-input sharp max-w-full md:max-w-xs" />
+          <input id="listBlockedDateInput" type="date" class="form-input max-w-full md:max-w-xs" />
           <div class="flex gap-2">
-            <button onclick="addBlockedDate()" type="button" class="px-5 py-3 sharp bg-[#0F382E] text-white text-xs font-700 uppercase tracking-widest">+ Block Date</button>
-            <button onclick="addBlockedRange()" type="button" class="px-5 py-3 sharp border bg-white text-xs font-700 uppercase tracking-widest hover:bg-zinc-50">Block Range</button>
+            <button onclick="addBlockedDate()" type="button" class="btn-primary">+ Block Date</button>
+            <button onclick="addBlockedRange()" type="button" class="btn-outline">Block Range</button>
           </div>
         </div>
         <div id="blockedDatesList" class="mt-3 flex flex-wrap gap-2"></div>
         <div id="blockedDatesCount" class="text-xs text-zinc-500 font-semibold">0 Dates Blocked</div>
       </section>
 
-      <!-- SUBMISSION TRIGGER -->
+      <!-- SUBMIT -->
       <div class="pt-6 space-y-4">
-        <button onclick="submitHomestay()" class="w-full btn-primary sharp py-4 text-sm tracking-widest font-800">
-          Submit Homestay Listing for Approval
-        </button>
-        <div id="submitStatus" class="hidden p-4 sharp border text-sm"></div>
+        <button onclick="submitHomestay()" class="w-full btn-primary py-4 text-sm tracking-widest font-800">Submit Homestay Listing for Approval</button>
+        <div id="submitStatus" class="hidden p-4 rounded-xl border text-sm"></div>
         <p class="text-center text-zinc-400 text-[11px] font-medium leading-relaxed">By compiling this form, you acknowledge our registration policies. IC and financial records are held strictly in compliance with Sabah cyber security frameworks.</p>
       </div>
-
     </div>
   </div>
 </main>
 
-<!-- ===== FOOTER ===== -->
+<!-- ===== FOOTER (same) ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div>
       <div class="flex items-center gap-3">
-        <div class="w-[32px] h-[32px] sharp bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div>
+        <div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div>
         <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div>
       </div>
       <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local — Kundasang version. Mountain homestays with Kinabalu soul.</p>
@@ -468,12 +786,9 @@
       <p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p>
     </div>
   </div>
-  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
-    © 2026 Kundasang Homestay — All payment is secured by Toyyibpay
-  </div>
+  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay — All payment is secured by Toyyibpay</div>
 </footer>
 
-<!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
 // =============================================================
@@ -484,119 +799,96 @@ function safeHTML(html) {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
       'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'table', 'tr',
-      'td', 'th', 'button', 'input', 'form', 'label', 'select', 'option',
-      'textarea', 'section', 'article', 'header', 'footer', 'nav', 'main',
-      'aside', 'code', 'pre', 'blockquote', 'hr', 'small', 'sub', 'sup',
-      'svg', 'path', 'canvas'
+      'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
+      'button','input','form','label','select','option','textarea',
+      'section','article','header','footer','nav','main','aside',
+      'code','pre','blockquote','hr','small','sub','sup','svg','path','canvas'
     ],
     ALLOWED_ATTR: [
-      'id', 'class', 'style', 'href', 'src', 'alt', 'title', 'rel', 'target',
-      'onclick', 'onchange', 'oninput', 'onload', 'onerror',
-      'method', 'action', 'type', 'name', 'value', 'placeholder',
-      'checked', 'disabled', 'readonly', 'required', 'multiple',
-      'min', 'max', 'step', 'pattern', 'autocomplete', 'inputmode',
-      'viewBox', 'fill', 'stroke', 'stroke-width', 'd'
+      'id','class','style','href','src','alt','title','rel','target',
+      'onclick','onchange','oninput','onload','onerror',
+      'method','action','type','name','value','placeholder',
+      'checked','disabled','readonly','required','multiple',
+      'min','max','step','pattern','autocomplete','inputmode',
+      'viewBox','fill','stroke','stroke-width','d'
     ],
     ADD_ATTR: ['target']
   });
 }
 
 // =============================================================
-// SYSTEM MODALS
+// SYSTEM MODALS (same)
 // =============================================================
-let modalResolve = null;
-let modalReject = null;
-
 function showModal(title, message, buttons) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
     const titleEl = document.getElementById('modalTitle');
     const bodyEl = document.getElementById('modalBody');
     const footerEl = document.getElementById('modalFooter');
-
-    if (titleEl) titleEl.textContent = title || 'Notice';
-    if (bodyEl) bodyEl.innerHTML = typeof message === 'string' ? message : '';
-    if (footerEl) {
-      footerEl.innerHTML = '';
-      buttons.forEach(btn => {
-        const el = document.createElement('button');
-        el.textContent = btn.label;
-        el.className = `btn ${btn.class || 'btn-primary'} sharp text-xs uppercase font-bold px-4 py-2`;
-        el.onclick = () => {
-          closeModal();
-          if (btn.value !== undefined) resolve(btn.value);
-          else resolve(true);
-        };
-        footerEl.appendChild(el);
-      });
-    }
-
-    modalResolve = resolve;
-    modalReject = reject;
-    if (overlay) overlay.classList.add('active');
+    titleEl.textContent = title || 'Notice';
+    bodyEl.innerHTML = typeof message === 'string' ? message : '';
+    footerEl.innerHTML = '';
+    buttons.forEach(btn => {
+      const el = document.createElement('button');
+      el.textContent = btn.label;
+      el.className = `btn ${btn.class || 'btn-primary'}`;
+      el.onclick = () => {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+        if (btn.value !== undefined) resolve(btn.value);
+        else resolve(true);
+      };
+      footerEl.appendChild(el);
+    });
+    overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
   });
 }
-
 function closeModal() {
   const overlay = document.getElementById('customModal');
-  if (overlay) overlay.classList.remove('active');
+  overlay.classList.remove('active');
   document.body.style.overflow = '';
-  if (modalReject) modalReject('cancelled');
 }
-
-function modalConfirm() {
-  closeModal();
-  if (modalResolve) modalResolve(true);
-}
-
+function modalConfirm() { closeModal(); }
 function showAlert(title, message) {
   return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
 }
-
 function showConfirm(title, message) {
   return showModal(title, message, [
-    { label: 'Cancel', class: 'btn-secondary sharp', value: false },
-    { label: 'Confirm', class: 'btn-primary sharp', value: true }
+    { label: 'Cancel', class: 'btn-secondary', value: false },
+    { label: 'Confirm', class: 'btn-primary', value: true }
   ]);
 }
-
 function showPrompt(title, message, defaultValue) {
-  const input = `<input type="text" id="modalInput" value="${defaultValue || ''}" class="form-input sharp mt-2" placeholder="Enter date here..." />`;
-  return new Promise((resolve, reject) => {
+  const input = `<input type="text" id="modalInput" value="${defaultValue || ''}" placeholder="Enter date here..." />`;
+  return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
     const titleEl = document.getElementById('modalTitle');
     const bodyEl = document.getElementById('modalBody');
     const footerEl = document.getElementById('modalFooter');
-
-    if (titleEl) titleEl.textContent = title || 'Configure Date Range';
-    if (bodyEl) bodyEl.innerHTML = (message || '') + input;
-    if (footerEl) {
-      footerEl.innerHTML = '';
-      const okBtn = document.createElement('button');
-      okBtn.textContent = 'Block Range';
-      okBtn.className = 'btn btn-primary sharp';
-      okBtn.onclick = () => {
-        const val = document.getElementById('modalInput')?.value || '';
-        closeModal();
-        resolve(val);
-      };
-      footerEl.appendChild(okBtn);
-
-      const cancelBtn = document.createElement('button');
-      cancelBtn.textContent = 'Cancel';
-      cancelBtn.className = 'btn btn-secondary sharp';
-      cancelBtn.onclick = () => {
-        closeModal();
-        resolve(null);
-      };
-      footerEl.appendChild(cancelBtn);
-    }
-
-    modalResolve = resolve;
-    modalReject = reject;
-    if (overlay) overlay.classList.add('active');
+    titleEl.textContent = title || 'Configure Date Range';
+    bodyEl.innerHTML = (message || '') + input;
+    footerEl.innerHTML = '';
+    const okBtn = document.createElement('button');
+    okBtn.textContent = 'Block Range';
+    okBtn.className = 'btn btn-primary';
+    okBtn.onclick = () => {
+      const val = document.getElementById('modalInput')?.value || '';
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+      resolve(val);
+    };
+    footerEl.appendChild(okBtn);
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.onclick = () => {
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+      resolve(null);
+    };
+    footerEl.appendChild(cancelBtn);
+    overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
     setTimeout(() => {
       const inp = document.getElementById('modalInput');
@@ -604,47 +896,41 @@ function showPrompt(title, message, defaultValue) {
     }, 200);
   });
 }
-
-// Esc Key hook
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    closeModal();
-  }
+  if (e.key === 'Escape') { closeModal(); }
+});
+document.getElementById('customModal').addEventListener('click', function(e) {
+  if (e.target === this) { closeModal(); }
 });
 
 // =============================================================
 // SHA256 (PEPPER SECURITY CONSTRAINTS)
 // =============================================================
 const PEPPER = "kundasang-homestay-2026";
-
 async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
-
 function generateSalt() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
 }
 
 // =============================================================
-// GUEST ACTIVE SESSION RETRIEVAL
+// GUEST ACTIVE SESSION RETRIEVAL (same)
 // =============================================================
 const API_BASE = "/api";
 let currentGuest = null;
-
 try {
   const saved = localStorage.getItem('kd_guest');
   if (saved) currentGuest = JSON.parse(saved);
 } catch (e) { currentGuest = null; }
-
 function renderGuestNav() {
   const loginNav = document.getElementById("guestNav");
   const profileNav = document.getElementById("guestProfileNav");
   const mLoginNav = document.getElementById("mGuestNav");
   const mProfileNav = document.getElementById("mGuestProfileNav");
-
   if (currentGuest && currentGuest.id) {
     if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
     if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
@@ -661,7 +947,6 @@ function renderGuestNav() {
     if (mProfileNav) mProfileNav.classList.add("hidden");
   }
 }
-
 function logoutGuest() {
   if (!confirm("Confirm guest logout?")) return;
   currentGuest = null;
@@ -684,7 +969,7 @@ const BANK_CODES = {
 };
 
 // =============================================================
-// COMPILATION FORM LOCAL STORAGE
+// COMPILATION FORM LOCAL STORAGE (same as original, only style changes)
 // =============================================================
 let tempPhotos = [];
 let tempBlockedDates = [];
@@ -696,13 +981,9 @@ let tempBankQROriginalName = "";
 document.getElementById('listBankName').addEventListener('change', function() {
   const wrap = document.getElementById('manualBankCodeWrap');
   if (this.value === 'Other') wrap.classList.remove('hidden');
-  else {
-    wrap.classList.add('hidden');
-    document.getElementById('listBankCode').value = '';
-  }
+  else { wrap.classList.add('hidden'); document.getElementById('listBankCode').value = ''; }
 });
 
-// Photo selection preview
 function handlePhotos(input) {
   tempPhotos = [];
   const preview = document.getElementById('photoPreview');
@@ -713,41 +994,30 @@ function handlePhotos(input) {
       tempPhotos.push(e.target.result);
       const img = document.createElement('img');
       img.src = e.target.result;
-      img.className = 'w-full h-20 object-cover sharp border border-zinc-200';
+      img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
       if (preview) preview.appendChild(img);
     };
     reader.readAsDataURL(file);
   }
 }
 
-// Secure Client-Side Identity Document watermarking via Canvas
 function handleIcFile(input) {
   const file = input.files[0];
   if (!file) return;
-  if (file.size > 5 * 1024 * 1024) { 
-    showAlert("File Exceeded", "IC attachment too heavy (max 5MB limit).");
-    input.value = ""; 
-    return; 
-  }
-
+  if (file.size > 5 * 1024 * 1024) { showAlert("File Exceeded", "IC attachment too heavy (max 5MB limit)."); input.value=""; return; }
   tempIcOriginalName = file.name;
   const reader = new FileReader();
   reader.onload = function(e) {
     const img = new Image();
     img.onload = function() {
       const canvas = document.getElementById("icCanvas");
-      const maxW = 1200;
-      let w = img.width, h = img.height;
+      const maxW = 1200; let w = img.width, h = img.height;
       if (w > maxW) { h = h * (maxW / w); w = maxW; }
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0, w, h);
-
       const ownerName = (document.getElementById("listOwnerName")?.value || document.getElementById("listIcName")?.value || "OWNER").toUpperCase();
       const dateStr = new Date().toISOString().split('T')[0];
-
-      // Draw secure anti-fraud diagonal watermarks on top of host IC card locally
       ctx.save();
       ctx.globalAlpha = 0.22;
       ctx.font = `bold ${Math.max(18, w * 0.035)}px Inter, sans-serif`;
@@ -772,14 +1042,11 @@ function handleIcFile(input) {
       ctx.fillStyle = "white";
       ctx.font = "bold 11px Inter, sans-serif";
       ctx.fillText(`VERIFICATION ONLY • ${dateStr} • ${ownerName} • KUNDASANGHOMESTAY.MY`, 14, h - 14);
-
       tempIcWatermarked = canvas.toDataURL("image/jpeg", 0.85);
       const preview = document.getElementById("icPreview");
       if (preview) preview.src = tempIcWatermarked;
-      
       const infoBox = document.getElementById("icPreviewWrap");
       if (infoBox) infoBox.classList.remove("hidden");
-      
       const label = document.getElementById("icWatermarkInfo");
       if (label) label.innerHTML = safeHTML(`✓ Legal encryption complete!<br>✓ Processed file size: ${(tempIcWatermarked.length/1024).toFixed(0)}KB`);
     };
@@ -787,24 +1054,16 @@ function handleIcFile(input) {
   };
   reader.readAsDataURL(file);
 }
-
 function removeIc() {
-  tempIcWatermarked = "";
-  tempIcOriginalName = "";
+  tempIcWatermarked = ""; tempIcOriginalName = "";
   document.getElementById("listIcFront").value = "";
   document.getElementById("icPreviewWrap").classList.add("hidden");
   document.getElementById("icPreview").src = "";
 }
-
-// QR Template Handler
 function handleBankQRUpload(input) {
   const file = input.files[0];
   if (!file) return;
-  if (file.size > 3 * 1024 * 1024) { 
-    showAlert("File Exceeded", "QR attachment size exceeded (max 3MB).");
-    input.value = ""; 
-    return; 
-  }
+  if (file.size > 3 * 1024 * 1024) { showAlert("File Exceeded", "QR attachment size exceeded (max 3MB)."); input.value=""; return; }
   tempBankQROriginalName = file.name;
   const reader = new FileReader();
   reader.onload = function(e) {
@@ -814,22 +1073,16 @@ function handleBankQRUpload(input) {
   };
   reader.readAsDataURL(file);
 }
-
 function removeBankQR() {
-  tempBankQRWatermarked = "";
-  tempBankQROriginalName = "";
+  tempBankQRWatermarked = ""; tempBankQROriginalName = "";
   document.getElementById("listBankQR").value = "";
   document.getElementById("bankQRPreview").classList.add("hidden");
   document.getElementById("bankQRImg").src = "";
 }
 
-// Blocked dates calendar exclusion
 async function addBlockedDate() {
   const input = document.getElementById("listBlockedDateInput");
-  if (!input || !input.value) {
-    await showAlert("Warning", "Select an exclusion date in the calendar input.");
-    return;
-  }
+  if (!input || !input.value) { await showAlert("Warning", "Select an exclusion date in the calendar input."); return; }
   const dateStr = input.value;
   if (tempBlockedDates.includes(dateStr)) return;
   tempBlockedDates.push(dateStr);
@@ -837,14 +1090,10 @@ async function addBlockedDate() {
   renderBlockedDatesList();
   input.value = "";
 }
-
 async function addBlockedRange() {
   const input = document.getElementById("listBlockedDateInput");
   const start = input ? input.value : "";
-  if (!start) {
-    await showAlert("Warning", "Define start of range using calendar first.");
-    return;
-  }
+  if (!start) { await showAlert("Warning", "Define start of range using calendar first."); return; }
   const end = await showPrompt("Define End Date", "Exclude until date (Inclusive) - YYYY-MM-DD:", start);
   if (!end) return;
   let current = new Date(start);
@@ -859,12 +1108,10 @@ async function addBlockedRange() {
   renderBlockedDatesList();
   input.value = "";
 }
-
 function removeBlockedDate(dateStr) {
   tempBlockedDates = tempBlockedDates.filter(d => d !== dateStr);
   renderBlockedDatesList();
 }
-
 function renderBlockedDatesList() {
   const listDiv = document.getElementById("blockedDatesList");
   const countDiv = document.getElementById("blockedDatesCount");
@@ -880,12 +1127,11 @@ function renderBlockedDatesList() {
 }
 
 // =============================================================
-// SUBMIT HOMESTAY LISTING
+// SUBMIT HOMESTAY LISTING (same logic, updated styles)
 // =============================================================
 async function submitHomestay() {
   const statusEl = document.getElementById('submitStatus');
   if (statusEl) statusEl.className = 'hidden';
-
   try {
     const ownerName = document.getElementById("listOwnerName").value.trim();
     const rawWhatsapp = document.getElementById("listWhatsapp").value.trim();
@@ -904,14 +1150,9 @@ async function submitHomestay() {
     const icName = document.getElementById("listIcName").value.trim();
     const icNumber = document.getElementById("listIcNumber").value.trim();
     const ownerPassword = document.getElementById("listOwnerPassword").value.trim();
-
     let bankCode = BANK_CODES[bankName] || '';
-    if (bankName === 'Other') {
-      bankCode = document.getElementById('listBankCode').value.trim().toUpperCase();
-    }
+    if (bankName === 'Other') { bankCode = document.getElementById('listBankCode').value.trim().toUpperCase(); }
     if (!bankCode) bankCode = 'MBBEMYKL';
-
-    // Verification Logic
     if (!ownerName) { await showAlert("Required Field", "Host full legal name is missing."); return; }
     if (!whatsapp) { await showAlert("Required Field", "WhatsApp contact number is missing."); return; }
     if (!ownerEmail) { await showAlert("Required Field", "Owner email address is missing."); return; }
@@ -925,10 +1166,8 @@ async function submitHomestay() {
     if (tempPhotos.length === 0) { await showAlert("Required Field", "Add at least 1 cover photo of your homestay."); return; }
     if (ownerPassword.length < 6) { await showAlert("Required Field", "Password must exceed 5 characters."); return; }
     if (!tempIcWatermarked) { await showAlert("Required Field", "Identity document front upload is mandatory."); return; }
-
     const ownerSalt = generateSalt();
     const ownerPasswordHash = await sha256(PEPPER + ownerPassword + ownerSalt);
-
     const newHome = {
       id: Date.now(),
       name: homestayName,
@@ -946,7 +1185,7 @@ async function submitHomestay() {
       bankCode: bankCode,
       bankHolder: bankHolder,
       icName: icName,
-      icNumber: icNumber ? icNumber.substring(0, 3) + "****" + icNumber.slice(-4) : "",
+      icNumber: icNumber ? icNumber.substring(0,3)+"****"+icNumber.slice(-4) : "",
       icImage: tempIcWatermarked,
       icOriginalName: tempIcOriginalName,
       icUploadDate: new Date().toISOString(),
@@ -961,42 +1200,35 @@ async function submitHomestay() {
       ownerPasswordHash: ownerPasswordHash,
       ownerSalt: ownerSalt
     };
-
     let pending = JSON.parse(localStorage.getItem("kd_pending") || "[]");
     pending.push(newHome);
     localStorage.setItem("kd_pending", JSON.stringify(pending));
-
     if (statusEl) {
-      statusEl.className = 'block p-3 text-xs bg-blue-50 text-blue-700 border sharp mt-3 font-semibold';
+      statusEl.className = 'block p-3 text-xs bg-blue-50 text-blue-700 border rounded-xl mt-3 font-semibold';
       statusEl.textContent = '⏳ Initializing client-to-cloud security handshake...';
     }
-
     const syncRes = await fetch("/api/pending", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pending: pending })
     });
     const syncData = await syncRes.json();
-
     if (!syncRes.ok) {
       if (statusEl) {
-        statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border sharp mt-3 font-semibold';
+        statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
         statusEl.textContent = '❌ Cloud handshake failed. Saved in locally cached staging.';
       }
       return;
     }
-
     if (statusEl) {
-      statusEl.className = 'block p-3 text-xs bg-emerald-50 text-emerald-800 border sharp mt-3 font-semibold';
+      statusEl.className = 'block p-3 text-xs bg-emerald-50 text-emerald-800 border rounded-xl mt-3 font-semibold';
       statusEl.textContent = '✓ Secure cloud storage synchronized successfully!';
     }
-
     await showAlert("Listing Staged", `"${homestayName}" has been queued for host audit.\n\nYou can log in to your dashboard panel at /owner.html once verification has concluded.`);
     window.location.href = "/";
-
-  } catch (err) {
+  } catch(err) {
     if (statusEl) {
-      statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border sharp mt-3 font-semibold';
+      statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
       statusEl.textContent = '⚠️ Operation Interrupted: ' + err.message;
     }
   }
@@ -1005,8 +1237,6 @@ async function submitHomestay() {
 function toggleMobileMenu() {
   document.getElementById('mobileNav')?.classList.toggle('open');
 }
-
-// Click outside close trigger
 document.addEventListener('click', function(e) {
   const nav = document.getElementById('mobileNav');
   const btn = document.getElementById('mobileMenuBtn');
