@@ -9,105 +9,68 @@ async function generateResetToken() {
 
 async function sendResetEmail(email, name, resetUrl, env) {
   try {
-    // ===== Option 1: Resend (Recommended for Cloudflare) =====
-    // Sign up at https://resend.com and get an API key
     const resendApiKey = env.RESEND_API_KEY;
-    const fromEmail = env.FROM_EMAIL || 'noreply@kundasanghomestay.my';
+    const fromEmail = env.FROM_EMAIL || 'support@kundasanghomestay.my';
     
-    if (resendApiKey) {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + resendApiKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: email,
-          subject: 'Reset Your Password - Kundasang Homestay',
-          html: `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <style>
-                body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: #0F382E; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-                .content { padding: 30px; background: #f8f5f0; border-radius: 0 0 8px 8px; }
-                .button { display: inline-block; background: #3FD0D4; color: white; padding: 12px 30px; text-decoration: none; border-radius: 999px; font-weight: 700; }
-                .footer { text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px; }
-              </style>
-            </head>
-            <body>
-              <div class="header">
-                <h1>🏔️ Kundasang Homestay</h1>
-              </div>
-              <div class="content">
-                <h2>Hello ${name || 'Guest'},</h2>
-                <p>You requested to reset your password for your Kundasang Homestay account.</p>
-                <p style="text-align: center; margin: 30px 0;">
-                  <a href="${resetUrl}" class="button">Reset Password</a>
-                </p>
-                <p>This link will expire in <strong>1 hour</strong>.</p>
-                <p>If you didn't request this, please ignore this email.</p>
-                <p style="margin-top: 20px;"><strong>⚠️ Security Notice:</strong> Never share this link with anyone.</p>
-              </div>
-              <div class="footer">
-                <p>Kundasang Homestay • Verified Homestays in Sabah</p>
-                <p><a href="https://kundasanghomestay.my" style="color: #3FD0D4;">kundasanghomestay.my</a></p>
-              </div>
-            </body>
-            </html>
-          `
-        })
-      });
-
-      if (response.ok) {
-        console.log(`✅ Reset email sent to ${email}`);
-        return true;
-      } else {
-        const error = await response.text();
-        console.error('❌ Resend API error:', error);
-        return false;
-      }
-    }
-
-    // ===== Option 2: SendGrid =====
-    const sendGridKey = env.SENDGRID_API_KEY;
-    if (sendGridKey) {
-      const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + sendGridKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email }] }],
-          from: { email: 'support@kundasanghomestay.my', name: 'Kundasang Homestay' },
-          subject: 'Reset Your Password - Kundasang Homestay',
-          content: [{
-            type: 'text/html',
-            value: `
-              <h2>Hello ${name || 'Guest'},</h2>
-              <p>You requested to reset your password.</p>
-              <p><a href="${resetUrl}">Click here to reset your password</a></p>
-              <p>This link expires in 1 hour.</p>
-              <p>If you didn't request this, please ignore this email.</p>
-            `
-          }]
-        })
-      });
-      if (response.ok) {
-        console.log(`✅ Reset email sent to ${email} via SendGrid`);
-        return true;
-      }
-      console.error('❌ SendGrid error:', await response.text());
+    if (!resendApiKey) {
+      console.log('❌ RESEND_API_KEY not set. Email not sent.');
       return false;
     }
 
-    // ===== Fallback: Log only =====
-    console.log(`📧 [FALLBACK] Reset link for ${email}: ${resetUrl}`);
-    console.log('⚠️ No email service configured. Set RESEND_API_KEY or SENDGRID_API_KEY in env.');
-    return false;
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + resendApiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject: 'Reset Your Password - Kundasang Homestay',
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: #0F382E; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+              .content { padding: 30px; background: #f8f5f0; border-radius: 0 0 8px 8px; }
+              .button { display: inline-block; background: #3FD0D4; color: white; padding: 12px 30px; text-decoration: none; border-radius: 999px; font-weight: 700; }
+              .footer { text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>🏔️ Kundasang Homestay</h1>
+            </div>
+            <div class="content">
+              <h2>Hello ${name || 'Guest'},</h2>
+              <p>You requested to reset your password for your Kundasang Homestay account.</p>
+              <p style="text-align: center; margin: 30px 0;">
+                <a href="${resetUrl}" class="button">Reset Password</a>
+              </p>
+              <p>This link will expire in <strong>1 hour</strong>.</p>
+              <p>If you didn't request this, please ignore this email.</p>
+              <p style="margin-top: 20px;"><strong>⚠️ Security Notice:</strong> Never share this link with anyone.</p>
+            </div>
+            <div class="footer">
+              <p>Kundasang Homestay • Verified Homestays in Sabah</p>
+              <p><a href="https://kundasanghomestay.my" style="color: #3FD0D4;">kundasanghomestay.my</a></p>
+            </div>
+          </body>
+          </html>
+        `
+      })
+    });
+
+    if (response.ok) {
+      console.log(`✅ Reset email sent to ${email}`);
+      return true;
+    } else {
+      const error = await response.text();
+      console.error('❌ Resend API error:', error);
+      return false;
+    }
 
   } catch (e) {
     console.error('❌ Email send error:', e.message);
@@ -134,7 +97,6 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // Ensure store table exists
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
     const cleanEmail = email.toLowerCase().trim();
@@ -192,7 +154,6 @@ export async function onRequestPost({ request, env }) {
       )
     `).run();
 
-    // Add indexes for performance
     await db.prepare(`CREATE INDEX IF NOT EXISTS idx_token ON password_resets(token)`).run().catch(() => {});
     await db.prepare(`CREATE INDEX IF NOT EXISTS idx_expires ON password_resets(expires_at)`).run().catch(() => {});
 
