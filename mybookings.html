@@ -983,11 +983,15 @@ function cancelBooking(bookingId) {
       // Update status via the publicUpdateStatus endpoint
       fetch(API_BASE + '/bookings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getCsrfHeader() // ✅ ADD THIS
+        },
         body: JSON.stringify({
           action: 'publicUpdateStatus',
           id: bookingId,
-          status: 'Cancelled'
+          status: 'Cancelled',
+          guestId: currentGuest.id // ✅ ADD THIS
         })
       })
       .then(function(res) { return res.json(); })
@@ -1006,7 +1010,6 @@ function cancelBooking(bookingId) {
       });
     });
 }
-
 // =============================================================
 // INIT
 // =============================================================
