@@ -1248,7 +1248,7 @@
     will-change: height, transform;
   }
   .accordion-gallery-vertical .ag-item.active {
-    height: 400px;
+    height: 420px;
     box-shadow: 0 12px 40px -16px rgba(0,0,0,0.5);
   }
   .accordion-gallery-vertical .ag-item:focus-visible {
@@ -1267,7 +1267,7 @@
     width: 100%;
     height: 100%;
     transform: translate(-50%, -50%) scale(1.1);
-    filter: grayscale(1) brightness(0.7);
+    filter: grayscale(0.8) brightness(0.6);
     transition: filter 0.7s cubic-bezier(0.22, 1, 0.36, 1),
                 transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
     will-change: transform, filter;
@@ -1298,22 +1298,22 @@
   }
   .accordion-gallery-vertical .ag-item .ag-label-wrap {
     position: absolute;
-    bottom: 20px;
-    left: 24px;
-    right: 24px;
+    bottom: 24px;
+    left: 28px;
+    right: 28px;
     z-index: 2;
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 16px;
     pointer-events: none;
   }
   .accordion-gallery-vertical .ag-item .ag-bar {
-    height: 28px;
+    height: 32px;
     width: 4px;
     flex: none;
     border-radius: 4px;
     background: #3FD0D4;
-    box-shadow: 0 0 16px rgba(63, 208, 212, 0.5);
+    box-shadow: 0 0 20px rgba(63, 208, 212, 0.6);
     opacity: 0.5;
     transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
                 transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
@@ -1323,32 +1323,34 @@
   .accordion-gallery-vertical .ag-item.active .ag-bar {
     opacity: 1;
     transform: scaleY(1);
-    height: 36px;
+    height: 40px;
   }
   .accordion-gallery-vertical .ag-item .ag-label {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: clamp(1.1rem, 1.6vw, 1.6rem);
+    font-size: clamp(1.2rem, 1.8vw, 1.8rem);
     font-weight: 700;
     letter-spacing: 0.02em;
     color: #ffffff;
-    text-shadow: 0 2px 20px rgba(0,0,0,0.7);
+    text-shadow: 0 2px 24px rgba(0,0,0,0.8);
     opacity: 0.7;
     transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s,
-                transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s;
+                transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s,
+                font-size 0.5s cubic-bezier(0.22, 1, 0.36, 1);
     transform: translateX(-8px);
   }
   .accordion-gallery-vertical .ag-item.active .ag-label {
     opacity: 1;
     transform: translateX(0);
+    font-size: clamp(1.5rem, 2.2vw, 2.2rem);
   }
   .accordion-gallery-vertical .ag-item .ag-sub-label {
     display: none;
-    font-size: clamp(0.75rem, 0.9vw, 0.9rem);
+    font-size: clamp(0.8rem, 1vw, 1rem);
     font-weight: 400;
-    color: rgba(255,255,255,0.6);
-    margin-left: 8px;
+    color: rgba(255,255,255,0.7);
+    margin-left: 10px;
     opacity: 0;
     transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s;
   }
@@ -1358,32 +1360,35 @@
   }
   .accordion-gallery-vertical .ag-item .ag-number {
     position: absolute;
-    top: 16px;
-    right: 20px;
+    top: 20px;
+    right: 24px;
     z-index: 2;
-    font-size: clamp(0.8rem, 1vw, 1rem);
+    font-size: clamp(0.9rem, 1.1vw, 1.1rem);
     font-weight: 600;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.25);
     letter-spacing: 0.1em;
     transition: color 0.4s ease, opacity 0.4s ease;
+    font-variant-numeric: tabular-nums;
   }
   .accordion-gallery-vertical .ag-item.active .ag-number {
-    color: rgba(255,255,255,0.6);
+    color: rgba(255,255,255,0.5);
   }
 
-  /* Hover effects */
-  .accordion-gallery-vertical .ag-item:not(.active):hover {
-    transform: scale(1.01);
-    box-shadow: 0 8px 30px -14px rgba(0,0,0,0.5);
-  }
-  .accordion-gallery-vertical .ag-item:not(.active):hover .ag-media {
-    transform: translate(-50%, -50%) scale(1.05);
-  }
-  .accordion-gallery-vertical .ag-item:not(.active):hover .ag-label {
-    opacity: 1;
-  }
-  .accordion-gallery-vertical .ag-item:not(.active):hover .ag-bar {
-    opacity: 1;
+  /* Hover effects - desktop only */
+  @media (min-width: 769px) {
+    .accordion-gallery-vertical .ag-item:not(.active):hover {
+      transform: scale(1.01);
+      box-shadow: 0 8px 30px -14px rgba(0,0,0,0.5);
+    }
+    .accordion-gallery-vertical .ag-item:not(.active):hover .ag-media {
+      transform: translate(-50%, -50%) scale(1.05);
+    }
+    .accordion-gallery-vertical .ag-item:not(.active):hover .ag-label {
+      opacity: 1;
+    }
+    .accordion-gallery-vertical .ag-item:not(.active):hover .ag-bar {
+      opacity: 1;
+    }
   }
 
   /* Reduced motion */
@@ -1397,13 +1402,13 @@
   }
 
   /* Mobile adjustments */
-  @media (max-width: 520px) {
+  @media (max-width: 768px) {
     .accordion-gallery-vertical .ag-item {
       min-height: 64px;
       height: 64px;
     }
     .accordion-gallery-vertical .ag-item.active {
-      height: 320px;
+      height: 300px;
     }
     .accordion-gallery-vertical .ag-item .ag-label-wrap {
       bottom: 14px;
@@ -1413,6 +1418,9 @@
     }
     .accordion-gallery-vertical .ag-item .ag-label {
       font-size: 0.95rem;
+    }
+    .accordion-gallery-vertical .ag-item.active .ag-label {
+      font-size: 1.2rem;
     }
     .accordion-gallery-vertical .ag-item .ag-bar {
       height: 20px;
@@ -1424,6 +1432,9 @@
       top: 10px;
       right: 14px;
       font-size: 0.7rem;
+    }
+    .accordion-gallery-vertical .ag-item .ag-sub-label {
+      display: none !important;
     }
   }
 </style>
@@ -1505,9 +1516,11 @@
       setActive(index);
     });
 
-    // Mouse enter
+    // Mouse enter - desktop only
     el.addEventListener('mouseenter', function() {
-      setActive(index);
+      if (window.innerWidth > 768) {
+        setActive(index);
+      }
     });
 
     // Focus
