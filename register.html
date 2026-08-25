@@ -672,6 +672,12 @@ async function handleRegister(e) {
     if (data.success) {
       currentGuest = data.guest;
       localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
+      
+      // ✅ SAVE CSRF TOKEN
+      if (data.csrfToken) {
+        localStorage.setItem('kd_csrf_token', data.csrfToken);
+      }
+      
       renderGuestNav();
       await showAlert('Account Created!', 'Account created! Welcome ' + data.guest.name + '!');
       window.location.href = '/';
@@ -684,7 +690,6 @@ async function handleRegister(e) {
     errorEl.classList.remove('hidden');
   }
 }
-
 // =============================================================
 // TOGGLE MOBILE MENU
 // =============================================================
