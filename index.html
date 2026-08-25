@@ -786,13 +786,12 @@
       padding: 4px;
       cursor: pointer;
     }
-    /* Fallback for empty value */
     .form-input[type="date"]:invalid {
       color: #94a3b8;
     }
 
     /* ============================================================ */
-    /* MOBILE SEARCH BAR - FIXED WITH VISIBLE DATE INPUTS */
+    /* MOBILE SEARCH BAR */
     /* ============================================================ */
     @media (max-width: 768px) {
       #hero {
@@ -1111,7 +1110,10 @@
     </div>
   </div>
 
-  <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+  <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <!-- Homestays will be rendered here from the API -->
+    <!-- No demo data - only real listings from the backend -->
+  </div>
 </main>
 
 <!-- ===== DETAIL MODAL ===== -->
@@ -1426,59 +1428,14 @@ async function fetchWithAuth(url, options = {}) {
 }
 
 // =============================================================
-// DEMO HOMESTAY SEEDS
+// DATA STORE - NO DEMO DATA
 // =============================================================
-const DEMO_HOMESTAYS = [
-  {
-    id: 1,
-    name: "A-Frame Cabin with Kinabalu View",
-    location: "Bundu Tuhan",
-    ownerPrice: 300,
-    rating: 4.9,
-    reviews: 127,
-    guests: 4,
-    bedrooms: 2,
-    image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800",
-    approved: true,
-    verified: true,
-    ownerName: "Ali",
-    whatsapp: "60123456789",
-    description: "Unobstructed direct Mount Kinabalu sunrise view from your balcony. Steamboat pot provided.",
-    blockedDates: []
-  },
-  {
-    id: 2,
-    name: "Desa Cattle Farm Cozy Homestay",
-    location: "Desa",
-    ownerPrice: 250,
-    rating: 4.8,
-    reviews: 89,
-    guests: 6,
-    bedrooms: 3,
-    image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800",
-    approved: true,
-    verified: true,
-    ownerName: "Maria",
-    whatsapp: "60123456789",
-    description: "5 minutes from Desa Dairy Farm. Full kitchen facilities and warm water heaters.",
-    blockedDates: []
-  }
-];
-
 let pendingHomestays = JSON.parse(localStorage.getItem("kd_pending") || "[]");
-let deletedDemoIds = JSON.parse(localStorage.getItem("kd_deleted_demo") || "[]");
-let demoBlockedMap = JSON.parse(localStorage.getItem("kd_demo_blocked") || "{}");
 let storedApproved = JSON.parse(localStorage.getItem("kd_approved") || "[]");
-let demoOverrides = JSON.parse(localStorage.getItem("kd_demo_overrides") || "{}");
 
-let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d => {
-  let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
-  if (demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
-  return merged;
-});
-
-let allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
-let homestays = [...allHomestays];
+// Only use approved listings from localStorage or API
+// No demo data - the grid will show "no results" until real data is added
+let homestays = [...storedApproved].filter(h => h.approved === true).map(h => ({ blockedDates: [], ...h }));
 let bookings = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
 let selectedHomestay = null;
 let availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}");
@@ -1590,7 +1547,7 @@ function renderGrid() {
   const checkoutVal = document.getElementById("checkout")?.value;
   
   let list = homestays.filter(h => h.approved === true);
-  if (loc !== "all") list = list.filter(h => h.location.toLowerCase().includes(loc.toLowerCase()));
+  if (loc !== "all") list = list.filter(h => h.location && h.location.toLowerCase().includes(loc.toLowerCase()));
 
   if (checkinVal && checkoutVal) {
     list = list.filter(h => isHomestayAvailableForRange(h, checkinVal, checkoutVal).available);
@@ -1599,7 +1556,7 @@ function renderGrid() {
   if (list.length === 0) {
     grid.innerHTML = safeHTML(`
       <div class="col-span-3 text-center py-16">
-        <div class="text-zinc-500 font-poppins">No available homestays matched your search dates.</div>
+        <div class="text-zinc-500 font-poppins">No homestays available yet. Check back soon or <a href="/list.html" class="text-[#3FD0D4] font-semibold underline">list your property</a>.</div>
         <button onclick="document.getElementById('checkin').value=''; document.getElementById('checkout').value=''; document.getElementById('filterLocation').value='all'; renderGrid();" class="mt-4 btn-outline">Reset Filters</button>
       </div>
     `);
@@ -1611,7 +1568,7 @@ function renderGrid() {
     return `
       <article class="group bg-white rounded-2xl shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden" onclick="openDetail(${h.id})">
         <div class="h-[240px] w-full relative overflow-hidden bg-zinc-100">
-          <img src="${h.image}" loading="lazy" alt="${h.name}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800'"/>
+          <img src="${h.image || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800'}" loading="lazy" alt="${h.name}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800'"/>
           <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
             <span class="font-poppins font-700 text-[11px] text-[#212121]">${h.rating ? h.rating.toFixed(1) : '5.0'} ★</span>
           </div>
@@ -1621,11 +1578,11 @@ function renderGrid() {
         <div class="p-5 flex flex-col flex-1">
           <div class="flex justify-between items-start gap-2">
             <h3 class="font-poppins font-700 text-[18px] leading-tight text-[#212121]">${h.name}</h3>
-            <span class="text-[10px] bg-zinc-100 px-2.5 py-1 rounded-full shrink-0 font-600 uppercase tracking-wider text-[#212121]/70">${h.location}</span>
+            <span class="text-[10px] bg-zinc-100 px-2.5 py-1 rounded-full shrink-0 font-600 uppercase tracking-wider text-[#212121]/70">${h.location || 'Kundasang'}</span>
           </div>
-          <div class="text-[12px] text-[#212121]/60 mt-2 font-500">${h.guests} guests • ${h.bedrooms || 2} bedrooms • Water Heater ♨️</div>
+          <div class="text-[12px] text-[#212121]/60 mt-2 font-500">${h.guests || 2} guests • ${h.bedrooms || 1} bedrooms • Water Heater ♨️</div>
           <div class="mt-auto pt-4 flex justify-between items-center border-t border-black/5">
-            <div class="font-poppins font-700 text-[18px] text-[#0F382E]">RM${h.ownerPrice}<span class="font-400 text-[12px] text-[#212121]/60 font-normal"> /night</span></div>
+            <div class="font-poppins font-700 text-[18px] text-[#0F382E]">RM${h.ownerPrice || 200}<span class="font-400 text-[12px] text-[#212121]/60 font-normal"> /night</span></div>
             <div class="text-[11px] text-[#3FD0D4] font-700 uppercase tracking-wider">Book Now →</div>
           </div>
         </div>
@@ -1645,13 +1602,13 @@ function openDetail(id) {
   const defaultCo = document.getElementById("checkout")?.value || dateToIso(new Date(Date.now() + 86400000 * 2));
 
   document.getElementById("detailContent").innerHTML = safeHTML(`
-    <img src="${selectedHomestay.image}" alt="${selectedHomestay.name}" class="w-full h-[320px] object-cover rounded-2xl"/>
+    <img src="${selectedHomestay.image || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800'}" alt="${selectedHomestay.name}" class="w-full h-[320px] object-cover rounded-2xl"/>
     <div class="flex gap-2 mt-4 flex-wrap">
       ${selectedHomestay.verified ? `<span class="badge-verified text-xs px-3 py-1 font-semibold">✓ Verified Host — ${selectedHomestay.ownerName || 'Local Host'}</span>` : ''}
-      <span class="bg-zinc-100 text-xs px-3 py-1 rounded-full font-semibold">📍 ${selectedHomestay.location}</span>
+      <span class="bg-zinc-100 text-xs px-3 py-1 rounded-full font-semibold">📍 ${selectedHomestay.location || 'Kundasang'}</span>
     </div>
     <h2 class="text-2xl md:text-3xl font-bold font-poppins mt-3 text-[#212121]">${selectedHomestay.name}</h2>
-    <p class="text-sm text-zinc-500 mt-1">${selectedHomestay.guests} Guests Maximum • ${selectedHomestay.bedrooms || 2} Bedrooms</p>
+    <p class="text-sm text-zinc-500 mt-1">${selectedHomestay.guests || 2} Guests Maximum • ${selectedHomestay.bedrooms || 1} Bedrooms</p>
     <p class="text-sm mt-3 leading-relaxed text-zinc-700">${selectedHomestay.description || "Cozy mountain homestay in Kundasang."}</p>
     
     <div class="mt-6 bg-zinc-50 border p-4 rounded-2xl">
@@ -1677,7 +1634,7 @@ function updateDetailPrice() {
   const ci = document.getElementById("detailCheckin")?.value;
   const co = document.getElementById("detailCheckout")?.value;
   const nights = calculateNights(ci, co);
-  const p = calculatePrice(selectedHomestay.ownerPrice, nights);
+  const p = calculatePrice(selectedHomestay.ownerPrice || 200, nights);
   const avail = isHomestayAvailableForRange(selectedHomestay, ci, co);
 
   const statusEl = document.getElementById("detailAvailabilityStatus");
@@ -1690,7 +1647,7 @@ function updateDetailPrice() {
   if (box) {
     box.innerHTML = safeHTML(`
       <div class="text-xs space-y-1.5 font-poppins">
-        <div class="flex justify-between"><span>RM${selectedHomestay.ownerPrice} x ${nights} Nights</span><span>RM${p.base}</span></div>
+        <div class="flex justify-between"><span>RM${selectedHomestay.ownerPrice || 200} x ${nights} Nights</span><span>RM${p.base}</span></div>
         <div class="flex justify-between"><span>Platform & Protection Fee</span><span>RM${p.fee}</span></div>
         <div class="flex justify-between font-bold text-sm text-[#0F382E] border-t pt-2 mt-2"><span>Total Amount:</span><span>RM${p.total.toFixed(2)}</span></div>
       </div>
@@ -1730,14 +1687,14 @@ function updateBookingPrice() {
   const ci = document.getElementById("bookingCheckin").value;
   const co = document.getElementById("bookingCheckout").value;
   const nights = calculateNights(ci, co);
-  const p = calculatePrice(selectedHomestay.ownerPrice, nights);
+  const p = calculatePrice(selectedHomestay.ownerPrice || 200, nights);
   document.getElementById("bookingNights").innerText = nights;
   
   const summaryEl = document.getElementById("bookingSummary");
   if (summaryEl) {
     summaryEl.innerHTML = safeHTML(`
       <div class="font-bold text-[#0F382E]">${selectedHomestay.name}</div>
-      <div class="mt-2 text-xs flex justify-between"><span>RM${selectedHomestay.ownerPrice} x ${nights} Nights:</span><span class="font-semibold">RM${p.base}</span></div>
+      <div class="mt-2 text-xs flex justify-between"><span>RM${selectedHomestay.ownerPrice || 200} x ${nights} Nights:</span><span class="font-semibold">RM${p.base}</span></div>
       <div class="text-xs flex justify-between"><span>Service Fee:</span><span class="font-semibold">RM${p.fee}</span></div>
       <div class="text-sm font-bold flex justify-between border-t pt-2 mt-2 text-[#0F382E]"><span>Total FPX:</span><span>RM${p.total.toFixed(2)}</span></div>
     `);
@@ -1759,7 +1716,7 @@ async function processPayment() {
   }
 
   const nights = calculateNights(ci, co);
-  const price = calculatePrice(selectedHomestay.ownerPrice, nights);
+  const price = calculatePrice(selectedHomestay.ownerPrice || 200, nights);
   const bookingId = "KDH-" + Date.now().toString().slice(-6);
 
   const booking = {
@@ -1859,8 +1816,8 @@ function toggleMobileMenu() {
     const res = await fetch(`${API_BASE}/bookings`, { cache: "no-store" });
     if (res.ok) {
       const data = await res.json();
-      if (data.approved) {
-        homestays = [...baseDemos, ...data.approved];
+      if (data.approved && data.approved.length > 0) {
+        homestays = data.approved.map(h => ({ ...h, blockedDates: h.blockedDates || [] }));
         renderGrid();
       }
     }
