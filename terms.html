@@ -4,14 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Login - Kundasang Homestay</title>
+  <title>Terms & Conditions - Kundasang Homestay</title>
+
   <meta name="robots" content="index, follow" />
-  <meta name="description" content="Login to your Kundasang Homestay account to manage bookings and reservations." />
+  <meta name="description" content="Terms and conditions for using Kundasang Homestay platform. Read our policies on bookings, payments, and host-guest agreements." />
+
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="animations.css" />
+
   <style>
-    /* ===== ROOT ===== */
     :root {
       --primary: #0F382E;
       --primary-light: #1a4d3e;
@@ -21,16 +23,22 @@
       --bg: #F8F5F0;
       --card: #ffffff;
       --dark: #212121;
-      --glass: rgba(255, 255, 255, 0.72);
+      --glass: rgba(255, 255, 255, 0.75);
       --shadow-sm: 0 2px 20px rgba(0, 0, 0, 0.05);
       --shadow-md: 0 8px 40px rgba(0, 0, 0, 0.08);
       --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12);
-      --shadow-glow: 0 8px 30px rgba(63, 208, 212, 0.25);
     }
-    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-    html { scroll-behavior: smooth; overflow-x: hidden; }
+
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+    html {
+      scroll-behavior: smooth;
+      overflow-x: hidden;
+    }
     body {
-      font-family: "Poppins", sans-serif;
+      font-family: "Poppins", "Inter", sans-serif;
       background: var(--bg);
       overflow-x: hidden;
       min-height: 100vh;
@@ -42,12 +50,14 @@
     .rounded-xl { border-radius: 16px !important; }
     .rounded-2xl { border-radius: 24px !important; }
     .rounded-full { border-radius: 999px !important; }
+
     .glass {
       background: rgba(255, 255, 255, 0.72);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.3);
     }
+
     .card {
       background: var(--card);
       border-radius: 24px;
@@ -55,7 +65,11 @@
       border: 1px solid rgba(0, 0, 0, 0.04);
       transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
-    .card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
     .btn-primary {
       background: var(--primary);
       color: white;
@@ -75,7 +89,6 @@
       gap: 8px;
       position: relative;
       overflow: hidden;
-      width: 100%;
     }
     .btn-primary::after {
       content: '';
@@ -85,58 +98,13 @@
       opacity: 0;
       transition: opacity 0.3s;
     }
-    .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3); }
+    .btn-primary:hover {
+      background: var(--primary-light);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3);
+    }
     .btn-primary:hover::after { opacity: 1; }
-    .btn-accent {
-      background: var(--accent);
-      color: white;
-      border-radius: 999px;
-      padding: 10px 24px;
-      font-weight: 700;
-      font-family: "Poppins", sans-serif;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 11px;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      border: none;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .btn-accent:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: var(--shadow-glow); }
-    .btn-outline {
-      background: transparent;
-      border: 1.5px solid var(--accent);
-      color: var(--accent);
-      border-radius: 999px;
-      padding: 10px 24px;
-      font-weight: 700;
-      font-family: "Poppins", sans-serif;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 11px;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      cursor: pointer;
-    }
-    .btn-outline:hover { background: var(--accent); color: white; transform: translateY(-2px); }
-    .form-input {
-      width: 100%;
-      border: 2px solid #e2e8f0;
-      border-radius: 999px;
-      padding: 14px 20px;
-      font-size: 14px;
-      font-family: "Poppins", sans-serif;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      background: white;
-    }
-    .form-input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 4px var(--accent-glow);
-      transform: translateY(-1px);
-    }
-    .form-input::placeholder { color: #94a3b8; }
+
     .guest-avatar {
       width: 32px;
       height: 32px;
@@ -149,6 +117,7 @@
       font-weight: 700;
       font-size: 14px;
     }
+
     .setsail-nav-link {
       position: relative;
       font-family: "Poppins", sans-serif;
@@ -175,8 +144,13 @@
       border-radius: 999px;
       transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
-    .setsail-nav-link:hover::after, .setsail-nav-link.active::after { width: 100%; }
-    .setsail-nav-link:hover { color: var(--primary); }
+    .setsail-nav-link:hover::after,
+    .setsail-nav-link.active::after {
+      width: 100%;
+    }
+    .setsail-nav-link:hover {
+      color: var(--primary);
+    }
     .setsail-nav-link.agent {
       color: #7c3aed;
       border: 1px solid #7c3aed;
@@ -184,7 +158,11 @@
       border-radius: 999px;
     }
     .setsail-nav-link.agent::after { display: none; }
-    .setsail-nav-link.agent:hover { background: #7c3aed; color: white; }
+    .setsail-nav-link.agent:hover {
+      background: #7c3aed;
+      color: white;
+    }
+
     #mobileNav {
       position: fixed;
       top: 80px;
@@ -212,7 +190,8 @@
       pointer-events: auto;
       transform: translateY(0);
     }
-    #mobileNav a, #mobileNav button {
+    #mobileNav a,
+    #mobileNav button {
       display: block;
       width: 100%;
       text-align: left;
@@ -224,7 +203,11 @@
       transition: background 0.2s, color 0.2s;
       background: transparent;
     }
-    #mobileNav a:hover, #mobileNav button:hover { background: #f8f5f0; color: var(--accent); }
+    #mobileNav a:hover,
+    #mobileNav button:hover {
+      background: #f8f5f0;
+      color: var(--accent);
+    }
     #mobileNav .mobile-agent-link {
       color: #7c3aed !important;
       border: 1px solid #7c3aed !important;
@@ -234,7 +217,10 @@
       width: auto !important;
       display: inline-block !important;
     }
-    #mobileNav .mobile-agent-link:hover { background: #7c3aed !important; color: white !important; }
+    #mobileNav .mobile-agent-link:hover {
+      background: #7c3aed !important;
+      color: white !important;
+    }
     #mobileNav .guest-btn {
       border: 1px solid var(--accent);
       color: var(--accent);
@@ -248,9 +234,18 @@
       letter-spacing: 0.5px;
       width: 100%;
     }
-    #mobileNav .guest-btn-primary { background: var(--accent); color: white; border: none; }
-    #mobileNav .guest-btn:hover { background: var(--accent); color: white; }
-    #mobileNav .guest-btn-primary:hover { background: var(--accent-hover); }
+    #mobileNav .guest-btn-primary {
+      background: var(--accent);
+      color: white;
+      border: none;
+    }
+    #mobileNav .guest-btn:hover {
+      background: var(--accent);
+      color: white;
+    }
+    #mobileNav .guest-btn-primary:hover {
+      background: var(--accent-hover);
+    }
     #mobileNav .profile-card {
       display: flex;
       align-items: center;
@@ -274,15 +269,28 @@
       color: white;
       flex-shrink: 0;
     }
-    #mobileNav .profile-card .info { flex: 1; min-width: 0; overflow: hidden; }
-    #mobileNav .profile-card .name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #mobileNav .profile-card .sub { font-size: 10px; color: rgba(255,255,255,0.6); }
+    #mobileNav .profile-card .info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+    #mobileNav .profile-card .name {
+      font-weight: 700;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #mobileNav .profile-card .sub {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.6);
+    }
     #mobileNav .profile-card .logout-btn {
       width: auto !important;
       display: inline-block !important;
       flex-shrink: 0;
       font-size: 10px;
-      background: rgba(255,255,255,0.15);
+      background: rgba(255, 255, 255, 0.15);
       padding: 6px 14px;
       border-radius: 999px;
       cursor: pointer;
@@ -293,7 +301,9 @@
       letter-spacing: 0.5px;
       transition: background 0.2s;
     }
-    #mobileNav .profile-card .logout-btn:hover { background: rgba(255,255,255,0.25); }
+    #mobileNav .profile-card .logout-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
     #mobileNav .my-bookings-btn {
       display: block;
       width: 100%;
@@ -308,7 +318,10 @@
       border-radius: 12px;
       transition: background 0.2s;
     }
-    #mobileNav .my-bookings-btn:hover { background: #333; }
+    #mobileNav .my-bookings-btn:hover {
+      background: #333;
+    }
+
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -342,7 +355,13 @@
       align-items: center;
       justify-content: space-between;
     }
-    .modal-header h3 { font-family: "Poppins", sans-serif; font-weight: 700; font-size: 20px; color: #212121; margin: 0; }
+    .modal-header h3 {
+      font-family: "Poppins", sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      color: #212121;
+      margin: 0;
+    }
     .modal-close {
       background: none;
       border: none;
@@ -359,8 +378,16 @@
       align-items: center;
       justify-content: center;
     }
-    .modal-close:hover { color: #212121; background: #f1f5f9; }
-    .modal-body { padding: 16px 24px 20px 24px; font-size: 14px; line-height: 1.7; color: #4b5563; }
+    .modal-close:hover {
+      color: #212121;
+      background: #f1f5f9;
+    }
+    .modal-body {
+      padding: 16px 24px 20px 24px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #4b5563;
+    }
     .modal-footer {
       padding: 12px 24px 20px 24px;
       display: flex;
@@ -380,29 +407,34 @@
       transition: all 0.2s;
       font-family: "Poppins", sans-serif;
     }
-    .modal-footer .btn-primary { background: var(--primary); color: white; }
-    .modal-footer .btn-primary:hover { background: var(--primary-light); }
-    .modal-footer .btn-secondary { background: #f1f5f9; color: #475569; }
-    .modal-footer .btn-secondary:hover { background: #e2e8f0; }
-    .login-hero {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-      position: relative;
-      overflow: hidden;
+    .modal-footer .btn-primary {
+      background: var(--primary);
+      color: white;
     }
-    .login-hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-      opacity: 0.5;
+    .modal-footer .btn-primary:hover {
+      background: var(--primary-light);
     }
+    .modal-footer .btn-secondary {
+      background: #f1f5f9;
+      color: #475569;
+    }
+    .modal-footer .btn-secondary:hover {
+      background: #e2e8f0;
+    }
+
+    .terms-section {
+      padding: 24px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    .terms-section:last-child {
+      border-bottom: none;
+    }
+
     @media (max-width: 768px) {
       #desktopNav { display: none !important; }
       #mobileMenuBtn { display: flex !important; }
-      .login-card { max-width: 100%; margin: 0 16px; }
     }
     @media (max-width: 480px) {
-      .login-hero h1 { font-size: 28px !important; }
       .btn-primary { padding: 12px 20px; font-size: 11px; }
     }
   </style>
