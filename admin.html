@@ -7,75 +7,220 @@
 <title>Admin - Kundasang Homestays</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<!-- ===== ANIMATIONS ===== -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="animations.css" />
 <style>
-:root { --primary:#0F382E; --accent:#3FD0D4; --bg:#F8F5F0; --card:#ffffff; --dark:#212121; }
-body{font-family:"Poppins",sans-serif;background:var(--bg);}
-.sharp{border-radius:2px !important;}
-.card{border-radius:2px;background:var(--card);box-shadow:0 2px 20px rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.04);}
-.btn-primary{background:var(--dark);color:white;border-radius:2px;padding:10px 20px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-size:11px;}
-.kd-withdraw-btn{display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:10px 18px;border-radius:2px;background:#0F382E;color:#fff;font-weight:700;font-size:11px;text-transform:uppercase;}
-.kd-w-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.48);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:.25s}
-.kd-w-overlay.open{opacity:1;pointer-events:auto}
-.kd-w-modal{background:#fff;width:100%;max-width:480px;max-height:92vh;overflow:auto;border-radius:2px}
-/* ===== COMPACT CALENDAR STYLES ===== */
-.calendar-mini{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
-.calendar-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:2px;font-size:10px;font-weight:500;border:1px solid #e5e7eb;cursor:default;}
-.calendar-day.available{background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
-.calendar-day.booked{background:#fef2f2;border-color:#fecaca;color:#991b1b;text-decoration:line-through;}
-.calendar-day.today{border-color:var(--primary);border-width:2px;}
-.calendar-day.empty{background:transparent;border-color:transparent;}
-.calendar-day.past{background:#f9fafb;border-color:#e5e7eb;color:#9ca3af;}
-.calendar-nav-btn{background:var(--primary);color:white;border:none;width:28px;height:28px;border-radius:2px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background 0.2s;}
-.calendar-nav-btn:hover{background:var(--primary-light);}
-.calendar-month-label{font-weight:600;font-size:13px;color:#212121;}
-.calendar-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:10px;color:#6b7280;margin-top:6px;}
-.calendar-legend span{display:flex;align-items:center;gap:4px;}
-.calendar-legend .dot{width:10px;height:10px;border-radius:2px;display:inline-block;}
-.calendar-legend .dot.green{background:#f0fdf4;border:1px solid #bbf7d0;}
-.calendar-legend .dot.red{background:#fef2f2;border:1px solid #fecaca;}
-.calendar-legend .dot.today-dot{border:2px solid var(--primary);background:white;width:10px;height:10px;}
-/* ================================== */
-.verification-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:600;}
-.verification-badge.pass{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
-.verification-badge.fail{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
-.verification-badge.warn{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
-.detail-modal-img{max-width:100%;max-height:70vh;object-fit:contain;border-radius:8px;border:2px solid #e5e7eb;background:#fff;}
-/* Lightbox */
-#imageLightbox{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.92);display:none;align-items:center;justify-content:center;padding:20px;cursor:pointer;}
-#imageLightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;}
-#imageLightbox .close-btn{position:absolute;top:20px;right:30px;font-size:40px;color:white;cursor:pointer;font-weight:300;opacity:0.8;transition:0.2s;z-index:10;}
-#imageLightbox .close-btn:hover{opacity:1;}
-
-/* ===== CUSTOM MODAL ===== */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-  background: rgba(0,0,0,0.6);
-  backdrop-filter: blur(6px);
-  display: none;
+/* ===== ROOT (same as index) ===== */
+:root {
+  --primary: #0F382E;
+  --primary-light: #1a4d3e;
+  --accent: #3FD0D4;
+  --accent-hover: #2bbfc4;
+  --accent-glow: rgba(63, 208, 212, 0.25);
+  --bg: #F8F5F0;
+  --card: #ffffff;
+  --dark: #212121;
+  --glass: rgba(255, 255, 255, 0.72);
+  --shadow-sm: 0 2px 20px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 8px 40px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12);
+  --shadow-glow: 0 8px 30px rgba(63, 208, 212, 0.25);
+}
+* { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
+body {
+  font-family: "Poppins", sans-serif;
+  background: var(--bg);
+  overflow-x: hidden;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.font-poppins { font-family: "Poppins", sans-serif; }
+.rounded-xl { border-radius: 16px !important; }
+.rounded-2xl { border-radius: 24px !important; }
+.rounded-full { border-radius: 999px !important; }
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  padding: 20px;
+}
+.card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  border-radius: 999px;
+  padding: 12px 24px;
+  font-weight: 700;
+  font-family: "Poppins", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  overflow-y: auto;
-}
-.modal-overlay.active {
-  display: flex;
-}
-.modal-box {
-  background: white;
-  max-width: 480px;
-  width: 100%;
-  border-radius: 2px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  gap: 8px;
+  position: relative;
   overflow: hidden;
-  animation: modalIn 0.25s ease;
+}
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3); }
+.btn-primary:hover::after { opacity: 1; }
+.btn-accent {
+  background: var(--accent);
+  color: white;
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-weight: 700;
+  font-family: "Poppins", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-accent:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: var(--shadow-glow); }
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid #cbd5e1;
+  color: #475569;
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  cursor: pointer;
+  font-family: "Poppins", sans-serif;
+}
+.btn-outline:hover { background: #f1f5f9; border-color: #94a3b8; transform: translateY(-2px); }
+.btn-danger {
+  background: #dc2626;
+  color: white;
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border: none;
+  cursor: pointer;
+  font-family: "Poppins", sans-serif;
+}
+.btn-danger:hover { background: #b91c1c; transform: translateY(-2px); }
+.btn-success {
+  background: #16a34a;
+  color: white;
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border: none;
+  cursor: pointer;
+  font-family: "Poppins", sans-serif;
+}
+.btn-success:hover { background: #15803d; transform: translateY(-2px); }
+.kd-withdraw-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.kd-withdraw-btn:hover { background: var(--primary-light); transform: translateY(-2px); }
+.kd-w-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.48);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: .25s;
+}
+.kd-w-overlay.open { opacity: 1; pointer-events: auto; }
+.kd-w-modal {
+  background: #fff;
+  width: 100%;
+  max-width: 480px;
+  max-height: 92vh;
+  overflow: auto;
+  border-radius: 20px;
+  padding: 24px;
+}
+.verification-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.verification-badge.pass { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.verification-badge.fail { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.verification-badge.warn { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+.detail-modal-img { max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 16px; border: 2px solid #e5e7eb; background: #fff; }
+#imageLightbox {
+  position: fixed; inset: 0; z-index: 99999; background: rgba(0,0,0,0.92);
+  display: none; align-items: center; justify-content: center; padding: 20px; cursor: pointer;
+}
+#imageLightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; }
+#imageLightbox .close-btn {
+  position: absolute; top: 20px; right: 30px; font-size: 40px; color: white;
+  cursor: pointer; font-weight: 300; opacity: 0.8; transition: 0.2s; z-index: 10;
+}
+#imageLightbox .close-btn:hover { opacity: 1; }
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 99999;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+  display: none; align-items: center; justify-content: center; padding: 20px; overflow-y: auto;
+}
+.modal-overlay.active { display: flex; }
+.modal-box {
+  background: white; max-width: 480px; width: 100%;
+  border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  overflow: hidden; animation: modalIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 @keyframes modalIn {
-  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  from { opacity: 0; transform: scale(0.95) translateY(20px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 .modal-header {
@@ -85,92 +230,70 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
   justify-content: space-between;
   gap: 12px;
 }
-.modal-header h3 {
-  font-family: "Poppins", sans-serif;
-  font-weight: 700;
-  font-size: 18px;
-  color: #212121;
-  margin: 0;
-}
+.modal-header h3 { font-family: "Poppins", sans-serif; font-weight: 700; font-size: 20px; color: #212121; margin: 0; }
 .modal-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  color: #9ca3af;
-  cursor: pointer;
-  padding: 4px;
-  line-height: 1;
-  transition: color 0.2s;
+  background: none; border: none; font-size: 24px; color: #9ca3af;
+  cursor: pointer; padding: 4px; line-height: 1; transition: color 0.2s;
+  width: 40px; height: 40px; border-radius: 999px; display: flex; align-items: center; justify-content: center;
 }
-.modal-close:hover {
-  color: #212121;
-}
-.modal-body {
-  padding: 12px 24px 20px 24px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: #4b5563;
-}
+.modal-close:hover { color: #212121; background: #f1f5f9; }
+.modal-body { padding: 16px 24px 20px 24px; font-size: 14px; line-height: 1.7; color: #4b5563; }
 .modal-body input {
-  width: 100%;
-  margin-top: 10px;
-  padding: 10px 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 2px;
-  font-size: 14px;
-  font-family: "Poppins", sans-serif;
+  width: 100%; margin-top: 10px; padding: 10px 14px;
+  border: 2px solid #e2e8f0; border-radius: 999px; font-size: 14px; font-family: "Poppins", sans-serif;
 }
-.modal-body input:focus {
-  outline: none;
-  border-color: #3FD0D4;
-  box-shadow: 0 0 0 3px rgba(63,208,212,0.15);
-}
+.modal-body input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-glow); }
 .modal-footer {
   padding: 12px 24px 20px 24px;
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  border-top: 1px solid #f3f4f6;
+  display: flex; gap: 10px; justify-content: flex-end;
+  border-top: 1px solid #f1f5f9;
 }
 .modal-footer .btn {
-  padding: 8px 20px;
-  border-radius: 2px;
-  font-weight: 600;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: "Poppins", sans-serif;
+  padding: 10px 24px; border-radius: 999px; font-weight: 600; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.05em; border: none; cursor: pointer;
+  transition: all 0.2s; font-family: "Poppins", sans-serif;
 }
-.modal-footer .btn-primary {
-  background: #0F382E;
-  color: white;
+.modal-footer .btn-primary { background: var(--primary); color: white; }
+.modal-footer .btn-primary:hover { background: var(--primary-light); }
+.modal-footer .btn-secondary { background: #f1f5f9; color: #475569; }
+.modal-footer .btn-secondary:hover { background: #e2e8f0; }
+.modal-footer .btn-danger { background: #dc2626; color: white; }
+.modal-footer .btn-danger:hover { background: #b91c1c; }
+.modal-footer .btn-success { background: #16a34a; color: white; }
+.modal-footer .btn-success:hover { background: #15803d; }
+
+.calendar-mini { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+.calendar-day {
+  aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  border-radius: 999px; font-size: 10px; font-weight: 500; border: 1px solid #e5e7eb; cursor: default;
 }
-.modal-footer .btn-primary:hover {
-  background: #1a4d3e;
+.calendar-day.available { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+.calendar-day.booked { background: #fef2f2; border-color: #fecaca; color: #991b1b; text-decoration: line-through; }
+.calendar-day.today { border-color: var(--primary); border-width: 2px; }
+.calendar-day.empty { background: transparent; border-color: transparent; }
+.calendar-day.past { background: #f9fafb; border-color: #e5e7eb; color: #9ca3af; }
+.calendar-nav-btn {
+  background: var(--primary); color: white; border: none; width: 28px; height: 28px;
+  border-radius: 999px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
 }
-.modal-footer .btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
+.calendar-nav-btn:hover { background: var(--primary-light); }
+.calendar-month-label { font-weight: 600; font-size: 13px; color: #212121; }
+.calendar-legend {
+  display: flex; gap: 12px; flex-wrap: wrap; font-size: 10px; color: #6b7280; margin-top: 6px;
 }
-.modal-footer .btn-secondary:hover {
-  background: #e5e7eb;
+.calendar-legend span { display: flex; align-items: center; gap: 4px; }
+.calendar-legend .dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+.calendar-legend .dot.green { background: #f0fdf4; border: 1px solid #bbf7d0; }
+.calendar-legend .dot.red { background: #fef2f2; border: 1px solid #fecaca; }
+.calendar-legend .dot.today-dot { border: 2px solid var(--primary); background: white; width: 10px; height: 10px; }
+
+@media (max-width: 768px) {
+  #desktopNav { display: none !important; }
+  #mobileMenuBtn { display: flex !important; }
 }
-.modal-footer .btn-danger {
-  background: #dc2626;
-  color: white;
-}
-.modal-footer .btn-danger:hover {
-  background: #b91c1c;
-}
-.modal-footer .btn-success {
-  background: #16a34a;
-  color: white;
-}
-.modal-footer .btn-success:hover {
-  background: #15803d;
+@media (max-width: 480px) {
+  .btn-primary, .btn-accent, .btn-outline, .btn-danger, .btn-success { padding: 8px 14px; font-size: 10px; }
 }
 </style>
 </head>
@@ -197,15 +320,18 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 </div>
 
 <!-- ===== HEADER ===== -->
-<header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
+<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1200px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <img src="/logo.svg" alt="Kundasang Homestay" class="w-20 h-20" />
-      <div class="font-800 text-[22px] tracking-[-0.5px] text-[#212121] leading-none">KUNDASANG<span class="font-600 text-[#212121]/60 text-[18px]">.stays</span><div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 -mt-1">ADMIN • ToyyibPay Auto</div></div>
+    <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
+      <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
+      <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
+        KUNDASANG<span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay</span>
+        <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">ADMIN • ToyyibPay Auto</div>
+      </div>
     </div>
     <div class="flex items-center gap-3">
-      <a href="index.html" class="font-600 text-[12px] uppercase px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white sharp flex items-center">← Home</a>
-      <button onclick="logoutAdmin()" class="font-600 text-[12px] uppercase px-6 h-[38px] border border-red-500 text-red-500 hover:bg-red-500 hover:text-white sharp flex items-center">Logout</button>
+      <a href="index.html" class="btn-outline" style="padding:8px 20px;">← Home</a>
+      <button onclick="logoutAdmin()" class="btn-danger" style="padding:8px 20px;">Logout</button>
     </div>
   </div>
 </header>
@@ -215,24 +341,31 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
   <div id="adminLogin" class="max-w-[400px] mx-auto card p-8 animate-on-scroll">
     <h2 class="text-2xl font-bold">Admin Login</h2>
     <p class="text-xs text-zinc-500 mt-1">Login to manage bookings & payouts</p>
-    <input id="adminPass" type="password" placeholder="Password" class="w-full border sharp px-4 py-2.5"/>
+    <input id="adminPass" type="password" placeholder="Password" class="form-input mt-2" />
     <button onclick="doAdminLogin()" class="btn-primary w-full mt-4">Login</button>
     <div id="loginError" class="text-red-600 text-xs mt-2 hidden"></div>
   </div>
   <div id="adminDashboard" class="hidden">
-    <h2 class="text-3xl font-bold animate-on-scroll">Admin — ToyyibPay Auto Payout</h2><div class="text-[11px] text-zinc-500 mt-1 animate-on-scroll">Malaysia Time: <span id="myTimeNow"></span> • Timezone: Asia/Kuala_Lumpur (UTC+8)</div>
+    <h2 class="text-3xl font-bold animate-on-scroll">Admin — ToyyibPay Auto Payout</h2>
+    <div class="text-[11px] text-zinc-500 mt-1 animate-on-scroll">Malaysia Time: <span id="myTimeNow"></span> • Timezone: Asia/Kuala_Lumpur (UTC+8)</div>
     <div class="grid md:grid-cols-3 gap-4 mt-6">
-      <div class="card p-5 animate-on-scroll"><div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11%)</div><div id="totalFees" class="text-3xl font-bold mt-1">RM0</div><div class="text-[11px] mt-1">After gateway fee RM1 • Owner gets Base via ToyyibPay Auto on Check-in</div><div class="text-[11px] mt-2"><span id="kdAvailInline">Available: RM0</span> • <span id="kdWithdrawnInline">Withdrawn: RM0</span> <button onclick="resetWithdrawn()" class="ml-2 text-[10px] px-2 py-0.5 bg-red-600 text-white sharp">Reset to 0</button></div><button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw Earnings</button></div>
+      <div class="card p-5 animate-on-scroll">
+        <div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11%)</div>
+        <div id="totalFees" class="text-3xl font-bold mt-1">RM0</div>
+        <div class="text-[11px] mt-1">After gateway fee RM1 • Owner gets Base via ToyyibPay Auto on Check-in</div>
+        <div class="text-[11px] mt-2"><span id="kdAvailInline">Available: RM0</span> • <span id="kdWithdrawnInline">Withdrawn: RM0</span> <button onclick="resetWithdrawn()" class="ml-2 text-[10px] px-2 py-0.5 bg-red-600 text-white rounded-full">Reset to 0</button></div>
+        <button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw Earnings</button>
+      </div>
       <div class="card p-5 animate-on-scroll"><div class="text-[11px] uppercase text-zinc-500">Pending</div><div id="adminPendingCount" class="text-3xl font-bold mt-1">0</div></div>
       <div class="card p-5 animate-on-scroll"><div class="text-[11px] uppercase text-zinc-500">ToyyibPay Status</div><div id="billplzStatus" class="text-sm font-bold mt-1">Simulation</div><div class="text-[11px] mt-1">Check-in = complete + auto ToyyibPay to owner</div></div>
     </div>
     <div class="flex gap-2 mt-6 flex-wrap">
-      <button onclick="showAdminTab('pending')" id="tabPending" class="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase font-700">Pending</button>
-      <button onclick="showAdminTab('approved')" id="tabApproved" class="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600">Approved</button>
-      <button onclick="showAdminTab('bookings')" id="tabBookings" class="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600">Bookings</button>
-      <button onclick="showAdminTab('availability')" id="tabAvailability" class="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600">Availability</button>
-      <button onclick="showAdminTab('guests')" id="tabGuests" class="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600">Guests</button>
-      <button onclick="showAdminTab('settings')" id="tabSettings" class="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600">Settings</button>
+      <button onclick="showAdminTab('pending')" id="tabPending" class="px-5 py-2.5 rounded-full bg-[#212121] text-white text-[11px] uppercase font-700">Pending</button>
+      <button onclick="showAdminTab('approved')" id="tabApproved" class="px-5 py-2.5 rounded-full bg-white border text-[11px] uppercase font-600">Approved</button>
+      <button onclick="showAdminTab('bookings')" id="tabBookings" class="px-5 py-2.5 rounded-full bg-white border text-[11px] uppercase font-600">Bookings</button>
+      <button onclick="showAdminTab('availability')" id="tabAvailability" class="px-5 py-2.5 rounded-full bg-white border text-[11px] uppercase font-600">Availability</button>
+      <button onclick="showAdminTab('guests')" id="tabGuests" class="px-5 py-2.5 rounded-full bg-white border text-[11px] uppercase font-600">Guests</button>
+      <button onclick="showAdminTab('settings')" id="tabSettings" class="px-5 py-2.5 rounded-full bg-white border text-[11px] uppercase font-600">Settings</button>
     </div>
     <div id="adminPending" class="mt-4"></div>
     <div id="adminApproved" class="mt-4 hidden"></div>
@@ -241,31 +374,38 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
     <div id="adminGuests" class="mt-4 hidden"><div id="guestsTable" class="card p-6"></div></div>
     <div id="adminSettings" class="hidden mt-4 card p-6">
       <h3 class="font-bold">ToyyibPay Setup (Server-side)</h3>
-      <div class="p-3 bg-green-50 border border-green-200 sharp text-xs">
-        ✅ Live: Category <b>08myr5uc</b><br>
-        Secret Key: Set in Cloudflare Secrets (TOYYIBPAY_SECRET_KEY)<br>
-        Payout Mode: <b>Auto via ToyyibPay</b> - ToyyibPay transfers to owner on Check-in, fee stays with you.<br>
-        Return URL: https://kundasanghomestay.my/?booking=ID&paid=1<br>
-        Callback: /api/toyyibpay-webhook
-      </div>
-      <div id="liveBankInfo" class="mt-3 p-3 bg-zinc-50 border sharp text-xs">Loading locked bank...</div>
+      <div class="p-3 bg-green-50 border border-green-200 rounded-xl text-xs">✅ Live: Category <b>08myr5uc</b><br>Secret Key: Set in Cloudflare Secrets (TOYYIBPAY_SECRET_KEY)<br>Payout Mode: <b>Auto via ToyyibPay</b> - ToyyibPay transfers to owner on Check-in, fee stays with you.<br>Return URL: https://kundasanghomestay.my/?booking=ID&paid=1<br>Callback: /api/toyyibpay-webhook</div>
+      <div id="liveBankInfo" class="mt-3 p-3 bg-zinc-50 border rounded-xl text-xs">Loading locked bank...</div>
       <div class="flex gap-2 mt-4 flex-wrap">
-        <button onclick="restoreDemos()" class="text-xs border sharp px-3 py-1">Restore Demos</button>
-        <button onclick="resetDemoEdits()" class="text-xs border sharp px-3 py-1">Reset Edits</button>
-        <button onclick="forceSyncPending()" class="text-xs border sharp px-3 py-1 bg-blue-500 text-white">🔄 Force Sync Pending</button>
-        <button onclick="clearLocalBookings()" class="text-xs border sharp px-3 py-1 bg-red-50">Clear Bookings (fix duplicates)</button>
-        <button onclick="clearAllBookingsCloud()" class="text-xs border sharp px-3 py-1 bg-red-600 text-white">PURGE CLOUD D1 (Fix F5 bug)</button>
+        <button onclick="restoreDemos()" class="text-xs border rounded-full px-3 py-1">Restore Demos</button>
+        <button onclick="resetDemoEdits()" class="text-xs border rounded-full px-3 py-1">Reset Edits</button>
+        <button onclick="forceSyncPending()" class="text-xs border rounded-full px-3 py-1 bg-blue-500 text-white">🔄 Force Sync Pending</button>
+        <button onclick="clearLocalBookings()" class="text-xs border rounded-full px-3 py-1 bg-red-50">Clear Bookings (fix duplicates)</button>
+        <button onclick="clearAllBookingsCloud()" class="text-xs border rounded-full px-3 py-1 bg-red-600 text-white">PURGE CLOUD D1 (Fix F5 bug)</button>
       </div>
     </div>
   </div>
 </div>
 
 <!-- ====== WITHDRAW MODAL ====== -->
-<div id="kdWithdrawOverlay" class="kd-w-overlay"><div class="kd-w-modal p-6"><h3 class="font-bold">Withdraw Earnings</h3><div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after RM1) - Auto payout to owners via ToyyibPay<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button, not here.</div><div class="mt-3 p-2 bg-green-50 border border-green-200 sharp text-[11px]">🔒 Locked Bank: Loading...<br>Change only in Cloudflare env YOUR_BANK_*</div><input id="kdBankName" placeholder="Bank Name (Locked - ignored)" disabled class="w-full border sharp px-3 py-2 mt-3 bg-zinc-100 text-zinc-500" value="Maybank - Locked"/><input id="kdAmt" type="number" placeholder="Amount RM" min="1" step="0.01" class="w-full border sharp px-3 py-2 mt-2"/><div class="flex gap-2 mt-4"><button id="kdClose" class="flex-1 border sharp py-2">Cancel</button><button id="kdConfirm" class="flex-1 btn-primary">Confirm Withdraw</button></div><div id="kdWithdrawMsg" class="mt-3 text-[11px] text-zinc-500"></div></div></div>
+<div id="kdWithdrawOverlay" class="kd-w-overlay">
+  <div class="kd-w-modal">
+    <h3 class="font-bold">Withdraw Earnings</h3>
+    <div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after RM1) - Auto payout to owners via ToyyibPay<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button, not here.</div>
+    <div class="mt-3 p-2 bg-green-50 border border-green-200 rounded-xl text-[11px]">🔒 Locked Bank: Loading...<br>Change only in Cloudflare env YOUR_BANK_*</div>
+    <input id="kdBankName" placeholder="Bank Name (Locked - ignored)" disabled class="w-full border rounded-full px-3 py-2 mt-3 bg-zinc-100 text-zinc-500" value="Maybank - Locked"/>
+    <input id="kdAmt" type="number" placeholder="Amount RM" min="1" step="0.01" class="form-input mt-2" />
+    <div class="flex gap-2 mt-4">
+      <button id="kdClose" class="flex-1 btn-outline py-2">Cancel</button>
+      <button id="kdConfirm" class="flex-1 btn-primary py-2">Confirm Withdraw</button>
+    </div>
+    <div id="kdWithdrawMsg" class="mt-3 text-[11px] text-zinc-500"></div>
+  </div>
+</div>
 
 <!-- ====== PENDING DETAIL MODAL ====== -->
 <div id="pendingDetailModal" class="fixed inset-0 z-[100] hidden bg-black/70 p-4 overflow-y-auto" onclick="if(event.target===this) closePendingDetail()">
-  <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl p-6 md:p-8 relative mt-10 mb-10">
+  <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-6 md:p-8 relative mt-10 mb-10">
     <button onclick="closePendingDetail()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-2xl hover:bg-zinc-200 transition">✕</button>
     <h3 class="text-2xl font-bold mb-2" id="detailModalTitle">Pending Details</h3>
     <div id="pendingDetailContent" class="space-y-4"></div>
@@ -275,1282 +415,30 @@ body{font-family:"Poppins",sans-serif;background:var(--bg);}
 <!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
-// ========== CUSTOM MODAL SYSTEM (FIXED) ==========
-let modalResolve = null;
-let modalReject = null;
-
+// ========== CUSTOM MODAL SYSTEM (same as index) ==========
 function showModal(title, message, buttons) {
   return new Promise((resolve, reject) => {
     const overlay = document.getElementById('customModal');
     const titleEl = document.getElementById('modalTitle');
     const bodyEl = document.getElementById('modalBody');
     const footerEl = document.getElementById('modalFooter');
-
     titleEl.textContent = title || 'Notice';
     bodyEl.innerHTML = typeof message === 'string' ? message : '';
     footerEl.innerHTML = '';
-
-    buttons.forEach((btn, index) => {
+    buttons.forEach(btn => {
       const el = document.createElement('button');
       el.textContent = btn.label;
       el.className = `btn ${btn.class || 'btn-primary'}`;
-      el.dataset.value = btn.value !== undefined ? btn.value : 'true';
-      el.onclick = function() {
-        const val = this.dataset.value === 'true' ? true : 
-                    this.dataset.value === 'false' ? false : 
-                    this.dataset.value;
-        closeModal();
-        resolve(val);
-      };
+      el.onclick = () => { closeModal(); resolve(btn.value !== undefined ? btn.value : true); };
       footerEl.appendChild(el);
     });
-
-    modalResolve = resolve;
-    modalReject = reject;
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
   });
 }
-
 function closeModal() {
   const overlay = document.getElementById('customModal');
   overlay.classList.remove('active');
   document.body.style.overflow = '';
 }
-
-// ---- Public API ----
-function showAlert(title, message) {
-  return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
-}
-
-function showConfirm(title, message) {
-  return showModal(title, message, [
-    { label: 'Cancel', class: 'btn-secondary', value: false },
-    { label: 'Confirm', class: 'btn-primary', value: true }
-  ]);
-}
-
-function showPrompt(title, message, defaultValue) {
-  const input = `<input type="text" id="modalInput" value="${defaultValue || ''}" placeholder="Enter value..." />`;
-  return new Promise((resolve, reject) => {
-    const overlay = document.getElementById('customModal');
-    const titleEl = document.getElementById('modalTitle');
-    const bodyEl = document.getElementById('modalBody');
-    const footerEl = document.getElementById('modalFooter');
-
-    titleEl.textContent = title || 'Enter value';
-    bodyEl.innerHTML = (message || '') + input;
-    footerEl.innerHTML = '';
-
-    const okBtn = document.createElement('button');
-    okBtn.textContent = 'OK';
-    okBtn.className = 'btn btn-primary';
-    okBtn.onclick = () => {
-      const val = document.getElementById('modalInput')?.value || '';
-      closeModal();
-      resolve(val);
-    };
-    footerEl.appendChild(okBtn);
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.onclick = () => {
-      closeModal();
-      resolve(null);
-    };
-    footerEl.appendChild(cancelBtn);
-
-    modalResolve = resolve;
-    modalReject = reject;
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-    setTimeout(() => {
-      const inp = document.getElementById('modalInput');
-      if (inp) inp.focus();
-    }, 200);
-  });
-}
-
-// ---- Close modal on ESC or outside click ----
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    const overlay = document.getElementById('customModal');
-    if (overlay.classList.contains('active')) {
-      closeModal();
-      if (modalResolve) {
-        modalResolve(null);
-        modalResolve = null;
-      }
-    }
-  }
-});
-document.getElementById('customModal').addEventListener('click', function(e) {
-  if (e.target === this) {
-    closeModal();
-    if (modalResolve) {
-      modalResolve(null);
-      modalResolve = null;
-    }
-  }
-});
-
-// ========== SECURITY: DOMPurify ==========
-function safeHTML(html) {
-  if (!html) return '';
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th',
-      'button', 'input', 'form', 'label', 'select', 'option', 'textarea',
-      'section', 'article', 'header', 'footer', 'nav', 'main', 'aside',
-      'code', 'pre', 'blockquote', 'hr', 'small', 'sub', 'sup'
-    ],
-    ALLOWED_ATTR: [
-      'id', 'class', 'style', 'href', 'src', 'alt', 'title', 'rel', 'target',
-      'onclick', 'onchange', 'oninput', 'onload', 'onerror',
-      'method', 'action', 'type', 'name', 'value', 'placeholder',
-      'checked', 'disabled', 'readonly', 'required', 'multiple',
-      'min', 'max', 'step', 'pattern', 'autocomplete', 'inputmode'
-    ],
-    ADD_ATTR: ['target']
-  });
-}
-
-// ========== LIGHTBOX ==========
-function openLightbox(src) {
-  const lb = document.getElementById('imageLightbox');
-  const img = document.getElementById('lightboxImage');
-  if (lb && img) {
-    img.src = src;
-    lb.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-  }
-}
-function closeLightbox() {
-  const lb = document.getElementById('imageLightbox');
-  if (lb) {
-    lb.style.display = 'none';
-    document.body.style.overflow = '';
-  }
-}
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeLightbox();
-});
-
-// ========== ADMIN TOKEN ==========
-let ADMIN_TOKEN = sessionStorage.getItem('kd_admin_token') || '';
-
-// ========== CONFIG ==========
-var CLOUD_ENABLED = true;
-var API_BASE = "/api";
-
-// ========== DATA STORES ==========
-let bookings = [];
-let pendingHomestays = [];
-let homestays = [];
-let allHomestays = [];
-let availabilityMap = {};
-let storedApproved = [];
-let demoOverrides = {};
-let demoBlockedMap = {};
-let deletedDemoIds = [];
-
-// ========== FETCH WITH AUTH ==========
-async function fetchWithAuth(url, options = {}) {
-  const headers = options.headers || {};
-  if (ADMIN_TOKEN) headers['Authorization'] = 'Bearer ' + ADMIN_TOKEN;
-  return fetch(url, { ...options, headers });
-}
-
-// ========== MALAYSIA TIME ==========
-const MY_TZ = "Asia/Kuala_Lumpur";
-function toMYDate(dateInput){
-  if(!dateInput) return "";
-  try{
-    const d = new Date(dateInput);
-    if(isNaN(d)) return dateInput;
-    return d.toLocaleDateString('en-MY', {timeZone: MY_TZ, year:'numeric', month:'short', day:'numeric'});
-  }catch(e){ return dateInput; }
-}
-function toMYDateTime(dateInput){
-  if(!dateInput) return "";
-  try{
-    const d = new Date(dateInput);
-    if(isNaN(d)) return dateInput;
-    return d.toLocaleString('en-MY', {timeZone: MY_TZ, year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', hour12:true}) + " MYT";
-  }catch(e){ return dateInput; }
-}
-
-const CONFIG = {
-  platformFeePercent: 11,
-  toyyibpay: { enabled: true, gatewayFee: 1.00, category: "08myr5uc" }
-};
-
-// ========== DEMO DATA ==========
-const DEMO_HOMESTAYS = [
-  {
-    id: 1,
-    name: "A-Frame Cabin with Kinabalu View",
-    location: "Bundu Tuhan",
-    ownerPrice: 300,
-    rating: 4.9,
-    reviews: 127,
-    guests: 4,
-    bedrooms: 2,
-    image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800",
-    images: [],
-    approved: true,
-    verified: true,
-    ownerName: "Ali",
-    ownerBank: "CIMB",
-    ownerBankAccount: "8600-123456",
-    whatsapp: "60123456789",
-    description: "View Gunung Kinabalu terus dari bilik."
-  },
-  {
-    id: 2,
-    name: "Desa Cattle Farm View Homestay",
-    location: "Desa",
-    ownerPrice: 250,
-    rating: 4.8,
-    reviews: 89,
-    guests: 6,
-    bedrooms: 3,
-    image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800",
-    images: [],
-    approved: true,
-    verified: true,
-    ownerName: "Maria",
-    ownerBank: "Maybank",
-    ownerBankAccount: "1140-987654",
-    whatsapp: "60123456789",
-    description: "5 min to Desa Cattle Farm, ada dapur."
-  }
-];
-
-// ========== CLOUD DATA FETCH ==========
-async function fetchCloudData(){
-  console.log("☁️ Fetching cloud data...");
-  if(!CLOUD_ENABLED) return false;
-  try{
-    const res = await fetchWithAuth(API_BASE + "/bookings", {cache:"no-store"});
-    if(!res.ok) {
-      console.warn("❌ Cloud fetch failed", res.status);
-      if (res.status === 401) {
-        await showAlert("Session Expired", "Your admin session has expired. Please login again.");
-        sessionStorage.removeItem('kd_admin_token');
-        ADMIN_TOKEN = '';
-        location.reload();
-      }
-      return false;
-    }
-    const data=await res.json();
-    console.log("✅ Cloud data received:", Object.keys(data));
-    
-    if(data.bookings && Array.isArray(data.bookings)){
-      const map=new Map();
-      data.bookings.forEach(b=>{ if(b && b.id) map.set(String(b.id), b); });
-      bookings=[...map.values()];
-      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    } else if(Array.isArray(data.bookings) && data.bookings.length===0){
-      bookings=[];
-      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    }
-    
-    if(data.availability){
-      availabilityMap=data.availability;
-      localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
-    }
-    if(data.approved !== undefined){
-      storedApproved=data.approved;
-      localStorage.setItem("kd_approved", JSON.stringify(storedApproved));
-    }
-    if(data.demoOverrides !== undefined){
-      demoOverrides=data.demoOverrides;
-      localStorage.setItem("kd_demo_overrides", JSON.stringify(demoOverrides));
-    }
-    if(data.demoBlocked !== undefined){
-      demoBlockedMap=data.demoBlocked;
-      localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap));
-    }
-    if(data.deletedDemo !== undefined){
-      deletedDemoIds=data.deletedDemo;
-      localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds));
-    }
-    if(data.bannedGuests && Array.isArray(data.bannedGuests)){
-      localStorage.setItem("kd_banned_guests", JSON.stringify(data.bannedGuests));
-    }
-    if(data.pending !== undefined){
-      if(Array.isArray(data.pending)){
-        pendingHomestays = data.pending;
-        localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays));
-      } else {
-        pendingHomestays = [];
-        localStorage.setItem("kd_pending", JSON.stringify([]));
-      }
-    }
-    if(data.guests && Array.isArray(data.guests)){
-      const localGuests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
-      if(data.guests.length < localGuests.length){
-        localStorage.setItem("kd_guests", JSON.stringify(data.guests));
-      } else {
-        try{
-          const map=new Map();
-          [...localGuests, ...data.guests].forEach(g=>{ if(g && (g.email||g.id)) map.set(String(g.email||g.id).toLowerCase(), g); });
-          const merged=[...map.values()];
-          localStorage.setItem("kd_guests", JSON.stringify(merged));
-        }catch(e){}
-      }
-    }
-    try{
-      let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id))).map(d => {
-        let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
-        if(demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
-        return merged;
-      });
-      allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
-      allHomestays = allHomestays.map(h => { if(!h.blockedDates) h.blockedDates = []; return h; });
-      homestays = [...allHomestays];
-    }catch(e){}
-    return true;
-  }catch(e){
-    console.warn("❌ Cloud fetch failed:", e.message);
-    return false;
-  }
-}
-
-// ========== SAVE FUNCTIONS ==========
-function isDemo(id){ return DEMO_HOMESTAYS.some(d => String(d.id)===String(id)); }
-function saveApproved(){ 
-  const toSave = allHomestays.filter(h => !isDemo(h.id)); 
-  localStorage.setItem("kd_approved", JSON.stringify(toSave)); 
-  storedApproved = toSave; 
-  pushHomestaysToCloud(); 
-}
-function saveDemoBlocked(){ 
-  localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap)); 
-  pushHomestaysToCloud(); 
-}
-async function pushHomestaysToCloud(){
-  if(!CLOUD_ENABLED) return;
-  try{
-    await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({
-      action:"updateHomestays",
-      approved: storedApproved,
-      demoOverrides: demoOverrides,
-      demoBlocked: demoBlockedMap,
-      deletedDemo: deletedDemoIds
-    })});
-  }catch(e){}
-}
-async function saveAvailabilityMap(){ 
-  localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); 
-  try{ await pushAvailabilityToCloud(); }catch(e){} 
-}
-async function pushAvailabilityToCloud(){
-  try{
-    await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})});
-  }catch(e){ console.warn("pushAvailability fail", e); }
-}
-
-// ========== HELPER FUNCTIONS ==========
-function isoToDate(s){ return new Date(s+'T00:00:00'); }
-function dateToIso(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate()).padStart(2,'0'); }
-function getDatesInRange(ci,co){ if(!ci||!co) return []; const dates=[]; const a=isoToDate(ci), b=isoToDate(co); if(isNaN(a)||isNaN(b)||a>=b) return []; const cur=new Date(a); while(cur<b){ dates.push(dateToIso(cur)); cur.setDate(cur.getDate()+1); } return dates; }
-function getAllBlockedDatesForHomestay(h){ if(!h) return []; let blk=[]; if(h.blockedDates) blk=[...blk,...h.blockedDates]; if(availabilityMap[h.id]) blk=[...blk,...availabilityMap[h.id]]; const rel=bookings.filter(b=> b.homestay===h.name || String(b.homestayId)===String(h.id)); rel.forEach(b=>{ if(b.checkin&&b.checkout) blk=[...blk,...getDatesInRange(b.checkin,b.checkout)]; }); return [...new Set(blk)].sort(); }
-function calculateNights(ci,co){ if(!ci||!co) return 1; const d1=new Date(ci), d2=new Date(co); const diff=Math.round((d2-d1)/86400000); return diff>0?diff:1; }
-function calculatePrice(p,n){ n=n||1; const base=p*n; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gw=CONFIG.toyyibpay.enabled?CONFIG.toyyibpay.gatewayFee:0; return {nights:n, base:base, fee:fee, gatewayFee:gw, total:base+fee+gw, youReceive:fee-gw, ownerReceives:base}; }
-
-// ========== COMPACT CALENDAR RENDER ==========
-function renderAvailabilityCalendar(h, containerId) {
-  const container = document.getElementById(containerId);
-  if (!container || !h) return;
-  
-  const blocked = getAllBlockedDatesForHomestay(h);
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  const todayIso = dateToIso(today);
-  
-  if (!container._currentMonth) {
-    container._currentMonth = today.getMonth();
-    container._currentYear = today.getFullYear();
-  }
-  
-  function renderMonth() {
-    const month = container._currentMonth;
-    const year = container._currentYear;
-    const monthLabel = new Date(year, month, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const startDay = new Date(year, month, 1).getDay();
-    const isCurrentMonth = (month === today.getMonth() && year === today.getFullYear());
-    
-    let html = `
-      <div class="flex items-center justify-between mb-2">
-        <button onclick="navigateCalendar(this, -1, '${containerId}')" class="calendar-nav-btn">‹</button>
-        <span class="calendar-month-label">${monthLabel}</span>
-        <button onclick="navigateCalendar(this, 1, '${containerId}')" class="calendar-nav-btn">›</button>
-      </div>
-      <div class="calendar-mini">
-    `;
-    
-    const dayNames = ["S", "M", "T", "W", "T", "F", "S"];
-    dayNames.forEach(d => {
-      html += `<div class="text-[9px] text-center font-bold text-zinc-400 py-1">${d}</div>`;
-    });
-    
-    for (let e = 0; e < startDay; e++) {
-      html += `<div class="calendar-day empty"></div>`;
-    }
-    
-    for (let day = 1; day <= daysInMonth; day++) {
-      const d = new Date(year, month, day);
-      d.setHours(0,0,0,0);
-      const iso = dateToIso(d);
-      const isBlocked = blocked.includes(iso);
-      const isToday = iso === todayIso;
-      const isPast = d < today;
-      
-      let cls = "calendar-day";
-      if (isPast) {
-        cls += " past";
-      } else {
-        cls += isBlocked ? " booked" : " available";
-      }
-      if (isToday) cls += " today";
-      
-      html += `<div class="${cls}" title="${iso} ${isBlocked ? '(Booked)' : isPast ? '(Past)' : '(Available)'}">${day}</div>`;
-    }
-    
-    html += `</div>`;
-    html += `
-      <div class="calendar-legend">
-        <span><span class="dot green"></span> Available</span>
-        <span><span class="dot red"></span> Booked</span>
-        ${isCurrentMonth ? `<span><span class="dot today-dot"></span> Today</span>` : ''}
-        <span style="margin-left:auto;font-size:9px;color:#9ca3af;">${blocked.length} booked</span>
-      </div>
-    `;
-    
-    container.innerHTML = safeHTML(html);
-  }
-  
-  window.navigateCalendar = function(btn, direction, containerId) {
-    const c = document.getElementById(containerId);
-    if (!c) return;
-    c._currentMonth = (c._currentMonth || today.getMonth()) + direction;
-    if (c._currentMonth > 11) { c._currentMonth = 0; c._currentYear = (c._currentYear || today.getFullYear()) + 1; }
-    if (c._currentMonth < 0) { c._currentMonth = 11; c._currentYear = (c._currentYear || today.getFullYear()) - 1; }
-    if (!c._currentYear) c._currentYear = today.getFullYear();
-    renderMonth.call(c);
-  };
-  
-  container._render = renderMonth;
-  renderMonth.call(container);
-}
-
-// ========== ADMIN LOGIN ==========
-async function doAdminLogin() {
-  const pass = document.getElementById("adminPass").value;
-  const errorEl = document.getElementById("loginError");
-  errorEl.classList.add("hidden");
-  try {
-    const res = await fetch(API_BASE + "/admin-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: pass })
-    });
-    const data = await res.json();
-    if (data.success) {
-      ADMIN_TOKEN = data.token || "my-secure-admin-token";
-      sessionStorage.setItem("kd_admin_token", ADMIN_TOKEN);
-      document.getElementById("adminLogin").classList.add("hidden");
-      document.getElementById("adminDashboard").classList.remove("hidden");
-      await fetchCloudData();
-      renderAdmin();
-    } else {
-      errorEl.textContent = data.error || "Wrong password";
-      errorEl.classList.remove("hidden");
-    }
-  } catch(e) {
-    errorEl.textContent = "Login error: " + e.message;
-    errorEl.classList.remove("hidden");
-  }
-}
-
-// ========== LOGOUT ==========
-async function logoutAdmin() {
-  const confirmed = await showConfirm("Logout", "Logout from admin panel?");
-  if (!confirmed) return;
-  sessionStorage.removeItem('kd_admin_token');
-  ADMIN_TOKEN = '';
-  document.getElementById('adminDashboard').classList.add('hidden');
-  document.getElementById('adminLogin').classList.remove('hidden');
-  document.getElementById('adminPass').value = '';
-  location.reload();
-}
-
-// ========== RENDER ==========
-function showAdminTab(tab){
-  ["adminPending","adminApproved","adminBookings","adminAvailability","adminGuests","adminSettings"].forEach(id=> document.getElementById(id).classList.add("hidden"));
-  ["tabPending","tabApproved","tabBookings","tabAvailability","tabGuests","tabSettings"].forEach(id=>{ const el=document.getElementById(id); if(el) el.className="px-5 py-2.5 sharp bg-white border text-[11px] uppercase font-600"; });
-  document.getElementById("admin"+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.remove("hidden");
-  document.getElementById("tab"+tab.charAt(0).toUpperCase()+tab.slice(1)).className="px-5 py-2.5 sharp bg-[#212121] text-white text-[11px] uppercase font-700";
-  if(tab==='availability') renderAvailabilityTab();
-  if(tab==='guests') renderGuestsTable();
-  if(tab==='bookings') renderBookingsTable();
-}
-
-function renderAdmin(){
-  const dedup=new Map(); bookings.forEach(b=>{ if(b && b.id && !dedup.has(String(b.id))) dedup.set(String(b.id), b); }); if(dedup.size!==bookings.length){ bookings=[...dedup.values()]; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
-  const totalFees=bookings.reduce((s,b)=>s+(b.youReceive||b.fee||0),0);
-  const tf=document.getElementById("totalFees"); if(tf) tf.innerText="RM"+totalFees.toFixed(2);
-  const pc=document.getElementById("adminPendingCount"); if(pc) pc.innerText=pendingHomestays.length;
-  const bs=document.getElementById("billplzStatus"); if(bs) bs.innerText=CONFIG.toyyibpay.enabled?"LIVE ToyyibPay":"Simulation";
-  
-  const pendingDiv=document.getElementById("adminPending");
-  if(pendingHomestays.length===0) {
-    pendingDiv.innerHTML = safeHTML('<div class="card p-6 text-center text-zinc-500">No pending.</div>');
-  } else {
-    let html = '';
-    pendingHomestays.forEach(h => {
-      const icName=(h.icName||'').toLowerCase().trim();
-      const bankHolder=(h.bankHolder||'').toLowerCase().trim();
-      const match = (icName && bankHolder) ? (icName.includes(bankHolder.split(' ')[0]) || bankHolder.includes(icName.split(' ')[0])) : false;
-      
-      let nameMatchBadge = match ? '<span class="verification-badge pass">✅ Name matches</span>' : '<span class="verification-badge fail">❌ Name mismatch</span>';
-      let icUploaded = h.icImage ? '<span class="verification-badge pass">✅ IC uploaded</span>' : '<span class="verification-badge fail">❌ IC missing</span>';
-      let qrUploaded = h.bankQRImage ? '<span class="verification-badge pass">✅ QR uploaded</span>' : '<span class="verification-badge warn">⚠️ QR missing</span>';
-      
-      html += `
-        <div class="card p-5 mb-4">
-          <div class="flex flex-wrap gap-4">
-            <div class="flex-1 min-w-[250px]">
-              <div class="font-bold text-lg">${h.name || 'Unnamed'} — ${h.location || ''}</div>
-              <div class="text-sm mt-1">Owner: <b>${h.ownerName || ''}</b> • ${h.whatsapp || ''}</div>
-              <div class="text-sm">Email: ${h.ownerEmail || 'Not provided'}</div>
-              <div class="text-xs mt-1 text-zinc-500">${h.description || ''}</div>
-            </div>
-            <div class="text-sm bg-yellow-50 border border-yellow-200 p-3 rounded-xl min-w-[200px]">
-              <div class="font-bold text-xs uppercase text-zinc-500">Bank Details</div>
-              <div>${h.ownerBank || 'N/A'}</div>
-              <div class="font-mono font-bold">${h.ownerBankAccount || 'N/A'}</div>
-              <div class="text-xs">Holder: ${h.bankHolder || 'N/A'}</div>
-            </div>
-          </div>
-          
-          <div class="flex flex-wrap gap-2 mt-3">
-            ${nameMatchBadge}
-            ${icUploaded}
-            ${qrUploaded}
-          </div>
-          
-          <div class="flex flex-wrap gap-2 mt-3">
-            <button onclick="viewPendingDetails(${h.id})" class="px-3 py-1.5 bg-blue-600 text-white sharp text-xs font-bold">🔍 View Full Details</button>
-            <button onclick="approveHomestay(${h.id})" class="px-4 py-1.5 bg-green-600 text-white sharp text-xs font-bold">✅ Approve</button>
-            <button onclick="rejectHomestay(${h.id})" class="px-4 py-1.5 bg-red-100 text-red-700 sharp text-xs font-bold">✕ Reject</button>
-          </div>
-        </div>
-      `;
-    });
-    pendingDiv.innerHTML = safeHTML(html);
-  }
-  
-  // APPROVED TAB
-  const approvedDiv=document.getElementById("adminApproved");
-  let approvedHtml = '';
-  if (homestays.length === 0) {
-    approvedHtml = '<div class="card p-6 text-center text-zinc-500">No approved homestays.</div>';
-  } else {
-    approvedHtml = '<div class="grid gap-4">';
-    homestays.forEach(h => {
-      const blocked=getAllBlockedDatesForHomestay(h);
-      const isDemoHomestay = isDemo(h.id);
-      approvedHtml += `
-        <div class="card p-4 flex flex-wrap gap-4 items-center justify-between">
-          <div class="flex items-center gap-4">
-            <img src="${h.image || ''}" class="w-16 h-16 sharp object-cover" onerror="this.style.display='none'"/>
-            <div>
-              <div class="font-bold text-sm">${h.name}</div>
-              <div class="text-xs">RM${h.ownerPrice} • ${h.location} • ${blocked.length} booked</div>
-              ${isDemoHomestay ? '<span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Demo</span>' : ''}
-            </div>
-          </div>
-          <div class="flex gap-2 flex-wrap">
-            <button onclick="openOwnerAvailabilityManager(${h.id})" class="text-xs border sharp px-3 py-1">📅 Manage</button>
-            <button onclick="removeApprovedHomestay(${h.id})" class="text-xs border sharp px-3 py-1 bg-red-50 text-red-600 border-red-200 hover:bg-red-100">🗑️ Remove</button>
-          </div>
-        </div>
-      `;
-    });
-    approvedHtml += '</div>';
-  }
-  approvedDiv.innerHTML = safeHTML(approvedHtml);
-  renderBookingsTable();
-}
-
-// ====== REMOVE APPROVED HOMESTAY ======
-async function removeApprovedHomestay(id) {
-  const confirmed = await showConfirm("Remove Homestay", "Remove this homestay from Approved list?");
-  if (!confirmed) return;
-  try {
-    const isDemoHomestay = isDemo(id);
-    const res = await fetchWithAuth(API_BASE + "/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "removeApprovedHomestay",
-        id: id,
-        isDemo: isDemoHomestay
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      await fetchCloudData();
-      renderAdmin();
-      await showAlert("Success", `✅ "${data.removed?.name || 'Homestay'}" removed and synced to cloud!`);
-    } else {
-      await showAlert("Error", "❌ Removal failed: " + (data.error || "Unknown error"));
-    }
-  } catch(e) {
-    await showAlert("Error", "Error: " + e.message);
-  }
-}
-
-// ====== PENDING DETAIL MODAL ======
-function viewPendingDetails(id) {
-  const h = pendingHomestays.find(p => p.id === id);
-  if (!h) return;
-  const content = document.getElementById('pendingDetailContent');
-  const title = document.getElementById('detailModalTitle');
-  title.textContent = `🔍 ${h.name || 'Unnamed'} — Pending Review`;
-  let html = `
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div>
-        <div class="text-sm font-semibold text-zinc-500">Owner Information</div>
-        <div class="mt-2 space-y-2 text-sm">
-          <div><span class="font-bold">Name:</span> ${h.ownerName || 'N/A'}</div>
-          <div><span class="font-bold">WhatsApp:</span> ${h.whatsapp || 'N/A'}</div>
-          <div><span class="font-bold">Email:</span> ${h.ownerEmail || 'N/A'}</div>
-          <div><span class="font-bold">IC Name:</span> ${h.icName || 'N/A'}</div>
-          <div><span class="font-bold">IC Number:</span> ${h.icNumber || 'N/A'}</div>
-        </div>
-      </div>
-      <div>
-        <div class="text-sm font-semibold text-zinc-500">Homestay Details</div>
-        <div class="mt-2 space-y-2 text-sm">
-          <div><span class="font-bold">Name:</span> ${h.name || 'N/A'}</div>
-          <div><span class="font-bold">Location:</span> ${h.location || 'N/A'}</div>
-          <div><span class="font-bold">Price/Night:</span> RM${h.ownerPrice || 0}</div>
-          <div><span class="font-bold">Guests:</span> ${h.guests || 0}</div>
-          <div><span class="font-bold">Bedrooms:</span> ${h.bedrooms || 0}</div>
-        </div>
-      </div>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-      <div>
-        <div class="text-sm font-semibold text-zinc-500">Bank Details</div>
-        <div class="mt-2 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-          <div><span class="font-bold">Bank:</span> ${h.ownerBank || 'N/A'}</div>
-          <div><span class="font-bold">Account Number:</span> <span class="font-mono font-bold text-lg">${h.ownerBankAccount || 'N/A'}</span></div>
-          <div><span class="font-bold">Account Holder:</span> ${h.bankHolder || 'N/A'}</div>
-          <div><span class="font-bold">Bank QR:</span> ${h.bankQRImage ? '✅ Uploaded' : '❌ Not uploaded'}</div>
-        </div>
-      </div>
-      <div>
-        <div class="text-sm font-semibold text-zinc-500">Verification Status</div>
-        <div class="mt-2 space-y-2">
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-bold">IC Name vs Bank Holder:</span>
-            ${(h.icName || '').toLowerCase().includes((h.bankHolder || '').toLowerCase().split(' ')[0]) || (h.bankHolder || '').toLowerCase().includes((h.icName || '').toLowerCase().split(' ')[0]) 
-              ? '<span class="verification-badge pass">✅ Match</span>' 
-              : '<span class="verification-badge fail">❌ Mismatch</span>'}
-          </div>
-          <div><span class="text-sm font-bold">IC Uploaded:</span> ${h.icImage ? '✅ Yes' : '❌ No'}</div>
-          <div><span class="text-sm font-bold">QR Uploaded:</span> ${h.bankQRImage ? '✅ Yes' : '❌ No'}</div>
-        </div>
-      </div>
-    </div>
-  `;
-  if (h.icImage) {
-    html += `
-      <div class="mt-4">
-        <div class="text-sm font-semibold text-zinc-500">IC Front (Watermarked)</div>
-        <div class="mt-2 border rounded-xl p-3 bg-blue-50">
-          <img src="${h.icImage}" class="detail-modal-img max-h-[500px] w-auto mx-auto cursor-pointer" onclick="openLightbox('${h.icImage}')" />
-          <div class="text-[10px] text-zinc-500 mt-2 text-center">Tap image to enlarge</div>
-        </div>
-      </div>
-    `;
-  }
-  if (h.bankQRImage) {
-    html += `
-      <div class="mt-4">
-        <div class="text-sm font-semibold text-zinc-500">Bank QR / DuitNow</div>
-        <div class="mt-2 border rounded-xl p-3 bg-green-50">
-          <img src="${h.bankQRImage}" class="detail-modal-img max-h-[400px] w-auto mx-auto cursor-pointer" onclick="openLightbox('${h.bankQRImage}')" />
-          <div class="text-[10px] text-zinc-500 mt-2 text-center">Tap image to enlarge</div>
-        </div>
-      </div>
-    `;
-  }
-  html += `
-    <div class="mt-4">
-      <button onclick="toggleJsonView()" class="text-xs text-blue-600 underline">Show Full JSON Data</button>
-      <div id="jsonView" class="hidden mt-2 p-3 bg-zinc-100 border rounded-xl text-xs font-mono overflow-auto max-h-60">
-        ${safeHTML(JSON.stringify(h, null, 2))}
-      </div>
-    </div>
-  `;
-  content.innerHTML = safeHTML(html);
-  document.getElementById('pendingDetailModal').classList.remove('hidden');
-}
-
-function toggleJsonView() {
-  const el = document.getElementById('jsonView');
-  if (el) el.classList.toggle('hidden');
-}
-
-function closePendingDetail() {
-  document.getElementById('pendingDetailModal').classList.add('hidden');
-}
-
-// ========== RENDER BOOKINGS TABLE ==========
-function renderBookingsTable(){
-  const div=document.getElementById("bookingsTable"); if(!div) return;
-  if(bookings.length===0){ 
-    div.innerHTML = safeHTML('<div class="text-center text-zinc-500 py-6">No bookings yet.</div>'); 
-    return; 
-  }
-  let html = '<div class="mb-3 text-[11px] text-zinc-500">Flow: Check-in → Complete → Owner gets Base via ToyyibPay → You keep Fee • No F5 needed <button onclick="renderAdmin()" class="ml-2 border sharp px-2 py-0.5 bg-white">Reload</button></div><div class="space-y-4">';
-  bookings.forEach(b => {
-    const status=b.status||"Paid - Awaiting Check-in";
-    const isAwaiting=status.toLowerCase().includes("awaiting");
-    const isCompleted=status.toLowerCase().includes("completed") || status.toLowerCase().includes("payout");
-    const homestayName=b.homestay||"Homestay";
-    const nights=b.nights||calculateNights(b.checkin,b.checkout);
-    const checkin=b.checkin||"", checkout=b.checkout||"", total=b.total||0;
-    const base=b.base||0, fee=b.fee||0, youReceive=b.youReceive||fee;
-    let badgeClass=isAwaiting?'bg-yellow-100 text-yellow-800':isCompleted?'bg-green-100 text-green-800':'bg-blue-100 text-blue-800';
-    let btns="";
-    if(isAwaiting){
-      btns+='<button onclick="confirmCheckIn(\''+b.id+'\')" class="px-3 py-1.5 bg-[#0F382E] text-white sharp text-[11px] uppercase font-700">✓ CHECK IN</button>';
-    }
-    btns+='<button onclick="updateBookingStatus(\''+b.id+'\',\'Completed\')" class="px-3 py-1.5 bg-green-600 text-white sharp text-[11px] uppercase font-600">COMPLETE</button>';
-    html += '<div class="border border-black/10 sharp p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">'+b.id+'</div><div class="text-[12px] mt-1">'+homestayName+' • '+nights+' nights • '+checkin+' → '+checkout+' • RM'+total+'</div><div class="text-[12px]">Guest: '+(b.guestName||'')+' '+(b.guestEmail||'')+' '+(b.guestPhone||'')+'</div><div class="text-[10px] text-zinc-500 mt-1">Base RM'+base+' + Fee RM'+fee+' = You receive RM'+youReceive+' '+(b.payoutAmount ? '• Owner Paid RM'+b.payoutAmount+(b.payoutDate ? ' on '+toMYDate(b.payoutDate) : '') : '')+'</div></div><div><span class="text-[11px] px-2 py-1 sharp '+badgeClass+'">'+status+'</span></div></div><div class="flex gap-2 mt-3 flex-wrap">'+btns+'<button onclick="whatsappGuest(\''+b.id+'\')" class="px-3 py-1.5 bg-[#25D366] text-white sharp text-[11px] uppercase font-600">WHATSAPP GUEST</button><button onclick="copyBookingId(\''+b.id+'\')" class="px-3 py-1.5 bg-white border sharp text-[11px] uppercase font-600">COPY ID</button><button onclick="changeBookingDates(\''+b.id+'\')" class="px-3 py-1.5 bg-white border sharp text-[11px] uppercase font-600">CHANGE DATES</button><button onclick="deleteBooking(\''+b.id+'\')" class="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 sharp text-[11px] uppercase font-600">DELETE</button></div></div>';
-  });
-  html += '</div>';
-  div.innerHTML = safeHTML(html);
-}
-
-// ========== CHECK-IN ==========
-async function confirmCheckIn(id){
-  const b=bookings.find(x=> String(x.id)===String(id));
-  if(!b){ await showAlert("Error", "Booking not found"); return; }
-  if(b.status && b.status.toLowerCase().includes("payout")){
-    const confirmAgain = await showConfirm("Already Paid Out", "Already paid out: "+b.status+"\nPay again?");
-    if (!confirmAgain) return;
-  }
-  const ownerAmount=b.base || Math.round((b.total||0) - (b.fee||0));
-  const yourFee=b.youReceive || b.fee || 0;
-  const confirmResult = await showConfirm("Confirm Check-in", 
-    "CHECK-IN FLOW - ToyyibPay Auto\n\nBooking: "+b.id+"\n"+b.homestay+" • "+b.checkin+" → "+b.checkout+" • RM"+b.total+"\nGuest: "+(b.guestName||b.guestEmail)+"\n\nOwner gets: RM"+ownerAmount+" via ToyyibPay Auto\nYou get: RM"+yourFee+" fee\nStatus will auto become Completed\n\nContinue?"
-  );
-  if (!confirmResult) return;
-  try{
-    b.status="Checked In - Processing Owner Payout...";
-    b.statusUpdated=new Date().toISOString();
-    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    renderBookingsTable();
-    let payoutData=null;
-    try{
-      const res=await fetchWithAuth('/api/payout', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          bookingId: b.id,
-          homestayId: b.homestayId,
-          homestay: b.homestay,
-          amount: ownerAmount,
-          ownerAmount: ownerAmount,
-          yourFee: yourFee,
-          fee: b.fee,
-          total: b.total,
-          ownerBankCode: b.ownerBankCode || 'MBBEMYKL',
-          ownerAcc: b.ownerBankAccount || b.ownerAcc || '',
-          ownerName: b.bankHolder || b.ownerName || b.owner || b.homestay,
-          checkin: b.checkin
-        })
-      });
-      payoutData=await res.json().catch(()=>({}));
-    }catch(e){ payoutData={simulation:true}; }
-    b.status = (payoutData && payoutData.simulation) ? "Completed - Owner Paid RM"+ownerAmount+" via ToyyibPay Auto" : "Completed - Owner Paid RM"+ownerAmount;
-    b.payoutDate=new Date().toISOString();
-    b.payoutAmount=ownerAmount;
-    b.yourFeeEarned=yourFee;
-    b.completedDate=new Date().toISOString();
-    if(!b.nights) b.nights=calculateNights(b.checkin,b.checkout);
-    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    fetchWithAuth(API_BASE + '/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id:b.id, status:b.status, booking:b})}).catch(()=>{});
-    renderBookingsTable();
-    const tf=document.getElementById("totalFees"); if(tf){ const total=bookings.reduce((s,x)=>s+(x.youReceive||x.fee||0),0); tf.innerText="RM"+total.toFixed(2); }
-    await showAlert("Check-in Complete", 'CHECK-IN COMPLETE!\nOwner: RM'+ownerAmount+' '+(payoutData?.simulation?'(Simulation)':'via ToyyibPay Auto')+'\nYour fee: RM'+yourFee);
-  }catch(e){
-    await showAlert("Error", 'Failed: '+e.message);
-    b.status="Paid - Awaiting Check-in";
-    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    renderBookingsTable();
-  }
-}
-
-function updateBookingStatus(id, newStatus){
-  const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return;
-  if(newStatus==="Checked In"){ return confirmCheckIn(id); }
-  showConfirm("Change Status", "Change "+id+" from \""+b.status+"\" to \""+newStatus+"\"?").then(async (confirmed) => {
-    if (!confirmed) return;
-    b.status=newStatus; b.statusUpdated=new Date().toISOString();
-    if(!b.nights) b.nights=calculateNights(b.checkin,b.checkout);
-    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    renderBookingsTable();
-    const tf=document.getElementById("totalFees"); if(tf){ const total=bookings.reduce((s,x)=>s+(x.youReceive||x.fee||0),0); tf.innerText="RM"+total.toFixed(2); }
-    fetchWithAuth('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id, status:newStatus, booking:b})}).catch(()=>{});
-  });
-}
-
-function whatsappGuest(id){ const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return; let phone=(b.guestPhone||'').replace(/[^0-9]/g,''); if(phone.startsWith('0')) phone='60'+phone.substring(1); const msg=encodeURIComponent("Hi "+(b.guestName||'Guest')+", booking "+b.id+" for "+b.homestay+" ("+b.checkin+"→"+b.checkout+") is "+b.status+". Total RM"+b.total+"."); window.open("https://wa.me/"+phone+"?text="+msg,'_blank'); }
-function copyBookingId(id){ navigator.clipboard.writeText(id).then(()=> showAlert("Copied", "Copied: "+id)); }
-
-async function changeBookingDates(id){
-  const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return;
-  const ci = await showPrompt("New Check-in", "Enter new check-in date (YYYY-MM-DD):", b.checkin);
-  if (!ci) return;
-  const co = await showPrompt("New Check-out", "Enter new check-out date (YYYY-MM-DD):", b.checkout);
-  if (!co) return;
-  const d1=new Date(ci), d2=new Date(co);
-  if(d1>=d2){ await showAlert("Invalid", "Invalid dates"); return; }
-  const h=homestays.find(h=> String(h.id)===String(b.homestayId) || h.name===b.homestay);
-  const old=getDatesInRange(b.checkin,b.checkout);
-  const temp=getAllBlockedDatesForHomestay(h).filter(d=> !old.includes(d));
-  const req=getDatesInRange(ci,co);
-  if(req.filter(d=> temp.includes(d)).length>0){ await showAlert("Overlap", "Dates overlap with existing bookings"); return; }
-  const nights=calculateNights(ci,co);
-  const price=calculatePrice(h.ownerPrice,nights);
-  if(availabilityMap[h.id]) availabilityMap[h.id]=availabilityMap[h.id].filter(d=> !old.includes(d));
-  if(!availabilityMap[h.id]) availabilityMap[h.id]=[];
-  req.forEach(d=>{ if(!availabilityMap[h.id].includes(d)) availabilityMap[h.id].push(d); });
-  availabilityMap[h.id].sort();
-  saveAvailabilityMap();
-  b.checkin=ci; b.checkout=co; b.nights=nights; b.base=price.base; b.fee=price.fee; b.total=price.total; b.youReceive=price.youReceive;
-  localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-  try{ await fetchWithAuth('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'updateDates', id:b.id, checkin:ci, checkout:co, nights:price.nights, base:price.base, fee:price.fee, total:price.total, youReceive:price.youReceive})}); }catch(e){}
-  renderBookingsTable();
-}
-
-async function openOwnerAvailabilityManager(id){
-  const h=allHomestays.find(x=> String(x.id)===String(id));
-  if(!h) return;
-  const blocked=getAllBlockedDatesForHomestay(h);
-  const response = await showPrompt("Manage Availability", 
-    "Manage "+h.name+"\nBlocked: "+(blocked.join(", ")||"None")+"\n\nEnter YYYY-MM-DD, START,END, or 'clear'",
-    ""
-  );
-  if(response===null) return;
-  const a = response.trim();
-  if(a==='clear'){
-    h.blockedDates=[]; availabilityMap[h.id]=[]; if(isDemo(h.id)){demoBlockedMap[h.id]=[]; saveDemoBlocked();}
-    saveAvailabilityMap(); saveApproved(); renderAdmin(); return;
-  }
-  if(a.includes(",")){
-    const parts=a.split(",").map(x=>x.trim());
-    const range=getDatesInRange(parts[0],parts[1]);
-    range.forEach(d=>{
-      if(h.blockedDates.includes(d)) h.blockedDates=h.blockedDates.filter(x=>x!==d);
-      else h.blockedDates.push(d);
-    });
-    h.blockedDates.sort();
-    if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();}
-    saveApproved(); saveAvailabilityMap(); renderAdmin(); return;
-  }
-  if(h.blockedDates.includes(a)) h.blockedDates=h.blockedDates.filter(d=>d!==a);
-  else h.blockedDates.push(a);
-  h.blockedDates.sort();
-  if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();}
-  saveApproved(); saveAvailabilityMap(); renderAdmin();
-}
-
-// ========== OTHER ADMIN FUNCTIONS ==========
-async function approveHomestay(id){ 
-  const confirmed = await showConfirm("Approve Homestay", "Approve this homestay?");
-  if (!confirmed) return;
-  try {
-    const res = await fetchWithAuth(API_BASE + "/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "approveHomestay",
-        id: id
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      await fetchCloudData();
-      renderAdmin();
-      await showAlert("Success", "✅ Homestay approved and synced to cloud!");
-    } else {
-      await showAlert("Error", "❌ Approval failed: " + (data.error || "Unknown error"));
-    }
-  } catch(e) {
-    await showAlert("Error", "Error: " + e.message);
-  }
-}
-
-async function rejectHomestay(id){ 
-  const confirmed = await showConfirm("Reject Homestay", "Reject this homestay?");
-  if (!confirmed) return;
-  try {
-    const res = await fetchWithAuth(API_BASE + "/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "rejectHomestay",
-        id: id
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      await fetchCloudData();
-      renderAdmin();
-      await showAlert("Success", "✅ Homestay rejected and synced to cloud!");
-    } else {
-      await showAlert("Error", "❌ Rejection failed: " + (data.error || "Unknown error"));
-    }
-  } catch(e) {
-    await showAlert("Error", "Error: " + e.message);
-  }
-}
-
-async function forceSyncPending(){
-  const confirmed = await showConfirm("Force Sync", "Force sync pending data from localStorage to cloud?");
-  if (!confirmed) return;
-  try {
-    const res = await fetchWithAuth(API_BASE + "/pending", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ pending: pendingHomestays })
-    });
-    if (res.ok) {
-      await showAlert("Success", "Sync successful!");
-    } else {
-      await showAlert("Error", "Sync failed: "+await res.text());
-    }
-  } catch(e) {
-    await showAlert("Error", "Sync error: "+e.message);
-  }
-}
-
-async function restoreDemos(){
-  const confirmed = await showConfirm("Restore Demos", "Restore demo homestays?");
-  if (!confirmed) return;
-  localStorage.removeItem("kd_deleted_demo"); deletedDemoIds=[];
-  const base=DEMO_HOMESTAYS.map(d=> demoOverrides[d.id]?{...d, ...demoOverrides[d.id]}:d);
-  allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin();
-}
-
-async function resetDemoEdits(){
-  const confirmed = await showConfirm("Reset Edits", "Reset all demo edits?");
-  if (!confirmed) return;
-  localStorage.removeItem("kd_demo_overrides"); demoOverrides={};
-  const base=DEMO_HOMESTAYS.filter(d=> !deletedDemoIds.includes(d.id));
-  allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin();
-}
-
-async function fetchEarnings(){ 
-  try{ 
-    const res=await fetchWithAuth(API_BASE+"/withdraw", {cache:"no-store"}); 
-    if(!res.ok) throw new Error("no earnings"); 
-    const data=await res.json(); 
-    if(data && data.earnings){ 
-      const availEl=document.getElementById("kdAvailInline"); 
-      const withEl=document.getElementById("kdWithdrawnInline"); 
-      if(availEl) availEl.textContent="Available: RM"+(data.earnings.available||0).toFixed(2); 
-      if(withEl) withEl.textContent="Withdrawn: RM"+(data.earnings.withdrawn||0).toFixed(2); 
-      return data.earnings; 
-    } 
-  }catch(e){} 
-  return null; 
-}
-
-async function resetWithdrawn() { 
-  const confirmed = await showConfirm("Reset Withdrawn", "Reset withdrawn and available balance to 0?");
-  if (!confirmed) return;
-  try { 
-    const res = await fetchWithAuth(API_BASE + "/withdraw", { method: "DELETE" }); 
-    const data = await res.json(); 
-    if (res.ok) { 
-      await showAlert("Success", "Withdrawn reset to RM0.00");
-      await fetchCloudData(); 
-      renderAdmin(); 
-    } else { 
-      await showAlert("Error", "Reset failed: " + (data.error || "Unknown")); 
-    } 
-  } catch(e) { 
-    await showAlert("Error", "Error: " + e.message); 
-  } 
-}
-
-async function clearAllBookingsCloud() { 
-  const confirmed1 = await showConfirm("Clear All Bookings", "DELETE ALL bookings from Cloudflare D1? This cannot be undone.");
-  if (!confirmed1) return;
-  const confirmed2 = await showConfirm("Really Clear All?", "Really clear ALL bookings?");
-  if (!confirmed2) return;
-  try { 
-    const res = await fetchWithAuth(API_BASE + "/bookings", { 
-      method: "POST", 
-      headers: { "Content-Type": "application/json" }, 
-      body: JSON.stringify({ action: "clearAll" }) 
-    }); 
-    const data = await res.json(); 
-    if (res.ok) { 
-      bookings = []; 
-      localStorage.setItem("kd_bookings", JSON.stringify([])); 
-      availabilityMap = {}; 
-      localStorage.setItem("kd_availability", JSON.stringify({})); 
-      await showAlert("Success", "All bookings cleared from cloud: " + (data.bookings?.length || 0) + " remaining"); 
-      renderAdmin(); 
-    } else { 
-      await showAlert("Error", "Clear failed: " + data.error); 
-    } 
-  } catch(e) { 
-    await showAlert("Error", "Clear error: " + e.message); 
-  } 
-}
-
-// ====== CLEAR LOCAL BOOKINGS ======
-async function clearLocalBookings() {
-  const confirmed = await showConfirm("Clear Local Bookings", "Clear all bookings from local storage? This will not affect the cloud.");
-  if (!confirmed) return;
-  localStorage.removeItem('kd_bookings');
-  bookings = [];
-  renderAdmin();
-  await showAlert("Cleared", "Local bookings cleared. Refresh cloud data to restore.");
-}
-
-function renderAvailabilityTab(){ 
-  const div = document.getElementById("availabilityTable"); 
-  if (!div) return;
-  
-  let html = '<div class="grid md:grid-cols-2 gap-4">';
-  homestays.forEach(h => {
-    const blocked = getAllBlockedDatesForHomestay(h);
-    const blockedStr = blocked.length 
-      ? blocked.map(d => `<span class="text-xs bg-red-100 px-1.5 py-0.5 rounded">${d}</span>`).join(' ') 
-      : '<span class="text-xs text-zinc-400">No blocked dates</span>';
-    html += `
-      <div class="border sharp p-3">
-        <div class="font-bold text-sm flex justify-between">
-          <span>${h.name}</span>
-          <span class="text-xs text-zinc-500">${blocked.length} blocked</span>
-        </div>
-        <div class="mt-1 flex flex-wrap gap-1 max-h-32 overflow-y-auto">${blockedStr}</div>
-        <button onclick="openOwnerAvailabilityManager(${h.id})" class="mt-2 text-xs border sharp px-3 py-1 bg-white hover:bg-zinc-50">📅 Manage</button>
-      </div>
-    `;
-  });
-  html += '</div>';
-  div.innerHTML = safeHTML(html);
-}
-
-function renderGuestsTable(){ 
-  let guests=[]; 
-  try{ guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); }catch(e){ guests=[]; } 
-  const div=document.getElementById("guestsTable"); 
-  if(!div) return; 
-  if(guests.length===0){ 
-    div.innerHTML = safeHTML('<div class="text-center text-zinc-500 py-8">No guests yet<br><button onclick="forceSyncGuests()" class="mt-3 px-4 py-2 bg-blue-600 text-white text-xs sharp">Force Sync</button> <button onclick="checkCloudRaw()" class="mt-3 px-4 py-2 bg-zinc-200 text-xs sharp">Check Cloud</button></div>'); 
-  } else { 
-    let html = '<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests</div>';
-    guests.forEach((g,i) => {
-      html += '<div class="border sharp p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+'</div></div><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded bg-red-600 text-white sharp">Delete & Ban</button></div>';
-    });
-    div.innerHTML = safeHTML(html); 
-  } 
-}
-
-async function forceSyncGuests(){ 
-  try{ 
-    await fetchCloudData(); 
-    renderGuestsTable(); 
-    renderAdmin(); 
-    const g=JSON.parse(localStorage.getItem("kd_guests")||"[]"); 
-    const b=JSON.parse(localStorage.getItem("kd_banned_guests")||"[]"); 
-    await showAlert("Sync Complete", "Synced! Guests:"+g.length+" Banned:"+b.length); 
-  }catch(e){ await showAlert("Error", "Sync failed: "+e.message); } 
-}
-
-async function checkCloudRaw(){ 
-  try{ 
-    const res=await fetchWithAuth(API_BASE + "/bookings", {cache:"no-store"}); 
-    const data=await res.json(); 
-    await showAlert("Cloud Data", "Cloud: bookings:"+(data.bookings?.length||0)+" guests:"+(data.guests?.length||0)+" banned:"+(data.bannedGuests?.length||0)); 
-  }catch(e){ await showAlert("Error", "Check failed: "+e.message); } 
-}
-
-async function deleteGuest(idx){ 
-  const confirmed = await showConfirm("Delete Guest", 'Delete this guest? They will not be able to login again and will see "This account is not exist"');
-  if (!confirmed) return;
-  let guests=[]; 
-  try{ guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); }catch(e){} 
-  const deleted = guests[idx]; 
-  const emailToBan = deleted?.email ? String(deleted.email).toLowerCase() : null; 
-  guests.splice(idx,1); 
-  localStorage.setItem("kd_guests", JSON.stringify(guests)); 
-  renderGuestsTable(); 
-  renderAdmin(); 
-  try{ 
-    await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"overwriteGuests", guests: guests})}); 
-    if(emailToBan){ 
-      await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"banGuest", email: emailToBan})}); 
-      let banned = []; 
-      try{ banned = JSON.parse(localStorage.getItem("kd_banned_guests")||"[]"); }catch(e){} 
-      if(!banned.includes(emailToBan)) banned.push(emailToBan); 
-      localStorage.setItem("kd_banned_guests", JSON.stringify(banned)); 
-    } 
-    await showAlert("Success", "Deleted and banned " + (deleted?.email||"guest") + "\nIf they try login, they will see: This account is not exist"); 
-  }catch(e){ await showAlert("Error", "Deleted locally but cloud fail: "+e.message); } 
-}
-
-// ====== DELETE BOOKING (FIXED) ======
-async function deleteBooking(id){ 
-  const confirmed = await showConfirm("Delete Booking", "Delete "+id+"? This will free blocked dates?");
-  if (!confirmed) return;
-  
-  const toDelete = bookings.find(x=> String(x.id)===String(id)); 
-  const homestayId = toDelete?.homestayId || toDelete?.homestay; 
-  bookings=bookings.filter(x=> String(x.id)!==String(id)); 
-  localStorage.setItem("kd_bookings", JSON.stringify(bookings)); 
-  
-  if(homestayId){ 
-    const remainingDates = new Set(); 
-    bookings.filter(b => String(b.homestayId)===String(homestayId) || String(b.homestay)===String(homestayId)).forEach(b=>{ 
-      (b.bookedDates||[]).forEach(d=> remainingDates.add(d)); 
-      if(b.checkin && b.checkout){ 
-        try{ 
-          const s = new Date(b.checkin); 
-          const e = new Date(b.checkout); 
-          for(let d = new Date(s); d < e; d.setDate(d.getDate()+1)){ 
-            remainingDates.add(d.toISOString().split('T')[0]); 
-          } 
-        }catch(e){} 
-      } 
-    }); 
-    if(remainingDates.size === 0){ delete availabilityMap[homestayId]; } 
-    else { availabilityMap[homestayId] = [...remainingDates]; } 
-    localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); 
-  } 
-  renderBookingsTable(); 
-  renderAdmin(); 
-  try{ 
-    const res = await fetchWithAuth(API_BASE + "/bookings?id=" + encodeURIComponent(id), {method:"DELETE", cache:"no-store"}); 
-    if(!res.ok){ await showAlert("Error", "Cloud delete failed"); } 
-    else { 
-      try{ await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"updateAvailability", availability: availabilityMap})}); }catch(e){} 
-      await showAlert("Success", "Deleted "+id+" and freed dates"); 
-      await fetchCloudData(); 
-      renderAdmin(); 
-    } 
-  } catch(e){ 
-    await showAlert("Error", "Delete error: "+e.message); 
-  } 
-}
-
-function saveToyyibPayConfig(){ 
-  CONFIG.billplz.apiKey=document.getElementById("cfgApiKey").value; 
-  CONFIG.billplz.collectionId=document.getElementById("cfgCollection").value; 
-  CONFIG.billplz.xSignature=document.getElementById("cfgXSig").value; 
-  CONFIG.billplz.enabled=document.getElementById("cfgEnabled").value==="true"; 
-  localStorage.setItem("kd_billplz", JSON.stringify(CONFIG.billplz)); 
-  showAlert("Saved", "Configuration saved"); 
-}
-
-// ========== CLOCK ==========
-(function(){
-  function updateMYClock(){
-    const el = document.getElementById('myTimeNow');
-    if(el){
-      try{
-        el.textContent = new Date().toLocaleString('en-MY', {timeZone: 'Asia/Kuala_Lumpur', weekday:'short', year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true}) + ' MYT';
-      }catch(e){ el.textContent = new Date().toString(); }
-    }
-  }
-  setInterval(updateMYClock, 1000);
-  setTimeout(updateMYClock, 200);
-})();
-
-// ========== WITHDRAW OVERLAY EVENTS ==========
-document.addEventListener('click', async (e)=>{
-  if(e.target.id==='kdWithdrawBtn'){
-    await fetchEarnings();
-    document.getElementById('kdWithdrawOverlay').classList.add('open');
-  }
-  if(e.target.id==='kdClose' || e.target.id==='kdWithdrawOverlay'){
-    document.getElementById('kdWithdrawOverlay').classList.remove('open');
-  }
-  if(e.target.id==='kdConfirm'){
-    const amtInput = document.getElementById('kdAmt');
-    const amt = parseFloat(amtInput.value);
-    if(!amt || amt<=0){ await showAlert("Invalid Amount", "Enter valid amount"); return; }
-    const btn = document.getElementById('kdConfirm');
-    const origText = btn.textContent;
-    btn.textContent = "Processing...";
-    btn.disabled = true;
-    try{
-      const res = await fetchWithAuth(API_BASE + "/withdraw", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ amount: amt })
-      });
-      const data = await res.json();
-      if(!res.ok){
-        await showAlert("Withdraw Failed", "Withdraw failed: " + (data.error||JSON.stringify(data)));
-      } else {
-        await showAlert("Withdraw Success", "Withdraw success: RM"+amt.toFixed(2)+" locked to your locked bank\n"+data.message);
-        const arr = JSON.parse(localStorage.getItem('kd_withdrawals')||'[]');
-        arr.push({amount:amt, date:new Date().toISOString(), id:data.withdrawal?.id});
-        localStorage.setItem('kd_withdrawals',JSON.stringify(arr));
-        document.getElementById('kdWithdrawOverlay').classList.remove('open');
-        amtInput.value = "";
-        await fetchEarnings();
-        renderAdmin();
-      }
-    }catch(err){
-      await showAlert("Withdraw Error", "Withdraw error: "+err.message+"\nCheck /api/withdraw endpoint and D1 binding");
-    } finally {
-      btn.textContent = origText;
-      btn.disabled = false;
-    }
-  }
-});
-
-// ========== INIT ==========
-(async ()=>{
-  const saved=localStorage.getItem("kd_billplz"); 
-  if(saved){ 
-    try{ CONFIG.billplz={...CONFIG.billplz, ...JSON.parse(saved)}; }catch(e){} 
-  }
-  
-  if(sessionStorage.getItem("kd_admin_token")){
-    ADMIN_TOKEN = sessionStorage.getItem("kd_admin_token");
-    try{ 
-      await fetchCloudData(); 
-      document.getElementById("adminLogin").classList.add("hidden");
-      document.getElementById("adminDashboard").classList.remove("hidden");
-      renderAdmin();
-    }catch(e){ 
-      sessionStorage.removeItem('kd_admin_token');
-      ADMIN_TOKEN = '';
-    }
-  }
-})();
-</script>
-</body>
-</html>
+function modalConfirm() {
