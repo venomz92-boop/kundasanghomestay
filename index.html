@@ -1197,7 +1197,7 @@
   </div>
 </div>
 
-<!-- ===== ACCORDION GALLERY - VERTICAL (MODIFIED FROM YOUR CODE) ===== -->
+<!-- ===== ACCORDION GALLERY - FULL WIDTH ===== -->
 <section class="w-full py-16 bg-[#F8F5F0]">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8">
     <div class="text-center mb-10">
@@ -1208,207 +1208,180 @@
     </div>
   </div>
 
-  <!-- Vertical gallery container (modified from your code) -->
-  <div class="w-full px-4 md:px-8">
-    <div id="accordionGallery" class="accordion-gallery w-full max-w-[900px] mx-auto" style="--gap: 12px; --radius: 16px;">
-      <!-- Items rendered by JavaScript -->
+  <!-- Full width gallery container -->
+  <div class="w-full px-0">
+    <div id="accordionGallery" class="accordion-gallery w-full max-w-full" style="height: 460px; --gap: 10px; --radius: 0px;">
+      <!-- Items will be rendered by JavaScript -->
     </div>
   </div>
 </section>
 
-<!-- ===== ACCORDION GALLERY STYLES (VERTICAL, SMOOTH) ===== -->
+<!-- ===== ACCORDION GALLERY STYLES ===== -->
 <style>
-  /* Force vertical layout on all screen sizes */
   .accordion-gallery {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: var(--gap, 12px) !important;
-    width: 100% !important;
-    max-width: 900px !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
+    display: flex;
+    flex-direction: row;
+    gap: var(--gap, 10px);
+    perspective: 1400px;
+    width: 100%;
+    max-width: 100%;
+    padding: 0 10px;
   }
-  
   .accordion-gallery .ag-item {
-    position: relative !important;
-    display: block !important;
-    width: 100% !important;
-    height: 80px !important;
-    overflow: hidden !important;
-    cursor: pointer !important;
-    background: #0a0713 !important;
-    text-decoration: none !important;
-    outline: none !important;
-    box-shadow: 0 4px 20px -12px rgba(0,0,0,0.6) !important;
-    border-radius: var(--radius, 16px) !important;
-    transition: height 0.5s cubic-bezier(0.22, 1, 0.36, 1) !important;
-    will-change: height !important;
-    flex: none !important;
+    position: relative;
+    display: block;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    cursor: pointer;
+    overflow: hidden;
+    background: #0a0713;
+    text-decoration: none;
+    outline: none;
+    transform-style: preserve-3d;
+    transform-origin: center;
+    box-shadow: 0 10px 30px -18px rgba(0,0,0,0.8);
+    border-radius: var(--radius, 16px);
+    transition: flex-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1), 
+                transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: flex-grow, transform;
   }
-  
-  .accordion-gallery .ag-item.active {
-    height: 420px !important;
-    box-shadow: 0 12px 40px -16px rgba(0,0,0,0.5) !important;
+  .accordion-gallery .ag-item:first-child {
+    border-radius: 0 0 0 0;
   }
-  
+  .accordion-gallery .ag-item:last-child {
+    border-radius: 0 0 0 0;
+  }
   .accordion-gallery .ag-item:focus-visible {
-    box-shadow: 0 0 0 2px #3FD0D4, 0 4px 20px -12px rgba(0,0,0,0.6) !important;
+    box-shadow: 0 0 0 2px #3FD0D4, 0 10px 30px -18px rgba(0,0,0,0.8);
   }
-  
   .accordion-gallery .ag-item .ag-media-wrap {
-    position: absolute !important;
-    inset: 0 !important;
-    overflow: hidden !important;
-    border-radius: inherit !important;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: inherit;
   }
-  
   .accordion-gallery .ag-item .ag-media {
-    position: absolute !important;
-    top: 50% !important;
-    left: 50% !important;
-    width: 100% !important;
-    height: 100% !important;
-    transform: translate(-50%, -50%) scale(1.05) !important;
-    filter: grayscale(0.8) brightness(0.6) !important;
-    transition: filter 0.5s cubic-bezier(0.22, 1, 0.36, 1),
-                transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) !important;
-    will-change: transform, filter !important;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 320px;
+    height: 100%;
+    transform: translate(-50%, -50%);
+    filter: grayscale(1);
+    transition: filter 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, filter;
   }
-  
   .accordion-gallery .ag-item.active .ag-media {
-    filter: grayscale(0) brightness(1) !important;
-    transform: translate(-50%, -50%) scale(1) !important;
+    filter: grayscale(0);
   }
-  
   .accordion-gallery .ag-item .ag-media img {
-    display: block !important;
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover !important;
-    user-select: none !important;
-    -webkit-user-drag: none !important;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    user-select: none;
+    -webkit-user-drag: none;
   }
-  
   .accordion-gallery .ag-item .ag-overlay {
-    position: absolute !important;
-    inset: 0 !important;
-    pointer-events: none !important;
-    background: linear-gradient(180deg, transparent 40%, rgba(6, 0, 16, 0.85) 100%) !important;
-    z-index: 1 !important;
-    opacity: 0.8 !important;
-    transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1) !important;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent 45%, rgba(6, 0, 16, 0.78) 100%);
+    background: linear-gradient(180deg, transparent 45%, color-mix(in srgb, #060010 78%, transparent) 100%), 
+                color-mix(in srgb, #060010 calc(var(--ag-dim, 0.35) * 100%), transparent);
+    transition: --ag-dim 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   }
-  
   .accordion-gallery .ag-item.active .ag-overlay {
-    opacity: 0 !important;
+    --ag-dim: 0;
   }
-  
   .accordion-gallery .ag-item .ag-label-wrap {
-    position: absolute !important;
-    bottom: 24px !important;
-    left: 28px !important;
-    right: 28px !important;
-    z-index: 2 !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 16px !important;
-    pointer-events: none !important;
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    pointer-events: none;
   }
-  
   .accordion-gallery .ag-item .ag-bar {
-    height: 32px !important;
-    width: 4px !important;
-    flex: none !important;
-    border-radius: 4px !important;
-    background: #3FD0D4 !important;
-    box-shadow: 0 0 20px rgba(63, 208, 212, 0.4) !important;
-    opacity: 0.5 !important;
-    transition: opacity 0.4s ease, height 0.4s ease, transform 0.4s ease !important;
-    transform: scaleY(0.6) !important;
+    height: 26px;
+    width: 3px;
+    flex: none;
+    border-radius: 3px;
+    background: #ffffff;
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
+    opacity: 0;
+    transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    transform: translateX(-14px);
   }
-  
   .accordion-gallery .ag-item.active .ag-bar {
-    opacity: 1 !important;
-    transform: scaleY(1) !important;
-    height: 40px !important;
+    opacity: 1;
+    transform: translateX(0);
   }
-  
   .accordion-gallery .ag-item .ag-label {
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
-    font-size: 18px !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.02em !important;
-    color: #ffffff !important;
-    text-shadow: 0 2px 24px rgba(0,0,0,0.8) !important;
-    opacity: 0.7 !important;
-    transition: opacity 0.4s ease, transform 0.4s ease, font-size 0.4s ease !important;
-    transform: translateX(-6px) !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: clamp(1rem, 1.4vw, 1.4rem);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #ffffff;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.55);
+    opacity: 0;
+    transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.06s,
+                transform 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.06s;
+    transform: translateX(-14px);
   }
-  
   .accordion-gallery .ag-item.active .ag-label {
-    opacity: 1 !important;
-    transform: translateX(0) !important;
-    font-size: 24px !important;
-  }
-  
-  .accordion-gallery .ag-item .ag-sub-label {
-    display: none !important;
-    font-size: 14px !important;
-    font-weight: 400 !important;
-    color: rgba(255,255,255,0.6) !important;
-    margin-left: 8px !important;
-    opacity: 0 !important;
-    transition: opacity 0.5s ease 0.1s !important;
-  }
-  
-  .accordion-gallery .ag-item.active .ag-sub-label {
-    display: inline !important;
-    opacity: 1 !important;
+    opacity: 1;
+    transform: translateX(0);
   }
 
-  /* Desktop hover */
-  @media (min-width: 769px) {
-    .accordion-gallery .ag-item:not(.active):hover {
-      box-shadow: 0 8px 30px -14px rgba(0,0,0,0.5) !important;
+  /* Mobile: stack vertically */
+  @media (max-width: 520px) {
+    .accordion-gallery {
+      flex-direction: column !important;
+      perspective: none !important;
+      height: auto !important;
+      min-height: 480px;
+      padding: 0 10px;
     }
-    .accordion-gallery .ag-item:not(.active):hover .ag-label {
-      opacity: 1 !important;
-    }
-    .accordion-gallery .ag-item:not(.active):hover .ag-bar {
-      opacity: 1 !important;
-    }
-  }
-
-  /* Mobile */
-  @media (max-width: 768px) {
     .accordion-gallery .ag-item {
-      height: 64px !important;
+      min-height: 84px;
+      transform: none !important;
+      flex: 1 1 0;
+      border-radius: 12px !important;
+    }
+    .accordion-gallery .ag-item:first-child {
+      border-radius: 12px 12px 0 0 !important;
+    }
+    .accordion-gallery .ag-item:last-child {
+      border-radius: 0 0 12px 12px !important;
+    }
+    .accordion-gallery .ag-item .ag-media {
+      width: 100%;
+      height: 320px;
     }
     .accordion-gallery .ag-item.active {
-      height: 300px !important;
+      flex: 2 1 0;
     }
-    .accordion-gallery .ag-item .ag-label-wrap {
-      bottom: 14px !important;
-      left: 16px !important;
-      right: 16px !important;
-      gap: 10px !important;
+  }
+
+  /* Desktop: first and last items have rounded corners on the outer edges */
+  @media (min-width: 521px) {
+    .accordion-gallery .ag-item:first-child {
+      border-radius: var(--radius, 16px) 0 0 var(--radius, 16px);
     }
-    .accordion-gallery .ag-item .ag-label {
-      font-size: 14px !important;
+    .accordion-gallery .ag-item:last-child {
+      border-radius: 0 var(--radius, 16px) var(--radius, 16px) 0;
     }
-    .accordion-gallery .ag-item.active .ag-label {
-      font-size: 18px !important;
-    }
-    .accordion-gallery .ag-item .ag-bar {
-      height: 20px !important;
-    }
-    .accordion-gallery .ag-item.active .ag-bar {
-      height: 28px !important;
-    }
-    .accordion-gallery .ag-item .ag-sub-label {
-      display: none !important;
+    .accordion-gallery .ag-item:first-child:last-child {
+      border-radius: var(--radius, 16px);
     }
   }
 
@@ -1416,7 +1389,6 @@
   @media (prefers-reduced-motion: reduce) {
     .accordion-gallery .ag-item,
     .accordion-gallery .ag-item .ag-media,
-    .accordion-gallery .ag-item .ag-overlay,
     .accordion-gallery .ag-item .ag-bar,
     .accordion-gallery .ag-item .ag-label {
       transition: none !important;
@@ -1424,42 +1396,39 @@
   }
 </style>
 
-<!-- ===== ACCORDION GALLERY SCRIPT (SMOOTH) ===== -->
+<!-- ===== ACCORDION GALLERY SCRIPT ===== -->
 <script>
 (function() {
   const galleryItems = [
     { 
-      image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=900&h=600&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=900&h=1200&fit=crop', 
       label: 'Mountain Peaks', 
-      sub: 'Majestic Kinabalu sunrise'
+      alt: 'Mount Kinabalu peaks at sunrise'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=900&h=600&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=900&h=1200&fit=crop', 
       label: 'Valley View', 
-      sub: 'Green valleys with morning mist'
+      alt: 'Green valley with morning mist'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&h=600&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&h=1200&fit=crop', 
       label: 'Forest Trail', 
-      sub: 'Misty trails through the jungle'
+      alt: 'Misty forest trail in Kundasang'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=900&h=600&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=900&h=1200&fit=crop', 
       label: 'Sunset Glow', 
-      sub: 'Golden hour over the mountains'
+      alt: 'Golden sunset over the mountains'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=900&h=600&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=900&h=1200&fit=crop', 
       label: 'Star Gazing', 
-      sub: 'Incredible night sky views'
+      alt: 'Night sky with stars above Kinabalu'
     }
   ];
 
   const container = document.getElementById('accordionGallery');
   if (!container) return;
-
-  let activeIndex = 2;
-  let isAnimating = false;
 
   // Clear and render items
   container.innerHTML = '';
@@ -1467,25 +1436,23 @@
   galleryItems.forEach((item, index) => {
     const el = document.createElement('div');
     el.className = 'ag-item';
-    if (index === activeIndex) el.classList.add('active');
+    if (index === 2) el.classList.add('active'); // default active (middle)
+    el.style.setProperty('--ag-dim', index === 2 ? '0' : '0.35');
     el.setAttribute('role', 'listitem');
     el.setAttribute('tabindex', '0');
     el.setAttribute('aria-label', item.label);
-    if (index === activeIndex) el.setAttribute('aria-current', 'true');
-    
-    const number = String(index + 1).padStart(2, '0');
+    if (index === 2) el.setAttribute('aria-current', 'true');
     
     el.innerHTML = `
       <span class="ag-media-wrap">
         <span class="ag-media">
-          <img src="${item.image}" alt="${item.label}" draggable="false" loading="lazy" />
+          <img src="${item.image}" alt="${item.alt || item.label}" draggable="false" loading="lazy" />
         </span>
         <span class="ag-overlay" aria-hidden="true"></span>
       </span>
-      <span class="ag-number" style="position:absolute;top:18px;right:22px;z-index:2;font-size:14px;font-weight:600;color:rgba(255,255,255,0.25);letter-spacing:0.1em;font-variant-numeric:tabular-nums;transition:color 0.4s ease;">${number}</span>
       <span class="ag-label-wrap" aria-hidden="true">
         <span class="ag-bar"></span>
-        <span class="ag-label">${item.label} <span class="ag-sub-label">${item.sub || ''}</span></span>
+        <span class="ag-label">${item.label}</span>
       </span>
     `;
 
@@ -1495,22 +1462,25 @@
       setActive(index);
     });
 
-    // Mouse enter - desktop only
+    // Mouse enter
     el.addEventListener('mouseenter', function() {
-      if (window.innerWidth > 768) {
-        setActive(index);
-      }
+      setActive(index);
+    });
+
+    // Focus
+    el.addEventListener('focus', function() {
+      setActive(index);
     });
 
     // Keyboard navigation
     el.addEventListener('keydown', function(e) {
       const count = galleryItems.length;
-      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault();
         const next = (index + 1) % count;
         setActive(next);
         container.children[next]?.focus();
-      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault();
         const prev = (index - 1 + count) % count;
         setActive(prev);
@@ -1521,50 +1491,86 @@
     container.appendChild(el);
   });
 
-  // Set active function - smooth with animation lock
+  // Set active function with GSAP-style animation
   function setActive(index) {
-    if (isAnimating || activeIndex === index) return;
-    isAnimating = true;
-    
     const items = container.querySelectorAll('.ag-item');
-    activeIndex = index;
+    const count = items.length;
     
+    // Update active state
     items.forEach((item, i) => {
       const isActive = i === index;
       item.classList.toggle('active', isActive);
       item.setAttribute('aria-current', isActive ? 'true' : undefined);
+      item.style.setProperty('--ag-dim', isActive ? '0' : '0.35');
+      
+      // Calculate tilt
+      const tilt = 8;
+      const rot = isActive ? 0 : (i < index ? tilt : -tilt);
+      item.style.transform = `rotateY(${rot}deg)`;
+      
+      // Media shift (parallax effect)
+      const media = item.querySelector('.ag-media');
+      if (media) {
+        const drift = Math.max(-1.5, Math.min(1.5, index - i));
+        const shift = drift * 0.5 * 320 * 0.06;
+        if (window.innerWidth > 520) {
+          media.style.transform = `translate(-50%, -50%) translateX(${isActive ? 0 : shift}px)`;
+        }
+        media.style.filter = `grayscale(${isActive ? 0 : 1})`;
+      }
     });
-    
-    setTimeout(function() {
-      isAnimating = false;
-    }, 550);
+
+    // Update flex grow for active item
+    const expandRatio = 0.52;
+    const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
+    items.forEach((item, i) => {
+      const isActive = i === index;
+      // Use CSS transition for flex-grow
+      item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
+    });
   }
 
-  // Initial activation
-  setTimeout(function() {
-    setActive(2);
+  // Initial layout
+  setTimeout(() => {
+    const activeIndex = 2;
+    const items = container.querySelectorAll('.ag-item');
+    const expandRatio = 0.52;
+    const count = items.length;
+    const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
+    
+    items.forEach((item, i) => {
+      const isActive = i === activeIndex;
+      item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
+      item.style.transform = isActive ? 'rotateY(0deg)' : (i < activeIndex ? 'rotateY(8deg)' : 'rotateY(-8deg)');
+      const media = item.querySelector('.ag-media');
+      if (media) {
+        media.style.filter = `grayscale(${isActive ? 0 : 1})`;
+        if (window.innerWidth > 520) {
+          const drift = Math.max(-1.5, Math.min(1.5, activeIndex - i));
+          const shift = drift * 0.5 * 320 * 0.06;
+          media.style.transform = `translate(-50%, -50%) translateX(${isActive ? 0 : shift}px)`;
+        }
+      }
+    });
   }, 100);
-
-  // Also after load
-  window.addEventListener('load', function() {
-    setTimeout(function() {
-      setActive(2);
-    }, 100);
-  });
 
   // Handle resize
   let resizeTimer;
   window.addEventListener('resize', function() {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function() {
-      // Keep current active state
+    resizeTimer = setTimeout(() => {
+      const active = container.querySelector('.ag-item.active');
+      if (active) {
+        const index = Array.from(container.children).indexOf(active);
+        setActive(index);
+      }
     }, 200);
   });
 
-  // Reduced motion
+  // Handle reduced motion
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   if (prefersReduced.matches) {
-    container.querySelectorAll('.ag-item').forEach(function(el) {
+    container.querySelectorAll('.ag-item').forEach(el => {
       el.style.transition = 'none';
     });
   }
