@@ -2222,15 +2222,33 @@ function updateDetailPrice() {
 function closeDetail() { document.getElementById("detailModal").classList.add("hidden"); }
 
 // =============================================================
-// BOOKING MODAL & CHECKOUT
+// BOOKING MODAL & CHECKOUT - UPDATED WITH REGISTER REDIRECT
 // =============================================================
 function openBooking() {
+  // Check if user is logged in
   if (!currentGuest) {
-    showAlert("Guest Login Required", "Please log in to your guest account to make an instant booking.").then(() => {
-      window.location.href = '/login.html';
+    // Store the current homestay and dates in sessionStorage
+    const ci = document.getElementById("detailCheckin")?.value;
+    const co = document.getElementById("detailCheckout")?.value;
+    
+    // Save booking data to sessionStorage for after registration
+    if (selectedHomestay) {
+      sessionStorage.setItem('kd_redirect_booking', JSON.stringify({
+        homestayId: selectedHomestay.id,
+        homestayName: selectedHomestay.name,
+        checkin: ci,
+        checkout: co,
+        redirect: 'booking'
+      }));
+    }
+    
+    // Show alert and redirect to register page
+    showAlert("Login Required", "Please create a guest account to book this homestay. You'll be redirected to the registration page.").then(() => {
+      window.location.href = '/register.html?redirect=booking';
     });
     return;
   }
+  
   const ci = document.getElementById("detailCheckin")?.value;
   const co = document.getElementById("detailCheckout")?.value;
   if (ci) document.getElementById("bookingCheckin").value = ci;
@@ -2268,6 +2286,14 @@ function updateBookingPrice() {
 function closeBooking() { document.getElementById("bookingModal").classList.add("hidden"); }
 
 async function processPayment() {
+  // Check if user is logged in (double-check)
+  if (!currentGuest) {
+    showAlert("Login Required", "Please log in to complete your booking.").then(() => {
+      window.location.href = '/login.html';
+    });
+    return;
+  }
+  
   const guestName = document.getElementById("guestName").value.trim();
   const guestEmail = document.getElementById("guestEmail").value.trim();
   const guestPhone = document.getElementById("guestPhone").value.trim();
@@ -2373,6 +2399,36 @@ function toggleMobileMenu() {
   const checkoutInput = document.getElementById('checkout');
   if (checkinInput) checkinInput.value = dateToIso(tomorrow);
   if (checkoutInput) checkoutInput.value = dateToIso(dayAfter);
+  
+  // Check if user came from booking redirect
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('redirect') === 'booking') {
+    const savedBooking = sessionStorage.getItem('kd_redirect_booking');
+    if (savedBooking) {
+      try {
+        const data = JSON.parse(savedBooking);
+        // Open the booking modal after login/registration
+        setTimeout(() => {
+          const homestay = homestays.find(h => h.id === data.homestayId);
+          if (homestay) {
+            // Set the dates
+            if (data.checkin) document.getElementById('checkin').value = data.checkin;
+            if (data.checkout) document.getElementById('checkout').value = data.checkout;
+            // Open the detail modal
+            openDetail(data.homestayId);
+            // Then open booking modal after a short delay
+            setTimeout(() => {
+              openBooking();
+            }, 500);
+          }
+          // Clear the session storage
+          sessionStorage.removeItem('kd_redirect_booking');
+        }, 500);
+      } catch(e) {
+        sessionStorage.removeItem('kd_redirect_booking');
+      }
+    }
+  }
   
   renderGrid();
 
