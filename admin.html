@@ -523,7 +523,6 @@ let bookings = [];
 let pendingHomestays = [];
 let homestays = [];
 let allHomestays = [];
-let availabilityMap = {};
 let storedApproved = [];
 let demoOverrides = {};
 let demoBlockedMap = {};
@@ -563,112 +562,37 @@ const DEMO_HOMESTAYS = [
   { id: 2, name: "Desa Cattle Farm View Homestay", location: "Desa", ownerPrice: 250, rating: 4.8, reviews: 89, guests: 6, bedrooms: 3, image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800", images: [], approved: true, verified: true, ownerName: "Maria", ownerBank: "Maybank", ownerBankAccount: "1140-987654", whatsapp: "60123456789", description: "5 min to Desa Cattle Farm, ada dapur." }
 ];
 
-// ========== CLOUD DATA FETCH ==========
-async function fetchCloudData(){
-  console.log("☁️ Fetching cloud data...");
-  if(!CLOUD_ENABLED) return false;
-  try{
-    const res = await fetchWithAuth(API_BASE + "/bookings", {cache:"no-store"});
-    if(!res.ok) {
-      console.warn("❌ Cloud fetch failed", res.status);
-      if (res.status === 401) {
-        await showAlert("Session Expired", "Your admin session has expired. Please login again.");
-        sessionStorage.removeItem('kd_admin_token');
-        ADMIN_TOKEN = '';
-        location.reload();
-      }
-      return false;
-    }
-    const data=await res.json();
-    console.log("✅ Cloud data received:", Object.keys(data));
-    if(data.bookings && Array.isArray(data.bookings)){
-      const map=new Map();
-      data.bookings.forEach(b=>{ if(b && b.id) map.set(String(b.id), b); });
-      bookings=[...map.values()];
-      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    } else if(Array.isArray(data.bookings) && data.bookings.length===0){
-      bookings=[];
-      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    }
-    if(data.availability){ availabilityMap=data.availability; localStorage.setItem("kd_availability", JSON.stringify(availabilityMap)); }
-    if(data.approved !== undefined){ storedApproved=data.approved; localStorage.setItem("kd_approved", JSON.stringify(storedApproved)); }
-    if(data.demoOverrides !== undefined){ demoOverrides=data.demoOverrides; localStorage.setItem("kd_demo_overrides", JSON.stringify(demoOverrides)); }
-    if(data.demoBlocked !== undefined){ demoBlockedMap=data.demoBlocked; localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap)); }
-    if(data.deletedDemo !== undefined){ deletedDemoIds=data.deletedDemo; localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds)); }
-    if(data.bannedGuests && Array.isArray(data.bannedGuests)){ localStorage.setItem("kd_banned_guests", JSON.stringify(data.bannedGuests)); }
-    if(data.pending !== undefined){
-      if(Array.isArray(data.pending)){ pendingHomestays = data.pending; localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); }
-      else { pendingHomestays = []; localStorage.setItem("kd_pending", JSON.stringify([])); }
-    }
-    if(data.guests && Array.isArray(data.guests)){
-      const localGuests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
-      if(data.guests.length < localGuests.length){
-        localStorage.setItem("kd_guests", JSON.stringify(data.guests));
-      } else {
-        try{
-          const map=new Map();
-          [...localGuests, ...data.guests].forEach(g=>{ if(g && (g.email||g.id)) map.set(String(g.email||g.id).toLowerCase(), g); });
-          const merged=[...map.values()];
-          localStorage.setItem("kd_guests", JSON.stringify(merged));
-        }catch(e){}
-      }
-    }
-    try{
-      let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id))).map(d => {
-        let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
-        if(demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
-        return merged;
-      });
-      allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
-      allHomestays = allHomestays.map(h => { if(!h.blockedDates) h.blockedDates = []; return h; });
-      homestays = [...allHomestays];
-    }catch(e){}
-    return true;
-  }catch(e){
-    console.warn("❌ Cloud fetch failed:", e.message);
-    return false;
-  }
-}
-
-// ========== SAVE FUNCTIONS ==========
-function isDemo(id){ return DEMO_HOMESTAYS.some(d => String(d.id)===String(id)); }
-function saveApproved(){
-  const toSave = allHomestays.filter(h => !isDemo(h.id));
-  localStorage.setItem("kd_approved", JSON.stringify(toSave));
-  storedApproved = toSave;
-  pushHomestaysToCloud();
-}
-function saveDemoBlocked(){
-  localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap));
-  pushHomestaysToCloud();
-}
-async function pushHomestaysToCloud(){
-  if(!CLOUD_ENABLED) return;
-  try{
-    await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({
-      action:"updateHomestays",
-      approved: storedApproved,
-      demoOverrides: demoOverrides,
-      demoBlocked: demoBlockedMap,
-      deletedDemo: deletedDemoIds
-    })});
-  }catch(e){}
-}
-async function saveAvailabilityMap(){
-  localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
-  try{ await pushAvailabilityToCloud(); }catch(e){}
-}
-async function pushAvailabilityToCloud(){
-  try{
-    await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"updateAvailability", availability: availabilityMap})});
-  }catch(e){ console.warn("pushAvailability fail", e); }
-}
-
-// ========== HELPER FUNCTIONS ==========
+// ========== DATE HELPERS ==========
 function isoToDate(s){ return new Date(s+'T00:00:00'); }
 function dateToIso(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate()).padStart(2,'0'); }
 function getDatesInRange(ci,co){ if(!ci||!co) return []; const dates=[]; const a=isoToDate(ci), b=isoToDate(co); if(isNaN(a)||isNaN(b)||a>=b) return []; const cur=new Date(a); while(cur<b){ dates.push(dateToIso(cur)); cur.setDate(cur.getDate()+1); } return dates; }
-function getAllBlockedDatesForHomestay(h){ if(!h) return []; let blk=[]; if(h.blockedDates) blk=[...blk,...h.blockedDates]; if(availabilityMap[h.id]) blk=[...blk,...availabilityMap[h.id]]; const rel=bookings.filter(b=> b.homestay===h.name || String(b.homestayId)===String(h.id)); rel.forEach(b=>{ if(b.checkin&&b.checkout) blk=[...blk,...getDatesInRange(b.checkin,b.checkout)]; }); return [...new Set(blk)].sort(); }
+
+// ========== AVAILABILITY COMPUTED FROM BOOKINGS (Auto-free on cancellation) ==========
+function getAllBlockedDatesForHomestay(h) {
+  if(!h) return [];
+  let blocked = [];
+  
+  // Add manually blocked dates from homestay
+  if(h.blockedDates) blocked = blocked.concat(h.blockedDates);
+  
+  // Add dates from bookings (SKIP CANCELLED BOOKINGS)
+  const rel = bookings.filter(b => b.homestay === h.name || String(b.homestayId) === String(h.id));
+  rel.forEach(b => {
+    // ✅ SKIP CANCELLED BOOKINGS - dates become available again
+    if (b.status && b.status.toLowerCase().includes('cancelled')) {
+      return;
+    }
+    if (b.checkin && b.checkout) {
+      blocked = blocked.concat(getDatesInRange(b.checkin, b.checkout));
+    }
+  });
+  
+  // Remove duplicates and sort
+  const unique = {};
+  blocked.forEach(d => { unique[d] = true; });
+  return Object.keys(unique).sort();
+}
+
 function calculateNights(ci,co){ if(!ci||!co) return 1; const d1=new Date(ci), d2=new Date(co); const diff=Math.round((d2-d1)/86400000); return diff>0?diff:1; }
 function calculatePrice(p,n){ n=n||1; const base=p*n; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gw=CONFIG.toyyibpay.enabled?CONFIG.toyyibpay.gatewayFee:0; return {nights:n, base:base, fee:fee, gatewayFee:gw, total:base+fee+gw, youReceive:fee-gw, ownerReceives:base}; }
 
@@ -735,6 +659,97 @@ function renderAvailabilityCalendar(h, containerId) {
   };
   container._render = renderMonth;
   renderMonth.call(container);
+}
+
+// ========== CLOUD DATA FETCH ==========
+async function fetchCloudData(){
+  console.log("☁️ Fetching cloud data...");
+  if(!CLOUD_ENABLED) return false;
+  try{
+    const res = await fetchWithAuth(API_BASE + "/bookings", {cache:"no-store"});
+    if(!res.ok) {
+      console.warn("❌ Cloud fetch failed", res.status);
+      if (res.status === 401) {
+        await showAlert("Session Expired", "Your admin session has expired. Please login again.");
+        sessionStorage.removeItem('kd_admin_token');
+        ADMIN_TOKEN = '';
+        location.reload();
+      }
+      return false;
+    }
+    const data=await res.json();
+    console.log("✅ Cloud data received:", Object.keys(data));
+    if(data.bookings && Array.isArray(data.bookings)){
+      const map=new Map();
+      data.bookings.forEach(b=>{ if(b && b.id) map.set(String(b.id), b); });
+      bookings=[...map.values()];
+      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+    } else if(Array.isArray(data.bookings) && data.bookings.length===0){
+      bookings=[];
+      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+    }
+    if(data.approved !== undefined){ storedApproved=data.approved; localStorage.setItem("kd_approved", JSON.stringify(storedApproved)); }
+    if(data.demoOverrides !== undefined){ demoOverrides=data.demoOverrides; localStorage.setItem("kd_demo_overrides", JSON.stringify(demoOverrides)); }
+    if(data.demoBlocked !== undefined){ demoBlockedMap=data.demoBlocked; localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap)); }
+    if(data.deletedDemo !== undefined){ deletedDemoIds=data.deletedDemo; localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds)); }
+    if(data.bannedGuests && Array.isArray(data.bannedGuests)){ localStorage.setItem("kd_banned_guests", JSON.stringify(data.bannedGuests)); }
+    if(data.pending !== undefined){
+      if(Array.isArray(data.pending)){ pendingHomestays = data.pending; localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); }
+      else { pendingHomestays = []; localStorage.setItem("kd_pending", JSON.stringify([])); }
+    }
+    if(data.guests && Array.isArray(data.guests)){
+      const localGuests=JSON.parse(localStorage.getItem("kd_guests")||"[]");
+      if(data.guests.length < localGuests.length){
+        localStorage.setItem("kd_guests", JSON.stringify(data.guests));
+      } else {
+        try{
+          const map=new Map();
+          [...localGuests, ...data.guests].forEach(g=>{ if(g && (g.email||g.id)) map.set(String(g.email||g.id).toLowerCase(), g); });
+          const merged=[...map.values()];
+          localStorage.setItem("kd_guests", JSON.stringify(merged));
+        }catch(e){}
+      }
+    }
+    try{
+      let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id))).map(d => {
+        let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
+        if(demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
+        return merged;
+      });
+      allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
+      allHomestays = allHomestays.map(h => { if(!h.blockedDates) h.blockedDates = []; return h; });
+      homestays = [...allHomestays];
+    }catch(e){}
+    return true;
+  }catch(e){
+    console.warn("❌ Cloud fetch failed:", e.message);
+    return false;
+  }
+}
+
+// ========== SAVE FUNCTIONS ==========
+function isDemo(id){ return DEMO_HOMESTAYS.some(d => String(d.id)===String(id)); }
+function saveApproved(){
+  const toSave = allHomestays.filter(h => !isDemo(h.id));
+  localStorage.setItem("kd_approved", JSON.stringify(toSave));
+  storedApproved = toSave;
+  pushHomestaysToCloud();
+}
+function saveDemoBlocked(){
+  localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap));
+  pushHomestaysToCloud();
+}
+async function pushHomestaysToCloud(){
+  if(!CLOUD_ENABLED) return;
+  try{
+    await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({
+      action:"updateHomestays",
+      approved: storedApproved,
+      demoOverrides: demoOverrides,
+      demoBlocked: demoBlockedMap,
+      deletedDemo: deletedDemoIds
+    })});
+  }catch(e){}
 }
 
 // ========== ADMIN LOGIN ==========
@@ -1006,17 +1021,21 @@ function renderBookingsTable(){
     const status=b.status||"Paid - Awaiting Check-in";
     const isAwaiting=status.toLowerCase().includes("awaiting");
     const isCompleted=status.toLowerCase().includes("completed") || status.toLowerCase().includes("payout");
+    const isCancelled=status.toLowerCase().includes("cancelled");
     const homestayName=b.homestay||"Homestay";
     const nights=b.nights||calculateNights(b.checkin,b.checkout);
     const checkin=b.checkin||"", checkout=b.checkout||"", total=b.total||0;
     const base=b.base||0, fee=b.fee||0, youReceive=b.youReceive||fee;
-    let badgeClass=isAwaiting?'bg-yellow-100 text-yellow-800':isCompleted?'bg-green-100 text-green-800':'bg-blue-100 text-blue-800';
+    let badgeClass=isCancelled?'bg-gray-100 text-gray-600':isAwaiting?'bg-yellow-100 text-yellow-800':isCompleted?'bg-green-100 text-green-800':'bg-blue-100 text-blue-800';
+    let badgeText=isCancelled?'❌ Cancelled':isAwaiting?'🟡 Awaiting Check-in':isCompleted?'✅ Completed':'💳 Paid';
     let btns="";
     if(isAwaiting){
       btns+='<button onclick="confirmCheckIn(\''+b.id+'\')" class="px-3 py-1.5 bg-[#0F382E] text-white rounded-full text-[11px] uppercase font-700">✓ CHECK IN</button>';
     }
-    btns+='<button onclick="updateBookingStatus(\''+b.id+'\',\'Completed\')" class="px-3 py-1.5 bg-green-600 text-white rounded-full text-[11px] uppercase font-600">COMPLETE</button>';
-    html += '<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">'+b.id+'</div><div class="text-[12px] mt-1">'+homestayName+' • '+nights+' nights • '+checkin+' → '+checkout+' • RM'+total+'</div><div class="text-[12px]">Guest: '+(b.guestName||'')+' '+(b.guestEmail||'')+' '+(b.guestPhone||'')+'</div><div class="text-[10px] text-zinc-500 mt-1">Base RM'+base+' + Fee RM'+fee+' = You receive RM'+youReceive+' '+(b.payoutAmount ? '• Owner Paid RM'+b.payoutAmount+(b.payoutDate ? ' on '+toMYDate(b.payoutDate) : '') : '')+'</div></div><div><span class="text-[11px] px-2 py-1 rounded-full '+badgeClass+'">'+status+'</span></div></div><div class="flex gap-2 mt-3 flex-wrap">'+btns+'<button onclick="whatsappGuest(\''+b.id+'\')" class="px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600">WHATSAPP GUEST</button><button onclick="copyBookingId(\''+b.id+'\')" class="px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600">COPY ID</button><button onclick="changeBookingDates(\''+b.id+'\')" class="px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600">CHANGE DATES</button><button onclick="deleteBooking(\''+b.id+'\')" class="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600">DELETE</button></div></div>';
+    if(!isCompleted && !isCancelled){
+      btns+='<button onclick="updateBookingStatus(\''+b.id+'\',\'Completed\')" class="px-3 py-1.5 bg-green-600 text-white rounded-full text-[11px] uppercase font-600">COMPLETE</button>';
+    }
+    html += '<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">'+b.id+'</div><div class="text-[12px] mt-1">'+homestayName+' • '+nights+' nights • '+checkin+' → '+checkout+' • RM'+total+'</div><div class="text-[12px]">Guest: '+(b.guestName||'')+' '+(b.guestEmail||'')+' '+(b.guestPhone||'')+'</div><div class="text-[10px] text-zinc-500 mt-1">Base RM'+base+' + Fee RM'+fee+' = You receive RM'+youReceive+' '+(b.payoutAmount ? '• Owner Paid RM'+b.payoutAmount+(b.payoutDate ? ' on '+toMYDate(b.payoutDate) : '') : '')+'</div></div><div><span class="text-[11px] px-2 py-1 rounded-full '+badgeClass+'">'+badgeText+'</span></div></div><div class="flex gap-2 mt-3 flex-wrap">'+btns+'<button onclick="whatsappGuest(\''+b.id+'\')" class="px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600">WHATSAPP GUEST</button><button onclick="copyBookingId(\''+b.id+'\')" class="px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600">COPY ID</button><button onclick="changeBookingDates(\''+b.id+'\')" class="px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600">CHANGE DATES</button><button onclick="deleteBooking(\''+b.id+'\')" class="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600">DELETE</button></div></div>';
   });
   html += '</div>';
   div.innerHTML = safeHTML(html);
@@ -1108,21 +1127,19 @@ async function changeBookingDates(id){
   const d1=new Date(ci), d2=new Date(co);
   if(d1>=d2){ await showAlert("Invalid", "Invalid dates"); return; }
   const h=homestays.find(h=> String(h.id)===String(b.homestayId) || h.name===b.homestay);
-  const old=getDatesInRange(b.checkin,b.checkout);
-  const temp=getAllBlockedDatesForHomestay(h).filter(d=> !old.includes(d));
-  const req=getDatesInRange(ci,co);
-  if(req.filter(d=> temp.includes(d)).length>0){ await showAlert("Overlap", "Dates overlap with existing bookings"); return; }
+  // Recalculate blocked dates excluding this booking
+  const oldBlocked = getAllBlockedDatesForHomestay(h);
+  const oldDates = getDatesInRange(b.checkin, b.checkout);
+  const temp = oldBlocked.filter(d => !oldDates.includes(d));
+  const req = getDatesInRange(ci, co);
+  if(req.filter(d => temp.includes(d)).length > 0){ await showAlert("Overlap", "Dates overlap with existing bookings"); return; }
   const nights=calculateNights(ci,co);
   const price=calculatePrice(h.ownerPrice,nights);
-  if(availabilityMap[h.id]) availabilityMap[h.id]=availabilityMap[h.id].filter(d=> !old.includes(d));
-  if(!availabilityMap[h.id]) availabilityMap[h.id]=[];
-  req.forEach(d=>{ if(!availabilityMap[h.id].includes(d)) availabilityMap[h.id].push(d); });
-  availabilityMap[h.id].sort();
-  saveAvailabilityMap();
   b.checkin=ci; b.checkout=co; b.nights=nights; b.base=price.base; b.fee=price.fee; b.total=price.total; b.youReceive=price.youReceive;
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
   try{ await fetchWithAuth('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'updateDates', id:b.id, checkin:ci, checkout:co, nights:price.nights, base:price.base, fee:price.fee, total:price.total, youReceive:price.youReceive})}); }catch(e){}
   renderBookingsTable();
+  renderAvailabilityTab();
 }
 
 async function openOwnerAvailabilityManager(id){
@@ -1136,8 +1153,8 @@ async function openOwnerAvailabilityManager(id){
   if(response===null) return;
   const a = response.trim();
   if(a==='clear'){
-    h.blockedDates=[]; availabilityMap[h.id]=[]; if(isDemo(h.id)){demoBlockedMap[h.id]=[]; saveDemoBlocked();}
-    saveAvailabilityMap(); saveApproved(); renderAdmin(); return;
+    h.blockedDates=[]; if(isDemo(h.id)){demoBlockedMap[h.id]=[]; saveDemoBlocked();}
+    saveApproved(); renderAdmin(); return;
   }
   if(a.includes(",")){
     const parts=a.split(",").map(x=>x.trim());
@@ -1148,13 +1165,13 @@ async function openOwnerAvailabilityManager(id){
     });
     h.blockedDates.sort();
     if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();}
-    saveApproved(); saveAvailabilityMap(); renderAdmin(); return;
+    saveApproved(); renderAdmin(); return;
   }
   if(h.blockedDates.includes(a)) h.blockedDates=h.blockedDates.filter(d=>d!==a);
   else h.blockedDates.push(a);
   h.blockedDates.sort();
   if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();}
-  saveApproved(); saveAvailabilityMap(); renderAdmin();
+  saveApproved(); renderAdmin();
 }
 
 // ========== OTHER ADMIN FUNCTIONS ==========
@@ -1269,7 +1286,6 @@ async function clearAllBookingsCloud() {
     const data = await res.json();
     if (res.ok) {
       bookings = []; localStorage.setItem("kd_bookings", JSON.stringify([]));
-      availabilityMap = {}; localStorage.setItem("kd_availability", JSON.stringify({}));
       await showAlert("Success", "All bookings cleared from cloud: " + (data.bookings?.length || 0) + " remaining");
       renderAdmin();
     } else { await showAlert("Error", "Clear failed: " + data.error); }
@@ -1368,31 +1384,12 @@ async function deleteBooking(id){
   const homestayId = toDelete?.homestayId || toDelete?.homestay;
   bookings=bookings.filter(x=> String(x.id)!==String(id));
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-  if(homestayId){
-    const remainingDates = new Set();
-    bookings.filter(b => String(b.homestayId)===String(homestayId) || String(b.homestay)===String(homestayId)).forEach(b=>{
-      (b.bookedDates||[]).forEach(d=> remainingDates.add(d));
-      if(b.checkin && b.checkout){
-        try{
-          const s = new Date(b.checkin);
-          const e = new Date(b.checkout);
-          for(let d = new Date(s); d < e; d.setDate(d.getDate()+1)){
-            remainingDates.add(d.toISOString().split('T')[0]);
-          }
-        }catch(e){}
-      }
-    });
-    if(remainingDates.size === 0){ delete availabilityMap[homestayId]; }
-    else { availabilityMap[homestayId] = [...remainingDates]; }
-    localStorage.setItem("kd_availability", JSON.stringify(availabilityMap));
-  }
   renderBookingsTable();
   renderAdmin();
   try{
     const res = await fetchWithAuth(API_BASE + "/bookings?id=" + encodeURIComponent(id), {method:"DELETE", cache:"no-store"});
     if(!res.ok){ await showAlert("Error", "Cloud delete failed"); }
     else {
-      try{ await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"updateAvailability", availability: availabilityMap})}); }catch(e){}
       await showAlert("Success", "Deleted "+id+" and freed dates");
       await fetchCloudData();
       renderAdmin();
@@ -1476,50 +1473,6 @@ document.addEventListener('click', async (e)=>{
     }
   }
 })();
-  // ========== WRITE BUFFER (Admin Panel) ==========
-var writeBuffer = [];
-var bufferFlushTimer = null;
-var BUFFER_SIZE = 10;
-var FLUSH_INTERVAL = 30000; // 30 seconds
-
-function addToBuffer(key, data) {
-  writeBuffer.push({ key, data });
-  if (writeBuffer.length >= BUFFER_SIZE) {
-    flushBuffer();
-  } else if (!bufferFlushTimer) {
-    bufferFlushTimer = setTimeout(flushBuffer, FLUSH_INTERVAL);
-  }
-}
-
-async function flushBuffer() {
-  if (bufferFlushTimer) {
-    clearTimeout(bufferFlushTimer);
-    bufferFlushTimer = null;
-  }
-  if (writeBuffer.length === 0) return;
-  
-  var items = writeBuffer.slice();
-  writeBuffer = [];
-  
-  try {
-    var response = await fetchWithAuth('/api/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'batchUpdate',
-        updates: items
-      })
-    });
-    if (!response.ok) {
-      console.error('Failed to flush buffer:', await response.text());
-      // Re-add items to buffer
-      writeBuffer = items.concat(writeBuffer);
-    }
-  } catch(e) {
-    console.error('Buffer flush error:', e);
-    writeBuffer = items.concat(writeBuffer);
-  }
-}
 </script>
 </body>
 </html>
