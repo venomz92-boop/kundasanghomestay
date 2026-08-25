@@ -1,4 +1,4 @@
-// /api/login.js - COMPLETE with security fixes + CSRF
+// /api/login.js
 import { corsHeaders, getClientIP, sha256, generateSalt, enforceHttps, generateCSRFToken } from './_utils.js';
 
 const PEPPER = "kundasang-homestay-2026";
@@ -8,7 +8,6 @@ function validateEmail(email) {
   return re.test(email);
 }
 
-// Rate limiting (in-memory)
 const loginAttempts = new Map();
 function checkRateLimit(email) {
   const key = email.toLowerCase();
@@ -63,49 +62,34 @@ export async function onRequestPost({ request, env }) {
 
     const db = env.DB;
     if (!db) {
-      console.error("❌ No database configured");
       return new Response(JSON.stringify({ error: "Server configuration error" }), { 
         status: 500, 
         headers: corsHeaders(request) 
       });
     }
 
-    // Ensure store table exists
-    try {
-      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-    } catch (e) {
-      console.error("❌ Failed to create store table:", e);
-      return new Response(JSON.stringify({ error: "Database error" }), { 
-        status: 500, 
-        headers: corsHeaders(request) 
-      });
-    }
+    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-    // Get guests
     let guests = [];
     try {
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
       if (r && r.data) { 
-        try { guests = JSON.parse(r.data); } catch(e) { console.error("Failed to parse guests:", e); }
+        try { guests = JSON.parse(r.data); } catch(e) {}
       }
     } catch (e) {
-      console.error("❌ Failed to fetch guests:", e);
       return new Response(JSON.stringify({ error: "Database error" }), { 
         status: 500, 
         headers: corsHeaders(request) 
       });
     }
 
-    // Get banned guests
     let banned = [];
     try {
       const bannedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_banned_guests").first();
       if (bannedRes && bannedRes.data) { 
         try { banned = JSON.parse(bannedRes.data); } catch(e) {}
       }
-    } catch (e) {
-      console.error("❌ Failed to fetch banned guests:", e);
-    }
+    } catch (e) {}
 
     if (banned.includes(cleanEmail)) {
       recordLoginAttempt(cleanEmail);
@@ -124,7 +108,6 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // Use stored salt
     const hashedInput = await sha256(PEPPER + trimmedPassword + (user.salt || ''));
 
     if (hashedInput !== user.password) {
@@ -142,7 +125,7 @@ export async function onRequestPost({ request, env }) {
 
     const { password: _, salt: __, ...safeUser } = user;
 
-    // ✅ Generate CSRF token for this user
+    // Generate CSRF token silently
     const csrfToken = generateCSRFToken(user.id);
     
     return new Response(JSON.stringify({
@@ -161,11 +144,8 @@ export async function onRequestPost({ request, env }) {
     });
 
   } catch (e) {
-    console.error("❌ Login error:", e.message);
-    console.error("Stack:", e.stack);
-    return new Response(JSON.stringify({ 
-      error: "Login failed: " + e.message 
-    }), { 
+    console.error("Login error:", e.message);
+    return new Response(JSON.stringify({ error: "Login failed" }), { 
       status: 500, 
       headers: corsHeaders(request) 
     });
