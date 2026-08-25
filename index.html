@@ -1224,6 +1224,29 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+  // Handle iOS date picker focus to prevent page scroll issues
+document.addEventListener('DOMContentLoaded', function() {
+  const dateInputs = document.querySelectorAll('input[type="date"]');
+  
+  dateInputs.forEach(input => {
+    input.addEventListener('focus', function() {
+      if (window.innerWidth <= 768) {
+        document.body.classList.add('date-picker-open');
+        // Scroll to input so it's visible
+        setTimeout(() => {
+          this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    });
+    
+    input.addEventListener('blur', function() {
+      if (window.innerWidth <= 768) {
+        document.body.classList.remove('date-picker-open');
+      }
+    });
+  });
+});
+
 // =============================================================
 // THANK YOU & RECEIPT MODAL LOGIC
 // =============================================================
