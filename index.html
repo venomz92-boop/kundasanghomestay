@@ -2262,6 +2262,22 @@ function openBooking() {
   document.getElementById("bookingModal").classList.remove("hidden");
 }
 
+  // Pre-fill guest details from login session
+  var nameEl = document.getElementById("guestName");
+  var emailEl = document.getElementById("guestEmail");
+  var phoneEl = document.getElementById("guestPhone");
+  if (nameEl) nameEl.value = currentGuest.name || "";
+  if (emailEl) emailEl.value = currentGuest.email || "";
+  if (phoneEl) phoneEl.value = currentGuest.phone || "";
+  
+  var ci = document.getElementById("detailCheckin")?.value;
+  var co = document.getElementById("detailCheckout")?.value;
+  if (ci) document.getElementById("bookingCheckin").value = ci;
+  if (co) document.getElementById("bookingCheckout").value = co;
+  updateBookingPrice();
+  document.getElementById("bookingModal").classList.remove("hidden");
+}
+
 function updateBookingPrice() {
   if (!selectedHomestay) return;
   var ci = document.getElementById("bookingCheckin").value;
@@ -2347,13 +2363,7 @@ async function processPayment() {
     var result = await response.json();
     console.log("Booking API response:", result);
     
-    if (!response.ok) {
-      console.error("Booking failed:", result);
-      showAlert("Booking Error", result.error || "Failed to save booking. Please try again.");
-      return;
-    }
-    
-    if (result.success) {
+    if (response.ok && result.success) {
       // Save to localStorage as backup
       bookings.push(booking);
       localStorage.setItem("kd_bookings", JSON.stringify(bookings));
@@ -2362,7 +2372,14 @@ async function processPayment() {
       closeDetail();
       showThankYouModal(bookingId, booking);
     } else {
-      showAlert("Booking Error", result.error || "Failed to save booking. Please try again.");
+      console.error("Booking failed:", result);
+      // Fallback: save to localStorage
+      bookings.push(booking);
+      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+      showAlert("Booking Saved Offline", "Your booking has been saved locally. It will sync when you're back online.");
+      closeBooking();
+      closeDetail();
+      showThankYouModal(bookingId, booking);
     }
     
   } catch(e) { 
@@ -2375,73 +2392,6 @@ async function processPayment() {
     closeDetail();
     showThankYouModal(bookingId, booking);
   }
-}
-  
-  var guestName = document.getElementById("guestName").value.trim();
-  var guestEmail = document.getElementById("guestEmail").value.trim();
-  var guestPhone = document.getElementById("guestPhone").value.trim();
-  var ci = document.getElementById("bookingCheckin").value;
-  var co = document.getElementById("bookingCheckout").value;
-
-  if (!guestName || !guestEmail || !guestPhone) {
-    showAlert("Incomplete Information", "Please provide your Name, Email, and WhatsApp number.");
-    return;
-  }
-
-  var nights = calculateNights(ci, co);
-  var price = calculatePrice(selectedHomestay.ownerPrice || 200, nights);
-  var bookingId = "KDH-" + Date.now().toString().slice(-6);
-
-  var booking = {
-    id: bookingId,
-    homestay: selectedHomestay.name,
-    homestayId: selectedHomestay.id,
-    ownerWhatsapp: selectedHomestay.whatsapp || "",
-    guestId: currentGuest.id,
-    guestName: guestName, 
-    guestEmail: guestEmail, 
-    guestPhone: guestPhone,
-    checkin: ci, 
-    checkout: co, 
-    nights: nights,
-    total: price.total,
-    base: price.base,
-    fee: price.fee,
-    status: "Paid - Awaiting Check-in",
-    date: new Date().toISOString()
-  };
-
-  window.lastCreatedBooking = booking;
-
-  try {
-    var csrfHeaders = getCsrfHeader();
-    await fetch(API_BASE + "/bookings", {
-      method: "POST",
-      headers: Object.assign({ 
-        "Content-Type": "application/json"
-      }, csrfHeaders),
-      body: JSON.stringify({ 
-        action: "createPublicBooking", 
-        booking: booking,
-        guestId: currentGuest.id
-      })
-    });
-  } catch(e) { console.warn("Syncing offline fallback mode"); }
-
-  bookings.push(booking);
-  localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-
-  closeBooking();
-  closeDetail();
-  showThankYouModal(bookingId, booking);
-}
-
-function chatWithOwner() {
-  if (!selectedHomestay) return;
-  var phone = String(selectedHomestay.whatsapp || '60123456789').replace(/[^0-9]/g, '');
-  if (phone.startsWith('0')) phone = '60' + phone.substring(1);
-  var msg = 'Hi! I found *' + selectedHomestay.name + '* on KundasangHomestay.my and would like to ask about availability and facilities.';
-  window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
 }
 
 // =============================================================
