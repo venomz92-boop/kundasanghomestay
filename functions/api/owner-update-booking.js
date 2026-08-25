@@ -1,5 +1,4 @@
-// /api/owner-update-booking.js - Owner can change booking dates and confirm check-in
-
+// /api/owner-update-booking.js - Owner can change dates, confirm check-in, and cancel
 function corsHeaders(request) {
   return {
     "Content-Type": "application/json",
@@ -74,10 +73,8 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: "Server error" }), { status: 500, headers: corsHeaders(request) });
     }
 
-    // ✅ Ensure store table exists
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-    // Fetch bookings
     const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
     let bookings = [];
     if (res && res.data) { try { bookings = JSON.parse(res.data); } catch(e) {} }
@@ -214,7 +211,7 @@ export async function onRequestPost({ request, env }) {
       // Get the bank code from the booking (which came from the homestay)
       const ownerBankCode = booking.ownerBankCode || homestay.bankCode || 'MBBEMYKL';
 
-      // ✅ Use PUBLIC_DOMAIN from env
+      // Use PUBLIC_DOMAIN from env
       const publicDomain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
 
       // Now trigger the actual payout
@@ -257,6 +254,46 @@ export async function onRequestPost({ request, env }) {
         message: `✅ Check-in confirmed! You will (${homestay.ownerName}) received RM${ownerAmount} in 1-4 business day.`,
         booking: bookings[idx],
         payout: payoutData
+      }), { status: 200, headers: corsHeaders(request) });
+    }
+
+    // ========== ACTION: CANCEL BOOKING ==========
+    if (action === "cancelBooking") {
+      // Check if already completed or cancelled
+      if (booking.payoutDate) {
+        return new Response(JSON.stringify({
+          success: false,
+          message: `Booking ${bookingId} already completed and paid out on ${booking.payoutDate}. Cannot cancel.`
+        }), { status: 400, headers: corsHeaders(request) });
+      }
+      if (booking.status && booking.status.toLowerCase().includes('cancelled')) {
+        return new Response(JSON.stringify({
+          success: false,
+          message: `Booking ${bookingId} is already cancelled.`
+        }), { status: 400, headers: corsHeaders(request) });
+      }
+
+      // Update status to Cancelled
+      bookings[idx].status = "Cancelled by Host";
+      bookings[idx].statusUpdated = new Date().toISOString();
+
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_bookings", JSON.stringify(bookings))
+        .run();
+
+      await logAction({
+        db,
+        action: 'booking_cancelled_by_host',
+        admin: 'owner',
+        details: `Booking ${bookingId} cancelled by host ${ownerData.whatsapp}`,
+        ip: clientIP,
+        userId: booking.guestEmail,
+        homestayId: booking.homestayId
+      });
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Booking ${bookingId} has been cancelled.`
       }), { status: 200, headers: corsHeaders(request) });
     }
 
