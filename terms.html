@@ -458,7 +458,6 @@
 <!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
-
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
       <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
       <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
@@ -467,11 +466,10 @@
         <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Verified • Homestays</div>
       </div>
     </div>
-
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
-      <a href="/" class="setsail-nav-link">Home</a>
-      <a href="/list.html" class="setsail-nav-link">List Your Homestay</a>
-      <a href="/about.html" class="setsail-nav-link">About</a>
+      <a href="/" id="navHome" class="setsail-nav-link">Home</a>
+      <a href="/list.html" id="navList" class="setsail-nav-link">List Your Homestay</a>
+      <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
         <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;">Login</a>
@@ -486,16 +484,12 @@
         </div>
       </div>
     </nav>
-
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()"
-            class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors"
-            aria-label="Toggle Navigation">
-      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
-        <path d="M4 6h16M4 12h16M4 18h16"/>
-      </svg>
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" aria-label="Toggle Navigation">
+      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
   </div>
 </header>
+
 
 <!-- ===== MOBILE MENU ===== -->
 <div id="mobileNav">
