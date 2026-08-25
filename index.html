@@ -2089,15 +2089,44 @@ function getDatesInRange(checkin, checkout) {
 
 function getAllBlockedDatesForHomestay(homestay) {
   if (!homestay) return [];
-  var blocked = [].concat(homestay.blockedDates || [], availabilityMap[homestay.id] || []);
-  var relatedBookings = bookings.filter(function(b) { return b.homestay === homestay.name || String(b.homestayId) === String(homestay.id); });
-  relatedBookings.forEach(function(b) {
-    if (b.checkin && b.checkout) blocked.push.apply(blocked, getDatesInRange(b.checkin, b.checkout));
+  var blocked = [];
+  
+  // Add manually blocked dates from homestay data
+  if (homestay.blockedDates) {
+    blocked = blocked.concat(homestay.blockedDates);
+  }
+  
+  // Add dates from bookings (including pending/paid/cancelled)
+  var relatedBookings = bookings.filter(function(b) {
+    return b.homestay === homestay.name || String(b.homestayId) === String(homestay.id);
   });
+  
+  relatedBookings.forEach(function(b) {
+    // Skip cancelled bookings
+    if (b.status && b.status.toLowerCase().includes('cancelled')) {
+      return;
+    }
+    if (b.checkin && b.checkout) {
+      var dates = getDatesInRange(b.checkin, b.checkout);
+      blocked = blocked.concat(dates);
+    }
+  });
+  
+  // Remove duplicates and sort
   var unique = {};
   blocked.forEach(function(d) { unique[d] = true; });
   return Object.keys(unique).sort();
 }
+
+function isHomestayAvailableForRange(homestay, checkin, checkout) {
+  if (!checkin || !checkout) return { available: true };
+  var requestedDates = getDatesInRange(checkin, checkout);
+  if (requestedDates.length === 0) return { available: true };
+  var blocked = getAllBlockedDatesForHomestay(homestay);
+  var overlap = requestedDates.filter(function(d) { return blocked.indexOf(d) !== -1; });
+  return { available: overlap.length === 0, blockedDates: overlap };
+}
+
 
 function isHomestayAvailableForRange(homestay, checkin, checkout) {
   if (!checkin || !checkout) return { available: true };
