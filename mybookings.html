@@ -580,41 +580,36 @@
 </main>
 
 <!-- ===== FOOTER ===== -->
-<footer class="bg-[#212121] text-white/70 mt-20">
-  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+<footer class="bg-[#212121] text-white/70 mt-auto">
+  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-10 grid grid-cols-1 md:grid-cols-4 gap-8">
     <div>
       <div class="flex items-center gap-3">
         <div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div>
         <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div>
       </div>
-      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
+      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Locals by Local — Mountain homestays with Kinabalu soul.</p>
     </div>
     <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div>
       <div class="space-y-2 text-[13px] font-poppins">
-        <a href="/" class="hover:text-white block">Browse Homestays</a>
-        <a href="/list.html" class="hover:text-white block">Host Registration</a>
-        <a href="/about.html" class="hover:text-white block">About Us</a>
-        <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
-        <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
+        <a href="/" class="hover:text-white block transition-colors">Homestays</a>
+        <a href="/list.html" class="hover:text-white block transition-colors">List Property</a>
+        <a href="/about.html" class="hover:text-white block transition-colors">About</a>
       </div>
     </div>
     <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div>
       <div class="space-y-2 text-[13px] font-poppins">
-        <div>✓ Host Physical Verification</div>
-        <div>✓ ToyyibPay FPX Online Protection</div>
-        <div>✓ Anti-Scam Booking Guarantee</div>
+        <div>Host Guidelines</div>
+        <div>ToyyibPay FPX Secured</div>
       </div>
     </div>
     <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
-      <p class="text-[12px] text-white/50 font-poppins">Average temperature: 18°C – 23°C. Remember to bring warm jackets!</p>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Platform</div>
+      <p class="text-[12px] text-white/50 font-poppins">Kundasang mountain stays — Sabah, Malaysia.</p>
     </div>
   </div>
-  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
-    © 2026 Kundasang Homestay. All rights reserved.
-  </div>
+  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay — All payments secured by ToyyibPay FPX</div>
 </footer>
 
 <script src="animations.js"></script>
@@ -773,51 +768,46 @@ var myBookings = [];
 
 function loadMyBookings() {
   var listDiv = document.getElementById('bookingsList');
-  if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10">Loading your bookings from server...</div>';
+  if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10">Loading your bookings...</div>';
   
   if (!currentGuest || !currentGuest.id) {
     if (listDiv) listDiv.innerHTML = '<div class="text-sm text-red-500 text-center py-10">Please log in to view your bookings.</div>';
     return;
   }
 
-  // Fetch bookings from D1 via API
-  fetch(API_BASE + '/guest-bookings', {
-    method: 'POST',
+  // Fetch ALL bookings from the API (GET /api/bookings)
+  fetch(API_BASE + '/bookings', {
+    method: 'GET',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      guestId: currentGuest.id,
-      guestEmail: currentGuest.email || '',
-      guestPhone: currentGuest.phone || ''
-    })
+    cache: 'no-store'
   })
   .then(function(res) {
     if (!res.ok) throw new Error('Server error: ' + res.status);
     return res.json();
   })
   .then(function(data) {
-    if (data.success && data.bookings) {
-      myBookings = data.bookings;
-      // Cache to localStorage as backup
+    // The API returns { bookings: [...], approved: [...], etc }
+    var allBookings = data.bookings || [];
+    
+    // Filter bookings for current guest
+    var filtered = allBookings.filter(function(b) {
+      if (!currentGuest) return false;
+      // Match by guestId, guestEmail, or guestPhone
+      var matchById = b.guestId && String(b.guestId) === String(currentGuest.id);
+      var matchByEmail = b.guestEmail && b.guestEmail.toLowerCase() === (currentGuest.email || '').toLowerCase();
+      var matchByPhone = b.guestPhone && String(b.guestPhone).replace(/[^0-9]/g, '') === String(currentGuest.phone || '').replace(/[^0-9]/g, '');
+      return matchById || matchByEmail || matchByPhone;
+    });
+    
+    myBookings = filtered;
+    
+    // Cache to localStorage as backup
+    if (currentGuest && currentGuest.id) {
       localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings));
-      renderBookings();
-    } else if (data.error) {
-      throw new Error(data.error);
-    } else {
-      // Try localStorage fallback
-      try {
-        var cached = localStorage.getItem('kd_guest_bookings_' + currentGuest.id);
-        if (cached) {
-          myBookings = JSON.parse(cached);
-          renderBookings();
-        } else {
-          myBookings = [];
-          renderBookings();
-        }
-      } catch(e) {
-        myBookings = [];
-        renderBookings();
-      }
     }
+    
+    renderBookings();
+    console.log('✅ Loaded ' + myBookings.length + ' bookings from D1');
   })
   .catch(function(err) {
     console.warn('API error:', err);
@@ -832,7 +822,9 @@ function loadMyBookings() {
         notice.className = 'text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center mb-4';
         notice.innerHTML = '📡 Showing cached bookings. Connect to internet for latest updates.';
         var listDiv2 = document.getElementById('bookingsList');
-        if (listDiv2) listDiv2.parentNode.insertBefore(notice, listDiv2);
+        if (listDiv2 && listDiv2.parentNode) {
+          listDiv2.parentNode.insertBefore(notice, listDiv2);
+        }
       } else {
         myBookings = [];
         renderBookings();
@@ -932,7 +924,7 @@ function renderBookings() {
 }
 
 // =============================================================
-// CANCEL BOOKING - SYNC TO D1
+// CANCEL BOOKING - UPDATE STATUS VIA API
 // =============================================================
 function cancelBooking(bookingId) {
   var booking = myBookings.find(function(b) { return String(b.id) === String(bookingId); });
@@ -945,20 +937,20 @@ function cancelBooking(bookingId) {
     .then(function(confirmed) {
       if (!confirmed) return;
       
-      // Send cancellation to D1 via API
-      fetch(API_BASE + '/cancel-booking', {
+      // Update status via the publicUpdateStatus endpoint
+      fetch(API_BASE + '/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          bookingId: bookingId, 
-          guestId: currentGuest?.id,
-          guestEmail: currentGuest?.email || ''
+        body: JSON.stringify({
+          action: 'publicUpdateStatus',
+          id: bookingId,
+          status: 'Cancelled'
         })
       })
       .then(function(res) { return res.json(); })
       .then(function(data) {
         if (data && data.success) {
-          showAlert('Booking Cancelled', '✓ Your booking has been cancelled successfully in the system.');
+          showAlert('Booking Cancelled', '✓ Your booking has been cancelled successfully.');
           // Refresh bookings from server
           loadMyBookings();
         } else {
