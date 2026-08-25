@@ -43,99 +43,712 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
   
   <style>
-    :root { --primary:#0F382E; --primary-light:#1a4d3e; --accent:#3FD0D4; --accent-hover:#2bbfc4; --bg:#F8F5F0; --card:#ffffff; --muted:#6b7280; --danger:#dc2626; --dark:#212121; }
-    h1,h2,h3{font-family:"Poppins",sans-serif;}
-    .font-poppins{font-family:"Poppins",sans-serif;} .font-satisfy{font-family:"Satisfy",cursive;}
-    body{font-family:"Poppins","Inter",sans-serif;background:var(--bg);}
-    .sharp{border-radius:2px !important;}
-    .card{border-radius:2px;background:var(--card);box-shadow:0 2px 20px rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.04);}
-    .btn-primary{background:var(--primary);color:white;border-radius:2px;padding:10px 20px;font-weight:700;font-family:"Poppins",sans-serif;text-transform:uppercase;letter-spacing:0.08em;font-size:12px;transition:all .2s;}
-    .btn-primary:hover{background:var(--primary-light);transform:translateY(-1px);}
-    .badge-verified{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:2px;}
-    .badge-pending{background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:2px;}
-    .btn-whatsapp{background:#25D366;color:white;border-radius:2px;padding:10px 20px;font-weight:700;font-family:"Poppins",sans-serif;text-transform:uppercase;letter-spacing:0.05em;font-size:12px;transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
-    .btn-whatsapp:hover{background:#1ebe5d;transform:translateY(-1px);}
-    .guest-avatar{width:32px;height:32px;border-radius:999px;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;}
-    .badge-available{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:2px;}
-    .badge-booked{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:2px;}
-    .calendar-mini{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
-    .calendar-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:2px;font-size:10px;font-weight:500;border:1px solid #e5e7eb;cursor:default;}
-    .calendar-day.available{background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
-    .calendar-day.booked{background:#fef2f2;border-color:#fecaca;color:#991b1b;text-decoration:line-through;}
-    .calendar-day.today{border-color:var(--primary);border-width:2px;}
-    .calendar-day.empty{background:transparent;border-color:transparent;}
-    .calendar-day.past{background:#f9fafb;border-color:#e5e7eb;color:#9ca3af;}
-    .calendar-nav-btn{background:var(--primary);color:white;border:none;width:28px;height:28px;border-radius:2px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background 0.2s;}
-    .calendar-nav-btn:hover{background:var(--primary-light);}
-    .calendar-month-label{font-weight:600;font-size:13px;color:#212121;}
-    *{-webkit-tap-highlight-color:transparent;} html{overflow-x:hidden;} body{overflow-x:hidden;-webkit-text-size-adjust:100%;} input,select,textarea{font-size:16px;}
-    .setsail-nav-link{position:relative;font-family:"Poppins",sans-serif;font-weight:600;font-size:13px;letter-spacing:0.3px;text-transform:uppercase;color:#212121;padding:8px 0;cursor:pointer;background:none;border:none;}
-    .setsail-nav-link::after{content:'';position:absolute;left:0;bottom:-2px;width:0;height:2px;background:#3FD0D4;transition:width 0.3s;}
-    .setsail-nav-link:hover::after,.setsail-nav-link.active::after{width:100%;}
-    .setsail-nav-link.agent{color:#7c3aed;border:1px solid #7c3aed;padding:6px 16px;border-radius:2px;}
-    .setsail-nav-link.agent::after{display:none;}
-    .setsail-nav-link.agent:hover{background:#7c3aed;color:white;}
-    @media (max-width:768px){#desktopNav{display:none !important;}#mobileMenuBtn{display:flex !important;}#hero{height:620px !important;}#homePage{padding:40px 16px 60px !important;}#homestayGrid{grid-template-columns:1fr !important;gap:20px !important;}}
-    *, *::before, *::after { box-sizing: border-box; }
-    .card { overflow: hidden; max-width: 100%; }
-    input[type="date"], input[type="text"], input[type="number"], select, textarea { max-width: 100%; box-sizing: border-box; min-width: 0; }
-    .nav-link-list { position:relative; font-family:"Poppins",sans-serif; font-weight:600; font-size:13px; letter-spacing:0.3px; text-transform:uppercase; color:#212121; padding:8px 0; cursor:pointer; background:none; border:none; text-decoration:none; }
-    .nav-link-list::after { content:''; position:absolute; left:0; bottom:-2px; width:0; height:2px; background:#3FD0D4; transition:width 0.3s; }
-    .nav-link-list:hover::after, .nav-link-list.active::after { width:100%; }
-    .calendar-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 10px; color: #6b7280; margin-top: 6px; }
-    .calendar-legend span { display: flex; align-items: center; gap: 4px; }
-    .calendar-legend .dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
-    .calendar-legend .dot.green { background: #f0fdf4; border: 1px solid #bbf7d0; }
-    .calendar-legend .dot.red { background: #fef2f2; border: 1px solid #fecaca; }
-    .calendar-legend .dot.today-dot { border: 2px solid var(--primary); background: white; width: 10px; height: 10px; }
+    /* ===== ROOT ===== */
+    :root {
+      --primary: #0F382E;
+      --primary-light: #1a4d3e;
+      --accent: #3FD0D4;
+      --accent-hover: #2bbfc4;
+      --accent-glow: rgba(63, 208, 212, 0.25);
+      --bg: #F8F5F0;
+      --card: #ffffff;
+      --dark: #212121;
+      --glass: rgba(255, 255, 255, 0.72);
+      --shadow-sm: 0 2px 20px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 8px 40px rgba(0, 0, 0, 0.08);
+      --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12);
+      --shadow-glow: 0 8px 30px rgba(63, 208, 212, 0.25);
+    }
 
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+    html {
+      scroll-behavior: smooth;
+      overflow-x: hidden;
+    }
+    body {
+      font-family: "Poppins", "Inter", sans-serif;
+      background: var(--bg);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .font-poppins { font-family: "Poppins", sans-serif; }
+    .font-satisfy { font-family: "Satisfy", cursive; }
+    .rounded-xl { border-radius: 16px !important; }
+    .rounded-2xl { border-radius: 24px !important; }
+    .rounded-full { border-radius: 999px !important; }
+
+    /* ===== GLASS ===== */
+    .glass {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    /* ===== CARD ===== */
+    .card {
+      background: var(--card);
+      border-radius: 24px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    /* ===== BUTTONS ===== */
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      border-radius: 999px;
+      padding: 14px 28px;
+      font-weight: 700;
+      font-family: "Poppins", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-primary::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .btn-primary:hover {
+      background: var(--primary-light);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3);
+    }
+    .btn-primary:hover::after { opacity: 1; }
+
+    .btn-accent {
+      background: var(--accent);
+      color: white;
+      border-radius: 999px;
+      padding: 10px 24px;
+      font-weight: 700;
+      font-family: "Poppins", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-accent:hover {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 10px 24px;
+      font-weight: 700;
+      font-family: "Poppins", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      cursor: pointer;
+    }
+    .btn-outline:hover {
+      background: var(--accent);
+      color: white;
+      transform: translateY(-2px);
+    }
+
+    .btn-whatsapp {
+      background: #25D366;
+      color: white;
+      border-radius: 999px;
+      padding: 12px 24px;
+      font-weight: 700;
+      font-family: "Poppins", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 12px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-whatsapp:hover {
+      background: #1ebe5d;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(37, 211, 102, 0.3);
+    }
+
+    /* ===== INPUTS ===== */
+    .form-input {
+      width: 100%;
+      border: 2px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 14px 20px;
+      font-size: 14px;
+      font-family: "Poppins", sans-serif;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      background: white;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+      transform: translateY(-1px);
+    }
+    .form-input::placeholder {
+      color: #94a3b8;
+    }
+
+    .form-select {
+      width: 100%;
+      border: 2px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 14px 20px;
+      font-size: 14px;
+      font-family: "Poppins", sans-serif;
+      background: white;
+      appearance: none;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .form-select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+
+    /* ===== GUEST AVATAR ===== */
+    .guest-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    /* ===== NAV LINKS ===== */
+    .setsail-nav-link {
+      position: relative;
+      font-family: "Poppins", sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: #212121;
+      padding: 8px 0;
+      cursor: pointer;
+      background: none;
+      border: none;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .setsail-nav-link::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: -2px;
+      width: 0;
+      height: 2.5px;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .setsail-nav-link:hover::after,
+    .setsail-nav-link.active::after {
+      width: 100%;
+    }
+    .setsail-nav-link:hover {
+      color: var(--primary);
+    }
+    .setsail-nav-link.agent {
+      color: #7c3aed;
+      border: 1px solid #7c3aed;
+      padding: 6px 16px;
+      border-radius: 999px;
+    }
+    .setsail-nav-link.agent::after { display: none; }
+    .setsail-nav-link.agent:hover {
+      background: #7c3aed;
+      color: white;
+    }
+
+    /* ===== MOBILE NAV ===== */
     #mobileNav {
-      position: fixed; top: 80px; left: 0; right: 0; z-index: 9999;
-      background: white; border-top: 1px solid rgba(0,0,0,0.08);
-      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-      max-height: 0; opacity: 0; overflow: hidden; pointer-events: none;
+      position: fixed;
+      top: 80px;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: var(--shadow-lg);
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
       transform: translateY(-10px);
-      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, transform 0.3s ease;
+      transition: max-height 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                  opacity 0.4s ease,
+                  transform 0.4s ease;
     }
-    #mobileNav.open { max-height: 80vh; opacity: 1; overflow-y: auto; pointer-events: auto; transform: translateY(0); }
-    #mobileNav a, #mobileNav button {
-      display: block; width: 100%; text-align: left; padding: 14px 24px;
-      font-size: 14px; font-weight: 600; color: #212121;
-      border-bottom: 1px solid rgba(0,0,0,0.05); transition: background 0.15s, color 0.15s; background: white;
+    #mobileNav.open {
+      max-height: 80vh;
+      opacity: 1;
+      overflow-y: auto;
+      pointer-events: auto;
+      transform: translateY(0);
     }
-    #mobileNav a:hover, #mobileNav button:hover { background: #f8f5f0; color: #3FD0D4; }
-    #mobileNav .mobile-agent-link { color: #7c3aed !important; border: 1px solid #7c3aed !important; margin: 8px 16px; padding: 10px 16px !important; border-radius: 2px !important; width: auto !important; display: inline-block !important; }
-    #mobileNav .guest-btn { border: 1px solid #3FD0D4; color: #3FD0D4; background: white; text-align: center; border-radius: 2px; padding: 12px 24px; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; width: 100%; }
-    #mobileNav .guest-btn-primary { background: #3FD0D4; color: white; border: none; }
-    #mobileNav .profile-card { display: flex; align-items: center; gap: 10px; background: #0F382E; color: white; padding: 10px 14px; border-radius: 2px; margin-bottom: 8px; }
-    #mobileNav .profile-card .avatar { width: 32px; height: 32px; border-radius: 999px; background: #3FD0D4; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; flex-shrink: 0; }
-    #mobileNav .profile-card .info { flex: 1; min-width: 0; overflow: hidden; }
-    #mobileNav .profile-card .name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #mobileNav .profile-card .sub { font-size: 10px; color: rgba(255,255,255,0.6); }
-    #mobileNav .profile-card .logout-btn { width: auto !important; display: inline-block !important; font-size: 10px; background: rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 2px; cursor: pointer; border: none; color: white; font-weight: 600; text-transform: uppercase; }
-    #mobileNav .my-bookings-btn { display: block; width: 100%; text-align: center; background: #212121; color: white; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 16px; border-radius: 2px; }
+    #mobileNav a,
+    #mobileNav button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 14px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #212121;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      transition: background 0.2s, color 0.2s;
+      background: transparent;
+    }
+    #mobileNav a:hover,
+    #mobileNav button:hover {
+      background: #f8f5f0;
+      color: var(--accent);
+    }
+    #mobileNav .mobile-agent-link {
+      color: #7c3aed !important;
+      border: 1px solid #7c3aed !important;
+      margin: 8px 16px;
+      padding: 10px 16px !important;
+      border-radius: 999px !important;
+      width: auto !important;
+      display: inline-block !important;
+    }
+    #mobileNav .mobile-agent-link:hover {
+      background: #7c3aed !important;
+      color: white !important;
+    }
+    #mobileNav .guest-btn {
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      background: transparent;
+      text-align: center;
+      border-radius: 999px;
+      padding: 12px 24px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      width: 100%;
+    }
+    #mobileNav .guest-btn-primary {
+      background: var(--accent);
+      color: white;
+      border: none;
+    }
+    #mobileNav .guest-btn:hover {
+      background: var(--accent);
+      color: white;
+    }
+    #mobileNav .guest-btn-primary:hover {
+      background: var(--accent-hover);
+    }
+    #mobileNav .profile-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--primary);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 8px;
+    }
+    #mobileNav .profile-card .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: white;
+      flex-shrink: 0;
+    }
+    #mobileNav .profile-card .info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+    #mobileNav .profile-card .name {
+      font-weight: 700;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #mobileNav .profile-card .sub {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    #mobileNav .profile-card .logout-btn {
+      width: auto !important;
+      display: inline-block !important;
+      flex-shrink: 0;
+      font-size: 10px;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      border: none;
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: background 0.2s;
+    }
+    #mobileNav .profile-card .logout-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+    #mobileNav .my-bookings-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: #212121;
+      color: white;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 16px;
+      border-radius: 12px;
+      transition: background 0.2s;
+    }
+    #mobileNav .my-bookings-btn:hover {
+      background: #333;
+    }
 
-    /* Floating WhatsApp Button */
-    .floating-wa-btn {
-      position: fixed; bottom: 24px; right: 24px; z-index: 999;
-      background: #25D366; color: white; border-radius: 999px;
-      padding: 12px 20px; display: flex; align-items: center; gap: 8px;
-      font-weight: 700; font-size: 13px; box-shadow: 0 10px 25px rgba(37,211,102,0.4);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* ===== BADGES ===== */
+    .badge-verified {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
-    .floating-wa-btn:hover { transform: translateY(-3px) scale(1.03); box-shadow: 0 14px 30px rgba(37,211,102,0.5); }
+    .badge-pending {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-available {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-booked {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
 
-    /* Modal styles */
-    .modal-overlay { position: fixed; inset: 0; z-index: 99999; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
+    /* ===== CALENDAR ===== */
+    .calendar-mini {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+    .calendar-day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 500;
+      border: 1px solid #e5e7eb;
+      cursor: default;
+      width: 100%;
+      height: 100%;
+    }
+    .calendar-day.available {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+      color: #166534;
+    }
+    .calendar-day.booked {
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #991b1b;
+      text-decoration: line-through;
+    }
+    .calendar-day.today {
+      border-color: var(--primary);
+      border-width: 2px;
+    }
+    .calendar-day.empty {
+      background: transparent;
+      border-color: transparent;
+    }
+    .calendar-day.past {
+      background: #f9fafb;
+      border-color: #e5e7eb;
+      color: #9ca3af;
+    }
+    .calendar-nav-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .calendar-nav-btn:hover {
+      background: var(--primary-light);
+    }
+    .calendar-month-label {
+      font-weight: 600;
+      font-size: 13px;
+      color: #212121;
+    }
+    .calendar-legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 10px;
+      color: #6b7280;
+      margin-top: 6px;
+    }
+    .calendar-legend span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .calendar-legend .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+    .calendar-legend .dot.green {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+    }
+    .calendar-legend .dot.red {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+    .calendar-legend .dot.today-dot {
+      border: 2px solid var(--primary);
+      background: white;
+      width: 10px;
+      height: 10px;
+    }
+
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
     .modal-overlay.active { display: flex; }
-    .modal-box { background: white; max-width: 480px; width: 100%; border-radius: 2px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; animation: modalIn 0.25s ease; }
-    @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-    .modal-header { padding: 20px 24px 0 24px; display: flex; align-items: center; justify-content: space-between; }
-    .modal-header h3 { font-family: "Poppins", sans-serif; font-weight: 700; font-size: 18px; color: #212121; margin: 0; }
-    .modal-close { background: none; border: none; font-size: 24px; color: #9ca3af; cursor: pointer; padding: 4px; line-height: 1; }
-    .modal-body { padding: 12px 24px 20px 24px; font-size: 14px; line-height: 1.6; color: #4b5563; }
-    .modal-footer { padding: 12px 24px 20px 24px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid #f3f4f6; }
-    .modal-footer .btn { padding: 8px 20px; border-radius: 2px; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; border: none; cursor: pointer; font-family: "Poppins", sans-serif; }
+    .modal-box {
+      background: white;
+      max-width: 480px;
+      width: 100%;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      animation: modalIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.95) translateY(20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-header {
+      padding: 20px 24px 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-header h3 {
+      font-family: "Poppins", sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      color: #212121;
+      margin: 0;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #9ca3af;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      transition: color 0.2s;
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-close:hover {
+      color: #212121;
+      background: #f1f5f9;
+    }
+    .modal-body {
+      padding: 16px 24px 20px 24px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #4b5563;
+    }
+    .modal-footer {
+      padding: 12px 24px 20px 24px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      border-top: 1px solid #f1f5f9;
+    }
+    .modal-footer .btn {
+      padding: 10px 24px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: "Poppins", sans-serif;
+    }
+    .modal-footer .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    .modal-footer .btn-primary:hover {
+      background: var(--primary-light);
+    }
+    .modal-footer .btn-secondary {
+      background: #f1f5f9;
+      color: #475569;
+    }
+    .modal-footer .btn-secondary:hover {
+      background: #e2e8f0;
+    }
+
+    /* ===== FLOATING WHATSAPP ===== */
+    .floating-wa-btn {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 999;
+      background: #25D366;
+      color: white;
+      border-radius: 999px;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      box-shadow: 0 10px 25px rgba(37, 211, 102, 0.4);
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .floating-wa-btn:hover {
+      transform: translateY(-3px) scale(1.03);
+      box-shadow: 0 14px 30px rgba(37, 211, 102, 0.5);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      #desktopNav { display: none !important; }
+      #mobileMenuBtn { display: flex !important; }
+      #hero { height: 620px !important; }
+      #homePage { padding: 40px 16px 60px !important; }
+      #homestayGrid { grid-template-columns: 1fr !important; gap: 20px !important; }
+      .floating-wa-btn { padding: 12px 16px; font-size: 11px; }
+      .floating-wa-btn span { display: none; }
+    }
+    @media (max-width: 480px) {
+      .btn-primary { padding: 12px 20px; font-size: 11px; }
+      .btn-accent { padding: 8px 16px; font-size: 10px; }
+    }
   </style>
 </head>
 <body>
@@ -147,7 +760,7 @@
 </a>
 
 <!-- ===== HEADER ===== -->
-<header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
+<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
       <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
@@ -158,23 +771,25 @@
     </div>
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
       <a href="/" id="navHome" class="setsail-nav-link active">Home</a>
-      <a href="/list.html" id="navList" class="nav-link-list">List Your Homestay</a>
+      <a href="/list.html" id="navList" class="setsail-nav-link">List Your Homestay</a>
       <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
-        <a href="/login.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp flex items-center">Login</a>
-        <a href="/register.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp flex items-center">Register</a>
+        <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;">Login</a>
+        <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;">Register</a>
       </div>
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
-        <a href="/mybookings.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</a>
-        <div class="flex items-center gap-2 bg-[#0F382E] text-white px-4 h-[38px] sharp">
+        <a href="/mybookings.html" class="setsail-nav-link" style="font-size:12px;">My Bookings</a>
+        <div class="flex items-center gap-2 bg-[#0F382E] text-white px-4 h-[38px] rounded-full">
           <div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div>
           <span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span>
-          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-2 py-1 sharp uppercase tracking-wider">Logout</button>
+          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider hover:bg-white/30 transition-colors">Logout</button>
         </div>
       </div>
     </nav>
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 sharp bg-[#212121] text-white items-center justify-center" aria-label="Toggle Navigation"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" aria-label="Toggle Navigation">
+      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
   </div>
 </header>
 
@@ -218,11 +833,11 @@
     <p class="mt-4 font-poppins font-500 text-white/90 text-[14px] md:text-[16px] max-w-[620px] leading-[1.6] drop-shadow">Verified local hosts, unobstructed Mount Kinabalu views, steamboat amenities & guaranteed safe FPX payments.</p>
     
     <!-- Hero Integrated Search Box -->
-    <div class="mt-8 bg-white/95 backdrop-blur p-4 md:p-5 sharp shadow-2xl w-full max-w-[920px] text-left border border-white/40">
+    <div class="mt-8 bg-white/95 backdrop-blur p-4 md:p-5 rounded-2xl shadow-2xl w-full max-w-[920px] text-left border border-white/40">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
         <div>
           <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Area / Location</label>
-          <select id="filterLocation" class="w-full bg-zinc-50 border border-zinc-300 sharp px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#3FD0D4]">
+          <select id="filterLocation" class="form-select text-sm">
             <option value="all">📍 All Kundasang Areas</option>
             <option value="Bundu Tuhan">Bundu Tuhan</option>
             <option value="Desa">Near Desa Cattle Farm</option>
@@ -232,14 +847,14 @@
         </div>
         <div>
           <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Check-in</label>
-          <input id="checkin" type="date" class="w-full bg-zinc-50 border border-zinc-300 sharp px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#3FD0D4]" onchange="renderGrid()" />
+          <input id="checkin" type="date" class="form-input text-sm" onchange="renderGrid()" />
         </div>
         <div>
           <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Check-out</label>
-          <input id="checkout" type="date" class="w-full bg-zinc-50 border border-zinc-300 sharp px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#3FD0D4]" onchange="renderGrid()" />
+          <input id="checkout" type="date" class="form-input text-sm" onchange="renderGrid()" />
         </div>
         <div>
-          <button onclick="renderGrid(); document.getElementById('homePage')?.scrollIntoView({behavior:'smooth'})" class="w-full bg-[#0F382E] hover:bg-[#1a4d3e] text-white sharp py-3 text-xs font-700 uppercase tracking-widest transition-all">
+          <button onclick="renderGrid(); document.getElementById('homePage')?.scrollIntoView({behavior:'smooth'})" class="w-full btn-primary py-3 text-sm tracking-widest">
             Find Available
           </button>
         </div>
@@ -253,12 +868,12 @@
   <div class="text-center mb-10 animate-on-scroll">
     <div class="font-satisfy text-[#3FD0D4] text-[30px] leading-none">Stay with Confidence</div>
     <h2 class="font-poppins font-700 text-[32px] md:text-[38px] text-[#212121] tracking-[-0.8px] mt-1">Verified Mountain Accommodations</h2>
-    <div class="w-[48px] h-[2px] bg-[#3FD0D4] mx-auto mt-3"></div>
+    <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
     <p class="font-poppins text-[13px] text-[#212121]/60 max-w-[540px] mx-auto mt-3 leading-[1.6]">Every property is inspected. Zero booking scams with integrated FPX direct settlement.</p>
     
     <div class="mt-4 flex items-center justify-center gap-2 flex-wrap">
-      <div id="pendingInfo" class="text-[11px] bg-amber-50 border border-amber-200 px-3 py-1.5 sharp hidden font-600 text-amber-800">Pending: <span id="pendingCount">0</span> waiting approval</div>
-      <div class="text-[11px] bg-emerald-50 border border-emerald-200 px-3 py-1.5 sharp font-600 text-emerald-800 flex items-center gap-1">
+      <div id="pendingInfo" class="text-[11px] bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full hidden font-600 text-amber-800">Pending: <span id="pendingCount">0</span> waiting approval</div>
+      <div class="text-[11px] bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full font-600 text-emerald-800 flex items-center gap-1">
         <span>🔒 ToyyibPay FPX Protected</span>
       </div>
     </div>
@@ -272,7 +887,7 @@
   <div class="max-w-[900px] mx-auto card overflow-hidden mt-6 md:mt-10">
     <div id="detailContent" class="p-5 md:p-6"></div>
     <div class="p-5 border-t flex flex-col md:flex-row justify-between items-center gap-3 bg-zinc-50">
-      <button onclick="closeDetail()" class="px-5 py-2.5 sharp border bg-white text-xs uppercase tracking-wider font-600 w-full md:w-auto">Back</button>
+      <button onclick="closeDetail()" class="btn-outline w-full md:w-auto">Back</button>
       <div class="flex gap-3 w-full md:w-auto justify-end">
         <button onclick="chatWithOwner()" class="btn-whatsapp w-full md:w-auto">💬 Inquire on WhatsApp</button>
         <button onclick="openBooking()" class="btn-primary w-full md:w-auto">Book Now</button>
@@ -287,20 +902,20 @@
     <h3 class="text-2xl font-bold font-poppins text-[#212121]">Reserve Homestay</h3>
     <p class="text-xs text-zinc-500">Pick check-in and check-out dates to compute exact total.</p>
     <div class="mt-4 grid grid-cols-2 gap-3">
-      <div><label class="text-xs font-semibold">Check-in</label><input id="bookingCheckin" type="date" class="w-full mt-1 border sharp px-3 py-2 text-sm" onchange="updateBookingPrice()"/></div>
-      <div><label class="text-xs font-semibold">Check-out</label><input id="bookingCheckout" type="date" class="w-full mt-1 border sharp px-3 py-2 text-sm" onchange="updateBookingPrice()"/></div>
+      <div><label class="text-xs font-semibold">Check-in</label><input id="bookingCheckin" type="date" class="form-input text-sm mt-1" onchange="updateBookingPrice()"/></div>
+      <div><label class="text-xs font-semibold">Check-out</label><input id="bookingCheckout" type="date" class="form-input text-sm mt-1" onchange="updateBookingPrice()"/></div>
     </div>
     <div class="mt-3 text-xs">Total Duration: <span id="bookingNights" class="font-bold text-[#0F382E]">1</span> Nights</div>
-    <div id="bookingSummary" class="mt-3 bg-zinc-50 p-4 sharp text-sm border"></div>
-    <div class="bg-red-50 border border-red-200 p-3 sharp text-xs text-red-800 mt-3">⚠️ Official booking protection: All payments are processed through ToyyibPay FPX online banking. Never transfer to private individual accounts.</div>
-    <div id="guestDetectedBanner" class="hidden mt-3 bg-green-50 border border-green-200 p-3 sharp text-xs text-green-800"></div>
+    <div id="bookingSummary" class="mt-3 bg-zinc-50 p-4 rounded-xl text-sm border"></div>
+    <div class="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-800 mt-3">⚠️ Official booking protection: All payments are processed through ToyyibPay FPX online banking. Never transfer to private individual accounts.</div>
+    <div id="guestDetectedBanner" class="hidden mt-3 bg-green-50 border border-green-200 p-3 rounded-xl text-xs text-green-800"></div>
     <div class="mt-4 space-y-3">
-      <input id="guestName" placeholder="Your Full Name *" class="w-full border sharp px-4 py-2.5 text-sm"/>
-      <input id="guestEmail" placeholder="Email Address (For FPX Receipt) *" class="w-full border sharp px-4 py-2.5 text-sm"/>
-      <input id="guestPhone" placeholder="WhatsApp Phone (e.g. 0123456789) *" class="w-full border sharp px-4 py-2.5 text-sm"/>
+      <input id="guestName" placeholder="Your Full Name *" class="form-input text-sm"/>
+      <input id="guestEmail" placeholder="Email Address (For FPX Receipt) *" class="form-input text-sm"/>
+      <input id="guestPhone" placeholder="WhatsApp Phone (e.g. 0123456789) *" class="form-input text-sm"/>
     </div>
     <div class="mt-5 flex gap-3">
-      <button onclick="closeBooking()" class="flex-1 border sharp py-3 text-xs uppercase tracking-wider font-600 bg-white">Cancel</button>
+      <button onclick="closeBooking()" class="flex-1 btn-outline py-3">Cancel</button>
       <button onclick="processPayment()" class="flex-1 btn-primary py-3">Pay via FPX</button>
     </div>
     <p id="toyyibpayNote" class="mt-3 text-[11px] text-zinc-500 text-center"></p>
@@ -311,11 +926,11 @@
 <div id="thankyouModal" class="modal-overlay thankyou-modal">
   <div class="modal-box max-w-[500px]">
     <div class="modal-body text-center p-6 md:p-8">
-      <div class="w-16 h-16 bg-emerald-100 sharp flex items-center justify-center mx-auto mb-3 text-3xl">🎉</div>
+      <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">🎉</div>
       <div class="font-poppins font-800 text-[22px] text-[#0F382E]">Booking Confirmed!</div>
       <p class="text-xs text-zinc-500 mt-1">Welcome to Kundasang! Your reservation is securely logged.</p>
       
-      <div class="bg-[#F8F5F0] sharp p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
+      <div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
         <div class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Booking ID:</span><span id="thankyouBookingId" class="font-bold text-red-600 text-sm font-mono">-</span></div>
         <div id="receiptNightsRow" class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Dates:</span><span id="thankyouDates" class="font-semibold text-zinc-800">-</span></div>
         <div id="receiptTotalRow" class="flex justify-between"><span class="text-zinc-500">Total Paid:</span><span id="thankyouTotal" class="font-bold text-emerald-800 text-base">-</span></div>
@@ -353,7 +968,7 @@
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div>
       <div class="flex items-center gap-3">
-        <div class="w-[32px] h-[32px] sharp bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div>
+        <div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div>
         <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div>
       </div>
       <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
@@ -364,6 +979,8 @@
         <a href="/" class="hover:text-white block">Browse Homestays</a>
         <a href="/list.html" class="hover:text-white block">Host Registration</a>
         <a href="/about.html" class="hover:text-white block">About Us</a>
+        <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
+        <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
       </div>
     </div>
     <div>
@@ -494,7 +1111,6 @@ function showThankYouModal(bookingId, customBookingData = null) {
   const targetId = bookingId || lastBookingId || 'KDH-CONFIRMED';
   if (idEl) idEl.textContent = targetId;
 
-  // Hydrate visual fields
   const b = customBookingData || bookings.find(x => String(x.id) === String(targetId)) || window.lastCreatedBooking;
   if (b) {
     lastBookingDetails = b;
@@ -538,7 +1154,7 @@ function whatsappOwnerFromThankYou() {
 
   let ownerWhatsapp = booking.ownerWhatsapp || (selectedHomestay ? selectedHomestay.whatsapp : '');
   let phone = String(ownerWhatsapp).replace(/[^0-9]/g, '');
-  if (!phone || phone.length < 9) phone = '60123456789'; // Fallback
+  if (!phone || phone.length < 9) phone = '60123456789';
   if (phone.startsWith('0')) phone = '60' + phone.substring(1);
 
   const message = `🆕 *New Confirmed Booking!* 🏔️\n\n` +
@@ -753,7 +1369,7 @@ function renderGrid() {
     grid.innerHTML = safeHTML(`
       <div class="col-span-3 text-center py-16">
         <div class="text-zinc-500 font-poppins">No available homestays matched your search dates.</div>
-        <button onclick="document.getElementById('checkin').value=''; document.getElementById('checkout').value=''; document.getElementById('filterLocation').value='all'; renderGrid();" class="mt-4 px-6 py-2.5 sharp border bg-white text-xs font-700 uppercase tracking-wider shadow-sm hover:bg-zinc-50">Reset Filters</button>
+        <button onclick="document.getElementById('checkin').value=''; document.getElementById('checkout').value=''; document.getElementById('filterLocation').value='all'; renderGrid();" class="mt-4 btn-outline">Reset Filters</button>
       </div>
     `);
     return;
@@ -762,19 +1378,19 @@ function renderGrid() {
   grid.innerHTML = safeHTML(list.map(h => {
     const blocked = getAllBlockedDatesForHomestay(h);
     return `
-      <article class="group bg-white sharp shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden" onclick="openDetail(${h.id})">
+      <article class="group bg-white rounded-2xl shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden" onclick="openDetail(${h.id})">
         <div class="h-[240px] w-full relative overflow-hidden bg-zinc-100">
           <img src="${h.image}" loading="lazy" alt="${h.name}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800'"/>
-          <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 sharp flex items-center gap-1 shadow-sm">
+          <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
             <span class="font-poppins font-700 text-[11px] text-[#212121]">${h.rating ? h.rating.toFixed(1) : '5.0'} ★</span>
           </div>
-          ${h.verified ? `<div class="absolute top-4 left-[76px] bg-[#3FD0D4] text-white text-[10px] px-2.5 py-1 sharp font-700 uppercase tracking-wider shadow-sm">Verified</div>` : ''}
-          <div class="absolute bottom-3 left-3 bg-black/75 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 sharp font-500">🔒 Direct FPX Protection</div>
+          ${h.verified ? `<div class="absolute top-4 left-[76px] bg-[#3FD0D4] text-white text-[10px] px-2.5 py-1 rounded-full font-700 uppercase tracking-wider shadow-sm">Verified</div>` : ''}
+          <div class="absolute bottom-3 left-3 bg-black/75 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-full font-500">🔒 Direct FPX Protection</div>
         </div>
         <div class="p-5 flex flex-col flex-1">
           <div class="flex justify-between items-start gap-2">
             <h3 class="font-poppins font-700 text-[18px] leading-tight text-[#212121]">${h.name}</h3>
-            <span class="text-[10px] bg-zinc-100 px-2.5 py-1 sharp shrink-0 font-600 uppercase tracking-wider text-[#212121]/70">${h.location}</span>
+            <span class="text-[10px] bg-zinc-100 px-2.5 py-1 rounded-full shrink-0 font-600 uppercase tracking-wider text-[#212121]/70">${h.location}</span>
           </div>
           <div class="text-[12px] text-[#212121]/60 mt-2 font-500">${h.guests} guests • ${h.bedrooms || 2} bedrooms • Water Heater ♨️</div>
           <div class="mt-auto pt-4 flex justify-between items-center border-t border-black/5">
@@ -798,26 +1414,26 @@ function openDetail(id) {
   const defaultCo = document.getElementById("checkout")?.value || dateToIso(new Date(Date.now() + 86400000 * 2));
 
   document.getElementById("detailContent").innerHTML = safeHTML(`
-    <img src="${selectedHomestay.image}" alt="${selectedHomestay.name}" class="w-full h-[320px] object-cover sharp"/>
+    <img src="${selectedHomestay.image}" alt="${selectedHomestay.name}" class="w-full h-[320px] object-cover rounded-2xl"/>
     <div class="flex gap-2 mt-4 flex-wrap">
       ${selectedHomestay.verified ? `<span class="badge-verified text-xs px-3 py-1 font-semibold">✓ Verified Host — ${selectedHomestay.ownerName || 'Local Host'}</span>` : ''}
-      <span class="bg-zinc-100 text-xs px-3 py-1 sharp font-semibold">📍 ${selectedHomestay.location}</span>
+      <span class="bg-zinc-100 text-xs px-3 py-1 rounded-full font-semibold">📍 ${selectedHomestay.location}</span>
     </div>
     <h2 class="text-2xl md:text-3xl font-bold font-poppins mt-3 text-[#212121]">${selectedHomestay.name}</h2>
     <p class="text-sm text-zinc-500 mt-1">${selectedHomestay.guests} Guests Maximum • ${selectedHomestay.bedrooms || 2} Bedrooms</p>
     <p class="text-sm mt-3 leading-relaxed text-zinc-700">${selectedHomestay.description || "Cozy mountain homestay in Kundasang."}</p>
     
-    <div class="mt-6 bg-zinc-50 border p-4 sharp">
+    <div class="mt-6 bg-zinc-50 border p-4 rounded-2xl">
       <h4 class="font-bold text-xs uppercase tracking-wider text-zinc-700">Check Date Availability</h4>
       <div id="detailAvailabilityCalendar" class="mt-3"></div>
       <div id="detailAvailabilityStatus" class="mt-2 text-xs font-semibold"></div>
     </div>
 
     <div class="mt-6 grid grid-cols-2 gap-3">
-      <div><label class="text-xs font-semibold text-zinc-700">Check-in</label><input id="detailCheckin" type="date" value="${defaultCi}" class="w-full mt-1 border sharp px-3 py-2 text-sm" onchange="updateDetailPrice()"/></div>
-      <div><label class="text-xs font-semibold text-zinc-700">Check-out</label><input id="detailCheckout" type="date" value="${defaultCo}" class="w-full mt-1 border sharp px-3 py-2 text-sm" onchange="updateDetailPrice()"/></div>
+      <div><label class="text-xs font-semibold text-zinc-700">Check-in</label><input id="detailCheckin" type="date" value="${defaultCi}" class="form-input text-sm mt-1" onchange="updateDetailPrice()"/></div>
+      <div><label class="text-xs font-semibold text-zinc-700">Check-out</label><input id="detailCheckout" type="date" value="${defaultCo}" class="form-input text-sm mt-1" onchange="updateDetailPrice()"/></div>
     </div>
-    <div id="detailPriceBox" class="mt-4 bg-[#F8F5F0] p-4 sharp border border-black/5"></div>
+    <div id="detailPriceBox" class="mt-4 bg-[#F8F5F0] p-4 rounded-2xl border border-black/5"></div>
   `);
 
   document.getElementById("detailModal").classList.remove("hidden");
@@ -929,7 +1545,6 @@ async function processPayment() {
 
   window.lastCreatedBooking = booking;
 
-  // Sync to database
   try {
     await fetch(API_BASE + "/bookings", {
       method: "POST",
@@ -938,7 +1553,6 @@ async function processPayment() {
     });
   } catch(e) { console.warn("Syncing offline fallback mode"); }
 
-  // Update local storage
   bookings.push(booking);
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
 
@@ -947,7 +1561,6 @@ async function processPayment() {
   showThankYouModal(bookingId, booking);
 }
 
-// Inquire on WhatsApp from detail view
 function chatWithOwner() {
   if (!selectedHomestay) return;
   let phone = String(selectedHomestay.whatsapp || '60123456789').replace(/[^0-9]/g, '');
@@ -998,7 +1611,6 @@ function toggleMobileMenu() {
   renderGuestNav();
   renderGrid();
 
-  // Cloud sync
   try {
     const res = await fetch(`${API_BASE}/bookings`, { cache: "no-store" });
     if (res.ok) {
