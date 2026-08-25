@@ -737,124 +737,183 @@
 
     /* ===== MOBILE DATE PICKER FIXES ===== */
 /* Fix for date picker overflow on all devices */
-#hero {
-  overflow: visible !important;
-  position: relative;
-  z-index: 1;
-}
-
-#hero .relative.z-10 {
-  overflow: visible !important;
-}
-
-.date-picker-wrapper {
-  position: relative;
-  z-index: 50;
-}
-
-/* Ensure date inputs are properly layered */
-.form-input[type="date"] {
-  position: relative;
-  z-index: 55;
-  min-height: 48px;
-  cursor: pointer;
-}
-
-/* Mobile specific fixes */
-@media (max-width: 768px) {
   #hero {
-    overflow: visible !important;
-    min-height: auto !important;
-  }
-  
-  #hero .relative.z-10 {
-    min-height: 480px !important;
-    overflow: visible !important;
-    padding-bottom: 20px !important;
-  }
-  
-  .date-picker-wrapper {
-    z-index: 60;
-  }
-  
-  .form-input[type="date"] {
-    min-height: 48px;
-    font-size: 14px;
-    padding: 10px 14px;
-    z-index: 65;
-  }
-  
-  /* Make the calendar picker appear above everything */
-  input[type="date"]::-webkit-calendar-picker-indicator {
-    position: relative;
-    z-index: 70;
-    padding: 8px;
-    cursor: pointer;
-  }
-  
-  /* iOS Safari fix */
-  input[type="date"] {
-    -webkit-appearance: none;
-    appearance: none;
-  }
-  
-  /* Reduce search box padding on mobile */
-  #hero .bg-white\/95 {
-    padding: 14px !important;
-    margin: 0 !important;
-  }
-  
-  #hero .grid {
-    gap: 8px !important;
-  }
-  
-  #hero .btn-primary {
-    padding: 12px !important;
-    font-size: 12px !important;
-    min-height: 48px;
-  }
-  
-  #hero label {
-    font-size: 9px !important;
-  }
-}
+      overflow: visible !important;
+      position: relative;
+      z-index: 1;
+      min-height: 520px;
+    }
 
-/* Very small phones */
-@media (max-width: 380px) {
-  #hero .relative.z-10 {
-    min-height: 440px !important;
-    padding-top: 12px !important;
-  }
-  
-  #hero .bg-white\/95 {
-    padding: 10px !important;
-  }
-  
-  .form-input[type="date"] {
-    min-height: 42px;
-    font-size: 12px;
-    padding: 8px 10px;
-  }
-  
-  #hero .btn-primary {
-    min-height: 42px;
-    font-size: 11px !important;
-    padding: 10px !important;
-  }
-  
-  #hero h1 {
-    font-size: 24px !important;
-  }
-}
+    #hero .relative.z-10 {
+      overflow: visible !important;
+    }
 
-/* Prevent body scroll when date picker is open on mobile */
-@media (max-width: 768px) {
-  body.date-picker-open {
-    overflow: hidden !important;
-    position: fixed;
-    width: 100%;
-  }
-}  
+    .search-box {
+      position: relative;
+      z-index: 20;
+    }
+
+    /* Date input wrapper */
+    .date-picker-wrapper {
+      position: relative;
+      z-index: 50;
+    }
+
+    /* Clean date input styles - no JS interference */
+    .date-input {
+      position: relative;
+      z-index: 55;
+      min-height: 48px;
+      cursor: pointer;
+      background: white;
+    }
+
+    /* Make calendar picker clickable area larger */
+    .date-input::-webkit-calendar-picker-indicator {
+      position: relative;
+      z-index: 60;
+      padding: 8px;
+      cursor: pointer;
+      background-size: 18px;
+    }
+
+    .date-input::-webkit-inner-spin-button {
+      display: none;
+    }
+
+    .date-input::-moz-calendar-picker-indicator {
+      position: relative;
+      z-index: 60;
+      padding: 8px;
+      cursor: pointer;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      #desktopNav { display: none !important; }
+      #mobileMenuBtn { display: flex !important; }
+      
+      #hero {
+        min-height: auto !important;
+        overflow: visible !important;
+      }
+      
+      #hero .relative.z-10 {
+        min-height: 440px !important;
+        overflow: visible !important;
+        padding-bottom: 24px !important;
+        justify-content: flex-start !important;
+        padding-top: 12px !important;
+      }
+      
+      .search-box {
+        margin-top: 8px !important;
+        padding: 12px !important;
+        border-radius: 16px !important;
+      }
+      
+      .date-picker-wrapper {
+        z-index: 60;
+      }
+      
+      .date-input {
+        min-height: 48px !important;
+        font-size: 14px !important;
+        padding: 10px 14px !important;
+        z-index: 65 !important;
+      }
+      
+      .date-input::-webkit-calendar-picker-indicator {
+        padding: 10px !important;
+        z-index: 70 !important;
+      }
+      
+      #hero .grid {
+        gap: 8px !important;
+      }
+      
+      #hero label {
+        font-size: 9px !important;
+      }
+      
+      #hero .btn-primary {
+        padding: 12px !important;
+        font-size: 12px !important;
+        min-height: 48px !important;
+      }
+      
+      #hero h1 {
+        font-size: 26px !important;
+      }
+      
+      #hero .font-satisfy {
+        font-size: 24px !important;
+      }
+      
+      #hero p {
+        font-size: 12px !important;
+        margin-top: 6px !important;
+      }
+      
+      #homePage { padding: 40px 16px 60px !important; }
+      #homestayGrid { grid-template-columns: 1fr !important; gap: 20px !important; }
+      .floating-wa-btn { padding: 12px 16px; font-size: 11px; }
+      .floating-wa-btn span { display: none; }
+    }
+
+    @media (max-width: 380px) {
+      #hero .relative.z-10 {
+        min-height: 400px !important;
+        padding-top: 8px !important;
+      }
+      
+      .search-box {
+        padding: 10px !important;
+      }
+      
+      .date-input {
+        min-height: 42px !important;
+        font-size: 12px !important;
+        padding: 8px 10px !important;
+      }
+      
+      #hero .btn-primary {
+        min-height: 42px !important;
+        font-size: 11px !important;
+        padding: 10px !important;
+      }
+      
+      #hero h1 {
+        font-size: 22px !important;
+      }
+      
+      #hero .grid {
+        gap: 6px !important;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .btn-primary { padding: 12px 20px; font-size: 11px; }
+      .btn-accent { padding: 8px 16px; font-size: 10px; }
+    }
+
+    /* ===== IOS SPECIFIC FIXES ===== */
+    @supports (-webkit-touch-callout: none) {
+      .date-input {
+        font-size: 16px !important;
+        min-height: 50px !important;
+        padding: 12px 16px !important;
+      }
+      
+      .date-picker-wrapper {
+        z-index: 999 !important;
+      }
+      
+      input[type="date"]::-webkit-calendar-picker-indicator {
+        padding: 12px !important;
+        margin-right: 4px !important;
+      }
+    }
 
   </style>
 </head>
