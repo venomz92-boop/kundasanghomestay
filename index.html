@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
+
   <!-- Primary Meta Tags -->
   <title>Kundasang Homestay - Verified Mountain Stays with Kinabalu Views</title>
   <meta name="title" content="Kundasang Homestay - Verified Mountain Stays with Kinabalu Views" />
@@ -11,14 +11,14 @@
   <meta name="keywords" content="Kundasang homestay, homestay kundasang view gunung, chalet kundasang, Mesilau homestay, homestay sabah, toyyibpay homestay" />
   <meta name="robots" content="index, follow" />
 
-  <!-- Open Graph / Facebook / WhatsApp Preview -->
+  <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://kundasanghomestay.my/" />
   <meta property="og:title" content="Kundasang Homestay - Verified Mountain Stays" />
   <meta property="og:description" content="Verified Kundasang homestays with breathtaking Kinabalu views. Secure booking with instant WhatsApp confirmation." />
   <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" />
 
-  <!-- JSON-LD Structured Data Schema for Local SEO -->
+  <!-- JSON-LD Schema -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -41,140 +41,879 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
-  
+
   <style>
-    :root { --primary:#0F382E; --primary-light:#1a4d3e; --accent:#3FD0D4; --accent-hover:#2bbfc4; --bg:#F8F5F0; --card:#ffffff; --muted:#6b7280; --danger:#dc2626; --dark:#212121; }
-    h1,h2,h3{font-family:"Poppins",sans-serif;}
-    .font-poppins{font-family:"Poppins",sans-serif;} .font-satisfy{font-family:"Satisfy",cursive;}
-    body{font-family:"Poppins","Inter",sans-serif;background:var(--bg);}
-    .sharp{border-radius:2px !important;}
-    .card{border-radius:2px;background:var(--card);box-shadow:0 2px 20px rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.04);}
-    .btn-primary{background:var(--primary);color:white;border-radius:2px;padding:10px 20px;font-weight:700;font-family:"Poppins",sans-serif;text-transform:uppercase;letter-spacing:0.08em;font-size:12px;transition:all .2s;}
-    .btn-primary:hover{background:var(--primary-light);transform:translateY(-1px);}
-    .badge-verified{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:2px;}
-    .badge-pending{background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:2px;}
-    .btn-whatsapp{background:#25D366;color:white;border-radius:2px;padding:10px 20px;font-weight:700;font-family:"Poppins",sans-serif;text-transform:uppercase;letter-spacing:0.05em;font-size:12px;transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
-    .btn-whatsapp:hover{background:#1ebe5d;transform:translateY(-1px);}
-    .guest-avatar{width:32px;height:32px;border-radius:999px;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;}
-    .badge-available{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:2px;}
-    .badge-booked{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:2px;}
-    .calendar-mini{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
-    .calendar-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:2px;font-size:10px;font-weight:500;border:1px solid #e5e7eb;cursor:default;}
-    .calendar-day.available{background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
-    .calendar-day.booked{background:#fef2f2;border-color:#fecaca;color:#991b1b;text-decoration:line-through;}
-    .calendar-day.today{border-color:var(--primary);border-width:2px;}
-    .calendar-day.empty{background:transparent;border-color:transparent;}
-    .calendar-day.past{background:#f9fafb;border-color:#e5e7eb;color:#9ca3af;}
-    .calendar-nav-btn{background:var(--primary);color:white;border:none;width:28px;height:28px;border-radius:2px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background 0.2s;}
-    .calendar-nav-btn:hover{background:var(--primary-light);}
-    .calendar-month-label{font-weight:600;font-size:13px;color:#212121;}
-    *{-webkit-tap-highlight-color:transparent;} html{overflow-x:hidden;} body{overflow-x:hidden;-webkit-text-size-adjust:100%;} input,select,textarea{font-size:16px;}
-    .setsail-nav-link{position:relative;font-family:"Poppins",sans-serif;font-weight:600;font-size:13px;letter-spacing:0.3px;text-transform:uppercase;color:#212121;padding:8px 0;cursor:pointer;background:none;border:none;}
-    .setsail-nav-link::after{content:'';position:absolute;left:0;bottom:-2px;width:0;height:2px;background:#3FD0D4;transition:width 0.3s;}
-    .setsail-nav-link:hover::after,.setsail-nav-link.active::after{width:100%;}
-    .setsail-nav-link.agent{color:#7c3aed;border:1px solid #7c3aed;padding:6px 16px;border-radius:2px;}
-    .setsail-nav-link.agent::after{display:none;}
-    .setsail-nav-link.agent:hover{background:#7c3aed;color:white;}
-    @media (max-width:768px){#desktopNav{display:none !important;}#mobileMenuBtn{display:flex !important;}#hero{height:620px !important;}#homePage{padding:40px 16px 60px !important;}#homestayGrid{grid-template-columns:1fr !important;gap:20px !important;}}
-    *, *::before, *::after { box-sizing: border-box; }
-    .card { overflow: hidden; max-width: 100%; }
-    input[type="date"], input[type="text"], input[type="number"], select, textarea { max-width: 100%; box-sizing: border-box; min-width: 0; }
-    .nav-link-list { position:relative; font-family:"Poppins",sans-serif; font-weight:600; font-size:13px; letter-spacing:0.3px; text-transform:uppercase; color:#212121; padding:8px 0; cursor:pointer; background:none; border:none; text-decoration:none; }
-    .nav-link-list::after { content:''; position:absolute; left:0; bottom:-2px; width:0; height:2px; background:#3FD0D4; transition:width 0.3s; }
-    .nav-link-list:hover::after, .nav-link-list.active::after { width:100%; }
-    .calendar-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 10px; color: #6b7280; margin-top: 6px; }
-    .calendar-legend span { display: flex; align-items: center; gap: 4px; }
-    .calendar-legend .dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
-    .calendar-legend .dot.green { background: #f0fdf4; border: 1px solid #bbf7d0; }
-    .calendar-legend .dot.red { background: #fef2f2; border: 1px solid #fecaca; }
-    .calendar-legend .dot.today-dot { border: 2px solid var(--primary); background: white; width: 10px; height: 10px; }
-
-    #mobileNav {
-      position: fixed; top: 80px; left: 0; right: 0; z-index: 9999;
-      background: white; border-top: 1px solid rgba(0,0,0,0.08);
-      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-      max-height: 0; opacity: 0; overflow: hidden; pointer-events: none;
-      transform: translateY(-10px);
-      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, transform 0.3s ease;
+    /* ===== ROOT VARIABLES ===== */
+    :root {
+      --primary: #0F382E;
+      --primary-light: #1a4d3e;
+      --primary-dark: #0a2a22;
+      --accent: #3FD0D4;
+      --accent-hover: #2bbfc4;
+      --accent-glow: rgba(63, 208, 212, 0.3);
+      --bg: #F8F5F0;
+      --card: #ffffff;
+      --muted: #6b7280;
+      --danger: #dc2626;
+      --dark: #212121;
+      --glass: rgba(255, 255, 255, 0.85);
+      --shadow-sm: 0 2px 20px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 8px 40px rgba(0, 0, 0, 0.08);
+      --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12);
+      --shadow-glow: 0 8px 30px rgba(63, 208, 212, 0.25);
     }
-    #mobileNav.open { max-height: 80vh; opacity: 1; overflow-y: auto; pointer-events: auto; transform: translateY(0); }
-    #mobileNav a, #mobileNav button {
-      display: block; width: 100%; text-align: left; padding: 14px 24px;
-      font-size: 14px; font-weight: 600; color: #212121;
-      border-bottom: 1px solid rgba(0,0,0,0.05); transition: background 0.15s, color 0.15s; background: white;
-    }
-    #mobileNav a:hover, #mobileNav button:hover { background: #f8f5f0; color: #3FD0D4; }
-    #mobileNav .mobile-agent-link { color: #7c3aed !important; border: 1px solid #7c3aed !important; margin: 8px 16px; padding: 10px 16px !important; border-radius: 2px !important; width: auto !important; display: inline-block !important; }
-    #mobileNav .guest-btn { border: 1px solid #3FD0D4; color: #3FD0D4; background: white; text-align: center; border-radius: 2px; padding: 12px 24px; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; width: 100%; }
-    #mobileNav .guest-btn-primary { background: #3FD0D4; color: white; border: none; }
-    #mobileNav .profile-card { display: flex; align-items: center; gap: 10px; background: #0F382E; color: white; padding: 10px 14px; border-radius: 2px; margin-bottom: 8px; }
-    #mobileNav .profile-card .avatar { width: 32px; height: 32px; border-radius: 999px; background: #3FD0D4; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; flex-shrink: 0; }
-    #mobileNav .profile-card .info { flex: 1; min-width: 0; overflow: hidden; }
-    #mobileNav .profile-card .name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #mobileNav .profile-card .sub { font-size: 10px; color: rgba(255,255,255,0.6); }
-    #mobileNav .profile-card .logout-btn { width: auto !important; display: inline-block !important; font-size: 10px; background: rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 2px; cursor: pointer; border: none; color: white; font-weight: 600; text-transform: uppercase; }
-    #mobileNav .my-bookings-btn { display: block; width: 100%; text-align: center; background: #212121; color: white; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 16px; border-radius: 2px; }
 
-    /* Floating WhatsApp Button */
-    .floating-wa-btn {
-      position: fixed; bottom: 24px; right: 24px; z-index: 999;
-      background: #25D366; color: white; border-radius: 999px;
-      padding: 12px 20px; display: flex; align-items: center; gap: 8px;
-      font-weight: 700; font-size: 13px; box-shadow: 0 10px 25px rgba(37,211,102,0.4);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* ===== BASE ===== */
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
     }
-    .floating-wa-btn:hover { transform: translateY(-3px) scale(1.03); box-shadow: 0 14px 30px rgba(37,211,102,0.5); }
+    html {
+      scroll-behavior: smooth;
+      overflow-x: hidden;
+    }
+    body {
+      font-family: "Poppins", "Inter", sans-serif;
+      background: var(--bg);
+      overflow-x: hidden;
+      -webkit-text-size-adjust: 100%;
+    }
+    .font-poppins { font-family: "Poppins", sans-serif; }
+    .font-satisfy { font-family: "Satisfy", cursive; }
 
-    /* Modal styles */
-    .modal-overlay { position: fixed; inset: 0; z-index: 99999; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
+    /* ===== SHARP / UTILITY ===== */
+    .sharp { border-radius: 2px !important; }
+    .rounded-xl { border-radius: 16px !important; }
+    .rounded-2xl { border-radius: 24px !important; }
+
+    /* ===== GLASSMORPHISM ===== */
+    .glass {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .glass-dark {
+      background: rgba(15, 56, 46, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* ===== CARD ===== */
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    /* ===== BUTTONS ===== */
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      border-radius: 12px;
+      padding: 14px 28px;
+      font-weight: 700;
+      font-family: "Poppins", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-primary::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .btn-primary:hover {
+      background: var(--primary-light);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3);
+    }
+    .btn-primary:hover::after { opacity: 1; }
+
+    .btn-accent {
+      background: var(--accent);
+      color: white;
+      border-radius: 12px;
+      padding: 14px 28px;
+      font-weight: 700;
+      font-family: "Poppins", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-accent:hover {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .btn-whatsapp {
+      background: #25D366;
+      color: white;
+      border-radius: 12px;
+      padding: 12px 24px;
+      font-weight: 700;
+      font-family: "Poppins", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 12px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-whatsapp:hover {
+      background: #1ebe5d;
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 8px 30px rgba(37, 211, 102, 0.35);
+    }
+
+    /* ===== BADGES ===== */
+    .badge-verified {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-available {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-booked {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-pending {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    /* ===== HOMESTAY CARD ===== */
+    .homestay-card {
+      background: white;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      cursor: pointer;
+      position: relative;
+    }
+    .homestay-card:hover {
+      transform: translateY(-8px);
+      box-shadow: var(--shadow-lg);
+    }
+    .homestay-card .image-wrap {
+      height: 260px;
+      overflow: hidden;
+      position: relative;
+      background: linear-gradient(135deg, #d4d4d4, #e8e8e8);
+    }
+    .homestay-card .image-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .homestay-card:hover .image-wrap img {
+      transform: scale(1.06);
+    }
+    .homestay-card .image-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.2));
+      pointer-events: none;
+    }
+    .homestay-card .content {
+      padding: 24px 24px 20px;
+    }
+
+    /* ===== SEARCH BAR ===== */
+    .search-bar {
+      background: var(--glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 16px;
+      padding: 8px;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+    }
+    .search-bar input,
+    .search-bar select {
+      background: transparent;
+      border: none;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #1e293b;
+      width: 100%;
+      font-family: "Poppins", sans-serif;
+    }
+    .search-bar input:focus,
+    .search-bar select:focus {
+      outline: none;
+    }
+    .search-bar input::placeholder {
+      color: #94a3b8;
+    }
+
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
     .modal-overlay.active { display: flex; }
-    .modal-box { background: white; max-width: 480px; width: 100%; border-radius: 2px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; animation: modalIn 0.25s ease; }
-    @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-    .modal-header { padding: 20px 24px 0 24px; display: flex; align-items: center; justify-content: space-between; }
-    .modal-header h3 { font-family: "Poppins", sans-serif; font-weight: 700; font-size: 18px; color: #212121; margin: 0; }
-    .modal-close { background: none; border: none; font-size: 24px; color: #9ca3af; cursor: pointer; padding: 4px; line-height: 1; }
-    .modal-body { padding: 12px 24px 20px 24px; font-size: 14px; line-height: 1.6; color: #4b5563; }
-    .modal-footer { padding: 12px 24px 20px 24px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid #f3f4f6; }
-    .modal-footer .btn { padding: 8px 20px; border-radius: 2px; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; border: none; cursor: pointer; font-family: "Poppins", sans-serif; }
+    .modal-box {
+      background: white;
+      max-width: 480px;
+      width: 100%;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      animation: modalIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.95) translateY(20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-header {
+      padding: 20px 24px 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-header h3 {
+      font-family: "Poppins", sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      color: #212121;
+      margin: 0;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #9ca3af;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      transition: color 0.2s;
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-close:hover {
+      color: #212121;
+      background: #f1f5f9;
+    }
+    .modal-body {
+      padding: 16px 24px 20px 24px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #4b5563;
+    }
+    .modal-body input {
+      width: 100%;
+      margin-top: 10px;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 14px;
+      font-family: "Poppins", sans-serif;
+      transition: border-color 0.2s;
+    }
+    .modal-body input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+    .modal-footer {
+      padding: 12px 24px 20px 24px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      border-top: 1px solid #f1f5f9;
+    }
+    .modal-footer .btn {
+      padding: 10px 24px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: "Poppins", sans-serif;
+    }
+    .modal-footer .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    .modal-footer .btn-primary:hover {
+      background: var(--primary-light);
+    }
+    .modal-footer .btn-secondary {
+      background: #f1f5f9;
+      color: #475569;
+    }
+    .modal-footer .btn-secondary:hover {
+      background: #e2e8f0;
+    }
+    .modal-footer .btn-danger {
+      background: #dc2626;
+      color: white;
+    }
+    .modal-footer .btn-danger:hover {
+      background: #b91c1c;
+    }
+    .modal-footer .btn-success {
+      background: #16a34a;
+      color: white;
+    }
+    .modal-footer .btn-success:hover {
+      background: #15803d;
+    }
+
+    /* ===== THANK YOU MODAL ===== */
+    .thankyou-modal .modal-box {
+      max-width: 420px;
+      text-align: center;
+    }
+    .thankyou-modal .modal-body {
+      padding: 32px 24px 24px 24px;
+    }
+    .thankyou-modal .thankyou-icon {
+      font-size: 64px;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .thankyou-modal .thankyou-title {
+      font-family: "Poppins", sans-serif;
+      font-weight: 700;
+      font-size: 22px;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    .thankyou-modal .thankyou-message {
+      font-size: 14px;
+      color: #4b5563;
+      line-height: 1.7;
+    }
+    .thankyou-modal .booking-id-display {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--primary);
+      font-family: monospace;
+      letter-spacing: 1px;
+      background: #f1f5f9;
+      padding: 8px 20px;
+      border-radius: 12px;
+      display: inline-block;
+      margin: 8px 0;
+      border: 2px dashed var(--accent);
+    }
+
+    /* ===== FLOATING WHATSAPP ===== */
+    .floating-wa {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 999;
+      background: #25D366;
+      color: white;
+      border-radius: 999px;
+      padding: 14px 22px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      box-shadow: 0 10px 30px rgba(37, 211, 102, 0.4);
+      transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+    }
+    .floating-wa:hover {
+      transform: translateY(-4px) scale(1.05);
+      box-shadow: 0 16px 40px rgba(37, 211, 102, 0.5);
+    }
+
+    /* ===== GUEST NAV ===== */
+    .guest-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    /* ===== NAV LINKS ===== */
+    .setsail-nav-link {
+      position: relative;
+      font-family: "Poppins", sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: #212121;
+      padding: 8px 0;
+      cursor: pointer;
+      background: none;
+      border: none;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .setsail-nav-link::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: -2px;
+      width: 0;
+      height: 2.5px;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .setsail-nav-link:hover::after,
+    .setsail-nav-link.active::after {
+      width: 100%;
+    }
+    .setsail-nav-link:hover {
+      color: var(--primary);
+    }
+    .setsail-nav-link.agent {
+      color: #7c3aed;
+      border: 1px solid #7c3aed;
+      padding: 6px 16px;
+      border-radius: 999px;
+    }
+    .setsail-nav-link.agent::after { display: none; }
+    .setsail-nav-link.agent:hover {
+      background: #7c3aed;
+      color: white;
+    }
+
+    /* ===== MOBILE NAV ===== */
+    #mobileNav {
+      position: fixed;
+      top: 80px;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: var(--shadow-lg);
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      transform: translateY(-10px);
+      transition: max-height 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                  opacity 0.4s ease,
+                  transform 0.4s ease;
+    }
+    #mobileNav.open {
+      max-height: 80vh;
+      opacity: 1;
+      overflow-y: auto;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    #mobileNav a,
+    #mobileNav button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 14px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #212121;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      transition: background 0.2s, color 0.2s;
+      background: transparent;
+    }
+    #mobileNav a:hover,
+    #mobileNav button:hover {
+      background: #f8f5f0;
+      color: var(--accent);
+    }
+    #mobileNav .mobile-agent-link {
+      color: #7c3aed !important;
+      border: 1px solid #7c3aed !important;
+      margin: 8px 16px;
+      padding: 10px 16px !important;
+      border-radius: 999px !important;
+      width: auto !important;
+      display: inline-block !important;
+    }
+    #mobileNav .mobile-agent-link:hover {
+      background: #7c3aed !important;
+      color: white !important;
+    }
+    #mobileNav .guest-btn {
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      background: transparent;
+      text-align: center;
+      border-radius: 999px;
+      padding: 12px 24px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      width: 100%;
+    }
+    #mobileNav .guest-btn-primary {
+      background: var(--accent);
+      color: white;
+      border: none;
+    }
+    #mobileNav .guest-btn:hover {
+      background: var(--accent);
+      color: white;
+    }
+    #mobileNav .guest-btn-primary:hover {
+      background: var(--accent-hover);
+    }
+    #mobileNav .profile-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--primary);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 8px;
+    }
+    #mobileNav .profile-card .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: white;
+      flex-shrink: 0;
+    }
+    #mobileNav .profile-card .info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+    #mobileNav .profile-card .name {
+      font-weight: 700;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #mobileNav .profile-card .sub {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    #mobileNav .profile-card .logout-btn {
+      width: auto !important;
+      display: inline-block !important;
+      flex-shrink: 0;
+      font-size: 10px;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      border: none;
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: background 0.2s;
+    }
+    #mobileNav .profile-card .logout-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+    #mobileNav .my-bookings-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: #212121;
+      color: white;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 16px;
+      border-radius: 12px;
+      transition: background 0.2s;
+    }
+    #mobileNav .my-bookings-btn:hover {
+      background: #333;
+    }
+
+    /* ===== CALENDAR ===== */
+    .calendar-mini {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .calendar-day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px solid transparent;
+      cursor: default;
+      transition: all 0.2s;
+    }
+    .calendar-day.available {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+      color: #166534;
+    }
+    .calendar-day.booked {
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #991b1b;
+      text-decoration: line-through;
+      opacity: 0.7;
+    }
+    .calendar-day.today {
+      border-color: var(--primary);
+      border-width: 2px;
+      font-weight: 700;
+    }
+    .calendar-day.empty {
+      background: transparent;
+      border-color: transparent;
+    }
+    .calendar-day.past {
+      background: #f8fafc;
+      border-color: #e2e8f0;
+      color: #94a3b8;
+    }
+    .calendar-nav-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .calendar-nav-btn:hover {
+      background: var(--primary-light);
+      transform: scale(1.05);
+    }
+    .calendar-month-label {
+      font-weight: 600;
+      font-size: 14px;
+      color: #212121;
+    }
+    .calendar-legend {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-size: 10px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+    .calendar-legend span {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .calendar-legend .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+    .calendar-legend .dot.green {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+    }
+    .calendar-legend .dot.red {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+    .calendar-legend .dot.today-dot {
+      border: 2px solid var(--primary);
+      background: white;
+      width: 12px;
+      height: 12px;
+    }
+
+    /* ===== HERO ===== */
+    .hero-section {
+      position: relative;
+      width: 100%;
+      min-height: 680px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hero-section .hero-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .hero-section .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.15) 100%);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      #desktopNav { display: none !important; }
+      #mobileMenuBtn { display: flex !important; }
+      .hero-section { min-height: 580px; }
+      .hero-section h1 { font-size: 32px !important; }
+      .search-bar { padding: 12px; border-radius: 12px; }
+      .search-bar .grid { grid-template-columns: 1fr !important; gap: 8px; }
+      .floating-wa { padding: 12px 16px; font-size: 11px; }
+      .floating-wa span { display: none; }
+      .homestay-card .image-wrap { height: 200px; }
+      .modal-box { max-width: 100%; margin: 10px; border-radius: 16px; }
+    }
+    @media (max-width: 480px) {
+      .hero-section { min-height: 480px; }
+      .hero-section h1 { font-size: 26px !important; }
+      .btn-primary, .btn-accent { padding: 12px 20px; font-size: 10px; }
+    }
   </style>
 </head>
 <body>
 
-<!-- ===== FLOATING WHATSAPP BUTTON ===== -->
-<a href="https://wa.me/60123456789?text=Hi!%20I'm%20looking%20for%20a%20homestay%20in%20Kundasang." target="_blank" rel="noopener noreferrer" class="floating-wa-btn" aria-label="Customer Support via WhatsApp">
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.46 2.13 11.94c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.79 9.79 0 0 0 4.68 1.19h.01c5.46 0 9.91-4.46 9.91-9.94a9.86 9.86 0 0 0-2.8-6.96zm-7.01 15.1h-.01a8.1 8.1 0 0 1-4.13-1.13l-.3-.18-3.12.82.83-3.04-.2-.31a8.18 8.18 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 0 1 2.41 5.83c0 4.54-3.7 8.23-8.24 8.23zm4.52-6.16c-.25-.12-1.47-.73-1.7-.81-.23-.08-.4-.12-.57.12s-.66.81-.81.98-.3.19-.55.07a6.7 6.7 0 0 1-1.97-1.22 7.38 7.38 0 0 1-1.36-1.69c-.14-.25-.01-.38.11-.5.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43s-.57-1.38-.78-1.89c-.2-.49-.41-.42-.57-.43h-.49c-.17 0-.43.06-.66.31s-.87.85-.87 2.08.89 2.41 1.01 2.58c.12.17 1.75 2.67 4.23 3.75.59.25 1.05.4 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.2-.58.2-1.07.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
-  <span>Help / Inquiries</span>
+<!-- ===== FLOATING WHATSAPP ===== -->
+<a href="https://wa.me/60123456789?text=Hi!%20I'm%20looking%20for%20a%20homestay%20in%20Kundasang."
+   target="_blank" rel="noopener noreferrer"
+   class="floating-wa"
+   aria-label="Customer Support via WhatsApp">
+  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="white">
+    <path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.46 2.13 11.94c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.79 9.79 0 0 0 4.68 1.19h.01c5.46 0 9.91-4.46 9.91-9.94a9.86 9.86 0 0 0-2.8-6.96z"/>
+  </svg>
+  <span>Help</span>
 </a>
 
 <!-- ===== HEADER ===== -->
-<header class="h-[80px] bg-white shadow-sm sticky top-0 z-50">
+<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
+
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
-      <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+      <img src="/logo.svg" alt="Kundasang Homestay"
+           class="w-12 h-12 md:w-16 md:h-16"
+           onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
       <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
-        KUNDASANG<span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay</span>
+        KUNDASANG
+        <span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay</span>
         <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Verified • Homestays</div>
       </div>
     </div>
+
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
       <a href="/" id="navHome" class="setsail-nav-link active">Home</a>
-      <a href="/list.html" id="navList" class="nav-link-list">List Your Homestay</a>
+      <a href="/list.html" id="navList" class="setsail-nav-link">List Your Homestay</a>
       <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
-        <a href="/login.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] border border-[#3FD0D4] text-[#3FD0D4] hover:bg-[#3FD0D4] hover:text-white transition-colors sharp flex items-center">Login</a>
-        <a href="/register.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider px-6 h-[38px] bg-[#3FD0D4] text-white hover:bg-[#2bbfc4] transition-colors sharp flex items-center">Register</a>
+        <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;">Login</a>
+        <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;">Register</a>
       </div>
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
-        <a href="/mybookings.html" class="font-poppins font-600 text-[12px] uppercase tracking-wider text-[#212121] hover:text-[#3FD0D4]">My Bookings</a>
-        <div class="flex items-center gap-2 bg-[#0F382E] text-white px-4 h-[38px] sharp">
+        <a href="/mybookings.html" class="setsail-nav-link" style="font-size:12px;">My Bookings</a>
+        <div class="flex items-center gap-2 bg-[#0F382E] text-white px-4 h-[38px] rounded-full">
           <div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div>
           <span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span>
-          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-2 py-1 sharp uppercase tracking-wider">Logout</button>
+          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider hover:bg-white/30 transition-colors">Logout</button>
         </div>
       </div>
     </nav>
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 sharp bg-[#212121] text-white items-center justify-center" aria-label="Toggle Navigation"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()"
+            class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors"
+            aria-label="Toggle Navigation">
+      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
   </div>
 </header>
 
@@ -206,135 +945,7 @@
   </div>
 </div>
 
-<!-- ===== HERO ===== -->
-<section id="hero" class="relative w-full h-[640px] overflow-hidden">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu Sunrise" class="absolute inset-0 w-full h-full object-cover" />
-  <div class="absolute inset-0 bg-black/30"></div>
-  <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/30"></div>
-  
-  <div class="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
-    <div class="font-satisfy text-[#3FD0D4] text-[32px] md:text-[38px] leading-none mb-3 drop-shadow">Breathe The Mountain Air</div>
-    <h1 class="font-poppins font-700 text-white text-[38px] md:text-[62px] leading-[1.0] tracking-[-1px] drop-shadow-md">Handpicked Homestays <br class="hidden md:block"/>in Kundasang</h1>
-    <p class="mt-4 font-poppins font-500 text-white/90 text-[14px] md:text-[16px] max-w-[620px] leading-[1.6] drop-shadow">Verified local hosts, unobstructed Mount Kinabalu views, steamboat amenities & guaranteed safe FPX payments.</p>
-    
-    <!-- Hero Integrated Search Box -->
-    <div class="mt-8 bg-white/95 backdrop-blur p-4 md:p-5 sharp shadow-2xl w-full max-w-[920px] text-left border border-white/40">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-        <div>
-          <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Area / Location</label>
-          <select id="filterLocation" class="w-full bg-zinc-50 border border-zinc-300 sharp px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#3FD0D4]">
-            <option value="all">📍 All Kundasang Areas</option>
-            <option value="Bundu Tuhan">Bundu Tuhan</option>
-            <option value="Desa">Near Desa Cattle Farm</option>
-            <option value="Mesilau">Mesilau</option>
-            <option value="Pekan Kundasang">Pekan Kundasang</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Check-in</label>
-          <input id="checkin" type="date" class="w-full bg-zinc-50 border border-zinc-300 sharp px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#3FD0D4]" onchange="renderGrid()" />
-        </div>
-        <div>
-          <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Check-out</label>
-          <input id="checkout" type="date" class="w-full bg-zinc-50 border border-zinc-300 sharp px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#3FD0D4]" onchange="renderGrid()" />
-        </div>
-        <div>
-          <button onclick="renderGrid(); document.getElementById('homePage')?.scrollIntoView({behavior:'smooth'})" class="w-full bg-[#0F382E] hover:bg-[#1a4d3e] text-white sharp py-3 text-xs font-700 uppercase tracking-widest transition-all">
-            Find Available
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===== MAIN HOMESTAY LISTINGS ===== -->
-<main id="homePage" class="page-content max-w-[1300px] mx-auto px-6 lg:px-8 pt-16 pb-16">
-  <div class="text-center mb-10 animate-on-scroll">
-    <div class="font-satisfy text-[#3FD0D4] text-[30px] leading-none">Stay with Confidence</div>
-    <h2 class="font-poppins font-700 text-[32px] md:text-[38px] text-[#212121] tracking-[-0.8px] mt-1">Verified Mountain Accommodations</h2>
-    <div class="w-[48px] h-[2px] bg-[#3FD0D4] mx-auto mt-3"></div>
-    <p class="font-poppins text-[13px] text-[#212121]/60 max-w-[540px] mx-auto mt-3 leading-[1.6]">Every property is inspected. Zero booking scams with integrated FPX direct settlement.</p>
-    
-    <div class="mt-4 flex items-center justify-center gap-2 flex-wrap">
-      <div id="pendingInfo" class="text-[11px] bg-amber-50 border border-amber-200 px-3 py-1.5 sharp hidden font-600 text-amber-800">Pending: <span id="pendingCount">0</span> waiting approval</div>
-      <div class="text-[11px] bg-emerald-50 border border-emerald-200 px-3 py-1.5 sharp font-600 text-emerald-800 flex items-center gap-1">
-        <span>🔒 ToyyibPay FPX Protected</span>
-      </div>
-    </div>
-  </div>
-
-  <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
-</main>
-
-<!-- ===== DETAIL MODAL ===== -->
-<div id="detailModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm p-3 md:p-5 overflow-y-auto">
-  <div class="max-w-[900px] mx-auto card overflow-hidden mt-6 md:mt-10">
-    <div id="detailContent" class="p-5 md:p-6"></div>
-    <div class="p-5 border-t flex flex-col md:flex-row justify-between items-center gap-3 bg-zinc-50">
-      <button onclick="closeDetail()" class="px-5 py-2.5 sharp border bg-white text-xs uppercase tracking-wider font-600 w-full md:w-auto">Back</button>
-      <div class="flex gap-3 w-full md:w-auto justify-end">
-        <button onclick="chatWithOwner()" class="btn-whatsapp w-full md:w-auto">💬 Inquire on WhatsApp</button>
-        <button onclick="openBooking()" class="btn-primary w-full md:w-auto">Book Now</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ===== BOOKING MODAL ===== -->
-<div id="bookingModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm p-3 md:p-5 overflow-y-auto">
-  <div class="max-w-[520px] mx-auto card p-6 mt-10">
-    <h3 class="text-2xl font-bold font-poppins text-[#212121]">Reserve Homestay</h3>
-    <p class="text-xs text-zinc-500">Pick check-in and check-out dates to compute exact total.</p>
-    <div class="mt-4 grid grid-cols-2 gap-3">
-      <div><label class="text-xs font-semibold">Check-in</label><input id="bookingCheckin" type="date" class="w-full mt-1 border sharp px-3 py-2 text-sm" onchange="updateBookingPrice()"/></div>
-      <div><label class="text-xs font-semibold">Check-out</label><input id="bookingCheckout" type="date" class="w-full mt-1 border sharp px-3 py-2 text-sm" onchange="updateBookingPrice()"/></div>
-    </div>
-    <div class="mt-3 text-xs">Total Duration: <span id="bookingNights" class="font-bold text-[#0F382E]">1</span> Nights</div>
-    <div id="bookingSummary" class="mt-3 bg-zinc-50 p-4 sharp text-sm border"></div>
-    <div class="bg-red-50 border border-red-200 p-3 sharp text-xs text-red-800 mt-3">⚠️ Official booking protection: All payments are processed through ToyyibPay FPX online banking. Never transfer to private individual accounts.</div>
-    <div id="guestDetectedBanner" class="hidden mt-3 bg-green-50 border border-green-200 p-3 sharp text-xs text-green-800"></div>
-    <div class="mt-4 space-y-3">
-      <input id="guestName" placeholder="Your Full Name *" class="w-full border sharp px-4 py-2.5 text-sm"/>
-      <input id="guestEmail" placeholder="Email Address (For FPX Receipt) *" class="w-full border sharp px-4 py-2.5 text-sm"/>
-      <input id="guestPhone" placeholder="WhatsApp Phone (e.g. 0123456789) *" class="w-full border sharp px-4 py-2.5 text-sm"/>
-    </div>
-    <div class="mt-5 flex gap-3">
-      <button onclick="closeBooking()" class="flex-1 border sharp py-3 text-xs uppercase tracking-wider font-600 bg-white">Cancel</button>
-      <button onclick="processPayment()" class="flex-1 btn-primary py-3">Pay via FPX</button>
-    </div>
-    <p id="toyyibpayNote" class="mt-3 text-[11px] text-zinc-500 text-center"></p>
-  </div>
-</div>
-
-<!-- ===== UNIFIED THANK YOU & RECEIPT MODAL ===== -->
-<div id="thankyouModal" class="modal-overlay thankyou-modal">
-  <div class="modal-box max-w-[500px]">
-    <div class="modal-body text-center p-6 md:p-8">
-      <div class="w-16 h-16 bg-emerald-100 sharp flex items-center justify-center mx-auto mb-3 text-3xl">🎉</div>
-      <div class="font-poppins font-800 text-[22px] text-[#0F382E]">Booking Confirmed!</div>
-      <p class="text-xs text-zinc-500 mt-1">Welcome to Kundasang! Your reservation is securely logged.</p>
-      
-      <div class="bg-[#F8F5F0] sharp p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
-        <div class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Booking ID:</span><span id="thankyouBookingId" class="font-bold text-red-600 text-sm font-mono">-</span></div>
-        <div id="receiptNightsRow" class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Dates:</span><span id="thankyouDates" class="font-semibold text-zinc-800">-</span></div>
-        <div id="receiptTotalRow" class="flex justify-between"><span class="text-zinc-500">Total Paid:</span><span id="thankyouTotal" class="font-bold text-emerald-800 text-base">-</span></div>
-      </div>
-
-      <p class="text-[12px] text-zinc-600 mt-4 leading-relaxed">
-        Please tap below to send the official booking confirmation directly to the homestay host via WhatsApp.
-      </p>
-    </div>
-    <div class="modal-footer justify-center bg-zinc-50 flex-col sm:flex-row gap-2 border-t px-6 py-4">
-      <button onclick="whatsappOwnerFromThankYou()" class="btn-whatsapp w-full sm:w-auto justify-center">
-        💬 Send Receipt to Host on WhatsApp
-      </button>
-      <button onclick="closeThankYouAndReload()" class="btn-primary w-full sm:w-auto justify-center">Done</button>
-    </div>
-  </div>
-</div>
-
-<!-- ===== CUSTOM PROMPT / NOTICE MODAL ===== -->
+<!-- ===== CUSTOM MODAL ===== -->
 <div id="customModal" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-header">
@@ -348,45 +959,203 @@
   </div>
 </div>
 
+<!-- ===== THANK YOU MODAL ===== -->
+<div id="thankyouModal" class="modal-overlay thankyou-modal">
+  <div class="modal-box">
+    <div class="modal-body">
+      <span class="thankyou-icon">🏔️</span>
+      <div class="thankyou-title">Booking Confirmed!</div>
+      <div class="thankyou-message">
+        Welcome to Kundasang! Your reservation is securely logged.
+        <br><br>
+        <strong>Booking ID:</strong><br>
+        <span class="booking-id-display" id="thankyouBookingId">-</span>
+        <br><br>
+        Please save this ID for your reference.
+        <br>
+        <span style="font-size:12px;color:#9ca3af;">View your bookings in "My Bookings".</span>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:center; border-top: none; padding-top: 0; flex-wrap:wrap; gap:10px;">
+      <button onclick="whatsappOwnerFromThankYou()" class="btn-whatsapp" style="padding:12px 24px; font-size:12px;">
+        💬 WhatsApp Owner
+      </button>
+      <button onclick="closeThankYouAndReload()" class="btn-primary" style="padding:12px 40px;">OK, Got It</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== HERO SECTION ===== -->
+<section class="hero-section">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg"
+       alt="Mount Kinabalu at sunset"
+       class="hero-bg" />
+  <div class="hero-overlay"></div>
+
+  <div class="relative z-10 max-w-[1100px] w-full px-6 text-center">
+    <div class="font-satisfy text-[#3FD0D4] text-[34px] md:text-[42px] leading-none mb-4 drop-shadow-lg">Breathe The Mountain Air</div>
+    <h1 class="font-poppins font-700 text-white text-[40px] md:text-[68px] leading-[1.0] tracking-[-1px] drop-shadow-xl">
+      Handpicked Homestays
+      <br class="hidden md:block" />
+      <span style="color: #3FD0D4;">in Kundasang</span>
+    </h1>
+    <p class="mt-5 font-poppins font-500 text-white/90 text-[15px] md:text-[18px] max-w-[640px] mx-auto leading-[1.7] drop-shadow-md">
+      Verified local hosts, unobstructed Mount Kinabalu views, steamboat amenities & guaranteed safe FPX payments.
+    </p>
+
+    <!-- Search Bar -->
+    <div class="search-bar mt-8 w-full max-w-[920px] mx-auto">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+        <select id="filterLocation" class="bg-transparent border-none px-4 py-3 text-sm font-medium text-[#1e293b] focus:outline-none">
+          <option value="all">📍 All Areas</option>
+          <option value="Bundu Tuhan">Bundu Tuhan</option>
+          <option value="Desa">Desa Cattle Farm</option>
+          <option value="Mesilau">Mesilau</option>
+          <option value="Pekan Kundasang">Pekan Kundasang</option>
+        </select>
+        <input id="checkin" type="date" class="bg-transparent border-none px-4 py-3 text-sm font-medium text-[#1e293b] focus:outline-none" />
+        <input id="checkout" type="date" class="bg-transparent border-none px-4 py-3 text-sm font-medium text-[#1e293b] focus:outline-none" />
+        <button onclick="renderGrid(); document.getElementById('homePage')?.scrollIntoView({behavior:'smooth'})"
+                class="bg-[#0F382E] hover:bg-[#1a4d3e] text-white rounded-xl py-3 px-6 font-700 text-sm uppercase tracking-wider transition-all shadow-lg hover:shadow-xl">
+          Find Available
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== MAIN CONTENT ===== -->
+<main id="homePage" class="page-content max-w-[1300px] mx-auto px-6 lg:px-8 pt-16 pb-16">
+  <div class="text-center mb-12 animate-on-scroll">
+    <div class="font-satisfy text-[#3FD0D4] text-[32px] leading-none">Stay with Confidence</div>
+    <h2 class="font-poppins font-700 text-[34px] md:text-[42px] text-[#212121] tracking-[-0.8px] mt-1">Verified Mountain Accommodations</h2>
+    <div class="w-[60px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-4 rounded-full"></div>
+    <p class="font-poppins text-[14px] text-[#212121]/60 max-w-[560px] mx-auto mt-4 leading-[1.7]">
+      Every property is inspected. Zero booking scams with integrated FPX direct settlement.
+    </p>
+    <div class="mt-5 flex items-center justify-center gap-3 flex-wrap">
+      <div id="pendingInfo" class="text-[11px] bg-amber-50 border border-amber-200 px-4 py-1.5 rounded-full hidden font-600 text-amber-800">Pending: <span id="pendingCount">0</span> waiting approval</div>
+      <div class="text-[11px] bg-emerald-50 border border-emerald-200 px-4 py-1.5 rounded-full font-600 text-emerald-800 flex items-center gap-1">
+        🔒 ToyyibPay FPX Protected
+      </div>
+    </div>
+  </div>
+
+  <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+</main>
+
 <!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
-  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-16 grid grid-cols-1 md:grid-cols-4 gap-12">
     <div>
       <div class="flex items-center gap-3">
-        <div class="w-[32px] h-[32px] sharp bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div>
+        <div class="w-[32px] h-[32px] rounded-full bg-[#3FD0D4] flex items-center justify-center text-white font-800">K</div>
         <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div>
       </div>
-      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
+      <p class="text-[13px] leading-[1.7] mt-4 text-white/50 max-w-[260px] font-poppins">
+        Made for Locals by Local — Kundasang version. Mountain homestays with Kinabalu soul.
+      </p>
     </div>
     <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Explore</div>
       <div class="space-y-2 text-[13px] font-poppins">
-        <a href="/" class="hover:text-white block">Browse Homestays</a>
-        <a href="/list.html" class="hover:text-white block">Host Registration</a>
-        <a href="/about.html" class="hover:text-white block">About Us</a>
+        <a href="/" class="hover:text-white block transition-colors">Homestays</a>
+        <a href="/list.html" class="hover:text-white block transition-colors">List Property</a>
+        <a href="/about.html" class="hover:text-white block transition-colors">About</a>
       </div>
     </div>
     <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Support</div>
       <div class="space-y-2 text-[13px] font-poppins">
-        <div>✓ Host Physical Verification</div>
-        <div>✓ ToyyibPay FPX Online Protection</div>
-        <div>✓ Anti-Scam Booking Guarantee</div>
+        <div>Host Guidelines</div>
+        <div>ToyyibPay FPX Secured</div>
       </div>
     </div>
     <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
-      <p class="text-[12px] text-white/50 font-poppins">Average temperature: 18°C – 23°C. Remember to bring warm jackets!</p>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Newsletter</div>
+      <p class="text-[12px] text-white/50 font-poppins">Get mountain deals</p>
     </div>
   </div>
   <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
-    © 2026 Kundasang Homestay. All rights reserved.
+    © 2026 Kundasang Homestay — All payment is secured by Toyyibpay
   </div>
 </footer>
 
 <!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
+// =============================================================
+// CUSTOM MODAL SYSTEM (FIXED - no "cancelled" errors)
+// =============================================================
+function showModal(title, message, buttons) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('customModal');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const footerEl = document.getElementById('modalFooter');
+
+    titleEl.textContent = title || 'Notice';
+    bodyEl.innerHTML = typeof message === 'string' ? message : '';
+    footerEl.innerHTML = '';
+
+    buttons.forEach(btn => {
+      const el = document.createElement('button');
+      el.textContent = btn.label;
+      el.className = `btn ${btn.class || 'btn-primary'}`;
+      el.onclick = () => {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+        if (btn.value !== undefined) resolve(btn.value);
+        else resolve(true);
+      };
+      footerEl.appendChild(el);
+    });
+
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  });
+}
+
+function closeModal() {
+  const overlay = document.getElementById('customModal');
+  overlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+function modalConfirm() {
+  const overlay = document.getElementById('customModal');
+  overlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+function showAlert(title, message) {
+  return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
+}
+
+function showConfirm(title, message) {
+  return showModal(title, message, [
+    { label: 'Cancel', class: 'btn-secondary', value: false },
+    { label: 'Confirm', class: 'btn-primary', value: true }
+  ]);
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('customModal');
+    if (overlay.classList.contains('active')) {
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  }
+});
+
+document.getElementById('customModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    this.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+});
+
 // =============================================================
 // SECURE HELPER
 // =============================================================
@@ -413,97 +1182,18 @@ function safeHTML(html) {
 }
 
 // =============================================================
-// MODAL SYSTEM
+// THANK YOU MODAL
 // =============================================================
-let modalResolve = null;
-let modalReject = null;
-
-function showModal(title, message, buttons) {
-  return new Promise((resolve, reject) => {
-    const overlay = document.getElementById('customModal');
-    const titleEl = document.getElementById('modalTitle');
-    const bodyEl = document.getElementById('modalBody');
-    const footerEl = document.getElementById('modalFooter');
-
-    titleEl.textContent = title || 'Notice';
-    bodyEl.innerHTML = typeof message === 'string' ? message : '';
-    footerEl.innerHTML = '';
-
-    buttons.forEach(btn => {
-      const el = document.createElement('button');
-      el.textContent = btn.label;
-      el.className = `btn ${btn.class || 'btn-primary'}`;
-      el.onclick = () => {
-        closeModal();
-        if (btn.value !== undefined) resolve(btn.value);
-        else resolve(true);
-      };
-      footerEl.appendChild(el);
-    });
-
-    modalResolve = resolve;
-    modalReject = reject;
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  });
-}
-
-function closeModal() {
-  const overlay = document.getElementById('customModal');
-  if (overlay) overlay.classList.remove('active');
-  document.body.style.overflow = '';
-  if (modalReject) modalReject('cancelled');
-}
-
-function modalConfirm() {
-  closeModal();
-  if (modalResolve) modalResolve(true);
-}
-
-function showAlert(title, message) {
-  return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
-}
-
-function showConfirm(title, message) {
-  return showModal(title, message, [
-    { label: 'Cancel', class: 'btn-secondary', value: false },
-    { label: 'Confirm', class: 'btn-primary', value: true }
-  ]);
-}
-
-// ESC Key Listener
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    closeModal();
-    const tModal = document.getElementById('thankyouModal');
-    if (tModal && tModal.classList.contains('active')) tModal.classList.remove('active');
-  }
-});
-
-// =============================================================
-// THANK YOU & RECEIPT MODAL LOGIC
-// =============================================================
+let lastBookingId = "";
 let lastBookingDetails = null;
 
-function showThankYouModal(bookingId, customBookingData = null) {
+function showThankYouModal(bookingId, customBookingData) {
   const overlay = document.getElementById('thankyouModal');
   const idEl = document.getElementById('thankyouBookingId');
-  const datesEl = document.getElementById('thankyouDates');
-  const totalEl = document.getElementById('thankyouTotal');
-  
-  const targetId = bookingId || lastBookingId || 'KDH-CONFIRMED';
-  if (idEl) idEl.textContent = targetId;
-
-  // Hydrate visual fields
-  const b = customBookingData || bookings.find(x => String(x.id) === String(targetId)) || window.lastCreatedBooking;
-  if (b) {
-    lastBookingDetails = b;
-    if (datesEl) datesEl.textContent = `${b.checkin || ''} → ${b.checkout || ''} (${b.nights || 1}N)`;
-    if (totalEl) totalEl.textContent = `RM ${(parseFloat(b.total) || 0).toFixed(2)}`;
-  }
-
+  if (idEl) idEl.textContent = bookingId || lastBookingId || 'N/A';
   if (overlay) overlay.classList.add('active');
   document.body.style.overflow = 'hidden';
+  if (customBookingData) lastBookingDetails = customBookingData;
 }
 
 function closeThankYouAndReload() {
@@ -515,8 +1205,7 @@ function closeThankYouAndReload() {
 
 function whatsappOwnerFromThankYou() {
   const bookingId = document.getElementById('thankyouBookingId')?.textContent || lastBookingId;
-  let booking = lastBookingDetails || bookings.find(b => String(b.id) === String(bookingId)) || window.lastCreatedBooking;
-
+  let booking = lastBookingDetails;
   if (!booking && selectedHomestay) {
     booking = {
       id: bookingId,
@@ -530,56 +1219,39 @@ function whatsappOwnerFromThankYou() {
       total: calculatePrice(selectedHomestay.ownerPrice, 1).total
     };
   }
-
   if (!booking) {
-    showAlert('Notice', 'Booking details found in your "My Bookings" profile tab.');
+    showAlert('Notice', 'Booking details found in "My Bookings".');
     return;
   }
-
-  let ownerWhatsapp = booking.ownerWhatsapp || (selectedHomestay ? selectedHomestay.whatsapp : '');
-  let phone = String(ownerWhatsapp).replace(/[^0-9]/g, '');
-  if (!phone || phone.length < 9) phone = '60123456789'; // Fallback
+  let phone = String(booking.ownerWhatsapp || selectedHomestay?.whatsapp || '').replace(/[^0-9]/g, '');
+  if (!phone || phone.length < 9) phone = '60123456789';
   if (phone.startsWith('0')) phone = '60' + phone.substring(1);
 
   const message = `🆕 *New Confirmed Booking!* 🏔️\n\n` +
     `*Booking ID:* ${booking.id || bookingId}\n` +
     `*Homestay:* ${booking.homestay || selectedHomestay?.name || 'Kundasang Homestay'}\n` +
-    `*Guest Name:* ${booking.guestName || 'Guest'}\n` +
+    `*Guest:* ${booking.guestName || 'Guest'}\n` +
     `*WhatsApp:* ${booking.guestPhone || '-'}\n` +
-    `*Dates:* ${booking.checkin} to ${booking.checkout} (${booking.nights} nights)\n` +
+    `*Dates:* ${booking.checkin} → ${booking.checkout} (${booking.nights} nights)\n` +
     `*Status:* Paid via FPX (ToyyibPay)\n\n` +
-    `Please assist with check-in instructions. Thank you!`;
-
+    `Please assist with check-in. Thank you!`;
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
 }
 
 // =============================================================
-// CONFIG & CONSTANTS
+// CONFIG & STATE
 // =============================================================
 const CONFIG = {
   platformFeePercent: 11,
   toyyibpay: {
-    sandbox: true,
-    apiKey: "YOUR_TOYYIBPAY_KEY",
-    collectionId: "YOUR_COLLECTION_ID",
-    xSignature: "YOUR_X_SIGNATURE",
+    enabled: false,
     gatewayFee: 1,
-    splitEnabled: true,
   }
 };
-
-const CLOUD_ENABLED = true;
 const API_BASE = "/api";
 
-async function fetchWithAuth(url, options = {}) {
-  const token = sessionStorage.getItem('kd_admin_token') || '';
-  const headers = options.headers || {};
-  if (token) headers['Authorization'] = 'Bearer ' + token;
-  return fetch(url, { ...options, headers });
-}
-
 // =============================================================
-// DEMO HOMESTAY SEEDS
+// DEMO HOMESTAYS
 // =============================================================
 const DEMO_HOMESTAYS = [
   {
@@ -623,53 +1295,50 @@ let deletedDemoIds = JSON.parse(localStorage.getItem("kd_deleted_demo") || "[]")
 let demoBlockedMap = JSON.parse(localStorage.getItem("kd_demo_blocked") || "{}");
 let storedApproved = JSON.parse(localStorage.getItem("kd_approved") || "[]");
 let demoOverrides = JSON.parse(localStorage.getItem("kd_demo_overrides") || "{}");
-
-let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(d.id)).map(d => {
-  let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
-  if (demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
-  return merged;
-});
-
-let allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
+let allHomestays = [...DEMO_HOMESTAYS, ...storedApproved];
 let homestays = [...allHomestays];
 let bookings = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
 let selectedHomestay = null;
 let availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}");
-
-// =============================================================
-// GUEST SESSION SYSTEM
-// =============================================================
 let currentGuest = null;
+
 try {
   const saved = localStorage.getItem('kd_guest');
   if (saved) currentGuest = JSON.parse(saved);
 } catch(e) { currentGuest = null; }
 
+// =============================================================
+// GUEST NAV
+// =============================================================
 function renderGuestNav() {
   const loginNav = document.getElementById("guestNav");
   const profileNav = document.getElementById("guestProfileNav");
   const mLoginNav = document.getElementById("mGuestNav");
   const mProfileNav = document.getElementById("mGuestProfileNav");
+  const mAvatar = document.getElementById("mGuestAvatar");
+  const mNameNav = document.getElementById("mGuestNameNav");
 
-  if (currentGuest && currentGuest.id) {
+  if (currentGuest) {
     if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
     if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
     const avatar = document.getElementById("guestAvatar");
     const nameNav = document.getElementById("guestNameNav");
     if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
     if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
-    if (mLoginNav) mLoginNav.classList.add("hidden");
-    if (mProfileNav) mProfileNav.classList.remove("hidden");
+    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
+    if (mAvatar) mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
   } else {
     if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
     if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-    if (mLoginNav) mLoginNav.classList.remove("hidden");
-    if (mProfileNav) mProfileNav.classList.add("hidden");
+    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
   }
 }
 
 function logoutGuest() {
-  if (!confirm("Logout from your guest session?")) return;
+  if (!confirm("Logout?")) return;
   currentGuest = null;
   localStorage.removeItem('kd_guest');
   renderGuestNav();
@@ -677,7 +1346,7 @@ function logoutGuest() {
 }
 
 // =============================================================
-// DATE & PRICING CALCULATORS
+// PRICE & AVAILABILITY HELPERS
 // =============================================================
 function calculateNights(checkin, checkout) {
   if (!checkin || !checkout) return 1;
@@ -692,19 +1361,21 @@ function calculatePrice(ownerPrice, nights = 1) {
   const fee = Math.round((base * CONFIG.platformFeePercent) / 100);
   const gatewayFee = CONFIG.toyyibpay.enabled ? CONFIG.toyyibpay.gatewayFee : 0;
   const total = base + fee + gatewayFee;
-  return { nights, base, fee, gatewayFee, total, ownerReceives: base, youReceive: fee - gatewayFee };
+  return { nights, base, fee, gatewayFee, total };
 }
 
-function isoToDate(str) { return new Date(str + 'T00:00:00'); }
 function dateToIso(date) {
-  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function getDatesInRange(checkin, checkout) {
   if (!checkin || !checkout) return [];
   const dates = [];
-  const start = isoToDate(checkin);
-  const end = isoToDate(checkout);
+  const start = new Date(checkin + 'T00:00:00');
+  const end = new Date(checkout + 'T00:00:00');
   if (isNaN(start) || isNaN(end) || start >= end) return [];
   const cur = new Date(start);
   while (cur < end) {
@@ -714,37 +1385,36 @@ function getDatesInRange(checkin, checkout) {
   return dates;
 }
 
-function getAllBlockedDatesForHomestay(homestay) {
-  if (!homestay) return [];
-  let blocked = [...(homestay.blockedDates || []), ...(availabilityMap[homestay.id] || [])];
-  const relatedBookings = bookings.filter(b => b.homestay === homestay.name || String(b.homestayId) === String(homestay.id));
-  relatedBookings.forEach(b => {
+function getAllBlockedDatesForHomestay(h) {
+  if (!h) return [];
+  let blocked = [...(h.blockedDates || []), ...(availabilityMap[h.id] || [])];
+  const related = bookings.filter(b => b.homestay === h.name || String(b.homestayId) === String(h.id));
+  related.forEach(b => {
     if (b.checkin && b.checkout) blocked.push(...getDatesInRange(b.checkin, b.checkout));
   });
   return [...new Set(blocked)].sort();
 }
 
-function isHomestayAvailableForRange(homestay, checkin, checkout) {
+function isHomestayAvailableForRange(h, checkin, checkout) {
   if (!checkin || !checkout) return { available: true };
-  const requestedDates = getDatesInRange(checkin, checkout);
-  if (requestedDates.length === 0) return { available: true };
-  const blocked = getAllBlockedDatesForHomestay(homestay);
-  const overlap = requestedDates.filter(d => blocked.includes(d));
+  const requested = getDatesInRange(checkin, checkout);
+  if (requested.length === 0) return { available: true };
+  const blocked = getAllBlockedDatesForHomestay(h);
+  const overlap = requested.filter(d => blocked.includes(d));
   return { available: overlap.length === 0, blockedDates: overlap };
 }
 
 // =============================================================
-// HOMESTAY GRID RENDERER
+// RENDER GRID
 // =============================================================
 function renderGrid() {
   const grid = document.getElementById("homestayGrid");
   const loc = document.getElementById("filterLocation")?.value || "all";
   const checkinVal = document.getElementById("checkin")?.value;
   const checkoutVal = document.getElementById("checkout")?.value;
-  
+
   let list = homestays.filter(h => h.approved === true);
   if (loc !== "all") list = list.filter(h => h.location.toLowerCase().includes(loc.toLowerCase()));
-
   if (checkinVal && checkoutVal) {
     list = list.filter(h => isHomestayAvailableForRange(h, checkinVal, checkoutVal).available);
   }
@@ -752,8 +1422,12 @@ function renderGrid() {
   if (list.length === 0) {
     grid.innerHTML = safeHTML(`
       <div class="col-span-3 text-center py-16">
-        <div class="text-zinc-500 font-poppins">No available homestays matched your search dates.</div>
-        <button onclick="document.getElementById('checkin').value=''; document.getElementById('checkout').value=''; document.getElementById('filterLocation').value='all'; renderGrid();" class="mt-4 px-6 py-2.5 sharp border bg-white text-xs font-700 uppercase tracking-wider shadow-sm hover:bg-zinc-50">Reset Filters</button>
+        <div class="text-6xl mb-4">🏔️</div>
+        <div class="text-zinc-500 font-poppins text-lg">No homestays available for your dates.</div>
+        <button onclick="document.getElementById('checkin').value=''; document.getElementById('checkout').value=''; document.getElementById('filterLocation').value='all'; renderGrid();"
+                class="mt-6 px-8 py-3 rounded-full border bg-white text-sm font-700 uppercase tracking-wider shadow-sm hover:bg-zinc-50 transition-all">
+          Reset Filters
+        </button>
       </div>
     `);
     return;
@@ -761,28 +1435,33 @@ function renderGrid() {
 
   grid.innerHTML = safeHTML(list.map(h => {
     const blocked = getAllBlockedDatesForHomestay(h);
+    const price = calculatePrice(h.ownerPrice, 1);
     return `
-      <article class="group bg-white sharp shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden" onclick="openDetail(${h.id})">
-        <div class="h-[240px] w-full relative overflow-hidden bg-zinc-100">
-          <img src="${h.image}" loading="lazy" alt="${h.name}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800'"/>
-          <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 sharp flex items-center gap-1 shadow-sm">
-            <span class="font-poppins font-700 text-[11px] text-[#212121]">${h.rating ? h.rating.toFixed(1) : '5.0'} ★</span>
+      <div class="homestay-card" onclick="openDetail(${h.id})">
+        <div class="image-wrap">
+          <img src="${h.image}" loading="lazy" alt="${h.name}" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800'" />
+          <div class="image-overlay"></div>
+          <div class="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
+            <span class="font-poppins font-700 text-sm text-[#212121]">${h.rating ? h.rating.toFixed(1) : '5.0'} ★</span>
           </div>
-          ${h.verified ? `<div class="absolute top-4 left-[76px] bg-[#3FD0D4] text-white text-[10px] px-2.5 py-1 sharp font-700 uppercase tracking-wider shadow-sm">Verified</div>` : ''}
-          <div class="absolute bottom-3 left-3 bg-black/75 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 sharp font-500">🔒 Direct FPX Protection</div>
+          ${h.verified ? `<div class="absolute top-4 left-[76px] bg-[#3FD0D4] text-white text-[10px] px-3 py-1 rounded-full font-700 uppercase tracking-wider shadow-sm">Verified</div>` : ''}
+          <div class="absolute bottom-4 left-4 bg-black/70 backdrop-blur text-white text-[10px] px-3 py-1 rounded-full font-500">🔒 FPX Protected</div>
         </div>
-        <div class="p-5 flex flex-col flex-1">
+        <div class="content">
           <div class="flex justify-between items-start gap-2">
             <h3 class="font-poppins font-700 text-[18px] leading-tight text-[#212121]">${h.name}</h3>
-            <span class="text-[10px] bg-zinc-100 px-2.5 py-1 sharp shrink-0 font-600 uppercase tracking-wider text-[#212121]/70">${h.location}</span>
+            <span class="text-[10px] bg-zinc-100 px-3 py-1 rounded-full shrink-0 font-600 uppercase tracking-wider text-[#212121]/70">${h.location}</span>
           </div>
-          <div class="text-[12px] text-[#212121]/60 mt-2 font-500">${h.guests} guests • ${h.bedrooms || 2} bedrooms • Water Heater ♨️</div>
-          <div class="mt-auto pt-4 flex justify-between items-center border-t border-black/5">
-            <div class="font-poppins font-700 text-[18px] text-[#0F382E]">RM${h.ownerPrice}<span class="font-400 text-[12px] text-[#212121]/60 font-normal"> /night</span></div>
+          <div class="text-[12px] text-[#212121]/60 mt-2 font-500">${h.guests} guests • ${h.bedrooms || 2} bedrooms</div>
+          <div class="mt-5 pt-4 flex justify-between items-center border-t border-black/5">
+            <div>
+              <span class="font-poppins font-700 text-[22px] text-[#0F382E]">RM${h.ownerPrice}</span>
+              <span class="font-400 text-[12px] text-[#212121]/60"> /night</span>
+            </div>
             <div class="text-[11px] text-[#3FD0D4] font-700 uppercase tracking-wider">Book Now →</div>
           </div>
         </div>
-      </article>
+      </div>
     `;
   }).join(""));
 }
@@ -791,33 +1470,32 @@ function renderGrid() {
 // DETAIL MODAL
 // =============================================================
 function openDetail(id) {
-  selectedHomestay = homestays.find(h => h.id === id) || pendingHomestays.find(h => h.id === id);
+  selectedHomestay = homestays.find(h => h.id === id);
   if (!selectedHomestay) return;
-
   const defaultCi = document.getElementById("checkin")?.value || dateToIso(new Date(Date.now() + 86400000));
   const defaultCo = document.getElementById("checkout")?.value || dateToIso(new Date(Date.now() + 86400000 * 2));
 
   document.getElementById("detailContent").innerHTML = safeHTML(`
-    <img src="${selectedHomestay.image}" alt="${selectedHomestay.name}" class="w-full h-[320px] object-cover sharp"/>
+    <img src="${selectedHomestay.image}" alt="${selectedHomestay.name}" class="w-full h-[320px] object-cover rounded-2xl" />
     <div class="flex gap-2 mt-4 flex-wrap">
-      ${selectedHomestay.verified ? `<span class="badge-verified text-xs px-3 py-1 font-semibold">✓ Verified Host — ${selectedHomestay.ownerName || 'Local Host'}</span>` : ''}
-      <span class="bg-zinc-100 text-xs px-3 py-1 sharp font-semibold">📍 ${selectedHomestay.location}</span>
+      ${selectedHomestay.verified ? `<span class="badge-verified">✓ Verified Host — ${selectedHomestay.ownerName || 'Local Host'}</span>` : ''}
+      <span class="bg-zinc-100 text-xs px-3 py-1 rounded-full font-semibold">📍 ${selectedHomestay.location}</span>
     </div>
     <h2 class="text-2xl md:text-3xl font-bold font-poppins mt-3 text-[#212121]">${selectedHomestay.name}</h2>
-    <p class="text-sm text-zinc-500 mt-1">${selectedHomestay.guests} Guests Maximum • ${selectedHomestay.bedrooms || 2} Bedrooms</p>
-    <p class="text-sm mt-3 leading-relaxed text-zinc-700">${selectedHomestay.description || "Cozy mountain homestay in Kundasang."}</p>
-    
-    <div class="mt-6 bg-zinc-50 border p-4 sharp">
-      <h4 class="font-bold text-xs uppercase tracking-wider text-zinc-700">Check Date Availability</h4>
+    <p class="text-sm text-zinc-500 mt-1">${selectedHomestay.guests} Guests • ${selectedHomestay.bedrooms || 2} Bedrooms</p>
+    <p class="text-sm mt-3 leading-relaxed text-zinc-700">${selectedHomestay.description || "Cozy mountain homestay."}</p>
+
+    <div class="mt-6 bg-zinc-50 border p-4 rounded-2xl">
+      <h4 class="font-bold text-xs uppercase tracking-wider text-zinc-700">📅 Availability</h4>
       <div id="detailAvailabilityCalendar" class="mt-3"></div>
       <div id="detailAvailabilityStatus" class="mt-2 text-xs font-semibold"></div>
     </div>
 
     <div class="mt-6 grid grid-cols-2 gap-3">
-      <div><label class="text-xs font-semibold text-zinc-700">Check-in</label><input id="detailCheckin" type="date" value="${defaultCi}" class="w-full mt-1 border sharp px-3 py-2 text-sm" onchange="updateDetailPrice()"/></div>
-      <div><label class="text-xs font-semibold text-zinc-700">Check-out</label><input id="detailCheckout" type="date" value="${defaultCo}" class="w-full mt-1 border sharp px-3 py-2 text-sm" onchange="updateDetailPrice()"/></div>
+      <div><label class="text-xs font-semibold text-zinc-700">Check-in</label><input id="detailCheckin" type="date" value="${defaultCi}" class="w-full mt-1 border rounded-xl px-4 py-3 text-sm" onchange="updateDetailPrice()"/></div>
+      <div><label class="text-xs font-semibold text-zinc-700">Check-out</label><input id="detailCheckout" type="date" value="${defaultCo}" class="w-full mt-1 border rounded-xl px-4 py-3 text-sm" onchange="updateDetailPrice()"/></div>
     </div>
-    <div id="detailPriceBox" class="mt-4 bg-[#F8F5F0] p-4 sharp border border-black/5"></div>
+    <div id="detailPriceBox" class="mt-4 bg-[#F8F5F0] p-4 rounded-2xl border border-black/5"></div>
   `);
 
   document.getElementById("detailModal").classList.remove("hidden");
@@ -836,16 +1514,16 @@ function updateDetailPrice() {
   const statusEl = document.getElementById("detailAvailabilityStatus");
   if (statusEl) {
     statusEl.className = avail.available ? "text-emerald-700" : "text-red-600";
-    statusEl.textContent = avail.available ? `✓ Selected dates are available (${nights} Nights)` : `✕ Selected dates are fully booked`;
+    statusEl.textContent = avail.available ? `✓ ${nights} nights available` : `✕ Fully booked for these dates`;
   }
 
   const box = document.getElementById("detailPriceBox");
   if (box) {
     box.innerHTML = safeHTML(`
-      <div class="text-xs space-y-1.5 font-poppins">
-        <div class="flex justify-between"><span>RM${selectedHomestay.ownerPrice} x ${nights} Nights</span><span>RM${p.base}</span></div>
-        <div class="flex justify-between"><span>Platform & Protection Fee</span><span>RM${p.fee}</span></div>
-        <div class="flex justify-between font-bold text-sm text-[#0F382E] border-t pt-2 mt-2"><span>Total Amount:</span><span>RM${p.total.toFixed(2)}</span></div>
+      <div class="text-sm space-y-2 font-poppins">
+        <div class="flex justify-between"><span>RM${selectedHomestay.ownerPrice} x ${nights} Nights</span><span class="font-semibold">RM${p.base}</span></div>
+        <div class="flex justify-between"><span>Service Fee</span><span class="font-semibold">RM${p.fee}</span></div>
+        <div class="flex justify-between font-bold text-[#0F382E] border-t pt-3 mt-2 text-base"><span>Total</span><span>RM${p.total.toFixed(2)}</span></div>
       </div>
     `);
   }
@@ -854,13 +1532,11 @@ function updateDetailPrice() {
 function closeDetail() { document.getElementById("detailModal").classList.add("hidden"); }
 
 // =============================================================
-// BOOKING MODAL & CHECKOUT
+// BOOKING MODAL
 // =============================================================
 function openBooking() {
   if (!currentGuest) {
-    showAlert("Guest Login Required", "Please log in to your guest account to make an instant booking.").then(() => {
-      window.location.href = '/login.html';
-    });
+    showAlert("Login Required", "Please log in to book.").then(() => { window.location.href = '/login.html'; });
     return;
   }
   const ci = document.getElementById("detailCheckin")?.value;
@@ -869,7 +1545,6 @@ function openBooking() {
   if (co) document.getElementById("bookingCheckout").value = co;
   updateBookingPrice();
   document.getElementById("bookingModal").classList.remove("hidden");
-  
   const nameEl = document.getElementById("guestName");
   const emailEl = document.getElementById("guestEmail");
   const phoneEl = document.getElementById("guestPhone");
@@ -885,14 +1560,13 @@ function updateBookingPrice() {
   const nights = calculateNights(ci, co);
   const p = calculatePrice(selectedHomestay.ownerPrice, nights);
   document.getElementById("bookingNights").innerText = nights;
-  
-  const summaryEl = document.getElementById("bookingSummary");
-  if (summaryEl) {
-    summaryEl.innerHTML = safeHTML(`
+  const summary = document.getElementById("bookingSummary");
+  if (summary) {
+    summary.innerHTML = safeHTML(`
       <div class="font-bold text-[#0F382E]">${selectedHomestay.name}</div>
-      <div class="mt-2 text-xs flex justify-between"><span>RM${selectedHomestay.ownerPrice} x ${nights} Nights:</span><span class="font-semibold">RM${p.base}</span></div>
-      <div class="text-xs flex justify-between"><span>Service Fee:</span><span class="font-semibold">RM${p.fee}</span></div>
-      <div class="text-sm font-bold flex justify-between border-t pt-2 mt-2 text-[#0F382E]"><span>Total FPX:</span><span>RM${p.total.toFixed(2)}</span></div>
+      <div class="mt-2 text-xs flex justify-between"><span>RM${selectedHomestay.ownerPrice} x ${nights} Nights</span><span class="font-semibold">RM${p.base}</span></div>
+      <div class="text-xs flex justify-between"><span>Service Fee</span><span class="font-semibold">RM${p.fee}</span></div>
+      <div class="text-sm font-bold flex justify-between border-t pt-2 mt-2 text-[#0F382E]"><span>Total FPX</span><span>RM${p.total.toFixed(2)}</span></div>
     `);
   }
 }
@@ -907,7 +1581,7 @@ async function processPayment() {
   const co = document.getElementById("bookingCheckout").value;
 
   if (!guestName || !guestEmail || !guestPhone) {
-    showAlert("Incomplete Information", "Please provide your Name, Email, and WhatsApp number.");
+    showAlert("Missing Info", "Please provide Name, Email, and WhatsApp.");
     return;
   }
 
@@ -927,18 +1601,14 @@ async function processPayment() {
     date: new Date().toISOString()
   };
 
-  window.lastCreatedBooking = booking;
-
-  // Sync to database
   try {
     await fetch(API_BASE + "/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "createPublicBooking", booking: booking })
+      body: JSON.stringify({ action: "createPublicBooking", booking })
     });
-  } catch(e) { console.warn("Syncing offline fallback mode"); }
+  } catch(e) { console.warn("Sync fallback mode"); }
 
-  // Update local storage
   bookings.push(booking);
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
 
@@ -947,22 +1617,21 @@ async function processPayment() {
   showThankYouModal(bookingId, booking);
 }
 
-// Inquire on WhatsApp from detail view
 function chatWithOwner() {
   if (!selectedHomestay) return;
   let phone = String(selectedHomestay.whatsapp || '60123456789').replace(/[^0-9]/g, '');
   if (phone.startsWith('0')) phone = '60' + phone.substring(1);
-  const msg = `Hi! I found *${selectedHomestay.name}* on KundasangHomestay.my and would like to ask about availability and facilities.`;
+  const msg = `Hi! I found *${selectedHomestay.name}* on KundasangHomestay.my and would like to ask about availability.`;
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 // =============================================================
-// CALENDAR EMBED
+// CALENDAR
 // =============================================================
 function renderAvailabilityCalendar(homestay, containerId) {
   const container = document.getElementById(containerId);
   if (!container || !homestay) return;
-  
+
   const blocked = getAllBlockedDatesForHomestay(homestay);
   const today = new Date();
   const month = today.getMonth();
@@ -970,9 +1639,10 @@ function renderAvailabilityCalendar(homestay, containerId) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startDay = new Date(year, month, 1).getDay();
 
-  let html = `<div class="calendar-mini mt-2">`;
-  const dayNames = ["S", "M", "T", "W", "T", "F", "S"];
-  dayNames.forEach(d => { html += `<div class="text-[9px] text-center font-bold text-zinc-400 py-1">${d}</div>`; });
+  let html = `<div class="calendar-mini">`;
+  ["S", "M", "T", "W", "T", "F", "S"].forEach(d => {
+    html += `<div class="text-[9px] text-center font-bold text-zinc-400 py-1">${d}</div>`;
+  });
   for (let e = 0; e < startDay; e++) html += `<div class="calendar-day empty"></div>`;
 
   for (let day = 1; day <= daysInMonth; day++) {
@@ -981,9 +1651,10 @@ function renderAvailabilityCalendar(homestay, containerId) {
     const isBlocked = blocked.includes(iso);
     const isPast = d < new Date().setHours(0,0,0,0);
     let cls = isPast ? "calendar-day past" : (isBlocked ? "calendar-day booked" : "calendar-day available");
+    if (iso === dateToIso(today)) cls += " today";
     html += `<div class="${cls}">${day}</div>`;
   }
-  html += `</div><div class="calendar-legend"><span><span class="dot green"></span> Free</span><span><span class="dot red"></span> Booked</span></div>`;
+  html += `</div><div class="calendar-legend"><span><span class="dot green"></span> Available</span><span><span class="dot red"></span> Booked</span></div>`;
   container.innerHTML = safeHTML(html);
 }
 
@@ -992,25 +1663,64 @@ function toggleMobileMenu() {
 }
 
 // =============================================================
-// INITIALIZATION
+// INIT
 // =============================================================
 (async function init() {
   renderGuestNav();
   renderGrid();
 
-  // Cloud sync
   try {
     const res = await fetch(`${API_BASE}/bookings`, { cache: "no-store" });
     if (res.ok) {
       const data = await res.json();
       if (data.approved) {
-        homestays = [...baseDemos, ...data.approved];
+        homestays = [...DEMO_HOMESTAYS, ...data.approved];
         renderGrid();
       }
     }
-  } catch(e) { console.warn("Using offline / cached homestays data"); }
+  } catch(e) { console.warn("Using cached data"); }
 })();
 </script>
+
+<!-- ===== DETAIL MODAL ===== -->
+<div id="detailModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm p-3 md:p-5 overflow-y-auto">
+  <div class="max-w-[900px] mx-auto bg-white rounded-2xl overflow-hidden shadow-2xl mt-10">
+    <div id="detailContent" class="p-6"></div>
+    <div class="p-5 border-t flex flex-col md:flex-row justify-between items-center gap-3 bg-zinc-50">
+      <button onclick="closeDetail()" class="px-6 py-2.5 rounded-full border bg-white text-xs uppercase tracking-wider font-600 w-full md:w-auto hover:bg-zinc-50 transition">Close</button>
+      <div class="flex gap-3 w-full md:w-auto justify-end">
+        <button onclick="chatWithOwner()" class="btn-whatsapp w-full md:w-auto">💬 Inquire</button>
+        <button onclick="openBooking()" class="btn-primary w-full md:w-auto">Book Now</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== BOOKING MODAL ===== -->
+<div id="bookingModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm p-3 md:p-5 overflow-y-auto">
+  <div class="max-w-[520px] mx-auto bg-white rounded-2xl p-6 shadow-2xl mt-10">
+    <h3 class="text-2xl font-bold font-poppins text-[#212121]">Book Homestay</h3>
+    <p class="text-xs text-zinc-500">Select dates to see total price.</p>
+    <div class="mt-4 grid grid-cols-2 gap-3">
+      <div><label class="text-xs font-semibold">Check-in</label><input id="bookingCheckin" type="date" class="w-full mt-1 border rounded-xl px-4 py-3 text-sm" onchange="updateBookingPrice()"/></div>
+      <div><label class="text-xs font-semibold">Check-out</label><input id="bookingCheckout" type="date" class="w-full mt-1 border rounded-xl px-4 py-3 text-sm" onchange="updateBookingPrice()"/></div>
+    </div>
+    <div class="mt-3 text-xs">Total: <span id="bookingNights" class="font-bold text-[#0F382E]">1</span> Nights</div>
+    <div id="bookingSummary" class="mt-3 bg-zinc-50 p-4 rounded-2xl text-sm border"></div>
+    <div class="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-800 mt-3">⚠️ All payments through ToyyibPay FPX. Never transfer to private accounts.</div>
+    <div id="guestDetectedBanner" class="hidden mt-3 bg-green-50 border border-green-200 p-3 rounded-xl text-xs text-green-800"></div>
+    <div class="mt-4 space-y-3">
+      <input id="guestName" placeholder="Your Full Name *" class="w-full border rounded-xl px-4 py-3 text-sm" />
+      <input id="guestEmail" placeholder="Email for Receipt *" class="w-full border rounded-xl px-4 py-3 text-sm" />
+      <input id="guestPhone" placeholder="WhatsApp Number *" class="w-full border rounded-xl px-4 py-3 text-sm" />
+    </div>
+    <div class="mt-5 flex gap-3">
+      <button onclick="closeBooking()" class="flex-1 border rounded-full py-3 text-xs uppercase tracking-wider font-600 bg-white hover:bg-zinc-50 transition">Cancel</button>
+      <button onclick="processPayment()" class="flex-1 btn-primary py-3">Pay via FPX</button>
+    </div>
+    <p id="toyyibpayNote" class="mt-3 text-[11px] text-zinc-500 text-center"></p>
+  </div>
+</div>
 
 </body>
 </html>
