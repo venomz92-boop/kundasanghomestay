@@ -2245,6 +2245,14 @@ function openBooking() {
     });
     return;
   }
+
+  // Pre-fill guest details from login session
+  var nameEl = document.getElementById("guestName");
+  var emailEl = document.getElementById("guestEmail");
+  var phoneEl = document.getElementById("guestPhone");
+  if (nameEl) nameEl.value = currentGuest.name || "";
+  if (emailEl) emailEl.value = currentGuest.email || "";
+  if (phoneEl) phoneEl.value = currentGuest.phone || "";
   
   var ci = document.getElementById("detailCheckin")?.value;
   var co = document.getElementById("detailCheckout")?.value;
