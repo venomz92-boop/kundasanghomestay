@@ -5,17 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>My Bookings - Kundasang Homestay</title>
-
-  <!-- Privacy: Guest booking data should never be indexed -->
   <meta name="robots" content="noindex, nofollow" />
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="animations.css" />
-
   <style>
-    /* ===== ROOT ===== */
+    /* ===== ROOT (same as login) ===== */
     :root {
       --primary: #0F382E;
       --primary-light: #1a4d3e;
@@ -25,21 +21,14 @@
       --bg: #F8F5F0;
       --card: #ffffff;
       --dark: #212121;
-      --glass: rgba(255, 255, 255, 0.75);
+      --glass: rgba(255, 255, 255, 0.72);
       --shadow-sm: 0 2px 20px rgba(0, 0, 0, 0.05);
       --shadow-md: 0 8px 40px rgba(0, 0, 0, 0.08);
       --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12);
       --shadow-glow: 0 8px 30px rgba(63, 208, 212, 0.25);
     }
-
-    * {
-      -webkit-tap-highlight-color: transparent;
-      box-sizing: border-box;
-    }
-    html {
-      scroll-behavior: smooth;
-      overflow-x: hidden;
-    }
+    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+    html { scroll-behavior: smooth; overflow-x: hidden; }
     body {
       font-family: "Poppins", sans-serif;
       background: var(--bg);
@@ -52,16 +41,12 @@
     .rounded-xl { border-radius: 16px !important; }
     .rounded-2xl { border-radius: 24px !important; }
     .rounded-full { border-radius: 999px !important; }
-
-    /* ===== GLASS ===== */
     .glass {
       background: rgba(255, 255, 255, 0.72);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.3);
     }
-
-    /* ===== CARD ===== */
     .card {
       background: var(--card);
       border-radius: 16px;
@@ -70,12 +55,7 @@
       transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
       padding: 20px;
     }
-    .card:hover {
-      box-shadow: var(--shadow-md);
-      transform: translateY(-2px);
-    }
-
-    /* ===== BUTTONS ===== */
+    .card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
     .btn-primary {
       background: var(--primary);
       color: white;
@@ -104,13 +84,8 @@
       opacity: 0;
       transition: opacity 0.3s;
     }
-    .btn-primary:hover {
-      background: var(--primary-light);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3);
-    }
+    .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3); }
     .btn-primary:hover::after { opacity: 1; }
-
     .btn-accent {
       background: var(--accent);
       color: white;
@@ -128,12 +103,7 @@
       align-items: center;
       gap: 8px;
     }
-    .btn-accent:hover {
-      background: var(--accent-hover);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-glow);
-    }
-
+    .btn-accent:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: var(--shadow-glow); }
     .btn-outline {
       background: transparent;
       border: 1.5px solid #cbd5e1;
@@ -147,12 +117,7 @@
       cursor: pointer;
       font-family: "Poppins", sans-serif;
     }
-    .btn-outline:hover {
-      background: #f1f5f9;
-      border-color: #94a3b8;
-      transform: translateY(-2px);
-    }
-
+    .btn-outline:hover { background: #f1f5f9; border-color: #94a3b8; transform: translateY(-2px); }
     .btn-danger {
       background: #dc2626;
       color: white;
@@ -166,11 +131,7 @@
       cursor: pointer;
       font-family: "Poppins", sans-serif;
     }
-    .btn-danger:hover {
-      background: #b91c1c;
-      transform: translateY(-2px);
-    }
-
+    .btn-danger:hover { background: #b91c1c; transform: translateY(-2px); }
     .btn-whatsapp {
       background: #25D366;
       color: white;
@@ -187,13 +148,7 @@
       cursor: pointer;
       font-family: "Poppins", sans-serif;
     }
-    .btn-whatsapp:hover {
-      background: #1ebe5d;
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(37, 211, 102, 0.3);
-    }
-
-    /* ===== GUEST AVATAR ===== */
+    .btn-whatsapp:hover { background: #1ebe5d; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(37, 211, 102, 0.3); }
     .guest-avatar {
       width: 32px;
       height: 32px;
@@ -206,8 +161,6 @@
       font-weight: 700;
       font-size: 14px;
     }
-
-    /* ===== NAV LINKS ===== */
     .setsail-nav-link {
       position: relative;
       font-family: "Poppins", sans-serif;
@@ -234,13 +187,8 @@
       border-radius: 999px;
       transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
-    .setsail-nav-link:hover::after,
-    .setsail-nav-link.active::after {
-      width: 100%;
-    }
-    .setsail-nav-link:hover {
-      color: var(--primary);
-    }
+    .setsail-nav-link:hover::after, .setsail-nav-link.active::after { width: 100%; }
+    .setsail-nav-link:hover { color: var(--primary); }
     .setsail-nav-link.agent {
       color: #7c3aed;
       border: 1px solid #7c3aed;
@@ -248,12 +196,7 @@
       border-radius: 999px;
     }
     .setsail-nav-link.agent::after { display: none; }
-    .setsail-nav-link.agent:hover {
-      background: #7c3aed;
-      color: white;
-    }
-
-    /* ===== MOBILE NAV ===== */
+    .setsail-nav-link.agent:hover { background: #7c3aed; color: white; }
     #mobileNav {
       position: fixed;
       top: 80px;
@@ -281,8 +224,7 @@
       pointer-events: auto;
       transform: translateY(0);
     }
-    #mobileNav a,
-    #mobileNav button {
+    #mobileNav a, #mobileNav button {
       display: block;
       width: 100%;
       text-align: left;
@@ -294,11 +236,7 @@
       transition: background 0.2s, color 0.2s;
       background: transparent;
     }
-    #mobileNav a:hover,
-    #mobileNav button:hover {
-      background: #f8f5f0;
-      color: var(--accent);
-    }
+    #mobileNav a:hover, #mobileNav button:hover { background: #f8f5f0; color: var(--accent); }
     #mobileNav .mobile-agent-link {
       color: #7c3aed !important;
       border: 1px solid #7c3aed !important;
@@ -308,10 +246,7 @@
       width: auto !important;
       display: inline-block !important;
     }
-    #mobileNav .mobile-agent-link:hover {
-      background: #7c3aed !important;
-      color: white !important;
-    }
+    #mobileNav .mobile-agent-link:hover { background: #7c3aed !important; color: white !important; }
     #mobileNav .guest-btn {
       border: 1px solid var(--accent);
       color: var(--accent);
@@ -325,18 +260,9 @@
       letter-spacing: 0.5px;
       width: 100%;
     }
-    #mobileNav .guest-btn-primary {
-      background: var(--accent);
-      color: white;
-      border: none;
-    }
-    #mobileNav .guest-btn:hover {
-      background: var(--accent);
-      color: white;
-    }
-    #mobileNav .guest-btn-primary:hover {
-      background: var(--accent-hover);
-    }
+    #mobileNav .guest-btn-primary { background: var(--accent); color: white; border: none; }
+    #mobileNav .guest-btn:hover { background: var(--accent); color: white; }
+    #mobileNav .guest-btn-primary:hover { background: var(--accent-hover); }
     #mobileNav .profile-card {
       display: flex;
       align-items: center;
@@ -360,28 +286,15 @@
       color: white;
       flex-shrink: 0;
     }
-    #mobileNav .profile-card .info {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-    }
-    #mobileNav .profile-card .name {
-      font-weight: 700;
-      font-size: 14px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    #mobileNav .profile-card .sub {
-      font-size: 10px;
-      color: rgba(255, 255, 255, 0.6);
-    }
+    #mobileNav .profile-card .info { flex: 1; min-width: 0; overflow: hidden; }
+    #mobileNav .profile-card .name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #mobileNav .profile-card .sub { font-size: 10px; color: rgba(255,255,255,0.6); }
     #mobileNav .profile-card .logout-btn {
       width: auto !important;
       display: inline-block !important;
       flex-shrink: 0;
       font-size: 10px;
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(255,255,255,0.15);
       padding: 6px 14px;
       border-radius: 999px;
       cursor: pointer;
@@ -392,9 +305,7 @@
       letter-spacing: 0.5px;
       transition: background 0.2s;
     }
-    #mobileNav .profile-card .logout-btn:hover {
-      background: rgba(255, 255, 255, 0.25);
-    }
+    #mobileNav .profile-card .logout-btn:hover { background: rgba(255,255,255,0.25); }
     #mobileNav .my-bookings-btn {
       display: block;
       width: 100%;
@@ -409,11 +320,7 @@
       border-radius: 12px;
       transition: background 0.2s;
     }
-    #mobileNav .my-bookings-btn:hover {
-      background: #333;
-    }
-
-    /* ===== MODAL ===== */
+    #mobileNav .my-bookings-btn:hover { background: #333; }
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -447,13 +354,7 @@
       align-items: center;
       justify-content: space-between;
     }
-    .modal-header h3 {
-      font-family: "Poppins", sans-serif;
-      font-weight: 700;
-      font-size: 20px;
-      color: #212121;
-      margin: 0;
-    }
+    .modal-header h3 { font-family: "Poppins", sans-serif; font-weight: 700; font-size: 20px; color: #212121; margin: 0; }
     .modal-close {
       background: none;
       border: none;
@@ -470,16 +371,8 @@
       align-items: center;
       justify-content: center;
     }
-    .modal-close:hover {
-      color: #212121;
-      background: #f1f5f9;
-    }
-    .modal-body {
-      padding: 16px 24px 20px 24px;
-      font-size: 14px;
-      line-height: 1.7;
-      color: #4b5563;
-    }
+    .modal-close:hover { color: #212121; background: #f1f5f9; }
+    .modal-body { padding: 16px 24px 20px 24px; font-size: 14px; line-height: 1.7; color: #4b5563; }
     .modal-footer {
       padding: 12px 24px 20px 24px;
       display: flex;
@@ -499,29 +392,12 @@
       transition: all 0.2s;
       font-family: "Poppins", sans-serif;
     }
-    .modal-footer .btn-primary {
-      background: var(--primary);
-      color: white;
-    }
-    .modal-footer .btn-primary:hover {
-      background: var(--primary-light);
-    }
-    .modal-footer .btn-secondary {
-      background: #f1f5f9;
-      color: #475569;
-    }
-    .modal-footer .btn-secondary:hover {
-      background: #e2e8f0;
-    }
-    .modal-footer .btn-danger {
-      background: #dc2626;
-      color: white;
-    }
-    .modal-footer .btn-danger:hover {
-      background: #b91c1c;
-    }
-
-    /* ===== BADGES ===== */
+    .modal-footer .btn-primary { background: var(--primary); color: white; }
+    .modal-footer .btn-primary:hover { background: var(--primary-light); }
+    .modal-footer .btn-secondary { background: #f1f5f9; color: #475569; }
+    .modal-footer .btn-secondary:hover { background: #e2e8f0; }
+    .modal-footer .btn-danger { background: #dc2626; color: white; }
+    .modal-footer .btn-danger:hover { background: #b91c1c; }
     .badge-paid {
       background: #dcfce7;
       color: #166534;
@@ -566,8 +442,6 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-
-    /* ===== METRIC CARDS ===== */
     .metric-card {
       background: white;
       border-radius: 16px;
@@ -576,25 +450,9 @@
       border: 1px solid rgba(0, 0, 0, 0.04);
       transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
-    .metric-card:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow-sm);
-    }
-    .metric-card .number {
-      font-size: 28px;
-      font-weight: 800;
-      color: var(--dark);
-      margin-top: 4px;
-    }
-    .metric-card .label {
-      font-size: 10px;
-      text-transform: uppercase;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      color: #94a3b8;
-    }
-
-    /* ===== RESPONSIVE ===== */
+    .metric-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-sm); }
+    .metric-card .number { font-size: 28px; font-weight: 800; color: var(--dark); margin-top: 4px; }
+    .metric-card .label { font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: #94a3b8; }
     @media (max-width: 768px) {
       #desktopNav { display: none !important; }
       #mobileMenuBtn { display: flex !important; }
@@ -621,10 +479,9 @@
   </div>
 </div>
 
-<!-- ===== HEADER ===== -->
+<!-- ===== HEADER (same) ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
-
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
       <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
       <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
@@ -633,7 +490,6 @@
         <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Verified • Homestays</div>
       </div>
     </div>
-
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
       <a href="/" class="setsail-nav-link">Home</a>
       <a href="/list.html" class="setsail-nav-link">List Your Homestay</a>
@@ -652,25 +508,19 @@
         </div>
       </div>
     </nav>
-
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()"
-            class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors"
-            aria-label="Toggle Navigation">
-      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
-        <path d="M4 6h16M4 12h16M4 18h16"/>
-      </svg>
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" aria-label="Toggle Navigation">
+      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
   </div>
 </header>
 
-<!-- ===== MOBILE MENU ===== -->
+<!-- ===== MOBILE MENU (same) ===== -->
 <div id="mobileNav">
   <div class="p-4 space-y-1">
     <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
     <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
     <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
     <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
-
     <div class="pt-3 space-y-3">
       <div id="mGuestNav">
         <a href="/login.html" onclick="toggleMobileMenu()" class="guest-btn block text-center">Login</a>
@@ -693,68 +543,39 @@
 
 <!-- ===== MY BOOKINGS PAGE ===== -->
 <main class="flex-1 max-w-[1100px] mx-auto px-4 md:px-6 py-8 md:py-12 w-full">
-
-  <!-- Not Logged In State -->
   <div id="notLoggedIn" class="hidden text-center py-20 animate-on-scroll">
     <div class="text-6xl mb-4">🔐</div>
     <h2 class="font-poppins font-700 text-[28px] text-[#212121]">Login Required</h2>
-    <p class="text-sm text-zinc-500 mt-2 max-w-sm mx-auto leading-relaxed">
-      Please log in to your guest account to view your booking history and status.
-    </p>
+    <p class="text-sm text-zinc-500 mt-2 max-w-sm mx-auto leading-relaxed">Please log in to your guest account to view your booking history and status.</p>
     <div class="mt-6 flex gap-3 justify-center flex-wrap">
-      <a href="/login.html" class="btn-primary sharp">Login</a>
-      <a href="/register.html" class="btn-outline sharp">Create Account</a>
+      <a href="/login.html" class="btn-primary">Login</a>
+      <a href="/register.html" class="btn-outline">Create Account</a>
     </div>
   </div>
 
-  <!-- Logged In View -->
   <div id="bookingsView" class="hidden space-y-6">
-
-    <!-- Header -->
     <div class="flex items-center justify-between flex-wrap gap-4 animate-on-scroll">
       <div>
-        <h1 class="font-poppins font-700 text-[28px] md:text-[32px] text-[#212121]">
-          My Bookings
-        </h1>
-        <p class="text-sm text-zinc-500 mt-0.5">
-          Logged in as <span id="guestNameDisplay" class="font-semibold text-[#0F382E]"></span>
-        </p>
+        <h1 class="font-poppins font-700 text-[28px] md:text-[32px] text-[#212121]">My Bookings</h1>
+        <p class="text-sm text-zinc-500 mt-0.5">Logged in as <span id="guestNameDisplay" class="font-semibold text-[#0F382E]"></span></p>
       </div>
-      <button onclick="loadMyBookings()" class="btn-outline sharp flex items-center gap-2">
-        🔄 Refresh
-      </button>
+      <button onclick="loadMyBookings()" class="btn-outline flex items-center gap-2">🔄 Refresh</button>
     </div>
 
-    <!-- Metrics -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 animate-on-scroll">
-      <div class="metric-card">
-        <div class="label">Total Bookings</div>
-        <div id="metricTotal" class="number">0</div>
-      </div>
-      <div class="metric-card">
-        <div class="label">Active / Paid</div>
-        <div id="metricPaid" class="number text-emerald-600">0</div>
-      </div>
-      <div class="metric-card">
-        <div class="label">Completed</div>
-        <div id="metricCompleted" class="number text-blue-600">0</div>
-      </div>
-      <div class="metric-card">
-        <div class="label">Pending</div>
-        <div id="metricPending" class="number text-amber-600">0</div>
-      </div>
+      <div class="metric-card"><div class="label">Total Bookings</div><div id="metricTotal" class="number">0</div></div>
+      <div class="metric-card"><div class="label">Active / Paid</div><div id="metricPaid" class="number text-emerald-600">0</div></div>
+      <div class="metric-card"><div class="label">Completed</div><div id="metricCompleted" class="number text-blue-600">0</div></div>
+      <div class="metric-card"><div class="label">Pending</div><div id="metricPending" class="number text-amber-600">0</div></div>
     </div>
 
-    <!-- Bookings List -->
     <div id="bookingsList" class="space-y-4 animate-on-scroll">
       <div class="text-sm text-zinc-400 text-center py-10">Loading your bookings...</div>
     </div>
-
   </div>
-
 </main>
 
-<!-- ===== FOOTER ===== -->
+<!-- ===== FOOTER (same) ===== -->
 <footer class="bg-[#212121] text-white/70 mt-auto">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-10 grid grid-cols-1 md:grid-cols-4 gap-8">
     <div>
@@ -784,29 +605,13 @@
       <p class="text-[12px] text-white/50 font-poppins">Kundasang mountain stays — Sabah, Malaysia.</p>
     </div>
   </div>
-  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
-    © 2026 Kundasang Homestay — All payments secured by ToyyibPay FPX
-  </div>
+  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">© 2026 Kundasang Homestay — All payments secured by ToyyibPay FPX</div>
 </footer>
 
-<!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
 // =============================================================
-// GLOBALS
-// =============================================================
-const API_BASE = "/api";
-let currentGuest = null;
-let myBookings = [];
-let lastBookingId = "";
-
-try {
-  const saved = localStorage.getItem('kd_guest');
-  if (saved) currentGuest = JSON.parse(saved);
-} catch(e) { currentGuest = null; }
-
-// =============================================================
-// MODAL SYSTEM
+// MODAL SYSTEM (same as login)
 // =============================================================
 function showModal(title, message, buttons) {
   return new Promise((resolve) => {
@@ -814,11 +619,9 @@ function showModal(title, message, buttons) {
     const titleEl = document.getElementById('modalTitle');
     const bodyEl = document.getElementById('modalBody');
     const footerEl = document.getElementById('modalFooter');
-
     titleEl.textContent = title || 'Notice';
     bodyEl.innerHTML = typeof message === 'string' ? message : '';
     footerEl.innerHTML = '';
-
     buttons.forEach(btn => {
       const el = document.createElement('button');
       el.textContent = btn.label;
@@ -831,35 +634,29 @@ function showModal(title, message, buttons) {
       };
       footerEl.appendChild(el);
     });
-
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
   });
 }
-
 function closeModal() {
   const overlay = document.getElementById('customModal');
   overlay.classList.remove('active');
   document.body.style.overflow = '';
 }
-
 function modalConfirm() {
   const overlay = document.getElementById('customModal');
   overlay.classList.remove('active');
   document.body.style.overflow = '';
 }
-
 function showAlert(title, message) {
   return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
 }
-
 function showConfirm(title, message) {
   return showModal(title, message, [
     { label: 'Cancel', class: 'btn-secondary', value: false },
     { label: 'Confirm', class: 'btn-primary', value: true }
   ]);
 }
-
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     const overlay = document.getElementById('customModal');
@@ -869,7 +666,6 @@ document.addEventListener('keydown', function(e) {
     }
   }
 });
-
 document.getElementById('customModal').addEventListener('click', function(e) {
   if (e.target === this) {
     this.classList.remove('active');
@@ -895,8 +691,18 @@ function safeHTML(html) {
 }
 
 // =============================================================
-// GUEST NAV
+// GUEST SYSTEM (same)
 // =============================================================
+const API_BASE = "/api";
+let currentGuest = null;
+try {
+  const saved = localStorage.getItem('kd_guest');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (parsed && parsed.id) currentGuest = parsed;
+  }
+} catch(e) { currentGuest = null; }
+
 function renderGuestNav() {
   const loginNav = document.getElementById("guestNav");
   const profileNav = document.getElementById("guestProfileNav");
@@ -904,7 +710,6 @@ function renderGuestNav() {
   const mProfileNav = document.getElementById("mGuestProfileNav");
   const mAvatar = document.getElementById("mGuestAvatar");
   const mNameNav = document.getElementById("mGuestNameNav");
-
   if (currentGuest) {
     if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
     if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
@@ -923,7 +728,6 @@ function renderGuestNav() {
     if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
   }
 }
-
 function logoutGuest() {
   showConfirm("Logout", "Are you sure you want to logout?").then(confirmed => {
     if (!confirmed) return;
@@ -940,7 +744,6 @@ function logoutGuest() {
 function toggleMobileMenu() {
   document.getElementById('mobileNav')?.classList.toggle('open');
 }
-
 document.addEventListener('click', function(e) {
   const nav = document.getElementById('mobileNav');
   const btn = document.getElementById('mobileMenuBtn');
@@ -958,7 +761,6 @@ document.addEventListener('click', function(e) {
 async function loadMyBookings() {
   const listDiv = document.getElementById('bookingsList');
   if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10">Loading...</div>';
-
   try {
     const res = await fetch(`${API_BASE}/bookings`, { cache: 'no-store' });
     if (res.ok) {
@@ -970,11 +772,9 @@ async function loadMyBookings() {
   } catch(e) {
     console.warn('Cloud sync failed, using local cache.');
   }
-
   try {
     const raw = localStorage.getItem('kd_bookings') || '[]';
     const all = JSON.parse(raw);
-
     myBookings = all.filter(b => {
       if (!currentGuest) return false;
       return (
@@ -982,12 +782,12 @@ async function loadMyBookings() {
         (b.guestEmail && b.guestEmail.toLowerCase() === currentGuest.email?.toLowerCase())
       );
     });
-
     renderBookings();
   } catch(e) {
     if (listDiv) listDiv.innerHTML = '<div class="text-sm text-red-600 text-center py-10">Failed to load bookings. Please refresh.</div>';
   }
 }
+let myBookings = [];
 
 // =============================================================
 // RENDER BOOKINGS
@@ -995,44 +795,30 @@ async function loadMyBookings() {
 function renderBookings() {
   const listDiv = document.getElementById('bookingsList');
   if (!listDiv) return;
-
-  // Update metrics
-  let countPaid = 0;
-  let countCompleted = 0;
-  let countPending = 0;
-
+  let countPaid = 0, countCompleted = 0, countPending = 0;
   myBookings.forEach(b => {
     const s = (b.status || '').toLowerCase();
     if (s.includes('completed') || b.payoutDate) countCompleted++;
     else if (s.includes('paid')) countPaid++;
     else if (s.includes('pending')) countPending++;
   });
-
   document.getElementById('metricTotal').textContent = myBookings.length;
   document.getElementById('metricPaid').textContent = countPaid;
   document.getElementById('metricCompleted').textContent = countCompleted;
   document.getElementById('metricPending').textContent = countPending;
 
-  // Empty state
   if (myBookings.length === 0) {
     listDiv.innerHTML = safeHTML(`
       <div class="text-center py-16 space-y-4">
         <div class="text-6xl">🏔️</div>
         <h3 class="font-poppins font-700 text-[20px] text-[#212121]">No Bookings Yet</h3>
-        <p class="text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed">
-          You have not made any bookings yet. Explore our verified Kundasang homestays!
-        </p>
+        <p class="text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed">You have not made any bookings yet. Explore our verified Kundasang homestays!</p>
         <a href="/" class="btn-primary inline-block mt-2">Browse Homestays</a>
       </div>
     `);
     return;
   }
-
-  // Sort newest first
-  const sorted = [...myBookings].sort((a, b) =>
-    new Date(b.date || 0) - new Date(a.date || 0)
-  );
-
+  const sorted = [...myBookings].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   let html = '';
   sorted.forEach(b => {
     const id = b.id || 'N/A';
@@ -1044,77 +830,42 @@ function renderBookings() {
     const base = parseFloat(b.base) || 0;
     const statusRaw = b.status || 'Unknown';
     const statusLower = statusRaw.toLowerCase();
-
     const isCompleted = b.payoutDate || statusLower.includes('completed');
     const isPaid = statusLower.includes('paid') && !isCompleted;
     const isPending = statusLower.includes('pending');
     const isCancelled = statusLower.includes('cancel');
-
-    let badgeClass = 'badge-pending';
-    let badgeLabel = 'Pending';
+    let badgeClass = 'badge-pending', badgeLabel = 'Pending';
     if (isCompleted) { badgeClass = 'badge-completed'; badgeLabel = '✓ Completed'; }
     else if (isPaid) { badgeClass = 'badge-paid'; badgeLabel = '✓ Paid — Awaiting Check-in'; }
     else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
-
-    // WhatsApp
     let ownerPhone = String(b.ownerWhatsapp || '').replace(/[^0-9]/g, '');
     if (ownerPhone.startsWith('0')) ownerPhone = '60' + ownerPhone.substring(1);
     const hasPhone = ownerPhone.length >= 9;
     const waMsg = encodeURIComponent(
-      `Hi! I have a booking at ${homestay}.\n\n` +
-      `Booking ID: ${id}\nCheck-in: ${checkin}\nCheck-out: ${checkout}\n\nPlease confirm my booking. Thank you!`
+      `Hi! I have a booking at ${homestay}.\n\nBooking ID: ${id}\nCheck-in: ${checkin}\nCheck-out: ${checkout}\n\nPlease confirm my booking. Thank you!`
     );
-
     let actions = '';
-    if (hasPhone) {
-      actions += `
-        <a href="https://wa.me/${ownerPhone}?text=${waMsg}"
-           target="_blank" rel="noopener noreferrer"
-           class="btn-whatsapp">
-          💬 WhatsApp Host
-        </a>`;
-    }
-    if (isPending || isPaid) {
-      actions += `
-        <button onclick="cancelBooking('${id}')" class="btn-danger">
-          Cancel
-        </button>`;
-    }
-
+    if (hasPhone) actions += `<a href="https://wa.me/${ownerPhone}?text=${waMsg}" target="_blank" rel="noopener noreferrer" class="btn-whatsapp">💬 WhatsApp Host</a>`;
+    if (isPending || isPaid) actions += `<button onclick="cancelBooking('${id}')" class="btn-danger">Cancel</button>`;
     html += `
       <div class="card hover:shadow-md transition-all duration-300">
         <div class="flex flex-col md:flex-row justify-between gap-4">
           <div class="flex-1 min-w-0 space-y-2">
             <div class="flex items-start justify-between gap-2 flex-wrap">
-              <h3 class="font-poppins font-700 text-[18px] text-[#212121] leading-tight">
-                ${homestay}
-              </h3>
+              <h3 class="font-poppins font-700 text-[18px] text-[#212121] leading-tight">${homestay}</h3>
               <span class="${badgeClass}">${badgeLabel}</span>
             </div>
             <div class="text-sm text-zinc-600 space-y-1">
-              <div>
-                📅 <span class="font-semibold">${checkin}</span> →
-                <span class="font-semibold">${checkout}</span>
-                <span class="text-zinc-400">(${nights} night${nights !== 1 ? 's' : ''})</span>
-              </div>
-              <div>
-                💳 Total paid:
-                <span class="font-bold text-[#0F382E]">RM ${total.toFixed(2)}</span>
-                <span class="text-zinc-400 text-[10px]">(host: RM ${base.toFixed(2)})</span>
-              </div>
-              <div class="text-zinc-400 text-[10px]">
-                Booking ID: <span class="font-mono">${id}</span>
-              </div>
+              <div>📅 <span class="font-semibold">${checkin}</span> → <span class="font-semibold">${checkout}</span> <span class="text-zinc-400">(${nights} night${nights !== 1 ? 's' : ''})</span></div>
+              <div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ${total.toFixed(2)}</span> <span class="text-zinc-400 text-[10px]">(host: RM ${base.toFixed(2)})</span></div>
+              <div class="text-zinc-400 text-[10px]">Booking ID: <span class="font-mono">${id}</span></div>
             </div>
           </div>
-          <div class="flex flex-wrap gap-2 items-start md:items-center shrink-0">
-            ${actions}
-          </div>
+          <div class="flex flex-wrap gap-2 items-start md:items-center shrink-0">${actions}</div>
         </div>
       </div>
     `;
   });
-
   listDiv.innerHTML = safeHTML(html);
 }
 
@@ -1124,36 +875,21 @@ function renderBookings() {
 async function cancelBooking(bookingId) {
   const booking = myBookings.find(b => String(b.id) === String(bookingId));
   if (!booking) { await showAlert('Error', 'Booking not found.'); return; }
-
-  const confirmed = await showConfirm(
-    'Cancel Booking',
-    `Are you sure you want to cancel booking <strong>${bookingId}</strong>?<br><br>
-     <span class="text-red-600 font-semibold">This action cannot be undone.</span><br>
-     Please WhatsApp the host directly to confirm your cancellation.`
-  );
+  const confirmed = await showConfirm('Cancel Booking', `Are you sure you want to cancel booking <strong>${bookingId}</strong>?<br><br><span class="text-red-600 font-semibold">This action cannot be undone.</span><br>Please WhatsApp the host directly to confirm your cancellation.`);
   if (!confirmed) return;
-
   try {
     const res = await fetch(`${API_BASE}/bookings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'cancelBooking',
-        bookingId: bookingId,
-        guestId: currentGuest?.id
-      })
+      body: JSON.stringify({ action: 'cancelBooking', bookingId: bookingId, guestId: currentGuest?.id })
     });
     const data = await res.json().catch(() => ({}));
-
     if (res.ok && data.success) {
       await showAlert('Booking Cancelled', '✓ Your booking has been cancelled successfully.');
     } else {
       const local = JSON.parse(localStorage.getItem('kd_bookings') || '[]');
       const idx = local.findIndex(b => String(b.id) === String(bookingId));
-      if (idx !== -1) {
-        local[idx].status = 'Cancelled';
-        localStorage.setItem('kd_bookings', JSON.stringify(local));
-      }
+      if (idx !== -1) { local[idx].status = 'Cancelled'; localStorage.setItem('kd_bookings', JSON.stringify(local)); }
       await showAlert('Cancelled Locally', 'Booking marked as cancelled. Please also WhatsApp your host.');
     }
     loadMyBookings();
@@ -1167,11 +903,9 @@ async function cancelBooking(bookingId) {
 // =============================================================
 (function init() {
   renderGuestNav();
-
   const notLoggedIn = document.getElementById('notLoggedIn');
   const bookingsView = document.getElementById('bookingsView');
   const nameDisplay = document.getElementById('guestNameDisplay');
-
   if (currentGuest && currentGuest.id) {
     notLoggedIn?.classList.add('hidden');
     bookingsView?.classList.remove('hidden');
