@@ -980,25 +980,28 @@ function cancelBooking(bookingId) {
     .then(function(confirmed) {
       if (!confirmed) return;
       
-      // Update status via the publicUpdateStatus endpoint
+      // Get CSRF token
+      function getCsrfHeader() {
+        var token = localStorage.getItem('kd_csrf_token');
+        return token ? { 'X-CSRF-Token': token } : {};
+      }
+      
       fetch(API_BASE + '/bookings', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...getCsrfHeader() // ✅ ADD THIS
-        },
+        headers: Object.assign({ 
+          'Content-Type': 'application/json'
+        }, getCsrfHeader()),
         body: JSON.stringify({
           action: 'publicUpdateStatus',
           id: bookingId,
           status: 'Cancelled',
-          guestId: currentGuest.id // ✅ ADD THIS
+          guestId: currentGuest.id
         })
       })
       .then(function(res) { return res.json(); })
       .then(function(data) {
         if (data && data.success) {
           showAlert('Booking Cancelled', '✓ Your booking has been cancelled successfully.');
-          // Refresh bookings from server
           loadMyBookings();
         } else {
           showAlert('Error', data.error || 'Failed to cancel booking. Please try again.');
