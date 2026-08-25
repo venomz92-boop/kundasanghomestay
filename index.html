@@ -1197,7 +1197,7 @@
   </div>
 </div>
 
-<!-- ===== ACCORDION GALLERY - INSTANT RESPONSE ===== -->
+<!-- ===== ACCORDION GALLERY - INSTANT IMAGE LOADING ===== -->
 <section class="w-full py-16 bg-[#F8F5F0]">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8">
     <div class="text-center mb-10">
@@ -1261,6 +1261,7 @@
     inset: 0;
     overflow: hidden;
     border-radius: inherit;
+    background: #0a0713;
   }
   .accordion-gallery .ag-item .ag-media {
     position: absolute;
@@ -1271,8 +1272,13 @@
     transform: translate(-50%, -50%);
     filter: grayscale(1);
     transition: filter 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-                transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: transform, filter;
+                transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 0.3s ease;
+    will-change: transform, filter, opacity;
+    opacity: 0;
+  }
+  .accordion-gallery .ag-item .ag-media.loaded {
+    opacity: 1;
   }
   .accordion-gallery .ag-item.active .ag-media {
     filter: grayscale(0);
@@ -1358,6 +1364,25 @@
     color: rgba(255,255,255,0.6);
   }
 
+  /* Loading shimmer effect */
+  .accordion-gallery .ag-item .ag-media-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+    transform: translateX(-100%);
+    animation: shimmer 2s infinite;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .accordion-gallery .ag-item .ag-media.loaded ~ .ag-media-wrap::before {
+    animation: none;
+    opacity: 0;
+  }
+  @keyframes shimmer {
+    100% { transform: translateX(100%); }
+  }
+
   /* Desktop: first and last items have rounded corners on the outer edges */
   @media (min-width: 769px) {
     .accordion-gallery .ag-item:first-child {
@@ -1424,6 +1449,10 @@
     .accordion-gallery .ag-item:not(.active):active {
       transform: scale(0.99) !important;
     }
+    /* Disable shimmer on mobile for performance */
+    .accordion-gallery .ag-item .ag-media-wrap::before {
+      animation: none !important;
+    }
   }
 
   /* Reduced motion */
@@ -1434,35 +1463,38 @@
     .accordion-gallery .ag-item .ag-label {
       transition: none !important;
     }
+    .accordion-gallery .ag-item .ag-media-wrap::before {
+      animation: none !important;
+    }
   }
 </style>
 
-<!-- ===== ACCORDION GALLERY SCRIPT (INSTANT RESPONSE) ===== -->
+<!-- ===== ACCORDION GALLERY SCRIPT (PRELOADED IMAGES) ===== -->
 <script>
 (function() {
   const galleryItems = [
     { 
-      image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=900&h=1200&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=600&h=800&fit=crop', 
       label: 'Mountain Peaks', 
       alt: 'Mount Kinabalu peaks at sunrise'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=900&h=1200&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=600&h=800&fit=crop', 
       label: 'Valley View', 
       alt: 'Green valley with morning mist'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&h=1200&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=600&h=800&fit=crop', 
       label: 'Forest Trail', 
       alt: 'Misty forest trail in Kundasang'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=900&h=1200&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=600&h=800&fit=crop', 
       label: 'Sunset Glow', 
       alt: 'Golden sunset over the mountains'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=900&h=1200&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=600&h=800&fit=crop', 
       label: 'Star Gazing', 
       alt: 'Night sky with stars above Kinabalu'
     }
@@ -1473,6 +1505,7 @@
 
   let activeIndex = 2;
   let isAnimating = false;
+  let imagesLoaded = 0;
 
   // Clear and render items
   container.innerHTML = '';
@@ -1491,8 +1524,8 @@
     
     el.innerHTML = `
       <span class="ag-media-wrap">
-        <span class="ag-media">
-          <img src="${item.image}" alt="${item.alt || item.label}" draggable="false" loading="lazy" />
+        <span class="ag-media" id="media-${index}">
+          <img src="${item.image}" alt="${item.alt || item.label}" draggable="false" />
         </span>
         <span class="ag-overlay" aria-hidden="true"></span>
       </span>
@@ -1505,17 +1538,39 @@
 
     // Store media element reference
     el._media = el.querySelector('.ag-media');
+    el._img = el.querySelector('.ag-media img');
 
-    // Click handler - INSTANT response
+    // Mark image as loaded when ready
+    if (el._img.complete) {
+      el._media.classList.add('loaded');
+      imagesLoaded++;
+    } else {
+      el._img.addEventListener('load', function() {
+        el._media.classList.add('loaded');
+        imagesLoaded++;
+        // If all images loaded, remove shimmer
+        if (imagesLoaded === galleryItems.length) {
+          document.querySelectorAll('.ag-media-wrap::before').forEach(function(el) {
+            el.style.animation = 'none';
+            el.style.opacity = '0';
+          });
+        }
+      });
+      el._img.addEventListener('error', function() {
+        el._media.classList.add('loaded'); // Show even if error
+        imagesLoaded++;
+      });
+    }
+
+    // Click handler
     el.addEventListener('click', function(e) {
       e.preventDefault();
-      // Use requestAnimationFrame for instant visual response
       requestAnimationFrame(function() {
         setActive(index);
       });
     });
 
-    // Mouse enter - instant with RAF
+    // Mouse enter
     let hoverTimeout = null;
     el.addEventListener('mouseenter', function() {
       if (window.innerWidth > 768) {
@@ -1566,9 +1621,8 @@
   const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
   const mediaSize = 320;
 
-  // Set active function - INSTANT with no delay
+  // Set active function
   function setActive(index) {
-    // Prevent rapid firing
     if (isAnimating || activeIndex === index) return;
     
     isAnimating = true;
@@ -1577,12 +1631,10 @@
     const isMobileView = window.innerWidth <= 768;
     const tilt = isMobileView ? 4 : 8;
     
-    // Use for loop for best performance
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const isActive = i === index;
       
-      // Toggle class
       if (isActive) {
         item.classList.add('active');
         item.setAttribute('aria-current', 'true');
@@ -1591,10 +1643,8 @@
         item.removeAttribute('aria-current');
       }
       
-      // Update CSS variable
       item.style.setProperty('--ag-dim', isActive ? '0' : '0.35');
       
-      // Calculate tilt
       const rot = isActive ? 0 : (i < index ? tilt : -tilt);
       
       if (isMobileView) {
@@ -1612,7 +1662,6 @@
         item.style.zIndex = '1';
       }
       
-      // Media shift
       const media = item._media;
       if (media) {
         if (!isMobileView) {
@@ -1632,11 +1681,9 @@
         }
       }
       
-      // Update flex grow
       item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
     }
     
-    // Unlock immediately with small delay for CSS transitions
     setTimeout(function() {
       isAnimating = false;
     }, 450);
@@ -1711,7 +1758,7 @@
     });
   });
 
-  // Handle resize with debounce
+  // Handle resize
   let resizeTimer;
   window.addEventListener('resize', function() {
     clearTimeout(resizeTimer);
