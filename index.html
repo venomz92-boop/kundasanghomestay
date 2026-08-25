@@ -1202,12 +1202,27 @@ function showConfirm(title, message) {
 }
 
 // ESC Key Listener
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    closeModal();
-    const tModal = document.getElementById('thankyouModal');
-    if (tModal && tModal.classList.contains('active')) tModal.classList.remove('active');
-  }
+// Handle iOS date picker focus to prevent page scroll issues
+document.addEventListener('DOMContentLoaded', function() {
+  const dateInputs = document.querySelectorAll('input[type="date"]');
+  
+  dateInputs.forEach(input => {
+    input.addEventListener('focus', function() {
+      if (window.innerWidth <= 768) {
+        document.body.classList.add('date-picker-open');
+        // Scroll to input so it's visible
+        setTimeout(() => {
+          this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    });
+    
+    input.addEventListener('blur', function() {
+      if (window.innerWidth <= 768) {
+        document.body.classList.remove('date-picker-open');
+      }
+    });
+  });
 });
 
 // =============================================================
