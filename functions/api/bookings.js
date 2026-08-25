@@ -566,3 +566,18 @@ export async function onRequestDelete({ request, env }) {
 export async function onRequestOptions({ request }) {
   return new Response(null, { headers: corsHeaders(request) });
 }
+
+// ===== BATCH UPDATE =====
+if (action === "batchUpdate" && body.updates && Array.isArray(body.updates)) {
+  for (const update of body.updates) {
+    if (update.key && update.data) {
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind(update.key, JSON.stringify(update.data))
+        .run();
+    }
+  }
+  return new Response(JSON.stringify({ success: true, count: body.updates.length }), {
+    status: 200,
+    headers: corsHeaders(request)
+  });
+}
