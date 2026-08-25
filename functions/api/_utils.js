@@ -3,7 +3,7 @@
 // SHARED UTILITIES – All API endpoints import from here
 // =============================================================
 
-const PEPPER = "kundasang-homestay-2026";  // Optional – used by some endpoints, kept here for consistency
+const PEPPER = "kundasang-homestay-2026";
 
 // ---- SHA256 hashing ----
 export async function sha256(message) {
@@ -32,7 +32,7 @@ export function corsHeaders(request) {
   const ALLOWED_ORIGINS = [
     'https://kundasanghomestay.my',
     'https://kundasanghomestay.pages.dev',
-    'http://localhost:5173' // For local dev
+    'http://localhost:5173'
   ];
   
   const origin = request?.headers?.get('Origin') || '';
@@ -104,17 +104,14 @@ export async function logAction({ db, action, admin, details, ip, userId, homest
 // =============================================================
 
 // Generate a CSRF token for a user session
-// The token includes the user ID, timestamp, and a random value
 export function generateCSRFToken(userId) {
   const timestamp = Date.now();
   const random = crypto.randomUUID().slice(0, 16);
   const data = `${userId}|${timestamp}|${random}`;
-  // Convert to base64 so it's safe to send in headers
   return btoa(data);
 }
 
 // Validate a CSRF token
-// Checks: 1) The token belongs to this user, 2) It's not expired (>24 hours old)
 export function validateCSRFToken(token, userId) {
   if (!token || !userId) return false;
   try {
@@ -122,9 +119,7 @@ export function validateCSRFToken(token, userId) {
     const parts = decoded.split('|');
     if (parts.length !== 3) return false;
     const [tokenUserId, timestamp] = parts;
-    // Make sure the token belongs to this user
     if (tokenUserId !== String(userId)) return false;
-    // Token expires after 24 hours
     const age = Date.now() - parseInt(timestamp);
     if (isNaN(age) || age > 24 * 60 * 60 * 1000) return false;
     return true;
@@ -135,7 +130,5 @@ export function validateCSRFToken(token, userId) {
 
 // Get CSRF token from request headers
 export function getCSRFToken(request) {
-  const header = request.headers.get('X-CSRF-Token');
-  if (header) return header;
-  return null;
+  return request.headers.get('X-CSRF-Token') || null;
 }
