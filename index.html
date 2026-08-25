@@ -2321,9 +2321,17 @@ async function processPayment() {
     homestay: selectedHomestay.name,
     homestayId: selectedHomestay.id,
     ownerWhatsapp: selectedHomestay.whatsapp || "",
-    guestName: guestName, guestEmail: guestEmail, guestPhone: guestPhone,
-    checkin: ci, checkout: co, nights: nights,
+    // === CRITICAL FIX: Add guestId ===
+    guestId: currentGuest.id,
+    guestName: guestName, 
+    guestEmail: guestEmail, 
+    guestPhone: guestPhone,
+    checkin: ci, 
+    checkout: co, 
+    nights: nights,
     total: price.total,
+    base: price.base,
+    fee: price.fee,
     status: "Paid - Awaiting Check-in",
     date: new Date().toISOString()
   };
