@@ -1203,27 +1203,174 @@ function showConfirm(title, message) {
 
 // ESC Key Listener
 // Handle iOS date picker focus to prevent page scroll issues
-document.addEventListener('DOMContentLoaded', function() {
-  const dateInputs = document.querySelectorAll('input[type="date"]');
+(function() {
+  'use strict';
   
-  dateInputs.forEach(input => {
-    input.addEventListener('focus', function() {
-      if (window.innerWidth <= 768) {
-        document.body.classList.add('date-picker-open');
-        // Scroll to input so it's visible
-        setTimeout(() => {
-          this.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
+  let isIOS = false;
+  let isMobile = false;
+  
+  // Detect iOS and mobile
+  function detectDevice() {
+    isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    isMobile = window.innerWidth <= 768;
+    return { isIOS, isMobile };
+  }
+  
+  // Handle date picker on all devices
+  function setupDatePickers() {
+    const dateInputs = document.querySelectorAll('.date-input');
+    
+    dateInputs.forEach(function(input) {
+      // Remove any existing listeners
+      input.removeEventListener('focus', handleDateFocus);
+      input.removeEventListener('blur', handleDateBlur);
+      input.removeEventListener('click', handleDateClick);
+      
+      // Add new listeners
+      input.addEventListener('focus', handleDateFocus);
+      input.addEventListener('blur', handleDateBlur);
+      input.addEventListener('click', handleDateClick);
+    });
+  }
+  
+  // Handle focus event
+  function handleDateFocus(e) {
+    const input = e.target;
+    const device = detectDevice();
+    
+    if (device.isMobile) {
+      // Prevent body scroll
+      document.body.classList.add('date-picker-open');
+      
+      // Scroll input into view after a small delay
+      setTimeout(function() {
+        input.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center',
+          inline: 'center'
+        });
+      }, 100);
+      
+      // For iOS, ensure the picker is visible
+      if (device.isIOS) {
+        // iOS needs extra help
+        setTimeout(function() {
+          const rect = input.getBoundingClientRect();
+          const windowHeight = window.innerHeight;
+          if (rect.bottom > windowHeight - 100) {
+            window.scrollTo({
+              top: window.scrollY + rect.top - 100,
+              behavior: 'smooth'
+            });
+          }
+        }, 200);
       }
+    }
+  }
+  
+  // Handle blur event
+  function handleDateBlur() {
+    // Remove the body lock with a delay to prevent flicker
+    setTimeout(function() {
+      document.body.classList.remove('date-picker-open');
+    }, 300);
+  }
+  
+  // Handle click event - opens picker on mobile
+  function handleDateClick(e) {
+    const device = detectDevice();
+    if (device.isMobile) {
+      // On mobile, clicking should open the picker
+      // Native behavior already handles this, but we ensure it works
+      e.target.showPicker && e.target.showPicker();
+    }
+  }
+  
+  // Re-run setup when DOM changes (for dynamic content)
+  function reinitializeDatePickers() {
+    // Use MutationObserver to detect new date inputs
+    const observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        if (mutation.addedNodes.length) {
+          const hasDateInput = Array.from(mutation.addedNodes).some(function(node) {
+            return node.nodeType === 1 && 
+                   (node.matches && node.matches('.date-input') || 
+                    node.querySelector && node.querySelector('.date-input'));
+          });
+          if (hasDateInput) {
+            setupDatePickers();
+          }
+        }
+      });
     });
     
-    input.addEventListener('blur', function() {
-      if (window.innerWidth <= 768) {
-        document.body.classList.remove('date-picker-open');
-      }
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
     });
-  });
-});
+  }
+  
+  // Handle window resize
+  function handleResize() {
+    const device = detectDevice();
+    if (!device.isMobile) {
+      document.body.classList.remove('date-picker-open');
+    }
+  }
+  
+  // Handle orientation change
+  function handleOrientationChange() {
+    setTimeout(function() {
+      const activeElement = document.activeElement;
+      if (activeElement && activeElement.classList && activeElement.classList.contains('date-input')) {
+        activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 300);
+  }
+  
+  // Handle touch events to prevent zoom issues on iOS
+  function handleTouchStart(e) {
+    const target = e.target;
+    if (target && target.classList && target.classList.contains('date-input')) {
+      // Prevent default zoom behavior on iOS
+      if (isIOS) {
+        // Don't prevent default completely, just ensure picker opens
+      }
+    }
+  }
+  
+  // Initialize
+  function initDatePickerHandler() {
+    detectDevice();
+    setupDatePickers();
+    reinitializeDatePickers();
+    
+    // Add event listeners
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleOrientationChange);
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    
+    // Also re-run when page is fully loaded
+    if (document.readyState === 'complete') {
+      setupDatePickers();
+    } else {
+      window.addEventListener('load', setupDatePickers);
+    }
+    
+    console.log('📅 Date picker handler initialized');
+  }
+  
+  // Run when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDatePickerHandler);
+  } else {
+    initDatePickerHandler();
+  }
+  
+  // Also expose a function to manually reinitialize
+  window.reinitDatePickers = setupDatePickers;
+  
+})();
 
 // =============================================================
 // THANK YOU & RECEIPT MODAL LOGIC
