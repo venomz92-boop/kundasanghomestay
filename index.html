@@ -2347,12 +2347,12 @@ async function processPayment() {
   window.lastCreatedBooking = booking;
 
   try {
-    var csrfHeaders = getCsrfHeader();
+    // ✅ SIMPLE VERSION - NO CSRF FOR TESTING
     var response = await fetch(API_BASE + "/bookings", {
       method: "POST",
-      headers: Object.assign({ 
+      headers: { 
         "Content-Type": "application/json"
-      }, csrfHeaders),
+      },
       body: JSON.stringify({ 
         action: "createPublicBooking", 
         booking: booking,
@@ -2364,33 +2364,19 @@ async function processPayment() {
     console.log("Booking API response:", result);
     
     if (response.ok && result.success) {
-      // Save to localStorage as backup
       bookings.push(booking);
       localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-      
       closeBooking();
       closeDetail();
       showThankYouModal(bookingId, booking);
     } else {
       console.error("Booking failed:", result);
-      // Fallback: save to localStorage
-      bookings.push(booking);
-      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-      showAlert("Booking Saved Offline", "Your booking has been saved locally. It will sync when you're back online.");
-      closeBooking();
-      closeDetail();
-      showThankYouModal(bookingId, booking);
+      showAlert("Booking Error", result.error || "Failed to save booking.");
     }
     
   } catch(e) { 
     console.error("Booking error:", e);
-    // Fallback: save to localStorage
-    bookings.push(booking);
-    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    showAlert("Booking Saved Offline", "Your booking has been saved locally. It will sync when you're back online.");
-    closeBooking();
-    closeDetail();
-    showThankYouModal(bookingId, booking);
+    showAlert("Network Error", "Could not connect to server. Please try again.");
   }
 }
 
