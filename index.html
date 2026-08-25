@@ -752,23 +752,126 @@
 
     /* ===== DATE PICKER FIX - ONLY THIS ADDED ===== */
     /* Allow date picker to overflow hero section */
-    #hero {
-      overflow: visible !important;
-    }
-    
-    /* Ensure date inputs have proper z-index on mobile */
-    @media (max-width: 768px) {
-      input[type="date"] {
-        position: relative;
-        z-index: 100;
-      }
-      /* iOS specific - ensures picker isn't clipped */
-      @supports (-webkit-touch-callout: none) {
-        input[type="date"] {
-          font-size: 16px !important; /* Prevents iOS zoom */
-        }
-      }
-    }
+    /* ===== MOBILE DATE PICKER FIXES ===== */
+/* Fix for date picker overflow on all devices */
+#hero {
+  overflow: visible !important;
+  position: relative;
+  z-index: 1;
+}
+
+#hero .relative.z-10 {
+  overflow: visible !important;
+}
+
+.date-picker-wrapper {
+  position: relative;
+  z-index: 50;
+}
+
+/* Ensure date inputs are properly layered */
+.form-input[type="date"] {
+  position: relative;
+  z-index: 55;
+  min-height: 48px;
+  cursor: pointer;
+}
+
+/* Mobile specific fixes */
+@media (max-width: 768px) {
+  #hero {
+    overflow: visible !important;
+    min-height: auto !important;
+  }
+  
+  #hero .relative.z-10 {
+    min-height: 480px !important;
+    overflow: visible !important;
+    padding-bottom: 20px !important;
+  }
+  
+  .date-picker-wrapper {
+    z-index: 60;
+  }
+  
+  .form-input[type="date"] {
+    min-height: 48px;
+    font-size: 14px;
+    padding: 10px 14px;
+    z-index: 65;
+  }
+  
+  /* Make the calendar picker appear above everything */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    position: relative;
+    z-index: 70;
+    padding: 8px;
+    cursor: pointer;
+  }
+  
+  /* iOS Safari fix */
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  
+  /* Reduce search box padding on mobile */
+  #hero .bg-white\/95 {
+    padding: 14px !important;
+    margin: 0 !important;
+  }
+  
+  #hero .grid {
+    gap: 8px !important;
+  }
+  
+  #hero .btn-primary {
+    padding: 12px !important;
+    font-size: 12px !important;
+    min-height: 48px;
+  }
+  
+  #hero label {
+    font-size: 9px !important;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 380px) {
+  #hero .relative.z-10 {
+    min-height: 440px !important;
+    padding-top: 12px !important;
+  }
+  
+  #hero .bg-white\/95 {
+    padding: 10px !important;
+  }
+  
+  .form-input[type="date"] {
+    min-height: 42px;
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+  
+  #hero .btn-primary {
+    min-height: 42px;
+    font-size: 11px !important;
+    padding: 10px !important;
+  }
+  
+  #hero h1 {
+    font-size: 24px !important;
+  }
+}
+
+/* Prevent body scroll when date picker is open on mobile */
+@media (max-width: 768px) {
+  body.date-picker-open {
+    overflow: hidden !important;
+    position: fixed;
+    width: 100%;
+  }
+}
   </style>
 </head>
 <body>
@@ -842,41 +945,47 @@
 </div>
 
 <!-- ===== HERO ===== -->
-<section id="hero" class="relative w-full h-[640px] overflow-hidden">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu Sunrise" class="absolute inset-0 w-full h-full object-cover" />
-  <div class="absolute inset-0 bg-black/30"></div>
-  <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/30"></div>
+<section id="hero" class="relative w-full overflow-visible pb-4 md:pb-0">
+  <!-- Background Image -->
+  <div class="absolute inset-0 w-full h-full overflow-hidden">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu Sunrise" class="w-full h-full object-cover" />
+    <div class="absolute inset-0 bg-black/30"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/30"></div>
+  </div>
   
-  <div class="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
-    <div class="font-satisfy text-[#3FD0D4] text-[32px] md:text-[38px] leading-none mb-3 drop-shadow">Breathe The Mountain Air</div>
-    <h1 class="font-poppins font-700 text-white text-[38px] md:text-[62px] leading-[1.0] tracking-[-1px] drop-shadow-md">Handpicked Homestays <br class="hidden md:block"/>in Kundasang</h1>
-    <p class="mt-4 font-poppins font-500 text-white/90 text-[14px] md:text-[16px] max-w-[620px] leading-[1.6] drop-shadow">Verified local hosts, unobstructed Mount Kinabalu views, steamboat amenities & guaranteed safe FPX payments.</p>
+  <!-- Content -->
+  <div class="relative z-10 flex flex-col items-center justify-center text-center px-4 py-8 md:py-12 min-h-[520px] md:min-h-[640px]">
+    <div class="font-satisfy text-[#3FD0D4] text-[28px] md:text-[38px] leading-none mb-2 drop-shadow">Breathe The Mountain Air</div>
+    <h1 class="font-poppins font-700 text-white text-[30px] md:text-[62px] leading-[1.0] tracking-[-1px] drop-shadow-md">Handpicked Homestays <br class="hidden md:block"/>in Kundasang</h1>
+    <p class="mt-3 font-poppins font-500 text-white/90 text-[13px] md:text-[16px] max-w-[620px] leading-[1.6] drop-shadow px-2">Verified local hosts, unobstructed Mount Kinabalu views, steamboat amenities & guaranteed safe FPX payments.</p>
     
-    <!-- Hero Integrated Search Box -->
-    <div class="mt-8 bg-white/95 backdrop-blur p-4 md:p-5 rounded-2xl shadow-2xl w-full max-w-[920px] text-left border border-white/40">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-        <div>
-          <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Area / Location</label>
-          <select id="filterLocation" class="form-select text-sm">
-            <option value="all">📍 All Kundasang Areas</option>
-            <option value="Bundu Tuhan">Bundu Tuhan</option>
-            <option value="Desa">Near Desa Cattle Farm</option>
-            <option value="Mesilau">Mesilau</option>
-            <option value="Pekan Kundasang">Pekan Kundasang</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Check-in</label>
-          <input id="checkin" type="date" class="form-input text-sm" onchange="renderGrid()" />
-        </div>
-        <div>
-          <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Check-out</label>
-          <input id="checkout" type="date" class="form-input text-sm" onchange="renderGrid()" />
-        </div>
-        <div>
-          <button onclick="renderGrid(); document.getElementById('homePage')?.scrollIntoView({behavior:'smooth'})" class="w-full btn-primary py-3 text-sm tracking-widest">
-            Find Available
-          </button>
+    <!-- Search Box - MOVED OUTSIDE the min-height container -->
+    <div class="w-full max-w-[920px] mt-6 md:mt-8 px-4 md:px-0">
+      <div class="bg-white/95 backdrop-blur p-4 md:p-5 rounded-2xl shadow-2xl border border-white/40">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+          <div>
+            <label class="block text-[10px] md:text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Area / Location</label>
+            <select id="filterLocation" class="form-select text-sm w-full">
+              <option value="all">📍 All Kundasang Areas</option>
+              <option value="Bundu Tuhan">Bundu Tuhan</option>
+              <option value="Desa">Near Desa Cattle Farm</option>
+              <option value="Mesilau">Mesilau</option>
+              <option value="Pekan Kundasang">Pekan Kundasang</option>
+            </select>
+          </div>
+          <div class="date-picker-wrapper">
+            <label class="block text-[10px] md:text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Check-in</label>
+            <input id="checkin" type="date" class="form-input text-sm w-full" onchange="renderGrid()" />
+          </div>
+          <div class="date-picker-wrapper">
+            <label class="block text-[10px] md:text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Check-out</label>
+            <input id="checkout" type="date" class="form-input text-sm w-full" onchange="renderGrid()" />
+          </div>
+          <div>
+            <button onclick="renderGrid(); document.getElementById('homePage')?.scrollIntoView({behavior:'smooth'})" class="w-full btn-primary py-3 text-sm tracking-widest">
+              Find Available
+            </button>
+          </div>
         </div>
       </div>
     </div>
