@@ -1801,11 +1801,6 @@
 <!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
-// Helper to get CSRF header for API calls
-function getCsrfHeader() {
-  const token = localStorage.getItem('kd_csrf_token');
-  return token ? { 'X-CSRF-Token': token } : {};
-}
 // =============================================================
 // SECURE HELPER
 // =============================================================
@@ -1968,6 +1963,14 @@ function whatsappOwnerFromThankYou() {
 }
 
 // =============================================================
+// CSRF HELPER
+// =============================================================
+function getCsrfHeader() {
+  var token = localStorage.getItem('kd_csrf_token');
+  return token ? { 'X-CSRF-Token': token } : {};
+}
+
+// =============================================================
 // CONFIG & CONSTANTS
 // =============================================================
 var CONFIG = {
@@ -2043,8 +2046,6 @@ function logoutGuest() {
   localStorage.removeItem('kd_guest');
   renderGuestNav();
   window.location.href = '/';
-  if (data.csrfToken) {
-  localStorage.setItem('kd_csrf_token', data.csrfToken);
 }
 
 // =============================================================
@@ -2226,11 +2227,10 @@ function updateDetailPrice() {
 function closeDetail() { document.getElementById("detailModal").classList.add("hidden"); }
 
 // =============================================================
-// BOOKING MODAL & CHECKOUT - FIXED
+// BOOKING MODAL & CHECKOUT - FIXED WITH CSRF
 // =============================================================
 function openBooking() {
-  // Check if user is logged in
-  if (!currentGuest) {
+  // Check if user is logged in  if (!currentGuest) {
     // Store the current homestay and dates in sessionStorage
     var ci = document.getElementById("detailCheckin")?.value;
     var co = document.getElementById("detailCheckout")?.value;
@@ -2344,11 +2344,17 @@ async function processPayment() {
   window.lastCreatedBooking = booking;
 
   try {
+    var csrfHeaders = getCsrfHeader();
     await fetch(API_BASE + "/bookings", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      ...getCsrfHeader()
-      body: JSON.stringify({ action: "createPublicBooking", booking: booking, guestId: currentGuest.id })
+      headers: Object.assign({ 
+        "Content-Type": "application/json"
+      }, csrfHeaders),
+      body: JSON.stringify({ 
+        action: "createPublicBooking", 
+        booking: booking,
+        guestId: currentGuest.id
+      })
     });
   } catch(e) { console.warn("Syncing offline fallback mode"); }
 
