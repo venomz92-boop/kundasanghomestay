@@ -766,7 +766,7 @@ document.addEventListener('click', function(e) {
 });
 
 // =============================================================
-// LOAD BOOKINGS FROM D1 VIA API
+// LOAD BOOKINGS FROM D1 VIA API - FIXED
 // =============================================================
 var myBookings = [];
 
@@ -779,6 +779,8 @@ function loadMyBookings() {
     return;
   }
 
+  console.log('🔍 Loading bookings for guest:', currentGuest.id, currentGuest.email);
+
   // Fetch ALL bookings from the API (GET /api/bookings)
   fetch(API_BASE + '/bookings', {
     method: 'GET',
@@ -790,19 +792,45 @@ function loadMyBookings() {
     return res.json();
   })
   .then(function(data) {
+    console.log('📊 API returned data with', data.bookings ? data.bookings.length : 0, 'bookings');
+    
     // The API returns { bookings: [...], approved: [...], etc }
     var allBookings = data.bookings || [];
     
-    // Filter bookings for current guest
+    // Debug: log first booking to see structure
+    if (allBookings.length > 0) {
+      console.log('📋 Sample booking:', allBookings[0]);
+    }
+    
+    // Filter bookings for current guest - try multiple matching strategies
     var filtered = allBookings.filter(function(b) {
       if (!currentGuest) return false;
-      // Match by guestId, guestEmail, or guestPhone
+      
+      // Strategy 1: Match by guestId (string comparison)
       var matchById = b.guestId && String(b.guestId) === String(currentGuest.id);
+      
+      // Strategy 2: Match by guestEmail (case insensitive)
       var matchByEmail = b.guestEmail && b.guestEmail.toLowerCase() === (currentGuest.email || '').toLowerCase();
-      var matchByPhone = b.guestPhone && String(b.guestPhone).replace(/[^0-9]/g, '') === String(currentGuest.phone || '').replace(/[^0-9]/g, '');
-      return matchById || matchByEmail || matchByPhone;
+      
+      // Strategy 3: Match by guestPhone (clean numbers)
+      var guestPhoneClean = String(currentGuest.phone || '').replace(/[^0-9]/g, '');
+      var bookingPhoneClean = String(b.guestPhone || '').replace(/[^0-9]/g, '');
+      var matchByPhone = guestPhoneClean && bookingPhoneClean && bookingPhoneClean === guestPhoneClean;
+      
+      // Strategy 4: Match by guestName (fallback)
+      var matchByName = b.guestName && currentGuest.name && 
+        b.guestName.toLowerCase().includes(currentGuest.name.toLowerCase());
+      
+      var matched = matchById || matchByEmail || matchByPhone || matchByName;
+      
+      if (matched) {
+        console.log('✅ Matched booking:', b.id, 'for guest', currentGuest.id);
+      }
+      
+      return matched;
     });
     
+    console.log('📊 Filtered to', filtered.length, 'bookings for this guest');
     myBookings = filtered;
     
     // Cache to localStorage as backup
@@ -811,7 +839,6 @@ function loadMyBookings() {
     }
     
     renderBookings();
-    console.log('✅ Loaded ' + myBookings.length + ' bookings from D1');
   })
   .catch(function(err) {
     console.warn('API error:', err);
@@ -834,6 +861,7 @@ function loadMyBookings() {
         renderBookings();
       }
     } catch(e2) {
+      console.error('Cache error:', e2);
       myBookings = [];
       renderBookings();
     }
