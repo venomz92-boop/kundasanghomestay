@@ -2429,32 +2429,39 @@ function toggleMobileMenu() {
   
   // Check if user came from booking redirect
   var urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('redirect') === 'booking') {
-    var savedBooking = sessionStorage.getItem('kd_redirect_booking');
-    if (savedBooking) {
-      try {
-        var data = JSON.parse(savedBooking);
-        // Open the booking modal after login/registration
-        setTimeout(function() {
-          var homestay = homestays.find(function(h) { return h.id === data.homestayId; });
-          if (homestay) {
-            // Set the dates
-            if (data.checkin) document.getElementById('checkin').value = data.checkin;
-            if (data.checkout) document.getElementById('checkout').value = data.checkout;
-            // Open the detail modal
-            openDetail(data.homestayId);
-            // Then open booking modal after a short delay
-            setTimeout(function() {
-              openBooking();
-            }, 400);
-          }
-          // Clear the session storage
-          sessionStorage.removeItem('kd_redirect_booking');
-        }, 300);
-      } catch(e) {
+  var savedBooking = sessionStorage.getItem('kd_redirect_booking');
+  
+  // Only proceed if BOTH the URL has redirect AND sessionStorage has data
+  if (urlParams.get('redirect') === 'booking' && savedBooking) {
+    try {
+      var data = JSON.parse(savedBooking);
+      // Open the booking modal after login/registration
+      setTimeout(function() {
+        var homestay = homestays.find(function(h) { return h.id === data.homestayId; });
+        if (homestay) {
+          // Set the dates
+          if (data.checkin) document.getElementById('checkin').value = data.checkin;
+          if (data.checkout) document.getElementById('checkout').value = data.checkout;
+          // Open the detail modal
+          openDetail(data.homestayId);
+          // Then open booking modal after a short delay
+          setTimeout(function() {
+            openBooking();
+          }, 400);
+        }
+        // Clear the session storage
         sessionStorage.removeItem('kd_redirect_booking');
-      }
+      }, 300);
+    } catch(e) {
+      sessionStorage.removeItem('kd_redirect_booking');
     }
+  }
+  
+  // ✅ Always remove the URL parameter if it exists, regardless
+  if (urlParams.get('redirect')) {
+    urlParams.delete('redirect');
+    var newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+    window.history.replaceState({}, '', newUrl);
   }
   
   renderGrid();
