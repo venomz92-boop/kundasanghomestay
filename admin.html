@@ -1476,6 +1476,50 @@ document.addEventListener('click', async (e)=>{
     }
   }
 })();
+  // ========== WRITE BUFFER (Admin Panel) ==========
+var writeBuffer = [];
+var bufferFlushTimer = null;
+var BUFFER_SIZE = 10;
+var FLUSH_INTERVAL = 30000; // 30 seconds
+
+function addToBuffer(key, data) {
+  writeBuffer.push({ key, data });
+  if (writeBuffer.length >= BUFFER_SIZE) {
+    flushBuffer();
+  } else if (!bufferFlushTimer) {
+    bufferFlushTimer = setTimeout(flushBuffer, FLUSH_INTERVAL);
+  }
+}
+
+async function flushBuffer() {
+  if (bufferFlushTimer) {
+    clearTimeout(bufferFlushTimer);
+    bufferFlushTimer = null;
+  }
+  if (writeBuffer.length === 0) return;
+  
+  var items = writeBuffer.slice();
+  writeBuffer = [];
+  
+  try {
+    var response = await fetchWithAuth('/api/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'batchUpdate',
+        updates: items
+      })
+    });
+    if (!response.ok) {
+      console.error('Failed to flush buffer:', await response.text());
+      // Re-add items to buffer
+      writeBuffer = items.concat(writeBuffer);
+    }
+  } catch(e) {
+    console.error('Buffer flush error:', e);
+    writeBuffer = items.concat(writeBuffer);
+  }
+}
 </script>
 </body>
 </html>
