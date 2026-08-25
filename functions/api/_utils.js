@@ -99,22 +99,22 @@ export async function logAction({ db, action, admin, details, ip, userId, homest
   }
 }
 
-// /functions/api/_utils.js - ADD THESE FUNCTIONS
-
 // =============================================================
 // CSRF TOKEN GENERATION & VALIDATION
 // =============================================================
 
-// Generate a CSRF token for a session
+// Generate a CSRF token for a user session
+// The token includes the user ID, timestamp, and a random value
 export function generateCSRFToken(userId) {
   const timestamp = Date.now();
   const random = crypto.randomUUID().slice(0, 16);
   const data = `${userId}|${timestamp}|${random}`;
-  // Simple base64 encoding (not cryptographic, just for transport)
+  // Convert to base64 so it's safe to send in headers
   return btoa(data);
 }
 
 // Validate a CSRF token
+// Checks: 1) The token belongs to this user, 2) It's not expired (>24 hours old)
 export function validateCSRFToken(token, userId) {
   if (!token || !userId) return false;
   try {
@@ -122,6 +122,7 @@ export function validateCSRFToken(token, userId) {
     const parts = decoded.split('|');
     if (parts.length !== 3) return false;
     const [tokenUserId, timestamp] = parts;
+    // Make sure the token belongs to this user
     if (tokenUserId !== String(userId)) return false;
     // Token expires after 24 hours
     const age = Date.now() - parseInt(timestamp);
@@ -132,16 +133,9 @@ export function validateCSRFToken(token, userId) {
   }
 }
 
-// Get CSRF token from request (headers or body)
+// Get CSRF token from request headers
 export function getCSRFToken(request) {
   const header = request.headers.get('X-CSRF-Token');
   if (header) return header;
-  // Fallback: check body (for JSON requests)
   return null;
 }
-
-// =============================================================
-// Also add this to your existing corsHeaders function
-// =============================================================
-// In corsHeaders(), add to allowed headers:
-// 'X-CSRF-Token'
