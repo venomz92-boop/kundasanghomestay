@@ -1267,21 +1267,14 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 320px;
+    width: 100%;
     height: 100%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(1);
     filter: grayscale(1);
-    transition: filter 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-                transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-                opacity 0.3s ease;
-    will-change: transform, filter, opacity;
-    opacity: 0;
-  }
-  .accordion-gallery .ag-item .ag-media.loaded {
+    transition: filter 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, filter;
     opacity: 1;
-  }
-  .accordion-gallery .ag-item.active .ag-media {
-    filter: grayscale(0);
   }
   .accordion-gallery .ag-item .ag-media img {
     display: block;
@@ -1291,6 +1284,10 @@
     user-select: none;
     -webkit-user-drag: none;
   }
+  .accordion-gallery .ag-item.active .ag-media {
+    filter: grayscale(0);
+    transform: translate(-50%, -50%) scale(1);
+  }
   .accordion-gallery .ag-item .ag-overlay {
     position: absolute;
     inset: 0;
@@ -1299,6 +1296,7 @@
     background: linear-gradient(180deg, transparent 45%, color-mix(in srgb, #060010 78%, transparent) 100%), 
                 color-mix(in srgb, #060010 calc(var(--ag-dim, 0.35) * 100%), transparent);
     transition: --ag-dim 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 1;
   }
   .accordion-gallery .ag-item.active .ag-overlay {
     --ag-dim: 0;
@@ -1322,8 +1320,8 @@
     background: #ffffff;
     box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
     opacity: 0;
-    transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-                transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
     transform: translateX(-14px);
   }
   .accordion-gallery .ag-item.active .ag-bar {
@@ -1340,8 +1338,8 @@
     color: #ffffff;
     text-shadow: 0 2px 14px rgba(0,0,0,0.55);
     opacity: 0;
-    transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.04s,
-                transform 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.04s;
+    transition: opacity 0.25s cubic-bezier(0.22, 1, 0.36, 1) 0.03s,
+                transform 0.25s cubic-bezier(0.22, 1, 0.36, 1) 0.03s;
     transform: translateX(-14px);
   }
   .accordion-gallery .ag-item.active .ag-label {
@@ -1364,25 +1362,6 @@
     color: rgba(255,255,255,0.6);
   }
 
-  /* Loading shimmer effect */
-  .accordion-gallery .ag-item .ag-media-wrap::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-    transform: translateX(-100%);
-    animation: shimmer 2s infinite;
-    z-index: 0;
-    pointer-events: none;
-  }
-  .accordion-gallery .ag-item .ag-media.loaded ~ .ag-media-wrap::before {
-    animation: none;
-    opacity: 0;
-  }
-  @keyframes shimmer {
-    100% { transform: translateX(100%); }
-  }
-
   /* Desktop: first and last items have rounded corners on the outer edges */
   @media (min-width: 769px) {
     .accordion-gallery .ag-item:first-child {
@@ -1393,6 +1372,10 @@
     }
     .accordion-gallery .ag-item:first-child:last-child {
       border-radius: var(--radius, 16px);
+    }
+    .accordion-gallery .ag-item .ag-media {
+      width: 100%;
+      height: 100%;
     }
   }
 
@@ -1413,10 +1396,10 @@
       transform-origin: center center !important;
       transform-style: preserve-3d !important;
       box-shadow: 0 4px 16px -10px rgba(0,0,0,0.5) !important;
-      transition: flex-grow 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-                  transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-                  box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-                  min-height 0.4s cubic-bezier(0.22, 1, 0.36, 1) !important;
+      transition: flex-grow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+                  transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+                  box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+                  min-height 0.35s cubic-bezier(0.22, 1, 0.36, 1) !important;
     }
     .accordion-gallery .ag-item:first-child {
       border-radius: 14px 14px 0 0 !important;
@@ -1427,6 +1410,7 @@
     .accordion-gallery .ag-item .ag-media {
       width: 100%;
       height: 100%;
+      transform: translate(-50%, -50%) scale(1) !important;
     }
     .accordion-gallery .ag-item.active {
       flex: 2.5 1 0 !important;
@@ -1439,19 +1423,25 @@
     }
     .accordion-gallery .ag-item:not(.active) {
       transform-origin: center !important;
+      transform: rotateX(0deg) translateY(0px) scale(1) !important;
     }
     .accordion-gallery .ag-item[data-tilt="up"]:not(.active) {
-      transform: rotateX(4deg) translateY(2px) scale(0.98) !important;
+      transform: rotateX(3deg) translateY(2px) scale(0.99) !important;
     }
     .accordion-gallery .ag-item[data-tilt="down"]:not(.active) {
-      transform: rotateX(-4deg) translateY(-2px) scale(0.98) !important;
+      transform: rotateX(-3deg) translateY(-2px) scale(0.99) !important;
     }
     .accordion-gallery .ag-item:not(.active):active {
       transform: scale(0.99) !important;
     }
-    /* Disable shimmer on mobile for performance */
-    .accordion-gallery .ag-item .ag-media-wrap::before {
-      animation: none !important;
+    .accordion-gallery .ag-item .ag-media {
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .accordion-gallery .ag-item .ag-media img {
+      object-fit: cover !important;
+      width: 100% !important;
+      height: 100% !important;
     }
   }
 
@@ -1463,38 +1453,35 @@
     .accordion-gallery .ag-item .ag-label {
       transition: none !important;
     }
-    .accordion-gallery .ag-item .ag-media-wrap::before {
-      animation: none !important;
-    }
   }
 </style>
 
-<!-- ===== ACCORDION GALLERY SCRIPT (PRELOADED IMAGES) ===== -->
+<!-- ===== ACCORDION GALLERY SCRIPT (INSTANT FRAME) ===== -->
 <script>
 (function() {
   const galleryItems = [
     { 
-      image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=600&h=800&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&h=600&fit=crop', 
       label: 'Mountain Peaks', 
       alt: 'Mount Kinabalu peaks at sunrise'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=600&h=800&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&h=600&fit=crop', 
       label: 'Valley View', 
       alt: 'Green valley with morning mist'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=600&h=800&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&h=600&fit=crop', 
       label: 'Forest Trail', 
       alt: 'Misty forest trail in Kundasang'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=600&h=800&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&h=600&fit=crop', 
       label: 'Sunset Glow', 
       alt: 'Golden sunset over the mountains'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=600&h=800&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&h=600&fit=crop', 
       label: 'Star Gazing', 
       alt: 'Night sky with stars above Kinabalu'
     }
@@ -1505,7 +1492,6 @@
 
   let activeIndex = 2;
   let isAnimating = false;
-  let imagesLoaded = 0;
 
   // Clear and render items
   container.innerHTML = '';
@@ -1524,7 +1510,7 @@
     
     el.innerHTML = `
       <span class="ag-media-wrap">
-        <span class="ag-media" id="media-${index}">
+        <span class="ag-media">
           <img src="${item.image}" alt="${item.alt || item.label}" draggable="false" />
         </span>
         <span class="ag-overlay" aria-hidden="true"></span>
@@ -1538,57 +1524,34 @@
 
     // Store media element reference
     el._media = el.querySelector('.ag-media');
-    el._img = el.querySelector('.ag-media img');
 
-    // Mark image as loaded when ready
-    if (el._img.complete) {
-      el._media.classList.add('loaded');
-      imagesLoaded++;
-    } else {
-      el._img.addEventListener('load', function() {
-        el._media.classList.add('loaded');
-        imagesLoaded++;
-        // If all images loaded, remove shimmer
-        if (imagesLoaded === galleryItems.length) {
-          document.querySelectorAll('.ag-media-wrap::before').forEach(function(el) {
-            el.style.animation = 'none';
-            el.style.opacity = '0';
-          });
-        }
-      });
-      el._img.addEventListener('error', function() {
-        el._media.classList.add('loaded'); // Show even if error
-        imagesLoaded++;
-      });
-    }
-
-    // Click handler
+    // Click handler - INSTANT
     el.addEventListener('click', function(e) {
       e.preventDefault();
-      requestAnimationFrame(function() {
+      if (!isAnimating) {
         setActive(index);
-      });
+      }
     });
 
-    // Mouse enter
+    // Mouse enter - INSTANT
     let hoverTimeout = null;
     el.addEventListener('mouseenter', function() {
       if (window.innerWidth > 768) {
         if (hoverTimeout) return;
         hoverTimeout = setTimeout(function() {
-          requestAnimationFrame(function() {
+          if (!isAnimating) {
             setActive(index);
-          });
+          }
           hoverTimeout = null;
-        }, 20);
+        }, 15);
       }
     });
 
     // Focus
     el.addEventListener('focus', function() {
-      requestAnimationFrame(function() {
+      if (!isAnimating) {
         setActive(index);
-      });
+      }
     });
 
     // Keyboard navigation
@@ -1597,17 +1560,17 @@
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault();
         const next = (index + 1) % count;
-        requestAnimationFrame(function() {
+        if (!isAnimating) {
           setActive(next);
           container.children[next]?.focus();
-        });
+        }
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault();
         const prev = (index - 1 + count) % count;
-        requestAnimationFrame(function() {
+        if (!isAnimating) {
           setActive(prev);
           container.children[prev]?.focus();
-        });
+        }
       }
     });
 
@@ -1619,9 +1582,8 @@
   const count = items.length;
   const expandRatio = 0.52;
   const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
-  const mediaSize = 320;
 
-  // Set active function
+  // Set active function - OPTIMIZED
   function setActive(index) {
     if (isAnimating || activeIndex === index) return;
     
@@ -1629,51 +1591,48 @@
     activeIndex = index;
     
     const isMobileView = window.innerWidth <= 768;
-    const tilt = isMobileView ? 4 : 8;
+    const tilt = isMobileView ? 3 : 8;
     
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const isActive = i === index;
       
+      // Toggle class
       if (isActive) {
         item.classList.add('active');
         item.setAttribute('aria-current', 'true');
+        item.style.zIndex = '2';
       } else {
         item.classList.remove('active');
         item.removeAttribute('aria-current');
+        item.style.zIndex = '1';
       }
       
+      // Update CSS variable
       item.style.setProperty('--ag-dim', isActive ? '0' : '0.35');
       
+      // Calculate tilt
       const rot = isActive ? 0 : (i < index ? tilt : -tilt);
       
       if (isMobileView) {
         if (isActive) {
           item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
-          item.style.zIndex = '2';
           item.setAttribute('data-tilt', '');
         } else {
-          item.style.transform = `rotateX(${rot}deg) translateY(${i < index ? 2 : -2}px) scale(0.98)`;
-          item.style.zIndex = '1';
+          item.style.transform = `rotateX(${rot}deg) translateY(${i < index ? 2 : -2}px) scale(0.99)`;
           item.setAttribute('data-tilt', i < index ? 'up' : 'down');
         }
       } else {
         item.style.transform = `rotateY(${rot}deg)`;
-        item.style.zIndex = '1';
       }
       
+      // Media - always at 100% size, no scaling
       const media = item._media;
       if (media) {
-        if (!isMobileView) {
-          const drift = Math.max(-1.5, Math.min(1.5, index - i));
-          const shift = drift * 0.5 * mediaSize * 0.06;
-          media.style.transform = `translate(-50%, -50%) translateX(${isActive ? 0 : shift}px)`;
-        } else {
-          const drift = Math.max(-1.2, Math.min(1.2, index - i));
-          const shift = drift * 6;
-          const scale = isActive ? 1 : 1.05;
-          media.style.transform = `translate(-50%, -50%) translateY(${isActive ? 0 : shift}px) scale(${scale})`;
-        }
+        // Keep media at full size always - no scaling
+        media.style.transform = 'translate(-50%, -50%) scale(1)';
+        
+        // Only filter changes
         if (isActive) {
           media.style.filter = 'grayscale(0) brightness(1)';
         } else {
@@ -1681,18 +1640,20 @@
         }
       }
       
+      // Update flex grow
       item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
     }
     
+    // Unlock after transition
     setTimeout(function() {
       isAnimating = false;
-    }, 450);
+    }, 400);
   }
 
   // Initial layout
   function initGallery() {
     const isMobileView = window.innerWidth <= 768;
-    const tilt = isMobileView ? 4 : 8;
+    const tilt = isMobileView ? 3 : 8;
     
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
@@ -1717,7 +1678,7 @@
           item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
           item.setAttribute('data-tilt', '');
         } else {
-          item.style.transform = `rotateX(${rot}deg) translateY(${i < activeIndex ? 2 : -2}px) scale(0.98)`;
+          item.style.transform = `rotateX(${rot}deg) translateY(${i < activeIndex ? 2 : -2}px) scale(0.99)`;
           item.setAttribute('data-tilt', i < activeIndex ? 'up' : 'down');
         }
       } else {
@@ -1726,16 +1687,7 @@
       
       const media = item._media;
       if (media) {
-        if (!isMobileView) {
-          const drift = Math.max(-1.5, Math.min(1.5, activeIndex - i));
-          const shift = drift * 0.5 * mediaSize * 0.06;
-          media.style.transform = `translate(-50%, -50%) translateX(${isActive ? 0 : shift}px)`;
-        } else {
-          const drift = Math.max(-1.2, Math.min(1.2, activeIndex - i));
-          const shift = drift * 6;
-          const scale = isActive ? 1 : 1.05;
-          media.style.transform = `translate(-50%, -50%) translateY(${isActive ? 0 : shift}px) scale(${scale})`;
-        }
+        media.style.transform = 'translate(-50%, -50%) scale(1)';
         if (isActive) {
           media.style.filter = 'grayscale(0) brightness(1)';
         } else {
@@ -1765,7 +1717,7 @@
     resizeTimer = setTimeout(function() {
       requestAnimationFrame(function() {
         const isMobileView = window.innerWidth <= 768;
-        const tilt = isMobileView ? 4 : 8;
+        const tilt = isMobileView ? 3 : 8;
         
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
@@ -1777,7 +1729,7 @@
               item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
               item.setAttribute('data-tilt', '');
             } else {
-              item.style.transform = `rotateX(${rot}deg) translateY(${i < activeIndex ? 2 : -2}px) scale(0.98)`;
+              item.style.transform = `rotateX(${rot}deg) translateY(${i < activeIndex ? 2 : -2}px) scale(0.99)`;
               item.setAttribute('data-tilt', i < activeIndex ? 'up' : 'down');
             }
           } else {
@@ -1786,16 +1738,7 @@
           
           const media = item._media;
           if (media) {
-            if (!isMobileView) {
-              const drift = Math.max(-1.5, Math.min(1.5, activeIndex - i));
-              const shift = drift * 0.5 * mediaSize * 0.06;
-              media.style.transform = `translate(-50%, -50%) translateX(${isActive ? 0 : shift}px)`;
-            } else {
-              const drift = Math.max(-1.2, Math.min(1.2, activeIndex - i));
-              const shift = drift * 6;
-              const scale = isActive ? 1 : 1.05;
-              media.style.transform = `translate(-50%, -50%) translateY(${isActive ? 0 : shift}px) scale(${scale})`;
-            }
+            media.style.transform = 'translate(-50%, -50%) scale(1)';
             if (isActive) {
               media.style.filter = 'grayscale(0) brightness(1)';
             } else {
@@ -1804,7 +1747,7 @@
           }
         }
       });
-    }, 200);
+    }, 150);
   });
 
   // Handle reduced motion
