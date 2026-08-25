@@ -1,39 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Add to <head> -->
-<style>
-  /* Translation Widget Styles */
-  .translation-widget{position:fixed;bottom:100px;right:24px;z-index:9998;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
-  .translation-toggle{width:52px;height:52px;border-radius:50%;background:#0F382E;color:#fff;border:none;cursor:pointer;box-shadow:0 8px 30px rgba(15,56,46,.35);transition:all .3s cubic-bezier(.25,.46,.45,.94);display:flex;align-items:center;justify-content:center;gap:4px;font-family:Poppins,sans-serif;font-weight:700;font-size:13px;position:relative;overflow:hidden}
-  .translation-toggle:hover{transform:translateY(-2px) scale(1.05);box-shadow:0 12px 40px rgba(15,56,46,.45)}
-  .translation-toggle .translate-icon{font-size:18px;line-height:1}
-  .translation-toggle .translate-label{font-size:11px;letter-spacing:.05em;text-transform:uppercase}
-  .translation-panel{background:#fff;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.15);width:280px;overflow:hidden;animation:slideUp .35s cubic-bezier(.25,.46,.45,.94);border:1px solid rgba(0,0,0,.04);margin-bottom:12px}
-  .translation-panel.hidden{display:none}
-  @keyframes slideUp{from{opacity:0;transform:translateY(20px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
-  .translation-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid rgba(0,0,0,.05)}
-  .translation-title{font-family:Poppins,sans-serif;font-weight:700;font-size:14px;color:#212121}
-  .translation-close{background:0 0;border:none;font-size:18px;color:#9ca3af;cursor:pointer;padding:4px 8px;border-radius:50%;transition:all .2s;font-family:Poppins,sans-serif;line-height:1}
-  .translation-close:hover{color:#212121;background:#f1f5f9}
-  .translation-body{padding:16px 20px 20px}
-  .translation-desc{font-family:Poppins,sans-serif;font-size:12px;color:#6b7280;margin-bottom:12px}
-  .translation-options{display:flex;flex-direction:column;gap:4px}
-  .translation-option{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;border:2px solid transparent;background:0 0;cursor:pointer;transition:all .2s cubic-bezier(.25,.46,.45,.94);font-family:Poppins,sans-serif;width:100%;text-align:left;font-size:13px;color:#334155}
-  .translation-option:hover{background:#f1f5f9}
-  .translation-option.active{background:#f0fdf4;border-color:#3FD0D4;color:#0F382E}
-  .translation-option .flag{font-size:18px;flex-shrink:0}
-  .translation-option .lang-name{flex:1;font-weight:500}
-  .translation-option .lang-check{font-size:14px;color:#3FD0D4;opacity:0;transition:opacity .2s}
-  .translation-option.active .lang-check{opacity:1}
-  .translation-option .lang-native{font-size:10px;color:#94a3b8;font-weight:400}
-  .translation-note{margin-top:12px;padding-top:12px;border-top:1px solid rgba(0,0,0,.05)}
-  .translation-note p{font-family:Poppins,sans-serif;font-size:10px;color:#94a3b8;text-align:center}
-  @media(max-width:768px){.translation-widget{bottom:80px;right:16px}.translation-toggle{width:46px;height:46px}.translation-toggle .translate-icon{font-size:16px}.translation-toggle .translate-label{font-size:10px}.translation-panel{width:260px;position:absolute;bottom:60px;right:0}}
-  @media(max-width:480px){.translation-widget{bottom:72px;right:12px}.translation-toggle{width:42px;height:42px}.translation-toggle .translate-icon{font-size:14px}.translation-toggle .translate-label{font-size:9px}.translation-panel{width:240px;position:absolute;bottom:54px;right:0}}
-  .goog-te-banner-frame{display:none!important}.goog-te-gadget{font-family:Poppins,sans-serif!important}.goog-te-gadget img{display:none!important}body{top:0!important}.goog-te-gadget .goog-te-combo{display:none!important}
-</style>
-
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -842,40 +809,5 @@ document.addEventListener('DOMContentLoaded', function() {
   renderGuestNav();
   console.log('✅ Terms page loaded with modern styling');
 });
-  <!-- Add before closing </body> -->
-<!-- Translation Widget -->
-<div class="translation-widget" id="translationWidget">
-  <div id="translationPanel" class="translation-panel hidden">
-    <div class="translation-header">
-      <span class="translation-title">🌍 Translate</span>
-      <button id="translationClose" class="translation-close">✕</button>
-    </div>
-    <div class="translation-body">
-      <p class="translation-desc">Select your language:</p>
-      <div class="translation-options">
-        <button class="translation-option active" data-lang="en"><span class="flag">🇬🇧</span><span class="lang-name">English</span><span class="lang-native">(English)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="ms"><span class="flag">🇲🇾</span><span class="lang-name">Bahasa Malaysia</span><span class="lang-native">(Malay)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="zh-CN"><span class="flag">🇨🇳</span><span class="lang-name">中文</span><span class="lang-native">(Chinese)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="ja"><span class="flag">🇯🇵</span><span class="lang-name">日本語</span><span class="lang-native">(Japanese)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="ko"><span class="flag">🇰🇷</span><span class="lang-name">한국어</span><span class="lang-native">(Korean)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="fr"><span class="flag">🇫🇷</span><span class="lang-name">Français</span><span class="lang-native">(French)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="de"><span class="flag">🇩🇪</span><span class="lang-name">Deutsch</span><span class="lang-native">(German)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="es"><span class="flag">🇪🇸</span><span class="lang-name">Español</span><span class="lang-native">(Spanish)</span><span class="lang-check">✓</span></button>
-        <button class="translation-option" data-lang="ar"><span class="flag">🇸🇦</span><span class="lang-name">العربية</span><span class="lang-native">(Arabic)</span><span class="lang-check">✓</span></button>
-      </div>
-      <div class="translation-note"><p>🔹 Powered by Google Translate</p></div>
-    </div>
-  </div>
-  <button id="translationToggle" class="translation-toggle" aria-label="Toggle translation">
-    <span class="translate-icon">🌐</span>
-    <span class="translate-label">EN</span>
-  </button>
-</div>
-<div id="google_translate_element" style="display:none;"></div>
-
-<script>
-(function(){'use strict';var e=localStorage.getItem('kd_language')||'en',t=!1,n=document.getElementById('translationToggle'),o=document.getElementById('translationPanel'),a=document.getElementById('translationClose'),r=document.querySelectorAll('.translation-option'),l={en:'EN',ms:'BM','zh-CN':'中文',ja:'日本語',ko:'한국어',fr:'FR',de:'DE',es:'ES',ar:'AR'};function c(){var e=document.querySelector('.goog-te-combo');if(e){e.value=t;e.dispatchEvent(new Event('change'));localStorage.setItem('kd_language',t);e=t;d(t);setTimeout(function(){isTranslating=false},500)}else{setTimeout(function(){var e=document.querySelector('.goog-te-combo');if(e){e.value=t;e.dispatchEvent(new Event('change'));localStorage.setItem('kd_language',t);e=t;d(t)}isTranslating=false},500)}}function d(e){var t=n.querySelector('.translate-label');t&&(t.textContent=l[e]||'EN');r.forEach(function(t){var n=t.dataset.lang===e;t.classList.toggle('active',n)});i()}function s(){t=!t;o.classList.toggle('hidden',!t)}function i(){t=!1;o.classList.add('hidden')}function u(e){if(e===t)return void i();!function(e){if(document.querySelector('#google-translate-script')){e&&e()}else{var t=document.createElement('script');t.id='google-translate-script';t.src='https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';document.head.appendChild(t);window.googleTranslateElementInit=function(){new google.translate.TranslateElement({pageLanguage:'en',autoDisplay:!1},'google_translate_element');e&&e()}}}(function(){c()})}n.addEventListener('click',function(e){e.stopPropagation();s()});a.addEventListener('click',function(e){e.stopPropagation();i()});r.forEach(function(e){e.addEventListener('click',function(){var e=this.dataset.lang;u(e)})});document.addEventListener('click',function(e){var t=document.getElementById('translationWidget');t&&!t.contains(e.target)&&t&&i()});document.addEventListener('DOMContentLoaded',function(){var e=n.querySelector('.translate-label');e&&(e.textContent=l[t]||'EN');r.forEach(function(e){var n=e.dataset.lang===t;e.classList.toggle('active',n)});setTimeout(function(){!function(e){if(document.querySelector('#google-translate-script')){e&&e()}else{var t=document.createElement('script');t.id='google-translate-script';t.src='https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';document.head.appendChild(t);window.googleTranslateElementInit=function(){new google.translate.TranslateElement({pageLanguage:'en',autoDisplay:!1},'google_translate_element');e&&e()}}}(function(){setTimeout(function(){var e=document.querySelector('.goog-te-combo');if(e&&t!=='en'){e.value=t;e.dispatchEvent(new Event('change'))}},300)})},500)});var m=new MutationObserver(function(e){e.forEach(function(e){var t=e.addedNodes;for(var n=0;n<t.length;n++){var o=t[n];if(o.classList&&o.classList.contains('goog-te-banner-frame')){o.style.display='none'}if(o.classList&&o.classList.contains('goog-te-gadget')){var a=o.querySelector('.goog-te-combo');a&&(a.style.display='none')}}})});m.observe(document.body,{childList:!0,subtree:!0})})();
-</script>
-
 </body>
 </html>
