@@ -1197,7 +1197,7 @@
   </div>
 </div>
 
-<!-- ===== ACCORDION GALLERY - FULL WIDTH ===== -->
+<!-- ===== ACCORDION GALLERY - VERTICAL (ALL DEVICES) ===== -->
 <section class="w-full py-16 bg-[#F8F5F0]">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8">
     <div class="text-center mb-10">
@@ -1208,31 +1208,31 @@
     </div>
   </div>
 
-  <!-- Full width gallery container -->
-  <div class="w-full px-0">
-    <div id="accordionGallery" class="accordion-gallery w-full max-w-full" style="height: 460px; --gap: 10px; --radius: 0px;">
+  <!-- Full width vertical gallery container -->
+  <div class="w-full px-4 md:px-8">
+    <div id="accordionGallery" class="accordion-gallery-vertical w-full max-w-[900px] mx-auto" style="--gap: 12px; --radius: 16px;">
       <!-- Items will be rendered by JavaScript -->
     </div>
   </div>
 </section>
 
-<!-- ===== ACCORDION GALLERY STYLES ===== -->
+<!-- ===== VERTICAL ACCORDION GALLERY STYLES ===== -->
 <style>
-  .accordion-gallery {
+  .accordion-gallery-vertical {
     display: flex;
-    flex-direction: row;
-    gap: var(--gap, 10px);
-    perspective: 1400px;
+    flex-direction: column;
+    gap: var(--gap, 12px);
     width: 100%;
-    max-width: 100%;
-    padding: 0 10px;
+    max-width: 900px;
+    margin: 0 auto;
+    perspective: 1400px;
   }
-  .accordion-gallery .ag-item {
+  .accordion-gallery-vertical .ag-item {
     position: relative;
     display: block;
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 0;
+    flex: 0 0 auto;
+    min-height: 80px;
+    height: 80px;
     cursor: pointer;
     overflow: hidden;
     background: #0a0713;
@@ -1240,43 +1240,43 @@
     outline: none;
     transform-style: preserve-3d;
     transform-origin: center;
-    box-shadow: 0 10px 30px -18px rgba(0,0,0,0.8);
+    box-shadow: 0 4px 20px -12px rgba(0,0,0,0.6);
     border-radius: var(--radius, 16px);
-    transition: flex-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1), 
-                transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: flex-grow, transform;
+    transition: height 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: height, transform;
   }
-  .accordion-gallery .ag-item:first-child {
-    border-radius: 0 0 0 0;
+  .accordion-gallery-vertical .ag-item.active {
+    height: 400px;
+    box-shadow: 0 12px 40px -16px rgba(0,0,0,0.5);
   }
-  .accordion-gallery .ag-item:last-child {
-    border-radius: 0 0 0 0;
+  .accordion-gallery-vertical .ag-item:focus-visible {
+    box-shadow: 0 0 0 2px #3FD0D4, 0 4px 20px -12px rgba(0,0,0,0.6);
   }
-  .accordion-gallery .ag-item:focus-visible {
-    box-shadow: 0 0 0 2px #3FD0D4, 0 10px 30px -18px rgba(0,0,0,0.8);
-  }
-  .accordion-gallery .ag-item .ag-media-wrap {
+  .accordion-gallery-vertical .ag-item .ag-media-wrap {
     position: absolute;
     inset: 0;
     overflow: hidden;
     border-radius: inherit;
   }
-  .accordion-gallery .ag-item .ag-media {
+  .accordion-gallery-vertical .ag-item .ag-media {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 320px;
+    width: 100%;
     height: 100%;
-    transform: translate(-50%, -50%);
-    filter: grayscale(1);
-    transition: filter 0.6s cubic-bezier(0.22, 1, 0.36, 1),
-                transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    transform: translate(-50%, -50%) scale(1.1);
+    filter: grayscale(1) brightness(0.7);
+    transition: filter 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
     will-change: transform, filter;
   }
-  .accordion-gallery .ag-item.active .ag-media {
-    filter: grayscale(0);
+  .accordion-gallery-vertical .ag-item.active .ag-media {
+    filter: grayscale(0) brightness(1);
+    transform: translate(-50%, -50%) scale(1);
   }
-  .accordion-gallery .ag-item .ag-media img {
+  .accordion-gallery-vertical .ag-item .ag-media img {
     display: block;
     width: 100%;
     height: 100%;
@@ -1284,145 +1284,182 @@
     user-select: none;
     -webkit-user-drag: none;
   }
-  .accordion-gallery .ag-item .ag-overlay {
+  .accordion-gallery-vertical .ag-item .ag-overlay {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: linear-gradient(180deg, transparent 45%, rgba(6, 0, 16, 0.78) 100%);
-    background: linear-gradient(180deg, transparent 45%, color-mix(in srgb, #060010 78%, transparent) 100%), 
-                color-mix(in srgb, #060010 calc(var(--ag-dim, 0.35) * 100%), transparent);
-    transition: --ag-dim 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    background: linear-gradient(180deg, transparent 40%, rgba(6, 0, 16, 0.85) 100%);
+    background: linear-gradient(180deg, transparent 40%, color-mix(in srgb, #060010 85%, transparent) 100%), 
+                color-mix(in srgb, #060010 calc(var(--ag-dim, 0.5) * 100%), transparent);
+    transition: --ag-dim 0.7s cubic-bezier(0.22, 1, 0.36, 1);
   }
-  .accordion-gallery .ag-item.active .ag-overlay {
+  .accordion-gallery-vertical .ag-item.active .ag-overlay {
     --ag-dim: 0;
   }
-  .accordion-gallery .ag-item .ag-label-wrap {
+  .accordion-gallery-vertical .ag-item .ag-label-wrap {
     position: absolute;
     bottom: 20px;
-    left: 20px;
-    right: 20px;
+    left: 24px;
+    right: 24px;
     z-index: 2;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     pointer-events: none;
   }
-  .accordion-gallery .ag-item .ag-bar {
-    height: 26px;
-    width: 3px;
+  .accordion-gallery-vertical .ag-item .ag-bar {
+    height: 28px;
+    width: 4px;
     flex: none;
-    border-radius: 3px;
-    background: #ffffff;
-    box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
-    opacity: 0;
-    transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-                transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-    transform: translateX(-14px);
+    border-radius: 4px;
+    background: #3FD0D4;
+    box-shadow: 0 0 16px rgba(63, 208, 212, 0.5);
+    opacity: 0.5;
+    transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+                height 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    transform: scaleY(0.6);
   }
-  .accordion-gallery .ag-item.active .ag-bar {
+  .accordion-gallery-vertical .ag-item.active .ag-bar {
     opacity: 1;
-    transform: translateX(0);
+    transform: scaleY(1);
+    height: 36px;
   }
-  .accordion-gallery .ag-item .ag-label {
+  .accordion-gallery-vertical .ag-item .ag-label {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: clamp(1rem, 1.4vw, 1.4rem);
-    font-weight: 600;
-    letter-spacing: 0.01em;
+    font-size: clamp(1.1rem, 1.6vw, 1.6rem);
+    font-weight: 700;
+    letter-spacing: 0.02em;
     color: #ffffff;
-    text-shadow: 0 2px 14px rgba(0,0,0,0.55);
-    opacity: 0;
-    transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.06s,
-                transform 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.06s;
-    transform: translateX(-14px);
+    text-shadow: 0 2px 20px rgba(0,0,0,0.7);
+    opacity: 0.7;
+    transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s,
+                transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s;
+    transform: translateX(-8px);
   }
-  .accordion-gallery .ag-item.active .ag-label {
+  .accordion-gallery-vertical .ag-item.active .ag-label {
     opacity: 1;
     transform: translateX(0);
   }
-
-  /* Mobile: stack vertically */
-  @media (max-width: 520px) {
-    .accordion-gallery {
-      flex-direction: column !important;
-      perspective: none !important;
-      height: auto !important;
-      min-height: 480px;
-      padding: 0 10px;
-    }
-    .accordion-gallery .ag-item {
-      min-height: 84px;
-      transform: none !important;
-      flex: 1 1 0;
-      border-radius: 12px !important;
-    }
-    .accordion-gallery .ag-item:first-child {
-      border-radius: 12px 12px 0 0 !important;
-    }
-    .accordion-gallery .ag-item:last-child {
-      border-radius: 0 0 12px 12px !important;
-    }
-    .accordion-gallery .ag-item .ag-media {
-      width: 100%;
-      height: 320px;
-    }
-    .accordion-gallery .ag-item.active {
-      flex: 2 1 0;
-    }
+  .accordion-gallery-vertical .ag-item .ag-sub-label {
+    display: none;
+    font-size: clamp(0.75rem, 0.9vw, 0.9rem);
+    font-weight: 400;
+    color: rgba(255,255,255,0.6);
+    margin-left: 8px;
+    opacity: 0;
+    transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s;
+  }
+  .accordion-gallery-vertical .ag-item.active .ag-sub-label {
+    display: inline;
+    opacity: 1;
+  }
+  .accordion-gallery-vertical .ag-item .ag-number {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    z-index: 2;
+    font-size: clamp(0.8rem, 1vw, 1rem);
+    font-weight: 600;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 0.1em;
+    transition: color 0.4s ease, opacity 0.4s ease;
+  }
+  .accordion-gallery-vertical .ag-item.active .ag-number {
+    color: rgba(255,255,255,0.6);
   }
 
-  /* Desktop: first and last items have rounded corners on the outer edges */
-  @media (min-width: 521px) {
-    .accordion-gallery .ag-item:first-child {
-      border-radius: var(--radius, 16px) 0 0 var(--radius, 16px);
-    }
-    .accordion-gallery .ag-item:last-child {
-      border-radius: 0 var(--radius, 16px) var(--radius, 16px) 0;
-    }
-    .accordion-gallery .ag-item:first-child:last-child {
-      border-radius: var(--radius, 16px);
-    }
+  /* Hover effects */
+  .accordion-gallery-vertical .ag-item:not(.active):hover {
+    transform: scale(1.01);
+    box-shadow: 0 8px 30px -14px rgba(0,0,0,0.5);
+  }
+  .accordion-gallery-vertical .ag-item:not(.active):hover .ag-media {
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+  .accordion-gallery-vertical .ag-item:not(.active):hover .ag-label {
+    opacity: 1;
+  }
+  .accordion-gallery-vertical .ag-item:not(.active):hover .ag-bar {
+    opacity: 1;
   }
 
   /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {
-    .accordion-gallery .ag-item,
-    .accordion-gallery .ag-item .ag-media,
-    .accordion-gallery .ag-item .ag-bar,
-    .accordion-gallery .ag-item .ag-label {
+    .accordion-gallery-vertical .ag-item,
+    .accordion-gallery-vertical .ag-item .ag-media,
+    .accordion-gallery-vertical .ag-item .ag-bar,
+    .accordion-gallery-vertical .ag-item .ag-label {
       transition: none !important;
+    }
+  }
+
+  /* Mobile adjustments */
+  @media (max-width: 520px) {
+    .accordion-gallery-vertical .ag-item {
+      min-height: 64px;
+      height: 64px;
+    }
+    .accordion-gallery-vertical .ag-item.active {
+      height: 320px;
+    }
+    .accordion-gallery-vertical .ag-item .ag-label-wrap {
+      bottom: 14px;
+      left: 16px;
+      right: 16px;
+      gap: 10px;
+    }
+    .accordion-gallery-vertical .ag-item .ag-label {
+      font-size: 0.95rem;
+    }
+    .accordion-gallery-vertical .ag-item .ag-bar {
+      height: 20px;
+    }
+    .accordion-gallery-vertical .ag-item.active .ag-bar {
+      height: 28px;
+    }
+    .accordion-gallery-vertical .ag-item .ag-number {
+      top: 10px;
+      right: 14px;
+      font-size: 0.7rem;
     }
   }
 </style>
 
-<!-- ===== ACCORDION GALLERY SCRIPT ===== -->
+<!-- ===== VERTICAL ACCORDION GALLERY SCRIPT ===== -->
 <script>
 (function() {
   const galleryItems = [
     { 
-      image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=900&h=1200&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=900&h=600&fit=crop', 
       label: 'Mountain Peaks', 
+      sub: 'Majestic Kinabalu sunrise',
       alt: 'Mount Kinabalu peaks at sunrise'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=900&h=1200&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=900&h=600&fit=crop', 
       label: 'Valley View', 
+      sub: 'Green valleys with morning mist',
       alt: 'Green valley with morning mist'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&h=1200&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&h=600&fit=crop', 
       label: 'Forest Trail', 
+      sub: 'Misty trails through the jungle',
       alt: 'Misty forest trail in Kundasang'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=900&h=1200&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=900&h=600&fit=crop', 
       label: 'Sunset Glow', 
+      sub: 'Golden hour over the mountains',
       alt: 'Golden sunset over the mountains'
     },
     { 
-      image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=900&h=1200&fit=crop', 
+      image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=900&h=600&fit=crop', 
       label: 'Star Gazing', 
+      sub: 'Incredible night sky views',
       alt: 'Night sky with stars above Kinabalu'
     }
   ];
@@ -1433,15 +1470,20 @@
   // Clear and render items
   container.innerHTML = '';
   
+  let activeIndex = 2; // default active (middle)
+  
   galleryItems.forEach((item, index) => {
     const el = document.createElement('div');
+    const isActive = index === activeIndex;
     el.className = 'ag-item';
-    if (index === 2) el.classList.add('active'); // default active (middle)
-    el.style.setProperty('--ag-dim', index === 2 ? '0' : '0.35');
+    if (isActive) el.classList.add('active');
+    el.style.setProperty('--ag-dim', isActive ? '0' : '0.5');
     el.setAttribute('role', 'listitem');
     el.setAttribute('tabindex', '0');
     el.setAttribute('aria-label', item.label);
-    if (index === 2) el.setAttribute('aria-current', 'true');
+    if (isActive) el.setAttribute('aria-current', 'true');
+    
+    const number = String(index + 1).padStart(2, '0');
     
     el.innerHTML = `
       <span class="ag-media-wrap">
@@ -1450,9 +1492,10 @@
         </span>
         <span class="ag-overlay" aria-hidden="true"></span>
       </span>
+      <span class="ag-number">${number}</span>
       <span class="ag-label-wrap" aria-hidden="true">
         <span class="ag-bar"></span>
-        <span class="ag-label">${item.label}</span>
+        <span class="ag-label">${item.label} <span class="ag-sub-label">${item.sub || ''}</span></span>
       </span>
     `;
 
@@ -1475,12 +1518,12 @@
     // Keyboard navigation
     el.addEventListener('keydown', function(e) {
       const count = galleryItems.length;
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
         e.preventDefault();
         const next = (index + 1) % count;
         setActive(next);
         container.children[next]?.focus();
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
         e.preventDefault();
         const prev = (index - 1 + count) % count;
         setActive(prev);
@@ -1491,86 +1534,68 @@
     container.appendChild(el);
   });
 
-  // Set active function with GSAP-style animation
+  // Set active function
   function setActive(index) {
     const items = container.querySelectorAll('.ag-item');
     const count = items.length;
     
-    // Update active state
+    // Don't do anything if already active
+    if (activeIndex === index) return;
+    
+    activeIndex = index;
+    
+    // Calculate tilt for non-active items
+    const tilt = 3;
+    
     items.forEach((item, i) => {
       const isActive = i === index;
       item.classList.toggle('active', isActive);
       item.setAttribute('aria-current', isActive ? 'true' : undefined);
-      item.style.setProperty('--ag-dim', isActive ? '0' : '0.35');
+      item.style.setProperty('--ag-dim', isActive ? '0' : '0.5');
       
-      // Calculate tilt
-      const tilt = 8;
+      // Subtle tilt effect
       const rot = isActive ? 0 : (i < index ? tilt : -tilt);
-      item.style.transform = `rotateY(${rot}deg)`;
+      item.style.transform = `rotateX(${rot}deg)`;
       
-      // Media shift (parallax effect)
+      // Media scale effect
       const media = item.querySelector('.ag-media');
       if (media) {
-        const drift = Math.max(-1.5, Math.min(1.5, index - i));
-        const shift = drift * 0.5 * 320 * 0.06;
-        if (window.innerWidth > 520) {
-          media.style.transform = `translate(-50%, -50%) translateX(${isActive ? 0 : shift}px)`;
+        if (!isActive) {
+          const drift = Math.max(-1.5, Math.min(1.5, index - i));
+          const shift = drift * 8;
+          media.style.transform = `translate(-50%, -50%) translateY(${shift}px) scale(1.1)`;
+        } else {
+          media.style.transform = `translate(-50%, -50%) scale(1)`;
         }
-        media.style.filter = `grayscale(${isActive ? 0 : 1})`;
       }
-    });
-
-    // Update flex grow for active item
-    const expandRatio = 0.52;
-    const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
-    items.forEach((item, i) => {
-      const isActive = i === index;
-      // Use CSS transition for flex-grow
-      item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
     });
   }
 
-  // Initial layout
-  setTimeout(() => {
-    const activeIndex = 2;
-    const items = container.querySelectorAll('.ag-item');
-    const expandRatio = 0.52;
-    const count = items.length;
-    const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
-    
-    items.forEach((item, i) => {
-      const isActive = i === activeIndex;
-      item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
-      item.style.transform = isActive ? 'rotateY(0deg)' : (i < activeIndex ? 'rotateY(8deg)' : 'rotateY(-8deg)');
-      const media = item.querySelector('.ag-media');
-      if (media) {
-        media.style.filter = `grayscale(${isActive ? 0 : 1})`;
-        if (window.innerWidth > 520) {
-          const drift = Math.max(-1.5, Math.min(1.5, activeIndex - i));
-          const shift = drift * 0.5 * 320 * 0.06;
-          media.style.transform = `translate(-50%, -50%) translateX(${isActive ? 0 : shift}px)`;
-        }
-      }
-    });
-  }, 100);
+  // Force initial layout after a small delay
+  setTimeout(function() {
+    setActive(2);
+  }, 50);
+
+  // Also run after load
+  window.addEventListener('load', function() {
+    setTimeout(function() {
+      setActive(2);
+    }, 100);
+  });
 
   // Handle resize
   let resizeTimer;
   window.addEventListener('resize', function() {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      const active = container.querySelector('.ag-item.active');
-      if (active) {
-        const index = Array.from(container.children).indexOf(active);
-        setActive(index);
-      }
+    resizeTimer = setTimeout(function() {
+      setActive(activeIndex);
     }, 200);
   });
 
   // Handle reduced motion
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   if (prefersReduced.matches) {
-    container.querySelectorAll('.ag-item').forEach(el => {
+    container.querySelectorAll('.ag-item').forEach(function(el) {
       el.style.transition = 'none';
     });
   }
