@@ -218,6 +218,7 @@
       min-height: 52px;
       -webkit-appearance: none;
       appearance: none;
+      color: #212121;
     }
     .form-input:focus {
       outline: none;
@@ -758,6 +759,21 @@
       min-height: 52px;
       cursor: pointer;
       color: #212121;
+      background: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 14px 20px;
+      font-size: 14px;
+      font-family: "Poppins", sans-serif;
+      width: 100%;
+      display: block;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .form-input[type="date"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
     }
     .form-input[type="date"]::-webkit-datetime-edit {
       color: #212121;
@@ -770,12 +786,15 @@
       padding: 4px;
       cursor: pointer;
     }
+    /* Fallback for empty value */
+    .form-input[type="date"]:invalid {
+      color: #94a3b8;
+    }
 
     /* ============================================================ */
     /* MOBILE SEARCH BAR - FIXED WITH VISIBLE DATE INPUTS */
     /* ============================================================ */
     @media (max-width: 768px) {
-      /* Hero adjustments */
       #hero {
         min-height: auto !important;
         padding-bottom: 0 !important;
@@ -786,7 +805,6 @@
         overflow: visible !important;
       }
       
-      /* Search box container */
       #hero .bg-white\/95 {
         background: rgba(255, 255, 255, 0.96) !important;
         backdrop-filter: blur(20px);
@@ -799,7 +817,6 @@
         width: 100%;
       }
       
-      /* Force all search fields to be stacked vertically */
       #hero .grid {
         display: flex !important;
         flex-direction: column !important;
@@ -811,7 +828,6 @@
         flex: none !important;
       }
       
-      /* Labels: visible, clear */
       #hero label {
         font-size: 10px !important;
         font-weight: 700 !important;
@@ -821,7 +837,6 @@
         display: block !important;
       }
       
-      /* Inputs: full width, visible, with proper styling */
       .form-input, .form-select {
         min-height: 48px !important;
         font-size: 14px !important;
@@ -837,7 +852,6 @@
         color: #212121 !important;
       }
       
-      /* Date input specific - ensure they show as visible fields */
       .form-input[type="date"] {
         display: block !important;
         min-height: 48px !important;
@@ -850,6 +864,8 @@
         width: 100% !important;
         -webkit-appearance: none !important;
         appearance: none !important;
+        visibility: visible !important;
+        opacity: 1 !important;
       }
       
       .form-input[type="date"]:focus {
@@ -867,23 +883,11 @@
         margin-left: 4px;
       }
       
-      /* Ensure the date input shows placeholder text */
-      .form-input[type="date"]:not(:focus):not(:valid) {
-        color: #94a3b8;
-      }
-      .form-input[type="date"]:not(:focus):not(:valid)::-webkit-datetime-edit {
-        color: #94a3b8;
-      }
-      .form-input[type="date"]:valid {
-        color: #212121;
-      }
-      
       .date-picker-wrapper {
         z-index: 60 !important;
         width: 100% !important;
       }
       
-      /* Button: full width */
       #hero .btn-primary {
         width: 100% !important;
         padding: 14px !important;
@@ -899,7 +903,6 @@
         margin-top: 4px;
       }
       
-      /* Typography in hero */
       #hero h1 {
         font-size: 26px !important;
         line-height: 1.1 !important;
@@ -916,7 +919,6 @@
         margin-right: auto !important;
       }
       
-      /* Container padding fix */
       #hero .w-full.max-w-\[920px\] {
         padding-left: 0 !important;
         padding-right: 0 !important;
@@ -924,7 +926,6 @@
         width: 100% !important;
       }
       
-      /* Small phones */
       @media (max-width: 380px) {
         #hero .relative.z-10 {
           min-height: 440px !important;
@@ -954,7 +955,6 @@
       }
     }
 
-    /* Prevent body scroll when date picker is open on mobile */
     @media (max-width: 768px) {
       body.date-picker-open {
         overflow: hidden !important;
@@ -963,7 +963,6 @@
       }
     }
 
-    /* ===== RESPONSIVE (non-hero) ===== */
     @media (max-width: 768px) {
       #desktopNav { display: none !important; }
       #mobileMenuBtn { display: flex !important; }
@@ -1063,7 +1062,7 @@
     <h1 class="font-poppins font-700 text-white text-[30px] md:text-[62px] leading-[1.0] tracking-[-1px] drop-shadow-md">Handpicked Homestays <br class="hidden md:block"/>in Kundasang</h1>
     <p class="mt-3 font-poppins font-500 text-white/90 text-[13px] md:text-[16px] max-w-[620px] leading-[1.6] drop-shadow px-2">Verified local hosts, unobstructed Mount Kinabalu views, steamboat amenities & guaranteed safe FPX payments.</p>
     
-    <!-- Search Box - MOBILE FRIENDLY with visible date inputs -->
+    <!-- Search Box -->
     <div class="w-full max-w-[920px] mt-6 md:mt-8 px-4 md:px-0">
       <div class="bg-white/95 backdrop-blur p-4 md:p-5 rounded-2xl shadow-2xl border border-white/40">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
@@ -1195,8 +1194,6 @@
     </div>
   </div>
 </div>
-
-
 
 <!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
@@ -1843,6 +1840,19 @@ function toggleMobileMenu() {
 // =============================================================
 (async function init() {
   renderGuestNav();
+  
+  // Set default dates for mobile visibility
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dayAfter = new Date(today);
+  dayAfter.setDate(dayAfter.getDate() + 2);
+  
+  const checkinInput = document.getElementById('checkin');
+  const checkoutInput = document.getElementById('checkout');
+  if (checkinInput) checkinInput.value = dateToIso(tomorrow);
+  if (checkoutInput) checkoutInput.value = dateToIso(dayAfter);
+  
   renderGrid();
 
   try {
