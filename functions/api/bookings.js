@@ -37,7 +37,29 @@ function getDatesInRange(checkin, checkout) {
   return dates;
 }
 
-// ========== GET - PUBLIC ==========
+// ========== CSRF Validation ==========
+const publicActions = ['createPublicBooking', 'publicUpdateStatus'];
+
+function validatePublicCSRF(request, body) {
+  if (!publicActions.includes(body.action)) return null;
+  const token = getCSRFToken(request);
+  const guestId = body.booking?.guestId || body.guestId;
+  if (!token || !guestId) {
+    return new Response(JSON.stringify({ error: "Missing security token" }), {
+      status: 403,
+      headers: corsHeaders(request)
+    });
+  }
+  if (!validateCSRFToken(token, guestId)) {
+    return new Response(JSON.stringify({ error: "Invalid security token" }), {
+      status: 403,
+      headers: corsHeaders(request)
+    });
+  }
+  return null;
+}
+
+// ========== GET ==========
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -69,7 +91,6 @@ export async function onRequestGet({ request, env }) {
       "kd_demo_overrides", "kd_demo_blocked", "kd_deleted_demo",
       "kd_pending", "kd_guests", "kd_banned_guests"
     ];
-    // ✅ NOTE: kd_availability is NO LONGER READ - we compute from bookings
     for (const key of keys) {
       try {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
@@ -117,28 +138,6 @@ export async function onRequestPost({ request, env }) {
   const action = body.action;
   const clientIP = getClientIP(request);
 
-  // CSRF Validation
-  const publicActions = ['createPublicBooking', 'publicUpdateStatus'];
-  
-  function validatePublicCSRF(request, body) {
-    if (!publicActions.includes(body.action)) return null;
-    const token = getCSRFToken(request);
-    const guestId = body.booking?.guestId || body.guestId;
-    if (!token || !guestId) {
-      return new Response(JSON.stringify({ error: "Missing security token" }), {
-        status: 403,
-        headers: corsHeaders(request)
-      });
-    }
-    if (!validateCSRFToken(token, guestId)) {
-      return new Response(JSON.stringify({ error: "Invalid security token" }), {
-        status: 403,
-        headers: corsHeaders(request)
-      });
-    }
-    return null;
-  }
-
   // ========== PUBLIC ACTIONS ==========
 
   // 1. Create booking - OPTIMIZED: Only writes to kd_bookings
@@ -184,17 +183,15 @@ export async function onRequestPost({ request, env }) {
     try {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
       
-      // Read existing bookings
       let existing = [];
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
       if (r && r.data) existing = JSON.parse(r.data);
       
-      // Merge new booking
       const map = new Map();
       [...existing, booking].forEach(b => { if (b && b.id) map.set(String(b.id), b); });
       const merged = [...map.values()];
       
-      // ✅ ONLY ONE WRITE - to kd_bookings (no separate availability write)
+      // ONLY ONE WRITE - to kd_bookings (availability is computed on read)
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_bookings", JSON.stringify(merged))
         .run();
@@ -251,7 +248,7 @@ export async function onRequestPost({ request, env }) {
       if (body.toyyibpay_transaction_id) bookings[idx].toyyibpay_transaction_id = body.toyyibpay_transaction_id;
       if (body.paid_at) bookings[idx].paid_at = body.paid_at;
 
-      // ✅ ONLY ONE WRITE - to kd_bookings (availability is computed on read)
+      // ONLY ONE WRITE - to kd_bookings (availability is computed on read)
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_bookings", JSON.stringify(bookings))
         .run();
@@ -565,19 +562,4 @@ export async function onRequestDelete({ request, env }) {
 
 export async function onRequestOptions({ request }) {
   return new Response(null, { headers: corsHeaders(request) });
-}
-
-// ===== BATCH UPDATE =====
-if (action === "batchUpdate" && body.updates && Array.isArray(body.updates)) {
-  for (const update of body.updates) {
-    if (update.key && update.data) {
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-        .bind(update.key, JSON.stringify(update.data))
-        .run();
-    }
-  }
-  return new Response(JSON.stringify({ success: true, count: body.updates.length }), {
-    status: 200,
-    headers: corsHeaders(request)
-  });
 }
