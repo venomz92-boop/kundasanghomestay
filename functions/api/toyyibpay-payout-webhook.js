@@ -6,14 +6,22 @@ export async function onRequestPost({ request, env }) {
   if (redirect) return redirect;
 
   try {
+    // 1. Authorization
     const authHeader = request.headers.get('Authorization') || '';
     const expectedToken = env.TOYYIBPAY_SECRET_KEY || '';
+    const clientIP = getClientIP(request);
+    const allowedIPs = env.TOYYIBPAY_WEBHOOK_IPS ? env.TOYYIBPAY_WEBHOOK_IPS.split(',').map(ip => ip.trim()) : [];
+    const isAllowedIP = allowedIPs.length === 0 || allowedIPs.includes(clientIP);
+
     if (!expectedToken) {
       console.error('🔐 TOYYIBPAY_SECRET_KEY not set – rejecting webhook');
       return new Response('Unauthorized - Secret key not configured', { status: 401, headers: corsHeaders(request) });
     }
-    if (authHeader !== 'Bearer ' + expectedToken) {
-      console.warn('🔐 Payout webhook unauthorized');
+
+    // Accept either Bearer token OR allowed IP
+    const isAuthorized = (authHeader === 'Bearer ' + expectedToken) || isAllowedIP;
+    if (!isAuthorized) {
+      console.warn(`🔐 Payout webhook unauthorized from IP ${clientIP}`);
       return new Response('Unauthorized', { status: 401, headers: corsHeaders(request) });
     }
 
@@ -26,7 +34,7 @@ export async function onRequestPost({ request, env }) {
     const referenceNo = formData.get('referenceNo') || formData.get('payoutReferenceNo');
     const transactionDate = formData.get('transactionDate') || new Date().toISOString();
 
-    console.log("📡 ToyyibPay Payout Webhook received:", { payoutCode, status, referenceNo, amount });
+    console.log("📡 ToyyibPay Payout Webhook received:", { payoutCode, status, referenceNo, amount, ip: clientIP });
 
     if (String(status) !== "success" && String(status) !== "1" && String(status) !== "completed") {
       console.log(`⚠️ Payout not successful - status: ${status}`);
@@ -53,7 +61,6 @@ export async function onRequestPost({ request, env }) {
     const idx = bookings.findIndex(b => String(b.id) === String(referenceNo) || String(b.ownerPayoutId) === String(payoutCode));
 
     if (idx !== -1) {
-      // Already processed?
       if (bookings[idx].payoutSuccess && bookings[idx].payoutSuccessDate) {
         console.log(`✅ Booking ${referenceNo} already marked as payout success, skipping`);
         return new Response("Already processed", { status: 200, headers: corsHeaders(request) });
@@ -75,7 +82,7 @@ export async function onRequestPost({ request, env }) {
         action: 'payout_success_webhook',
         admin: 'toyyibpay',
         details: `Payout success for booking ${referenceNo}, amount RM${amount}`,
-        ip: getClientIP(request),
+        ip: clientIP,
         userId: bookings[idx].guestEmail,
         homestayId: bookings[idx].homestayId
       });
