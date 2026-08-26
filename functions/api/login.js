@@ -1,3 +1,4 @@
+// /api/login.js
 import { corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse } from './_utils.js';
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
@@ -11,7 +12,8 @@ function limited(key) {
 function record(key) { const a = attempts.get(key) || []; a.push(Date.now()); attempts.set(key, a); }
 
 export async function onRequestPost({ request, env }) {
-  const redirect = enforceHttps(request); if (redirect) return redirect;
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
   try {
     const { email, password } = await request.json();
     const cleanEmail = String(email || '').toLowerCase().trim();
@@ -36,17 +38,25 @@ export async function onRequestPost({ request, env }) {
     const verified = await verifyPassword(cleanPassword, user, env);
     if (!verified.ok) { record(key); return jsonResponse({ error: 'Invalid credentials' }, 401, request); }
 
-    // Transparent migration from the old SHA-256 password format.
+    // Transparent migration from legacy SHA-256
     if (verified.legacy) {
       const fresh = await hashPassword(cleanPassword, env);
       user.password = fresh.hash;
       user.salt = fresh.salt;
       user.passwordAlgorithm = fresh.algorithm;
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)').bind('kd_guests', JSON.stringify(guests)).run();
+      user.passwordVersion = 1; // set version on upgrade
+      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+        .bind('kd_guests', JSON.stringify(guests))
+        .run();
     }
 
     attempts.delete(key);
-    const session = await createSignedToken({ type: 'guest', userId: String(user.id), email: user.email }, env);
+    const session = await createSignedToken({
+      type: 'guest',
+      userId: String(user.id),
+      email: user.email,
+      passwordVersion: user.passwordVersion || 1
+    }, env);
     const csrfToken = await generateCSRFToken(user.id, env);
     const { password: _, salt: __, ...safeUser } = user;
 
@@ -55,8 +65,8 @@ export async function onRequestPost({ request, env }) {
       headers: { ...corsHeaders(request), 'Set-Cookie': cookieHeader('guest_token', session) }
     });
   } catch (e) {
-    console.error('Login error:', e.message);
-    return jsonResponse({ error: 'Login failed' }, 500, request);
+    console.error('Login error:', e.message, e.stack);
+    return jsonResponse({ error: 'Login failed. Please try again later.' }, 500, request);
   }
 }
 export async function onRequestOptions({ request }) { return new Response(null, { headers: corsHeaders(request) }); }
