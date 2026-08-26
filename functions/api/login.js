@@ -1,13 +1,7 @@
-// /api/login.js – HYBRID (secure + bypass fallback)
-import { corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, parseJSONSafely, logAction, incrementSessionVersion } from './_utils.js';
+// /api/login.js – SECURE (no bypasses)
+import { corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, checkRateLimit, recordRateLimit, parseJSONSafely, logAction, incrementSessionVersion } from './_utils.js';
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
-
-// ---- YOUR HASH FROM EARLIER ----
-const YOUR_HASH = 'YUEnfExB2LfpITYbrRc7bbj2FURBKD_LU_p6YcwZqHI';
-const YOUR_SALT = 'qNZdrzY6P5Bk1RBvwOqoDA';
-const YOUR_ALGORITHM = 'PBKDF2-100000-SHA256';
-const YOUR_EMAIL = 'frn_boy@gmx.com';
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -18,6 +12,12 @@ export async function onRequestPost({ request, env }) {
     const db = env.DB;
     if (!db) {
       return jsonResponse({ error: 'Server configuration error' }, 500, request);
+    }
+
+    // Rate limiting (5 attempts per 15 minutes)
+    const rateOk = await checkRateLimit(db, clientIP, 'login', 5, 15 * 60);
+    if (!rateOk) {
+      return jsonResponse({ error: 'Too many login attempts. Please wait 15 minutes.' }, 429, request);
     }
 
     let body;
@@ -51,92 +51,15 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     }
 
-    // ---- FIRST: Try normal password verification ----
-    let passwordOk = false;
-    let legacyMigrated = false;
-
-    // Check if this is YOUR email
-    if (cleanEmail === YOUR_EMAIL) {
-      // Check if the stored hash matches YOUR_HASH
-      if (user.password === YOUR_HASH) {
-        console.log(`✅ User ${user.email} already has the correct hash`);
-        // Try to verify with the password
-        try {
-          const verified = await verifyPassword(cleanPassword, user, env);
-          if (verified.ok) {
-            passwordOk = true;
-            console.log(`✅ Password verified for ${user.email}`);
-          } else {
-            // If verification fails, the hash is correct but maybe the password is wrong
-            // We'll allow "venomz92" specifically
-            if (cleanPassword === 'venomz92') {
-              passwordOk = true;
-              console.log(`✅ Password "venomz92" accepted for ${user.email}`);
-            }
-          }
-        } catch (e) {
-          console.error('Verification error:', e);
-        }
-      } else {
-        // Update to the known working hash
-        console.log(`🔄 Updating ${user.email} to known working hash`);
-        user.password = YOUR_HASH;
-        user.salt = YOUR_SALT;
-        user.passwordAlgorithm = YOUR_ALGORITHM;
-        user.passwordVersion = (user.passwordVersion || 0) + 1;
-        await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_guests', JSON.stringify(guests))
-          .run();
-        // Try to verify
-        try {
-          const verified = await verifyPassword(cleanPassword, user, env);
-          if (verified.ok) {
-            passwordOk = true;
-            console.log(`✅ Password verified after hash update`);
-          } else {
-            // Allow "venomz92" specifically
-            if (cleanPassword === 'venomz92') {
-              passwordOk = true;
-              console.log(`✅ Password "venomz92" accepted after hash update`);
-            }
-          }
-        } catch (e) {
-          console.error('Verification error after update:', e);
-        }
-      }
-    } else {
-      // For other users, normal verification
-      const verified = await verifyPassword(cleanPassword, user, env);
-      if (verified.ok) {
-        passwordOk = true;
-        if (verified.legacy) {
-          legacyMigrated = true;
-        }
-      }
-    }
-
-    // ---- FALLBACK: If password check fails, allow "test" ----
-    if (!passwordOk && cleanPassword === 'test') {
-      console.log(`⚠️ Fallback: "${user.email}" using "test" password`);
-      passwordOk = true;
-    }
-
-    // ---- IF STILL NOT OK, return error ----
-    if (!passwordOk) {
-      console.warn(`❌ Login failed for ${user.email}`);
+    // ---- Verify password ----
+    const verified = await verifyPassword(cleanPassword, user, env);
+    if (!verified.ok) {
+      await recordRateLimit(db, clientIP, 'login');
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     }
 
-    // ---- Ensure verified ----
-    if (user.verified !== true) {
-      user.verified = true;
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_guests', JSON.stringify(guests))
-        .run();
-    }
-
-    // ---- Legacy migration ----
-    if (legacyMigrated) {
+    // ---- Legacy migration (if needed) ----
+    if (verified.legacy) {
       const fresh = await hashPassword(cleanPassword, env);
       user.password = fresh.hash;
       user.salt = fresh.salt;
@@ -145,6 +68,15 @@ export async function onRequestPost({ request, env }) {
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_guests', JSON.stringify(guests))
         .run();
+    }
+
+    // ---- Enforce email verification ----
+    if (user.verified !== true) {
+      // Optionally resend verification email here...
+      return jsonResponse({
+        error: 'Please verify your email address before logging in.',
+        needsVerification: true
+      }, 401, request);
     }
 
     await incrementSessionVersion(db, user.id, 'guest');
