@@ -1,4 +1,4 @@
-// /api/withdraw.js - with D1 rate limiting
+// /api/withdraw.js - with D1 rate limiting, improved logging, and correct try-catch
 import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
 
 async function verifyAdmin(request, env) {
@@ -67,6 +67,7 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
+    // Reset logic
     if (reset === true || action === "reset") {
       const prevWithdrawn = earnings.withdrawn || 0;
       const prevAvailable = earnings.available || 0;
@@ -178,49 +179,53 @@ export async function onRequestPost({ request, env }) {
     const isToyyibLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
 
     let payoutSuccess = false;
-let payoutData = null;
-let payoutError = null;
+    let payoutData = null;
+    let payoutError = null;
 
-const formData = new FormData();
-formData.append("userSecretKey", env.TOYYIBPAY_SECRET_KEY);
-formData.append("bankCode", bankCode);
-formData.append("bankAccountNumber", accountNumber.replace(/[^0-9]/g, ''));
-formData.append("accountHolderName", accountHolder);
-formData.append("amount", Math.round(withdrawAmount * 100));
-formData.append("payoutDescription", `Platform Withdrawal WD_${Date.now()}`);
-formData.append("payoutReferenceNo", `WD_${Date.now()}`);
+    // ----- LIVE TOYYIBPAY PAYOUT -----
+    if (isToyyibLive) {
+      const formData = new FormData();
+      formData.append("userSecretKey", env.TOYYIBPAY_SECRET_KEY);
+      formData.append("bankCode", bankCode);
+      formData.append("bankAccountNumber", accountNumber.replace(/[^0-9]/g, ''));
+      formData.append("accountHolderName", accountHolder);
+      formData.append("amount", Math.round(withdrawAmount * 100));
+      formData.append("payoutDescription", `Platform Withdrawal WD_${Date.now()}`);
+      formData.append("payoutReferenceNo", `WD_${Date.now()}`);
 
-const endpoints = [
-  "https://toyyibpay.com/index.php/api/payout",
-  "https://toyyibpay.com/index.php/api/createPayout"
-];
+      const endpoints = [
+        "https://toyyibpay.com/index.php/api/payout",
+        "https://toyyibpay.com/index.php/api/createPayout"
+      ];
 
-for (const endpoint of endpoints) {
-  try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      body: formData,
-      headers: { 'User-Agent': 'KundasangHomestay/1.0' }
-    });
-    const text = await res.text();
-    console.log(`🔍 Payout response from ${endpoint}:`, text); // <-- ADD LOG
-    try { payoutData = JSON.parse(text); } catch { payoutData = { raw: text }; }
-    if (res.ok && (payoutData.status === "success" || payoutData[0]?.status === "success" || payoutData.payoutCode)) {
-      payoutSuccess = true;
-      break;
-    }
-    payoutError = payoutData;
-  } catch (e) {
-    payoutError = e.message;
-    console.error(`❌ Payout endpoint ${endpoint} failed:`, e.message);
-  }
-}    
-  
-  
-  } else if (isSimulation) {
+      for (const endpoint of endpoints) {
+        try {
+          const res = await fetch(endpoint, {
+            method: "POST",
+            body: formData,
+            headers: { 'User-Agent': 'KundasangHomestay/1.0' }
+          });
+          const text = await res.text();
+          console.log(`🔍 Payout response from ${endpoint}:`, text); // <-- improved logging
+          try { payoutData = JSON.parse(text); } catch { payoutData = { raw: text }; }
+          if (res.ok && (payoutData.status === "success" || payoutData[0]?.status === "success" || payoutData.payoutCode)) {
+            payoutSuccess = true;
+            break;
+          }
+          payoutError = payoutData;
+        } catch (e) {
+          payoutError = e.message;
+          console.error(`❌ Payout endpoint ${endpoint} failed:`, e.message);
+        }
+      }
+    } 
+    // ----- SIMULATION -----
+    else if (isSimulation) {
       payoutSuccess = true;
       payoutData = { simulation: true };
-    } else {
+    } 
+    // ----- NOT ENABLED -----
+    else {
       return new Response(JSON.stringify({
         success: false,
         error: "ToyyibPay payout is not enabled. Withdrawals are disabled in production until ToyyibPay payout is configured."
@@ -231,10 +236,13 @@ for (const endpoint of endpoints) {
     }
 
     if (!payoutSuccess) {
+      // Return the actual error if available (for debugging)
+      const errorMsg = payoutError?.message || payoutError?.raw || payoutError || "Unknown error";
+      console.error("❌ Payout failed with details:", errorMsg);
       return new Response(JSON.stringify({
         success: false,
-        error: "ToyyibPay payout to your bank failed. Please try again or check your ToyyibPay balance.",
-        details: payoutError
+        error: `ToyyibPay payout to your bank failed. Please try again or check your ToyyibPay balance.`,
+        details: errorMsg  // <-- include details for debugging (remove in production if sensitive)
       }), { 
         status: 500, 
         headers: corsHeaders(request) 
@@ -312,7 +320,7 @@ for (const endpoint of endpoints) {
     }), { status: 200, headers: corsHeaders(request) });
 
   } catch (err) {
-    console.error("❌ Withdraw request failed:", err.message);
+    console.error("❌ Withdraw request failed:", err.message, err.stack);
     return new Response(JSON.stringify({ 
       error: "Withdrawal failed. Please try again later." 
     }), { 
@@ -322,6 +330,130 @@ for (const endpoint of endpoints) {
   }
 }
 
-// GET and DELETE unchanged (they use D1 as well, but no rate limit needed for read/reset)
-// We'll keep them as they were, but ensure they use D1.
-// (The DELETE already uses D1, but we could add rate limiting if desired, not required.)
+// GET and DELETE methods (unchanged, but ensure they also have proper try-catch)
+export async function onRequestGet({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+  
+  const db = env.DB;
+  let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
+
+  if (db) {
+    try {
+      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
+      if (r) earnings = JSON.parse(r.data);
+    } catch (e) {
+      console.error("❌ Failed to read earnings for GET:", e.message);
+    }
+  }
+
+  return new Response(JSON.stringify({
+    message: "Withdraw API ready - LOCKED BANK",
+    lockedBank: {
+      bankName: env.YOUR_BANK_NAME || "Maybank",
+      holder: env.YOUR_BANK_HOLDER || "Nicks Creations",
+      accountMasked: env.YOUR_BANK_ACCOUNT ? "****" + env.YOUR_BANK_ACCOUNT.slice(-4) : "not set",
+      locked: true
+    },
+    earnings: {
+      total: earnings.total || 0,
+      available: earnings.available || 0,
+      withdrawn: earnings.withdrawn || 0,
+      history: (earnings.history || []).slice(-10)
+    },
+    security: "Bank fixed in server code"
+  }), { status: 200, headers: corsHeaders(request) });
+}
+
+export async function onRequestDelete({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+  
+  const authError = await verifyAdmin(request, env);
+  if (authError) return authError;
+
+  try {
+    const clientIP = getClientIP(request);
+    const db = env.DB;
+    let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
+
+    if (db) {
+      try {
+        await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
+        if (r) earnings = JSON.parse(r.data);
+      } catch (e) {
+        console.error("❌ Failed to read earnings for DELETE reset:", e.message);
+        return new Response(JSON.stringify({ 
+          error: "Database error. Please try again." 
+        }), { 
+          status: 500, 
+          headers: corsHeaders(request) 
+        });
+      }
+    }
+
+    const prevWithdrawn = earnings.withdrawn || 0;
+    const prevAvailable = earnings.available || 0;
+    const prevTotal = earnings.total || 0;
+    
+    earnings.withdrawn = 0;
+    earnings.available = 0;
+    earnings.total = 0;
+    earnings.history = earnings.history || [];
+    earnings.history.push({
+      type: "reset",
+      date: new Date().toISOString(),
+      note: "FULL RESET - All to 0 via DELETE",
+      prevWithdrawn,
+      prevAvailable,
+      prevTotal,
+      ip: clientIP
+    });
+
+    if (db) {
+      try {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_fee_earnings", JSON.stringify(earnings))
+          .run();
+        
+        await logAction({
+          db,
+          action: 'withdrawal_reset_delete',
+          admin: 'admin',
+          details: `Reset earnings via DELETE. Previous: Total RM${prevTotal}, Available RM${prevAvailable}, Withdrawn RM${prevWithdrawn}`,
+          ip: clientIP
+        });
+      } catch (e) {
+        console.error("❌ Failed to save DELETE reset:", e.message);
+        return new Response(JSON.stringify({ 
+          error: "Failed to reset. Please try again." 
+        }), { 
+          status: 500, 
+          headers: corsHeaders(request) 
+        });
+      }
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: "Withdrawn reset to RM0.00",
+      earnings,
+      reset: true
+    }), { status: 200, headers: corsHeaders(request) });
+
+  } catch (err) {
+    console.error("❌ DELETE reset failed:", err.message);
+    return new Response(JSON.stringify({ 
+      error: "Reset failed. Please try again later." 
+    }), { 
+      status: 500, 
+      headers: corsHeaders(request) 
+    });
+  }
+}
+
+export async function onRequestOptions({ request }) {
+  return new Response(null, { headers: corsHeaders(request) });
+}
