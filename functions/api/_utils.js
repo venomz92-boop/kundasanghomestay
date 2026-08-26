@@ -77,7 +77,7 @@ export async function createSignedToken(payload, env, ttlMs = 24 * 60 * 60 * 100
 
 // === ADMIN TOKEN (shorter TTL) ===
 export async function createAdminToken(payload, env) {
-  return createSignedToken(payload, env, 8 * 60 * 60 * 1000); // 8 hours
+  return createSignedToken(payload, env, 8 * 60 * 60 * 1000);
 }
 
 export async function verifySignedToken(token, env) {
@@ -342,7 +342,6 @@ export async function ensureRateLimitTable(db) {
       timestamp INTEGER NOT NULL
     )`
   ).run();
-  // optional index for faster lookups
   await db.prepare(
     `CREATE INDEX IF NOT EXISTS idx_rate_limits_ip_action ON rate_limits(ip, action)`
   ).run();
@@ -353,7 +352,7 @@ export async function ensureRateLimitTable(db) {
  * Returns true if under the limit, false if blocked.
  */
 export async function checkRateLimit(db, ip, action, maxAttempts, windowSeconds = 60) {
-  if (!db || !ip) return true; // allow if no DB (fallback)
+  if (!db || !ip) return true;
   try {
     await ensureRateLimitTable(db);
     const now = Date.now();
@@ -366,7 +365,7 @@ export async function checkRateLimit(db, ip, action, maxAttempts, windowSeconds 
     return count < maxAttempts;
   } catch (e) {
     console.error('Rate limit check error:', e);
-    return true; // fail-open
+    return true;
   }
 }
 
@@ -381,7 +380,6 @@ export async function recordRateLimit(db, ip, action) {
     await db.prepare(
       `INSERT INTO rate_limits (ip, action, timestamp) VALUES (?, ?, ?)`
     ).bind(ip, action, now).run();
-    // Clean old records (keep last 24h)
     const cutoff = now - 24 * 60 * 60 * 1000;
     await db.prepare(
       `DELETE FROM rate_limits WHERE timestamp < ?`
