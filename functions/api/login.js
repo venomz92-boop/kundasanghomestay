@@ -1,45 +1,30 @@
-// /api/login.js - Full patched with email verification check
-import { corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, parseJSONSafely, logAction, sendVerificationEmail } from './_utils.js';
+// /api/login.js
+import { corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, checkRateLimit, recordRateLimit, parseJSONSafely, logAction, incrementSessionVersion } from './_utils.js';
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
-const attempts = new Map();
-
-function limited(key) {
-  const now = Date.now();
-  const recent = (attempts.get(key) || []).filter(t => now - t < 15 * 60 * 1000);
-  attempts.set(key, recent);
-  return recent.length >= 5;
-}
-function record(key) { const a = attempts.get(key) || []; a.push(Date.now()); attempts.set(key, a); }
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
 
   try {
-    let body;
-    try {
-      body = await parseJSONSafely(request);
-    } catch (e) {
-      return jsonResponse({ error: 'Invalid JSON or payload too large' }, 400, request);
+    const clientIP = getClientIP(request);
+    const db = env.DB;
+    if (!db) return jsonResponse({ error: 'Server configuration error' }, 500, request);
+
+    // Persistent rate limiting (5 attempts per 15 minutes)
+    const rateOk = await checkRateLimit(db, clientIP, 'login', 5, 15 * 60);
+    if (!rateOk) {
+      return jsonResponse({ error: 'Too many login attempts. Please wait 15 minutes.' }, 429, request);
     }
 
-    const { email, password } = body;
+    const { email, password } = await parseJSONSafely(request);
     const cleanEmail = String(email || '').toLowerCase().trim();
     const cleanPassword = String(password || '');
-    const ip = getClientIP(request);
-    const key = `${ip}:${cleanEmail}`;
 
     if (!validateEmail(cleanEmail) || !cleanPassword) {
+      await recordRateLimit(db, clientIP, 'login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
-    }
-    if (limited(key)) {
-      return jsonResponse({ error: 'Too many login attempts. Please try again later.' }, 429, request);
-    }
-
-    const db = env.DB;
-    if (!db) {
-      return jsonResponse({ error: 'Server configuration error' }, 500, request);
     }
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
@@ -51,69 +36,75 @@ export async function onRequestPost({ request, env }) {
     try { if (bannedR?.data) banned = JSON.parse(bannedR.data); } catch (_) {}
 
     if (banned.includes(cleanEmail)) {
-      record(key);
+      await recordRateLimit(db, clientIP, 'login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
 
     const user = guests.find(g => String(g.email || '').toLowerCase() === cleanEmail);
     if (!user) {
-      record(key);
+      await recordRateLimit(db, clientIP, 'login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
 
     // ===== EMAIL VERIFICATION CHECK =====
-    if (!user.verified) {
-      // Resend verification email
-      const token = await createSignedToken({
+    if (user.verified !== true) {
+      // Send a new verification email
+      const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
+      const verifyToken = await createSignedToken({
         type: 'email_verification',
         userId: user.id,
         email: user.email
       }, env, 24 * 60 * 60 * 1000);
-
-      const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
-      const verifyUrl = `${domain}/api/verify-email?token=${encodeURIComponent(token)}`;
-      // Use the sendVerificationEmail helper (must be exported from _utils.js)
-      if (typeof sendVerificationEmail === 'function') {
-        await sendVerificationEmail(user.email, user.name, verifyUrl, env);
-      } else {
-        // Fallback: just log
-        console.error('sendVerificationEmail not available');
+      const verifyUrl = `${domain}/api/verify-email?token=${encodeURIComponent(verifyToken)}`;
+      const emailSent = await sendVerificationEmail(user.email, user.name, verifyUrl, env);
+      if (emailSent) {
+        await logAction({
+          db,
+          action: 'verification_resent_on_login',
+          admin: 'guest',
+          details: `Resent verification to ${user.email}`,
+          ip: clientIP,
+          userId: user.id
+        });
       }
-
       return jsonResponse({
-        error: 'Please verify your email address before logging in. A new verification link has been sent to your email.',
-        needsVerification: true,
-        email: user.email
-      }, 403, request);
+        error: 'Please verify your email address first. A new verification link has been sent to your email.',
+        needsVerification: true
+      }, 401, request);
     }
 
+    // Verify password
     const verified = await verifyPassword(cleanPassword, user, env);
     if (!verified.ok) {
-      record(key);
+      await recordRateLimit(db, clientIP, 'login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
 
-    // Legacy migration
+    // Transparent migration from legacy SHA-256
     if (verified.legacy) {
       const fresh = await hashPassword(cleanPassword, env);
       user.password = fresh.hash;
       user.salt = fresh.salt;
       user.passwordAlgorithm = fresh.algorithm;
       user.passwordVersion = (user.passwordVersion || 0) + 1;
+      // Optionally increment session version to invalidate all sessions
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_guests', JSON.stringify(guests))
         .run();
     }
 
-    attempts.delete(key);
+    // Increment session version (for future revocation)
+    await incrementSessionVersion(db, user.id, 'guest');
 
-    // Create session token with sessionVersion
+    // Clear rate limiting record on success
+    // We can't easily delete, but we can ignore.
+
     const session = await createSignedToken({
       type: 'guest',
       userId: String(user.id),
       email: user.email,
       passwordVersion: user.passwordVersion || 1,
-      sessionVersion: user.sessionVersion || 0
+      sessionVersion: (user.sessionVersion || 0) + 1
     }, env);
 
     const csrfToken = await generateCSRFToken(user.id, env);
@@ -132,10 +123,47 @@ export async function onRequestPost({ request, env }) {
         'Set-Cookie': cookieHeader('guest_token', session)
       }
     });
+
   } catch (e) {
     console.error('Login error:', e.message, e.stack);
     return jsonResponse({ error: 'Login failed. Please try again later.' }, 500, request);
   }
+}
+
+// Helper: send verification email (same as in register.js)
+async function sendVerificationEmail(to, name, url, env) {
+  const html = `<h2>Hello ${name},</h2><p>Please verify your email address for Kundasang Homestay.</p><p><a href="${url}">Verify Email</a></p><p>This link expires in 24 hours.</p>`;
+  try {
+    if (env.RESEND_API_KEY) {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
+          to: to,
+          subject: 'Verify Your Email - Kundasang Homestay',
+          html
+        })
+      });
+      return r.ok;
+    }
+    if (env.SENDGRID_API_KEY) {
+      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + env.SENDGRID_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: to }] }],
+          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
+          subject: 'Verify Your Email - Kundasang Homestay',
+          content: [{ type: 'text/html', value: html }]
+        })
+      });
+      return r.ok;
+    }
+  } catch (e) {
+    console.error('Email send error:', e);
+  }
+  return false;
 }
 
 export async function onRequestOptions({ request }) {
