@@ -1,18 +1,23 @@
-// /api/login.js – YOUR EMAIL ALWAYS WORKS
-import { corsHeaders, getClientIP, enforceHttps, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, parseJSONSafely, logAction, incrementSessionVersion } from './_utils.js';
+// /api/login.js – TEMPORARY: Disable verification check
+import { corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, checkRateLimit, recordRateLimit, parseJSONSafely, logAction, incrementSessionVersion } from './_utils.js';
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
-
-const YOUR_EMAIL = 'frn_boy@gmx.com';
 
 export async function onRequestPost({ request, env }) {
   try {
     const redirect = enforceHttps(request);
     if (redirect) return redirect;
 
+    const clientIP = getClientIP(request);
     const db = env.DB;
     if (!db) {
       return jsonResponse({ error: 'Server configuration error' }, 500, request);
+    }
+
+    // Rate limiting (5 attempts per 15 minutes)
+    const rateOk = await checkRateLimit(db, clientIP, 'login', 5, 15 * 60);
+    if (!rateOk) {
+      return jsonResponse({ error: 'Too many login attempts. Please wait 15 minutes.' }, 429, request);
     }
 
     let body;
@@ -24,8 +29,6 @@ export async function onRequestPost({ request, env }) {
     const { email, password } = body;
     const cleanEmail = String(email || '').toLowerCase().trim();
     const cleanPassword = String(password || '');
-
-    console.log(`🔍 Login attempt: email="${cleanEmail}", password="${cleanPassword}"`);
 
     if (!validateEmail(cleanEmail) || !cleanPassword) {
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
@@ -48,21 +51,33 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     }
 
-    // ---- YOUR EMAIL: ALWAYS LOGIN WITH ANY PASSWORD ----
-    if (cleanEmail === YOUR_EMAIL) {
-      console.log(`✅ Bypass login for ${user.email} (any password)`);
-      if (user.verified !== true) {
-        user.verified = true;
-        await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_guests', JSON.stringify(guests))
-          .run();
-      }
-    } else {
-      // ---- Other users: only "test" password works ----
-      if (cleanPassword !== 'test') {
-        console.log(`❌ Other user ${user.email} needs "test" password`);
-        return jsonResponse({ error: 'Invalid email or password' }, 401, request);
-      }
+    // ---- Verify password ----
+    const verified = await verifyPassword(cleanPassword, user, env);
+    if (!verified.ok) {
+      await recordRateLimit(db, clientIP, 'login');
+      return jsonResponse({ error: 'Invalid email or password' }, 401, request);
+    }
+
+    // ---- Legacy migration (if needed) ----
+    if (verified.legacy) {
+      const fresh = await hashPassword(cleanPassword, env);
+      user.password = fresh.hash;
+      user.salt = fresh.salt;
+      user.passwordAlgorithm = fresh.algorithm;
+      user.passwordVersion = (user.passwordVersion || 0) + 1;
+      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+        .bind('kd_guests', JSON.stringify(guests))
+        .run();
+    }
+
+    // ---- TEMPORARILY DISABLE VERIFICATION CHECK ----
+    // Just set verified to true if it's not already
+    if (user.verified !== true) {
+      user.verified = true;
+      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+        .bind('kd_guests', JSON.stringify(guests))
+        .run();
+      console.log(`✅ Auto-verified ${user.email} (temporary bypass)`);
     }
 
     await incrementSessionVersion(db, user.id, 'guest');
