@@ -842,6 +842,8 @@ async function doAdminLogin() {
       document.getElementById("adminDashboard").classList.remove("hidden");
       await fetchCloudData();
       renderAdmin();
+      // ✅ PATCH 2: Fetch earnings after login
+      await fetchEarnings();
     } else {
       errorEl.textContent = data.error || "Wrong password";
       errorEl.classList.remove("hidden");
@@ -1354,6 +1356,7 @@ async function resetWithdrawn() {
       await showAlert("Success", "Withdrawn reset to RM0.00");
       await fetchCloudData();
       renderAdmin();
+      await fetchEarnings(); // refresh display after reset
     } else { await showAlert("Error", "Reset failed: " + (data.error || "Unknown")); }
   } catch(e) { await showAlert("Error", "Error: " + e.message); }
 }
@@ -1533,7 +1536,7 @@ async function deleteBooking(id){
 })();
 
 // =============================================================
-// WITHDRAW OVERLAY EVENTS
+// WITHDRAW OVERLAY EVENTS – PATCHED with refresh after success
 // =============================================================
 document.addEventListener('click', async (e)=>{
   if(e.target.id==='kdWithdrawBtn'){
@@ -1562,13 +1565,12 @@ document.addEventListener('click', async (e)=>{
         await showAlert("Withdraw Failed", "Withdraw failed: " + (data.error||JSON.stringify(data)));
       } else {
         await showAlert("Withdraw Success", "Withdraw success: RM"+amt.toFixed(2)+" locked to your locked bank\n"+data.message);
-        const arr = JSON.parse(localStorage.getItem('kd_withdrawals')||'[]');
-        arr.push({amount:amt, date:new Date().toISOString(), id:data.withdrawal?.id});
-        localStorage.setItem('kd_withdrawals',JSON.stringify(arr));
+        // ✅ PATCH 1: Refresh earnings and bookings after successful withdrawal
+        await fetchEarnings();
+        await fetchCloudData(); // refresh bookings too
+        renderAdmin();
         document.getElementById('kdWithdrawOverlay').classList.remove('open');
         amtInput.value = "";
-        await fetchEarnings();
-        renderAdmin();
       }
     }catch(err){
       await showAlert("Withdraw Error", "Withdraw error: "+err.message+"\nCheck /api/withdraw endpoint and D1 binding");
@@ -1580,7 +1582,7 @@ document.addEventListener('click', async (e)=>{
 });
 
 // =============================================================
-// INIT
+// INIT – PATCHED to fetch earnings after login
 // =============================================================
 (async ()=>{
   const saved=localStorage.getItem("kd_billplz");
@@ -1592,6 +1594,8 @@ document.addEventListener('click', async (e)=>{
       document.getElementById("adminLogin").classList.add("hidden");
       document.getElementById("adminDashboard").classList.remove("hidden");
       renderAdmin();
+      // ✅ PATCH 2: Fetch earnings after login
+      await fetchEarnings();
     }catch(e){
       sessionStorage.removeItem('kd_admin_token');
       ADMIN_TOKEN = '';
