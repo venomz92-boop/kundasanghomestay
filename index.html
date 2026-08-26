@@ -2328,38 +2328,95 @@ function updateBookingPrice() {
 }
 
 function closeBooking() {
-  document.getElementById("bookingModal").classList.add("hidden");
-}
+      document.getElementById("bookingModal").classList.add("hidden");
+    }
 
-async function processPayment() {
-  if (!currentGuest) {
-    showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
-    return;
-  }
-  var guestName=document.getElementById("guestName").value.trim();
-  var guestEmail=document.getElementById("guestEmail").value.trim();
-  var guestPhone=document.getElementById("guestPhone").value.trim();
-  var ci=document.getElementById("bookingCheckin").value;
-  var co=document.getElementById("bookingCheckout").value;
-  if(!guestName||!guestEmail||!guestPhone){showAlert("Incomplete Information","Please provide your Name, Email, and WhatsApp number.");return;}
-  if(!selectedHomestay||!selectedHomestay.id){showAlert("Booking Error","Please select a valid homestay.");return;}
-  var bookingId="KDH-"+crypto.randomUUID().slice(0,8).toUpperCase();
-  var draft={id:bookingId,homestayId:selectedHomestay.id,checkin:ci,checkout:co,guestId:currentGuest.id};
-  window.lastCreatedBooking=draft;
-  try{
-    var headers=Object.assign({'Content-Type':'application/json'},getCsrfHeader());
-    var createRes=await fetch(API_BASE+'/bookings',{method:'POST',headers:headers,body:JSON.stringify({action:'createPublicBooking',booking:draft,guestId:currentGuest.id})});
-    var created=await createRes.json();
-    if(!createRes.ok||!created.success){showAlert('Booking Error',created.error||'Could not create booking.');return;}
-    var booking=created.booking;
-    window.lastCreatedBooking=booking;
-    var payRes=await fetch(API_BASE+'/toyyibpay-create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingId:booking.id})});
-    var payment=await payRes.json();
-    if(!payRes.ok||!payment.success){showAlert('Payment Setup Error',payment.error||'Unable to create the payment bill. Your booking remains pending payment; please retry later.');return;}
-    localStorage.setItem('kd_guest_pending_payment',JSON.stringify(booking));
-    window.location.href=payment.url;
-  }catch(e){console.error('Booking/payment error:',e);showAlert('Network Error','Could not connect to the booking server. Please try again.');}
-}
+    async function processPayment() {
+      if (!currentGuest) {
+        showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
+        return;
+      }
+      var guestName = document.getElementById("guestName").value.trim();
+      var guestEmail = document.getElementById("guestEmail").value.trim();
+      var guestPhone = document.getElementById("guestPhone").value.trim();
+      var ci = document.getElementById("bookingCheckin").value;
+      var co = document.getElementById("bookingCheckout").value;
+      if (!guestName || !guestEmail || !guestPhone) {
+        showAlert("Incomplete Information", "Please provide your Name, Email, and WhatsApp number.");
+        return;
+      }
+      if (!selectedHomestay || !selectedHomestay.id) {
+        showAlert("Booking Error", "Please select a valid homestay.");
+        return;
+      }
+      var bookingId = "KDH-" + crypto.randomUUID().slice(0,8).toUpperCase();
+      var draft = { id: bookingId, homestayId: selectedHomestay.id, checkin: ci, checkout: co, guestId: currentGuest.id };
+      window.lastCreatedBooking = draft;
+
+      try {
+        var headers = Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader());
+        var createRes = await fetch(API_BASE + '/bookings', {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({ action: 'createPublicBooking', booking: draft, guestId: currentGuest.id })
+        });
+        var created = await createRes.json();
+        if (!createRes.ok || !created.success) {
+          showAlert('Booking Error', created.error || 'Could not create booking.');
+          return;
+        }
+        var booking = created.booking;
+        window.lastCreatedBooking = booking;
+
+        // ==== FIX: Store booking in sessionStorage for return ====
+        sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
+
+        var payRes = await fetch(API_BASE + '/toyyibpay-create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId: booking.id })
+        });
+        var payment = await payRes.json();
+        if (!payRes.ok || !payment.success) {
+          showAlert('Payment Setup Error', payment.error || 'Unable to create the payment bill. Your booking remains pending payment; please retry later.');
+          return;
+        }
+        localStorage.setItem('kd_guest_pending_payment', JSON.stringify(booking));
+        window.location.href = payment.url;
+      } catch (e) {
+        console.error('Booking/payment error:', e);
+        showAlert('Network Error', 'Could not connect to the booking server. Please try again.');
+      }
+    }
+
+    // =============================================================
+    // HANDLE PAYMENT RETURN FROM TOYYIBPAY (NEW)
+    // =============================================================
+    function handlePaymentReturn() {
+      var params = new URLSearchParams(window.location.search);
+      var bookingId = params.get('booking');
+      var paymentReturn = params.get('payment_return');
+      if (bookingId && paymentReturn === '1') {
+        var stored = sessionStorage.getItem('kd_pending_booking');
+        var bookingData = null;
+        if (stored) {
+          try { bookingData = JSON.parse(stored); } catch (_) {}
+          sessionStorage.removeItem('kd_pending_booking');
+        }
+        if (!bookingData) {
+          // Fallback: try to find in local bookings
+          bookingData = bookings.find(function(b) { return String(b.id) === String(bookingId); });
+        }
+        if (bookingData) {
+          showThankYouModal(bookingId, bookingData);
+        } else {
+          // Generic success
+          showThankYouModal(bookingId, { id: bookingId, total: '---' });
+        }
+        // Optionally clean URL
+        // window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
 
 // =============================================================
 // CALENDAR EMBED
@@ -2400,36 +2457,37 @@ function toggleMobileMenu() {
 // INITIALIZATION - CLEAN (NO REDIRECT LOGIC)
 // =============================================================
 (function init() {
-  renderGuestNav();
-  
-  // Set default dates for mobile visibility
-  var today = new Date();
-  var tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  var dayAfter = new Date(today);
-  dayAfter.setDate(dayAfter.getDate() + 2);
-  
-  var checkinInput = document.getElementById('checkin');
-  var checkoutInput = document.getElementById('checkout');
-  if (checkinInput) checkinInput.value = dateToIso(tomorrow);
-  if (checkoutInput) checkoutInput.value = dateToIso(dayAfter);
-  
-  renderGrid();
+      renderGuestNav();
 
-  // Fetch data without blocking UI
-  if (API_BASE) {
-    fetch(API_BASE + '/bookings', { cache: 'no-store' })
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
-        if (data.approved && data.approved.length > 0) {
-          homestays = data.approved.map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
-          renderGrid();
-        }
-      })
-      .catch(function() { console.warn('Using offline / cached homestays data'); });
-  }
-})();
-</script>
+      var today = new Date();
+      var tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      var dayAfter = new Date(today);
+      dayAfter.setDate(dayAfter.getDate() + 2);
 
+      var checkinInput = document.getElementById('checkin');
+      var checkoutInput = document.getElementById('checkout');
+      if (checkinInput) checkinInput.value = dateToIso(tomorrow);
+      if (checkoutInput) checkoutInput.value = dateToIso(dayAfter);
+
+      renderGrid();
+
+      // Fetch data without blocking UI
+      if (API_BASE) {
+        fetch(API_BASE + '/bookings', { cache: 'no-store' })
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (data.approved && data.approved.length > 0) {
+              homestays = data.approved.map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
+              renderGrid();
+            }
+          })
+          .catch(function() { console.warn('Using offline / cached homestays data'); });
+      }
+
+      // ==== FIX: Check for payment return ====
+      handlePaymentReturn();
+    })();
+  </script>
 </body>
 </html>
