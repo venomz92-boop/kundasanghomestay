@@ -5,7 +5,7 @@ function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 function validatePhone(phone) { const d = String(phone).replace(/\D/g, ''); return d.length >= 10 && d.length <= 12; }
 function clean(s, max = 200) { return String(s || '').replace(/[<>]/g, '').trim().slice(0, max); }
 
-// Helper: send verification email
+// Helper: send verification email via Resend
 async function sendVerificationEmail(to, name, url, env) {
   const html = `<h2>Hello ${name},</h2>
     <p>Thank you for registering at Kundasang Homestay.</p>
@@ -13,37 +13,43 @@ async function sendVerificationEmail(to, name, url, env) {
     <p><a href="${url}" style="background:#0F382E;color:#fff;padding:10px 20px;border-radius:999px;text-decoration:none;">Verify Email</a></p>
     <p>This link expires in 24 hours.</p>
     <p>If you did not create an account, please ignore this email.</p>`;
+
+  const fromEmail = env.FROM_EMAIL || 'support@kundasanghomestay.my';
+
+  // Check if Resend API key is set
+  if (!env.RESEND_API_KEY) {
+    console.error('❌ RESEND_API_KEY is not set. Please add it to your environment variables.');
+    return false;
+  }
+
   try {
-    if (env.RESEND_API_KEY) {
-      const r = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
-          to: to,
-          subject: 'Verify Your Email - Kundasang Homestay',
-          html
-        })
-      });
-      return r.ok;
-    }
-    if (env.SENDGRID_API_KEY) {
-      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + env.SENDGRID_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email: to }] }],
-          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
-          subject: 'Verify Your Email - Kundasang Homestay',
-          content: [{ type: 'text/html', value: html }]
-        })
-      });
-      return r.ok;
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + env.RESEND_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: to,
+        subject: 'Verify Your Email - Kundasang Homestay',
+        html: html
+      })
+    });
+
+    const responseData = await response.json();
+
+    if (response.ok) {
+      console.log(`✅ Verification email sent to ${to} via Resend (ID: ${responseData.id})`);
+      return true;
+    } else {
+      console.error(`❌ Resend API error (${response.status}):`, JSON.stringify(responseData));
+      return false;
     }
   } catch (e) {
-    console.error('Email send error:', e);
+    console.error('❌ Email send error:', e.message);
+    return false;
   }
-  return false;
 }
 
 export async function onRequestPost({ request, env }) {
@@ -111,10 +117,10 @@ export async function onRequestPost({ request, env }) {
       salt: hashed.salt,
       passwordAlgorithm: hashed.algorithm,
       passwordVersion: 1,
-      sessionVersion: 1,          // ← for session revocation
+      sessionVersion: 1,
       createdAt: new Date().toISOString(),
       bookingsCount: 0,
-      verified: false,            // ← email verification required
+      verified: false,
     };
 
     guests.push(newGuest);
@@ -130,10 +136,13 @@ export async function onRequestPost({ request, env }) {
       email: newGuest.email
     }, env, 24 * 60 * 60 * 1000);
     const verifyUrl = `${domain}/api/verify-email?token=${encodeURIComponent(verifyToken)}`;
+
+    console.log(`📧 Attempting to send verification email to ${email}`);
+    console.log(`🔗 Verification URL: ${verifyUrl}`);
+
     const emailSent = await sendVerificationEmail(newGuest.email, newGuest.name, verifyUrl, env);
     if (!emailSent) {
-      // Log but don't block registration – user can resend
-      console.warn(`⚠️ Verification email failed to send for ${newGuest.email}`);
+      console.error(`❌ Verification email failed for ${newGuest.email}. URL was: ${verifyUrl}`);
     }
 
     await logAction({
@@ -145,7 +154,6 @@ export async function onRequestPost({ request, env }) {
       userId: newGuest.id
     });
 
-    // Record rate limit success (optional)
     await recordRateLimit(db, clientIP, 'register');
 
     // Generate session token and CSRF
@@ -160,14 +168,25 @@ export async function onRequestPost({ request, env }) {
     const csrfToken = await generateCSRFToken(newGuest.id, env);
     const { password: _, salt: __, ...safeGuest } = newGuest;
 
+    // Response
+    const responseData = {
+      success: true,
+      guest: safeGuest,
+      token: session,
+      csrfToken,
+      message: emailSent 
+        ? 'Registration successful. Please check your email to verify your account.'
+        : 'Registration successful, but we could not send the verification email. Please contact support.'
+    };
+
+    // In non-production, include the verification URL for debugging
+    const isProduction = env.ENVIRONMENT === 'production';
+    if (!isProduction && !emailSent) {
+      responseData.debugVerificationUrl = verifyUrl;
+    }
+
     return new Response(
-      JSON.stringify({
-        success: true,
-        guest: safeGuest,
-        token: session,
-        csrfToken,
-        message: 'Registration successful. Please check your email to verify your account.'
-      }),
+      JSON.stringify(responseData),
       {
         status: 200,
         headers: {
