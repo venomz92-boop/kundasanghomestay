@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="animations.css" />
 <style>
-/* ===== ROOT (same as index) ===== */
+/* ===== ROOT ===== */
 :root {
   --primary: #0F382E;
   --primary-light: #1a4d3e;
@@ -415,7 +415,36 @@ body {
 <!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
-// ========== CUSTOM MODAL SYSTEM (same as index) ==========
+// =============================================================
+// DOMPurify Helper – prevents XSS via innerHTML
+// =============================================================
+function safeHTML(html) {
+  if (!html) return '';
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'div', 'span', 'p', 'a', 'br', 'b', 'i', 'u', 'strong', 'em',
+      'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
+      'button','input','form','label','select','option','textarea',
+      'section','article','header','footer','nav','main','aside',
+      'code','pre','blockquote','hr','small','sub','sup','svg','path',
+      'img'
+    ],
+    ALLOWED_ATTR: [
+      'id','class','style','href','src','alt','title','rel','target',
+      'onclick','onchange','oninput','onload','onerror',
+      'method','action','type','name','value','placeholder',
+      'checked','disabled','readonly','required','multiple',
+      'min','max','step','pattern','autocomplete','inputmode',
+      'viewBox','fill','stroke','stroke-width','d'
+    ],
+    ALLOW_DATA_ATTR: false,
+    FORCE_HTTPS: true
+  });
+}
+
+// =============================================================
+// CUSTOM MODAL SYSTEM (same as index)
+// =============================================================
 function showModal(title, message, buttons) {
   return new Promise((resolve, reject) => {
     const overlay = document.getElementById('customModal');
@@ -490,16 +519,9 @@ document.getElementById('customModal').addEventListener('click', function(e) {
   if (e.target === this) { closeModal(); }
 });
 
-// ========== DOMPurify ==========
-function safeHTML(html) {
-  if (!html) return '';
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['div','span','p','a','img','br','b','i','u','strong','em','h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th','button','input','form','label','select','option','textarea','section','article','header','footer','nav','main','aside','code','pre','blockquote','hr','small','sub','sup'],
-    ALLOWED_ATTR: ['id','class','style','href','src','alt','title','rel','target','onclick','onchange','oninput','onload','onerror','method','action','type','name','value','placeholder','checked','disabled','readonly','required','multiple','min','max','step','pattern','autocomplete','inputmode']
-  });
-}
-
-// ========== LIGHTBOX ==========
+// =============================================================
+// LIGHTBOX
+// =============================================================
 function openLightbox(src) {
   const lb = document.getElementById('imageLightbox');
   const img = document.getElementById('lightboxImage');
@@ -511,14 +533,20 @@ function closeLightbox() {
 }
 document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeLightbox(); });
 
-// ========== ADMIN TOKEN ==========
+// =============================================================
+// ADMIN TOKEN
+// =============================================================
 let ADMIN_TOKEN = sessionStorage.getItem('kd_admin_token') || '';
 
-// ========== CONFIG ==========
+// =============================================================
+// CONFIG
+// =============================================================
 var CLOUD_ENABLED = true;
 var API_BASE = "/api";
 
-// ========== DATA STORES ==========
+// =============================================================
+// DATA STORES
+// =============================================================
 let bookings = [];
 let pendingHomestays = [];
 let homestays = [];
@@ -528,14 +556,18 @@ let demoOverrides = {};
 let demoBlockedMap = {};
 let deletedDemoIds = [];
 
-// ========== FETCH WITH AUTH ==========
+// =============================================================
+// FETCH WITH AUTH
+// =============================================================
 async function fetchWithAuth(url, options = {}) {
   const headers = options.headers || {};
   if (ADMIN_TOKEN) headers['Authorization'] = 'Bearer ' + ADMIN_TOKEN;
   return fetch(url, { ...options, headers });
 }
 
-// ========== MALAYSIA TIME ==========
+// =============================================================
+// MALAYSIA TIME
+// =============================================================
 const MY_TZ = "Asia/Kuala_Lumpur";
 function toMYDate(dateInput){
   if(!dateInput) return "";
@@ -556,38 +588,35 @@ function toMYDateTime(dateInput){
 
 const CONFIG = { platformFeePercent: 11, toyyibpay: { enabled: true, gatewayFee: 1.00, category: "08myr5uc" } };
 
-// ========== DEMO DATA ==========
+// =============================================================
+// DEMO DATA
+// =============================================================
 const DEMO_HOMESTAYS = [
   { id: 1, name: "A-Frame Cabin with Kinabalu View", location: "Bundu Tuhan", ownerPrice: 300, rating: 4.9, reviews: 127, guests: 4, bedrooms: 2, image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800", images: [], approved: true, verified: true, ownerName: "Ali", ownerBank: "CIMB", ownerBankAccount: "8600-123456", whatsapp: "60123456789", description: "View Gunung Kinabalu terus dari bilik." },
   { id: 2, name: "Desa Cattle Farm View Homestay", location: "Desa", ownerPrice: 250, rating: 4.8, reviews: 89, guests: 6, bedrooms: 3, image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800", images: [], approved: true, verified: true, ownerName: "Maria", ownerBank: "Maybank", ownerBankAccount: "1140-987654", whatsapp: "60123456789", description: "5 min to Desa Cattle Farm, ada dapur." }
 ];
 
-// ========== DATE HELPERS ==========
+// =============================================================
+// DATE HELPERS
+// =============================================================
 function isoToDate(s){ return new Date(s+'T00:00:00'); }
 function dateToIso(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate()).padStart(2,'0'); }
 function getDatesInRange(ci,co){ if(!ci||!co) return []; const dates=[]; const a=isoToDate(ci), b=isoToDate(co); if(isNaN(a)||isNaN(b)||a>=b) return []; const cur=new Date(a); while(cur<b){ dates.push(dateToIso(cur)); cur.setDate(cur.getDate()+1); } return dates; }
 
-// ========== AVAILABILITY COMPUTED FROM BOOKINGS (Auto-free on cancellation) ==========
+// =============================================================
+// AVAILABILITY COMPUTED FROM BOOKINGS
+// =============================================================
 function getAllBlockedDatesForHomestay(h) {
   if(!h) return [];
   let blocked = [];
-  
-  // Add manually blocked dates from homestay
   if(h.blockedDates) blocked = blocked.concat(h.blockedDates);
-  
-  // Add dates from bookings (SKIP CANCELLED BOOKINGS)
   const rel = bookings.filter(b => b.homestay === h.name || String(b.homestayId) === String(h.id));
   rel.forEach(b => {
-    // ✅ SKIP CANCELLED BOOKINGS - dates become available again
-    if (b.status && b.status.toLowerCase().includes('cancelled')) {
-      return;
-    }
+    if (b.status && b.status.toLowerCase().includes('cancelled')) return;
     if (b.checkin && b.checkout) {
       blocked = blocked.concat(getDatesInRange(b.checkin, b.checkout));
     }
   });
-  
-  // Remove duplicates and sort
   const unique = {};
   blocked.forEach(d => { unique[d] = true; });
   return Object.keys(unique).sort();
@@ -596,7 +625,9 @@ function getAllBlockedDatesForHomestay(h) {
 function calculateNights(ci,co){ if(!ci||!co) return 1; const d1=new Date(ci), d2=new Date(co); const diff=Math.round((d2-d1)/86400000); return diff>0?diff:1; }
 function calculatePrice(p,n){ n=n||1; const base=p*n; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gw=CONFIG.toyyibpay.enabled?CONFIG.toyyibpay.gatewayFee:0; return {nights:n, base:base, fee:fee, gatewayFee:gw, total:base+fee+gw, youReceive:fee-gw, ownerReceives:base}; }
 
-// ========== COMPACT CALENDAR RENDER ==========
+// =============================================================
+// COMPACT CALENDAR RENDER (uses safeHTML)
+// =============================================================
 function renderAvailabilityCalendar(h, containerId) {
   const container = document.getElementById(containerId);
   if (!container || !h) return;
@@ -661,7 +692,9 @@ function renderAvailabilityCalendar(h, containerId) {
   renderMonth.call(container);
 }
 
-// ========== CLOUD DATA FETCH ==========
+// =============================================================
+// CLOUD DATA FETCH
+// =============================================================
 async function fetchCloudData(){
   console.log("☁️ Fetching cloud data...");
   if(!CLOUD_ENABLED) return false;
@@ -727,7 +760,9 @@ async function fetchCloudData(){
   }
 }
 
-// ========== SAVE FUNCTIONS ==========
+// =============================================================
+// SAVE FUNCTIONS
+// =============================================================
 function isDemo(id){ return DEMO_HOMESTAYS.some(d => String(d.id)===String(id)); }
 function saveApproved(){
   const toSave = allHomestays.filter(h => !isDemo(h.id));
@@ -752,7 +787,9 @@ async function pushHomestaysToCloud(){
   }catch(e){}
 }
 
-// ========== ADMIN LOGIN ==========
+// =============================================================
+// ADMIN LOGIN
+// =============================================================
 async function doAdminLogin() {
   const pass = document.getElementById("adminPass").value;
   const errorEl = document.getElementById("loginError");
@@ -781,7 +818,9 @@ async function doAdminLogin() {
   }
 }
 
-// ========== LOGOUT ==========
+// =============================================================
+// LOGOUT
+// =============================================================
 async function logoutAdmin() {
   const confirmed = await showConfirm("Logout", "Logout from admin panel?");
   if (!confirmed) return;
@@ -793,7 +832,9 @@ async function logoutAdmin() {
   location.reload();
 }
 
-// ========== RENDER ==========
+// =============================================================
+// RENDER ADMIN – PATCHED WITH safeHTML
+// =============================================================
 function showAdminTab(tab){
   ["adminPending","adminApproved","adminBookings","adminAvailability","adminGuests","adminSettings"].forEach(id=> document.getElementById(id).classList.add("hidden"));
   ["tabPending","tabApproved","tabBookings","tabAvailability","tabGuests","tabSettings"].forEach(id=>{ const el=document.getElementById(id); if(el) el.className="px-5 py-2.5 rounded-full bg-white border text-[11px] uppercase font-600"; });
@@ -884,7 +925,9 @@ function renderAdmin(){
   renderBookingsTable();
 }
 
-// ====== REMOVE APPROVED HOMESTAY ======
+// =============================================================
+// REMOVE APPROVED HOMESTAY
+// =============================================================
 async function removeApprovedHomestay(id) {
   const confirmed = await showConfirm("Remove Homestay", "Remove this homestay from Approved list?");
   if (!confirmed) return;
@@ -912,7 +955,9 @@ async function removeApprovedHomestay(id) {
   }
 }
 
-// ====== PENDING DETAIL MODAL ======
+// =============================================================
+// PENDING DETAIL MODAL
+// =============================================================
 function viewPendingDetails(id) {
   const h = pendingHomestays.find(p => p.id === id);
   if (!h) return;
@@ -1009,7 +1054,9 @@ function closePendingDetail() {
   document.getElementById('pendingDetailModal').classList.add('hidden');
 }
 
-// ========== RENDER BOOKINGS TABLE ==========
+// =============================================================
+// RENDER BOOKINGS TABLE – PATCHED WITH safeHTML
+// =============================================================
 function renderBookingsTable(){
   const div=document.getElementById("bookingsTable"); if(!div) return;
   if(bookings.length===0){
@@ -1041,7 +1088,9 @@ function renderBookingsTable(){
   div.innerHTML = safeHTML(html);
 }
 
-// ========== CHECK-IN ==========
+// =============================================================
+// CHECK-IN (Admin)
+// =============================================================
 async function confirmCheckIn(id){
   const b=bookings.find(x=> String(x.id)===String(id));
   if(!b){ await showAlert("Error", "Booking not found"); return; }
@@ -1174,7 +1223,9 @@ async function openOwnerAvailabilityManager(id){
   saveApproved(); renderAdmin();
 }
 
-// ========== OTHER ADMIN FUNCTIONS ==========
+// =============================================================
+// OTHER ADMIN FUNCTIONS (approve, reject, etc.)
+// =============================================================
 async function approveHomestay(id){
   const confirmed = await showConfirm("Approve Homestay", "Approve this homestay?");
   if (!confirmed) return;
@@ -1380,13 +1431,11 @@ async function deleteGuest(idx){
       throw new Error(data.error || "Cloud delete failed");
     }
 
-    // Refresh from the authoritative cloud store only after the server confirms deletion.
     await fetchCloudData();
     renderGuestsTable();
     renderAdmin();
     await showAlert("Success", "Deleted and banned " + (deleted.email||"guest") + ".\nThe account can no longer log in with that email.");
   }catch(e){
-    // Do not modify local state when the server operation fails.
     await showAlert("Error", "Guest was NOT deleted: " + e.message);
   }
 }
@@ -1410,7 +1459,9 @@ async function deleteBooking(id){
   } catch(e){ await showAlert("Error", "Delete error: "+e.message); }
 }
 
-// ========== CLOCK ==========
+// =============================================================
+// CLOCK
+// =============================================================
 (function(){
   function updateMYClock(){
     const el = document.getElementById('myTimeNow');
@@ -1424,7 +1475,9 @@ async function deleteBooking(id){
   setTimeout(updateMYClock, 200);
 })();
 
-// ========== WITHDRAW OVERLAY EVENTS ==========
+// =============================================================
+// WITHDRAW OVERLAY EVENTS
+// =============================================================
 document.addEventListener('click', async (e)=>{
   if(e.target.id==='kdWithdrawBtn'){
     await fetchEarnings();
@@ -1469,7 +1522,9 @@ document.addEventListener('click', async (e)=>{
   }
 });
 
-// ========== INIT ==========
+// =============================================================
+// INIT
+// =============================================================
 (async ()=>{
   const saved=localStorage.getItem("kd_billplz");
   if(saved){ try{ CONFIG.billplz={...CONFIG.billplz, ...JSON.parse(saved)}; }catch(e){} }
