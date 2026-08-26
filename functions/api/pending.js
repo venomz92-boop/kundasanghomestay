@@ -34,7 +34,7 @@ export async function onRequestPost({request,env}){
     const duplicate=[...pending,...approved].some(x=>String(x.ownerEmail||'').toLowerCase()===String(h.ownerEmail).toLowerCase() && String(x.name||'').toLowerCase()===String(h.name).toLowerCase());
     if(duplicate)return jsonResponse({error:'A listing with this owner email and property name already exists.'},409,request);
     const hashed=await hashPassword(ownerPassword,env);
-    const clean={...h,id:h.id||Date.now(),whatsapp,ownerPrice:Math.round(price*100)/100,approved:false,verified:false,ownerPasswordHash:hashed.hash,ownerSalt:hashed.salt,ownerPasswordAlgorithm:hashed.algorithm,createdAt:new Date().toISOString()};
+    const clean={...h,id:h.id||Date.now(),whatsapp,ownerPrice:Math.round(price*100)/100,approved:false,verified:false,ownerPasswordHash:hashed.hash,ownerSalt:hashed.salt,ownerPasswordAlgorithm:hashed.algorithm,ownerPasswordVersion: 1,createdAt:new Date().toISOString()};
     delete clean.password; delete clean.ownerPassword;
     pending.push(clean);
     await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind('kd_pending',JSON.stringify(pending)).run();
