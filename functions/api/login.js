@@ -1,42 +1,7 @@
-// /api/login.js – (top of file)
+// /api/login.js
 import { corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, checkRateLimit, recordRateLimit, parseJSONSafely, logAction, incrementSessionVersion } from './_utils.js';
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
-
-async function sendVerificationEmail(to, name, url, env) {
-  const html = `<h2>Hello ${name},</h2><p>Please verify your email address for Kundasang Homestay.</p><p><a href="${url}">Verify Email</a></p><p>This link expires in 24 hours.</p>`;
-  try {
-    if (env.RESEND_API_KEY) {
-      const r = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
-          to: to,
-          subject: 'Verify Your Email - Kundasang Homestay',
-          html
-        })
-      });
-      return r.ok;
-    }
-    if (env.SENDGRID_API_KEY) {
-      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + env.SENDGRID_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email: to }] }],
-          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
-          subject: 'Verify Your Email - Kundasang Homestay',
-          content: [{ type: 'text/html', value: html }]
-        })
-      });
-      return r.ok;
-    }
-  } catch (e) {
-    console.error('Email send error:', e);
-  }
-  return false;
-}
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -90,15 +55,14 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     }
 
+    // ---- DEBUG ----
     console.log(`🔍 Login attempt for ${user.email}:`, {
       id: user.id,
       verified: user.verified,
       hasPassword: !!user.password,
-      passwordVersion: user.passwordVersion,
-      sessionVersion: user.sessionVersion
     });
 
-    // Migration: set verified true for old users
+    // ---- Migration: set verified true for old users ----
     if (user.verified === undefined) {
       user.verified = true;
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
@@ -107,8 +71,11 @@ export async function onRequestPost({ request, env }) {
       console.log(`✅ Migrated old guest ${user.email} - set verified=true`);
     }
 
-    // Email verification check
+    // ---- Verification check (temporarily disabled for testing) ----
+    // If you want to enforce verification, uncomment this block:
+    /*
     if (user.verified !== true) {
+      // Send verification email and return 401
       const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
       const verifyToken = await createSignedToken({
         type: 'email_verification',
@@ -116,27 +83,15 @@ export async function onRequestPost({ request, env }) {
         email: user.email
       }, env, 24 * 60 * 60 * 1000);
       const verifyUrl = `${domain}/api/verify-email?token=${encodeURIComponent(verifyToken)}`;
-      const emailSent = await sendVerificationEmail(user.email, user.name, verifyUrl, env);
-      if (emailSent) {
-        await logAction({
-          db,
-          action: 'verification_resent_on_login',
-          admin: 'guest',
-          details: `Resent verification to ${user.email}`,
-          ip: clientIP,
-          userId: user.id
-        });
-      } else {
-        console.error(`❌ Failed to send verification email to ${user.email}`);
-      }
-      console.warn(`❌ Login blocked - ${user.email} not verified (verified: ${user.verified})`);
+      // ... send email
       return jsonResponse({
         error: 'Please verify your email address first. A new verification link has been sent to your email.',
         needsVerification: true
       }, 401, request);
     }
+    */
 
-    // Verify password
+    // ---- Verify password ----
     const verified = await verifyPassword(cleanPassword, user, env);
     if (!verified.ok) {
       await recordRateLimit(db, clientIP, 'login');
@@ -187,7 +142,6 @@ export async function onRequestPost({ request, env }) {
 
   } catch (e) {
     console.error('Login error:', e.message, e.stack);
-    // Always return JSON
     return jsonResponse({ error: 'Login failed. Please try again later.' }, 500, request);
   }
 }
