@@ -1,7 +1,8 @@
 // Shared security + utility helpers for Kundasang Homestay Cloudflare Pages Functions.
 // REQUIRED secret: SESSION_SECRET (a long random value, >= 32 bytes).
 
-const PBKDF2_ITERATIONS = 210000;
+// ===== ADJUSTED: PBKDF2 iterations now 100,000 (max supported by CF Workers) =====
+const PBKDF2_ITERATIONS = 100000;
 const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_KEYLEN = 256;
 
@@ -112,14 +113,13 @@ export function clearCookieHeader(name) {
 }
 
 // ---- Password hashing ----
-// New passwords use PBKDF2. Existing legacy SHA-256 records can be verified
-// and transparently upgraded after a successful login.
 export function generateSalt() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return b64urlEncode(bytes);
 }
 
-async function derivePassword(password, salt, pepper) {
+// ===== MODIFIED: accept iterations parameter =====
+async function derivePassword(password, salt, pepper, iterations = PBKDF2_ITERATIONS) {
   const material = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(`${pepper}${password}`),
@@ -128,7 +128,7 @@ async function derivePassword(password, salt, pepper) {
     ['deriveBits']
   );
   const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations: PBKDF2_ITERATIONS, hash: PBKDF2_HASH },
+    { name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations, hash: PBKDF2_HASH },
     material,
     PBKDF2_KEYLEN
   );
@@ -138,7 +138,13 @@ async function derivePassword(password, salt, pepper) {
 export async function hashPassword(password, env, salt = generateSalt()) {
   const pepper = env?.PASSWORD_PEPPER || env?.SESSION_SECRET;
   if (!pepper) throw new Error('PASSWORD_PEPPER or SESSION_SECRET is required');
-  return { hash: await derivePassword(password, salt, pepper), salt, algorithm: `PBKDF2-${PBKDF2_ITERATIONS}-SHA256` };
+  // Store the iteration count in the algorithm string
+  const algorithm = `PBKDF2-${PBKDF2_ITERATIONS}-SHA256`;
+  return {
+    hash: await derivePassword(password, salt, pepper, PBKDF2_ITERATIONS),
+    salt,
+    algorithm
+  };
 }
 
 export async function sha256(message) {
@@ -155,12 +161,21 @@ export async function verifyPassword(password, record, env) {
   const pepper = env?.PASSWORD_PEPPER || env?.SESSION_SECRET;
   if (!pepper) return { ok: false, legacy: false };
 
+  // ---- PBKDF2 verification with parsed iterations ----
   if (algorithm && algorithm.startsWith('PBKDF2-')) {
-    const computed = await derivePassword(password, salt, pepper);
+    // Extract iterations from algorithm string (e.g., "PBKDF2-100000-SHA256")
+    const parts = algorithm.split('-');
+    const iterations = parts.length >= 2 ? parseInt(parts[1], 10) : PBKDF2_ITERATIONS;
+    if (isNaN(iterations) || iterations <= 0) {
+      // Fallback to global constant if parsing fails
+      const computed = await derivePassword(password, salt, pepper, PBKDF2_ITERATIONS);
+      return { ok: computed === hash, legacy: false };
+    }
+    const computed = await derivePassword(password, salt, pepper, iterations);
     return { ok: computed === hash, legacy: false };
   }
 
-  // Legacy format retained only for migration of existing accounts.
+  // ---- Legacy SHA-256 (only for migration) ----
   const legacyPepper = env?.LEGACY_PASSWORD_PEPPER || env?.PASSWORD_PEPPER || 'kundasang-homestay-2026';
   const computedLegacy = await sha256(legacyPepper + password + salt);
   return { ok: computedLegacy === hash, legacy: true };
@@ -224,7 +239,7 @@ export async function logAction({ db, action, admin, details, ip, userId, homest
   }
 }
 
-// Signed CSRF token. It is bound to the authenticated user and expires.
+// Signed CSRF token
 export async function generateCSRFToken(userId, env) {
   return createSignedToken({ type: 'csrf', userId: String(userId) }, env, 24 * 60 * 60 * 1000);
 }
