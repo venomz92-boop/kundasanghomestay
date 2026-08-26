@@ -102,10 +102,43 @@ export async function onRequestPost({ request, env }) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(ci) || !/^\d{4}-\d{2}-\d{2}$/.test(co) || isNaN(d1) || isNaN(d2) || d1 >= d2) return jsonResponse({ error: 'Invalid dates' }, 400, request);
       const nights = Math.round((d2-d1)/86400000);
       if (nights < 1 || nights > 60) return jsonResponse({ error: 'Booking must be between 1 and 60 nights' }, 400, request);
+      
+      // ===== FIX: Check if the guest already has a pending booking for the same homestay and dates =====
+      const existingPending = bookings.find(b =>
+        String(b.guestId) === String(guest.id) &&
+        String(b.homestayId) === String(homestay.id) &&
+        b.checkin === ci &&
+        b.checkout === co &&
+        b.status === 'Pending Payment'
+      );
+      if (existingPending) {
+        // Return the existing booking so the guest can continue payment
+        return jsonResponse({
+          success: true,
+          booking: existingPending,
+          alreadyExists: true,
+          message: 'You already have a pending booking for these dates. Please complete the payment.'
+        }, 200, request);
+      }
+
+      // ---- Check availability (excluding the guest's own pending bookings) ----
       const blocked = new Set((homestay.blockedDates || []).map(String));
       for (let i=0;i<nights;i++){ const d=new Date(d1); d.setDate(d.getDate()+i); const ds=d.toISOString().slice(0,10); if(blocked.has(ds)) return jsonResponse({ error: `Selected dates are unavailable (${ds})` }, 409, request); }
-      const overlaps = bookings.some(b => { const pendingExpired = String(b.status||'') === 'Pending Payment' && b.date && Date.now() - Date.parse(b.date) > 15*60*1000; return String(b.homestayId)===String(homestay.id) && !pendingExpired && !/cancelled|failed|expired/i.test(String(b.status||'')) && ci < String(b.checkout||'') && co > String(b.checkin||''); });
+      
+      // Overlap check: exclude this guest's own pending bookings (they will be replaced)
+      const overlaps = bookings.some(b => {
+        const pendingExpired = String(b.status||'') === 'Pending Payment' && b.date && Date.now() - Date.parse(b.date) > 15*60*1000;
+        // Skip if this is the guest's own pending booking (will be updated later)
+        const isOwnPending = String(b.guestId) === String(guest.id) && b.status === 'Pending Payment';
+        return String(b.homestayId) === String(homestay.id) &&
+               !pendingExpired &&
+               !/cancelled|failed|expired/i.test(String(b.status||'')) &&
+               !isOwnPending &&
+               ci < String(b.checkout||'') &&
+               co > String(b.checkin||'');
+      });
       if (overlaps) return jsonResponse({ error: 'Selected dates are no longer available' }, 409, request);
+
       const ownerPrice = Number(homestay.ownerPrice);
       if (!Number.isFinite(ownerPrice) || ownerPrice <= 0) return jsonResponse({ error: 'Homestay price is not configured correctly' }, 500, request);
       const base = Math.round(ownerPrice * nights * 100) / 100;
@@ -314,9 +347,6 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ===== DELETE GUEST =====
-    // Admin-only. Deletes the guest from the authoritative cloud store and
-    // adds the normalized email to the banned list so the account cannot
-    // simply be recreated/logged into with the same email.
     if (action === "deleteGuest") {
       const guestId = body.guestId ? String(body.guestId) : '';
       const email = body.email ? String(body.email).toLowerCase().trim() : '';
