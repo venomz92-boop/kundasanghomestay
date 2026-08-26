@@ -194,7 +194,7 @@ export async function onRequestPost({ request, env }) {
                !/cancelled|failed|expired/i.test(String(b.status||'')) &&
                !isOwnPending &&
                ci < String(b.checkout||'') &&
-               co > String(b.checkin||');
+               co > String(b.checkin||'');   // ✅ Fixed: added missing closing quote
       });
       if (overlaps) return jsonResponse({ error: 'Selected dates are no longer available' }, 409, request);
 
