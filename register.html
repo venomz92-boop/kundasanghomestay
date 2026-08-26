@@ -642,7 +642,7 @@ function logoutGuest() {
 }
 
 // =============================================================
-// REGISTER HANDLER
+// REGISTER HANDLER (UPDATED to use server message)
 // =============================================================
 async function handleRegister(e) {
   e.preventDefault();
@@ -672,14 +672,12 @@ async function handleRegister(e) {
     if (data.success) {
       currentGuest = data.guest;
       localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
-      
-      // ✅ SAVE CSRF TOKEN
       if (data.csrfToken) {
         localStorage.setItem('kd_csrf_token', data.csrfToken);
       }
-      
       renderGuestNav();
-      await showAlert('Account Created!', 'Account created! Welcome ' + data.guest.name + '!');
+      // ---- UPDATED: Use the server's message ----
+      await showAlert('Registration Successful', data.message);
       window.location.href = '/';
     } else {
       errorEl.textContent = data.error || 'Registration failed. Please try again.';
