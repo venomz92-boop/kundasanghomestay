@@ -1,4 +1,4 @@
-import { corsHeaders, hashPassword, jsonResponse } from './_utils.js';
+import { corsHeaders, hashPassword, jsonResponse, incrementSessionVersion, incrementOwnerSessionVersion } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -32,8 +32,9 @@ export async function onRequestPost({ request, env }) {
       try { if (rr?.data) users = JSON.parse(rr.data); } catch (_) {}
       const idx = users.findIndex(u => String(u.id) === String(r.user_id));
       if (idx < 0) return jsonResponse({ error: 'Invalid reset link' }, 400, request);
-      // Increment password version
+      // Increment password version and session version
       users[idx].passwordVersion = (users[idx].passwordVersion || 0) + 1;
+      users[idx].sessionVersion = (users[idx].sessionVersion || 0) + 1;
       users[idx] = {
         ...users[idx],
         password: hashed.hash,
@@ -44,13 +45,16 @@ export async function onRequestPost({ request, env }) {
       await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
         .bind('kd_guests', JSON.stringify(users)).run();
     } else if (r.user_type === 'owner') {
+      // Update both approved and pending
+      let changed = false;
       for (const key of ['kd_approved', 'kd_pending']) {
         const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
         let arr = [];
         try { if (rr?.data) arr = JSON.parse(rr.data); } catch (_) {}
-        let changed = false;
+        let updated = false;
         arr = arr.map(h => {
           if (String(h.id) === String(r.user_id)) {
+            updated = true;
             changed = true;
             return {
               ...h,
@@ -58,16 +62,18 @@ export async function onRequestPost({ request, env }) {
               ownerSalt: hashed.salt,
               ownerPasswordAlgorithm: hashed.algorithm,
               ownerPasswordVersion: (h.ownerPasswordVersion || 0) + 1,
+              ownerSessionVersion: (h.ownerSessionVersion || 0) + 1,
               passwordUpdated: new Date().toISOString()
             };
           }
           return h;
         });
-        if (changed) {
+        if (updated) {
           await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
             .bind(key, JSON.stringify(arr)).run();
         }
       }
+      if (!changed) return jsonResponse({ error: 'Invalid reset link' }, 400, request);
     } else {
       return jsonResponse({ error: 'Invalid reset link' }, 400, request);
     }
