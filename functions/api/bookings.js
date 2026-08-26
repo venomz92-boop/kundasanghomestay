@@ -1,5 +1,7 @@
-// /api/bookings.js - FULL PATCHED with removeApprovedHomestay
+// /api/bookings.js - FULL PATCHED with removeApprovedHomestay & transaction safety
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse } from './_utils.js';
+
+const MAX_NIGHTS = 60;
 
 async function verifyAdmin(request, env) {
   const auth = await getAdminToken(request);
@@ -100,8 +102,15 @@ export async function onRequestPost({ request, env }) {
       const ci = String(incoming.checkin || ''), co = String(incoming.checkout || '');
       const d1 = new Date(ci+'T00:00:00'), d2 = new Date(co+'T00:00:00');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(ci) || !/^\d{4}-\d{2}-\d{2}$/.test(co) || isNaN(d1) || isNaN(d2) || d1 >= d2) return jsonResponse({ error: 'Invalid dates' }, 400, request);
+      
+      // ***** MAX NIGHTS CHECK *****
       const nights = Math.round((d2-d1)/86400000);
-      if (nights < 1 || nights > 60) return jsonResponse({ error: 'Booking must be between 1 and 60 nights' }, 400, request);
+      if (nights < 1) return jsonResponse({ error: 'Booking must be at least 1 night' }, 400, request);
+      if (nights > MAX_NIGHTS) return jsonResponse({ error: `Maximum booking is ${MAX_NIGHTS} nights` }, 400, request);
+      
+      // ***** PAST DATE CHECK *****
+      const today = new Date(); today.setHours(0,0,0,0);
+      if (d1 < today) return jsonResponse({ error: 'Cannot book past dates' }, 400, request);
       
       // Check if guest already has a pending booking for the same homestay and dates
       const existingPending = bookings.find(b =>
@@ -149,8 +158,18 @@ export async function onRequestPost({ request, env }) {
         guestId: guest.id, guestName: guest.name, guestEmail: guest.email, guestPhone: guest.phone || '',
         checkin: ci, checkout: co, nights, base, fee, gatewayFee, total, status: 'Pending Payment', date: new Date().toISOString()
       };
-      bookings.push(booking);
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind('kd_bookings',JSON.stringify(bookings)).run();
+      
+      // ***** USE TRANSACTION *****
+      await db.prepare('BEGIN TRANSACTION').run();
+      try {
+        bookings.push(booking);
+        await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind('kd_bookings',JSON.stringify(bookings)).run();
+        await db.prepare('COMMIT').run();
+      } catch (txError) {
+        await db.prepare('ROLLBACK').run();
+        throw txError;
+      }
+      
       await logAction({db,action:'booking_created',admin:'guest',details:`Booking ${booking.id} created; payment pending`,ip:clientIP,userId:guest.id,homestayId:homestay.id});
       return jsonResponse({success:true,booking},200,request);
     } catch(e){ console.error('Create booking error:',e.message); return jsonResponse({error:'Could not create booking'},500,request); }
@@ -243,12 +262,21 @@ export async function onRequestPost({ request, env }) {
       let approved = [];
       if (approvedRes && approvedRes.data) { try { approved = JSON.parse(approvedRes.data); } catch(e) {} }
       approved.push(homestay);
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-        .bind("kd_pending", JSON.stringify(pending))
-        .run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-        .bind("kd_approved", JSON.stringify(approved))
-        .run();
+      
+      // Use transaction
+      await db.prepare('BEGIN TRANSACTION').run();
+      try {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_pending", JSON.stringify(pending))
+          .run();
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_approved", JSON.stringify(approved))
+          .run();
+        await db.prepare('COMMIT').run();
+      } catch (txError) {
+        await db.prepare('ROLLBACK').run();
+        throw txError;
+      }
       
       await logAction({
         db,
