@@ -1,4 +1,4 @@
-// /api/bookings.js - with pagination and improved error handling
+// /api/bookings.js - with pagination and D1 transaction API
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -181,15 +181,13 @@ export async function onRequestPost({ request, env }) {
         checkin: ci, checkout: co, nights, base, fee, gatewayFee, total, status: 'Pending Payment', date: new Date().toISOString()
       };
       
-      await db.prepare('BEGIN TRANSACTION').run();
-      try {
+      // ✅ FIXED: Use db.transaction() instead of SQL BEGIN/COMMIT
+      await db.transaction(async (tx) => {
         bookings.push(booking);
-        await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind('kd_bookings',JSON.stringify(bookings)).run();
-        await db.prepare('COMMIT').run();
-      } catch (txError) {
-        await db.prepare('ROLLBACK').run();
-        throw txError;
-      }
+        await tx.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+          .bind('kd_bookings', JSON.stringify(bookings))
+          .run();
+      });
       
       await logAction({db,action:'booking_created',admin:'guest',details:`Booking ${booking.id} created; payment pending`,ip:clientIP,userId:guest.id,homestayId:homestay.id});
       return jsonResponse({success:true,booking},200,request);
@@ -261,7 +259,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
     }
 
-    // ===== FIXED APPROVE HOMESTAY WITH DETAILED ERROR =====
+    // ===== FIXED APPROVE HOMESTAY WITH D1 TRANSACTION API =====
     if (action === "approveHomestay" && body.id) {
       try {
         // Read pending
@@ -294,21 +292,15 @@ export async function onRequestPost({ request, env }) {
         }
         approved.push(homestay);
         
-        // Transaction
-        await db.prepare('BEGIN TRANSACTION').run();
-        try {
-          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        // ✅ FIXED: Use db.transaction() instead of SQL BEGIN/COMMIT
+        await db.transaction(async (tx) => {
+          await tx.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
             .bind("kd_pending", JSON.stringify(pending))
             .run();
-          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          await tx.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
             .bind("kd_approved", JSON.stringify(approved))
             .run();
-          await db.prepare('COMMIT').run();
-        } catch (txError) {
-          await db.prepare('ROLLBACK').run();
-          console.error("Transaction error during approve:", txError);
-          return jsonResponse({ error: "Database transaction failed: " + txError.message }, 500, request);
-        }
+        });
         
         // Log action
         await logAction({
@@ -415,7 +407,6 @@ export async function onRequestPost({ request, env }) {
 
   } catch (err) {
     console.error('Bookings POST error:', err.message, err.stack);
-    // Return the actual error for debugging
     return jsonResponse({ error: 'An internal error occurred: ' + err.message }, 500, request);
   }
 }
