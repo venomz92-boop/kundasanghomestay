@@ -367,6 +367,9 @@ body {
       <button onclick="showAdminTab('guests')" id="tabGuests" class="px-5 py-2.5 rounded-full bg-white border text-[11px] uppercase font-600">Guests</button>
       <button onclick="showAdminTab('settings')" id="tabSettings" class="px-5 py-2.5 rounded-full bg-white border text-[11px] uppercase font-600">Settings</button>
     </div>
+  <div class="flex items-center gap-3 flex-wrap mt-2 animate-on-scroll">
+  <button onclick="forceSync()" class="btn-accent" style="padding:8px 18px; font-size:11px;">🔄 Force Sync (Cloud)</button>
+    <div id="cacheStatus" class="text-xs text-zinc-500 hidden">Using cached data – last updated: <span id="cacheTimestamp"></span></div>
     <div id="adminPending" class="mt-4"></div>
     <div id="adminApproved" class="mt-4 hidden"></div>
     <div id="adminBookings" class="mt-4 hidden"><div id="bookingsTable" class="card p-6"></div></div>
@@ -1401,6 +1404,17 @@ function renderGuestsTable(){
     }
 }
 
+  async function forceSync() {
+  const status = document.getElementById('cacheStatus');
+  const ts = document.getElementById('cacheTimestamp');
+ if (statusEl) {
+  statusEl.classList.remove('hidden');
+  document.getElementById('cacheTimestamp').textContent = new Date().toLocaleString();
+}
+  await fetchCloudData();
+  renderAdmin();
+  showAlert('Sync Complete', 'Data refreshed from cloud.');
+}
   
 async function forceSyncGuests(){
   try{
