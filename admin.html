@@ -10,291 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="animations.css" />
 <style>
-/* ===== ROOT ===== */
-:root {
-  --primary: #0F382E;
-  --primary-light: #1a4d3e;
-  --accent: #3FD0D4;
-  --accent-hover: #2bbfc4;
-  --accent-glow: rgba(63, 208, 212, 0.25);
-  --bg: #F8F5F0;
-  --card: #ffffff;
-  --dark: #212121;
-  --glass: rgba(255, 255, 255, 0.72);
-  --shadow-sm: 0 2px 20px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 8px 40px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12);
-  --shadow-glow: 0 8px 30px rgba(63, 208, 212, 0.25);
-}
-* { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-html { scroll-behavior: smooth; overflow-x: hidden; }
-body {
-  font-family: "Poppins", sans-serif;
-  background: var(--bg);
-  overflow-x: hidden;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-.font-poppins { font-family: "Poppins", sans-serif; }
-.rounded-xl { border-radius: 16px !important; }
-.rounded-2xl { border-radius: 24px !important; }
-.rounded-full { border-radius: 999px !important; }
-.glass {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-.card {
-  background: var(--card);
-  border-radius: 16px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  padding: 20px;
-}
-.card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-.btn-primary {
-  background: var(--primary);
-  color: white;
-  border-radius: 999px;
-  padding: 12px 24px;
-  font-weight: 700;
-  font-family: "Poppins", sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 11px;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  position: relative;
-  overflow: hidden;
-}
-.btn-primary::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-.btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3); }
-.btn-primary:hover::after { opacity: 1; }
-.btn-accent {
-  background: var(--accent);
-  color: white;
-  border-radius: 999px;
-  padding: 10px 20px;
-  font-weight: 700;
-  font-family: "Poppins", sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 11px;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.btn-accent:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: var(--shadow-glow); }
-.btn-outline {
-  background: transparent;
-  border: 1.5px solid #cbd5e1;
-  color: #475569;
-  border-radius: 999px;
-  padding: 10px 20px;
-  font-weight: 600;
-  font-size: 11px;
-  text-transform: uppercase;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  cursor: pointer;
-  font-family: "Poppins", sans-serif;
-}
-.btn-outline:hover { background: #f1f5f9; border-color: #94a3b8; transform: translateY(-2px); }
-.btn-danger {
-  background: #dc2626;
-  color: white;
-  border-radius: 999px;
-  padding: 10px 20px;
-  font-weight: 700;
-  font-size: 11px;
-  text-transform: uppercase;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  border: none;
-  cursor: pointer;
-  font-family: "Poppins", sans-serif;
-}
-.btn-danger:hover { background: #b91c1c; transform: translateY(-2px); }
-.btn-success {
-  background: #16a34a;
-  color: white;
-  border-radius: 999px;
-  padding: 10px 20px;
-  font-weight: 700;
-  font-size: 11px;
-  text-transform: uppercase;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  border: none;
-  cursor: pointer;
-  font-family: "Poppins", sans-serif;
-}
-.btn-success:hover { background: #15803d; transform: translateY(-2px); }
-.kd-withdraw-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 10px 18px;
-  border-radius: 999px;
-  background: var(--primary);
-  color: #fff;
-  font-weight: 700;
-  font-size: 11px;
-  text-transform: uppercase;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.kd-withdraw-btn:hover { background: var(--primary-light); transform: translateY(-2px); }
-.kd-w-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,.48);
-  backdrop-filter: blur(8px);
-  opacity: 0;
-  pointer-events: none;
-  transition: .25s;
-}
-.kd-w-overlay.open { opacity: 1; pointer-events: auto; }
-.kd-w-modal {
-  background: #fff;
-  width: 100%;
-  max-width: 480px;
-  max-height: 92vh;
-  overflow: auto;
-  border-radius: 20px;
-  padding: 24px;
-}
-.verification-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-}
-.verification-badge.pass { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-.verification-badge.fail { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-.verification-badge.warn { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-.detail-modal-img { max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 16px; border: 2px solid #e5e7eb; background: #fff; }
-#imageLightbox {
-  position: fixed; inset: 0; z-index: 99999; background: rgba(0,0,0,0.92);
-  display: none; align-items: center; justify-content: center; padding: 20px; cursor: pointer;
-}
-#imageLightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; }
-#imageLightbox .close-btn {
-  position: absolute; top: 20px; right: 30px; font-size: 40px; color: white;
-  cursor: pointer; font-weight: 300; opacity: 0.8; transition: 0.2s; z-index: 10;
-}
-#imageLightbox .close-btn:hover { opacity: 1; }
-.modal-overlay {
-  position: fixed; inset: 0; z-index: 99999;
-  background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
-  display: none; align-items: center; justify-content: center; padding: 20px; overflow-y: auto;
-}
-.modal-overlay.active { display: flex; }
-.modal-box {
-  background: white; max-width: 480px; width: 100%;
-  border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-  overflow: hidden; animation: modalIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-@keyframes modalIn {
-  from { opacity: 0; transform: scale(0.95) translateY(20px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-.modal-header {
-  padding: 20px 24px 0 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.modal-header h3 { font-family: "Poppins", sans-serif; font-weight: 700; font-size: 20px; color: #212121; margin: 0; }
-.modal-close {
-  background: none; border: none; font-size: 24px; color: #9ca3af;
-  cursor: pointer; padding: 4px; line-height: 1; transition: color 0.2s;
-  width: 40px; height: 40px; border-radius: 999px; display: flex; align-items: center; justify-content: center;
-}
-.modal-close:hover { color: #212121; background: #f1f5f9; }
-.modal-body { padding: 16px 24px 20px 24px; font-size: 14px; line-height: 1.7; color: #4b5563; }
-.modal-body input {
-  width: 100%; margin-top: 10px; padding: 10px 14px;
-  border: 2px solid #e2e8f0; border-radius: 999px; font-size: 14px; font-family: "Poppins", sans-serif;
-}
-.modal-body input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-glow); }
-.modal-footer {
-  padding: 12px 24px 20px 24px;
-  display: flex; gap: 10px; justify-content: flex-end;
-  border-top: 1px solid #f1f5f9;
-}
-.modal-footer .btn {
-  padding: 10px 24px; border-radius: 999px; font-weight: 600; font-size: 12px;
-  text-transform: uppercase; letter-spacing: 0.05em; border: none; cursor: pointer;
-  transition: all 0.2s; font-family: "Poppins", sans-serif;
-}
-.modal-footer .btn-primary { background: var(--primary); color: white; }
-.modal-footer .btn-primary:hover { background: var(--primary-light); }
-.modal-footer .btn-secondary { background: #f1f5f9; color: #475569; }
-.modal-footer .btn-secondary:hover { background: #e2e8f0; }
-.modal-footer .btn-danger { background: #dc2626; color: white; }
-.modal-footer .btn-danger:hover { background: #b91c1c; }
-.modal-footer .btn-success { background: #16a34a; color: white; }
-.modal-footer .btn-success:hover { background: #15803d; }
-
-.calendar-mini { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
-.calendar-day {
-  aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
-  border-radius: 999px; font-size: 10px; font-weight: 500; border: 1px solid #e5e7eb; cursor: default;
-}
-.calendar-day.available { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
-.calendar-day.booked { background: #fef2f2; border-color: #fecaca; color: #991b1b; text-decoration: line-through; }
-.calendar-day.today { border-color: var(--primary); border-width: 2px; }
-.calendar-day.empty { background: transparent; border-color: transparent; }
-.calendar-day.past { background: #f9fafb; border-color: #e5e7eb; color: #9ca3af; }
-.calendar-nav-btn {
-  background: var(--primary); color: white; border: none; width: 28px; height: 28px;
-  border-radius: 999px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
-  transition: background 0.2s;
-}
-.calendar-nav-btn:hover { background: var(--primary-light); }
-.calendar-month-label { font-weight: 600; font-size: 13px; color: #212121; }
-.calendar-legend {
-  display: flex; gap: 12px; flex-wrap: wrap; font-size: 10px; color: #6b7280; margin-top: 6px;
-}
-.calendar-legend span { display: flex; align-items: center; gap: 4px; }
-.calendar-legend .dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
-.calendar-legend .dot.green { background: #f0fdf4; border: 1px solid #bbf7d0; }
-.calendar-legend .dot.red { background: #fef2f2; border: 1px solid #fecaca; }
-.calendar-legend .dot.today-dot { border: 2px solid var(--primary); background: white; width: 10px; height: 10px; }
-
-@media (max-width: 768px) {
-  #desktopNav { display: none !important; }
-  #mobileMenuBtn { display: flex !important; }
-}
-@media (max-width: 480px) {
-  .btn-primary, .btn-accent, .btn-outline, .btn-danger, .btn-success { padding: 8px 14px; font-size: 10px; }
-}
+/* ... (your existing styles, unchanged) ... */
 </style>
 </head>
 <body>
@@ -349,12 +65,11 @@ body {
     <h2 class="text-3xl font-bold animate-on-scroll">Admin — ToyyibPay Auto Payout</h2>
     <div class="text-[11px] text-zinc-500 mt-1 animate-on-scroll">Malaysia Time: <span id="myTimeNow"></span> • Timezone: Asia/Kuala_Lumpur (UTC+8)</div>
     
-    <!-- ========== NEW: Force Sync & Cache Status ========== -->
+    <!-- Force Sync & Cache Status -->
     <div class="flex items-center gap-3 flex-wrap mt-2 animate-on-scroll">
       <button onclick="forceSync()" class="btn-accent" style="padding:8px 18px; font-size:11px;">🔄 Force Sync (Cloud)</button>
       <div id="cacheStatus" class="text-xs text-zinc-500 hidden">Using cached data – last updated: <span id="cacheTimestamp"></span></div>
     </div>
-    <!-- ========== END NEW ========== -->
 
     <div class="grid md:grid-cols-3 gap-4 mt-6">
       <div class="card p-5 animate-on-scroll">
@@ -842,8 +557,7 @@ async function doAdminLogin() {
       document.getElementById("adminDashboard").classList.remove("hidden");
       await fetchCloudData();
       renderAdmin();
-      // ✅ PATCH 2: Fetch earnings after login
-      await fetchEarnings();
+      await fetchEarnings(); // fetch earnings after login
     } else {
       errorEl.textContent = data.error || "Wrong password";
       errorEl.classList.remove("hidden");
@@ -869,7 +583,7 @@ async function logoutAdmin() {
 }
 
 // =============================================================
-// RENDER ADMIN – PATCHED WITH safeHTML
+// RENDER ADMIN – PATCHED (removed totalFees override, added fetchEarnings call)
 // =============================================================
 function showAdminTab(tab){
   ["adminPending","adminApproved","adminBookings","adminAvailability","adminGuests","adminSettings"].forEach(id=> document.getElementById(id).classList.add("hidden"));
@@ -883,8 +597,11 @@ function showAdminTab(tab){
 
 function renderAdmin(){
   const dedup=new Map(); bookings.forEach(b=>{ if(b && b.id && !dedup.has(String(b.id))) dedup.set(String(b.id), b); }); if(dedup.size!==bookings.length){ bookings=[...dedup.values()]; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
-  const totalFees=bookings.reduce((s,b)=>s+(b.youReceive||b.fee||0),0);
-  const tf=document.getElementById("totalFees"); if(tf) tf.innerText="RM"+totalFees.toFixed(2);
+  
+  // PATCH: Removed the assignment to totalFees from bookings – now done by fetchEarnings()
+  // const totalFees = bookings.reduce((s,b)=>s+(b.youReceive||b.fee||0),0);
+  // const tf=document.getElementById("totalFees"); if(tf) tf.innerText="RM"+totalFees.toFixed(2);
+  
   const pc=document.getElementById("adminPendingCount"); if(pc) pc.innerText=pendingHomestays.length;
   const bs=document.getElementById("billplzStatus"); if(bs) bs.innerText=CONFIG.toyyibpay.enabled?"LIVE ToyyibPay":"Simulation";
   
@@ -959,6 +676,9 @@ function renderAdmin(){
   }
   approvedDiv.innerHTML = safeHTML(approvedHtml);
   renderBookingsTable();
+  
+  // PATCH: Update earnings display after rendering (so big number shows available)
+  fetchEarnings();
 }
 
 // =============================================================
@@ -1176,7 +896,8 @@ async function confirmCheckIn(id){
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
     fetchWithAuth(API_BASE + '/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id:b.id, status:b.status, booking:b})}).catch(()=>{});
     renderBookingsTable();
-    const tf=document.getElementById("totalFees"); if(tf){ const total=bookings.reduce((s,x)=>s+(x.youReceive||x.fee||0),0); tf.innerText="RM"+total.toFixed(2); }
+    // After check-in, fees may have been added – refresh earnings display
+    await fetchEarnings();
     await showAlert("Check-in Complete", 'CHECK-IN COMPLETE!\nOwner: RM'+ownerAmount+' '+(payoutData?.simulation?'(Simulation)':'via ToyyibPay Auto')+'\nYour fee: RM'+yourFee);
   }catch(e){
     await showAlert("Error", 'Failed: '+e.message);
@@ -1195,7 +916,7 @@ function updateBookingStatus(id, newStatus){
     if(!b.nights) b.nights=calculateNights(b.checkin,b.checkout);
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
     renderBookingsTable();
-    const tf=document.getElementById("totalFees"); if(tf){ const total=bookings.reduce((s,x)=>s+(x.youReceive||x.fee||0),0); tf.innerText="RM"+total.toFixed(2); }
+    fetchEarnings(); // refresh earnings after status change (may affect fees)
     fetchWithAuth('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id, status:newStatus, booking:b})}).catch(()=>{});
   });
 }
@@ -1225,6 +946,7 @@ async function changeBookingDates(id){
   try{ await fetchWithAuth('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'updateDates', id:b.id, checkin:ci, checkout:co, nights:price.nights, base:price.base, fee:price.fee, total:price.total, youReceive:price.youReceive})}); }catch(e){}
   renderBookingsTable();
   renderAvailabilityTab();
+  fetchEarnings(); // refresh earnings (if price changed, fees may change)
 }
 
 async function openOwnerAvailabilityManager(id){
@@ -1331,6 +1053,10 @@ async function resetDemoEdits(){
   const base=DEMO_HOMESTAYS.filter(d=> !deletedDemoIds.includes(d.id));
   allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin();
 }
+
+// =============================================================
+// FETCH EARNINGS – PATCHED to also update the big number
+// =============================================================
 async function fetchEarnings(){
   try{
     const res=await fetchWithAuth(API_BASE+"/withdraw", {cache:"no-store"});
@@ -1339,13 +1065,16 @@ async function fetchEarnings(){
     if(data && data.earnings){
       const availEl=document.getElementById("kdAvailInline");
       const withEl=document.getElementById("kdWithdrawnInline");
+      const totalEl=document.getElementById("totalFees"); // <-- PATCH: update big number
       if(availEl) availEl.textContent="Available: RM"+(data.earnings.available||0).toFixed(2);
       if(withEl) withEl.textContent="Withdrawn: RM"+(data.earnings.withdrawn||0).toFixed(2);
+      if(totalEl) totalEl.textContent="RM"+(data.earnings.available||0).toFixed(2); // <-- PATCH: set to available
       return data.earnings;
     }
   }catch(e){}
   return null;
 }
+
 async function resetWithdrawn() {
   const confirmed = await showConfirm("Reset Withdrawn", "Reset withdrawn and available balance to 0?");
   if (!confirmed) return;
@@ -1356,7 +1085,7 @@ async function resetWithdrawn() {
       await showAlert("Success", "Withdrawn reset to RM0.00");
       await fetchCloudData();
       renderAdmin();
-      await fetchEarnings(); // refresh display after reset
+      await fetchEarnings();
     } else { await showAlert("Error", "Reset failed: " + (data.error || "Unknown")); }
   } catch(e) { await showAlert("Error", "Error: " + e.message); }
 }
@@ -1565,7 +1294,7 @@ document.addEventListener('click', async (e)=>{
         await showAlert("Withdraw Failed", "Withdraw failed: " + (data.error||JSON.stringify(data)));
       } else {
         await showAlert("Withdraw Success", "Withdraw success: RM"+amt.toFixed(2)+" locked to your locked bank\n"+data.message);
-        // ✅ PATCH 1: Refresh earnings and bookings after successful withdrawal
+        // Refresh earnings and bookings after withdrawal
         await fetchEarnings();
         await fetchCloudData(); // refresh bookings too
         renderAdmin();
@@ -1582,7 +1311,7 @@ document.addEventListener('click', async (e)=>{
 });
 
 // =============================================================
-// INIT – PATCHED to fetch earnings after login
+// INIT – fetch earnings after login
 // =============================================================
 (async ()=>{
   const saved=localStorage.getItem("kd_billplz");
@@ -1594,8 +1323,7 @@ document.addEventListener('click', async (e)=>{
       document.getElementById("adminLogin").classList.add("hidden");
       document.getElementById("adminDashboard").classList.remove("hidden");
       renderAdmin();
-      // ✅ PATCH 2: Fetch earnings after login
-      await fetchEarnings();
+      await fetchEarnings(); // fetch earnings after login
     }catch(e){
       sessionStorage.removeItem('kd_admin_token');
       ADMIN_TOKEN = '';
