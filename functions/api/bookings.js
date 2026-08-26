@@ -42,15 +42,38 @@ async function requireGuest(request, env, body) {
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
+
   const adminAuth = await verifyAdmin(request, env);
   const isAdmin = adminAuth === null;
   const guestSession = isAdmin ? null : await getGuestSession(request, env);
   const db = env.DB;
   if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
+
   try {
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
-    const get = async key => { const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first(); try { return r?.data ? JSON.parse(r.data) : []; } catch (_) { return []; } };
-    const bookings = await get('kd_bookings');
+
+    // ✅ Batch read all needed keys at once
+    const keys = ['kd_bookings', 'kd_approved', 'kd_pending', 'kd_guests', 
+                  'kd_banned_guests', 'kd_demo_overrides', 'kd_demo_blocked', 'kd_deleted_demo'];
+    const stmts = keys.map(key => db.prepare('SELECT data FROM store WHERE key = ?').bind(key));
+    const results = await db.batch(stmts);
+
+    // Parse results into an object
+    const dataMap = {};
+    keys.forEach((key, index) => {
+      const row = results[index]?.results?.[0];
+      try { dataMap[key] = row?.data ? JSON.parse(row.data) : []; } catch (_) { dataMap[key] = []; }
+    });
+
+    const bookings = dataMap['kd_bookings'];
+    const approved = dataMap['kd_approved'];
+    const pending = dataMap['kd_pending'];
+    const guests = dataMap['kd_guests'];
+    const bannedGuests = dataMap['kd_banned_guests'];
+    const demoOverrides = dataMap['kd_demo_overrides'];
+    const demoBlocked = dataMap['kd_demo_blocked'];
+    const deletedDemo = dataMap['kd_deleted_demo'];
+
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page')) || 1;
     const limit = parseInt(url.searchParams.get('limit')) || DEFAULT_PAGE_SIZE;
@@ -64,15 +87,16 @@ export async function onRequestGet({ request, env }) {
         page,
         limit,
         totalPages: Math.ceil(bookings.length / limit),
-        approved: await get('kd_approved'),
-        demoOverrides: await get('kd_demo_overrides'),
-        demoBlocked: await get('kd_demo_blocked'),
-        deletedDemo: await get('kd_deleted_demo'),
-        pending: await get('kd_pending'),
-        guests: (await get('kd_guests')).map(g => { const {password,salt,...safe}=g; return safe; }),
-        bannedGuests: await get('kd_banned_guests')
-      }, 200, request, {'Cache-Control':'no-store'});
+        approved,
+        demoOverrides,
+        demoBlocked,
+        deletedDemo,
+        pending,
+        guests: guests.map(g => { const { password, salt, ...safe } = g; return safe; }),
+        bannedGuests
+      }, 200, request, { 'Cache-Control': 'no-store' });
     }
+
     if (guestSession && guestSession.type === 'guest') {
       const mine = bookings.filter(b => String(b.guestId) === String(guestSession.userId));
       const paginated = mine.slice(offset, offset + limit);
@@ -82,14 +106,20 @@ export async function onRequestGet({ request, env }) {
         page,
         limit,
         totalPages: Math.ceil(mine.length / limit)
-      }, 200, request, {'Cache-Control':'no-store'});
+      }, 200, request, { 'Cache-Control': 'no-store' });
     }
-    const approved = await get('kd_approved');
+
+    // Public view: availability
     const availability = {};
     for (const h of approved) {
-      availability[String(h.id)] = bookings.filter(b => String(b.homestayId) === String(h.id) && !/cancelled|failed|expired/i.test(String(b.status||''))).flatMap(b => getDatesInRange(b.checkin,b.checkout));
+      availability[String(h.id)] = bookings
+        .filter(b => String(b.homestayId) === String(h.id) && !/cancelled|failed|expired/i.test(String(b.status || '')))
+        .flatMap(b => getDatesInRange(b.checkin, b.checkout));
     }
-    return jsonResponse({ approved, availability }, 200, request, {'Cache-Control':'public, max-age=60, stale-while-revalidate=120'});
+    return jsonResponse({ approved, availability }, 200, request, {
+      'Cache-Control': 'public, max-age=60, stale-while-revalidate=120'
+    });
+
   } catch (e) {
     console.error('Bookings GET error:', e.message);
     return jsonResponse({ error: 'Failed to load bookings' }, 500, request);
