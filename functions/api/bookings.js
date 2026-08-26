@@ -1,4 +1,4 @@
-// /api/bookings.js - with pagination and D1 batch for atomic updates
+// /api/bookings.js - with pagination and D1 transaction API
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -52,8 +52,9 @@ export async function onRequestGet({ request, env }) {
   try {
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // Read all needed keys in a batch for speed
-    const keys = ['kd_bookings', 'kd_approved'];
+    // Batch read all needed keys
+    const keys = ['kd_bookings', 'kd_approved', 'kd_pending', 'kd_guests', 
+                  'kd_banned_guests', 'kd_demo_overrides', 'kd_demo_blocked', 'kd_deleted_demo'];
     const stmts = keys.map(key => db.prepare('SELECT data FROM store WHERE key = ?').bind(key));
     const results = await db.batch(stmts);
 
@@ -65,6 +66,12 @@ export async function onRequestGet({ request, env }) {
 
     const bookings = dataMap['kd_bookings'];
     const approved = dataMap['kd_approved'];
+    const pending = dataMap['kd_pending'];
+    const guests = dataMap['kd_guests'];
+    const bannedGuests = dataMap['kd_banned_guests'];
+    const demoOverrides = dataMap['kd_demo_overrides'];
+    const demoBlocked = dataMap['kd_demo_blocked'];
+    const deletedDemo = dataMap['kd_deleted_demo'];
 
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page')) || 1;
@@ -72,12 +79,33 @@ export async function onRequestGet({ request, env }) {
     const offset = (page - 1) * limit;
 
     if (isAdmin) {
-      // ... admin logic (unchanged)
-      // (Keep your existing admin code here)
+      const paginated = bookings.slice(offset, offset + limit);
+      return jsonResponse({
+        bookings: paginated,
+        total: bookings.length,
+        page,
+        limit,
+        totalPages: Math.ceil(bookings.length / limit),
+        approved,
+        demoOverrides,
+        demoBlocked,
+        deletedDemo,
+        pending,
+        guests: guests.map(g => { const { password, salt, ...safe } = g; return safe; }),
+        bannedGuests
+      }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
     if (guestSession && guestSession.type === 'guest') {
-      // ... guest logic (unchanged)
+      const mine = bookings.filter(b => String(b.guestId) === String(guestSession.userId));
+      const paginated = mine.slice(offset, offset + limit);
+      return jsonResponse({
+        bookings: paginated,
+        total: mine.length,
+        page,
+        limit,
+        totalPages: Math.ceil(mine.length / limit)
+      }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
     // ✅ PUBLIC VIEW – compute availability
@@ -89,23 +117,6 @@ export async function onRequestGet({ request, env }) {
         .flatMap(b => getDatesInRange(b.checkin, b.checkout));
     }
 
-    return jsonResponse({ approved, availability }, 200, request, {
-      'Cache-Control': 'public, max-age=60, stale-while-revalidate=120'
-    });
-
-  } catch (e) {
-    console.error('Bookings GET error:', e.message);
-    return jsonResponse({ error: 'Failed to load bookings' }, 500, request);
-  }
-}
-
-    // Public view: availability
-    const availability = {};
-    for (const h of approved) {
-      availability[String(h.id)] = bookings
-        .filter(b => String(b.homestayId) === String(h.id) && !/cancelled|failed|expired/i.test(String(b.status || '')))
-        .flatMap(b => getDatesInRange(b.checkin, b.checkout));
-    }
     return jsonResponse({ approved, availability }, 200, request, {
       'Cache-Control': 'public, max-age=60, stale-while-revalidate=120'
     });
@@ -183,7 +194,7 @@ export async function onRequestPost({ request, env }) {
                !/cancelled|failed|expired/i.test(String(b.status||'')) &&
                !isOwnPending &&
                ci < String(b.checkout||'') &&
-               co > String(b.checkin||'');
+               co > String(b.checkin||');
       });
       if (overlaps) return jsonResponse({ error: 'Selected dates are no longer available' }, 409, request);
 
@@ -201,7 +212,7 @@ export async function onRequestPost({ request, env }) {
         checkin: ci, checkout: co, nights, base, fee, gatewayFee, total, status: 'Pending Payment', date: new Date().toISOString()
       };
       
-      // ✅ Use db.batch() for atomic operation
+      // Use db.batch() for atomic operation
       bookings.push(booking);
       const stmt1 = db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
         .bind('kd_bookings', JSON.stringify(bookings));
@@ -310,7 +321,7 @@ export async function onRequestPost({ request, env }) {
         }
         approved.push(homestay);
         
-        // ✅ Use db.batch() for atomic update
+        // Use db.batch() for atomic update
         const stmt1 = db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
           .bind("kd_pending", JSON.stringify(pending));
         const stmt2 = db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
