@@ -2154,6 +2154,7 @@ function renderGrid() {
   var checkinVal = document.getElementById("checkin")?.value;
   var checkoutVal = document.getElementById("checkout")?.value;
   
+  // ✅ Use the fresh homestays data (already synced)
   var list = homestays.filter(function(h) { return h.approved === true; });
   if (loc !== "all") list = list.filter(function(h) { return h.location && h.location.toLowerCase().indexOf(loc.toLowerCase()) !== -1; });
 
@@ -2172,6 +2173,7 @@ function renderGrid() {
   }
 
   grid.innerHTML = safeHTML(list.map(function(h) {
+    // ✅ Use fresh blocked dates (computed from the latest data)
     var blocked = getAllBlockedDatesForHomestay(h);
     return '' +
       '<article class="group bg-white rounded-2xl shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden" onclick="openDetail(' + h.id + ')">' +
@@ -2198,7 +2200,6 @@ function renderGrid() {
     '';
   }).join(''));
 }
-
 // =============================================================
 // DETAIL MODAL
 // =============================================================
@@ -2473,21 +2474,34 @@ function toggleMobileMenu() {
       renderGrid();
 
       // Fetch data without blocking UI
-      if (API_BASE) {
-        fetch(API_BASE + '/bookings', { cache: 'no-store' })
-          .then(function(res) { return res.json(); })
-          .then(function(data) {
-            if (data.approved && data.approved.length > 0) {
-              homestays = data.approved.map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
-              renderGrid();
-            }
-          })
-          .catch(function() { console.warn('Using offline / cached homestays data'); });
+     if (API_BASE) {
+  fetch(API_BASE + '/bookings', { cache: 'no-store' })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.approved && data.approved.length > 0) {
+        // ✅ Fix: assign to the global 'homestays' (not 'homesteads')
+        homestays = data.approved.map(function(h) {
+          return { ...h, blockedDates: h.blockedDates || [] };
+        });
+        // Re-render grid with fresh data
+        renderGrid();
+        // If a detail modal is open, refresh its calendar too
+        if (selectedHomestay) {
+          var detailId = selectedHomestay.id;
+          var updated = homestays.find(function(h) { return h.id === detailId; });
+          if (updated) {
+            selectedHomestay = updated;
+            renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
+          }
+        }
       }
+    })
+    .catch(function() { console.warn('Using cached homestays'); });
+  // === FIX: Check for payment return ===
+  handlePaymentReturn();
+}
 
-      // ==== FIX: Check for payment return ====
-      handlePaymentReturn();
-    })();
+  
   </script>
 </body>
 </html>
