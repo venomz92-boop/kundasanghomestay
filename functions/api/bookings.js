@@ -1,4 +1,4 @@
-// /api/bookings.js - with pagination and D1 transaction API
+// /api/bookings.js - with pagination and D1 batch for atomic updates
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -181,13 +181,11 @@ export async function onRequestPost({ request, env }) {
         checkin: ci, checkout: co, nights, base, fee, gatewayFee, total, status: 'Pending Payment', date: new Date().toISOString()
       };
       
-      // ✅ FIXED: Use db.transaction() instead of SQL BEGIN/COMMIT
-      await db.transaction(async (tx) => {
-        bookings.push(booking);
-        await tx.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-          .bind('kd_bookings', JSON.stringify(bookings))
-          .run();
-      });
+      // ✅ Use db.batch() for atomic operation
+      bookings.push(booking);
+      const stmt1 = db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings));
+      await db.batch([stmt1]);
       
       await logAction({db,action:'booking_created',admin:'guest',details:`Booking ${booking.id} created; payment pending`,ip:clientIP,userId:guest.id,homestayId:homestay.id});
       return jsonResponse({success:true,booking},200,request);
@@ -259,7 +257,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
     }
 
-    // ===== FIXED APPROVE HOMESTAY WITH D1 TRANSACTION API =====
+    // ===== APPROVE HOMESTAY WITH db.batch() =====
     if (action === "approveHomestay" && body.id) {
       try {
         // Read pending
@@ -292,17 +290,13 @@ export async function onRequestPost({ request, env }) {
         }
         approved.push(homestay);
         
-        // ✅ FIXED: Use db.transaction() instead of SQL BEGIN/COMMIT
-        await db.transaction(async (tx) => {
-          await tx.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-            .bind("kd_pending", JSON.stringify(pending))
-            .run();
-          await tx.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-            .bind("kd_approved", JSON.stringify(approved))
-            .run();
-        });
+        // ✅ Use db.batch() for atomic update
+        const stmt1 = db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_pending", JSON.stringify(pending));
+        const stmt2 = db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_approved", JSON.stringify(approved));
+        await db.batch([stmt1, stmt2]);
         
-        // Log action
         await logAction({
           db,
           action: 'homestay_approved',
