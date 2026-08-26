@@ -163,8 +163,6 @@ export async function onRequestPost({ request, env }) {
       message: emailSent 
         ? 'Registration successful. Please check your email to verify your account.'
         : 'Registration successful, but verification email could not be sent. Please contact support.',
-      // Include the verification URL in the response so you can manually verify
-      verificationUrl: verifyUrl
     };
 
     return new Response(
