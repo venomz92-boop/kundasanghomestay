@@ -48,9 +48,41 @@ export async function onRequestPost({ request, env }) {
       }, 200, request);
     }
 
-    // Must be paid
+    // ***** PAYMENT VERIFICATION *****
+    // 1. Check local status
     if (!booking.status || !booking.status.toLowerCase().includes("paid")) {
       return jsonResponse({ error: 'Booking is not paid yet' }, 400, request);
+    }
+
+    // 2. Verify with ToyyibPay API if billcode exists
+    if (booking.toyyibpay_billcode && env.TOYYIBPAY_SECRET_KEY) {
+      try {
+        const verifyUrl = `https://toyyibpay.com/index.php/api/getBill?billCode=${booking.toyyibpay_billcode}&userSecretKey=${env.TOYYIBPAY_SECRET_KEY}`;
+        const verifyRes = await fetch(verifyUrl);
+        const verifyData = await verifyRes.json();
+        // ToyyibPay returns array with billpaymentStatus: '1' for paid
+        if (!verifyData || !verifyData[0] || verifyData[0].billpaymentStatus !== "1") {
+          // Not paid according to ToyyibPay – reject check-in
+          return jsonResponse({ 
+            error: 'Payment not verified with ToyyibPay. Please contact support.' 
+          }, 400, request);
+        }
+        // Optionally update booking with latest status
+        booking.toyyibpay_last_check = new Date().toISOString();
+        booking.toyyibpay_status = verifyData[0].billpaymentStatus;
+      } catch (e) {
+        console.error("Payment verification API error:", e.message);
+        // We still allow check-in if local status says paid, but log the error
+        await logAction({
+          db,
+          action: 'payment_verification_failed',
+          admin: 'owner',
+          details: `Payment verification API failed for booking ${bookingId}: ${e.message}`,
+          ip: getClientIP(request),
+          userId: booking.guestEmail,
+          homestayId: booking.homestayId
+        });
+      }
     }
 
     // Get homestay for bank details
@@ -71,14 +103,15 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Missing owner bank account or invalid amount' }, 400, request);
     }
 
-    // ---- Determine if we are in simulation mode ----
-    const isSimulation = env.PAYOUT_SIMULATION === "true";
+    // ---- Determine mode ----
+    const isProduction = env.ENVIRONMENT === "production";
+    const isSimulation = !isProduction && env.PAYOUT_SIMULATION === "true";
     const isToyyibLive = !!env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
 
     let payoutSuccess = false;
     let payoutData = null;
 
-    // ---- SIMULATION: immediately complete the payout ----
+    // ---- SIMULATION (only if not production) ----
     if (isSimulation) {
       console.log(`🔵 SIMULATION: Payout for booking ${bookingId} (RM${ownerAmount}) to ${ownerName} (${ownerAcc})`);
       payoutSuccess = true;
@@ -119,7 +152,6 @@ export async function onRequestPost({ request, env }) {
     const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
     if (idx !== -1) {
       if (payoutSuccess) {
-        // In simulation OR live success, mark as fully completed
         bookings[idx].status = "Completed - Payout Success";
         bookings[idx].payoutSuccess = true;
         bookings[idx].payoutSuccessDate = new Date().toISOString();
@@ -128,9 +160,7 @@ export async function onRequestPost({ request, env }) {
         bookings[idx].ownerPayoutId = payoutData?.payoutCode || payoutData?.id || "OWNER_" + Date.now();
         bookings[idx].completedDate = new Date().toISOString();
         bookings[idx].payoutAttempts = (bookings[idx].payoutAttempts || 0) + 1;
-        // Do NOT set payoutRequested or keep it at "Payout Processing"
       } else {
-        // Payout API failed – keep as Paid
         bookings[idx].status = "Paid - Awaiting Check-in";
         bookings[idx].payoutFailedAttempt = true;
         bookings[idx].lastPayoutError = payoutData;
