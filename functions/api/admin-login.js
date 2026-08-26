@@ -32,7 +32,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (password === adminPass) {
-      // ✅ Return the static ADMIN_TOKEN from env
+      // ✅ Use the static ADMIN_TOKEN from environment
       const token = env.ADMIN_TOKEN;
       if (!token) {
         console.error("❌ ADMIN_TOKEN environment variable is not set!");
