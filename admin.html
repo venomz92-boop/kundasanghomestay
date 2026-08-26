@@ -853,6 +853,14 @@ function renderAdmin(){
   const bs=document.getElementById("billplzStatus"); if(bs) bs.innerText=CONFIG.toyyibpay.enabled?"LIVE ToyyibPay":"Simulation";
   
   const pendingDiv=document.getElementById("adminPending");
+  if(tab === 'pending') {
+    fetchCloudData().then(() => {
+      renderAdmin();
+      // Re-highlight the pending tab (renderAdmin may change the active state)
+      document.getElementById(tabId).classList.remove("hidden");
+      document.getElementById(btnId).className = "px-5 py-2.5 rounded-full bg-[#212121] text-white text-[11px] uppercase font-700";
+    });
+  }
   if(pendingHomestays.length===0) {
     pendingDiv.innerHTML = safeHTML('<div class="card p-6 text-center text-zinc-500">No pending.</div>');
   } else {
