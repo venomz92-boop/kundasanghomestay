@@ -1,11 +1,12 @@
-// Shared security + utility helpers for Kundasang Homestay Cloudflare Pages Functions.
-// REQUIRED secret: SESSION_SECRET (a long random value, >= 32 bytes).
+// /functions/api/_utils.js
+// ===== SHARED HELPERS – with rate limiting additions =====
 
-// ===== PBKDF2 iterations (100,000 max for Cloudflare Workers) =====
+// === PBKDF2 constants ===
 const PBKDF2_ITERATIONS = 100000;
 const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_KEYLEN = 256;
 
+// === Encoding helpers ===
 function b64urlEncode(input) {
   let bytes;
   if (typeof input === 'string') bytes = new TextEncoder().encode(input);
@@ -65,7 +66,7 @@ function requireSessionSecret(env) {
   return secret;
 }
 
-// ===== TOKEN CREATION WITH TTL =====
+// === TOKEN CREATION (with TTL) ===
 export async function createSignedToken(payload, env, ttlMs = 24 * 60 * 60 * 1000) {
   const secret = requireSessionSecret(env);
   const body = { ...payload, iat: Date.now(), exp: Date.now() + ttlMs };
@@ -74,7 +75,7 @@ export async function createSignedToken(payload, env, ttlMs = 24 * 60 * 60 * 100
   return `${encoded}.${signature}`;
 }
 
-// ===== ADMIN TOKEN (shorter TTL) =====
+// === ADMIN TOKEN (shorter TTL) ===
 export async function createAdminToken(payload, env) {
   return createSignedToken(payload, env, 8 * 60 * 60 * 1000); // 8 hours
 }
@@ -98,9 +99,8 @@ export async function verifySignedToken(token, env) {
   }
 }
 
-// ----- Versioned user sessions (guest + owner) -----
+// === User session helpers ===
 async function getUserRecord(type, userId, db) {
-  // type: 'guest' or 'owner'
   if (type === 'guest') {
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
     let guests = [];
@@ -129,9 +129,7 @@ export async function getGuestSession(request, env) {
   const record = await getUserRecord('guest', payload.userId, db);
   if (!record) return null;
   if (record.passwordVersion !== undefined && payload.passwordVersion !== undefined) {
-    if (Number(record.passwordVersion) !== Number(payload.passwordVersion)) {
-      return null;
-    }
+    if (Number(record.passwordVersion) !== Number(payload.passwordVersion)) return null;
   }
   return payload;
 }
@@ -148,14 +146,12 @@ export async function getOwnerSession(request, env) {
   const record = await getUserRecord('owner', payload.ownerId, db);
   if (!record) return null;
   if (record.ownerPasswordVersion !== undefined && payload.passwordVersion !== undefined) {
-    if (Number(record.ownerPasswordVersion) !== Number(payload.passwordVersion)) {
-      return null;
-    }
+    if (Number(record.ownerPasswordVersion) !== Number(payload.passwordVersion)) return null;
   }
   return payload;
 }
 
-// ----- Other helpers (unchanged) -----
+// === HTTP helpers ===
 export function getBearerToken(request, headerName = 'Authorization') {
   const auth = request.headers.get(headerName) || '';
   if (!auth.startsWith('Bearer ')) return null;
@@ -176,7 +172,7 @@ export function clearCookieHeader(name) {
   return `${name}=; HttpOnly; Secure; SameSite=Strict; Max-Age=0; Path=/`;
 }
 
-// ---- Password hashing ----
+// === Password hashing ===
 export function generateSalt() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return b64urlEncode(bytes);
@@ -234,18 +230,16 @@ export async function verifyPassword(password, record, env) {
     return { ok: computed === hash, legacy: false };
   }
 
-  // Legacy SHA-256
   const legacyPepper = env?.LEGACY_PASSWORD_PEPPER || env?.PASSWORD_PEPPER || 'kundasang-homestay-2026';
   const computedLegacy = await sha256(legacyPepper + password + salt);
   return { ok: computedLegacy === hash, legacy: true };
 }
 
-// ---- Client IP ----
+// === IP / CORS / HTTPS ===
 export function getClientIP(request) {
   return request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown';
 }
 
-// ---- CORS + security headers ----
 export function corsHeaders(request) {
   const allowed = new Set([
     'https://kundasanghomestay.my',
@@ -279,6 +273,7 @@ export function enforceHttps(request) {
   return null;
 }
 
+// === Audit logging ===
 export async function logAction({ db, action, admin, details, ip, userId, homestayId }) {
   try {
     await db.prepare(`CREATE TABLE IF NOT EXISTS audit_log (
@@ -298,7 +293,7 @@ export async function logAction({ db, action, admin, details, ip, userId, homest
   }
 }
 
-// ---- CSRF ----
+// === CSRF ===
 export async function generateCSRFToken(userId, env) {
   return createSignedToken({ type: 'csrf', userId: String(userId) }, env, 24 * 60 * 60 * 1000);
 }
@@ -312,12 +307,12 @@ export function getCSRFToken(request) {
   return request.headers.get('X-CSRF-Token') || null;
 }
 
-// ---- Admin ----
+// === Admin token retrieval ===
 export async function getAdminToken(request) {
   return getBearerToken(request) || getCookie(request, 'admin_token');
 }
 
-// ---- Generic JSON response with sanitized errors ----
+// === JSON responses ===
 export function jsonResponse(body, status, request, extra = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -325,16 +320,20 @@ export function jsonResponse(body, status, request, extra = {}) {
   });
 }
 
-// ---- Safe error response (hides details) ----
 export function errorResponse(message, status, request, logDetails = null) {
-  if (logDetails) {
-    console.error('Error details:', logDetails);
-  }
+  if (logDetails) console.error('Error details:', logDetails);
   return jsonResponse({ error: message || 'An unexpected error occurred. Please try again later.' }, status, request);
 }
 
-// ===== RATE LIMITING (Persistent using D1) =====
+// =============================================================
+// ★ NEW: PERSISTENT RATE LIMITING (D1-based) ★
+// =============================================================
+
+/**
+ * Creates the rate_limits table if it does not exist.
+ */
 export async function ensureRateLimitTable(db) {
+  if (!db) return;
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS rate_limits (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -343,12 +342,16 @@ export async function ensureRateLimitTable(db) {
       timestamp INTEGER NOT NULL
     )`
   ).run();
-  // Optional: create index for performance
+  // optional index for faster lookups
   await db.prepare(
     `CREATE INDEX IF NOT EXISTS idx_rate_limits_ip_action ON rate_limits(ip, action)`
   ).run();
 }
 
+/**
+ * Checks if the given IP is allowed to perform the action.
+ * Returns true if under the limit, false if blocked.
+ */
 export async function checkRateLimit(db, ip, action, maxAttempts, windowSeconds = 60) {
   if (!db || !ip) return true; // allow if no DB (fallback)
   try {
@@ -363,10 +366,13 @@ export async function checkRateLimit(db, ip, action, maxAttempts, windowSeconds 
     return count < maxAttempts;
   } catch (e) {
     console.error('Rate limit check error:', e);
-    return true; // allow on error (fail-open)
+    return true; // fail-open
   }
 }
 
+/**
+ * Records a new rate‑limit attempt for the IP + action.
+ */
 export async function recordRateLimit(db, ip, action) {
   if (!db || !ip) return;
   try {
@@ -375,7 +381,7 @@ export async function recordRateLimit(db, ip, action) {
     await db.prepare(
       `INSERT INTO rate_limits (ip, action, timestamp) VALUES (?, ?, ?)`
     ).bind(ip, action, now).run();
-    // Optionally clean old records (keep last 24h)
+    // Clean old records (keep last 24h)
     const cutoff = now - 24 * 60 * 60 * 1000;
     await db.prepare(
       `DELETE FROM rate_limits WHERE timestamp < ?`
