@@ -129,7 +129,6 @@ export async function getGuestSession(request, env) {
   await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
   const record = await getUserRecord('guest', payload.userId, db);
   if (!record) return null;
-  // Check sessionVersion
   if (record.sessionVersion !== undefined && payload.sessionVersion !== undefined) {
     if (Number(record.sessionVersion) !== Number(payload.sessionVersion)) return null;
   }
@@ -147,7 +146,6 @@ export async function getOwnerSession(request, env) {
   await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
   const record = await getUserRecord('owner', payload.ownerId, db);
   if (!record) return null;
-  // Check ownerSessionVersion (if present)
   if (record.ownerSessionVersion !== undefined && payload.ownerSessionVersion !== undefined) {
     if (Number(record.ownerSessionVersion) !== Number(payload.ownerSessionVersion)) return null;
   }
@@ -419,7 +417,6 @@ export async function incrementSessionVersion(db, userId, type) {
   return false;
 }
 
-// New: increment owner session version (both approved and pending)
 export async function incrementOwnerSessionVersion(db, ownerId) {
   const keys = ['kd_approved', 'kd_pending'];
   let changed = false;
