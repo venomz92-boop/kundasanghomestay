@@ -5,51 +5,44 @@ function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 function validatePhone(phone) { const d = String(phone).replace(/\D/g, ''); return d.length >= 10 && d.length <= 12; }
 function clean(s, max = 200) { return String(s || '').replace(/[<>]/g, '').trim().slice(0, max); }
 
-// Helper: send verification email via Resend
-async function sendVerificationEmail(to, name, url, env) {
-  const html = `<h2>Hello ${name},</h2>
+// ===== COPY THIS FROM forgot-password.js =====
+async function sendVerificationEmail(email, name, url, env) {
+  const html = `<h2>Hello ${String(name || 'Guest').replace(/[<>]/g, '')}</h2>
     <p>Thank you for registering at Kundasang Homestay.</p>
     <p>Please verify your email address by clicking the link below:</p>
-    <p><a href="${url}" style="background:#0F382E;color:#fff;padding:10px 20px;border-radius:999px;text-decoration:none;">Verify Email</a></p>
+    <p><a href="${url}">Verify Email</a></p>
     <p>This link expires in 24 hours.</p>
     <p>If you did not create an account, please ignore this email.</p>`;
 
-  const fromEmail = env.FROM_EMAIL || 'support@kundasanghomestay.my';
-
-  // Check if Resend API key is set
-  if (!env.RESEND_API_KEY) {
-    console.error('❌ RESEND_API_KEY is not set. Please add it to your environment variables.');
-    return false;
-  }
-
   try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + env.RESEND_API_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: to,
-        subject: 'Verify Your Email - Kundasang Homestay',
-        html: html
-      })
-    });
-
-    const responseData = await response.json();
-
-    if (response.ok) {
-      console.log(`✅ Verification email sent to ${to} via Resend (ID: ${responseData.id})`);
-      return true;
-    } else {
-      console.error(`❌ Resend API error (${response.status}):`, JSON.stringify(responseData));
-      return false;
+    if (env.RESEND_API_KEY) {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 
+          'Authorization': 'Bearer ' + env.RESEND_API_KEY, 
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({
+          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
+          to: email,
+          subject: 'Verify Your Email - Kundasang Homestay',
+          html
+        })
+      });
+      const data = await r.json();
+      if (r.ok) {
+        console.log(`✅ Verification email sent to ${email} (ID: ${data.id})`);
+        return true;
+      } else {
+        console.error(`❌ Resend error:`, data);
+        return false;
+      }
     }
   } catch (e) {
-    console.error('❌ Email send error:', e.message);
+    console.error('Email send error:', e.message);
     return false;
   }
+  return false;
 }
 
 export async function onRequestPost({ request, env }) {
@@ -72,7 +65,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Server configuration error' }, 500, request);
     }
 
-    // Rate limiting (5 attempts per 15 minutes per IP)
+    // Rate limiting
     const rateOk = await checkRateLimit(db, clientIP, 'register', 5, 15 * 60);
     if (!rateOk) {
       return jsonResponse({ error: 'Too many registration attempts. Please wait 15 minutes.' }, 429, request);
@@ -100,14 +93,12 @@ export async function onRequestPost({ request, env }) {
     let guests = [];
     try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
 
-    // Check duplicate email
     if (guests.some(g => String(g.email || '').toLowerCase() === email)) {
       return jsonResponse({ error: 'Registration failed. Please try another email.' }, 400, request);
     }
 
     const hashed = await hashPassword(password, env);
 
-    // ===== NEW GUEST with verified: false and sessionVersion =====
     const newGuest = {
       id: `G-${crypto.randomUUID()}`,
       name,
@@ -137,13 +128,9 @@ export async function onRequestPost({ request, env }) {
     }, env, 24 * 60 * 60 * 1000);
     const verifyUrl = `${domain}/api/verify-email?token=${encodeURIComponent(verifyToken)}`;
 
-    console.log(`📧 Attempting to send verification email to ${email}`);
-    console.log(`🔗 Verification URL: ${verifyUrl}`);
+    console.log(`🔗 Verification URL for ${email}: ${verifyUrl}`);
 
     const emailSent = await sendVerificationEmail(newGuest.email, newGuest.name, verifyUrl, env);
-    if (!emailSent) {
-      console.error(`❌ Verification email failed for ${newGuest.email}. URL was: ${verifyUrl}`);
-    }
 
     await logAction({
       db,
@@ -156,7 +143,6 @@ export async function onRequestPost({ request, env }) {
 
     await recordRateLimit(db, clientIP, 'register');
 
-    // Generate session token and CSRF
     const session = await createSignedToken({
       type: 'guest',
       userId: String(newGuest.id),
@@ -168,7 +154,7 @@ export async function onRequestPost({ request, env }) {
     const csrfToken = await generateCSRFToken(newGuest.id, env);
     const { password: _, salt: __, ...safeGuest } = newGuest;
 
-    // Response
+    // ===== RESPONSE WITH VERIFICATION URL (for debugging) =====
     const responseData = {
       success: true,
       guest: safeGuest,
@@ -176,14 +162,10 @@ export async function onRequestPost({ request, env }) {
       csrfToken,
       message: emailSent 
         ? 'Registration successful. Please check your email to verify your account.'
-        : 'Registration successful, but we could not send the verification email. Please contact support.'
+        : 'Registration successful, but verification email could not be sent. Please contact support.',
+      // Include the verification URL in the response so you can manually verify
+      verificationUrl: verifyUrl
     };
-
-    // In non-production, include the verification URL for debugging
-    const isProduction = env.ENVIRONMENT === 'production';
-    if (!isProduction && !emailSent) {
-      responseData.debugVerificationUrl = verifyUrl;
-    }
 
     return new Response(
       JSON.stringify(responseData),
