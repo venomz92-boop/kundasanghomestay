@@ -1,10 +1,9 @@
-// /api/login.js – ONLY ACCEPTS YOUR SPECIFIC PASSWORD
+// /api/login.js – YOUR EMAIL ALWAYS WORKS
 import { corsHeaders, getClientIP, enforceHttps, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, parseJSONSafely, logAction, incrementSessionVersion } from './_utils.js';
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 
 const YOUR_EMAIL = 'frn_boy@gmx.com';
-const YOUR_PASSWORD = 'venomz90';
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -25,6 +24,8 @@ export async function onRequestPost({ request, env }) {
     const { email, password } = body;
     const cleanEmail = String(email || '').toLowerCase().trim();
     const cleanPassword = String(password || '');
+
+    console.log(`🔍 Login attempt: email="${cleanEmail}", password="${cleanPassword}"`);
 
     if (!validateEmail(cleanEmail) || !cleanPassword) {
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
@@ -47,23 +48,17 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     }
 
-    // ---- CHECK: Is this YOUR email and password? ----
-    if (cleanEmail === YOUR_EMAIL && cleanPassword === YOUR_PASSWORD) {
-      console.log(`✅ Login for ${user.email} with correct password "${YOUR_PASSWORD}"`);
-      
-      // Ensure verified is true
+    // ---- YOUR EMAIL: ALWAYS LOGIN WITH ANY PASSWORD ----
+    if (cleanEmail === YOUR_EMAIL) {
+      console.log(`✅ Bypass login for ${user.email} (any password)`);
       if (user.verified !== true) {
         user.verified = true;
         await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
           .bind('kd_guests', JSON.stringify(guests))
           .run();
       }
-    } else if (cleanEmail === YOUR_EMAIL) {
-      // Wrong password for your email
-      console.log(`❌ Wrong password for ${user.email}. Expected "${YOUR_PASSWORD}", got "${cleanPassword}"`);
-      return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     } else {
-      // Other users: only "test" password works
+      // ---- Other users: only "test" password works ----
       if (cleanPassword !== 'test') {
         console.log(`❌ Other user ${user.email} needs "test" password`);
         return jsonResponse({ error: 'Invalid email or password' }, 401, request);
