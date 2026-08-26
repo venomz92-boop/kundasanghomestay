@@ -1,5 +1,5 @@
-// /functions/api/_utils.js
-// ===== SHARED HELPERS – with size limits & session version =====
+// /api/_utils.js
+// ===== SHARED HELPERS – Complete (all exports) =====
 
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
@@ -101,7 +101,7 @@ export async function verifySignedToken(token, env) {
   }
 }
 
-// === User session helpers with sessionVersion ===
+// === User session helpers ===
 async function getUserRecord(type, userId, db) {
   if (type === 'guest') {
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
@@ -233,6 +233,7 @@ export async function verifyPassword(password, record, env) {
     return { ok: computed === hash, legacy: false };
   }
 
+  // Legacy SHA-256
   const legacyPepper = env?.LEGACY_PASSWORD_PEPPER || env?.PASSWORD_PEPPER || 'kundasang-homestay-2026';
   const computedLegacy = await sha256(legacyPepper + password + salt);
   return { ok: computedLegacy === hash, legacy: true };
