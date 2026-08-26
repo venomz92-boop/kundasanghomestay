@@ -970,44 +970,44 @@ function renderBookings() {
    // =============================================================
     // CANCEL BOOKING (UPDATED TO USE GLOBAL getCsrfHeader)
     // =============================================================
-    function cancelBooking(bookingId) {
-      var booking = myBookings.find(function(b) { return String(b.id) === String(bookingId); });
-      if (!booking) {
-        showAlert('Error', 'Booking not found.');
-        return;
-      }
-
-      showConfirm('Cancel Booking', 'Are you sure you want to cancel booking <strong>' + bookingId + '</strong>?<br><br><span class="text-red-600 font-semibold">This action cannot be undone.</span><br>Please WhatsApp the host directly to confirm your cancellation.')
-        .then(function(confirmed) {
-          if (!confirmed) return;
-
-          fetch(API_BASE + '/bookings', {
-            method: 'POST',
-            headers: Object.assign({
-              'Content-Type': 'application/json'
-            }, getCsrfHeader()),  // <-- uses global function
-            body: JSON.stringify({
-              action: 'publicUpdateStatus',
-              id: bookingId,
-              status: 'Cancelled',
-              guestId: currentGuest.id
-            })
-          })
-          .then(function(res) { return res.json(); })
-          .then(function(data) {
-            if (data && data.success) {
-              showAlert('Booking Cancelled', '✓ Your booking has been cancelled successfully.');
-              loadMyBookings();
-            } else {
-              showAlert('Error', data.error || 'Failed to cancel booking. Please try again.');
-            }
-          })
-          .catch(function(err) {
-            showAlert('Network Error', 'Could not connect to server. Please try again.');
-            console.error('Cancel error:', err);
-          });
-        });
+   function cancelBooking(bookingId) {
+    var booking = myBookings.find(function(b) { return String(b.id) === String(bookingId); });
+    if (!booking) {
+      showAlert('Error', 'Booking not found.');
+      return;
     }
+
+    showConfirm('Cancel Booking', 'Are you sure you want to cancel booking <strong>' + bookingId + '</strong>?<br><br><span class="text-red-600 font-semibold">This action cannot be undone.</span><br>Please WhatsApp the host directly to confirm your cancellation.')
+      .then(function(confirmed) {
+        if (!confirmed) return;
+
+        fetch(API_BASE + '/bookings', {
+          method: 'POST',
+          headers: Object.assign({
+            'Content-Type': 'application/json'
+          }, getCsrfHeader()),
+          body: JSON.stringify({
+            action: 'publicUpdateStatus',
+            id: bookingId,
+            status: 'Cancelled by Guest',   // <-- FIXED
+            guestId: currentGuest.id
+          })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data && data.success) {
+            showAlert('Booking Cancelled', '✓ Your booking has been cancelled successfully.');
+            loadMyBookings();
+          } else {
+            showAlert('Error', data.error || 'Failed to cancel booking. Please try again.');
+          }
+        })
+        .catch(function(err) {
+          showAlert('Network Error', 'Could not connect to server. Please try again.');
+          console.error('Cancel error:', err);
+        });
+      });
+  }
 // =============================================================
 // INIT
 // =============================================================
