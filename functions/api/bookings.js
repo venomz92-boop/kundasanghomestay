@@ -313,6 +313,65 @@ export async function onRequestPost({ request, env }) {
         .run();
     }
 
+    // ===== DELETE GUEST =====
+    // Admin-only. Deletes the guest from the authoritative cloud store and
+    // adds the normalized email to the banned list so the account cannot
+    // simply be recreated/logged into with the same email.
+    if (action === "deleteGuest") {
+      const guestId = body.guestId ? String(body.guestId) : '';
+      const email = body.email ? String(body.email).toLowerCase().trim() : '';
+      if (!guestId && !email) {
+        return jsonResponse({ error: 'Guest ID or email is required' }, 400, request);
+      }
+
+      const guestRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
+      let guests = [];
+      if (guestRes?.data) { try { guests = JSON.parse(guestRes.data); } catch (_) {} }
+
+      const deleted = guests.find(g =>
+        (guestId && String(g.id) === guestId) ||
+        (email && String(g.email || '').toLowerCase().trim() === email)
+      );
+
+      if (!deleted) {
+        return jsonResponse({ error: 'Guest not found' }, 404, request);
+      }
+
+      const deletedEmail = String(deleted.email || '').toLowerCase().trim();
+      const deletedId = String(deleted.id || '');
+      const remainingGuests = guests.filter(g => {
+        const sameId = deletedId && String(g.id || '') === deletedId;
+        const sameEmail = deletedEmail && String(g.email || '').toLowerCase().trim() === deletedEmail;
+        return !sameId && !sameEmail;
+      });
+
+      const bannedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_banned_guests").first();
+      let banned = [];
+      if (bannedRes?.data) { try { banned = JSON.parse(bannedRes.data); } catch (_) {} }
+      if (!Array.isArray(banned)) banned = [];
+      if (deletedEmail && !banned.includes(deletedEmail)) banned.push(deletedEmail);
+
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_guests", JSON.stringify(remainingGuests)).run();
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_banned_guests", JSON.stringify(banned)).run();
+
+      await logAction({
+        db,
+        action: 'guest_deleted_and_banned',
+        admin: 'admin',
+        details: `Deleted and banned guest ${deletedEmail || deletedId}`,
+        ip: clientIP,
+        userId: deletedId || deletedEmail
+      });
+
+      return jsonResponse({
+        success: true,
+        deleted: { id: deletedId, email: deletedEmail },
+        bannedGuests: banned
+      }, 200, request);
+    }
+
     // ===== UPDATE GUESTS =====
     if (action === "updateGuests" || action === "overwriteGuests" || body.guests !== undefined) {
       let existingGuests = [];

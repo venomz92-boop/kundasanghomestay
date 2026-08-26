@@ -1357,25 +1357,38 @@ async function checkCloudRaw(){
   }catch(e){ await showAlert("Error", "Check failed: "+e.message); }
 }
 async function deleteGuest(idx){
-  const confirmed = await showConfirm("Delete Guest", 'Delete this guest? They will not be able to login again and will see "This account is not exist"');
+  const confirmed = await showConfirm("Delete Guest", 'Delete this guest? They will not be able to login again and will be banned from registering with the same email.');
   if (!confirmed) return;
-  let guests=[]; try{ guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); }catch(e){}
+
+  let guests=[];
+  try{ guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); }catch(e){ guests=[]; }
   const deleted = guests[idx];
-  const emailToBan = deleted?.email ? String(deleted.email).toLowerCase() : null;
-  guests.splice(idx,1);
-  localStorage.setItem("kd_guests", JSON.stringify(guests));
-  renderGuestsTable();
-  renderAdmin();
+  if(!deleted){ await showAlert("Error", "Guest not found in the admin list."); return; }
+
   try{
-    await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"overwriteGuests", guests: guests})});
-    if(emailToBan){
-      await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"banGuest", email: emailToBan})});
-      let banned = []; try{ banned = JSON.parse(localStorage.getItem("kd_banned_guests")||"[]"); }catch(e){}
-      if(!banned.includes(emailToBan)) banned.push(emailToBan);
-      localStorage.setItem("kd_banned_guests", JSON.stringify(banned));
+    const res = await fetchWithAuth(API_BASE + "/bookings", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        action:"deleteGuest",
+        guestId: deleted.id || "",
+        email: deleted.email || ""
+      })
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || !data.success){
+      throw new Error(data.error || "Cloud delete failed");
     }
-    await showAlert("Success", "Deleted and banned " + (deleted?.email||"guest") + "\nIf they try login, they will see: This account is not exist");
-  }catch(e){ await showAlert("Error", "Deleted locally but cloud fail: "+e.message); }
+
+    // Refresh from the authoritative cloud store only after the server confirms deletion.
+    await fetchCloudData();
+    renderGuestsTable();
+    renderAdmin();
+    await showAlert("Success", "Deleted and banned " + (deleted.email||"guest") + ".\nThe account can no longer log in with that email.");
+  }catch(e){
+    // Do not modify local state when the server operation fails.
+    await showAlert("Error", "Guest was NOT deleted: " + e.message);
+  }
 }
 async function deleteBooking(id){
   const confirmed = await showConfirm("Delete Booking", "Delete "+id+"? This will free blocked dates?");
