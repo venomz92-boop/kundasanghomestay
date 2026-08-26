@@ -31,7 +31,7 @@ async function sendVerificationEmail(email, name, url, env) {
       });
       const data = await r.json();
       if (r.ok) {
-        console.log(`✅ Verification email sent to ${email} (ID: ${data.id})`);
+        (`✅ Verification email sent to ${email} (ID: ${data.id})`);
         return true;
       } else {
         console.error(`❌ Resend error:`, data);
@@ -128,7 +128,7 @@ export async function onRequestPost({ request, env }) {
     }, env, 24 * 60 * 60 * 1000);
     const verifyUrl = `${domain}/api/verify-email?token=${encodeURIComponent(verifyToken)}`;
 
-    console.log(`🔗 Verification URL for ${email}: ${verifyUrl}`);
+    //console.log(`🔗 Verification URL for ${email}: ${verifyUrl}`);
 
     const emailSent = await sendVerificationEmail(newGuest.email, newGuest.name, verifyUrl, env);
 
