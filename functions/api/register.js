@@ -10,16 +10,14 @@ export async function onRequestPost({ request, env }) {
   if (redirect) return redirect;
 
   try {
-    // ----- Check required secrets early -----
     if (!env.SESSION_SECRET || env.SESSION_SECRET.length < 32) {
       console.error('❌ SESSION_SECRET is missing or too short');
       return jsonResponse(
-        { error: 'Server configuration error: SESSION_SECRET is missing or too short. Please set it in Cloudflare Pages environment variables.' },
+        { error: 'Server configuration error. Please contact support.' },
         500,
         request
       );
     }
-    // PASSWORD_PEPPER is optional – it falls back to SESSION_SECRET in _utils.js
 
     let { name, email, phone, password } = await request.json();
     name = clean(name, 100);
@@ -40,7 +38,7 @@ export async function onRequestPost({ request, env }) {
 
     const db = env.DB;
     if (!db) {
-      return jsonResponse({ error: 'Server configuration error: DB binding missing' }, 500, request);
+      return jsonResponse({ error: 'Server configuration error' }, 500, request);
     }
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
@@ -61,6 +59,7 @@ export async function onRequestPost({ request, env }) {
       password: hashed.hash,
       salt: hashed.salt,
       passwordAlgorithm: hashed.algorithm,
+      passwordVersion: 1,   // start at version 1
       createdAt: new Date().toISOString(),
       bookingsCount: 0,
       verified: false
@@ -72,7 +71,12 @@ export async function onRequestPost({ request, env }) {
       .run();
 
     const { password: _, salt: __, ...safeGuest } = newGuest;
-    const token = await createSignedToken({ type: 'guest', userId: String(newGuest.id), email: newGuest.email }, env);
+    const token = await createSignedToken({
+      type: 'guest',
+      userId: String(newGuest.id),
+      email: newGuest.email,
+      passwordVersion: newGuest.passwordVersion
+    }, env);
     const csrfToken = await generateCSRFToken(newGuest.id, env);
 
     return new Response(
@@ -93,12 +97,7 @@ export async function onRequestPost({ request, env }) {
     );
   } catch (e) {
     console.error('❌ Register error:', e.message, e.stack);
-    // Return the actual error message for easier debugging
-    return jsonResponse(
-      { error: 'Registration failed: ' + e.message },
-      500,
-      request
-    );
+    return jsonResponse({ error: 'Registration failed. Please try again later.' }, 500, request);
   }
 }
 
