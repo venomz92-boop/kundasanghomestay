@@ -191,8 +191,8 @@ export async function onRequestPost({ request, env }) {
 
     const maskedAccount = accountNumber.slice(-4).padStart(accountNumber.length, "*");
 
-    // ----- CORRECT ENV NAMES AND SIMULATION LOGIC -----
-    const isSimulation = env.PAYOUT_SIMULATION === "true"; // ✅ override production
+    // ----- Correct simulation and live logic -----
+    const isSimulation = env.PAYOUT_SIMULATION === "true";
     const isToyyibLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
 
     let payoutSuccess = false;
@@ -200,7 +200,7 @@ export async function onRequestPost({ request, env }) {
     let payoutError = null;
 
     if (isSimulation) {
-      // ✅ SIMULATION – skip ToyyibPay entirely
+      // ✅ SIMULATION – skip ToyyibPay
       payoutSuccess = true;
       payoutData = { simulation: true };
       console.log("🔵 SIMULATION: Withdrawal of RM" + withdrawAmount + " to " + accountHolder);
@@ -345,7 +345,7 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// GET and DELETE (unchanged)
+// ===== GET =====
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -398,5 +398,93 @@ export async function onRequestGet({ request, env }) {
   }), { status: 200, headers: corsHeaders(request) });
 }
 
-export async function onRequestDelete({ request, env }) { ... } // unchanged
-export async function onRequestOptions({ request }) { ... } // unchanged
+// ===== DELETE =====
+export async function onRequestDelete({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+  
+  const authError = await verifyAdmin(request, env);
+  if (authError) return authError;
+
+  try {
+    const clientIP = getClientIP(request);
+    const db = env.DB;
+    let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
+
+    if (db) {
+      try {
+        await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
+        if (r) earnings = JSON.parse(r.data);
+      } catch (e) {
+        console.error("❌ Failed to read earnings for DELETE reset:", e.message);
+        return new Response(JSON.stringify({ 
+          error: "Database error. Please try again." 
+        }), { 
+          status: 500, 
+          headers: corsHeaders(request) 
+        });
+      }
+    }
+
+    const prevWithdrawn = earnings.withdrawn || 0;
+    const prevTotal = earnings.total || 0;
+    
+    earnings.withdrawn = 0;
+    earnings.available = 0;
+    earnings.total = 0;
+    earnings.history = earnings.history || [];
+    earnings.history.push({
+      type: "reset",
+      date: new Date().toISOString(),
+      note: "FULL RESET - All to 0 via DELETE",
+      prevWithdrawn,
+      prevTotal,
+      ip: clientIP
+    });
+
+    if (db) {
+      try {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_fee_earnings", JSON.stringify(earnings))
+          .run();
+        
+        await logAction({
+          db,
+          action: 'withdrawal_reset_delete',
+          admin: 'admin',
+          details: `Reset earnings via DELETE. Previous: Total RM${prevTotal}, Withdrawn RM${prevWithdrawn}`,
+          ip: clientIP
+        });
+      } catch (e) {
+        console.error("❌ Failed to save DELETE reset:", e.message);
+        return new Response(JSON.stringify({ 
+          error: "Failed to reset. Please try again." 
+        }), { 
+          status: 500, 
+          headers: corsHeaders(request) 
+        });
+      }
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: "Earnings reset to RM0.00",
+      earnings: { ...earnings, available: 0 }
+    }), { status: 200, headers: corsHeaders(request) });
+
+  } catch (err) {
+    console.error("❌ DELETE reset failed:", err.message);
+    return new Response(JSON.stringify({ 
+      error: "Reset failed. Please try again later." 
+    }), { 
+      status: 500, 
+      headers: corsHeaders(request) 
+    });
+  }
+}
+
+// ===== OPTIONS =====
+export async function onRequestOptions({ request }) {
+  return new Response(null, { headers: corsHeaders(request) });
+}
