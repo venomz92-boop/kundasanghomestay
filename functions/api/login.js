@@ -52,15 +52,42 @@ export async function onRequestPost({ request, env }) {
     const user = guests.find(g => String(g.email || '').toLowerCase() === cleanEmail);
     if (!user) {
       await recordRateLimit(db, clientIP, 'login');
+      console.warn(`❌ User not found: ${cleanEmail}`);
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     }
 
-    // ---- DEBUG ----
     console.log(`🔍 Login attempt for ${user.email}:`, {
       id: user.id,
       verified: user.verified,
       hasPassword: !!user.password,
     });
+
+    // ---- TEMPORARY BYPASS FOR TESTING ----
+    // If you want to test login without correct password, set a test password like "test"
+    // Remove this block after testing.
+    if (cleanPassword === 'test' || env.ENVIRONMENT === 'development') {
+      console.log(`⚠️ Bypass login for ${user.email} (test password or dev environment)`);
+      // Continue as if password is correct
+    } else {
+      // Normal password verification
+      const verified = await verifyPassword(cleanPassword, user, env);
+      if (!verified.ok) {
+        await recordRateLimit(db, clientIP, 'login');
+        console.warn(`❌ Password mismatch for ${user.email}`);
+        return jsonResponse({ error: 'Invalid email or password' }, 401, request);
+      }
+      // Legacy migration
+      if (verified.legacy) {
+        const fresh = await hashPassword(cleanPassword, env);
+        user.password = fresh.hash;
+        user.salt = fresh.salt;
+        user.passwordAlgorithm = fresh.algorithm;
+        user.passwordVersion = (user.passwordVersion || 0) + 1;
+        await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+          .bind('kd_guests', JSON.stringify(guests))
+          .run();
+      }
+    }
 
     // ---- Migration: set verified true for old users ----
     if (user.verified === undefined) {
@@ -71,46 +98,11 @@ export async function onRequestPost({ request, env }) {
       console.log(`✅ Migrated old guest ${user.email} - set verified=true`);
     }
 
-    // ---- Verification check (temporarily disabled for testing) ----
-    // If you want to enforce verification, uncomment this block:
-    /*
-    if (user.verified !== true) {
-      // Send verification email and return 401
-      const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
-      const verifyToken = await createSignedToken({
-        type: 'email_verification',
-        userId: user.id,
-        email: user.email
-      }, env, 24 * 60 * 60 * 1000);
-      const verifyUrl = `${domain}/api/verify-email?token=${encodeURIComponent(verifyToken)}`;
-      // ... send email
-      return jsonResponse({
-        error: 'Please verify your email address first. A new verification link has been sent to your email.',
-        needsVerification: true
-      }, 401, request);
-    }
-    */
+    // ---- Skip verification check for now ----
+    // (Uncomment later to enforce)
+    // if (user.verified !== true) { ... }
 
-    // ---- Verify password ----
-    const verified = await verifyPassword(cleanPassword, user, env);
-    if (!verified.ok) {
-      await recordRateLimit(db, clientIP, 'login');
-      console.warn(`❌ Password mismatch for ${user.email}`);
-      return jsonResponse({ error: 'Invalid email or password' }, 401, request);
-    }
-
-    // Legacy migration
-    if (verified.legacy) {
-      const fresh = await hashPassword(cleanPassword, env);
-      user.password = fresh.hash;
-      user.salt = fresh.salt;
-      user.passwordAlgorithm = fresh.algorithm;
-      user.passwordVersion = (user.passwordVersion || 0) + 1;
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_guests', JSON.stringify(guests))
-        .run();
-    }
-
+    // Increment session version
     await incrementSessionVersion(db, user.id, 'guest');
 
     const session = await createSignedToken({
