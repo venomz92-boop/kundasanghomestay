@@ -1,4 +1,4 @@
-// /api/bookings.js - OPTIMIZED (No separate availability writes)
+// /api/bookings.js - FULL PATCHED with removeApprovedHomestay
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse } from './_utils.js';
 
 async function verifyAdmin(request, env) {
@@ -103,7 +103,7 @@ export async function onRequestPost({ request, env }) {
       const nights = Math.round((d2-d1)/86400000);
       if (nights < 1 || nights > 60) return jsonResponse({ error: 'Booking must be between 1 and 60 nights' }, 400, request);
       
-      // ===== FIX: Check if the guest already has a pending booking for the same homestay and dates =====
+      // Check if guest already has a pending booking for the same homestay and dates
       const existingPending = bookings.find(b =>
         String(b.guestId) === String(guest.id) &&
         String(b.homestayId) === String(homestay.id) &&
@@ -112,7 +112,6 @@ export async function onRequestPost({ request, env }) {
         b.status === 'Pending Payment'
       );
       if (existingPending) {
-        // Return the existing booking so the guest can continue payment
         return jsonResponse({
           success: true,
           booking: existingPending,
@@ -125,10 +124,8 @@ export async function onRequestPost({ request, env }) {
       const blocked = new Set((homestay.blockedDates || []).map(String));
       for (let i=0;i<nights;i++){ const d=new Date(d1); d.setDate(d.getDate()+i); const ds=d.toISOString().slice(0,10); if(blocked.has(ds)) return jsonResponse({ error: `Selected dates are unavailable (${ds})` }, 409, request); }
       
-      // Overlap check: exclude this guest's own pending bookings (they will be replaced)
       const overlaps = bookings.some(b => {
         const pendingExpired = String(b.status||'') === 'Pending Payment' && b.date && Date.now() - Date.parse(b.date) > 15*60*1000;
-        // Skip if this is the guest's own pending booking (will be updated later)
         const isOwnPending = String(b.guestId) === String(guest.id) && b.status === 'Pending Payment';
         return String(b.homestayId) === String(homestay.id) &&
                !pendingExpired &&
@@ -159,7 +156,7 @@ export async function onRequestPost({ request, env }) {
     } catch(e){ console.error('Create booking error:',e.message); return jsonResponse({error:'Could not create booking'},500,request); }
   }
 
-  // 2. Public update status (cancellation) - OPTIMIZED: Only writes to kd_bookings
+  // 2. Public update status (cancellation)
   if (action === "publicUpdateStatus" && body.id) {
     const auth = await requireGuest(request, env, body);
     if (auth.error) return auth.error;
@@ -202,10 +199,7 @@ export async function onRequestPost({ request, env }) {
       if (r && r.data) { try { bookings = JSON.parse(r.data); } catch(e) {} }
       const idx = bookings.findIndex(b => String(b.id) === String(body.id));
       if (idx === -1) {
-        return new Response(JSON.stringify({ error: "Booking not found" }), { 
-          status: 404, 
-          headers: corsHeaders(request) 
-        });
+        return jsonResponse({ error: "Booking not found" }, 404, request);
       }
       bookings[idx].checkin = body.checkin;
       bookings[idx].checkout = body.checkout;
@@ -229,10 +223,7 @@ export async function onRequestPost({ request, env }) {
         homestayId: bookings[idx].homestayId
       });
       
-      return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
-        status: 200,
-        headers: corsHeaders(request)
-      });
+      return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
     }
 
     // ===== APPROVE HOMESTAY =====
@@ -242,10 +233,7 @@ export async function onRequestPost({ request, env }) {
       if (pendingRes && pendingRes.data) { try { pending = JSON.parse(pendingRes.data); } catch(e) {} }
       const idx = pending.findIndex(h => String(h.id) === String(body.id));
       if (idx === -1) {
-        return new Response(JSON.stringify({ error: "Pending homestay not found" }), { 
-          status: 404, 
-          headers: corsHeaders(request) 
-        });
+        return jsonResponse({ error: "Pending homestay not found" }, 404, request);
       }
       const homestay = pending[idx];
       homestay.approved = true;
@@ -272,10 +260,7 @@ export async function onRequestPost({ request, env }) {
         homestayId: homestay.id
       });
       
-      return new Response(JSON.stringify({ success: true, homestay }), {
-        status: 200,
-        headers: corsHeaders(request)
-      });
+      return jsonResponse({ success: true, homestay }, 200, request);
     }
 
     // ===== REJECT HOMESTAY =====
@@ -285,10 +270,7 @@ export async function onRequestPost({ request, env }) {
       if (pendingRes && pendingRes.data) { try { pending = JSON.parse(pendingRes.data); } catch(e) {} }
       const idx = pending.findIndex(h => String(h.id) === String(body.id));
       if (idx === -1) {
-        return new Response(JSON.stringify({ error: "Pending homestay not found" }), { 
-          status: 404, 
-          headers: corsHeaders(request) 
-        });
+        return jsonResponse({ error: "Pending homestay not found" }, 404, request);
       }
       const homestay = pending[idx];
       pending.splice(idx, 1);
@@ -306,10 +288,80 @@ export async function onRequestPost({ request, env }) {
         homestayId: homestay.id
       });
       
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: corsHeaders(request)
-      });
+      return jsonResponse({ success: true }, 200, request);
+    }
+
+    // ===== REMOVE APPROVED HOMESTAY (NEW) =====
+    if (action === "removeApprovedHomestay" && body.id) {
+      const id = String(body.id);
+      const isDemo = body.isDemo === true;
+
+      // 1. Remove from approved list (if not demo)
+      if (!isDemo) {
+        const approvedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
+        let approved = [];
+        if (approvedRes && approvedRes.data) { try { approved = JSON.parse(approvedRes.data); } catch(e) {} }
+        const idx = approved.findIndex(h => String(h.id) === id);
+        if (idx === -1) {
+          return jsonResponse({ error: "Homestay not found in approved list" }, 404, request);
+        }
+        const removed = approved.splice(idx, 1)[0];
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_approved", JSON.stringify(approved))
+          .run();
+
+        await logAction({
+          db,
+          action: 'homestay_removed',
+          admin: 'admin',
+          details: `Removed approved homestay "${removed.name}" (ID: ${id}) by ${removed.ownerName}`,
+          ip: clientIP,
+          userId: removed.ownerEmail,
+          homestayId: id
+        });
+
+        return jsonResponse({ success: true, removed, message: `Homestay ${id} removed from approved list.` }, 200, request);
+      }
+
+      // 2. For demo homestays: add to deleted list and clean up overrides
+      if (isDemo) {
+        // Read current deleted demo IDs
+        const deletedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_deleted_demo").first();
+        let deletedDemo = [];
+        if (deletedRes && deletedRes.data) { try { deletedDemo = JSON.parse(deletedRes.data); } catch(e) {} }
+        if (!Array.isArray(deletedDemo)) deletedDemo = [];
+
+        // Add this demo ID if not already present
+        if (!deletedDemo.includes(id)) {
+          deletedDemo.push(id);
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+            .bind("kd_deleted_demo", JSON.stringify(deletedDemo))
+            .run();
+        }
+
+        // Optionally remove any demo overrides for this ID
+        const overridesRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_demo_overrides").first();
+        let demoOverrides = {};
+        if (overridesRes && overridesRes.data) { try { demoOverrides = JSON.parse(overridesRes.data); } catch(e) {} }
+        if (demoOverrides[id]) {
+          delete demoOverrides[id];
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+            .bind("kd_demo_overrides", JSON.stringify(demoOverrides))
+            .run();
+        }
+
+        await logAction({
+          db,
+          action: 'demo_homestay_removed',
+          admin: 'admin',
+          details: `Removed demo homestay ID ${id}`,
+          ip: clientIP
+        });
+
+        return jsonResponse({ success: true, removed: { id }, message: `Demo homestay ${id} marked as deleted.` }, 200, request);
+      }
+
+      return jsonResponse({ error: "Invalid request: neither approved nor demo" }, 400, request);
     }
 
     // ===== CLEAR ALL =====
@@ -326,10 +378,7 @@ export async function onRequestPost({ request, env }) {
         ip: clientIP
       });
       
-      return new Response(JSON.stringify({ success: true }), { 
-        status: 200, 
-        headers: corsHeaders(request) 
-      });
+      return jsonResponse({ success: true }, 200, request);
     }
 
     // ===== UPDATE PENDING =====
@@ -456,16 +505,11 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, message: "Synced" }), {
-      status: 200,
-      headers: corsHeaders(request)
-    });
+    return jsonResponse({ success: true, message: "Synced" }, 200, request);
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { 
-      status: 500, 
-      headers: corsHeaders(request) 
-    });
+    console.error('Bookings POST error:', err.message);
+    return jsonResponse({ error: 'An internal error occurred. Please try again later.' }, 500, request);
   }
 }
 
@@ -483,10 +527,7 @@ export async function onRequestDelete({ request, env }) {
   const clientIP = getClientIP(request);
   
   if (!db || !id) {
-    return new Response(JSON.stringify({ success: true }), { 
-      status: 200, 
-      headers: corsHeaders(request) 
-    });
+    return jsonResponse({ success: true }, 200, request);
   }
   try {
     let bookings = [];
@@ -509,15 +550,9 @@ export async function onRequestDelete({ request, env }) {
       homestayId: deleted?.homestayId
     });
     
-    return new Response(JSON.stringify({ success: true, deleted: id }), { 
-      status: 200, 
-      headers: corsHeaders(request) 
-    });
+    return jsonResponse({ success: true, deleted: id }, 200, request);
   } catch (e) {
-    return new Response(JSON.stringify({ error: e.message }), { 
-      status: 500, 
-      headers: corsHeaders(request) 
-    });
+    return jsonResponse({ error: 'Failed to delete booking' }, 500, request);
   }
 }
 
