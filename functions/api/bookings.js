@@ -103,12 +103,10 @@ export async function onRequestPost({ request, env }) {
       const d1 = new Date(ci+'T00:00:00'), d2 = new Date(co+'T00:00:00');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(ci) || !/^\d{4}-\d{2}-\d{2}$/.test(co) || isNaN(d1) || isNaN(d2) || d1 >= d2) return jsonResponse({ error: 'Invalid dates' }, 400, request);
       
-      // ***** MAX NIGHTS CHECK *****
+      // ***** MAX NIGHTS & PAST DATE CHECKS *****
       const nights = Math.round((d2-d1)/86400000);
       if (nights < 1) return jsonResponse({ error: 'Booking must be at least 1 night' }, 400, request);
       if (nights > MAX_NIGHTS) return jsonResponse({ error: `Maximum booking is ${MAX_NIGHTS} nights` }, 400, request);
-      
-      // ***** PAST DATE CHECK *****
       const today = new Date(); today.setHours(0,0,0,0);
       if (d1 < today) return jsonResponse({ error: 'Cannot book past dates' }, 400, request);
       
@@ -353,13 +351,11 @@ export async function onRequestPost({ request, env }) {
 
       // 2. For demo homestays: add to deleted list and clean up overrides
       if (isDemo) {
-        // Read current deleted demo IDs
         const deletedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_deleted_demo").first();
         let deletedDemo = [];
         if (deletedRes && deletedRes.data) { try { deletedDemo = JSON.parse(deletedRes.data); } catch(e) {} }
         if (!Array.isArray(deletedDemo)) deletedDemo = [];
 
-        // Add this demo ID if not already present
         if (!deletedDemo.includes(id)) {
           deletedDemo.push(id);
           await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
@@ -367,7 +363,6 @@ export async function onRequestPost({ request, env }) {
             .run();
         }
 
-        // Optionally remove any demo overrides for this ID
         const overridesRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_demo_overrides").first();
         let demoOverrides = {};
         if (overridesRes && overridesRes.data) { try { demoOverrides = JSON.parse(overridesRes.data); } catch(e) {} }
