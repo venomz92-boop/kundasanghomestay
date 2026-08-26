@@ -48,31 +48,26 @@ export async function onRequestPost({ request, env }) {
       }, 200, request);
     }
 
-    // ***** PAYMENT VERIFICATION *****
-    // 1. Check local status
+    // Payment verification
     if (!booking.status || !booking.status.toLowerCase().includes("paid")) {
       return jsonResponse({ error: 'Booking is not paid yet' }, 400, request);
     }
 
-    // 2. Verify with ToyyibPay API if billcode exists
+    // Verify with ToyyibPay API if billcode exists
     if (booking.toyyibpay_billcode && env.TOYYIBPAY_SECRET_KEY) {
       try {
         const verifyUrl = `https://toyyibpay.com/index.php/api/getBill?billCode=${booking.toyyibpay_billcode}&userSecretKey=${env.TOYYIBPAY_SECRET_KEY}`;
         const verifyRes = await fetch(verifyUrl);
         const verifyData = await verifyRes.json();
-        // ToyyibPay returns array with billpaymentStatus: '1' for paid
         if (!verifyData || !verifyData[0] || verifyData[0].billpaymentStatus !== "1") {
-          // Not paid according to ToyyibPay – reject check-in
           return jsonResponse({ 
             error: 'Payment not verified with ToyyibPay. Please contact support.' 
           }, 400, request);
         }
-        // Optionally update booking with latest status
         booking.toyyibpay_last_check = new Date().toISOString();
         booking.toyyibpay_status = verifyData[0].billpaymentStatus;
       } catch (e) {
         console.error("Payment verification API error:", e.message);
-        // We still allow check-in if local status says paid, but log the error
         await logAction({
           db,
           action: 'payment_verification_failed',
@@ -104,14 +99,13 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ---- Determine mode ----
-    const isProduction = env.ENVIRONMENT === "production";
-    const isSimulation = !isProduction && env.PAYOUT_SIMULATION === "true";
     const isToyyibLive = !!env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
+    const isSimulation = env.PAYOUT_SIMULATION === "true";
 
     let payoutSuccess = false;
     let payoutData = null;
 
-    // ---- SIMULATION (only if not production) ----
+    // ---- SIMULATION (if flag is true) ----
     if (isSimulation) {
       console.log(`🔵 SIMULATION: Payout for booking ${bookingId} (RM${ownerAmount}) to ${ownerName} (${ownerAcc})`);
       payoutSuccess = true;
@@ -142,9 +136,8 @@ export async function onRequestPost({ request, env }) {
         } catch(e) { console.error("Payout endpoint error:", e.message); }
       }
     } else {
-      // Neither simulation nor live – return error
       return jsonResponse({
-        error: 'Owner payout is not enabled. Set PAYOUT_SIMULATION=true for testing or configure ToyyibPay payout.'
+        error: 'Owner payout is not enabled and simulation is off. Set PAYOUT_SIMULATION=true for testing.'
       }, 503, request);
     }
 
@@ -177,7 +170,7 @@ export async function onRequestPost({ request, env }) {
       }, 502, request);
     }
 
-    // ---- Record fee earnings (platform fee) ----
+    // ---- Record fee earnings ----
     try {
       const feeRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
       let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
@@ -209,7 +202,7 @@ export async function onRequestPost({ request, env }) {
       console.error("❌ Failed to record fee earnings:", e.message);
     }
 
-    // Log the check-in
+    // Log
     await logAction({
       db,
       action: isSimulation ? 'owner_checkin_simulation' : 'owner_checkin_payout_success',
@@ -222,10 +215,11 @@ export async function onRequestPost({ request, env }) {
 
     return jsonResponse({
       success: true,
-      message: `✅ Check-in confirmed! ${isSimulation ? 'Simulated payout of RM' : 'Payout of RM'}${ownerAmount} ${isSimulation ? 'completed (simulation)' : 'has been processed'}.`,
+      message: `✅ Check-in confirmed! ${isSimulation ? '⚠️ SIMULATED payout of RM' : 'Payout of RM'}${ownerAmount} ${isSimulation ? 'completed (SIMULATION MODE – no real money sent)' : 'has been processed'}.`,
       bookingId,
       payout: payoutData,
-      simulation: isSimulation
+      simulation: isSimulation,
+      warning: isSimulation ? '⚠️ SIMULATION MODE – set PAYOUT_SIMULATION=false for live transfers' : undefined
     }, 200, request);
 
   } catch (e) {
