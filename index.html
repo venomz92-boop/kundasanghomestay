@@ -1106,7 +1106,6 @@
 
   <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
     <!-- Homestays will be rendered here from the API -->
-    <!-- No demo data - only real listings from the backend -->
   </div>
 </main>
 
@@ -1914,7 +1913,6 @@ function showThankYouModal(bookingId, customBookingData) {
   document.body.style.overflow = 'hidden';
 }
 
-// ✅ FIX: Redirect to mybookings.html after "Done" or after closing the thank you modal
 function closeThankYouAndReload() {
   var overlay = document.getElementById('thankyouModal');
   if (overlay) overlay.classList.remove('active');
@@ -1942,7 +1940,6 @@ function whatsappOwnerFromThankYou() {
 
   if (!booking) {
     showAlert('Notice', 'Booking details found in your "My Bookings" profile tab.');
-    // After showing alert, redirect to mybookings
     setTimeout(function() {
       window.location.href = '/mybookings.html';
     }, 1000);
@@ -1964,7 +1961,6 @@ function whatsappOwnerFromThankYou() {
     'Please assist with check-in instructions. Thank you!';
 
   window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(message), '_blank');
-  // After opening WhatsApp, redirect to mybookings after a short delay
   setTimeout(function() {
     window.location.href = '/mybookings.html';
   }, 1500);
@@ -2095,6 +2091,9 @@ function getDatesInRange(checkin, checkout) {
   return dates;
 }
 
+// =============================================================
+// FIXED: getAllBlockedDatesForHomestay now uses availabilityMap
+// =============================================================
 function getAllBlockedDatesForHomestay(homestay) {
   if (!homestay) return [];
   var blocked = [];
@@ -2104,12 +2103,12 @@ function getAllBlockedDatesForHomestay(homestay) {
     blocked = blocked.concat(homestay.blockedDates);
   }
   
-  // ✅ From availabilityMap (public API data)
+  // ✅ FROM availabilityMap (public API data)
   if (availabilityMap && availabilityMap[String(homestay.id)]) {
     blocked = blocked.concat(availabilityMap[String(homestay.id)]);
   }
   
-  // From bookings (if available, e.g., admin panel – but public only uses availabilityMap)
+  // Also from bookings if available (admin or cached)
   if (bookings && bookings.length) {
     var relatedBookings = bookings.filter(function(b) {
       return b.homestay === homestay.name || String(b.homestayId) === String(homestay.id);
@@ -2129,17 +2128,6 @@ function getAllBlockedDatesForHomestay(homestay) {
   return Object.keys(unique).sort();
 }
 
-  
-function isHomestayAvailableForRange(homestay, checkin, checkout) {
-  if (!checkin || !checkout) return { available: true };
-  var requestedDates = getDatesInRange(checkin, checkout);
-  if (requestedDates.length === 0) return { available: true };
-  var blocked = getAllBlockedDatesForHomestay(homestay);
-  var overlap = requestedDates.filter(function(d) { return blocked.indexOf(d) !== -1; });
-  return { available: overlap.length === 0, blockedDates: overlap };
-}
-
-
 function isHomestayAvailableForRange(homestay, checkin, checkout) {
   if (!checkin || !checkout) return { available: true };
   var requestedDates = getDatesInRange(checkin, checkout);
@@ -2158,7 +2146,6 @@ function renderGrid() {
   var checkinVal = document.getElementById("checkin")?.value;
   var checkoutVal = document.getElementById("checkout")?.value;
   
-  // ✅ Use the fresh homestays data (already synced)
   var list = homestays.filter(function(h) { return h.approved === true; });
   if (loc !== "all") list = list.filter(function(h) { return h.location && h.location.toLowerCase().indexOf(loc.toLowerCase()) !== -1; });
 
@@ -2177,7 +2164,6 @@ function renderGrid() {
   }
 
   grid.innerHTML = safeHTML(list.map(function(h) {
-    // ✅ Use fresh blocked dates (computed from the latest data)
     var blocked = getAllBlockedDatesForHomestay(h);
     return '' +
       '<article class="group bg-white rounded-2xl shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden" onclick="openDetail(' + h.id + ')">' +
@@ -2204,6 +2190,7 @@ function renderGrid() {
     '';
   }).join(''));
 }
+
 // =============================================================
 // DETAIL MODAL
 // =============================================================
@@ -2269,10 +2256,9 @@ function updateDetailPrice() {
 function closeDetail() { document.getElementById("detailModal").classList.add("hidden"); }
 
 // =============================================================
-// BOOKING MODAL & CHECKOUT - CLEAN (NO REDIRECT)
+// BOOKING MODAL & CHECKOUT
 // =============================================================
 function openBooking() {
-  // Check if user is logged in
   if (!currentGuest) {
     showModal("Login Required", 
       "Please create a guest account to book this homestay.",
@@ -2288,7 +2274,6 @@ function openBooking() {
     return;
   }
 
-  // ✅ Check if CSRF token exists
   var csrfToken = localStorage.getItem('kd_csrf_token');
   if (!csrfToken) {
     showAlert("Session Expired", "Your session token is missing. Please log out and log back in.");
@@ -2296,7 +2281,6 @@ function openBooking() {
     return;
   }
 
-  // Pre-fill guest details from login session
   var nameEl = document.getElementById("guestName");
   var emailEl = document.getElementById("guestEmail");
   var phoneEl = document.getElementById("guestPhone");
@@ -2332,10 +2316,10 @@ function updateBookingPrice() {
 }
 
 function closeBooking() {
-      document.getElementById("bookingModal").classList.add("hidden");
-    }
+  document.getElementById("bookingModal").classList.add("hidden");
+}
 
-    async function processPayment() {
+async function processPayment() {
   if (!currentGuest) {
     showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
     return;
@@ -2372,10 +2356,8 @@ function closeBooking() {
     var booking = created.booking;
     window.lastCreatedBooking = booking;
 
-    // Store in sessionStorage for return
     sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
 
-    // ✅ FIX: Send CSRF token when creating the payment bill
     var payRes = await fetch(API_BASE + '/toyyibpay-create', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader()),
@@ -2394,34 +2376,27 @@ function closeBooking() {
   }
 }
 
-    // =============================================================
-    // HANDLE PAYMENT RETURN FROM TOYYIBPAY (NEW)
-    // =============================================================
-    function handlePaymentReturn() {
-      var params = new URLSearchParams(window.location.search);
-      var bookingId = params.get('booking');
-      var paymentReturn = params.get('payment_return');
-      if (bookingId && paymentReturn === '1') {
-        var stored = sessionStorage.getItem('kd_pending_booking');
-        var bookingData = null;
-        if (stored) {
-          try { bookingData = JSON.parse(stored); } catch (_) {}
-          sessionStorage.removeItem('kd_pending_booking');
-        }
-        if (!bookingData) {
-          // Fallback: try to find in local bookings
-          bookingData = bookings.find(function(b) { return String(b.id) === String(bookingId); });
-        }
-        if (bookingData) {
-          showThankYouModal(bookingId, bookingData);
-        } else {
-          // Generic success
-          showThankYouModal(bookingId, { id: bookingId, total: '---' });
-        }
-        // Optionally clean URL
-        // window.history.replaceState({}, document.title, window.location.pathname);
-      }
+function handlePaymentReturn() {
+  var params = new URLSearchParams(window.location.search);
+  var bookingId = params.get('booking');
+  var paymentReturn = params.get('payment_return');
+  if (bookingId && paymentReturn === '1') {
+    var stored = sessionStorage.getItem('kd_pending_booking');
+    var bookingData = null;
+    if (stored) {
+      try { bookingData = JSON.parse(stored); } catch (_) {}
+      sessionStorage.removeItem('kd_pending_booking');
     }
+    if (!bookingData) {
+      bookingData = bookings.find(function(b) { return String(b.id) === String(bookingId); });
+    }
+    if (bookingData) {
+      showThankYouModal(bookingId, bookingData);
+    } else {
+      showThankYouModal(bookingId, { id: bookingId, total: '---' });
+    }
+  }
+}
 
 // =============================================================
 // CALENDAR EMBED
@@ -2459,7 +2434,7 @@ function toggleMobileMenu() {
 }
 
 // =============================================================
-// INITIALIZATION - CLEAN (NO REDIRECT LOGIC)
+// INITIALIZATION - CLEAN (NO DEMOS, uses availabilityMap)
 // =============================================================
 (function init() {
   renderGuestNav();
@@ -2512,6 +2487,7 @@ function toggleMobileMenu() {
         }
         
         renderGrid();
+        // If a detail modal is open, refresh its calendar
         if (selectedHomestay) {
           var detailId = selectedHomestay.id;
           var updated = homestays.find(function(h) { return h.id === detailId; });
@@ -2537,6 +2513,6 @@ function toggleMobileMenu() {
   handlePaymentReturn();
 })();
 
-  </script>
+</script>
 </body>
 </html>
