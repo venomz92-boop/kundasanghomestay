@@ -1,4 +1,4 @@
-// /api/login.js – SECURE (no bypass)
+// /api/login.js – SECURE (no bypasses)
 import { corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, checkRateLimit, recordRateLimit, parseJSONSafely, logAction, incrementSessionVersion } from './_utils.js';
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
@@ -11,7 +11,6 @@ export async function onRequestPost({ request, env }) {
     const clientIP = getClientIP(request);
     const db = env.DB;
     if (!db) {
-      console.error('DB not configured');
       return jsonResponse({ error: 'Server configuration error' }, 500, request);
     }
 
@@ -32,7 +31,6 @@ export async function onRequestPost({ request, env }) {
     const cleanPassword = String(password || '');
 
     if (!validateEmail(cleanEmail) || !cleanPassword) {
-      await recordRateLimit(db, clientIP, 'login');
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     }
 
@@ -45,25 +43,22 @@ export async function onRequestPost({ request, env }) {
     try { if (bannedR?.data) banned = JSON.parse(bannedR.data); } catch (_) {}
 
     if (banned.includes(cleanEmail)) {
-      await recordRateLimit(db, clientIP, 'login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
 
     const user = guests.find(g => String(g.email || '').toLowerCase() === cleanEmail);
     if (!user) {
-      await recordRateLimit(db, clientIP, 'login');
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     }
 
-    // ---- VERIFY PASSWORD ----
+    // ---- Verify password ----
     const verified = await verifyPassword(cleanPassword, user, env);
     if (!verified.ok) {
       await recordRateLimit(db, clientIP, 'login');
-      console.warn(`❌ Password mismatch for ${user.email}`);
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     }
 
-    // ---- LEGACY MIGRATION ----
+    // ---- Legacy migration (if needed) ----
     if (verified.legacy) {
       const fresh = await hashPassword(cleanPassword, env);
       user.password = fresh.hash;
@@ -73,19 +68,17 @@ export async function onRequestPost({ request, env }) {
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_guests', JSON.stringify(guests))
         .run();
-      console.log(`✅ Migrated password for ${user.email}`);
     }
 
-    // ---- EMAIL VERIFICATION CHECK ----
+    // ---- Enforce email verification ----
     if (user.verified !== true) {
-      // Send verification email (if configured) and block login
-      // For now, we'll allow login but warn
-      console.warn(`⚠️ Login attempt for unverified ${user.email}`);
-      // Optionally, block here:
-      // return jsonResponse({ error: 'Please verify your email first.' }, 401, request);
+      // Optionally resend verification email here...
+      return jsonResponse({
+        error: 'Please verify your email address before logging in.',
+        needsVerification: true
+      }, 401, request);
     }
 
-    // ---- INCREMENT SESSION VERSION ----
     await incrementSessionVersion(db, user.id, 'guest');
 
     const session = await createSignedToken({
@@ -98,8 +91,6 @@ export async function onRequestPost({ request, env }) {
 
     const csrfToken = await generateCSRFToken(user.id, env);
     const { password: _, salt: __, ...safeUser } = user;
-
-    console.log(`✅ Login successful for ${user.email}`);
 
     return new Response(JSON.stringify({
       success: true,
