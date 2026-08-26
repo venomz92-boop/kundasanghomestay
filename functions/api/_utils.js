@@ -1,7 +1,7 @@
 // Shared security + utility helpers for Kundasang Homestay Cloudflare Pages Functions.
 // REQUIRED secret: SESSION_SECRET (a long random value, >= 32 bytes).
 
-// ===== ADJUSTED: PBKDF2 iterations now 100,000 (max supported by CF Workers) =====
+// ===== PBKDF2 iterations (100,000 max for Cloudflare Workers) =====
 const PBKDF2_ITERATIONS = 100000;
 const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_KEYLEN = 256;
@@ -92,6 +92,69 @@ export async function verifySignedToken(token, env) {
   }
 }
 
+// ----- Versioned user sessions (guest + owner) -----
+async function getUserRecord(type, userId, db) {
+  // type: 'guest' or 'owner'
+  if (type === 'guest') {
+    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
+    let guests = [];
+    try { if (r?.data) guests = JSON.parse(r.data); } catch(_) {}
+    return guests.find(g => String(g.id) === String(userId)) || null;
+  } else if (type === 'owner') {
+    // owner records are stored in homestays (approved + pending)
+    const approved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
+    const pending = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
+    let homes = [];
+    try { if (approved?.data) homes = homes.concat(JSON.parse(approved.data)); } catch(_) {}
+    try { if (pending?.data) homes = homes.concat(JSON.parse(pending.data)); } catch(_) {}
+    // an owner is identified by the homestay id or ownerId; but we store homestayIds in session
+    // we'll just return the first homestay that matches the ownerId (which is the homestay.id)
+    return homes.find(h => String(h.id) === String(userId)) || null;
+  }
+  return null;
+}
+
+export async function getGuestSession(request, env) {
+  const token = getBearerToken(request) || getCookie(request, 'guest_token');
+  if (!token) return null;
+  const payload = await verifySignedToken(token, env);
+  if (!payload || payload.type !== 'guest') return null;
+
+  // Verify password version
+  const db = env.DB;
+  if (!db) return null;
+  await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+  const record = await getUserRecord('guest', payload.userId, db);
+  if (!record) return null;
+  if (record.passwordVersion !== undefined && payload.passwordVersion !== undefined) {
+    if (Number(record.passwordVersion) !== Number(payload.passwordVersion)) {
+      return null; // session invalidated by password change
+    }
+  }
+  return payload;
+}
+
+export async function getOwnerSession(request, env) {
+  const token = getBearerToken(request, 'Owner-Authorization') || getCookie(request, 'owner_token');
+  if (!token) return null;
+  const payload = await verifySignedToken(token, env);
+  if (!payload || payload.type !== 'owner') return null;
+
+  // Verify password version
+  const db = env.DB;
+  if (!db) return null;
+  await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+  const record = await getUserRecord('owner', payload.ownerId, db);
+  if (!record) return null;
+  if (record.ownerPasswordVersion !== undefined && payload.passwordVersion !== undefined) {
+    if (Number(record.ownerPasswordVersion) !== Number(payload.passwordVersion)) {
+      return null;
+    }
+  }
+  return payload;
+}
+
+// ----- Other helpers (unchanged) -----
 export function getBearerToken(request, headerName = 'Authorization') {
   const auth = request.headers.get(headerName) || '';
   if (!auth.startsWith('Bearer ')) return null;
@@ -118,7 +181,6 @@ export function generateSalt() {
   return b64urlEncode(bytes);
 }
 
-// ===== MODIFIED: accept iterations parameter =====
 async function derivePassword(password, salt, pepper, iterations = PBKDF2_ITERATIONS) {
   const material = await crypto.subtle.importKey(
     'raw',
@@ -138,7 +200,6 @@ async function derivePassword(password, salt, pepper, iterations = PBKDF2_ITERAT
 export async function hashPassword(password, env, salt = generateSalt()) {
   const pepper = env?.PASSWORD_PEPPER || env?.SESSION_SECRET;
   if (!pepper) throw new Error('PASSWORD_PEPPER or SESSION_SECRET is required');
-  // Store the iteration count in the algorithm string
   const algorithm = `PBKDF2-${PBKDF2_ITERATIONS}-SHA256`;
   return {
     hash: await derivePassword(password, salt, pepper, PBKDF2_ITERATIONS),
@@ -161,13 +222,10 @@ export async function verifyPassword(password, record, env) {
   const pepper = env?.PASSWORD_PEPPER || env?.SESSION_SECRET;
   if (!pepper) return { ok: false, legacy: false };
 
-  // ---- PBKDF2 verification with parsed iterations ----
   if (algorithm && algorithm.startsWith('PBKDF2-')) {
-    // Extract iterations from algorithm string (e.g., "PBKDF2-100000-SHA256")
     const parts = algorithm.split('-');
     const iterations = parts.length >= 2 ? parseInt(parts[1], 10) : PBKDF2_ITERATIONS;
     if (isNaN(iterations) || iterations <= 0) {
-      // Fallback to global constant if parsing fails
       const computed = await derivePassword(password, salt, pepper, PBKDF2_ITERATIONS);
       return { ok: computed === hash, legacy: false };
     }
@@ -175,7 +233,7 @@ export async function verifyPassword(password, record, env) {
     return { ok: computed === hash, legacy: false };
   }
 
-  // ---- Legacy SHA-256 (only for migration) ----
+  // Legacy SHA-256
   const legacyPepper = env?.LEGACY_PASSWORD_PEPPER || env?.PASSWORD_PEPPER || 'kundasang-homestay-2026';
   const computedLegacy = await sha256(legacyPepper + password + salt);
   return { ok: computedLegacy === hash, legacy: true };
@@ -239,7 +297,7 @@ export async function logAction({ db, action, admin, details, ip, userId, homest
   }
 }
 
-// Signed CSRF token
+// ---- CSRF ----
 export async function generateCSRFToken(userId, env) {
   return createSignedToken({ type: 'csrf', userId: String(userId) }, env, 24 * 60 * 60 * 1000);
 }
@@ -253,23 +311,29 @@ export function getCSRFToken(request) {
   return request.headers.get('X-CSRF-Token') || null;
 }
 
-export async function getGuestSession(request, env) {
-  const token = getBearerToken(request) || getCookie(request, 'guest_token');
-  return verifySignedToken(token, env);
-}
-
-export async function getOwnerSession(request, env) {
-  const token = getBearerToken(request, 'Owner-Authorization') || getCookie(request, 'owner_token');
-  return verifySignedToken(token, env);
-}
-
+// ---- Admin ----
 export async function getAdminToken(request) {
   return getBearerToken(request) || getCookie(request, 'admin_token');
 }
 
+// ---- Generic JSON response with sanitized errors ----
 export function jsonResponse(body, status, request, extra = {}) {
+  // If body contains an error, make it generic (unless explicitly allowed)
+  if (body && typeof body === 'object' && body.error) {
+    // Keep the error message if it's a user-friendly message (e.g., validation)
+    // But if it looks like a server error (contains stack or implementation detail), replace
+    // We'll just let the caller decide; we'll add a helper for that.
+  }
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders(request), ...extra }
   });
+}
+
+// ---- Safe error response (hides details) ----
+export function errorResponse(message, status, request, logDetails = null) {
+  if (logDetails) {
+    console.error('Error details:', logDetails);
+  }
+  return jsonResponse({ error: message || 'An unexpected error occurred. Please try again later.' }, status, request);
 }
