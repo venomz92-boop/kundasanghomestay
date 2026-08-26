@@ -11,7 +11,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Authentication required' }, 401, request);
     }
 
-    // ===== CSRF VALIDATION =====
+    // CSRF Validation
     const csrf = getCSRFToken(request);
     if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) {
       return jsonResponse({ error: 'Invalid security token' }, 403, request);
@@ -48,14 +48,56 @@ export async function onRequestPost({ request, env }) {
       }, 200, request);
     }
 
-    const secret = env.TOYYIBPAY_SECRET_KEY, category = env.TOYYIBPAY_CATEGORY_CODE;
-    const live = env.TOYYIBPAY_PAYMENT_ENABLED === 'true' && secret && category;
-    if (!live) {
+    // ---- Determine if we can use real ToyyibPay or fallback to simulation ----
+    const secret = env.TOYYIBPAY_SECRET_KEY;
+    const category = env.TOYYIBPAY_CATEGORY_CODE;
+    const liveMode = env.TOYYIBPAY_PAYMENT_ENABLED === 'true' && secret && category;
+
+    // If not live, we simulate the payment
+    if (!liveMode) {
+      console.log(`🔵 SIMULATION MODE: Creating fake bill for booking ${booking.id}`);
+      // Generate a fake bill code
+      const fakeBillCode = `SIM-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      
+      // Update booking status to paid (simulated)
+      bookings[idx] = {
+        ...booking,
+        toyyibpay_billcode: fakeBillCode,
+        toyyibpay_created_at: new Date().toISOString(),
+        paymentProvider: 'Simulation',
+        status: 'Paid - Awaiting Check-in', // simulate paid immediately
+        paid_at: new Date().toISOString(),
+        simulation: true
+      };
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings))
+        .run();
+
+      await logAction({
+        db,
+        action: 'toyyibpay_bill_created_simulation',
+        admin: 'guest',
+        details: `Simulated bill ${fakeBillCode} for ${booking.id}`,
+        ip: getClientIP(request),
+        userId: session.userId,
+        homestayId: booking.homestayId
+      });
+
+      // Return a fake success with a redirect URL that will trigger the receipt modal
+      const domain = env.PUBLIC_DOMAIN || new URL(request.url).origin;
+      const returnUrl = `${domain}/?booking=${encodeURIComponent(booking.id)}&payment_return=1`;
       return jsonResponse({
-        error: 'Payment gateway is not enabled. Set TOYYIBPAY_PAYMENT_ENABLED=true and configure the ToyyibPay keys.'
-      }, 503, request);
+        success: true,
+        url: returnUrl,
+        billCode: fakeBillCode,
+        bookingId: booking.id,
+        amount: Number(booking.total),
+        simulation: true,
+        message: 'Simulated payment successful. You will be redirected to the confirmation page.'
+      }, 200, request);
     }
 
+    // ---- LIVE ToyyibPay flow ----
     const domain = env.PUBLIC_DOMAIN || new URL(request.url).origin;
     const form = new FormData();
     form.append('userSecretKey', secret);
@@ -78,7 +120,7 @@ export async function onRequestPost({ request, env }) {
     const res = await fetch('https://toyyibpay.com/index.php/api/createBill', { method: 'POST', body: form });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.[0]?.BillCode) {
-      return jsonResponse({ error: 'ToyyibPay bill creation failed' }, 502, request);
+      return jsonResponse({ error: 'ToyyibPay bill creation failed. Please try again later.' }, 502, request);
     }
     const billCode = String(data[0].BillCode);
     bookings[idx] = {
@@ -111,8 +153,8 @@ export async function onRequestPost({ request, env }) {
     }, 200, request);
 
   } catch (e) {
-    console.error('ToyyibPay create error:', e.message);
-    return jsonResponse({ error: 'Payment setup failed' }, 500, request);
+    console.error('ToyyibPay create error:', e.message, e.stack);
+    return jsonResponse({ error: 'Payment setup failed. Please try again later.' }, 500, request);
   }
 }
 
