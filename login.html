@@ -694,6 +694,8 @@ async function handleLogin(e) {
     });
 
     var text = await res.text();
+    console.log('Raw response:', text);
+    
     var data;
     try {
       data = JSON.parse(text);
@@ -704,14 +706,16 @@ async function handleLogin(e) {
       return;
     }
 
+    console.log('Parsed data:', data);
+
     if (data.success) {
+      alert('✅ Login success! Redirecting to /mybookings.html');
       currentGuest = data.guest;
       localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
       if (data.csrfToken) {
         localStorage.setItem('kd_csrf_token', data.csrfToken);
       }
       renderGuestNav();
-      await showAlert('Welcome Back!', 'Welcome back ' + data.guest.name + '! You will be redirected to your bookings.');
       window.location.href = '/mybookings.html';
     } else {
       errorEl.textContent = data.error || 'Login failed. Please try again.';
@@ -719,7 +723,7 @@ async function handleLogin(e) {
     }
   } catch(e) {
     console.error('Login error:', e);
-    errorEl.textContent = 'Network error: ' + (e.message || 'Please check your connection and try again.');
+    errorEl.textContent = 'Network error: ' + (e.message || 'Please check your connection.');
     errorEl.classList.remove('hidden');
   }
 }
