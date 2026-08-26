@@ -1051,14 +1051,16 @@ function openWhatsappToGuest(bookingId) {
 async function confirmCheckIn(bookingId) {
   const confirmed = await showConfirm('Guest Check-In', `Confirm guest arrival for reservation ${bookingId}?\n\nEscrow payouts are pushed automatically to your registered bank account. Guest check-in WhatsApp messages will also be auto-generated.`);
   if (!confirmed) return;
+
   try {
-    const res = await fetch(API_BASE + '/owner-update-booking', {
+    // FIX: call the dedicated owner-checkin endpoint
+    const res = await fetch(API_BASE + '/owner-checkin', {   // <-- changed from owner-update-booking
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Owner-Authorization': 'Bearer ' + ownerToken
       },
-      body: JSON.stringify({ bookingId, action: 'confirmCheckin' })
+      body: JSON.stringify({ bookingId })   // only bookingId needed
     });
     const data = await res.json();
     if (data.success) {
