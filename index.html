@@ -2098,17 +2098,17 @@ function getAllBlockedDatesForHomestay(homestay) {
   if (!homestay) return [];
   var blocked = [];
   
-  // Manually blocked dates (admin set)
+  // 1. Manually blocked dates (admin set)
   if (homestay.blockedDates) {
     blocked = blocked.concat(homestay.blockedDates);
   }
   
-  // ✅ FROM availabilityMap (public API data)
+  // 2. ✅ FROM availabilityMap (public API data – this is the key fix)
   if (availabilityMap && availabilityMap[String(homestay.id)]) {
     blocked = blocked.concat(availabilityMap[String(homestay.id)]);
   }
   
-  // Also from bookings if available (admin or cached)
+  // 3. From bookings (if available, e.g., admin panel)
   if (bookings && bookings.length) {
     var relatedBookings = bookings.filter(function(b) {
       return b.homestay === homestay.name || String(b.homestayId) === String(homestay.id);
@@ -2121,6 +2121,12 @@ function getAllBlockedDatesForHomestay(homestay) {
       }
     });
   }
+  
+  // Remove duplicates and sort
+  var unique = {};
+  blocked.forEach(function(d) { unique[d] = true; });
+  return Object.keys(unique).sort();
+}
   
   // Remove duplicates and sort
   var unique = {};
