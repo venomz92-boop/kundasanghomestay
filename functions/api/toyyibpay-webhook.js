@@ -1,5 +1,4 @@
-// ToyyibPay bill callback. The callback must be verified using ToyyibPay's MD5 formula.
-// Official callback fields: refno, status, reason, billcode, order_id, amount, transaction_time, hash.
+// /api/toyyibpay-webhook.js - with idempotency
 import { corsHeaders, enforceHttps, getClientIP, logAction, jsonResponse } from './_utils.js';
 
 function md5(str) {
@@ -45,12 +44,25 @@ export async function onRequestPost({request,env}){
     if(expected.toLowerCase()!==receivedHash.toLowerCase())return new Response('invalid signature',{status:401,headers:corsHeaders(request)});
     const db=env.DB;if(!db)return new Response('server error',{status:500,headers:corsHeaders(request)});
     await db.prepare('CREATE TABLE IF NOT EXISTS store(key TEXT PRIMARY KEY,data TEXT)').run();
+
+    // ===== IDEMPOTENCY CHECK =====
+    const webhookId = request.headers.get('X-Webhook-Id') || refno || billcode || crypto.randomUUID();
+    await db.prepare(`CREATE TABLE IF NOT EXISTS webhook_log (
+      id TEXT PRIMARY KEY,
+      processed_at TEXT,
+      type TEXT
+    )`).run();
+    const existing = await db.prepare('SELECT id FROM webhook_log WHERE id = ?').bind(webhookId).first();
+    if (existing) {
+      console.log(`✅ Webhook ${webhookId} already processed, skipping`);
+      return new Response('Already processed', { status: 200, headers: corsHeaders(request) });
+    }
+
     const r=await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();let bookings=[];try{if(r?.data)bookings=JSON.parse(r.data)}catch(_){}
     const idx=bookings.findIndex(b=>String(b.id)===orderId && String(b.toyyibpay_billcode||'')===billcode);
     if(idx<0)return new Response('booking not found',{status:404,headers:corsHeaders(request)});
     const booking=bookings[idx];
     const expectedAmount=Math.round(Number(booking.total)*100);
-    const receivedAmount=Math.round(Number(data.amount||0)*100)/100;
     const callbackAmountCents=Math.round(Number(data.amount||0)*100);
     if(callbackAmountCents!==expectedAmount)return new Response('amount mismatch',{status:400,headers:corsHeaders(request)});
     if(status==='1'){
@@ -63,6 +75,11 @@ export async function onRequestPost({request,env}){
       bookings[idx]={...booking,status:'Payment Failed',toyyibpay_refno:refno,toyyibpay_status:status,toyyibpay_reason:String(data.reason||'')};
       await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind('kd_bookings',JSON.stringify(bookings)).run();
     }
+
+    // Log webhook processing
+    await db.prepare('INSERT INTO webhook_log (id, processed_at, type) VALUES (?, ?, ?)')
+      .bind(webhookId, new Date().toISOString(), 'payment').run();
+
     return new Response('OK',{status:200,headers:corsHeaders(request)});
   }catch(e){console.error('ToyyibPay webhook error:',e.message);return new Response('server error',{status:500,headers:corsHeaders(request)})}
 }
