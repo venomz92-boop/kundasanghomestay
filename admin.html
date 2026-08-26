@@ -348,6 +348,14 @@ body {
   <div id="adminDashboard" class="hidden">
     <h2 class="text-3xl font-bold animate-on-scroll">Admin — ToyyibPay Auto Payout</h2>
     <div class="text-[11px] text-zinc-500 mt-1 animate-on-scroll">Malaysia Time: <span id="myTimeNow"></span> • Timezone: Asia/Kuala_Lumpur (UTC+8)</div>
+    
+    <!-- ========== NEW: Force Sync & Cache Status ========== -->
+    <div class="flex items-center gap-3 flex-wrap mt-2 animate-on-scroll">
+      <button onclick="forceSync()" class="btn-accent" style="padding:8px 18px; font-size:11px;">🔄 Force Sync (Cloud)</button>
+      <div id="cacheStatus" class="text-xs text-zinc-500 hidden">Using cached data – last updated: <span id="cacheTimestamp"></span></div>
+    </div>
+    <!-- ========== END NEW ========== -->
+
     <div class="grid md:grid-cols-3 gap-4 mt-6">
       <div class="card p-5 animate-on-scroll">
         <div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11%)</div>
@@ -367,9 +375,6 @@ body {
       <button onclick="showAdminTab('guests')" id="tabGuests" class="px-5 py-2.5 rounded-full bg-white border text-[11px] uppercase font-600">Guests</button>
       <button onclick="showAdminTab('settings')" id="tabSettings" class="px-5 py-2.5 rounded-full bg-white border text-[11px] uppercase font-600">Settings</button>
     </div>
-  <div class="flex items-center gap-3 flex-wrap mt-2 animate-on-scroll">
-  <button onclick="forceSync()" class="btn-accent" style="padding:8px 18px; font-size:11px;">🔄 Force Sync (Cloud)</button>
-    <div id="cacheStatus" class="text-xs text-zinc-500 hidden">Using cached data – last updated: <span id="cacheTimestamp"></span></div>
     <div id="adminPending" class="mt-4"></div>
     <div id="adminApproved" class="mt-4 hidden"></div>
     <div id="adminBookings" class="mt-4 hidden"><div id="bookingsTable" class="card p-6"></div></div>
@@ -696,7 +701,7 @@ function renderAvailabilityCalendar(h, containerId) {
 }
 
 // =============================================================
-// CLOUD DATA FETCH
+// CLOUD DATA FETCH – MODIFIED to set cache timestamp
 // =============================================================
 async function fetchCloudData(){
   console.log("☁️ Fetching cloud data...");
@@ -711,6 +716,11 @@ async function fetchCloudData(){
         ADMIN_TOKEN = '';
         location.reload();
       }
+      // Fallback to local cache and show warning
+      const cacheStatus = document.getElementById('cacheStatus');
+      const cacheTs = document.getElementById('cacheTimestamp');
+      if (cacheStatus) cacheStatus.classList.remove('hidden');
+      if (cacheTs) cacheTs.textContent = new Date().toLocaleString();
       return false;
     }
     const data=await res.json();
@@ -756,11 +766,32 @@ async function fetchCloudData(){
       allHomestays = allHomestays.map(h => { if(!h.blockedDates) h.blockedDates = []; return h; });
       homestays = [...allHomestays];
     }catch(e){}
+    // Success: hide cache warning
+    const cacheStatus = document.getElementById('cacheStatus');
+    if (cacheStatus) cacheStatus.classList.add('hidden');
     return true;
   }catch(e){
     console.warn("❌ Cloud fetch failed:", e.message);
+    // Show cache warning
+    const cacheStatus = document.getElementById('cacheStatus');
+    const cacheTs = document.getElementById('cacheTimestamp');
+    if (cacheStatus) cacheStatus.classList.remove('hidden');
+    if (cacheTs) cacheTs.textContent = new Date().toLocaleString();
     return false;
   }
+}
+
+// =============================================================
+// NEW: FORCE SYNC FUNCTION
+// =============================================================
+async function forceSync() {
+  const status = document.getElementById('cacheStatus');
+  const ts = document.getElementById('cacheTimestamp');
+  if (status) status.classList.remove('hidden');
+  if (ts) ts.textContent = new Date().toLocaleString();
+  await fetchCloudData();
+  renderAdmin();
+  showAlert('Sync Complete', 'Data refreshed from cloud.');
 }
 
 // =============================================================
@@ -856,14 +887,6 @@ function renderAdmin(){
   const bs=document.getElementById("billplzStatus"); if(bs) bs.innerText=CONFIG.toyyibpay.enabled?"LIVE ToyyibPay":"Simulation";
   
   const pendingDiv=document.getElementById("adminPending");
-  if(tab === 'pending') {
-    fetchCloudData().then(() => {
-      renderAdmin();
-      // Re-highlight the pending tab (renderAdmin may change the active state)
-      document.getElementById(tabId).classList.remove("hidden");
-      document.getElementById(btnId).className = "px-5 py-2.5 rounded-full bg-[#212121] text-white text-[11px] uppercase font-700";
-    });
-  }
   if(pendingHomestays.length===0) {
     pendingDiv.innerHTML = safeHTML('<div class="card p-6 text-center text-zinc-500">No pending.</div>');
   } else {
@@ -1404,17 +1427,6 @@ function renderGuestsTable(){
     }
 }
 
-  async function forceSync() {
-  const status = document.getElementById('cacheStatus');
-  const ts = document.getElementById('cacheTimestamp');
- if (statusEl) {
-  statusEl.classList.remove('hidden');
-  document.getElementById('cacheTimestamp').textContent = new Date().toLocaleString();
-}
-  await fetchCloudData();
-  renderAdmin();
-  showAlert('Sync Complete', 'Data refreshed from cloud.');
-}
   
 async function forceSyncGuests(){
   try{
@@ -1443,7 +1455,6 @@ async function deleteGuest(indexOrId) {
     } catch(e) { guests = []; }
 
     let guest = null;
-    // If the argument is a number, treat as index; else treat as ID or email
     if (typeof indexOrId === 'number') {
         guest = guests[indexOrId];
     } else {
@@ -1477,7 +1488,6 @@ async function deleteGuest(indexOrId) {
             throw new Error(data.error || "Cloud delete failed");
         }
 
-        // Refresh local and cloud data
         await fetchCloudData();
         renderGuestsTable();
         renderAdmin();
