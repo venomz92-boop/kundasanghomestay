@@ -1,6 +1,15 @@
 // /api/login.js
 import { corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse } from './_utils.js';
 
+if (!user.verified) {
+  // Optionally, send a new verification email and block login
+  // We'll return an error with instructions
+  return jsonResponse({ 
+    error: 'Please verify your email address first. A new verification link has been sent to your email.',
+    needsVerification: true
+  }, 401, request);
+}
+
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 const attempts = new Map();
 function limited(key) {
