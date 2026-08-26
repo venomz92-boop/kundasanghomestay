@@ -410,7 +410,44 @@ export async function onRequestPost({ request, env }) {
 }
 
 export async function onRequestDelete({ request, env }) {
-  // ... (same as before)
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+  const authError = await verifyAdmin(request, env);
+  if (authError) return authError;
+
+  const url = new URL(request.url);
+  const id = url.searchParams.get('id');
+  if (!id) {
+    return jsonResponse({ error: 'Missing booking id' }, 400, request);
+  }
+
+  const db = env.DB;
+  if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
+  await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+
+  const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+  let bookings = [];
+  try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+  const idx = bookings.findIndex(b => String(b.id) === String(id));
+  if (idx === -1) {
+    return jsonResponse({ error: 'Booking not found' }, 404, request);
+  }
+  const deleted = bookings[idx];
+  bookings.splice(idx, 1);
+  await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+    .bind('kd_bookings', JSON.stringify(bookings)).run();
+
+  await logAction({
+    db,
+    action: 'booking_deleted_admin',
+    admin: 'admin',
+    details: `Deleted booking ${id} (${deleted.homestay})`,
+    ip: getClientIP(request),
+    userId: deleted.guestId,
+    homestayId: deleted.homestayId
+  });
+
+  return jsonResponse({ success: true, deleted: deleted }, 200, request);
 }
 
 export async function onRequestOptions({ request }) {
