@@ -1,4 +1,4 @@
-// /api/payout.js - COMPLETE with security fixes
+// /api/payout.js - COMPLETE with security fixes + simulation
 import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, checkRateLimit, recordRateLimit } from './_utils.js';
 
 async function verifyAdmin(request, env) {
@@ -74,10 +74,7 @@ export async function onRequestPost({ request, env }) {
     const cleanOwnerAcc = String(ownerAcc || "").replace(/[^0-9]/g, "");
     const payoutAmount = Number(amount);
     const isToyyibLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
-    const isProduction = env.ENVIRONMENT === "production";
-
-    // ***** SAFETY: Never simulate in production *****
-    const allowSimulation = !isProduction && env.PAYOUT_SIMULATION === "true";
+    const isSimulation = env.PAYOUT_SIMULATION === "true";
 
     // Check duplicate payout
     if (db) {
@@ -107,48 +104,60 @@ export async function onRequestPost({ request, env }) {
     // Record attempt after duplicate check
     await recordRateLimit(db, clientIP, 'payout');
 
-    if (!isToyyibLive) {
-      // Manual fallback with simulation guard
+    // ---- Handle simulation OR live ----
+    if (isSimulation) {
+      // Simulate a successful payout
+      console.log(`🔵 SIMULATION: Payout for booking ${bookingId} (RM${payoutAmount}) to ${ownerName} (${cleanOwnerAcc})`);
+      // Optionally update booking with simulated status
       if (db) {
         try {
           const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
           let bookings = res ? JSON.parse(res.data) : [];
           const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
           if (idx !== -1) {
-            bookings[idx].status = "Completed - Owner Paid RM" + payoutAmount + " (Awaiting ToyyibPay Payout Activation)";
+            bookings[idx].status = "Completed - Owner Paid RM" + payoutAmount + " (SIMULATION)";
             bookings[idx].payoutDate = new Date().toISOString();
             bookings[idx].payoutAmount = Number(payoutAmount);
-            bookings[idx].payoutMethod = "Manual until ToyyibPay Payout enabled";
+            bookings[idx].payoutMethod = "Simulation";
             bookings[idx].completedDate = new Date().toISOString();
             bookings[idx].payoutAttempts = (bookings[idx].payoutAttempts || 0) + 1;
             bookings[idx].payoutIP = clientIP;
+            bookings[idx].simulation = true;
             await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
               .bind("kd_bookings", JSON.stringify(bookings))
               .run();
             
             await logAction({
               db,
-              action: 'payout_manual',
+              action: 'payout_simulation',
               admin: 'admin',
-              details: `Manual payout for booking ${bookingId}: RM${payoutAmount}`,
+              details: `Simulated payout for booking ${bookingId}: RM${payoutAmount}`,
               ip: clientIP,
               userId: ownerName
             });
           }
         } catch (e) {
-          console.error("❌ Failed to update booking (manual fallback):", e.message);
+          console.error("Failed to update booking (simulation):", e.message);
         }
       }
+
       return new Response(JSON.stringify({
         success: true,
         simulation: true,
-        message: `ToyyibPay Payout not yet enabled. Set TOYYIBPAY_PAYOUT_ENABLED=true after ToyyibPay approves Payout. Meanwhile manually transfer RM${payoutAmount} to ${ownerName}.`,
+        warning: "⚠️ SIMULATION MODE – no real money was transferred. Set PAYOUT_SIMULATION=false in production.",
+        message: `Simulated payout RM${payoutAmount} to ${ownerName}`,
         bookingId,
-        amount: payoutAmount,
-        owner: ownerName,
-        instruction: `Enable ToyyibPay Payout to make this auto. For now transfer RM${payoutAmount} to ${ownerName}`,
-        nextStep: "Contact ToyyibPay support: Enable Payout feature for your account"
+        amount: payoutAmount
       }), { headers: corsHeaders(request) });
+    }
+
+    // ---- Live payout (only if not simulation) ----
+    if (!isToyyibLive) {
+      // Payout not enabled and simulation off – show error
+      return new Response(JSON.stringify({
+        success: false,
+        error: "ToyyibPay payout is not enabled and simulation is off. Set PAYOUT_SIMULATION=true for testing."
+      }), { status: 503, headers: corsHeaders(request) });
     }
 
     const formData = new FormData();
@@ -298,12 +307,15 @@ export async function onRequestGet({ request, env }) {
   if (redirect) return redirect;
   
   const isLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
+  const isSimulation = env.PAYOUT_SIMULATION === "true";
   return new Response(JSON.stringify({
     message: "Payout API ready",
     toyyibPayPayoutEnabled: isLive,
-    mode: isLive ? "AUTO (ToyyibPay)" : "MANUAL (fallback)",
+    mode: isSimulation ? "SIMULATION" : (isLive ? "AUTO (ToyyibPay)" : "MANUAL (fallback)"),
     bankCode: env.YOUR_BANK_CODE || "MBBEMYKL",
-    security: "Admin auth required for POST"
+    security: "Admin auth required for POST",
+    simulation: isSimulation,
+    warning: isSimulation ? "⚠️ SIMULATION MODE – no real money will be sent" : undefined
   }), { status: 200, headers: corsHeaders(request) });
 }
 
