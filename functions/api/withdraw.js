@@ -178,44 +178,46 @@ export async function onRequestPost({ request, env }) {
     const isToyyibLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
 
     let payoutSuccess = false;
-    let payoutData = null;
-    let payoutError = null;
+let payoutData = null;
+let payoutError = null;
 
-    if (isToyyibLive) {
-      const formData = new FormData();
-      formData.append("userSecretKey", env.TOYYIBPAY_SECRET_KEY);
-      formData.append("bankCode", bankCode);
-      formData.append("bankAccountNumber", accountNumber.replace(/[^0-9]/g, ''));
-      formData.append("accountHolderName", accountHolder);
-      formData.append("amount", Math.round(withdrawAmount * 100));
-      formData.append("payoutDescription", `Platform Withdrawal WD_${Date.now()}`);
-      formData.append("payoutReferenceNo", `WD_${Date.now()}`);
+const formData = new FormData();
+formData.append("userSecretKey", env.TOYYIBPAY_SECRET_KEY);
+formData.append("bankCode", bankCode);
+formData.append("bankAccountNumber", accountNumber.replace(/[^0-9]/g, ''));
+formData.append("accountHolderName", accountHolder);
+formData.append("amount", Math.round(withdrawAmount * 100));
+formData.append("payoutDescription", `Platform Withdrawal WD_${Date.now()}`);
+formData.append("payoutReferenceNo", `WD_${Date.now()}`);
 
-      const endpoints = [
-        "https://toyyibpay.com/index.php/api/payout",
-        "https://toyyibpay.com/index.php/api/createPayout"
-      ];
+const endpoints = [
+  "https://toyyibpay.com/index.php/api/payout",
+  "https://toyyibpay.com/index.php/api/createPayout"
+];
 
-      for (const endpoint of endpoints) {
-        try {
-          const res = await fetch(endpoint, {
-            method: "POST",
-            body: formData,
-            headers: { 'User-Agent': 'KundasangHomestay/1.0' }
-          });
-          const text = await res.text();
-          try { payoutData = JSON.parse(text); } catch { payoutData = { raw: text }; }
-          if (res.ok && (payoutData.status === "success" || payoutData[0]?.status === "success" || payoutData.payoutCode)) {
-            payoutSuccess = true;
-            break;
-          }
-          payoutError = payoutData;
-        } catch (e) {
-          payoutError = e.message;
-          console.error(`❌ Payout endpoint ${endpoint} failed:`, e.message);
-        }
-      }
-    } else if (isSimulation) {
+for (const endpoint of endpoints) {
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      body: formData,
+      headers: { 'User-Agent': 'KundasangHomestay/1.0' }
+    });
+    const text = await res.text();
+    console.log(`🔍 Payout response from ${endpoint}:`, text); // <-- ADD LOG
+    try { payoutData = JSON.parse(text); } catch { payoutData = { raw: text }; }
+    if (res.ok && (payoutData.status === "success" || payoutData[0]?.status === "success" || payoutData.payoutCode)) {
+      payoutSuccess = true;
+      break;
+    }
+    payoutError = payoutData;
+  } catch (e) {
+    payoutError = e.message;
+    console.error(`❌ Payout endpoint ${endpoint} failed:`, e.message);
+  }
+}    
+  
+  
+  } else if (isSimulation) {
       payoutSuccess = true;
       payoutData = { simulation: true };
     } else {
