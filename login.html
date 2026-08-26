@@ -11,7 +11,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="animations.css" />
   <style>
-    /* ===== ROOT ===== */
     :root {
       --primary: #0F382E;
       --primary-light: #1a4d3e;
@@ -73,9 +72,9 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
+      width: 100%;
       position: relative;
       overflow: hidden;
-      width: 100%;
     }
     .btn-primary::after {
       content: '';
@@ -561,22 +560,22 @@
 <script src="animations.js"></script>
 <script>
 // =============================================================
-// CUSTOM MODAL SYSTEM (FIXED - no "cancelled" errors)
+// CUSTOM MODAL SYSTEM
 // =============================================================
 function showModal(title, message, buttons) {
-  return new Promise((resolve) => {
-    const overlay = document.getElementById('customModal');
-    const titleEl = document.getElementById('modalTitle');
-    const bodyEl = document.getElementById('modalBody');
-    const footerEl = document.getElementById('modalFooter');
+  return new Promise(function(resolve) {
+    var overlay = document.getElementById('customModal');
+    var titleEl = document.getElementById('modalTitle');
+    var bodyEl = document.getElementById('modalBody');
+    var footerEl = document.getElementById('modalFooter');
     titleEl.textContent = title || 'Notice';
     bodyEl.innerHTML = typeof message === 'string' ? message : '';
     footerEl.innerHTML = '';
-    buttons.forEach(btn => {
-      const el = document.createElement('button');
+    buttons.forEach(function(btn) {
+      var el = document.createElement('button');
       el.textContent = btn.label;
-      el.className = `btn ${btn.class || 'btn-primary'}`;
-      el.onclick = () => {
+      el.className = 'btn ' + (btn.class || 'btn-primary');
+      el.onclick = function() {
         overlay.classList.remove('active');
         document.body.style.overflow = '';
         if (btn.value !== undefined) resolve(btn.value);
@@ -588,28 +587,33 @@ function showModal(title, message, buttons) {
     document.body.style.overflow = 'hidden';
   });
 }
+
 function closeModal() {
-  const overlay = document.getElementById('customModal');
-  overlay.classList.remove('active');
+  var overlay = document.getElementById('customModal');
+  if (overlay) overlay.classList.remove('active');
   document.body.style.overflow = '';
 }
+
 function modalConfirm() {
-  const overlay = document.getElementById('customModal');
-  overlay.classList.remove('active');
+  var overlay = document.getElementById('customModal');
+  if (overlay) overlay.classList.remove('active');
   document.body.style.overflow = '';
 }
+
 function showAlert(title, message) {
   return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
 }
+
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    const overlay = document.getElementById('customModal');
-    if (overlay.classList.contains('active')) {
+    var overlay = document.getElementById('customModal');
+    if (overlay && overlay.classList.contains('active')) {
       overlay.classList.remove('active');
       document.body.style.overflow = '';
     }
   }
 });
+
 document.getElementById('customModal').addEventListener('click', function(e) {
   if (e.target === this) {
     this.classList.remove('active');
@@ -620,28 +624,30 @@ document.getElementById('customModal').addEventListener('click', function(e) {
 // =============================================================
 // GUEST SYSTEM
 // =============================================================
-const API_BASE = "/api";
-let currentGuest = null;
+var API_BASE = "/api";
+var currentGuest = null;
+
 try {
-  const saved = localStorage.getItem('kd_guest');
+  var saved = localStorage.getItem('kd_guest');
   if (saved) {
-    const parsed = JSON.parse(saved);
+    var parsed = JSON.parse(saved);
     if (parsed && parsed.id) currentGuest = parsed;
   }
 } catch(e) { currentGuest = null; }
 
 function renderGuestNav() {
-  const loginNav = document.getElementById("guestNav");
-  const profileNav = document.getElementById("guestProfileNav");
-  const mLoginNav = document.getElementById("mGuestNav");
-  const mProfileNav = document.getElementById("mGuestProfileNav");
-  const mAvatar = document.getElementById("mGuestAvatar");
-  const mNameNav = document.getElementById("mGuestNameNav");
+  var loginNav = document.getElementById("guestNav");
+  var profileNav = document.getElementById("guestProfileNav");
+  var mLoginNav = document.getElementById("mGuestNav");
+  var mProfileNav = document.getElementById("mGuestProfileNav");
+  var mAvatar = document.getElementById("mGuestAvatar");
+  var mNameNav = document.getElementById("mGuestNameNav");
+
   if (currentGuest) {
     if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
     if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
-    const avatar = document.getElementById("guestAvatar");
-    const nameNav = document.getElementById("guestNameNav");
+    var avatar = document.getElementById("guestAvatar");
+    var nameNav = document.getElementById("guestNameNav");
     if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
     if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
     if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
@@ -655,6 +661,7 @@ function renderGuestNav() {
     if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
   }
 }
+
 function logoutGuest() {
   if (!confirm("Logout?")) return;
   currentGuest = null;
@@ -667,32 +674,32 @@ function logoutGuest() {
 // LOGIN HANDLER
 // =============================================================
 async function handleLogin(e) {
- async function handleLogin(e) {
   e.preventDefault();
-  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
-  const password = document.getElementById('loginPassword').value.trim();
-  const errorEl = document.getElementById('loginError');
+  var email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  var password = document.getElementById('loginPassword').value.trim();
+  var errorEl = document.getElementById('loginError');
+
   if (!email || !password) {
     errorEl.textContent = 'Please fill in all fields.';
     errorEl.classList.remove('hidden');
     return;
   }
   errorEl.classList.add('hidden');
+
   try {
-    const res = await fetch(API_BASE + '/login', {
+    var res = await fetch(API_BASE + '/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email: email, password: password })
     });
 
-    // Read as text first
-    const text = await res.text();
-    let data;
+    var text = await res.text();
+    var data;
     try {
       data = JSON.parse(text);
-    } catch (e) {
-      console.error('Failed to parse JSON from server:', text);
-      errorEl.textContent = 'Server returned an invalid response. Please try again later.';
+    } catch (parseErr) {
+      console.error('Failed to parse JSON:', text);
+      errorEl.textContent = 'Server error. Please try again later.';
       errorEl.classList.remove('hidden');
       return;
     }
@@ -707,13 +714,12 @@ async function handleLogin(e) {
       await showAlert('Welcome Back!', 'Welcome back ' + data.guest.name + '! You will be redirected to your bookings.');
       window.location.href = '/mybookings.html';
     } else {
-      // Display the server's error message
       errorEl.textContent = data.error || 'Login failed. Please try again.';
       errorEl.classList.remove('hidden');
     }
   } catch(e) {
     console.error('Login error:', e);
-    errorEl.textContent = 'Network error: ' + (e.message || 'Please check your connection.');
+    errorEl.textContent = 'Network error: ' + (e.message || 'Please check your connection and try again.');
     errorEl.classList.remove('hidden');
   }
 }
@@ -722,9 +728,20 @@ async function handleLogin(e) {
 // TOGGLE MOBILE MENU
 // =============================================================
 function toggleMobileMenu() {
-  const nav = document.getElementById('mobileNav');
+  var nav = document.getElementById('mobileNav');
   if (nav) nav.classList.toggle('open');
 }
+
+document.addEventListener('click', function(e) {
+  var nav = document.getElementById('mobileNav');
+  var btn = document.getElementById('mobileMenuBtn');
+  if (!nav || !btn) return;
+  if (nav.classList.contains('open') &&
+      !nav.contains(e.target) &&
+      !btn.contains(e.target)) {
+    nav.classList.remove('open');
+  }
+});
 
 // =============================================================
 // INIT
@@ -732,6 +749,14 @@ function toggleMobileMenu() {
 document.addEventListener('DOMContentLoaded', function() {
   renderGuestNav();
   console.log('✅ Login page loaded with modern styling');
+
+  // Check for verification success parameter
+  var urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('verified') === '1') {
+    showAlert('Email Verified', 'Your email has been verified successfully! You can now log in.');
+  } else if (urlParams.get('verified') === 'already') {
+    showAlert('Already Verified', 'Your email was already verified. Please log in.');
+  }
 });
 </script>
 </body>
