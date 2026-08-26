@@ -2458,31 +2458,56 @@ function toggleMobileMenu() {
 // INITIALIZATION - CLEAN (NO REDIRECT LOGIC)
 // =============================================================
 (function init() {
-      renderGuestNav();
+  renderGuestNav();
 
-      var today = new Date();
-      var tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      var dayAfter = new Date(today);
-      dayAfter.setDate(dayAfter.getDate() + 2);
+  // Set default dates for search (tomorrow and day after)
+  var today = new Date();
+  var tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  var dayAfter = new Date(today);
+  dayAfter.setDate(dayAfter.getDate() + 2);
 
-      var checkinInput = document.getElementById('checkin');
-      var checkoutInput = document.getElementById('checkout');
-      if (checkinInput) checkinInput.value = dateToIso(tomorrow);
-      if (checkoutInput) checkoutInput.value = dateToIso(dayAfter);
+  var checkinInput = document.getElementById('checkin');
+  var checkoutInput = document.getElementById('checkout');
+  if (checkinInput) checkinInput.value = dateToIso(tomorrow);
+  if (checkoutInput) checkoutInput.value = dateToIso(dayAfter);
 
-      renderGrid();
+  // ✅ Initialize homestays as empty array – no demos
+  homestays = [];
+  selectedHomestay = null;
+  bookings = [];
 
-      // Fetch data without blocking UI
-     if (API_BASE) {
-  fetch(API_BASE + '/bookings', { cache: 'no-store' })
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-      if (data.approved && data.approved.length > 0) {
-        // ✅ Fix: assign to the global 'homestays' (not 'homesteads')
-        homestays = data.approved.map(function(h) {
-          return { ...h, blockedDates: h.blockedDates || [] };
-        });
+  // ✅ Show "loading" or empty state immediately
+  var grid = document.getElementById("homestayGrid");
+  if (grid) {
+    grid.innerHTML = safeHTML(
+      '<div class="col-span-3 text-center py-16">' +
+        '<div class="text-zinc-500 font-poppins">Loading homestays...</div>' +
+      '</div>'
+    );
+  }
+
+  // ✅ Fetch real data from API (no fallback to demos)
+  if (API_BASE) {
+    fetch(API_BASE + '/bookings', { cache: 'no-store' })
+      .then(function(res) {
+        if (!res.ok) throw new Error('API error: ' + res.status);
+        return res.json();
+      })
+      .then(function(data) {
+        // Check if we have approved homestays
+        if (data.approved && data.approved.length > 0) {
+          // Update global homestays with real data
+          homestays = data.approved.map(function(h) {
+            return { ...h, blockedDates: h.blockedDates || [] };
+          });
+          // Also store in localStorage for quick next load
+          localStorage.setItem('kd_approved', JSON.stringify(data.approved));
+        } else {
+          // No approved homestays – show empty state
+          homestays = [];
+          localStorage.removeItem('kd_approved');
+        }
         // Re-render grid with fresh data
         renderGrid();
         // If a detail modal is open, refresh its calendar too
@@ -2494,14 +2519,25 @@ function toggleMobileMenu() {
             renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
           }
         }
-      }
-    })
-    .catch(function() { console.warn('Using cached homestays'); });
-  // === FIX: Check for payment return ===
-  handlePaymentReturn();
-}
+      })
+      .catch(function(err) {
+        console.warn('Failed to load homestays from API:', err);
+        // Show error message in grid
+        var grid = document.getElementById("homestayGrid");
+        if (grid) {
+          grid.innerHTML = safeHTML(
+            '<div class="col-span-3 text-center py-16">' +
+              '<div class="text-red-500 font-poppins">Failed to load homestays. Please refresh or try again later.</div>' +
+            '</div>'
+          );
+        }
+      });
+  }
 
-  
+  // Check for payment return (handles the thankyou modal)
+  handlePaymentReturn();
+})();
+
   </script>
 </body>
 </html>
