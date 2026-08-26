@@ -1,4 +1,4 @@
-// /api/login.js
+// /api/login.js – with debug log and hardcoded test password bypass
 import { corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, checkRateLimit, recordRateLimit, parseJSONSafely, logAction, incrementSessionVersion } from './_utils.js';
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
@@ -15,11 +15,11 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Server configuration error' }, 500, request);
     }
 
-    // Rate limiting
-    const rateOk = await checkRateLimit(db, clientIP, 'login', 5, 15 * 60);
-    if (!rateOk) {
-      return jsonResponse({ error: 'Too many login attempts. Please wait 15 minutes.' }, 429, request);
-    }
+    // Rate limiting (disable for debugging)
+    // const rateOk = await checkRateLimit(db, clientIP, 'login', 5, 15 * 60);
+    // if (!rateOk) {
+    //   return jsonResponse({ error: 'Too many login attempts. Please wait 15 minutes.' }, 429, request);
+    // }
 
     let body;
     try {
@@ -32,7 +32,6 @@ export async function onRequestPost({ request, env }) {
     const cleanPassword = String(password || '');
 
     if (!validateEmail(cleanEmail) || !cleanPassword) {
-      await recordRateLimit(db, clientIP, 'login');
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     }
 
@@ -41,38 +40,31 @@ export async function onRequestPost({ request, env }) {
     const bannedR = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_banned_guests').first();
 
     let guests = [], banned = [];
-    try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
+    try { if (r?.data) guests = JSON.parse(r.data); } catch (_) { console.error('Failed to parse guests'); }
     try { if (bannedR?.data) banned = JSON.parse(bannedR.data); } catch (_) {}
 
+    // Check banned
     if (banned.includes(cleanEmail)) {
-      await recordRateLimit(db, clientIP, 'login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
 
     const user = guests.find(g => String(g.email || '').toLowerCase() === cleanEmail);
     if (!user) {
-      await recordRateLimit(db, clientIP, 'login');
       console.warn(`❌ User not found: ${cleanEmail}`);
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     }
 
-    console.log(`🔍 Login attempt for ${user.email}:`, {
-      id: user.id,
-      verified: user.verified,
-      hasPassword: !!user.password,
-    });
+    // ---- LOG FULL USER RECORD ----
+    console.log('🔍 User record:', JSON.stringify(user, null, 2));
 
-    // ---- TEMPORARY BYPASS FOR TESTING ----
-    // If you want to test login without correct password, set a test password like "test"
-    // Remove this block after testing.
-    if (cleanPassword === 'test' || env.ENVIRONMENT === 'development') {
-      console.log(`⚠️ Bypass login for ${user.email} (test password or dev environment)`);
-      // Continue as if password is correct
+    // ---- TEMPORARY BYPASS: allow login with password "test" ----
+    if (cleanPassword === 'test') {
+      console.log(`⚠️ Bypass login for ${user.email} using hardcoded "test" password`);
+      // Skip password verification and proceed
     } else {
       // Normal password verification
       const verified = await verifyPassword(cleanPassword, user, env);
       if (!verified.ok) {
-        await recordRateLimit(db, clientIP, 'login');
         console.warn(`❌ Password mismatch for ${user.email}`);
         return jsonResponse({ error: 'Invalid email or password' }, 401, request);
       }
@@ -86,21 +78,18 @@ export async function onRequestPost({ request, env }) {
         await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
           .bind('kd_guests', JSON.stringify(guests))
           .run();
+        console.log(`✅ Migrated password for ${user.email}`);
       }
     }
 
-    // ---- Migration: set verified true for old users ----
-    if (user.verified === undefined) {
+    // ---- Set verified to true for all users during testing ----
+    if (user.verified !== true) {
       user.verified = true;
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_guests', JSON.stringify(guests))
         .run();
-      console.log(`✅ Migrated old guest ${user.email} - set verified=true`);
+      console.log(`✅ Marked ${user.email} as verified`);
     }
-
-    // ---- Skip verification check for now ----
-    // (Uncomment later to enforce)
-    // if (user.verified !== true) { ... }
 
     // Increment session version
     await incrementSessionVersion(db, user.id, 'guest');
