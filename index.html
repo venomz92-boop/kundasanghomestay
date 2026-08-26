@@ -2332,63 +2332,63 @@ function closeBooking() {
     }
 
     async function processPayment() {
-      if (!currentGuest) {
-        showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
-        return;
-      }
-      var guestName = document.getElementById("guestName").value.trim();
-      var guestEmail = document.getElementById("guestEmail").value.trim();
-      var guestPhone = document.getElementById("guestPhone").value.trim();
-      var ci = document.getElementById("bookingCheckin").value;
-      var co = document.getElementById("bookingCheckout").value;
-      if (!guestName || !guestEmail || !guestPhone) {
-        showAlert("Incomplete Information", "Please provide your Name, Email, and WhatsApp number.");
-        return;
-      }
-      if (!selectedHomestay || !selectedHomestay.id) {
-        showAlert("Booking Error", "Please select a valid homestay.");
-        return;
-      }
-      var bookingId = "KDH-" + crypto.randomUUID().slice(0,8).toUpperCase();
-      var draft = { id: bookingId, homestayId: selectedHomestay.id, checkin: ci, checkout: co, guestId: currentGuest.id };
-      window.lastCreatedBooking = draft;
+  if (!currentGuest) {
+    showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
+    return;
+  }
+  var guestName = document.getElementById("guestName").value.trim();
+  var guestEmail = document.getElementById("guestEmail").value.trim();
+  var guestPhone = document.getElementById("guestPhone").value.trim();
+  var ci = document.getElementById("bookingCheckin").value;
+  var co = document.getElementById("bookingCheckout").value;
+  if (!guestName || !guestEmail || !guestPhone) {
+    showAlert("Incomplete Information", "Please provide your Name, Email, and WhatsApp number.");
+    return;
+  }
+  if (!selectedHomestay || !selectedHomestay.id) {
+    showAlert("Booking Error", "Please select a valid homestay.");
+    return;
+  }
+  var bookingId = "KDH-" + crypto.randomUUID().slice(0,8).toUpperCase();
+  var draft = { id: bookingId, homestayId: selectedHomestay.id, checkin: ci, checkout: co, guestId: currentGuest.id };
+  window.lastCreatedBooking = draft;
 
-      try {
-        var headers = Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader());
-        var createRes = await fetch(API_BASE + '/bookings', {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify({ action: 'createPublicBooking', booking: draft, guestId: currentGuest.id })
-        });
-        var created = await createRes.json();
-        if (!createRes.ok || !created.success) {
-          showAlert('Booking Error', created.error || 'Could not create booking.');
-        return;
-      }
-
-        var booking = created.booking;
-        window.lastCreatedBooking = booking;
-
-        // ==== FIX: Store booking in sessionStorage for return ====
-        sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
-
-        var payRes = await fetch(API_BASE + '/toyyibpay-create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId: booking.id })
-        });
-        var payment = await payRes.json();
-        if (!payRes.ok || !payment.success) {
-          showAlert('Payment Setup Error', payment.error || 'Unable to create the payment bill. Your booking remains pending payment; please retry later.');
-          return;
-        }
-        localStorage.setItem('kd_guest_pending_payment', JSON.stringify(booking));
-        window.location.href = payment.url;
-      } catch (e) {
-        console.error('Booking/payment error:', e);
-        showAlert('Network Error', 'Could not connect to the booking server. Please try again.');
-      }
+  try {
+    var headers = Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader());
+    var createRes = await fetch(API_BASE + '/bookings', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ action: 'createPublicBooking', booking: draft, guestId: currentGuest.id })
+    });
+    var created = await createRes.json();
+    if (!createRes.ok || !created.success) {
+      showAlert('Booking Error', created.error || 'Could not create booking.');
+      return;
     }
+    var booking = created.booking;
+    window.lastCreatedBooking = booking;
+
+    // Store in sessionStorage for return
+    sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
+
+    // ✅ FIX: Send CSRF token when creating the payment bill
+    var payRes = await fetch(API_BASE + '/toyyibpay-create', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader()),
+      body: JSON.stringify({ bookingId: booking.id })
+    });
+    var payment = await payRes.json();
+    if (!payRes.ok || !payment.success) {
+      showAlert('Payment Setup Error', payment.error || 'Unable to create the payment bill. Your booking remains pending payment; please retry later.');
+      return;
+    }
+    localStorage.setItem('kd_guest_pending_payment', JSON.stringify(booking));
+    window.location.href = payment.url;
+  } catch (e) {
+    console.error('Booking/payment error:', e);
+    showAlert('Network Error', 'Could not connect to the booking server. Please try again.');
+  }
+}
 
     // =============================================================
     // HANDLE PAYMENT RETURN FROM TOYYIBPAY (NEW)
