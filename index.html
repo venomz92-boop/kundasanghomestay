@@ -1954,7 +1954,7 @@ function whatsappOwnerFromThankYou() {
   if (!phone || phone.length < 9) phone = '60123456789';
   if (phone.startsWith('0')) phone = '60' + phone.substring(1);
 
-  var message = '🆕 *New Confirmed Booking!* 🏔️\n\n' +
+  var message = '🆕 *Hi,* ' + (booking.homestay || selectedHomestay?.name || 'Kundasang Homestay') + '\n\n' +
     '*Booking ID:* ' + (booking.id || bookingId) + '\n' +
     '*Homestay:* ' + (booking.homestay || selectedHomestay?.name || 'Kundasang Homestay') + '\n' +
     '*Guest Name:* ' + (booking.guestName || 'Guest') + '\n' +
