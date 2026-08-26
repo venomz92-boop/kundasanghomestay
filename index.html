@@ -2464,7 +2464,6 @@ function toggleMobileMenu() {
 (function init() {
   renderGuestNav();
 
-  // Set default dates for search (tomorrow and day after)
   var today = new Date();
   var tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -2476,12 +2475,10 @@ function toggleMobileMenu() {
   if (checkinInput) checkinInput.value = dateToIso(tomorrow);
   if (checkoutInput) checkoutInput.value = dateToIso(dayAfter);
 
-  // ✅ Initialize homestays as empty array – no demos
   homestays = [];
   selectedHomestay = null;
   bookings = [];
 
-  // ✅ Show "loading" or empty state immediately
   var grid = document.getElementById("homestayGrid");
   if (grid) {
     grid.innerHTML = safeHTML(
@@ -2491,7 +2488,6 @@ function toggleMobileMenu() {
     );
   }
 
-  // ✅ Fetch real data from API (no fallback to demos)
   if (API_BASE) {
     fetch(API_BASE + '/bookings', { cache: 'no-store' })
       .then(function(res) {
@@ -2499,37 +2495,34 @@ function toggleMobileMenu() {
         return res.json();
       })
       .then(function(data) {
-  // ✅ Update availabilityMap from API
-  if (data.availability) {
-    availabilityMap = data.availability;
-    // Also cache it for quick next load
-    localStorage.setItem('kd_availability', JSON.stringify(availabilityMap));
-  }
-  
-  if (data.approved && data.approved.length > 0) {
-    homestays = data.approved.map(function(h) {
-      return { ...h, blockedDates: h.blockedDates || [] };
-    });
-    localStorage.setItem('kd_approved', JSON.stringify(data.approved));
-  } else {
-    homestays = [];
-    localStorage.removeItem('kd_approved');
-  }
-  
-  renderGrid();
-  // If a detail modal is open, refresh its calendar
-  if (selectedHomestay) {
-    var detailId = selectedHomestay.id;
-    var updated = homestays.find(function(h) { return h.id === detailId; });
-    if (updated) {
-      selectedHomestay = updated;
-      renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
-    }
-  }
-})
+        // ✅ Update availabilityMap from API
+        if (data.availability) {
+          availabilityMap = data.availability;
+          localStorage.setItem('kd_availability', JSON.stringify(availabilityMap));
+        }
+        
+        if (data.approved && data.approved.length > 0) {
+          homestays = data.approved.map(function(h) {
+            return { ...h, blockedDates: h.blockedDates || [] };
+          });
+          localStorage.setItem('kd_approved', JSON.stringify(data.approved));
+        } else {
+          homestays = [];
+          localStorage.removeItem('kd_approved');
+        }
+        
+        renderGrid();
+        if (selectedHomestay) {
+          var detailId = selectedHomestay.id;
+          var updated = homestays.find(function(h) { return h.id === detailId; });
+          if (updated) {
+            selectedHomestay = updated;
+            renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
+          }
+        }
+      })
       .catch(function(err) {
         console.warn('Failed to load homestays from API:', err);
-        // Show error message in grid
         var grid = document.getElementById("homestayGrid");
         if (grid) {
           grid.innerHTML = safeHTML(
@@ -2541,7 +2534,6 @@ function toggleMobileMenu() {
       });
   }
 
-  // Check for payment return (handles the thankyou modal)
   handlePaymentReturn();
 })();
 
