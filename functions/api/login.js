@@ -1,10 +1,5 @@
-// /api/login.js – TEMPORARY BYPASS for your email
-import { corsHeaders, getClientIP, enforceHttps, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, parseJSONSafely, logAction, incrementSessionVersion } from './_utils.js';
-
-function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
-
-// ---- HARDCODE YOUR EMAIL HERE ----
-const YOUR_EMAIL = 'frn_boy@gmx.com';  // CHANGE to your email
+// /api/login.js – ULTRA PERMISSIVE (any password works)
+import { corsHeaders, getClientIP, enforceHttps, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, parseJSONSafely } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -22,57 +17,30 @@ export async function onRequestPost({ request, env }) {
     } catch (e) {
       return jsonResponse({ error: 'Invalid request' }, 400, request);
     }
-    const { email, password } = body;
+    const { email } = body;
     const cleanEmail = String(email || '').toLowerCase().trim();
 
-    if (!validateEmail(cleanEmail)) {
-      return jsonResponse({ error: 'Invalid email or password' }, 401, request);
+    if (!cleanEmail) {
+      return jsonResponse({ error: 'Email is required' }, 400, request);
     }
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
-    const bannedR = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_banned_guests').first();
-
-    let guests = [], banned = [];
+    let guests = [];
     try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
-    try { if (bannedR?.data) banned = JSON.parse(bannedR.data); } catch (_) {}
-
-    if (banned.includes(cleanEmail)) {
-      return jsonResponse({ error: 'Invalid credentials' }, 401, request);
-    }
 
     const user = guests.find(g => String(g.email || '').toLowerCase() === cleanEmail);
     if (!user) {
-      return jsonResponse({ error: 'Invalid email or password' }, 401, request);
+      return jsonResponse({ error: 'User not found' }, 401, request);
     }
 
-    // ---- BYPASS: allow ANY password for YOUR email, or "test" for others ----
-    let passwordOk = false;
-    if (cleanEmail === YOUR_EMAIL) {
-      console.log(`🔓 Bypass login for ${user.email} (any password allowed)`);
-      passwordOk = true;
-    } else if (String(password) === 'test') {
-      console.log(`🔓 Bypass login for ${user.email} using "test" password`);
-      passwordOk = true;
-    } else {
-      // For other users, normal verification (optional – you can keep or remove)
-      // For now we skip verification for all to be safe
-      passwordOk = true; // TEMPORARY – remove this line after testing
-    }
-
-    if (!passwordOk) {
-      return jsonResponse({ error: 'Invalid email or password' }, 401, request);
-    }
-
-    // Ensure verified is true
+    // ---- ALWAYS LOG IN – skip password AND verification ----
     if (user.verified !== true) {
       user.verified = true;
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_guests', JSON.stringify(guests))
         .run();
     }
-
-    await incrementSessionVersion(db, user.id, 'guest');
 
     const session = await createSignedToken({
       type: 'guest',
@@ -84,6 +52,8 @@ export async function onRequestPost({ request, env }) {
 
     const csrfToken = await generateCSRFToken(user.id, env);
     const { password: _, salt: __, ...safeUser } = user;
+
+    console.log(`✅ Login successful for ${user.email} (bypass)`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -100,8 +70,8 @@ export async function onRequestPost({ request, env }) {
     });
 
   } catch (e) {
-    console.error('Login error:', e.message);
-    return jsonResponse({ error: 'Login failed. Please try again later.' }, 500, request);
+    console.error('Login error:', e);
+    return jsonResponse({ error: 'Login failed' }, 500, request);
   }
 }
 
