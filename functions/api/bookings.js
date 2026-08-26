@@ -336,12 +336,70 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true }, 200, request);
     }
 
-    // ... (rest of admin actions unchanged)
-    // For brevity, I'm omitting the remaining admin actions (removeApprovedHomestay, clearAll, etc.)
-    // They remain identical to your original. I'll include a placeholder comment.
+    if (action === "deleteGuest") {
+    const guestId = body.guestId ? String(body.guestId) : '';
+    const email = body.email ? String(body.email).toLowerCase().trim() : '';
 
-    // ===== All other admin actions (same as before) =====
-    // ... (keep your existing code for deleteGuest, updateGuests, updateHomestays, updateBookings, etc.)
+    // Debug: log the incoming request
+    console.log(`[deleteGuest] guestId=${guestId}, email=${email}`);
+
+    if (!guestId && !email) {
+        return jsonResponse({ error: 'Guest ID or email is required' }, 400, request);
+    }
+
+    const guestRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
+    let guests = [];
+    if (guestRes?.data) { try { guests = JSON.parse(guestRes.data); } catch (_) {} }
+
+    // Find the guest by ID or email
+    const deleted = guests.find(g =>
+        (guestId && String(g.id) === guestId) ||
+        (email && String(g.email || '').toLowerCase().trim() === email)
+    );
+
+    if (!deleted) {
+        console.warn(`[deleteGuest] Guest not found for id=${guestId} or email=${email}`);
+        return jsonResponse({ error: 'Guest not found' }, 404, request);
+    }
+
+    const deletedEmail = String(deleted.email || '').toLowerCase().trim();
+    const deletedId = String(deleted.id || '');
+    const remainingGuests = guests.filter(g => {
+        const sameId = deletedId && String(g.id || '') === deletedId;
+        const sameEmail = deletedEmail && String(g.email || '').toLowerCase().trim() === deletedEmail;
+        return !sameId && !sameEmail;
+    });
+
+    // Update banned list
+    const bannedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_banned_guests").first();
+    let banned = [];
+    if (bannedRes?.data) { try { banned = JSON.parse(bannedRes.data); } catch (_) {} }
+    if (!Array.isArray(banned)) banned = [];
+    if (deletedEmail && !banned.includes(deletedEmail)) banned.push(deletedEmail);
+
+    // Save changes
+    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_guests", JSON.stringify(remainingGuests)).run();
+    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_banned_guests", JSON.stringify(banned)).run();
+
+    await logAction({
+        db,
+        action: 'guest_deleted_and_banned',
+        admin: 'admin',
+        details: `Deleted and banned guest ${deletedEmail || deletedId}`,
+        ip: clientIP,
+        userId: deletedId || deletedEmail
+    });
+
+    console.log(`[deleteGuest] Successfully deleted guest ${deletedEmail} (${deletedId})`);
+
+    return jsonResponse({
+        success: true,
+        deleted: { id: deletedId, email: deletedEmail },
+        bannedGuests: banned
+    }, 200, request);
+}
 
     return jsonResponse({ success: true, message: "Synced" }, 200, request);
 
