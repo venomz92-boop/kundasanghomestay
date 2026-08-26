@@ -6,7 +6,6 @@ export async function onRequestPost({ request, env }) {
   if (redirect) return redirect;
 
   try {
-    // 1. Authorization
     const authHeader = request.headers.get('Authorization') || '';
     const expectedToken = env.TOYYIBPAY_SECRET_KEY || '';
     const clientIP = getClientIP(request);
@@ -18,7 +17,6 @@ export async function onRequestPost({ request, env }) {
       return new Response('Unauthorized - Secret key not configured', { status: 401, headers: corsHeaders(request) });
     }
 
-    // Accept either Bearer token OR allowed IP
     const isAuthorized = (authHeader === 'Bearer ' + expectedToken) || isAllowedIP;
     if (!isAuthorized) {
       console.warn(`🔐 Payout webhook unauthorized from IP ${clientIP}`);
@@ -29,8 +27,6 @@ export async function onRequestPost({ request, env }) {
     const payoutCode = formData.get('payoutCode') || formData.get('PayoutCode') || formData.get('payout_reference_no');
     const status = formData.get('status');
     const amount = formData.get('amount');
-    const bankCode = formData.get('bankCode');
-    const accountNumber = formData.get('bankAccountNumber');
     const referenceNo = formData.get('referenceNo') || formData.get('payoutReferenceNo');
     const transactionDate = formData.get('transactionDate') || new Date().toISOString();
 
