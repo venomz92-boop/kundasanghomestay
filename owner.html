@@ -674,6 +674,33 @@
 <script src="animations.js"></script>
 <script>
 // =============================================================
+// DOMPurify Helper – prevents XSS via innerHTML
+// =============================================================
+function safeHTML(html) {
+  if (!html) return '';
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'div', 'span', 'p', 'a', 'br', 'b', 'i', 'u', 'strong', 'em',
+      'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
+      'button','input','form','label','select','option','textarea',
+      'section','article','header','footer','nav','main','aside',
+      'code','pre','blockquote','hr','small','sub','sup','svg','path',
+      'img'
+    ],
+    ALLOWED_ATTR: [
+      'id','class','style','href','src','alt','title','rel','target',
+      'onclick','onchange','oninput','onload','onerror',
+      'method','action','type','name','value','placeholder',
+      'checked','disabled','readonly','required','multiple',
+      'min','max','step','pattern','autocomplete','inputmode',
+      'viewBox','fill','stroke','stroke-width','d'
+    ],
+    ALLOW_DATA_ATTR: false,
+    FORCE_HTTPS: true
+  });
+}
+
+// =============================================================
 // CUSTOM MODAL SYSTEM
 // =============================================================
 function showModal(title, message, buttons) {
@@ -886,7 +913,7 @@ async function ownerLogin() {
       ownerHomestayIds = allHomestays.map(h => h.id);
       const selector = document.getElementById('homestaySelector');
       if (selector) {
-        selector.innerHTML = '<option value="all">📍 All Linked Homestays</option>';
+        selector.innerHTML = safeHTML('<option value="all">📍 All Linked Homestays</option>');
         allHomestays.forEach(h => {
           const opt = document.createElement('option');
           opt.value = h.id;
@@ -913,10 +940,13 @@ async function ownerLogin() {
   }
 }
 
+// =============================================================
+// LOAD BOOKINGS – PATCHED WITH safeHTML
+// =============================================================
 async function loadBookings() {
   if (!ownerToken) return;
   const listDiv = document.getElementById('ownerBookingsList');
-  if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 py-6 text-center">Refreshing dynamic logs...</div>';
+  if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-zinc-400 py-6 text-center">Refreshing dynamic logs...</div>');
   try {
     const res = await fetch(API_BASE + '/owner-bookings', {
       headers: { 'Owner-Authorization': 'Bearer ' + ownerToken },
@@ -953,7 +983,7 @@ async function loadBookings() {
       }
     }
     if (filteredBookings.length === 0) {
-      if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-500 py-6 text-center">No active reservation cycles discovered.</div>';
+      if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-zinc-500 py-6 text-center">No active reservation cycles discovered.</div>');
       return;
     }
     let html = '';
@@ -974,12 +1004,9 @@ async function loadBookings() {
       const isCancelled = status.toLowerCase().includes('cancelled');
       let statusBadge = '';
       if (isCompleted) {
-        // ✅ Check if payout success webhook was received
         if (b.payoutSuccess === true && b.payoutSuccessDate) {
           statusBadge = `<span class="text-[10px] bg-green-100 text-green-800 border border-green-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">✅ Payout Success</span>`;
         } else if (payoutDate) {
-          // Payout was initiated but not yet confirmed by ToyyibPay
-          // "Guest Checked In" in GREEN
           statusBadge = `<span class="text-[10px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">⏳ Payout Processing • <span class="text-green-600">Guest Checked In</span></span>`;
         } else {
           statusBadge = '<span class="text-[10px] bg-green-100 text-green-800 border border-green-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">✓ Completed / Guest Checked-in</span>';
@@ -1011,7 +1038,6 @@ async function loadBookings() {
         if (b.payoutSuccess === true && b.payoutSuccessDate) {
           actionButtons = `<span class="text-xs text-green-700 font-bold">✅ Payout success (${payoutDisplay})</span>`;
         } else if (payoutDate) {
-          // "Guest Checked in" in GREEN
           actionButtons = `<span class="text-xs text-yellow-600 font-bold">⏳ Payout processing since ${payoutDisplay} • <span class="text-green-600">Guest Checked in</span></span>`;
         } else {
           actionButtons = `<span class="text-xs text-green-700 font-bold">✓ Completed (${payoutDisplay})</span>`;
@@ -1031,9 +1057,9 @@ async function loadBookings() {
         </div>
       `;
     });
-    if (listDiv) listDiv.innerHTML = html;
+    if (listDiv) listDiv.innerHTML = safeHTML(html);
   } catch(e) {
-    if (listDiv) listDiv.innerHTML = '<div class="text-sm text-red-600 text-center py-6 font-semibold">Synchronization failed. Please reload dashboard view.</div>';
+    if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-red-600 text-center py-6 font-semibold">Synchronization failed. Please reload dashboard view.</div>');
   }
 }
 
@@ -1051,16 +1077,14 @@ function openWhatsappToGuest(bookingId) {
 async function confirmCheckIn(bookingId) {
   const confirmed = await showConfirm('Guest Check-In', `Confirm guest arrival for reservation ${bookingId}?\n\nEscrow payouts are pushed automatically to your registered bank account. Guest check-in WhatsApp messages will also be auto-generated.`);
   if (!confirmed) return;
-
   try {
-    // FIX: call the dedicated owner-checkin endpoint
-    const res = await fetch(API_BASE + '/owner-checkin', {   // <-- changed from owner-update-booking
+    const res = await fetch(API_BASE + '/owner-checkin', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Owner-Authorization': 'Bearer ' + ownerToken
       },
-      body: JSON.stringify({ bookingId })   // only bookingId needed
+      body: JSON.stringify({ bookingId })
     });
     const data = await res.json();
     if (data.success) {
@@ -1184,7 +1208,7 @@ async function cancelBooking(bookingId) {
         ownerHomestayIds = allHomestays.map(h => h.id);
         const selector = document.getElementById('homestaySelector');
         if (selector) {
-          selector.innerHTML = '<option value="all">📍 All Linked Homestays</option>';
+          selector.innerHTML = safeHTML('<option value="all">📍 All Linked Homestays</option>');
           allHomestays.forEach(h => {
             const opt = document.createElement('option');
             opt.value = h.id;
