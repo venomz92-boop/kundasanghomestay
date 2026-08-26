@@ -12,7 +12,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Database not configured' }, 500, request);
     }
 
-    // D1 rate limiting
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
     const rateOk = await checkRateLimit(db, clientIP, 'admin_login', 5, 15 * 60);
     if (!rateOk) {
@@ -33,7 +32,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (password === adminPass) {
-      // ✅ FIX: Return the static ADMIN_TOKEN, not a JWT
+      // ✅ Return the static ADMIN_TOKEN from env
       const token = env.ADMIN_TOKEN;
       if (!token) {
         console.error("❌ ADMIN_TOKEN environment variable is not set!");
@@ -50,7 +49,7 @@ export async function onRequestPost({ request, env }) {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
-          'Set-Cookie': cookieHeader('admin_token', token, 8 * 60 * 60), // 8 hours
+          'Set-Cookie': cookieHeader('admin_token', token, 8 * 60 * 60),
           ...corsHeaders(request)
         }
       });
