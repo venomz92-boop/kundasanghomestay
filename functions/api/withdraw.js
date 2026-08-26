@@ -1,4 +1,4 @@
-// /api/withdraw.js - with dynamic available calculation
+// /api/withdraw.js - with fallback computation from bookings
 import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
 
 async function verifyAdmin(request, env) {
@@ -51,13 +51,19 @@ export async function onRequestPost({ request, env }) {
     const data = await parseJSONSafely(request);
     const { amount, reset, action } = data || {};
 
+    // ----- Read earnings and bookings -----
     let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
+    let bookings = [];
 
     try {
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
       if (r) earnings = JSON.parse(r.data);
+      
+      // Also fetch bookings to compute fallback total
+      const bRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+      if (bRes) bookings = JSON.parse(bRes.data);
     } catch (e) {
-      console.error("❌ Failed to read fee earnings:", e.message);
+      console.error("❌ Failed to read data:", e.message);
       return new Response(JSON.stringify({ 
         error: "Database error. Please try again later." 
       }), { 
@@ -66,10 +72,32 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // ✅ Compute actual available balance
+    // ----- FALLBACK: If stored total is 0, compute from bookings -----
+    if (earnings.total === 0 && bookings.length > 0) {
+      const totalFees = bookings.reduce((sum, b) => {
+        // Only include completed or paid-out bookings
+        const status = (b.status || '').toLowerCase();
+        if (status.includes('completed') || status.includes('payout') || status.includes('paid - awaiting check-in') || b.payoutDate) {
+          const fee = b.youReceive || b.fee || 0;
+          return sum + fee;
+        }
+        return sum;
+      }, 0);
+      if (totalFees > 0) {
+        earnings.total = totalFees;
+        earnings.available = totalFees - (earnings.withdrawn || 0);
+        // Persist the computed total so future reads don't need to recompute
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_fee_earnings", JSON.stringify(earnings))
+          .run();
+        console.log(`✅ Computed and saved earnings total: RM${totalFees}`);
+      }
+    }
+
+    // ✅ Compute actual available balance (fallback already applied)
     const actualAvailable = (earnings.total || 0) - (earnings.withdrawn || 0);
 
-    // Reset logic
+    // Reset logic (unchanged)
     if (reset === true || action === "reset") {
       const prevWithdrawn = earnings.withdrawn || 0;
       const prevTotal = earnings.total || 0;
@@ -116,6 +144,7 @@ export async function onRequestPost({ request, env }) {
       }), { status: 200, headers: corsHeaders(request) });
     }
 
+    // ---- Withdrawal logic (uses actualAvailable) ----
     const bankName = LOCKED_BANK.bankName;
     const accountHolder = LOCKED_BANK.accountHolder;
     const accountNumber = LOCKED_BANK.accountNumber;
@@ -151,7 +180,6 @@ export async function onRequestPost({ request, env }) {
 
     const withdrawAmount = Number(amount);
 
-    // ✅ Use actual available for balance check
     if (withdrawAmount > actualAvailable) {
       return new Response(JSON.stringify({ 
         error: `Insufficient balance. Available: RM${actualAvailable.toFixed(2)}` 
@@ -260,7 +288,7 @@ export async function onRequestPost({ request, env }) {
     try {
       earnings.withdrawn = (earnings.withdrawn || 0) + withdrawAmount;
       earnings.history.push({ ...withdrawal, type: "withdrawal" });
-      earnings.available = earnings.total - earnings.withdrawn; // update for display
+      earnings.available = earnings.total - earnings.withdrawn;
 
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_fee_earnings", JSON.stringify(earnings))
@@ -308,7 +336,7 @@ export async function onRequestPost({ request, env }) {
       earnings: {
         total: earnings.total,
         withdrawn: earnings.withdrawn,
-        available: earnings.total - earnings.withdrawn  // computed
+        available: earnings.total - earnings.withdrawn
       },
       security: "Bank details LOCKED server-side",
       simulation: payoutData?.simulation || false
@@ -325,6 +353,7 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
+// GET and DELETE methods (unchanged from previous version)
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -337,7 +366,25 @@ export async function onRequestGet({ request, env }) {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
       if (r) earnings = JSON.parse(r.data);
-      earnings.available = (earnings.total || 0) - (earnings.withdrawn || 0);
+      // If total is 0, try to compute from bookings as fallback
+      if (earnings.total === 0) {
+        const bRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+        if (bRes) {
+          const bookings = JSON.parse(bRes.data);
+          const totalFees = bookings.reduce((sum, b) => {
+            const status = (b.status || '').toLowerCase();
+            if (status.includes('completed') || status.includes('payout') || status.includes('paid - awaiting check-in') || b.payoutDate) {
+              return sum + (b.youReceive || b.fee || 0);
+            }
+            return sum;
+          }, 0);
+          earnings.total = totalFees;
+          earnings.available = totalFees - (earnings.withdrawn || 0);
+          // Optionally save to db (we'll do it in POST, but for GET we just compute)
+        }
+      } else {
+        earnings.available = (earnings.total || 0) - (earnings.withdrawn || 0);
+      }
     } catch (e) {
       console.error("❌ Failed to read earnings for GET:", e.message);
     }
