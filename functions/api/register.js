@@ -1,5 +1,5 @@
 // /api/register.js
-import { corsHeaders, getClientIP, enforceHttps, hashPassword, generateCSRFToken, createSignedToken, cookieHeader, jsonResponse } from './_utils.js';
+import { corsHeaders, getClientIP, enforceHttps, hashPassword, generateCSRFToken, createSignedToken, cookieHeader, jsonResponse, logAction } from './_utils.js';
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 function validatePhone(phone) { const d = String(phone).replace(/\D/g, ''); return d.length >= 10 && d.length <= 12; }
