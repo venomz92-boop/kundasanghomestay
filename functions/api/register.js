@@ -19,6 +19,18 @@ export async function onRequestPost({ request, env }) {
       );
     }
 
+  // Generate verification token
+const verifyToken = await createSignedToken({
+  type: 'email_verification',
+  userId: newGuest.id,
+  email: newGuest.email
+}, env, 24 * 60 * 60 * 1000);
+const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
+const verifyUrl = `${domain}/api/verify-email?token=${encodeURIComponent(verifyToken)}`;
+
+// Send email (using the same helper as above)
+await sendVerificationEmail(newGuest.email, newGuest.name, verifyUrl, env);
+    
     let { name, email, phone, password } = await request.json();
     name = clean(name, 100);
     email = String(email || '').toLowerCase().trim();
