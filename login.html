@@ -683,16 +683,25 @@ async function handleLogin(e) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-    const data = await res.json();
+
+    // --- Read response as text first to avoid JSON parse errors ---
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error('Failed to parse JSON from server:', text);
+      errorEl.textContent = 'Server returned an invalid response. Please try again later.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
     if (data.success) {
       currentGuest = data.guest;
       localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
-      
-      // ✅ SAVE CSRF TOKEN
       if (data.csrfToken) {
         localStorage.setItem('kd_csrf_token', data.csrfToken);
       }
-      
       renderGuestNav();
       await showAlert('Welcome Back!', 'Welcome back ' + data.guest.name + '! You will be redirected to your bookings.');
       window.location.href = '/mybookings.html';
