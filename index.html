@@ -2434,7 +2434,7 @@ function toggleMobileMenu() {
 }
 
 // =============================================================
-// INITIALIZATION - CLEAN (NO DEMOS, uses availabilityMap)
+// INITIALIZATION - FETCH PUBLIC AVAILABILITY WITH credentials: 'omit'
 // =============================================================
 (function init() {
   renderGuestNav();
@@ -2464,13 +2464,14 @@ function toggleMobileMenu() {
   }
 
   if (API_BASE) {
-    fetch(API_BASE + '/bookings', { cache: 'no-store' })
+    // ✅ Always fetch public view (no credentials)
+    fetch(API_BASE + '/bookings', { cache: 'no-store', credentials: 'omit' })
       .then(function(res) {
         if (!res.ok) throw new Error('API error: ' + res.status);
         return res.json();
       })
       .then(function(data) {
-        // ✅ Update availabilityMap from API
+        // ✅ Set availabilityMap from public API
         if (data.availability) {
           availabilityMap = data.availability;
           localStorage.setItem('kd_availability', JSON.stringify(availabilityMap));
@@ -2487,6 +2488,7 @@ function toggleMobileMenu() {
         }
         
         renderGrid();
+        // If a detail modal is open, refresh its calendar
         if (selectedHomestay) {
           var detailId = selectedHomestay.id;
           var updated = homestays.find(function(h) { return h.id === detailId; });
