@@ -1,5 +1,5 @@
 // /api/payout.js - COMPLETE with security fixes
-import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken } from './_utils.js';
+import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, checkRateLimit, recordRateLimit } from './_utils.js';
 
 async function verifyAdmin(request, env) {
   const auth = await getAdminToken(request);
@@ -13,28 +13,6 @@ function validateBankAccount(account) {
   return clean.length >= 10 && clean.length <= 15;
 }
 
-const payoutAttempts = new Map();
-
-function checkRateLimit(ip) {
-  const key = ip || 'unknown';
-  const now = Date.now();
-  const attempts = payoutAttempts.get(key) || [];
-  const recent = attempts.filter(t => now - t < 5 * 60 * 1000);
-  if (recent.length >= 3) {
-    return { blocked: true, remaining: 0 };
-  }
-  return { blocked: false, remaining: 3 - recent.length };
-}
-
-function recordPayoutAttempt(ip) {
-  const key = ip || 'unknown';
-  const now = Date.now();
-  const attempts = payoutAttempts.get(key) || [];
-  const recent = attempts.filter(t => now - t < 5 * 60 * 1000);
-  recent.push(now);
-  payoutAttempts.set(key, recent);
-}
-
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -44,9 +22,14 @@ export async function onRequestPost({ request, env }) {
 
   try {
     const clientIP = getClientIP(request);
-    
-    const rateLimit = checkRateLimit(clientIP);
-    if (rateLimit.blocked) {
+    const db = env.DB;
+    if (!db) {
+      return new Response(JSON.stringify({ error: "Database not configured" }), { status: 500, headers: corsHeaders(request) });
+    }
+
+    // Persistent rate limiting
+    const rateOk = await checkRateLimit(db, clientIP, 'payout', 5, 5 * 60);
+    if (!rateOk) {
       return new Response(JSON.stringify({ 
         error: "Too many payout attempts. Please wait 5 minutes." 
       }), { 
@@ -88,11 +71,15 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    const db = env.DB;
     const cleanOwnerAcc = String(ownerAcc || "").replace(/[^0-9]/g, "");
     const payoutAmount = Number(amount);
     const isToyyibLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
+    const isProduction = env.ENVIRONMENT === "production";
 
+    // ***** SAFETY: Never simulate in production *****
+    const allowSimulation = !isProduction && env.PAYOUT_SIMULATION === "true";
+
+    // Check duplicate payout
     if (db) {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
     }
@@ -117,9 +104,11 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    recordPayoutAttempt(clientIP);
+    // Record attempt after duplicate check
+    await recordRateLimit(db, clientIP, 'payout');
 
     if (!isToyyibLive) {
+      // Manual fallback with simulation guard
       if (db) {
         try {
           const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
