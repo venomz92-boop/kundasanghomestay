@@ -2363,8 +2363,9 @@ function closeBooking() {
         var created = await createRes.json();
         if (!createRes.ok || !created.success) {
           showAlert('Booking Error', created.error || 'Could not create booking.');
-          return;
-        }
+        return;
+      }
+
         var booking = created.booking;
         window.lastCreatedBooking = booking;
 
