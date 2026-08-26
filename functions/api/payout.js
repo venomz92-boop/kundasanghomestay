@@ -1,22 +1,10 @@
 // /api/payout.js - COMPLETE with security fixes
-import { corsHeaders, getClientIP, logAction, enforceHttps } from './_utils.js';
+import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken } from './_utils.js';
 
-function verifyAdmin(request, env) {
-  const auth = request.headers.get("Authorization") || "";
-  const expectedToken = env.ADMIN_TOKEN || "";
-  if (!expectedToken) {
-    return new Response(JSON.stringify({ error: "Server misconfigured" }), {
-      status: 500,
-      headers: corsHeaders(request)
-    });
-  }
-  const expected = "Bearer " + expectedToken;
-  if (auth !== expected) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: corsHeaders(request)
-    });
-  }
+async function verifyAdmin(request, env) {
+  const auth = await getAdminToken(request);
+  if (!env.ADMIN_TOKEN) return new Response(JSON.stringify({ error: "Server misconfigured" }), { status: 500, headers: corsHeaders(request) });
+  if (auth !== env.ADMIN_TOKEN) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders(request) });
   return null;
 }
 
@@ -51,7 +39,7 @@ export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
   
-  const authError = verifyAdmin(request, env);
+  const authError = await verifyAdmin(request, env);
   if (authError) return authError;
 
   try {

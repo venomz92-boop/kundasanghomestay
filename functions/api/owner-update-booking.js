@@ -1,18 +1,7 @@
 // /api/owner-update-booking.js - Owner can change dates, confirm check-in, and cancel
-import { corsHeaders, getClientIP, logAction, enforceHttps } from './_utils.js';
+import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
 
-function verifyOwner(request) {
-  const auth = request.headers.get("Owner-Authorization") || "";
-  if (!auth.startsWith("Bearer ")) return null;
-  try {
-    const token = auth.replace("Bearer ", "");
-    const data = JSON.parse(atob(token));
-    if (data.ownerId && data.ts && (Date.now() - data.ts < 24 * 60 * 60 * 1000)) {
-      return data;
-    }
-  } catch(e) { return null; }
-  return null;
-}
+async function verifyOwner(request, env) { return getOwnerSession(request, env); }
 
 function calculateNights(checkin, checkout) {
   if (!checkin || !checkout) return 1;
@@ -54,8 +43,8 @@ export async function onRequestPost({ request, env }) {
   const clientIP = getClientIP(request);
 
   try {
-    const ownerData = verifyOwner(request);
-    if (!ownerData) {
+    const ownerData = await verifyOwner(request, env);
+    if (!ownerData || ownerData.type !== 'owner') {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders(request) });
     }
 
@@ -85,7 +74,7 @@ export async function onRequestPost({ request, env }) {
     const booking = bookings[idx];
 
     // SECURITY: Verify this owner owns this homestay
-    if (String(booking.homestayId) !== String(ownerData.ownerId)) {
+    if (!(ownerData.homestayIds || [ownerData.ownerId]).map(String).includes(String(booking.homestayId))) {
       console.warn(`⚠️ Owner ${ownerData.whatsapp} tried to modify booking for homestay ${booking.homestayId} but owns ${ownerData.ownerId}`);
       return new Response(JSON.stringify({ error: "Unauthorized: You do not own this homestay" }), { status: 403, headers: corsHeaders(request) });
     }

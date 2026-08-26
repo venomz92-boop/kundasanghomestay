@@ -1169,10 +1169,8 @@ async function submitHomestay() {
     if (!icName) { await showAlert("Required Field", "Legal registration name matching IC is required."); return; }
     if (!bankConfirm) { await showAlert("Escrow Agreement", "Please consent to Host bank verification checkbox."); return; }
     if (tempPhotos.length === 0) { await showAlert("Required Field", "Add at least 1 cover photo of your homestay."); return; }
-    if (ownerPassword.length < 6) { await showAlert("Required Field", "Password must exceed 5 characters."); return; }
+    if (ownerPassword.length < 8) { await showAlert("Required Field", "Password must be at least 8 characters."); return; }
     if (!tempIcWatermarked) { await showAlert("Required Field", "Identity document front upload is mandatory."); return; }
-    const ownerSalt = generateSalt();
-    const ownerPasswordHash = await sha256(PEPPER + ownerPassword + ownerSalt);
     const newHome = {
       id: Date.now(),
       name: homestayName,
@@ -1202,12 +1200,7 @@ async function submitHomestay() {
       verified: false,
       rating: 0,
       reviews: 0,
-      ownerPasswordHash: ownerPasswordHash,
-      ownerSalt: ownerSalt
     };
-    let pending = JSON.parse(localStorage.getItem("kd_pending") || "[]");
-    pending.push(newHome);
-    localStorage.setItem("kd_pending", JSON.stringify(pending));
     if (statusEl) {
       statusEl.className = 'block p-3 text-xs bg-blue-50 text-blue-700 border rounded-xl mt-3 font-semibold';
       statusEl.textContent = '⏳ Initializing client-to-cloud security handshake...';
@@ -1215,7 +1208,7 @@ async function submitHomestay() {
     const syncRes = await fetch("/api/pending", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pending: pending })
+      body: JSON.stringify({ homestay: newHome, ownerPassword: ownerPassword })
     });
     const syncData = await syncRes.json();
     if (!syncRes.ok) {

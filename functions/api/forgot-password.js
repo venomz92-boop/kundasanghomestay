@@ -1,231 +1,32 @@
-// /api/forgot-password.js - WITH RESEND EMAIL
-import { corsHeaders } from './_utils.js';
-
-async function generateResetToken() {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
+import { corsHeaders, getClientIP, jsonResponse } from './_utils.js';
+async function generateResetToken(){const b=crypto.getRandomValues(new Uint8Array(32));return Array.from(b,x=>x.toString(16).padStart(2,'0')).join('')}
+async function sendResetEmail(email,name,url,env){
+  const html=`<h2>Hello ${String(name||'Guest').replace(/[<>]/g,'')}</h2><p>You requested a password reset for Kundasang Homestay.</p><p><a href="${url}">Reset your password</a></p><p>This link expires in 1 hour.</p><p>If you did not request this, ignore this email.</p>`;
+  try{
+    if(env.RESEND_API_KEY){const r=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({from:env.FROM_EMAIL||'support@kundasanghomestay.my',to:email,subject:'Reset Your Password - Kundasang Homestay',html})});return r.ok}
+    if(env.SENDGRID_API_KEY){const r=await fetch('https://api.sendgrid.com/v3/mail/send',{method:'POST',headers:{Authorization:'Bearer '+env.SENDGRID_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({personalizations:[{to:[{email}]}],from:{email:env.FROM_EMAIL||'support@kundasanghomestay.my'},subject:'Reset Your Password - Kundasang Homestay',content:[{type:'text/html',value:html}]})});return r.ok}
+  }catch(e){console.error('Reset email error:',e.message)}
+  return false;
 }
-
-async function sendResetEmail(email, name, resetUrl, env) {
-  try {
-    // ===== Option 1: Resend (Recommended for Cloudflare) =====
-    const resendApiKey = env.RESEND_API_KEY;
-    const fromEmail = env.FROM_EMAIL || 'support@kundasanghomestay.my';
-    
-    if (resendApiKey) {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + resendApiKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: email,
-          subject: 'Reset Your Password - Kundasang Homestay',
-          html: `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <style>
-                body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: #0F382E; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-                .content { padding: 30px; background: #f8f5f0; border-radius: 0 0 8px 8px; }
-                .button { display: inline-block; background: #3FD0D4; color: white; padding: 12px 30px; text-decoration: none; border-radius: 999px; font-weight: 700; }
-                .footer { text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px; }
-              </style>
-            </head>
-            <body>
-              <div class="header">
-                <h1>🏔️ Kundasang Homestay</h1>
-              </div>
-              <div class="content">
-                <h2>Hello ${name || 'Guest'},</h2>
-                <p>You requested to reset your password for your Kundasang Homestay account.</p>
-                <p style="text-align: center; margin: 30px 0;">
-                  <a href="${resetUrl}" class="button">Reset Password</a>
-                </p>
-                <p>This link will expire in <strong>1 hour</strong>.</p>
-                <p>If you didn't request this, please ignore this email.</p>
-                <p style="margin-top: 20px;"><strong>⚠️ Security Notice:</strong> Never share this link with anyone.</p>
-              </div>
-              <div class="footer">
-                <p>Kundasang Homestay • Verified Homestays in Sabah</p>
-                <p><a href="https://kundasanghomestay.my" style="color: #3FD0D4;">kundasanghomestay.my</a></p>
-              </div>
-            </body>
-            </html>
-          `
-        })
-      });
-
-      if (response.ok) {
-        console.log(`✅ Reset email sent to ${email}`);
-        return true;
-      } else {
-        const error = await response.text();
-        console.error('❌ Resend API error:', error);
-        return false;
-      }
-    }
-
-    // ===== Option 2: SendGrid =====
-    const sendGridKey = env.SENDGRID_API_KEY;
-    if (sendGridKey) {
-      const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + sendGridKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email }] }],
-          from: { email: 'noreply@kundasanghomestay.my', name: 'Kundasang Homestay' },
-          subject: 'Reset Your Password - Kundasang Homestay',
-          content: [{
-            type: 'text/html',
-            value: `
-              <h2>Hello ${name || 'Guest'},</h2>
-              <p>You requested to reset your password.</p>
-              <p><a href="${resetUrl}">Click here to reset your password</a></p>
-              <p>This link expires in 1 hour.</p>
-              <p>If you didn't request this, please ignore this email.</p>
-            `
-          }]
-        })
-      });
-      if (response.ok) {
-        console.log(`✅ Reset email sent to ${email} via SendGrid`);
-        return true;
-      }
-      console.error('❌ SendGrid error:', await response.text());
-      return false;
-    }
-
-    // ===== Fallback: Log only =====
-    console.log(`📧 [FALLBACK] Reset link for ${email}: ${resetUrl}`);
-    console.log('⚠️ No email service configured. Set RESEND_API_KEY or SENDGRID_API_KEY in env.');
-    return false;
-
-  } catch (e) {
-    console.error('❌ Email send error:', e.message);
-    return false;
-  }
+export async function onRequestPost({request,env}){
+  try{
+    const {email,userType}=await request.json();const cleanEmail=String(email||'').toLowerCase().trim();
+    if(!cleanEmail||!['guest','owner'].includes(userType))return jsonResponse({error:'Invalid request'},400,request);
+    const db=env.DB;if(!db)return jsonResponse({error:'Server error'},500,request);
+    await db.prepare('CREATE TABLE IF NOT EXISTS store(key TEXT PRIMARY KEY,data TEXT)').run();
+    let userId=null,userData=null;
+    const read=async key=>{const r=await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();try{return r?.data?JSON.parse(r.data):[]}catch(_){return[]}};
+    if(userType==='guest'){const users=await read('kd_guests');const u=users.find(x=>String(x.email||'').toLowerCase()===cleanEmail);if(u){userId=u.id;userData={name:u.name}}}
+    else {const homes=[...(await read('kd_approved')),...(await read('kd_pending'))];const h=homes.find(x=>String(x.ownerEmail||'').toLowerCase()===cleanEmail);if(h){userId=h.id;userData={name:h.ownerName}}}
+    // Always return the same response to prevent account enumeration.
+    if(!userId)return jsonResponse({success:true,message:'If an account exists, a reset link has been sent.'},200,request);
+    await db.prepare(`CREATE TABLE IF NOT EXISTS password_resets(token TEXT PRIMARY KEY,user_id TEXT NOT NULL,user_type TEXT NOT NULL,email TEXT NOT NULL,expires_at TEXT NOT NULL,used INTEGER DEFAULT 0)`).run();
+    const token=await generateResetToken();const expiresAt=new Date(Date.now()+60*60*1000).toISOString().slice(0,19).replace('T',' ');
+    await db.prepare('INSERT OR REPLACE INTO password_resets(token,user_id,user_type,email,expires_at,used) VALUES(?,?,?,?,?,0)').bind(token,userId,userType,cleanEmail,expiresAt).run();
+    const domain=env.PUBLIC_DOMAIN||'https://kundasanghomestay.my';const resetUrl=`${domain}/reset-password.html?token=${encodeURIComponent(token)}&type=${userType}`;
+    const sent=await sendResetEmail(cleanEmail,userData?.name,resetUrl,env);
+    if(!sent)console.error('Password reset email service is not configured or failed. No reset URL is logged.');
+    return jsonResponse({success:true,message:'If an account exists, a reset link has been sent.'},200,request);
+  }catch(e){console.error('Forgot password error:',e.message);return jsonResponse({error:'Failed to process request'},500,request)}
 }
-
-export async function onRequestPost({ request, env }) {
-  try {
-    const { email, userType } = await request.json();
-
-    if (!email || !userType) {
-      return new Response(JSON.stringify({ error: "Missing email or user type" }), {
-        status: 400,
-        headers: corsHeaders(request)
-      });
-    }
-
-    const db = env.DB;
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Server error" }), {
-        status: 500,
-        headers: corsHeaders(request)
-      });
-    }
-
-    // Ensure store table exists
-    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-
-    const cleanEmail = email.toLowerCase().trim();
-    const token = await generateResetToken();
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-
-    let userId = null;
-    let userData = null;
-
-    if (userType === 'guest') {
-      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
-      let guests = [];
-      if (r && r.data) { try { guests = JSON.parse(r.data); } catch(e) {} }
-      const guest = guests.find(g => g.email && g.email.toLowerCase() === cleanEmail);
-      if (!guest) {
-        return new Response(JSON.stringify({ success: true, message: "If an account exists, a reset link has been sent." }), {
-          status: 200,
-          headers: corsHeaders(request)
-        });
-      }
-      userId = guest.id;
-      userData = { email: guest.email, name: guest.name, type: 'guest' };
-    } else if (userType === 'owner') {
-      const r1 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
-      let homestays = [];
-      if (r1 && r1.data) { try { homestays = JSON.parse(r1.data); } catch(e) {} }
-      const r2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
-      if (r2 && r2.data) { try { homestays = [...homestays, ...JSON.parse(r2.data)]; } catch(e) {} }
-
-      const owner = homestays.find(h => h.ownerEmail && h.ownerEmail.toLowerCase() === cleanEmail);
-      if (!owner) {
-        return new Response(JSON.stringify({ success: true, message: "If an account exists, a reset link has been sent." }), {
-          status: 200,
-          headers: corsHeaders(request)
-        });
-      }
-      userId = owner.id;
-      userData = { email: owner.ownerEmail, name: owner.ownerName, type: 'owner', homestayName: owner.name };
-    } else {
-      return new Response(JSON.stringify({ error: "Invalid user type" }), {
-        status: 400,
-        headers: corsHeaders(request)
-      });
-    }
-
-    // Ensure password_resets table exists with indexes
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS password_resets (
-        token TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        user_type TEXT NOT NULL,
-        email TEXT NOT NULL,
-        expires_at TEXT NOT NULL,
-        used INTEGER DEFAULT 0
-      )
-    `).run();
-
-    // Add indexes for performance
-    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_token ON password_resets(token)`).run().catch(() => {});
-    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_expires ON password_resets(expires_at)`).run().catch(() => {});
-
-    await db.prepare(`
-      INSERT OR REPLACE INTO password_resets (token, user_id, user_type, email, expires_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).bind(token, userId, userType, cleanEmail, expiresAt).run();
-
-    const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
-    const resetUrl = `${domain}/reset-password.html?token=${token}&type=${userType}`;
-
-    console.log(`🔐 Reset link for ${cleanEmail}: ${resetUrl}`);
-
-    // Send email
-    const emailSent = await sendResetEmail(cleanEmail, userData.name, resetUrl, env);
-
-    return new Response(JSON.stringify({
-      success: true,
-      message: emailSent ? "Reset link sent to your email." : "Reset link generated. (Check server logs for URL)",
-      resetUrl: env.ENVIRONMENT === 'development' ? resetUrl : undefined
-    }), {
-      status: 200,
-      headers: corsHeaders(request)
-    });
-
-  } catch (e) {
-    console.error("❌ Forgot password error:", e.message);
-    return new Response(JSON.stringify({ error: "Failed to process request" }), {
-      status: 500,
-      headers: corsHeaders(request)
-    });
-  }
-}
-
-export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
-}
+export async function onRequestOptions({request}){return new Response(null,{headers:corsHeaders(request)})}

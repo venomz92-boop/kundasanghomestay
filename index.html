@@ -2332,84 +2332,33 @@ function closeBooking() {
 }
 
 async function processPayment() {
-  // Check if user is logged in
   if (!currentGuest) {
-    showAlert("Login Required", "Please log in to complete your booking.").then(function() {
-      window.location.href = '/login.html';
-    });
+    showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
     return;
   }
-  
-  var guestName = document.getElementById("guestName").value.trim();
-  var guestEmail = document.getElementById("guestEmail").value.trim();
-  var guestPhone = document.getElementById("guestPhone").value.trim();
-  var ci = document.getElementById("bookingCheckin").value;
-  var co = document.getElementById("bookingCheckout").value;
-
-  if (!guestName || !guestEmail || !guestPhone) {
-    showAlert("Incomplete Information", "Please provide your Name, Email, and WhatsApp number.");
-    return;
-  }
-
-  var nights = calculateNights(ci, co);
-  var price = calculatePrice(selectedHomestay.ownerPrice || 200, nights);
-  var bookingId = "KDH-" + Date.now().toString().slice(-6);
-
-  var booking = {
-    id: bookingId,
-    homestay: selectedHomestay.name,
-    homestayId: selectedHomestay.id,
-    ownerWhatsapp: selectedHomestay.whatsapp || "",
-    guestId: currentGuest.id,
-    guestName: guestName, 
-    guestEmail: guestEmail, 
-    guestPhone: guestPhone,
-    checkin: ci, 
-    checkout: co, 
-    nights: nights,
-    total: price.total,
-    base: price.base,
-    fee: price.fee,
-    status: "Paid - Awaiting Check-in",
-    date: new Date().toISOString()
-  };
-
-  window.lastCreatedBooking = booking;
-
-  try {
-    // ✅ GET CSRF HEADER (from localStorage)
-    var csrfHeaders = getCsrfHeader();
-    
-    var response = await fetch(API_BASE + "/bookings", {
-      method: "POST",
-      headers: Object.assign({ 
-        "Content-Type": "application/json"
-      }, csrfHeaders),
-      body: JSON.stringify({ 
-        action: "createPublicBooking", 
-        booking: booking,
-        guestId: currentGuest.id
-      })
-    });
-    
-    var result = await response.json();
-    console.log("Booking API response:", result);
-    
-    if (response.ok && result.success) {
-      bookings.push(booking);
-      localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-      closeBooking();
-      closeDetail();
-      showThankYouModal(bookingId, booking);
-    } else {
-      console.error("Booking failed:", result);
-      showAlert("Booking Error", result.error || "Failed to save booking.");
-    }
-    
-  } catch(e) { 
-    console.error("Booking error:", e);
-    showAlert("Network Error", "Could not connect to server. Please try again.");
-  }
+  var guestName=document.getElementById("guestName").value.trim();
+  var guestEmail=document.getElementById("guestEmail").value.trim();
+  var guestPhone=document.getElementById("guestPhone").value.trim();
+  var ci=document.getElementById("bookingCheckin").value;
+  var co=document.getElementById("bookingCheckout").value;
+  if(!guestName||!guestEmail||!guestPhone){showAlert("Incomplete Information","Please provide your Name, Email, and WhatsApp number.");return;}
+  if(!selectedHomestay||!selectedHomestay.id){showAlert("Booking Error","Please select a valid homestay.");return;}
+  var bookingId="KDH-"+crypto.randomUUID().slice(0,8).toUpperCase();
+  var draft={id:bookingId,homestayId:selectedHomestay.id,checkin:ci,checkout:co,guestId:currentGuest.id};
+  window.lastCreatedBooking=draft;
+  try{
+    var headers=Object.assign({'Content-Type':'application/json'},getCsrfHeader());
+    var createRes=await fetch(API_BASE+'/bookings',{method:'POST',headers:headers,body:JSON.stringify({action:'createPublicBooking',booking:draft,guestId:currentGuest.id})});
+    var created=await createRes.json();
+    if(!createRes.ok||!created.success){showAlert('Booking Error',created.error||'Could not create booking.');return;}
+    var booking=created.booking;
+    window.lastCreatedBooking=booking;
+    var payRes=await fetch(API_BASE+'/toyyibpay-create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingId:booking.id})});
+    var payment=await payRes.json();
+    if(!payRes.ok||!payment.success){showAlert('Payment Setup Error',payment.error||'Unable to create the payment bill. Your booking remains pending payment; please retry later.');return;}
+    localStorage.setItem('kd_guest_pending_payment',JSON.stringify(booking));
+    window.location.href=payment.url;
+  }catch(e){console.error('Booking/payment error:',e);showAlert('Network Error','Could not connect to the booking server. Please try again.');}
 }
 
 // =============================================================

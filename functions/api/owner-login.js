@@ -1,131 +1,42 @@
-// /functions/api/owner-login.js - SECURE (No debug info)
-import { corsHeaders, getClientIP, sha256, enforceHttps } from './_utils.js';
-
-const PEPPER = "kundasang-homestay-2026";
-const loginAttempts = new Map();
+import { corsHeaders, getClientIP, enforceHttps, verifyPassword, hashPassword, createSignedToken, cookieHeader, jsonResponse } from './_utils.js';
+const attempts = new Map();
+function isLimited(key) { const now=Date.now(); const a=(attempts.get(key)||[]).filter(t=>now-t<15*60*1000); attempts.set(key,a); return a.length>=5; }
+function record(key) { const a=attempts.get(key)||[]; a.push(Date.now()); attempts.set(key,a); }
 
 export async function onRequestPost({ request, env }) {
-  const redirect = enforceHttps(request);
-  if (redirect) return redirect;
-  
+  const redirect=enforceHttps(request); if(redirect)return redirect;
   try {
     const { whatsapp, password } = await request.json();
-    const cleanWhatsapp = whatsapp ? whatsapp.replace(/[^0-9]/g, '') : '';
-    const cleanPassword = password ? password.trim() : '';
-
-    if (!cleanWhatsapp || !cleanPassword) {
-      return new Response(JSON.stringify({ error: "Missing credentials" }), {
-        status: 400,
-        headers: corsHeaders(request)
-      });
-    }
-
-    // Rate limiting
-    const clientIP = getClientIP(request);
-    const key = clientIP + '_owner';
-    const now = Date.now();
-    const attempts = loginAttempts.get(key) || [];
-    const recent = attempts.filter(t => now - t < 15 * 60 * 1000);
-    if (recent.length >= 5) {
-      return new Response(JSON.stringify({ 
-        error: "Too many login attempts. Please wait 15 minutes." 
-      }), {
-        status: 429,
-        headers: corsHeaders(request)
-      });
-    }
-    recent.push(now);
-    loginAttempts.set(key, recent);
-
-    const db = env.DB;
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Server error - DB not found" }), {
-        status: 500,
-        headers: corsHeaders(request)
-      });
-    }
-
-    // Ensure store table exists
-    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-
-    const r1 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
-    let homestays = [];
-    if (r1 && r1.data) { try { homestays = JSON.parse(r1.data); } catch(e) {} }
-    const r2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
-    if (r2 && r2.data) { try { homestays = [...homestays, ...JSON.parse(r2.data)]; } catch(e) {} }
-
-    // Find matches
-    const ownerHomestays = homestays.filter(h => {
-      const hWhatsapp = h.whatsapp ? h.whatsapp.replace(/[^0-9]/g, '') : '';
-      return hWhatsapp === cleanWhatsapp && h.ownerPasswordHash && h.ownerSalt;
-    });
-
-    if (ownerHomestays.length === 0) {
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), {
-        status: 401,
-        headers: corsHeaders(request)
-      });
-    }
-
-    const firstMatch = ownerHomestays[0];
-    const hashedInput = await sha256(PEPPER + cleanPassword + firstMatch.ownerSalt);
-    
-    if (hashedInput !== firstMatch.ownerPasswordHash) {
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), {
-        status: 401,
-        headers: corsHeaders(request)
-      });
-    }
-
-    // Success
-    loginAttempts.delete(key);
-
-    const homestayList = ownerHomestays.map(h => ({
-      id: h.id,
-      name: h.name,
-      location: h.location,
-      ownerPrice: h.ownerPrice
-    }));
-
-    const homestayIds = ownerHomestays.map(h => h.id);
-    const ownerName = ownerHomestays[0].ownerName;
-
-    const tokenData = {
-      ownerId: ownerHomestays[0].id,
-      homestayIds: homestayIds,
-      homestays: homestayList,
-      ownerName: ownerName,
-      whatsapp: cleanWhatsapp,
-      ts: Date.now()
-    };
-    const ownerToken = btoa(JSON.stringify(tokenData));
-
-    const safeHomestays = ownerHomestays.map(({ ownerPasswordHash, ownerSalt, ...rest }) => rest);
-
-    return new Response(JSON.stringify({
-      success: true,
-      token: ownerToken,
-      homestays: safeHomestays,
-      message: "Login successful"
-    }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders(request)
+    const cleanWhatsapp=String(whatsapp||'').replace(/[^0-9]/g,'');
+    const cleanPassword=String(password||'');
+    const key=`${getClientIP(request)}:owner:${cleanWhatsapp}`;
+    if(!cleanWhatsapp||cleanPassword.length<1)return jsonResponse({error:'Invalid credentials'},401,request);
+    if(isLimited(key))return jsonResponse({error:'Too many login attempts. Please wait 15 minutes.'},429,request);
+    const db=env.DB;if(!db)return jsonResponse({error:'Server configuration error'},500,request);
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+    const a=await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_approved').first();
+    const p=await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_pending').first();
+    let homes=[];try{if(a?.data)homes=JSON.parse(a.data)}catch(_){} try{if(p?.data)homes=[...homes,...JSON.parse(p.data)]}catch(_){}
+    const ownerHomes=homes.filter(h=>String(h.whatsapp||'').replace(/[^0-9]/g,'')===cleanWhatsapp&&h.ownerPasswordHash&&h.ownerSalt);
+    if(!ownerHomes.length){record(key);return jsonResponse({error:'Invalid credentials'},401,request)}
+    const first=ownerHomes[0];
+    const checked=await verifyPassword(cleanPassword,{ownerPasswordHash:first.ownerPasswordHash,ownerSalt:first.ownerSalt,ownerPasswordAlgorithm:first.ownerPasswordAlgorithm},env);
+    if(!checked.ok){record(key);return jsonResponse({error:'Invalid credentials'},401,request)}
+    if(checked.legacy){
+      const fresh=await hashPassword(cleanPassword,env);
+      for(const h of ownerHomes){h.ownerPasswordHash=fresh.hash;h.ownerSalt=fresh.salt;h.ownerPasswordAlgorithm=fresh.algorithm;}
+      // Update only the matching records in approved/pending stores.
+      for(const keyName of ['kd_approved','kd_pending']){
+        const rr=await db.prepare('SELECT data FROM store WHERE key=?').bind(keyName).first();let arr=[];try{if(rr?.data)arr=JSON.parse(rr.data)}catch(_){}
+        let changed=false;arr=arr.map(h=>{if(ownerHomes.some(o=>String(o.id)===String(h.id))){changed=true;return {...h,ownerPasswordHash:fresh.hash,ownerSalt:fresh.salt,ownerPasswordAlgorithm:fresh.algorithm}}return h});
+        if(changed)await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind(keyName,JSON.stringify(arr)).run();
       }
-    });
-
-  } catch (e) {
-    console.error("Owner login error:", e.message);
-    return new Response(JSON.stringify({ 
-      error: "Server error. Please try again later." 
-    }), {
-      status: 500,
-      headers: corsHeaders(request)
-    });
-  }
+    }
+    attempts.delete(key);
+    const homestayIds=ownerHomes.map(h=>h.id);
+    const token=await createSignedToken({type:'owner',ownerId:String(first.id),homestayIds,ownerName:first.ownerName,whatsapp:cleanWhatsapp},env);
+    const safeHomes=ownerHomes.map(({ownerPasswordHash,ownerSalt,ownerPasswordAlgorithm,...rest})=>rest);
+    return new Response(JSON.stringify({success:true,token,homestays:safeHomes,message:'Login successful'}),{status:200,headers:{...corsHeaders(request),'Set-Cookie':cookieHeader('owner_token',token)}});
+  }catch(e){console.error('Owner login error:',e.message);return jsonResponse({error:'Server error. Please try again later.'},500,request)}
 }
-
-export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
-}
+export async function onRequestOptions({request}){return new Response(null,{headers:corsHeaders(request)})}

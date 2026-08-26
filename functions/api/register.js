@@ -1,132 +1,27 @@
-// /api/register.js
-import { corsHeaders, getClientIP, sha256, generateSalt, enforceHttps, generateCSRFToken } from './_utils.js';
-
-const PEPPER = "kundasang-homestay-2026";
-
-function validateEmail(email) {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email);
-}
-
-function validatePhone(phone) {
-  const digits = phone.replace(/\D/g, '');
-  return digits.length >= 10 && digits.length <= 12;
-}
-
-function sanitizeString(str) {
-  if (!str) return '';
-  return str.replace(/[<>]/g, '').trim();
-}
+import { corsHeaders, getClientIP, enforceHttps, hashPassword, generateCSRFToken, createSignedToken, cookieHeader, jsonResponse } from './_utils.js';
+function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
+function validatePhone(phone) { const d = String(phone).replace(/\D/g, ''); return d.length >= 10 && d.length <= 12; }
+function clean(s, max = 200) { return String(s || '').replace(/[<>]/g, '').trim().slice(0, max); }
 
 export async function onRequestPost({ request, env }) {
-  const redirect = enforceHttps(request);
-  if (redirect) return redirect;
-  
+  const redirect = enforceHttps(request); if (redirect) return redirect;
   try {
-    const body = await request.json();
-    let { name, email, phone, password } = body;
-
-    name = sanitizeString(name);
-    email = email ? email.toLowerCase().trim() : '';
-    phone = phone ? phone.trim() : '';
-    password = password ? password.trim() : '';
-
-    if (!name || !email || !phone || !password) {
-      return new Response(JSON.stringify({ error: "All fields are required" }), { 
-        status: 400, 
-        headers: corsHeaders(request) 
-      });
-    }
-    if (name.length < 2 || name.length > 100) {
-      return new Response(JSON.stringify({ error: "Name must be between 2 and 100 characters" }), { 
-        status: 400, 
-        headers: corsHeaders(request) 
-      });
-    }
-    if (!validateEmail(email)) {
-      return new Response(JSON.stringify({ error: "Please enter a valid email address" }), { 
-        status: 400, 
-        headers: corsHeaders(request) 
-      });
-    }
-    if (!validatePhone(phone)) {
-      return new Response(JSON.stringify({ error: "Please enter a valid phone number (at least 10 digits)" }), { 
-        status: 400, 
-        headers: corsHeaders(request) 
-      });
-    }
-    if (password.length < 6) {
-      return new Response(JSON.stringify({ error: "Password must be at least 6 characters" }), { 
-        status: 400, 
-        headers: corsHeaders(request) 
-      });
-    }
-
-    const db = env.DB;
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Server configuration error" }), { 
-        status: 500, 
-        headers: corsHeaders(request) 
-      });
-    }
-
-    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-
-    const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
-    let guests = [];
-    if (r && r.data) { try { guests = JSON.parse(r.data); } catch(e) {} }
-
-    if (guests.some(g => g.email && g.email.toLowerCase() === email)) {
-      return new Response(JSON.stringify({ error: "Registration failed. Please try again." }), { 
-        status: 400, 
-        headers: corsHeaders(request) 
-      });
-    }
-
-    const salt = generateSalt();
-    const hashedPassword = await sha256(PEPPER + password + salt);
-
-    const newGuest = {
-      id: "G-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6),
-      name: name,
-      email: email,
-      phone: phone,
-      password: hashedPassword,
-      salt: salt,
-      createdAt: new Date().toISOString(),
-      bookingsCount: 0,
-      verified: false
-    };
-
+    let { name, email, phone, password } = await request.json();
+    name = clean(name, 100); email = String(email || '').toLowerCase().trim(); phone = clean(phone, 30); password = String(password || '');
+    if (!name || !email || !phone || !password) return jsonResponse({ error: 'All fields are required' }, 400, request);
+    if (name.length < 2 || !validateEmail(email) || !validatePhone(phone) || password.length < 8) return jsonResponse({ error: 'Please provide valid registration details. Password must be at least 8 characters.' }, 400, request);
+    const db = env.DB; if (!db) return jsonResponse({ error: 'Server configuration error' }, 500, request);
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
+    let guests = []; try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
+    if (guests.some(g => String(g.email || '').toLowerCase() === email)) return jsonResponse({ error: 'Registration failed. Please try another email.' }, 400, request);
+    const hashed = await hashPassword(password, env);
+    const newGuest = { id: `G-${crypto.randomUUID()}`, name, email, phone, password: hashed.hash, salt: hashed.salt, passwordAlgorithm: hashed.algorithm, createdAt: new Date().toISOString(), bookingsCount: 0, verified: false };
     guests.push(newGuest);
-    await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-      .bind("kd_guests", JSON.stringify(guests))
-      .run();
-
+    await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)').bind('kd_guests', JSON.stringify(guests)).run();
     const { password: _, salt: __, ...safeGuest } = newGuest;
-
-    // Generate CSRF token silently
-    const csrfToken = generateCSRFToken(newGuest.id);
-
-    return new Response(JSON.stringify({ 
-      success: true, 
-      guest: safeGuest,
-      csrfToken: csrfToken,
-      message: "Registration successful" 
-    }), {
-      status: 200,
-      headers: corsHeaders(request)
-    });
-
-  } catch (e) {
-    console.error("Register error:", e.message);
-    return new Response(JSON.stringify({ error: "Registration failed" }), {
-      status: 500,
-      headers: corsHeaders(request)
-    });
-  }
+    const token = await createSignedToken({ type: 'guest', userId: String(newGuest.id), email: newGuest.email }, env);
+    return new Response(JSON.stringify({ success: true, guest: safeGuest, token, csrfToken: await generateCSRFToken(newGuest.id, env), message: 'Registration successful' }), { status: 200, headers: { ...corsHeaders(request), 'Set-Cookie': cookieHeader('guest_token', token) } });
+  } catch (e) { console.error('Register error:', e.message); return jsonResponse({ error: 'Registration failed' }, 500, request); }
 }
-
-export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
-}
+export async function onRequestOptions({ request }) { return new Response(null, { headers: corsHeaders(request) }); }

@@ -1,157 +1,62 @@
-// /api/login.js
-import { corsHeaders, getClientIP, sha256, generateSalt, enforceHttps, generateCSRFToken } from './_utils.js';
+import { corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse } from './_utils.js';
 
-const PEPPER = "kundasang-homestay-2026";
-
-function validateEmail(email) {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email);
-}
-
-const loginAttempts = new Map();
-function checkRateLimit(email) {
-  const key = email.toLowerCase();
+function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
+const attempts = new Map();
+function limited(key) {
   const now = Date.now();
-  const attempts = loginAttempts.get(key) || [];
-  const recent = attempts.filter(t => now - t < 15 * 60 * 1000);
-  if (recent.length >= 5) return { blocked: true, remaining: 0 };
-  return { blocked: false, remaining: 5 - recent.length };
+  const recent = (attempts.get(key) || []).filter(t => now - t < 15 * 60 * 1000);
+  attempts.set(key, recent);
+  return recent.length >= 5;
 }
-function recordLoginAttempt(email) {
-  const key = email.toLowerCase();
-  const now = Date.now();
-  const attempts = loginAttempts.get(key) || [];
-  const recent = attempts.filter(t => now - t < 15 * 60 * 1000);
-  recent.push(now);
-  loginAttempts.set(key, recent);
-}
+function record(key) { const a = attempts.get(key) || []; a.push(Date.now()); attempts.set(key, a); }
 
 export async function onRequestPost({ request, env }) {
-  const redirect = enforceHttps(request);
-  if (redirect) return redirect;
-  
+  const redirect = enforceHttps(request); if (redirect) return redirect;
   try {
     const { email, password } = await request.json();
-
-    const trimmedPassword = password ? password.trim() : '';
-    const cleanEmail = email ? email.toLowerCase().trim() : '';
-
-    if (!cleanEmail || !trimmedPassword) {
-      return new Response(JSON.stringify({ error: "Email and password are required" }), { 
-        status: 400, 
-        headers: corsHeaders(request) 
-      });
-    }
-    if (!validateEmail(cleanEmail)) {
-      return new Response(JSON.stringify({ error: "Invalid email format" }), { 
-        status: 400, 
-        headers: corsHeaders(request) 
-      });
-    }
-
-    const rateLimit = checkRateLimit(cleanEmail);
-    if (rateLimit.blocked) {
-      return new Response(JSON.stringify({ 
-        error: "Too many login attempts. Please try again later.", 
-        blocked: true 
-      }), {
-        status: 429,
-        headers: corsHeaders(request)
-      });
-    }
+    const cleanEmail = String(email || '').toLowerCase().trim();
+    const cleanPassword = String(password || '');
+    const ip = getClientIP(request);
+    const key = `${ip}:${cleanEmail}`;
+    if (!validateEmail(cleanEmail) || !cleanPassword) return jsonResponse({ error: 'Invalid credentials' }, 401, request);
+    if (limited(key)) return jsonResponse({ error: 'Too many login attempts. Please try again later.' }, 429, request);
 
     const db = env.DB;
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Server configuration error" }), { 
-        status: 500, 
-        headers: corsHeaders(request) 
-      });
+    if (!db) return jsonResponse({ error: 'Server configuration error' }, 500, request);
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
+    const bannedR = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_banned_guests').first();
+    let guests = [], banned = [];
+    try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
+    try { if (bannedR?.data) banned = JSON.parse(bannedR.data); } catch (_) {}
+    if (banned.includes(cleanEmail)) { record(key); return jsonResponse({ error: 'Invalid credentials' }, 401, request); }
+
+    const user = guests.find(g => String(g.email || '').toLowerCase() === cleanEmail);
+    if (!user) { record(key); return jsonResponse({ error: 'Invalid credentials' }, 401, request); }
+    const verified = await verifyPassword(cleanPassword, user, env);
+    if (!verified.ok) { record(key); return jsonResponse({ error: 'Invalid credentials' }, 401, request); }
+
+    // Transparent migration from the old SHA-256 password format.
+    if (verified.legacy) {
+      const fresh = await hashPassword(cleanPassword, env);
+      user.password = fresh.hash;
+      user.salt = fresh.salt;
+      user.passwordAlgorithm = fresh.algorithm;
+      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)').bind('kd_guests', JSON.stringify(guests)).run();
     }
 
-    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-
-    let guests = [];
-    try {
-      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
-      if (r && r.data) { 
-        try { guests = JSON.parse(r.data); } catch(e) {}
-      }
-    } catch (e) {
-      return new Response(JSON.stringify({ error: "Database error" }), { 
-        status: 500, 
-        headers: corsHeaders(request) 
-      });
-    }
-
-    let banned = [];
-    try {
-      const bannedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_banned_guests").first();
-      if (bannedRes && bannedRes.data) { 
-        try { banned = JSON.parse(bannedRes.data); } catch(e) {}
-      }
-    } catch (e) {}
-
-    if (banned.includes(cleanEmail)) {
-      recordLoginAttempt(cleanEmail);
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
-        status: 401, 
-        headers: corsHeaders(request) 
-      });
-    }
-
-    const user = guests.find(g => g.email && g.email.toLowerCase() === cleanEmail);
-    if (!user) {
-      recordLoginAttempt(cleanEmail);
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
-        status: 401, 
-        headers: corsHeaders(request) 
-      });
-    }
-
-    const hashedInput = await sha256(PEPPER + trimmedPassword + (user.salt || ''));
-
-    if (hashedInput !== user.password) {
-      recordLoginAttempt(cleanEmail);
-      return new Response(JSON.stringify({ error: "Invalid credentials" }), { 
-        status: 401, 
-        headers: corsHeaders(request) 
-      });
-    }
-
-    loginAttempts.delete(cleanEmail);
-
-    const tokenData = { userId: user.id, email: user.email, ts: Date.now() };
-    const sessionToken = btoa(JSON.stringify(tokenData));
-
+    attempts.delete(key);
+    const session = await createSignedToken({ type: 'guest', userId: String(user.id), email: user.email }, env);
+    const csrfToken = await generateCSRFToken(user.id, env);
     const { password: _, salt: __, ...safeUser } = user;
 
-    // Generate CSRF token silently
-    const csrfToken = generateCSRFToken(user.id);
-    
-    return new Response(JSON.stringify({
-      success: true,
-      guest: safeUser,
-      token: sessionToken,
-      csrfToken: csrfToken,
-      message: "Login successful"
-    }), {
+    return new Response(JSON.stringify({ success: true, guest: safeUser, token: session, csrfToken, message: 'Login successful' }), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Set-Cookie': `guest_token=${sessionToken}; HttpOnly; Secure; SameSite=Strict; Max-Age=86400; Path=/`,
-        ...corsHeaders(request)
-      }
+      headers: { ...corsHeaders(request), 'Set-Cookie': cookieHeader('guest_token', session) }
     });
-
   } catch (e) {
-    console.error("Login error:", e.message);
-    return new Response(JSON.stringify({ error: "Login failed" }), { 
-      status: 500, 
-      headers: corsHeaders(request) 
-    });
+    console.error('Login error:', e.message);
+    return jsonResponse({ error: 'Login failed' }, 500, request);
   }
 }
-
-export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
-}
+export async function onRequestOptions({ request }) { return new Response(null, { headers: corsHeaders(request) }); }

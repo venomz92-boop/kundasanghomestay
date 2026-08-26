@@ -1,133 +1,28 @@
-// /functions/api/reset-password.js - Reset password with token
-import { corsHeaders, sha256, generateSalt } from './_utils.js';
-
-const PEPPER = "kundasang-homestay-2026";
-
-export async function onRequestPost({ request, env }) {
-  try {
-    const { token, password, userType } = await request.json();
-
-    if (!token || !password || !userType) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-        headers: corsHeaders(request)
-      });
-    }
-
-    if (password.length < 6) {
-      return new Response(JSON.stringify({ error: "Password must be at least 6 characters" }), {
-        status: 400,
-        headers: corsHeaders(request)
-      });
-    }
-
-    const db = env.DB;
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Server error" }), {
-        status: 500,
-        headers: corsHeaders(request)
-      });
-    }
-
-    // ✅ Ensure store table exists (for updating guests/owners)
-    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
-
-    // Verify token
-    const r = await db.prepare(`
-      SELECT * FROM password_resets WHERE token = ? AND used = 0 AND expires_at > datetime('now')
-    `).bind(token).first();
-
-    if (!r) {
-      return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
-        status: 400,
-        headers: corsHeaders(request)
-      });
-    }
-
-    await db.prepare(`UPDATE password_resets SET used = 1 WHERE token = ?`).bind(token).run();
-
-    if (userType === 'guest') {
-      const guestsR = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
-      let guests = [];
-      if (guestsR && guestsR.data) { try { guests = JSON.parse(guestsR.data); } catch(e) {} }
-
-      const idx = guests.findIndex(g => g.id === r.user_id);
-      if (idx === -1) {
-        return new Response(JSON.stringify({ error: "User not found" }), {
-          status: 404,
-          headers: corsHeaders(request)
-        });
+import { corsHeaders, hashPassword, jsonResponse } from './_utils.js';
+export async function onRequestPost({request,env}){
+  try{
+    const {token,password}=await request.json();
+    if(!token||typeof password!=='string'||password.length<8)return jsonResponse({error:'Invalid reset request'},400,request);
+    const db=env.DB;if(!db)return jsonResponse({error:'Server error'},500,request);
+    await db.prepare('CREATE TABLE IF NOT EXISTS store(key TEXT PRIMARY KEY,data TEXT)').run();
+    await db.prepare(`CREATE TABLE IF NOT EXISTS password_resets(token TEXT PRIMARY KEY,user_id TEXT NOT NULL,user_type TEXT NOT NULL,email TEXT NOT NULL,expires_at TEXT NOT NULL,used INTEGER DEFAULT 0)`).run();
+    const r=await db.prepare(`SELECT * FROM password_resets WHERE token=? AND used=0 AND expires_at>datetime('now')`).bind(token).first();
+    if(!r)return jsonResponse({error:'Invalid or expired reset link'},400,request);
+    const hashed=await hashPassword(password,env);
+    if(r.user_type==='guest'){
+      const rr=await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_guests').first();let users=[];try{if(rr?.data)users=JSON.parse(rr.data)}catch(_){}
+      const idx=users.findIndex(u=>String(u.id)===String(r.user_id));if(idx<0)return jsonResponse({error:'Invalid reset link'},400,request);
+      users[idx]={...users[idx],password:hashed.hash,salt:hashed.salt,passwordAlgorithm:hashed.algorithm,passwordUpdated:new Date().toISOString()};
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind('kd_guests',JSON.stringify(users)).run();
+    }else if(r.user_type==='owner'){
+      for(const key of ['kd_approved','kd_pending']){
+        const rr=await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();let arr=[];try{if(rr?.data)arr=JSON.parse(rr.data)}catch(_){}
+        let changed=false;arr=arr.map(h=>{if(String(h.id)===String(r.user_id)){changed=true;return {...h,ownerPasswordHash:hashed.hash,ownerSalt:hashed.salt,ownerPasswordAlgorithm:hashed.algorithm,passwordUpdated:new Date().toISOString()}}return h});
+        if(changed)await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind(key,JSON.stringify(arr)).run();
       }
-
-      // ✅ FIXED: Use PEPPER in hash
-      const salt = generateSalt();
-      const hashedPassword = await sha256(PEPPER + password + salt);
-
-      guests[idx].password = hashedPassword;
-      guests[idx].salt = salt;
-      guests[idx].passwordUpdated = new Date().toISOString();
-
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-        .bind("kd_guests", JSON.stringify(guests))
-        .run();
-
-    } else if (userType === 'owner') {
-      const r1 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
-      let homestays = [];
-      if (r1 && r1.data) { try { homestays = JSON.parse(r1.data); } catch(e) {} }
-      const r2 = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
-      if (r2 && r2.data) { try { homestays = [...homestays, ...JSON.parse(r2.data)]; } catch(e) {} }
-
-      const idx = homestays.findIndex(h => String(h.id) === String(r.user_id));
-      if (idx === -1) {
-        return new Response(JSON.stringify({ error: "Owner not found" }), {
-          status: 404,
-          headers: corsHeaders(request)
-        });
-      }
-
-      // ✅ FIXED: Use PEPPER in hash
-      const salt = generateSalt();
-      const hashedPassword = await sha256(PEPPER + password + salt);
-
-      homestays[idx].ownerPasswordHash = hashedPassword;
-      homestays[idx].ownerSalt = salt;
-      homestays[idx].passwordUpdated = new Date().toISOString();
-
-      const approved = homestays.filter(h => h.approved === true || h.verified === true);
-      const pending = homestays.filter(h => h.approved === false && h.verified === false);
-
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-        .bind("kd_approved", JSON.stringify(approved))
-        .run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-        .bind("kd_pending", JSON.stringify(pending))
-        .run();
-
-    } else {
-      return new Response(JSON.stringify({ error: "Invalid user type" }), {
-        status: 400,
-        headers: corsHeaders(request)
-      });
-    }
-
-    return new Response(JSON.stringify({
-      success: true,
-      message: "Password reset successful. You can now log in."
-    }), {
-      status: 200,
-      headers: corsHeaders(request)
-    });
-
-  } catch (e) {
-    console.error("❌ Reset password error:", e.message);
-    return new Response(JSON.stringify({ error: "Failed to reset password" }), {
-      status: 500,
-      headers: corsHeaders(request)
-    });
-  }
+    }else return jsonResponse({error:'Invalid reset link'},400,request);
+    await db.prepare('UPDATE password_resets SET used=1 WHERE token=?').bind(token).run();
+    return jsonResponse({success:true,message:'Password reset successful. You can now log in.'},200,request);
+  }catch(e){console.error('Reset password error:',e.message);return jsonResponse({error:'Failed to reset password'},500,request)}
 }
-
-export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
-}
+export async function onRequestOptions({request}){return new Response(null,{headers:corsHeaders(request)})}
