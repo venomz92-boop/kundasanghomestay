@@ -1,40 +1,27 @@
-// /api/owner-checkin.js - SECURE Owner Check-In (Ignores frontend data)
+// /api/owner-checkin.js - SECURE Owner Check-In
 import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
-
-// Helper to verify owner token
-async function verifyOwner(request, env) { return getOwnerSession(request, env); }
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
-  
+
   try {
-    const ownerData = await verifyOwner(request, env);
+    const ownerData = await getOwnerSession(request, env);
     if (!ownerData || ownerData.type !== 'owner') {
-      return new Response(JSON.stringify({ error: "Unauthorized: Invalid or expired token" }), { 
-        status: 401, 
-        headers: corsHeaders(request) 
-      });
+      return jsonResponse({ error: 'Unauthorized: Invalid or expired token' }, 401, request);
     }
 
     const body = await request.json();
     const bookingId = body.bookingId;
     if (!bookingId) {
-      return new Response(JSON.stringify({ error: "Missing bookingId" }), { 
-        status: 400, 
-        headers: corsHeaders(request) 
-      });
+      return jsonResponse({ error: 'Missing bookingId' }, 400, request);
     }
 
     const db = env.DB;
     if (!db) {
-      return new Response(JSON.stringify({ error: "Server configuration error" }), { 
-        status: 500, 
-        headers: corsHeaders(request) 
-      });
+      return jsonResponse({ error: 'Server configuration error' }, 500, request);
     }
 
-    // ✅ Ensure store table exists
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
     const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
@@ -43,47 +30,36 @@ export async function onRequestPost({ request, env }) {
     const booking = bookings.find(b => String(b.id) === String(bookingId));
 
     if (!booking) {
-      return new Response(JSON.stringify({ error: "Booking not found" }), { 
-        status: 404, 
-        headers: corsHeaders(request) 
-      });
+      return jsonResponse({ error: 'Booking not found' }, 404, request);
     }
 
+    // Authorization
     if (!(ownerData.homestayIds || [ownerData.ownerId]).map(String).includes(String(booking.homestayId))) {
       console.warn(`⚠️ Owner ${ownerData.whatsapp} tried to check-in booking for homestay ${booking.homestayId} but owns ${ownerData.ownerId}`);
-      return new Response(JSON.stringify({ error: "Unauthorized: You do not own this homestay" }), { 
-        status: 403, 
-        headers: corsHeaders(request) 
-      });
+      return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
     }
 
-    if (booking.payoutDate) {
-      return new Response(JSON.stringify({
+    // Already paid out?
+    if (booking.payoutSuccessDate) {
+      return jsonResponse({
         success: false,
         warning: true,
-        message: `Booking ${bookingId} already paid out on ${booking.payoutDate}`
-      }), { 
-        status: 200, 
-        headers: corsHeaders(request) 
-      });
+        message: `Booking ${bookingId} already paid out on ${booking.payoutSuccessDate}`
+      }, 200, request);
     }
 
+    // Must be paid
     if (!booking.status || !booking.status.toLowerCase().includes("paid")) {
-      return new Response(JSON.stringify({ error: "Booking is not paid yet" }), { 
-        status: 400, 
-        headers: corsHeaders(request) 
-      });
+      return jsonResponse({ error: 'Booking is not paid yet' }, 400, request);
     }
 
+    // Get homestay for bank details
     const rApproved = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
     let homestays = [];
     if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch(e) {} }
     const homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
     if (!homestay) {
-      return new Response(JSON.stringify({ error: "Homestay configuration missing (bank details)" }), { 
-        status: 500, 
-        headers: corsHeaders(request) 
-      });
+      return jsonResponse({ error: 'Homestay configuration missing (bank details)' }, 500, request);
     }
 
     const ownerAmount = booking.base || 0;
@@ -92,14 +68,10 @@ export async function onRequestPost({ request, env }) {
     const ownerBankCode = homestay.bankCode || "MBBEMYKL";
 
     if (!ownerAcc || ownerAmount <= 0) {
-      return new Response(JSON.stringify({ error: "Missing owner bank account or invalid amount" }), { 
-        status: 400, 
-        headers: corsHeaders(request) 
-      });
+      return jsonResponse({ error: 'Missing owner bank account or invalid amount' }, 400, request);
     }
 
-    console.log(`🔐 Owner Check-in: ${bookingId} -> RM${ownerAmount} to ${ownerAcc}`);
-
+    // Attempt payout via ToyyibPay
     const isToyyibLive = !!env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
     const isSimulation = env.PAYOUT_SIMULATION === "true";
     let payoutSuccess = false;
@@ -117,82 +89,79 @@ export async function onRequestPost({ request, env }) {
       formData.append("amount", Math.round(ownerAmount * 100));
       formData.append("payoutDescription", `KDH ${bookingId} owner payout RM${ownerAmount}`);
       formData.append("payoutReferenceNo", bookingId);
-      const endpoints = ["https://toyyibpay.com/index.php/api/payout", "https://toyyibpay.com/index.php/api/createPayout"];
+      const endpoints = [
+        "https://toyyibpay.com/index.php/api/payout",
+        "https://toyyibpay.com/index.php/api/createPayout"
+      ];
       for (const endpoint of endpoints) {
         try {
           const res = await fetch(endpoint, { method: "POST", body: formData });
           const text = await res.text();
           try { payoutData = JSON.parse(text); } catch { payoutData = { raw: text }; }
-          if (res.ok && (payoutData.status === "success" || payoutData[0]?.status === "success" || payoutData.payoutCode)) { payoutSuccess = true; break; }
+          if (res.ok && (payoutData.status === "success" || payoutData[0]?.status === "success" || payoutData.payoutCode)) {
+            payoutSuccess = true;
+            break;
+          }
         } catch(e) { console.error("Payout endpoint error:", e.message); }
       }
     } else {
-      return new Response(JSON.stringify({ error: "Owner payout is not enabled. Configure ToyyibPay payout or explicitly enable PAYOUT_SIMULATION for testing." }), { status: 503, headers: corsHeaders(request) });
+      return jsonResponse({
+        error: 'Owner payout is not enabled. Configure ToyyibPay payout or explicitly enable PAYOUT_SIMULATION for testing.'
+      }, 503, request);
     }
 
-    if (!payoutSuccess) {
-      return new Response(JSON.stringify({ error: "ToyyibPay payout could not be confirmed. Booking remains paid and payout can be retried." }), { status: 502, headers: corsHeaders(request) });
-    }
-
-    const fee = Number(booking.fee || 0);
-    const gatewayFee = booking.gatewayFee || 1.00;
-    const netFee = fee - gatewayFee;
-    const finalFee = netFee > 0 ? netFee : fee;
-
+    // Update booking status
     const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
     if (idx !== -1) {
-      bookings[idx].status = "Completed - Owner Paid RM" + ownerAmount + " via Owner Check-in";
-      bookings[idx].payoutSuccess = true;
-      bookings[idx].payoutSuccessDate = new Date().toISOString();
-      bookings[idx].payoutDate = new Date().toISOString();
-      bookings[idx].payoutAmount = Number(ownerAmount);
-      bookings[idx].payoutMethod = "Owner Self Check-in";
-      bookings[idx].completedDate = new Date().toISOString();
-      bookings[idx].ownerPayoutId = payoutData?.payoutCode || payoutData?.id || "OWNER_" + Date.now();
+      if (payoutSuccess) {
+        // Payout request succeeded, but we need to wait for webhook confirmation
+        bookings[idx].status = "Payout Processing";
+        bookings[idx].payoutRequested = true;
+        bookings[idx].payoutRequestedDate = new Date().toISOString();
+        bookings[idx].payoutAmount = Number(ownerAmount);
+        bookings[idx].payoutMethod = "Owner Self Check-in";
+        bookings[idx].ownerPayoutId = payoutData?.payoutCode || payoutData?.id || "OWNER_" + Date.now();
+        bookings[idx].payoutAttempts = (bookings[idx].payoutAttempts || 0) + 1;
+        // Do NOT set payoutSuccess or payoutSuccessDate yet
+      } else {
+        // Payout API failed – keep as Paid, allow retry
+        bookings[idx].status = "Paid - Awaiting Check-in";
+        bookings[idx].payoutFailedAttempt = true;
+        bookings[idx].lastPayoutError = payoutData;
+      }
     }
+
     await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
       .bind("kd_bookings", JSON.stringify(bookings))
       .run();
 
-    try {
-      const feeRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
-      let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
-      
-      const alreadyRecorded = feeEarnings.history?.some(h => h.bookingId === bookingId && h.type === "earning");
-      if (!alreadyRecorded && finalFee > 0) {
-        feeEarnings.total = (feeEarnings.total || 0) + finalFee;
-        feeEarnings.available = (feeEarnings.available || 0) + finalFee;
-        feeEarnings.history.push({
-          bookingId,
-          fee: finalFee,
-          date: new Date().toISOString(),
-          type: "earning",
-          payoutToOwner: Number(ownerAmount),
-          ownerAcc: "****" + ownerAcc.slice(-4),
-          method: "owner_self_checkin"
-        });
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-          .bind("kd_fee_earnings", JSON.stringify(feeEarnings))
-          .run();
-      }
-    } catch(e) { console.error("Fee recording error:", e.message); }
+    if (!payoutSuccess) {
+      return jsonResponse({
+        error: 'ToyyibPay payout could not be confirmed. Booking remains paid and payout can be retried.'
+      }, 502, request);
+    }
 
-    return new Response(JSON.stringify({
+    // Log the check-in
+    await logAction({
+      db,
+      action: 'owner_checkin_payout_requested',
+      admin: 'owner',
+      details: `Check-in for ${bookingId}, payout requested (pending webhook confirmation)`,
+      ip: getClientIP(request),
+      userId: booking.guestEmail,
+      homestayId: booking.homestayId
+    });
+
+    return jsonResponse({
       success: true,
-      message: `✅ Check-in confirmed! You (${ownerName}) will received RM${ownerAmount}. Your money will arrive in 1-4 working business days.`,
+      message: `✅ Check-in confirmed! Payout of RM${ownerAmount} is being processed. You will receive confirmation once ToyyibPay completes the transfer.`,
       bookingId,
       payout: payoutData
-    }), { 
-      status: 200, 
-      headers: corsHeaders(request) 
-    });
+    }, 200, request);
 
   } catch (e) {
-    console.error("❌ Owner check-in error:", e.message);
-    return new Response(JSON.stringify({ error: "Check-in failed: " + e.message }), { 
-      status: 500, 
-      headers: corsHeaders(request) 
-    });
+    console.error("❌ Owner check-in error:", e.message, e.stack);
+    return jsonResponse({ error: 'Check-in failed. Please try again later.' }, 500, request);
   }
 }
 
