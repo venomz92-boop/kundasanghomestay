@@ -1,4 +1,5 @@
-import { corsHeaders, getClientIP, enforceHttps, createAdminToken, cookieHeader, jsonResponse, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
+// /api/admin-login.js
+import { corsHeaders, getClientIP, enforceHttps, cookieHeader, jsonResponse, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
@@ -11,6 +12,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Database not configured' }, 500, request);
     }
 
+    // D1 rate limiting
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
     const rateOk = await checkRateLimit(db, clientIP, 'admin_login', 5, 15 * 60);
     if (!rateOk) {
@@ -31,9 +33,13 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (password === adminPass) {
-      const tokenPayload = { admin: true, role: 'admin' };
-      const token = await createAdminToken(tokenPayload, env);
-      
+      // ✅ FIX: Return the static ADMIN_TOKEN, not a JWT
+      const token = env.ADMIN_TOKEN;
+      if (!token) {
+        console.error("❌ ADMIN_TOKEN environment variable is not set!");
+        return jsonResponse({ error: "Server configuration error. Please contact support." }, 500, request);
+      }
+
       console.log(`✅ Admin login successful (IP: ${clientIP})`);
       
       return new Response(JSON.stringify({ 
@@ -44,7 +50,7 @@ export async function onRequestPost({ request, env }) {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
-          'Set-Cookie': cookieHeader('admin_token', token, 8 * 60 * 60),
+          'Set-Cookie': cookieHeader('admin_token', token, 8 * 60 * 60), // 8 hours
           ...corsHeaders(request)
         }
       });
