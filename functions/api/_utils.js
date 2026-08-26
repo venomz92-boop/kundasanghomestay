@@ -65,12 +65,18 @@ function requireSessionSecret(env) {
   return secret;
 }
 
+// ===== TOKEN CREATION WITH TTL =====
 export async function createSignedToken(payload, env, ttlMs = 24 * 60 * 60 * 1000) {
   const secret = requireSessionSecret(env);
   const body = { ...payload, iat: Date.now(), exp: Date.now() + ttlMs };
   const encoded = b64urlEncode(JSON.stringify(body));
   const signature = await hmacSign(encoded, secret);
   return `${encoded}.${signature}`;
+}
+
+// ===== ADMIN TOKEN (shorter TTL) =====
+export async function createAdminToken(payload, env) {
+  return createSignedToken(payload, env, 8 * 60 * 60 * 1000); // 8 hours
 }
 
 export async function verifySignedToken(token, env) {
@@ -101,14 +107,11 @@ async function getUserRecord(type, userId, db) {
     try { if (r?.data) guests = JSON.parse(r.data); } catch(_) {}
     return guests.find(g => String(g.id) === String(userId)) || null;
   } else if (type === 'owner') {
-    // owner records are stored in homestays (approved + pending)
     const approved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
     const pending = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
     let homes = [];
     try { if (approved?.data) homes = homes.concat(JSON.parse(approved.data)); } catch(_) {}
     try { if (pending?.data) homes = homes.concat(JSON.parse(pending.data)); } catch(_) {}
-    // an owner is identified by the homestay id or ownerId; but we store homestayIds in session
-    // we'll just return the first homestay that matches the ownerId (which is the homestay.id)
     return homes.find(h => String(h.id) === String(userId)) || null;
   }
   return null;
@@ -120,7 +123,6 @@ export async function getGuestSession(request, env) {
   const payload = await verifySignedToken(token, env);
   if (!payload || payload.type !== 'guest') return null;
 
-  // Verify password version
   const db = env.DB;
   if (!db) return null;
   await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
@@ -128,7 +130,7 @@ export async function getGuestSession(request, env) {
   if (!record) return null;
   if (record.passwordVersion !== undefined && payload.passwordVersion !== undefined) {
     if (Number(record.passwordVersion) !== Number(payload.passwordVersion)) {
-      return null; // session invalidated by password change
+      return null;
     }
   }
   return payload;
@@ -140,7 +142,6 @@ export async function getOwnerSession(request, env) {
   const payload = await verifySignedToken(token, env);
   if (!payload || payload.type !== 'owner') return null;
 
-  // Verify password version
   const db = env.DB;
   if (!db) return null;
   await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
@@ -318,12 +319,6 @@ export async function getAdminToken(request) {
 
 // ---- Generic JSON response with sanitized errors ----
 export function jsonResponse(body, status, request, extra = {}) {
-  // If body contains an error, make it generic (unless explicitly allowed)
-  if (body && typeof body === 'object' && body.error) {
-    // Keep the error message if it's a user-friendly message (e.g., validation)
-    // But if it looks like a server error (contains stack or implementation detail), replace
-    // We'll just let the caller decide; we'll add a helper for that.
-  }
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders(request), ...extra }
@@ -336,4 +331,56 @@ export function errorResponse(message, status, request, logDetails = null) {
     console.error('Error details:', logDetails);
   }
   return jsonResponse({ error: message || 'An unexpected error occurred. Please try again later.' }, status, request);
+}
+
+// ===== RATE LIMITING (Persistent using D1) =====
+export async function ensureRateLimitTable(db) {
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS rate_limits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ip TEXT NOT NULL,
+      action TEXT NOT NULL,
+      timestamp INTEGER NOT NULL
+    )`
+  ).run();
+  // Optional: create index for performance
+  await db.prepare(
+    `CREATE INDEX IF NOT EXISTS idx_rate_limits_ip_action ON rate_limits(ip, action)`
+  ).run();
+}
+
+export async function checkRateLimit(db, ip, action, maxAttempts, windowSeconds = 60) {
+  if (!db || !ip) return true; // allow if no DB (fallback)
+  try {
+    await ensureRateLimitTable(db);
+    const now = Date.now();
+    const cutoff = now - windowSeconds * 1000;
+    const res = await db.prepare(
+      `SELECT COUNT(*) as count FROM rate_limits 
+       WHERE ip = ? AND action = ? AND timestamp > ?`
+    ).bind(ip, action, cutoff).first();
+    const count = res?.count || 0;
+    return count < maxAttempts;
+  } catch (e) {
+    console.error('Rate limit check error:', e);
+    return true; // allow on error (fail-open)
+  }
+}
+
+export async function recordRateLimit(db, ip, action) {
+  if (!db || !ip) return;
+  try {
+    await ensureRateLimitTable(db);
+    const now = Date.now();
+    await db.prepare(
+      `INSERT INTO rate_limits (ip, action, timestamp) VALUES (?, ?, ?)`
+    ).bind(ip, action, now).run();
+    // Optionally clean old records (keep last 24h)
+    const cutoff = now - 24 * 60 * 60 * 1000;
+    await db.prepare(
+      `DELETE FROM rate_limits WHERE timestamp < ?`
+    ).bind(cutoff).run();
+  } catch (e) {
+    console.error('Rate limit record error:', e);
+  }
 }
