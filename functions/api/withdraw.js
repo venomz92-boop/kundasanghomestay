@@ -69,13 +69,13 @@ export async function onRequestPost({ request, env }) {
     // ✅ Compute actual available balance
     const actualAvailable = (earnings.total || 0) - (earnings.withdrawn || 0);
 
-    // Reset logic (uses actualAvailable for display)
+    // Reset logic
     if (reset === true || action === "reset") {
       const prevWithdrawn = earnings.withdrawn || 0;
       const prevTotal = earnings.total || 0;
       
       earnings.withdrawn = 0;
-      earnings.available = 0; // reset to 0, but we'll recalc
+      earnings.available = 0;
       earnings.total = 0;
       earnings.history = earnings.history || [];
       earnings.history.push({
@@ -243,7 +243,6 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // ✅ Update earnings: increase withdrawn, keep total unchanged
     const withdrawal = {
       id: "WD_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
       amount: withdrawAmount,
@@ -259,13 +258,9 @@ export async function onRequestPost({ request, env }) {
     };
 
     try {
-      // Update withdrawn amount; available is calculated as total - withdrawn on next read
       earnings.withdrawn = (earnings.withdrawn || 0) + withdrawAmount;
-      // We don't change total; we don't store available anymore; we'll compute it on GET as well
       earnings.history.push({ ...withdrawal, type: "withdrawal" });
-      
-      // Also set available to the computed value for display (optional)
-      earnings.available = earnings.total - earnings.withdrawn;
+      earnings.available = earnings.total - earnings.withdrawn; // update for display
 
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_fee_earnings", JSON.stringify(earnings))
@@ -330,7 +325,6 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// GET endpoint – also compute available dynamically
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -343,7 +337,6 @@ export async function onRequestGet({ request, env }) {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
       if (r) earnings = JSON.parse(r.data);
-      // Compute available
       earnings.available = (earnings.total || 0) - (earnings.withdrawn || 0);
     } catch (e) {
       console.error("❌ Failed to read earnings for GET:", e.message);
@@ -360,7 +353,7 @@ export async function onRequestGet({ request, env }) {
     },
     earnings: {
       total: earnings.total || 0,
-      available: earnings.available || 0,  // now computed
+      available: earnings.available || 0,
       withdrawn: earnings.withdrawn || 0,
       history: (earnings.history || []).slice(-10)
     },
@@ -368,7 +361,6 @@ export async function onRequestGet({ request, env }) {
   }), { status: 200, headers: corsHeaders(request) });
 }
 
-// DELETE reset (unchanged, but also computes available)
 export async function onRequestDelete({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
