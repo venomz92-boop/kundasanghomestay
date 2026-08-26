@@ -1,5 +1,5 @@
 // /api/admin-login.js - COMPLETE with security fixes
-import { corsHeaders, getClientIP, enforceHttps } from './_utils.js';
+import { corsHeaders, getClientIP, enforceHttps, createAdminToken, cookieHeader } from './_utils.js';
 
 const loginAttempts = new Map();
 
@@ -63,7 +63,9 @@ export async function onRequestPost({ request, env }) {
 
     if (password === adminPass) {
       loginAttempts.delete(clientIP);
-      const token = env.ADMIN_TOKEN;
+      // Use admin token with expiry (8 hours)
+      const tokenPayload = { admin: true, role: 'admin' };
+      const token = await createAdminToken(tokenPayload, env);
       
       console.log(`✅ Admin login successful (IP: ${clientIP})`);
       
@@ -75,7 +77,7 @@ export async function onRequestPost({ request, env }) {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
-          'Set-Cookie': `admin_token=${token}; HttpOnly; Secure; SameSite=Strict; Max-Age=86400; Path=/`,
+          'Set-Cookie': cookieHeader('admin_token', token, 8 * 60 * 60), // 8 hours
           ...corsHeaders(request)
         }
       });
