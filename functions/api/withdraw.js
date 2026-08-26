@@ -194,7 +194,10 @@ export async function onRequestPost({ request, env }) {
 
     const maskedAccount = accountNumber.slice(-4).padStart(accountNumber.length, "*");
 
+    const isProduction = env.ENVIRONMENT === "production";
+    const isSimulation = !isProduction && env.PAYOUT_SIMULATION === "true";
     const isToyyibLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
+
     let payoutSuccess = false;
     let payoutData = null;
     let payoutError = null;
@@ -233,9 +236,18 @@ export async function onRequestPost({ request, env }) {
           console.error(`❌ Payout endpoint ${endpoint} failed:`, e.message);
         }
       }
-    } else {
+    } else if (isSimulation) {
+      // Only allow simulation in non-production environments
       payoutSuccess = true;
       payoutData = { simulation: true };
+    } else {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "ToyyibPay payout is not enabled. Withdrawals are disabled in production until ToyyibPay payout is configured."
+      }), { 
+        status: 503, 
+        headers: corsHeaders(request) 
+      });
     }
 
     if (!payoutSuccess) {
