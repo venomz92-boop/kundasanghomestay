@@ -1,25 +1,14 @@
-// /api/login.js – ULTRA PERMISSIVE FOR YOUR EMAIL, VERIFICATION FOR OTHERS
-import { corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, checkRateLimit, recordRateLimit, parseJSONSafely, logAction, incrementSessionVersion } from './_utils.js';
-
-function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
-
-const YOUR_EMAIL = 'frn_boy@gmx.com';
+// /api/login.js – ULTRA PERMISSIVE (any password works)
+import { corsHeaders, getClientIP, enforceHttps, createSignedToken, generateCSRFToken, cookieHeader, jsonResponse, parseJSONSafely } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   try {
     const redirect = enforceHttps(request);
     if (redirect) return redirect;
 
-    const clientIP = getClientIP(request);
     const db = env.DB;
     if (!db) {
       return jsonResponse({ error: 'Server configuration error' }, 500, request);
-    }
-
-    // Rate limiting
-    const rateOk = await checkRateLimit(db, clientIP, 'login', 5, 15 * 60);
-    if (!rateOk) {
-      return jsonResponse({ error: 'Too many login attempts. Please wait 15 minutes.' }, 429, request);
     }
 
     let body;
@@ -28,68 +17,30 @@ export async function onRequestPost({ request, env }) {
     } catch (e) {
       return jsonResponse({ error: 'Invalid request' }, 400, request);
     }
-    const { email, password } = body;
+    const { email } = body;
     const cleanEmail = String(email || '').toLowerCase().trim();
-    const cleanPassword = String(password || '');
 
-    if (!validateEmail(cleanEmail) || !cleanPassword) {
-      return jsonResponse({ error: 'Invalid email or password' }, 401, request);
+    if (!cleanEmail) {
+      return jsonResponse({ error: 'Email is required' }, 400, request);
     }
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
-    const bannedR = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_banned_guests').first();
-
-    let guests = [], banned = [];
+    let guests = [];
     try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
-    try { if (bannedR?.data) banned = JSON.parse(bannedR.data); } catch (_) {}
-
-    if (banned.includes(cleanEmail)) {
-      return jsonResponse({ error: 'Invalid credentials' }, 401, request);
-    }
 
     const user = guests.find(g => String(g.email || '').toLowerCase() === cleanEmail);
     if (!user) {
-      return jsonResponse({ error: 'Invalid email or password' }, 401, request);
+      return jsonResponse({ error: 'User not found' }, 401, request);
     }
 
-    // ---- FOR YOUR EMAIL: ANY PASSWORD WORKS ----
-    let passwordOk = false;
-    if (cleanEmail === YOUR_EMAIL) {
-      console.log(`🔓 Bypass login for ${user.email} (any password)`);
-      passwordOk = true;
-    } else {
-      // ---- FOR OTHER USERS: Verify password properly ----
-      const verified = await verifyPassword(cleanPassword, user, env);
-      if (verified.ok) {
-        passwordOk = true;
-        if (verified.legacy) {
-          const fresh = await hashPassword(cleanPassword, env);
-          user.password = fresh.hash;
-          user.salt = fresh.salt;
-          user.passwordAlgorithm = fresh.algorithm;
-          user.passwordVersion = (user.passwordVersion || 0) + 1;
-          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-            .bind('kd_guests', JSON.stringify(guests))
-            .run();
-        }
-      }
-    }
-
-    if (!passwordOk) {
-      await recordRateLimit(db, clientIP, 'login');
-      return jsonResponse({ error: 'Invalid email or password' }, 401, request);
-    }
-
-    // ---- Ensure verified ----
+    // ---- ALWAYS LOG IN – skip password AND verification ----
     if (user.verified !== true) {
       user.verified = true;
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_guests', JSON.stringify(guests))
         .run();
     }
-
-    await incrementSessionVersion(db, user.id, 'guest');
 
     const session = await createSignedToken({
       type: 'guest',
@@ -102,14 +53,14 @@ export async function onRequestPost({ request, env }) {
     const csrfToken = await generateCSRFToken(user.id, env);
     const { password: _, salt: __, ...safeUser } = user;
 
-    console.log(`✅ Login successful for ${user.email}`);
+    console.log(`✅ Login successful for ${user.email} (bypass)`);
 
     return new Response(JSON.stringify({
       success: true,
       guest: safeUser,
       token: session,
       csrfToken,
-      message: 'Login successful'
+      message: 'Login successful (bypass)'
     }), {
       status: 200,
       headers: {
@@ -119,8 +70,8 @@ export async function onRequestPost({ request, env }) {
     });
 
   } catch (e) {
-    console.error('Login error:', e.message, e.stack);
-    return jsonResponse({ error: 'Login failed. Please try again later.' }, 500, request);
+    console.error('Login error:', e);
+    return jsonResponse({ error: 'Login failed' }, 500, request);
   }
 }
 
