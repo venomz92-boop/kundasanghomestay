@@ -1,5 +1,7 @@
 // /functions/api/_utils.js
-// ===== SHARED HELPERS – with rate limiting additions =====
+// ===== SHARED HELPERS – with size limits & session version =====
+
+export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
 // === PBKDF2 constants ===
 const PBKDF2_ITERATIONS = 100000;
@@ -99,7 +101,7 @@ export async function verifySignedToken(token, env) {
   }
 }
 
-// === User session helpers ===
+// === User session helpers with sessionVersion ===
 async function getUserRecord(type, userId, db) {
   if (type === 'guest') {
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
@@ -128,8 +130,9 @@ export async function getGuestSession(request, env) {
   await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
   const record = await getUserRecord('guest', payload.userId, db);
   if (!record) return null;
-  if (record.passwordVersion !== undefined && payload.passwordVersion !== undefined) {
-    if (Number(record.passwordVersion) !== Number(payload.passwordVersion)) return null;
+  // Check sessionVersion
+  if (record.sessionVersion !== undefined && payload.sessionVersion !== undefined) {
+    if (Number(record.sessionVersion) !== Number(payload.sessionVersion)) return null;
   }
   return payload;
 }
@@ -145,8 +148,8 @@ export async function getOwnerSession(request, env) {
   await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
   const record = await getUserRecord('owner', payload.ownerId, db);
   if (!record) return null;
-  if (record.ownerPasswordVersion !== undefined && payload.passwordVersion !== undefined) {
-    if (Number(record.ownerPasswordVersion) !== Number(payload.passwordVersion)) return null;
+  if (record.sessionVersion !== undefined && payload.sessionVersion !== undefined) {
+    if (Number(record.sessionVersion) !== Number(payload.sessionVersion)) return null;
   }
   return payload;
 }
@@ -325,13 +328,20 @@ export function errorResponse(message, status, request, logDetails = null) {
   return jsonResponse({ error: message || 'An unexpected error occurred. Please try again later.' }, status, request);
 }
 
-// =============================================================
-// ★ NEW: PERSISTENT RATE LIMITING (D1-based) ★
-// =============================================================
+// ===== SAFE JSON PARSING WITH SIZE LIMIT =====
+export async function parseJSONSafely(request) {
+  const text = await request.text();
+  if (text.length > MAX_BODY_SIZE) {
+    throw new Error('Payload too large');
+  }
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    throw new Error('Invalid JSON');
+  }
+}
 
-/**
- * Creates the rate_limits table if it does not exist.
- */
+// ===== RATE LIMITING (Persistent D1) =====
 export async function ensureRateLimitTable(db) {
   if (!db) return;
   await db.prepare(
@@ -347,10 +357,6 @@ export async function ensureRateLimitTable(db) {
   ).run();
 }
 
-/**
- * Checks if the given IP is allowed to perform the action.
- * Returns true if under the limit, false if blocked.
- */
 export async function checkRateLimit(db, ip, action, maxAttempts, windowSeconds = 60) {
   if (!db || !ip) return true;
   try {
@@ -369,9 +375,6 @@ export async function checkRateLimit(db, ip, action, maxAttempts, windowSeconds 
   }
 }
 
-/**
- * Records a new rate‑limit attempt for the IP + action.
- */
 export async function recordRateLimit(db, ip, action) {
   if (!db || !ip) return;
   try {
@@ -386,5 +389,27 @@ export async function recordRateLimit(db, ip, action) {
     ).bind(cutoff).run();
   } catch (e) {
     console.error('Rate limit record error:', e);
+  }
+}
+
+// ===== SESSION VERSION MANAGEMENT =====
+export async function incrementSessionVersion(db, userId, type) {
+  // type: 'guest' or 'owner'
+  const key = type === 'guest' ? 'kd_guests' : 'kd_approved';
+  const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+  let records = [];
+  if (r?.data) { try { records = JSON.parse(r.data); } catch(_) {} }
+  let changed = false;
+  records = records.map(record => {
+    const idField = type === 'guest' ? 'id' : 'id';
+    if (String(record[idField]) === String(userId)) {
+      changed = true;
+      record.sessionVersion = (record.sessionVersion || 0) + 1;
+    }
+    return record;
+  });
+  if (changed) {
+    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+      .bind(key, JSON.stringify(records)).run();
   }
 }
