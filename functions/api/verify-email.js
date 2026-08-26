@@ -7,7 +7,7 @@ export async function onRequestGet({ request, env }) {
 
   const url = new URL(request.url);
   const token = url.searchParams.get('token');
-  console.log(`🔍 verify-email called with token: ${token ? token.substring(0, 20) + '...' : 'missing'}`);
+  //console.log(`🔍 verify-email called with token: ${token ? token.substring(0, 20) + '...' : 'missing'}`);
 
   if (!token) {
     console.warn('❌ Missing token');
@@ -17,7 +17,7 @@ export async function onRequestGet({ request, env }) {
   try {
     // Verify the token
     const payload = await verifySignedToken(token, env);
-    console.log('📦 Decoded payload:', payload);
+   // console.log('📦 Decoded payload:', payload);
 
     if (!payload) {
       console.warn('❌ Invalid or expired token (verifySignedToken returned null)');
@@ -55,7 +55,7 @@ export async function onRequestGet({ request, env }) {
     }
 
     if (guests[idx].verified === true) {
-      console.log(`✅ User ${email} already verified`);
+     // console.log(`✅ User ${email} already verified`);
       // Redirect to login with a message
       const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
       return Response.redirect(`${domain}/login.html?verified=already`, 302);
@@ -68,7 +68,7 @@ export async function onRequestGet({ request, env }) {
       .bind('kd_guests', JSON.stringify(guests))
       .run();
 
-    console.log(`✅ Email ${email} verified successfully`);
+    // console.log(`✅ Email ${email} verified successfully`);
 
     await logAction({
       db,
