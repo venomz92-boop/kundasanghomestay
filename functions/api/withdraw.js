@@ -1,4 +1,4 @@
-// /api/withdraw.js - with D1 rate limiting, improved logging, and correct try-catch
+// /api/withdraw.js - with dynamic available calculation
 import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
 
 async function verifyAdmin(request, env) {
@@ -30,7 +30,6 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: "Database not configured" }), { status: 500, headers: corsHeaders(request) });
     }
 
-    // D1-based rate limiting
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
     const rateOk = await checkRateLimit(db, clientIP, 'withdraw', 3, 5 * 60);
     if (!rateOk) {
@@ -67,14 +66,16 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // Reset logic
+    // ✅ Compute actual available balance
+    const actualAvailable = (earnings.total || 0) - (earnings.withdrawn || 0);
+
+    // Reset logic (uses actualAvailable for display)
     if (reset === true || action === "reset") {
       const prevWithdrawn = earnings.withdrawn || 0;
-      const prevAvailable = earnings.available || 0;
       const prevTotal = earnings.total || 0;
       
       earnings.withdrawn = 0;
-      earnings.available = 0;
+      earnings.available = 0; // reset to 0, but we'll recalc
       earnings.total = 0;
       earnings.history = earnings.history || [];
       earnings.history.push({
@@ -82,7 +83,6 @@ export async function onRequestPost({ request, env }) {
         date: new Date().toISOString(),
         note: "FULL RESET - All to 0 by admin",
         prevWithdrawn,
-        prevAvailable,
         prevTotal,
         ip: clientIP
       });
@@ -96,7 +96,7 @@ export async function onRequestPost({ request, env }) {
           db,
           action: 'withdrawal_reset',
           admin: 'admin',
-          details: `Reset earnings to 0. Previous: Total RM${prevTotal}, Available RM${prevAvailable}, Withdrawn RM${prevWithdrawn}`,
+          details: `Reset earnings to 0. Previous: Total RM${prevTotal}, Withdrawn RM${prevWithdrawn}`,
           ip: clientIP
         });
       } catch (e) {
@@ -111,9 +111,8 @@ export async function onRequestPost({ request, env }) {
 
       return new Response(JSON.stringify({
         success: true,
-        message: "Withdrawn reset to RM0.00",
-        earnings,
-        reset: true
+        message: "Earnings reset to RM0.00",
+        earnings: { ...earnings, available: 0 }
       }), { status: 200, headers: corsHeaders(request) });
     }
 
@@ -151,9 +150,11 @@ export async function onRequestPost({ request, env }) {
     }
 
     const withdrawAmount = Number(amount);
-    if (withdrawAmount > (earnings.available || 0)) {
+
+    // ✅ Use actual available for balance check
+    if (withdrawAmount > actualAvailable) {
       return new Response(JSON.stringify({ 
-        error: `Insufficient balance. Available: RM${(earnings.available || 0).toFixed(2)}` 
+        error: `Insufficient balance. Available: RM${actualAvailable.toFixed(2)}` 
       }), { 
         status: 400, 
         headers: corsHeaders(request) 
@@ -169,7 +170,6 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // Record the attempt in D1
     await recordRateLimit(db, clientIP, 'withdraw');
 
     const maskedAccount = accountNumber.slice(-4).padStart(accountNumber.length, "*");
@@ -182,7 +182,6 @@ export async function onRequestPost({ request, env }) {
     let payoutData = null;
     let payoutError = null;
 
-    // ----- LIVE TOYYIBPAY PAYOUT -----
     if (isToyyibLive) {
       const formData = new FormData();
       formData.append("userSecretKey", env.TOYYIBPAY_SECRET_KEY);
@@ -206,7 +205,7 @@ export async function onRequestPost({ request, env }) {
             headers: { 'User-Agent': 'KundasangHomestay/1.0' }
           });
           const text = await res.text();
-          console.log(`🔍 Payout response from ${endpoint}:`, text); // <-- improved logging
+          console.log(`🔍 Payout response from ${endpoint}:`, text);
           try { payoutData = JSON.parse(text); } catch { payoutData = { raw: text }; }
           if (res.ok && (payoutData.status === "success" || payoutData[0]?.status === "success" || payoutData.payoutCode)) {
             payoutSuccess = true;
@@ -218,14 +217,10 @@ export async function onRequestPost({ request, env }) {
           console.error(`❌ Payout endpoint ${endpoint} failed:`, e.message);
         }
       }
-    } 
-    // ----- SIMULATION -----
-    else if (isSimulation) {
+    } else if (isSimulation) {
       payoutSuccess = true;
       payoutData = { simulation: true };
-    } 
-    // ----- NOT ENABLED -----
-    else {
+    } else {
       return new Response(JSON.stringify({
         success: false,
         error: "ToyyibPay payout is not enabled. Withdrawals are disabled in production until ToyyibPay payout is configured."
@@ -236,19 +231,19 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (!payoutSuccess) {
-      // Return the actual error if available (for debugging)
       const errorMsg = payoutError?.message || payoutError?.raw || payoutError || "Unknown error";
       console.error("❌ Payout failed with details:", errorMsg);
       return new Response(JSON.stringify({
         success: false,
         error: `ToyyibPay payout to your bank failed. Please try again or check your ToyyibPay balance.`,
-        details: errorMsg  // <-- include details for debugging (remove in production if sensitive)
+        details: errorMsg
       }), { 
         status: 500, 
         headers: corsHeaders(request) 
       });
     }
 
+    // ✅ Update earnings: increase withdrawn, keep total unchanged
     const withdrawal = {
       id: "WD_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
       amount: withdrawAmount,
@@ -256,21 +251,22 @@ export async function onRequestPost({ request, env }) {
       bankCode,
       accountHolder,
       accountNumber: maskedAccount,
-      fullAccountForPayout: "***LOCKED***",
-      note: "Platform fee withdrawal - Locked to owner account",
       date: new Date().toISOString(),
       status: "Success - Sent to your bank via ToyyibPay",
-      locked: true,
       ip: clientIP,
       payoutId: payoutData?.payoutCode || payoutData?.id || "AUTO_WD_" + Date.now(),
       simulation: payoutData?.simulation || false
     };
 
     try {
-      earnings.available = Math.max(0, (earnings.available || 0) - withdrawAmount);
+      // Update withdrawn amount; available is calculated as total - withdrawn on next read
       earnings.withdrawn = (earnings.withdrawn || 0) + withdrawAmount;
+      // We don't change total; we don't store available anymore; we'll compute it on GET as well
       earnings.history.push({ ...withdrawal, type: "withdrawal" });
       
+      // Also set available to the computed value for display (optional)
+      earnings.available = earnings.total - earnings.withdrawn;
+
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_fee_earnings", JSON.stringify(earnings))
         .run();
@@ -301,7 +297,7 @@ export async function onRequestPost({ request, env }) {
     } catch (e) {
       console.error("❌ Failed to save withdrawal after successful payout:", e.message);
       return new Response(JSON.stringify({ 
-        error: "Payout succeeded, but failed to update records. Please check your ToyyibPay dashboard and contact support immediately.",
+        error: "Payout succeeded, but failed to update records. Please check your ToyyibPay dashboard.",
         payoutId: withdrawal.payoutId
       }), { 
         status: 500, 
@@ -314,7 +310,11 @@ export async function onRequestPost({ request, env }) {
       message: `RM${withdrawAmount.toFixed(2)} sent to your bank account (${bankName} ${accountHolder}). 
                 ${isToyyibLive ? 'ToyyibPay is processing the transfer.' : '(Simulation mode - no real money sent)'}`,
       withdrawal,
-      earnings,
+      earnings: {
+        total: earnings.total,
+        withdrawn: earnings.withdrawn,
+        available: earnings.total - earnings.withdrawn  // computed
+      },
       security: "Bank details LOCKED server-side",
       simulation: payoutData?.simulation || false
     }), { status: 200, headers: corsHeaders(request) });
@@ -330,7 +330,7 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// GET and DELETE methods (unchanged, but ensure they also have proper try-catch)
+// GET endpoint – also compute available dynamically
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -343,6 +343,8 @@ export async function onRequestGet({ request, env }) {
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
       if (r) earnings = JSON.parse(r.data);
+      // Compute available
+      earnings.available = (earnings.total || 0) - (earnings.withdrawn || 0);
     } catch (e) {
       console.error("❌ Failed to read earnings for GET:", e.message);
     }
@@ -358,7 +360,7 @@ export async function onRequestGet({ request, env }) {
     },
     earnings: {
       total: earnings.total || 0,
-      available: earnings.available || 0,
+      available: earnings.available || 0,  // now computed
       withdrawn: earnings.withdrawn || 0,
       history: (earnings.history || []).slice(-10)
     },
@@ -366,6 +368,7 @@ export async function onRequestGet({ request, env }) {
   }), { status: 200, headers: corsHeaders(request) });
 }
 
+// DELETE reset (unchanged, but also computes available)
 export async function onRequestDelete({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -395,7 +398,6 @@ export async function onRequestDelete({ request, env }) {
     }
 
     const prevWithdrawn = earnings.withdrawn || 0;
-    const prevAvailable = earnings.available || 0;
     const prevTotal = earnings.total || 0;
     
     earnings.withdrawn = 0;
@@ -407,7 +409,6 @@ export async function onRequestDelete({ request, env }) {
       date: new Date().toISOString(),
       note: "FULL RESET - All to 0 via DELETE",
       prevWithdrawn,
-      prevAvailable,
       prevTotal,
       ip: clientIP
     });
@@ -422,7 +423,7 @@ export async function onRequestDelete({ request, env }) {
           db,
           action: 'withdrawal_reset_delete',
           admin: 'admin',
-          details: `Reset earnings via DELETE. Previous: Total RM${prevTotal}, Available RM${prevAvailable}, Withdrawn RM${prevWithdrawn}`,
+          details: `Reset earnings via DELETE. Previous: Total RM${prevTotal}, Withdrawn RM${prevWithdrawn}`,
           ip: clientIP
         });
       } catch (e) {
@@ -438,9 +439,8 @@ export async function onRequestDelete({ request, env }) {
 
     return new Response(JSON.stringify({
       success: true,
-      message: "Withdrawn reset to RM0.00",
-      earnings,
-      reset: true
+      message: "Earnings reset to RM0.00",
+      earnings: { ...earnings, available: 0 }
     }), { status: 200, headers: corsHeaders(request) });
 
   } catch (err) {
