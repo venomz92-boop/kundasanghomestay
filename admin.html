@@ -1376,20 +1376,24 @@ function renderAvailabilityTab(){
 }
 
 function renderGuestsTable(){
-  let guests=[];
-  try{ guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); }catch(e){ guests=[]; }
-  const div=document.getElementById("guestsTable");
-  if(!div) return;
-  if(guests.length===0){
-    div.innerHTML = safeHTML('<div class="text-center text-zinc-500 py-8">No guests yet<br><button onclick="forceSyncGuests()" class="mt-3 px-4 py-2 bg-blue-600 text-white text-xs rounded-full">Force Sync</button> <button onclick="checkCloudRaw()" class="mt-3 px-4 py-2 bg-zinc-200 text-xs rounded-full">Check Cloud</button></div>');
-  } else {
-    let html = '<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests</div>';
-    guests.forEach((g,i) => {
-      html += '<div class="border rounded-xl p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+'</div></div><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded-full bg-red-600 text-white">Delete & Ban</button></div>';
-    });
-    div.innerHTML = safeHTML(html);
-  }
+    let guests = [];
+    try{
+        guests = JSON.parse(localStorage.getItem("kd_guests") || "[]");
+    }catch(e){ guests = []; }
+    const div = document.getElementById("guestsTable");
+    if(!div) return;
+    if(guests.length===0){
+        div.innerHTML = safeHTML('<div class="text-center text-zinc-500 py-8">No guests yet</div>');
+    } else {
+        let html = '<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests</div>';
+        guests.forEach((g, i) => {
+            html += '<div class="border rounded-xl p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+'</div></div><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded-full bg-red-600 text-white">Delete & Ban</button></div>';
+        });
+        div.innerHTML = safeHTML(html);
+    }
 }
+
+  
 async function forceSyncGuests(){
   try{
     await fetchCloudData();
@@ -1407,37 +1411,58 @@ async function checkCloudRaw(){
     await showAlert("Cloud Data", "Cloud: bookings:"+(data.bookings?.length||0)+" guests:"+(data.guests?.length||0)+" banned:"+(data.bannedGuests?.length||0));
   }catch(e){ await showAlert("Error", "Check failed: "+e.message); }
 }
-async function deleteGuest(idx){
-  const confirmed = await showConfirm("Delete Guest", 'Delete this guest? They will not be able to login again and will be banned from registering with the same email.');
-  if (!confirmed) return;
 
-  let guests=[];
-  try{ guests=JSON.parse(localStorage.getItem("kd_guests")||"[]"); }catch(e){ guests=[]; }
-  const deleted = guests[idx];
-  if(!deleted){ await showAlert("Error", "Guest not found in the admin list."); return; }
+  
+// ===== DELETE GUEST (FIXED) =====
+async function deleteGuest(indexOrId) {
+    let guests = [];
+    try {
+        guests = JSON.parse(localStorage.getItem("kd_guests") || "[]");
+    } catch(e) { guests = []; }
 
-  try{
-    const res = await fetchWithAuth(API_BASE + "/bookings", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({
-        action:"deleteGuest",
-        guestId: deleted.id || "",
-        email: deleted.email || ""
-      })
-    });
-    const data = await res.json().catch(()=>({}));
-    if(!res.ok || !data.success){
-      throw new Error(data.error || "Cloud delete failed");
+    let guest = null;
+    // If the argument is a number, treat as index; else treat as ID or email
+    if (typeof indexOrId === 'number') {
+        guest = guests[indexOrId];
+    } else {
+        guest = guests.find(g => String(g.id) === String(indexOrId) || String(g.email) === String(indexOrId));
     }
 
-    await fetchCloudData();
-    renderGuestsTable();
-    renderAdmin();
-    await showAlert("Success", "Deleted and banned " + (deleted.email||"guest") + ".\nThe account can no longer log in with that email.");
-  }catch(e){
-    await showAlert("Error", "Guest was NOT deleted: " + e.message);
-  }
+    if (!guest) {
+        await showAlert("Error", "Guest not found in local data.");
+        return;
+    }
+
+    const confirmed = await showConfirm(
+        "Delete Guest",
+        `Delete <strong>${guest.name || guest.email}</strong> (${guest.email})?<br><br>This will permanently remove the guest and ban their email address.`
+    );
+    if (!confirmed) return;
+
+    try {
+        const res = await fetchWithAuth(API_BASE + "/bookings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "deleteGuest",
+                guestId: guest.id || "",
+                email: guest.email || ""
+            })
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || "Cloud delete failed");
+        }
+
+        // Refresh local and cloud data
+        await fetchCloudData();
+        renderGuestsTable();
+        renderAdmin();
+        await showAlert("Success", `Deleted and banned ${guest.email}.`);
+    } catch(e) {
+        await showAlert("Error", "Guest was NOT deleted: " + e.message);
+    }
 }
 async function deleteBooking(id){
   const confirmed = await showConfirm("Delete Booking", "Delete "+id+"? This will free blocked dates?");
