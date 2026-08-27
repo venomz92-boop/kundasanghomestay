@@ -1075,8 +1075,19 @@ function openWhatsappToGuest(bookingId) {
 }
 
 async function confirmCheckIn(bookingId) {
-  const confirmed = await showConfirm('Guest Check-In', `Confirm guest arrival for reservation ${bookingId}?\n\nEscrow payouts are pushed automatically to your registered bank account. Guest check-in WhatsApp messages will also be auto-generated.`);
+  // Ask for the code
+  const code = await showPrompt(
+    'Enter Check‑in Code',
+    'Ask the guest for the 6‑digit code sent to their WhatsApp. It was included in their booking confirmation.'
+  );
+  if (!code || code.length !== 6 || isNaN(code)) {
+    await showAlert('Invalid Code', 'Please enter the exact 6‑digit code from the guest.');
+    return;
+  }
+
+  const confirmed = await showConfirm('Guest Check‑In', `Confirm guest arrival for booking ${bookingId}? The code will be verified.`);
   if (!confirmed) return;
+
   try {
     const res = await fetch(API_BASE + '/owner-checkin', {
       method: 'POST',
@@ -1084,16 +1095,12 @@ async function confirmCheckIn(bookingId) {
         'Content-Type': 'application/json',
         'Owner-Authorization': 'Bearer ' + ownerToken
       },
-      body: JSON.stringify({ bookingId })
+      body: JSON.stringify({ bookingId, checkinCode: code })
     });
     const data = await res.json();
     if (data.success) {
-      await showAlert('Check-in Logged', '✓ ' + data.message);
+      await showAlert('Check‑in Logged', '✓ ' + data.message);
       await loadBookings();
-      const shouldNotify = await showConfirm('Generate Notification?', '📱 Launch WhatsApp interface to forward instructions to guest?');
-      if (shouldNotify) {
-        openWhatsappToGuest(bookingId);
-      }
     } else {
       await showAlert('Operation Faulted', '❌ error: ' + (data.error || data.message));
     }
