@@ -619,7 +619,7 @@
 <script src="animations.js"></script>
 <script>
     // =============================================================
-    // CSRF HELPER (MOVED TO GLOBAL SCOPE)
+    // CSRF HELPER
     // =============================================================
     function getCsrfHeader() {
       var token = localStorage.getItem('kd_csrf_token');
@@ -773,7 +773,7 @@ document.addEventListener('click', function(e) {
 });
 
 // =============================================================
-// LOAD BOOKINGS FROM D1 VIA API - FIXED
+// LOAD BOOKINGS FROM D1 VIA API
 // =============================================================
 var myBookings = [];
 
@@ -786,9 +786,6 @@ function loadMyBookings() {
     return;
   }
 
-  console.log('🔍 Loading bookings for guest:', currentGuest.id, currentGuest.email);
-
-  // Fetch ALL bookings from the API (GET /api/bookings)
   fetch(API_BASE + '/bookings', {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
@@ -799,63 +796,31 @@ function loadMyBookings() {
     return res.json();
   })
   .then(function(data) {
-    console.log('📊 API returned data with', data.bookings ? data.bookings.length : 0, 'bookings');
-    
-    // The API returns { bookings: [...], approved: [...], etc }
     var allBookings = data.bookings || [];
-    
-    // Debug: log first booking to see structure
-    if (allBookings.length > 0) {
-      console.log('📋 Sample booking:', allBookings[0]);
-    }
-    
-    // Filter bookings for current guest - try multiple matching strategies
     var filtered = allBookings.filter(function(b) {
       if (!currentGuest) return false;
-      
-      // Strategy 1: Match by guestId (string comparison)
       var matchById = b.guestId && String(b.guestId) === String(currentGuest.id);
-      
-      // Strategy 2: Match by guestEmail (case insensitive)
       var matchByEmail = b.guestEmail && b.guestEmail.toLowerCase() === (currentGuest.email || '').toLowerCase();
-      
-      // Strategy 3: Match by guestPhone (clean numbers)
       var guestPhoneClean = String(currentGuest.phone || '').replace(/[^0-9]/g, '');
       var bookingPhoneClean = String(b.guestPhone || '').replace(/[^0-9]/g, '');
       var matchByPhone = guestPhoneClean && bookingPhoneClean && bookingPhoneClean === guestPhoneClean;
-      
-      // Strategy 4: Match by guestName (fallback)
       var matchByName = b.guestName && currentGuest.name && 
         b.guestName.toLowerCase().includes(currentGuest.name.toLowerCase());
-      
-      var matched = matchById || matchByEmail || matchByPhone || matchByName;
-      
-      if (matched) {
-        console.log('✅ Matched booking:', b.id, 'for guest', currentGuest.id);
-      }
-      
-      return matched;
+      return matchById || matchByEmail || matchByPhone || matchByName;
     });
-    
-    console.log('📊 Filtered to', filtered.length, 'bookings for this guest');
     myBookings = filtered;
-    
-    // Cache to localStorage as backup
     if (currentGuest && currentGuest.id) {
       localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings));
     }
-    
     renderBookings();
   })
   .catch(function(err) {
     console.warn('API error:', err);
-    // Fallback to localStorage
     try {
       var cached = localStorage.getItem('kd_guest_bookings_' + currentGuest.id);
       if (cached) {
         myBookings = JSON.parse(cached);
         renderBookings();
-        // Show a small notice
         var notice = document.createElement('div');
         notice.className = 'text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center mb-4';
         notice.innerHTML = '📡 Showing cached bookings. Connect to internet for latest updates.';
@@ -876,7 +841,7 @@ function loadMyBookings() {
 }
 
 // =============================================================
-// RENDER BOOKINGS (with Resend Code button)
+// RENDER BOOKINGS – with prominent Booking ID & Resend Code button
 // =============================================================
 function renderBookings() {
   var listDiv = document.getElementById('bookingsList');
@@ -939,7 +904,7 @@ function renderBookings() {
     );
     var actions = '';
 
-    // ===== BUILD CARD WITH RESEND CODE BUTTON =====
+    // ===== CARD =====
     html += '' +
       '<div class="card hover:shadow-md transition-all duration-300">' +
         '<div class="flex flex-col md:flex-row justify-between gap-4">' +
@@ -950,15 +915,18 @@ function renderBookings() {
             '<div class="text-sm text-zinc-600 space-y-1">' +
               '<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
               '<div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span> <span class="text-zinc-400 text-[10px]">(host: RM ' + base.toFixed(2) + ')</span></div>' +
-              '<div class="text-zinc-400 text-[10px]">Booking ID: <span class="font-mono">' + id + '</span></div>' +
-              // ==== NEW: Check‑in code with Resend button ====
-              '<div class="flex items-center gap-2 mt-1">' +
-                '<span class="text-xs text-zinc-500">Check‑in code: <span class="font-mono font-bold text-red-600 text-sm">' + (b.checkinCode || 'N/A') + '</span></span>' +
-                '<button onclick="resendCode(\'' + id + '\')" class="text-xs text-blue-600 hover:underline">📧 Resend</button>' +
+              // ==== PROMINENT BOOKING ID ====
+              '<div class="inline-block text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">' +
+                'Booking ID: <span class="font-mono">' + id + '</span>' +
+              '</div>' +
+              // ==== RESEND CODE BUTTON ====
+              '<div class="mt-1">' +
+                '<button onclick="resendCode(\'' + id + '\')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition">' +
+                  '📧 Resend Code' +
+                '</button>' +
               '</div>' +
             '</div>' +
           '</div>' +
-          // Right column: badge above actions
           '<div class="flex flex-col items-end gap-2 shrink-0">' +
             '<span class="' + badgeClass + '">' + badgeLabel + '</span>' +
             '<div class="flex flex-wrap gap-2 items-center">' + actions + '</div>' +
@@ -1055,7 +1023,6 @@ async function resendCode(bookingId) {
     if (notLoggedIn) notLoggedIn.classList.add('hidden');
     if (bookingsView) bookingsView.classList.remove('hidden');
     if (nameDisplay) nameDisplay.textContent = currentGuest.name || currentGuest.email || 'Guest';
-    // Load bookings from D1
     setTimeout(function() {
       loadMyBookings();
     }, 100);
