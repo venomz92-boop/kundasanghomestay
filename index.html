@@ -2460,7 +2460,7 @@ function updateBookingPrice() {
 }
 
 // =============================================================
-// PROCESS PAYMENT – add roomId in draft
+// PROCESS PAYMENT – with booking verification
 // =============================================================
 async function processPayment() {
   if (!currentGuest) {
@@ -2500,7 +2500,7 @@ async function processPayment() {
     var booking = created.booking;
     window.lastCreatedBooking = booking;
 
-    // ===== NEW: Verify booking exists =====
+    // ===== VERIFY BOOKING EXISTS BEFORE PAYMENT =====
     try {
       const verifyRes = await fetch(API_BASE + '/bookings?bookingId=' + booking.id, {
         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('kd_guest_token') }
