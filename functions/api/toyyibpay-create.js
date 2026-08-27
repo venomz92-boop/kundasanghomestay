@@ -66,16 +66,14 @@ export async function onRequestPost({ request, env }) {
     // If not live, we simulate the payment
     if (!liveMode) {
       console.log(`🔵 SIMULATION MODE: Creating fake bill for booking ${booking.id}`);
-      // Generate a fake bill code
       const fakeBillCode = `SIM-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       
-      // Update booking status to paid (simulated)
       bookings[idx] = {
         ...booking,
         toyyibpay_billcode: fakeBillCode,
         toyyibpay_created_at: new Date().toISOString(),
         paymentProvider: 'Simulation',
-        status: 'Paid - Awaiting Check-in', // simulate paid immediately
+        status: 'Paid - Awaiting Check-in',
         paid_at: new Date().toISOString(),
         simulation: true
       };
@@ -93,7 +91,6 @@ export async function onRequestPost({ request, env }) {
         homestayId: booking.homestayId
       });
 
-      // Return a fake success with a redirect URL that will trigger the receipt modal
       const domain = env.PUBLIC_DOMAIN || new URL(request.url).origin;
       const returnUrl = `${domain}/?booking=${encodeURIComponent(booking.id)}&payment_return=1`;
       return jsonResponse({
