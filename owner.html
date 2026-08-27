@@ -941,7 +941,7 @@ async function ownerLogin() {
 }
 
 // =============================================================
-// LOAD BOOKINGS – PATCHED WITH safeHTML (includes Booking ID)
+// LOAD BOOKINGS – PATCHED WITH roomName
 // =============================================================
 async function loadBookings() {
   if (!ownerToken) return;
@@ -1002,6 +1002,10 @@ async function loadBookings() {
       const isCompleted = payoutDate || status.toLowerCase().includes('completed');
       const isPending = status.toLowerCase().includes('pending');
       const isCancelled = status.toLowerCase().includes('cancelled');
+
+      // ---- ROOM INFO ----
+      const roomInfo = b.roomName ? ` • Room: <span class="font-semibold">${b.roomName}</span>` : '';
+
       let statusBadge = '';
       if (isCompleted) {
         if (b.payoutSuccess === true && b.payoutSuccessDate) {
@@ -1044,13 +1048,13 @@ async function loadBookings() {
         }
       }
 
-      // ===== BUILD CARD WITH BOOKING ID =====
+      // ===== BUILD CARD WITH BOOKING ID AND ROOM INFO =====
       html += `
         <div class="border p-5 rounded-2xl bg-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-all duration-200 hover:border-zinc-300">
           <div class="space-y-1.5 flex-1">
             <div class="font-bold text-sm text-[#212121]">${homestayName}</div>
             <div class="text-xs text-zinc-600">
-              <span class="font-semibold text-zinc-800">${checkin} to ${checkout}</span> (${nights} Nights) • Guest: <span class="font-semibold text-[#0F382E]">${guestName}</span>
+              <span class="font-semibold text-zinc-800">${checkin} to ${checkout}</span> (${nights} Nights) • Guest: <span class="font-semibold text-[#0F382E]">${guestName}</span>${roomInfo}
             </div>
             <div class="inline-block text-sm text-red-600 font-mono font-bold bg-red-50 px-2 py-0.5 rounded-full">Booking ID: ${id}</div>
             <div class="text-xs font-semibold text-zinc-500">Host Earnings: <span class="text-[#0F382E]">RM ${base}</span></div>
@@ -1077,9 +1081,7 @@ function openWhatsappToGuest(bookingId) {
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-// ===== UPDATED confirmCheckIn – includes Booking ID in prompt =====
 async function confirmCheckIn(bookingId) {
-  // Ask for the code – include booking ID in the message
   const code = await showPrompt(
     'Enter Check‑in Code',
     `Booking ${bookingId}: Ask the guest for the 6‑digit code sent to their WhatsApp or email.`
