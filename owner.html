@@ -629,22 +629,23 @@
         <div class="text-sm text-zinc-400 py-6 text-center">Loading reservations data...</div>
       </div>
     </div>
-  </div>
 
-<div class="card p-6 animate-on-scroll mt-6">
-  <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2">
-    <span>🚫 Manage Room Blocks</span>
-  </h3>
-  <div id="roomBlockContainer">
-    <p class="text-sm text-zinc-500">Select a room to block specific dates.</p>
-    <div class="mt-3 flex flex-wrap gap-4">
-      <select id="blockRoomSelect" class="homestay-selector"></select>
-      <input type="date" id="blockDateInput" class="form-input w-auto" />
-      <button onclick="toggleRoomBlock()" class="btn-primary">+ Add Block</button>
+    <!-- ===== ROOM BLOCK MANAGEMENT – moved inside dashboardSection ===== -->
+    <div class="card p-6 animate-on-scroll">
+      <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2">
+        <span>🚫 Manage Room Blocks</span>
+      </h3>
+      <div id="roomBlockContainer">
+        <p class="text-sm text-zinc-500">Select a room to block specific dates.</p>
+        <div class="mt-3 flex flex-wrap gap-4">
+          <select id="blockRoomSelect" class="homestay-selector"></select>
+          <input type="date" id="blockDateInput" class="form-input w-auto" />
+          <button onclick="toggleRoomBlock()" class="btn-primary">+ Add Block</button>
+        </div>
+        <div id="roomBlockedList" class="mt-4 space-y-2"></div>
+      </div>
     </div>
-    <div id="roomBlockedList" class="mt-4 space-y-2"></div>
   </div>
-</div>
 </main>
 
 <!-- ===== FOOTER ===== -->
@@ -942,6 +943,7 @@ async function ownerLogin() {
       document.getElementById('dashboardSection').classList.remove('hidden');
       document.getElementById('welcomeName').innerText = allHomestays[0]?.ownerName || 'Owner';
       loadBookings();
+      loadRoomBlocks(); // populate room block dropdown
     } else {
       let errorMsg = data.error || "Host authentication sequence failed.";
       if (errorEl) {
@@ -1017,122 +1019,6 @@ async function loadBookings() {
       const isCompleted = payoutDate || status.toLowerCase().includes('completed');
       const isPending = status.toLowerCase().includes('pending');
       const isCancelled = status.toLowerCase().includes('cancelled');
-
-      // ===== ROOM BLOCK MANAGEMENT =====
-async function loadRoomBlocks() {
-  const selector = document.getElementById('blockRoomSelect');
-  if (!selector) return;
-  // Populate rooms from allHomestays (only those owned by this host)
-  const rooms = [];
-  allHomestays.forEach(h => {
-    if (h.rooms && h.rooms.length) {
-      h.rooms.forEach(r => {
-        rooms.push({ homestayId: h.id, homestayName: h.name, roomId: r.id, roomName: r.name, blockedDates: r.blockedDates || [] });
-      });
-    }
-  });
-  if (rooms.length === 0) {
-    selector.innerHTML = '<option value="">No rooms found</option>';
-    return;
-  }
-  selector.innerHTML = rooms.map(r => `<option value="${r.roomId}" data-homestay="${r.homestayId}" data-blocked='${JSON.stringify(r.blockedDates)}'>${r.homestayName} – ${r.roomName}</option>`).join('');
-  renderRoomBlockedList();
-}
-
-function renderRoomBlockedList() {
-  const selector = document.getElementById('blockRoomSelect');
-  const listDiv = document.getElementById('roomBlockedList');
-  if (!selector || !listDiv) return;
-  const selected = selector.options[selector.selectedIndex];
-  if (!selected) { listDiv.innerHTML = ''; return; }
-  const blocked = JSON.parse(selected.dataset.blocked || '[]');
-  if (blocked.length === 0) {
-    listDiv.innerHTML = '<div class="text-xs text-zinc-400">No blocked dates for this room.</div>';
-    return;
-  }
-  let html = '<div class="flex flex-wrap gap-2">';
-  blocked.sort().forEach(d => {
-    html += `<span class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs flex items-center gap-2">
-      ${d}
-      <button onclick="removeRoomBlock('${d}')" class="text-red-600 hover:text-red-800 font-bold">✕</button>
-    </span>`;
-  });
-  html += '</div>';
-  listDiv.innerHTML = html;
-}
-
-async function toggleRoomBlock() {
-  const selector = document.getElementById('blockRoomSelect');
-  const dateInput = document.getElementById('blockDateInput');
-  const selected = selector.options[selector.selectedIndex];
-  if (!selected || !selected.value) { showAlert('Error', 'Please select a room.'); return; }
-  const date = dateInput.value;
-  if (!date) { showAlert('Error', 'Please select a date.'); return; }
-  const roomId = selected.value;
-  const homestayId = selected.dataset.homestay;
-  try {
-    const res = await fetch(API_BASE + '/owner-update-booking', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Owner-Authorization': 'Bearer ' + ownerToken
-      },
-      body: JSON.stringify({
-        action: 'updateRoomBlock',
-        homestayId: homestayId,
-        roomId: roomId,
-        date: date
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      await showAlert('Success', data.message);
-      await loadBookings(); // refresh data
-      await loadRoomBlocks(); // refresh dropdown and list
-      dateInput.value = '';
-    } else {
-      await showAlert('Error', data.error || 'Failed to update block.');
-    }
-  } catch(e) {
-    await showAlert('Error', 'Network error: ' + e.message);
-  }
-}
-
-async function removeRoomBlock(date) {
-  const selector = document.getElementById('blockRoomSelect');
-  const selected = selector.options[selector.selectedIndex];
-  if (!selected || !selected.value) return;
-  const roomId = selected.value;
-  const homestayId = selected.dataset.homestay;
-  // We toggle by sending the same date – the server will remove it if it exists
-  try {
-    const res = await fetch(API_BASE + '/owner-update-booking', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Owner-Authorization': 'Bearer ' + ownerToken
-      },
-      body: JSON.stringify({
-        action: 'updateRoomBlock',
-        homestayId: homestayId,
-        roomId: roomId,
-        date: date
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      await showAlert('Removed', date + ' unblocked.');
-      await loadBookings();
-      await loadRoomBlocks();
-    } else {
-      await showAlert('Error', data.error || 'Failed to remove block.');
-    }
-  } catch(e) {
-    await showAlert('Error', 'Network error: ' + e.message);
-  }
-}
-
-// Call loadRoomBlocks() after login and after loadBookings()
 
       // ---- ROOM INFO ----
       const roomInfo = b.roomName ? ` • Room: <span class="font-semibold">${b.roomName}</span>` : '';
@@ -1337,6 +1223,122 @@ async function cancelBooking(bookingId) {
 }
 
 // =============================================================
+// ROOM BLOCK MANAGEMENT – moved to top-level
+// =============================================================
+async function loadRoomBlocks() {
+  const selector = document.getElementById('blockRoomSelect');
+  if (!selector) return;
+  // Populate rooms from allHomestays (only those owned by this host)
+  const rooms = [];
+  allHomestays.forEach(h => {
+    if (h.rooms && h.rooms.length) {
+      h.rooms.forEach(r => {
+        rooms.push({ homestayId: h.id, homestayName: h.name, roomId: r.id, roomName: r.name, blockedDates: r.blockedDates || [] });
+      });
+    }
+  });
+  if (rooms.length === 0) {
+    selector.innerHTML = '<option value="">No rooms found</option>';
+    return;
+  }
+  selector.innerHTML = rooms.map(r => `<option value="${r.roomId}" data-homestay="${r.homestayId}" data-blocked='${JSON.stringify(r.blockedDates)}'>${r.homestayName} – ${r.roomName}</option>`).join('');
+  renderRoomBlockedList();
+}
+
+function renderRoomBlockedList() {
+  const selector = document.getElementById('blockRoomSelect');
+  const listDiv = document.getElementById('roomBlockedList');
+  if (!selector || !listDiv) return;
+  const selected = selector.options[selector.selectedIndex];
+  if (!selected) { listDiv.innerHTML = ''; return; }
+  const blocked = JSON.parse(selected.dataset.blocked || '[]');
+  if (blocked.length === 0) {
+    listDiv.innerHTML = '<div class="text-xs text-zinc-400">No blocked dates for this room.</div>';
+    return;
+  }
+  let html = '<div class="flex flex-wrap gap-2">';
+  blocked.sort().forEach(d => {
+    html += `<span class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs flex items-center gap-2">
+      ${d}
+      <button onclick="removeRoomBlock('${d}')" class="text-red-600 hover:text-red-800 font-bold">✕</button>
+    </span>`;
+  });
+  html += '</div>';
+  listDiv.innerHTML = html;
+}
+
+async function toggleRoomBlock() {
+  const selector = document.getElementById('blockRoomSelect');
+  const dateInput = document.getElementById('blockDateInput');
+  const selected = selector.options[selector.selectedIndex];
+  if (!selected || !selected.value) { showAlert('Error', 'Please select a room.'); return; }
+  const date = dateInput.value;
+  if (!date) { showAlert('Error', 'Please select a date.'); return; }
+  const roomId = selected.value;
+  const homestayId = selected.dataset.homestay;
+  try {
+    const res = await fetch(API_BASE + '/owner-update-booking', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Owner-Authorization': 'Bearer ' + ownerToken
+      },
+      body: JSON.stringify({
+        action: 'updateRoomBlock',
+        homestayId: homestayId,
+        roomId: roomId,
+        date: date
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await showAlert('Success', data.message);
+      await loadBookings(); // refresh data
+      await loadRoomBlocks(); // refresh dropdown and list
+      dateInput.value = '';
+    } else {
+      await showAlert('Error', data.error || 'Failed to update block.');
+    }
+  } catch(e) {
+    await showAlert('Error', 'Network error: ' + e.message);
+  }
+}
+
+async function removeRoomBlock(date) {
+  const selector = document.getElementById('blockRoomSelect');
+  const selected = selector.options[selector.selectedIndex];
+  if (!selected || !selected.value) return;
+  const roomId = selected.value;
+  const homestayId = selected.dataset.homestay;
+  // We toggle by sending the same date – the server will remove it if it exists
+  try {
+    const res = await fetch(API_BASE + '/owner-update-booking', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Owner-Authorization': 'Bearer ' + ownerToken
+      },
+      body: JSON.stringify({
+        action: 'updateRoomBlock',
+        homestayId: homestayId,
+        roomId: roomId,
+        date: date
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await showAlert('Removed', date + ' unblocked.');
+      await loadBookings();
+      await loadRoomBlocks();
+    } else {
+      await showAlert('Error', data.error || 'Failed to remove block.');
+    }
+  } catch(e) {
+    await showAlert('Error', 'Network error: ' + e.message);
+  }
+}
+
+// =============================================================
 // INIT
 // =============================================================
 (function init() {
@@ -1366,6 +1368,7 @@ async function cancelBooking(bookingId) {
         if (dashboardSection) dashboardSection.classList.remove('hidden');
         document.getElementById('welcomeName').innerText = data.ownerName || 'Owner';
         loadBookings();
+        loadRoomBlocks(); // populate room blocks
       } else {
         showAlert('Authentication Required', 'Please log in to your host credentials account.').then(() => {
           sessionStorage.removeItem('kd_owner_token');
