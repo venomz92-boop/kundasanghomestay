@@ -24,19 +24,18 @@ export async function onRequestPost({ request, env }) {
     let bookings = results['kd_bookings'];
 
     // ===== 1. Clean approved homestays =====
-    let cleanedApproved = approved.map(h => {
-      // Remove homestay-level images
-      const { images, ...rest } = h;
-      // Remove room images (if rooms exist)
-      if (rest.rooms && Array.isArray(rest.rooms)) {
-        rest.rooms = rest.rooms.map(r => {
-          const { images: roomImages, ...roomRest } = r;
-          return roomRest;
-        });
-      }
-      return rest;
+  let cleanedApproved = approved.map(h => {
+  // Remove homestay-level images
+  const { images, icImage, bankQRImage, pbtLicense, ...rest } = h;
+  // Remove room images (if rooms exist)
+  if (rest.rooms && Array.isArray(rest.rooms)) {
+    rest.rooms = rest.rooms.map(r => {
+      const { images: roomImages, ...roomRest } = r;
+      return roomRest;
     });
-
+  }
+  return rest;
+});
     // ===== 2. Clean bookings =====
     let cleanedBookings = bookings.map(b => {
       // Remove roomImages from booking if present
