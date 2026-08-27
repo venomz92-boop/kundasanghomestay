@@ -1028,12 +1028,17 @@ async function resendCode(bookingId) {
     });
     const data = await res.json();
     if (data.success) {
-      showAlert('Code Sent', 'The check‑in code has been resent to your email.');
+      if (data.emailSent) {
+        showAlert('Code Sent', data.message);
+      } else {
+        // Email failed but we have the code
+        showAlert('Your Check‑in Code', data.message + '\n\nPlease save this code for check‑in.');
+      }
     } else {
       showAlert('Error', data.error || 'Failed to resend.');
     }
   } catch(e) {
-    showAlert('Error', 'Network error.');
+    showAlert('Error', 'Network error. Please try again.');
     console.error('Resend error:', e);
   }
 }
