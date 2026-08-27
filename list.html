@@ -711,7 +711,25 @@
           <canvas id="icCanvas" class="hidden"></canvas>
         </div>
       </section>
-
+<!-- ===== CONSENT & DATA DELETION NOTICE ===== -->
+<section class="space-y-4 border-l-4 border-amber-400 bg-amber-50/50 p-4 rounded-xl mt-6">
+  <div class="flex items-center gap-2">
+    <svg class="w-5 h-5 text-amber-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+    <span class="font-bold text-[16px] text-amber-900">Data Privacy & Consent</span>
+  </div>
+  <p class="text-xs text-zinc-600">
+    Your IC and bank QR images are used <strong>only for one‑time verification</strong>.
+    After your listing is approved, these images will be <strong>automatically deleted</strong> from our database.
+    We store only your name, contact details, and bank account information (for payout purposes).
+  </p>
+  <label class="flex gap-2.5 text-xs select-none cursor-pointer items-start">
+    <input id="listConsent" type="checkbox" required class="mt-1" />
+    <span class="text-zinc-700">
+      I consent to my data being processed for verification, listing, and payout purposes as described above.
+      <span class="text-red-500">*</span>
+    </span>
+  </label>
+</section>
       <!-- SECTION 6: PASSWORD -->
       <section class="space-y-4 border-l-4 border-purple-400 bg-purple-50/50 p-4 rounded-xl">
         <div class="flex items-center gap-2">
@@ -904,7 +922,11 @@ document.addEventListener('keydown', function(e) {
 document.getElementById('customModal').addEventListener('click', function(e) {
   if (e.target === this) { closeModal(); }
 });
-
+const consent = document.getElementById('listConsent').checked;
+if (!consent) {
+  await showAlert("Consent Required", "Please agree to the data processing consent.");
+  return;
+}
 // =============================================================
 // SHA256 (PEPPER SECURITY CONSTRAINTS)
 // =============================================================
