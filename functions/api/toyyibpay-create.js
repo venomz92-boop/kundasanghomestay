@@ -1,4 +1,4 @@
-// /api/toyyibpay-create.js
+// /api/toyyibpay-create.js - with retry for booking read
 import { corsHeaders, enforceHttps, getClientIP, getGuestSession, jsonResponse, logAction, getCSRFToken, validateCSRFToken } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
@@ -25,12 +25,22 @@ export async function onRequestPost({ request, env }) {
     if (!db) return jsonResponse({ error: 'Server configuration error' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+    // ===== RETRY LOOP TO HANDLE EVENTUAL CONSISTENCY =====
     let bookings = [];
-    try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
-    const idx = bookings.findIndex(b => String(b.id) === bookingId);
-    if (idx < 0) return jsonResponse({ error: 'Booking not found' }, 404, request);
+    let idx = -1;
+    let retries = 3;
+    while (retries > 0 && idx === -1) {
+      if (retries < 3) await new Promise(r => setTimeout(r, 300));
+      const r2 = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+      try { bookings = JSON.parse(r2?.data || '[]'); } catch {}
+      idx = bookings.findIndex(b => String(b.id) === bookingId);
+      retries--;
+    }
+    if (idx < 0) {
+      return jsonResponse({ error: 'Booking not found' }, 404, request);
+    }
     const booking = bookings[idx];
+    // ===== END RETRY =====
 
     if (String(booking.guestId) !== String(session.userId)) {
       return jsonResponse({ error: 'Unauthorized' }, 403, request);
