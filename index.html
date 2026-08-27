@@ -2500,6 +2500,22 @@ async function processPayment() {
     var booking = created.booking;
     window.lastCreatedBooking = booking;
 
+    // ===== NEW: Verify booking exists =====
+    try {
+      const verifyRes = await fetch(API_BASE + '/bookings?bookingId=' + booking.id, {
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('kd_guest_token') }
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyData.bookings || verifyData.bookings.length === 0) {
+        showAlert('Booking Error', 'Your booking could not be saved. Please try again.');
+        return;
+      }
+    } catch (e) {
+      showAlert('Booking Error', 'Unable to verify booking. Please check your connection and try again.');
+      return;
+    }
+    // ===== END VERIFICATION =====
+
     sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
 
     var payRes = await fetch(API_BASE + '/toyyibpay-create', {
@@ -2512,14 +2528,6 @@ async function processPayment() {
       showAlert('Payment Setup Error', payment.error || 'Unable to create the payment bill. Your booking remains pending payment; please retry later.');
       return;
     }
-    var verifyRes = await fetch(API_BASE + '/bookings?bookingId=' + booking.id, {
-  headers: { 'Authorization': 'Bearer ' + localStorage.getItem('kd_guest_token') }
-});
-var verifyData = await verifyRes.json();
-if (!verifyData.bookings || verifyData.bookings.length === 0) {
-  showAlert('Booking Error', 'Your booking could not be saved. Please try again.');
-  return;
-}
     localStorage.setItem('kd_guest_pending_payment', JSON.stringify(booking));
     window.location.href = payment.url;
   } catch (e) {
