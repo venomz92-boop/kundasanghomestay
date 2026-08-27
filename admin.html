@@ -1480,41 +1480,68 @@ function renderAvailabilityTab(){
 }
 
 function renderGuestsTable(){
-    let guests = [];
-    try{
-        guests = JSON.parse(localStorage.getItem("kd_guests") || "[]");
-    }catch(e){ guests = []; }
-    const div = document.getElementById("guestsTable");
-    if(!div) return;
-    if(guests.length===0){
-        div.innerHTML = safeHTML('<div class="text-center text-zinc-500 py-8">No guests yet</div>');
-    } else {
-        let html = '<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests</div>';
-        guests.forEach((g, i) => {
-            html += '<div class="border rounded-xl p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+'</div></div></div>';
-        });
-        div.innerHTML = safeHTML(html);
-    }
+  let guests = [];
+  try{
+    guests = JSON.parse(localStorage.getItem("kd_guests") || "[]");
+  } catch(e){ guests = []; }
+  const div = document.getElementById("guestsTable");
+  if(!div) return;
+  if(guests.length===0){
+    div.innerHTML = safeHTML('<div class="text-center text-zinc-500 py-8">No guests yet</div>');
+  } else {
+    let html = '<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests</div>';
+    guests.forEach((g, i) => {
+      const guestId = g.id || g.email || i;
+      html += `
+        <div class="border rounded-xl p-3 text-sm flex justify-between items-center">
+          <div>
+            <div class="font-bold">${g.name || ''} • ${g.email || ''}</div>
+            <div class="text-[11px] text-zinc-500">${g.phone || ''}</div>
+          </div>
+          <button onclick="deleteGuest('${guestId}')" class="text-xs px-3 py-1.5 rounded-full bg-red-600 text-white">Delete</button>
+        </div>
+      `;
+    });
+    div.innerHTML = safeHTML(html);
+  }
 }
 
-async function forceSyncGuests(){
-  try{
+async function deleteGuest(identifier) {
+  let guests = [];
+  try { guests = JSON.parse(localStorage.getItem("kd_guests") || "[]"); } catch(e) { guests = []; }
+  const guest = guests.find(g => String(g.id) === String(identifier) || String(g.email) === String(identifier));
+  if (!guest) {
+    await showAlert("Error", "Guest not found in local data.");
+    return;
+  }
+  const confirmed = await showConfirm(
+    "Delete Guest",
+    `Delete <strong>${guest.name || guest.email}</strong> (${guest.email})? This will permanently remove the guest record.`
+  );
+  if (!confirmed) return;
+  try {
+    const res = await fetchWithAuth(API_BASE + "/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "deleteGuest",
+        guestId: guest.id || "",
+        email: guest.email || ""
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || "Cloud delete failed");
+    }
     await fetchCloudData();
     renderGuestsTable();
     renderAdmin();
-    const g=JSON.parse(localStorage.getItem("kd_guests")||"[]");
-    await showAlert("Sync Complete", "Synced! Guests:"+g.length);
-  }catch(e){ await showAlert("Error", "Sync failed: "+e.message); }
-}
-async function checkCloudRaw(){
-  try{
-    const res=await fetchWithAuth(API_BASE + "/bookings", {cache:"no-store"});
-    const data=await res.json();
-    await showAlert("Cloud Data", "Cloud: bookings:"+(data.bookings?.length||0)+" guests:"+(data.guests?.length||0));
-  }catch(e){ await showAlert("Error", "Check failed: "+e.message); }
+    await showAlert("Success", `Deleted ${guest.email}.`);
+  } catch(e) {
+    await showAlert("Error", "Guest was NOT deleted: " + e.message);
+  }
 }
 
-  
 async function deleteBooking(id) {
   const confirmed = await showConfirm("Delete Booking", "Delete " + id + "? This will free blocked dates.");
   if (!confirmed) return;
