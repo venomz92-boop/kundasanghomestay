@@ -11,7 +11,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
   <style>
-    /* ===== ROOT (same) ===== */
+    /* ===== ROOT ===== */
     :root {
       --primary: #0F382E;
       --primary-light: #1a4d3e;
@@ -616,7 +616,7 @@
         </div>
       </section>
 
-      <!-- ===== SECTION: ROOMS (Multi‑room) with Image Upload ===== -->
+      <!-- ===== SECTION: ROOMS (Multi‑room) with Cloudinary upload ===== -->
       <section class="space-y-4 mt-8 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
@@ -880,7 +880,7 @@ function safeHTML(html) {
 }
 
 // =============================================================
-// SYSTEM MODALS (same)
+// SYSTEM MODALS
 // =============================================================
 function showModal(title, message, buttons) {
   return new Promise((resolve) => {
@@ -981,7 +981,7 @@ function generateSalt() {
 }
 
 // =============================================================
-// GUEST ACTIVE SESSION RETRIEVAL (same)
+// GUEST ACTIVE SESSION RETRIEVAL
 // =============================================================
 const API_BASE = "/api";
 let currentGuest = null;
@@ -1067,6 +1067,27 @@ function compressImage(file, maxWidth = 800, quality = 0.7) {
   });
 }
 
+// ===== Compress to Blob (for upload) =====
+function compressImageToBlob(file, maxWidth, quality) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = h * (maxWidth / w); w = maxWidth; }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // =============================================================
 // COMPILATION FORM LOCAL STORAGE
 // =============================================================
@@ -1077,7 +1098,7 @@ let tempIcOriginalName = "";
 let tempBankQRWatermarked = "";
 let tempBankQROriginalName = "";
 
-// ===== ROOMS MANAGEMENT with images =====
+// ===== ROOMS MANAGEMENT with Cloudinary upload =====
 let tempRooms = [];
 
 function addRoom(name = '', price = '', guests = '', desc = '', images = []) {
@@ -1100,7 +1121,6 @@ function renderRooms() {
   }
   let html = '';
   tempRooms.forEach((room, i) => {
-    // Build image preview HTML
     let imagesHtml = '';
     if (room.images && room.images.length > 0) {
       imagesHtml = '<div class="flex flex-wrap gap-1 mt-1">';
@@ -1125,7 +1145,7 @@ function renderRooms() {
           </div>
           <input class="form-input text-sm" placeholder="Room description" value="${room.desc}" onchange="tempRooms[${i}].desc = this.value" />
           
-          <!-- ==== Room Image Upload ==== -->
+          <!-- ==== Room Image Upload (Cloudinary) ==== -->
           <div class="flex items-center gap-2">
             <label class="text-xs font-semibold text-zinc-600 cursor-pointer bg-zinc-100 px-3 py-1.5 rounded-full hover:bg-zinc-200 transition">
               📷 Add Photos
@@ -1142,20 +1162,37 @@ function renderRooms() {
   list.innerHTML = safeHTML(html);
 }
 
-// ===== HANDLE ROOM IMAGES =====
+// ===== HANDLE ROOM IMAGES – Upload to Cloudinary =====
 async function handleRoomImages(index, input) {
   const files = input.files;
   if (!files.length) return;
   
   for (const file of files) {
     try {
-      const compressed = await compressImage(file, 600, 0.7);
-      if (compressed) {
+      // Compress to reduce upload size
+      const compressedBlob = await compressImageToBlob(file, 800, 0.7);
+      if (!compressedBlob) continue;
+
+      // Upload to Cloudinary via server endpoint
+      const formData = new FormData();
+      formData.append('image', compressedBlob, file.name);
+
+      const res = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      
+      if (data.url) {
         if (!tempRooms[index].images) tempRooms[index].images = [];
-        tempRooms[index].images.push(compressed);
+        tempRooms[index].images.push(data.url);
+      } else {
+        console.error('Upload failed:', data);
+        await showAlert('Upload Failed', data.error || 'Could not upload image.');
       }
     } catch (e) {
-      console.error('Room image compression error:', e);
+      console.error('Upload error:', e);
+      await showAlert('Upload Failed', 'Could not upload room image. Please try again.');
     }
   }
   renderRooms();
@@ -1214,14 +1251,12 @@ async function handleIcFile(input) {
   tempIcOriginalName = file.name;
 
   try {
-    // Compress first
     const compressedDataUrl = await compressImage(file, 1200, 0.85);
     if (!compressedDataUrl) {
       await showAlert("Error", "Failed to process image.");
       return;
     }
 
-    // Load image for watermarking
     const img = new Image();
     img.onload = function() {
       const canvas = document.getElementById("icCanvas");
@@ -1416,7 +1451,6 @@ async function submitHomestay() {
     if (bankName === 'Other') { bankCode = document.getElementById('listBankCode').value.trim().toUpperCase(); }
     if (!bankCode) bankCode = 'MBBEMYKL';
 
-    // ✅ Check consent
     const consent = document.getElementById('listConsent').checked;
     if (!consent) {
       await showAlert("Consent Required", "Please agree to the data processing consent before submitting.");
@@ -1424,7 +1458,6 @@ async function submitHomestay() {
       return;
     }
 
-    // Validations
     if (!ownerName) { await showAlert("Required Field", "Host full legal name is missing."); return; }
     if (!whatsapp) { await showAlert("Required Field", "WhatsApp contact number is missing."); return; }
     if (!ownerEmail) { await showAlert("Required Field", "Owner email address is missing."); return; }
