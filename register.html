@@ -670,10 +670,9 @@ async function handleRegister(e) {
     });
     const data = await res.json();
    
- if (data.success) {
+if (data.success) {
   // ---- DO NOT STORE GUEST OR TOKEN ----
-  // The user must verify their email before logging in.
-  renderGuestNav(); // Ensures the nav shows "Login/Register" (not logged in)
+  renderGuestNav(); // Ensure nav shows "Login/Register"
   await showAlert('Registration Successful', data.message);
   // Redirect to login page instead of home
   window.location.href = '/login.html?registered=1';
