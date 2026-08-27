@@ -219,6 +219,21 @@ export async function onRequestPost({ request, env }) {
       const guest = guests.find(g => String(g.id) === String(auth.session.userId));
       const homestay = approved.find(h => String(h.id) === String(incoming.homestayId) && (h.approved === true || h.verified === true));
       if (!guest || !homestay) return jsonResponse({ error: 'Guest or homestay not found' }, 404, request);
+
+      // ---- Handle room selection ----
+      const rooms = homestay.rooms || [];
+      let selectedRoom = null;
+      if (incoming.roomId) {
+        selectedRoom = rooms.find(r => r.id === incoming.roomId);
+        if (!selectedRoom) {
+          return jsonResponse({ error: 'Selected room not found' }, 400, request);
+        }
+      }
+      const ownerPrice = selectedRoom ? parseFloat(selectedRoom.price) : homestay.ownerPrice;
+      if (!Number.isFinite(ownerPrice) || ownerPrice <= 0) {
+        return jsonResponse({ error: 'Homestay price is not configured correctly' }, 500, request);
+      }
+
       const ci = String(incoming.checkin || ''), co = String(incoming.checkout || '');
       const d1 = new Date(ci+'T00:00:00'), d2 = new Date(co+'T00:00:00');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(ci) || !/^\d{4}-\d{2}-\d{2}$/.test(co) || isNaN(d1) || isNaN(d2) || d1 >= d2) return jsonResponse({ error: 'Invalid dates' }, 400, request);
@@ -260,9 +275,7 @@ export async function onRequestPost({ request, env }) {
       });
       if (overlaps) return jsonResponse({ error: 'Selected dates are no longer available' }, 409, request);
 
-      const ownerPrice = Number(homestay.ownerPrice);
-      if (!Number.isFinite(ownerPrice) || ownerPrice <= 0) return jsonResponse({ error: 'Homestay price is not configured correctly' }, 500, request);
-      const base = Math.round(ownerPrice * nights * 100) / 100;
+      const base = Math.round(ownerPrice * nights * 100) / 100;  // use ownerPrice
       const fee = Math.round(base * 0.11 * 100) / 100;
       const gatewayFee = 1.00;
       const total = Math.round((base + fee + gatewayFee) * 100) / 100;
@@ -273,11 +286,26 @@ export async function onRequestPost({ request, env }) {
       const checkinCode = String(Math.floor(100000 + Math.random() * 900000));
 
       const booking = {
-        id: bookingId, homestay: homestay.name, homestayId: homestay.id, ownerWhatsapp: homestay.whatsapp || '',
-        guestId: guest.id, guestName: guest.name, guestEmail: guest.email, guestPhone: guest.phone || '',
-        checkin: ci, checkout: co, nights, base, fee, gatewayFee, total, status: 'Pending Payment',
+        id: bookingId,
+        homestay: homestay.name,
+        homestayId: homestay.id,
+        ownerWhatsapp: homestay.whatsapp || '',
+        guestId: guest.id,
+        guestName: guest.name,
+        guestEmail: guest.email,
+        guestPhone: guest.phone || '',
+        checkin: ci,
+        checkout: co,
+        nights,
+        base,
+        fee,
+        gatewayFee,
+        total,
+        status: 'Pending Payment',
         date: new Date().toISOString(),
-        checkinCode: checkinCode
+        checkinCode: checkinCode,
+        roomId: selectedRoom ? selectedRoom.id : null,
+        roomName: selectedRoom ? selectedRoom.name : null
       };
       
       bookings.push(booking);
