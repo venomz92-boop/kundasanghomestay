@@ -1500,18 +1500,13 @@ async function deleteGuest(indexOrId) {
         await showAlert("Error", "Guest was NOT deleted: " + e.message);
     }
 }
+  
 async function deleteBooking(id) {
   const confirmed = await showConfirm("Delete Booking", "Delete " + id + "? This will free blocked dates.");
   if (!confirmed) return;
 
-  const toDelete = bookings.find(function(b) { return String(b.id) === String(id); });
-  if (!toDelete) {
-    await showAlert("Error", "Booking not found locally.");
-    return;
-  }
-
-  // Remove from local array first (optimistic update)
-  bookings = bookings.filter(function(b) { return String(b.id) !== String(id); });
+  // Remove from local list immediately (optimistic)
+  bookings = bookings.filter(b => String(b.id) !== String(id));
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
   renderBookingsTable();
   renderAdmin();
@@ -1523,27 +1518,27 @@ async function deleteBooking(id) {
     });
 
     if (!res.ok) {
-      // If cloud deletion fails, we need to roll back the local deletion
+      // If cloud says not found, it's already gone – we already removed it, so ignore error
+      if (res.status === 404) {
+        console.log("Booking already deleted from cloud, local removed.");
+        return;
+      }
+      // Otherwise, show error and rollback
       const data = await res.json();
       await showAlert("Error", "Cloud delete failed: " + (data.error || res.statusText));
-      // Re-fetch to restore the item
-      await fetchCloudData();
+      await fetchCloudData(); // restore
       renderAdmin();
       return;
     }
 
-    const data = await res.json();
-    await showAlert("Success", "Deleted " + id + " and freed dates.");
-
-    // Refresh fully from cloud to ensure consistency
+    // Success – just fetch fresh data to be safe
     await fetchCloudData();
     renderAdmin();
 
   } catch (e) {
     console.error("Delete error:", e);
     await showAlert("Error", "Delete error: " + e.message);
-    // Re-fetch to restore the item
-    await fetchCloudData();
+    await fetchCloudData(); // restore if needed
     renderAdmin();
   }
 }
