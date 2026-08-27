@@ -2,7 +2,6 @@
 import { corsHeaders, getAdminToken, jsonResponse } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
-  // Verify admin token
   const token = await getAdminToken(request);
   if (!token || token !== env.ADMIN_TOKEN) {
     return jsonResponse({ error: 'Unauthorized' }, 401, request);
@@ -12,7 +11,6 @@ export async function onRequestPost({ request, env }) {
   if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
 
   try {
-    // Get current data
     const keys = ['kd_approved', 'kd_bookings'];
     const results = {};
     for (const key of keys) {
@@ -23,27 +21,34 @@ export async function onRequestPost({ request, env }) {
     let approved = results['kd_approved'];
     let bookings = results['kd_bookings'];
 
-    // ===== 1. Clean approved homestays =====
-  let cleanedApproved = approved.map(h => {
-  // Remove homestay-level images
-  const { images, icImage, bankQRImage, pbtLicense, ...rest } = h;
-  // Remove room images (if rooms exist)
-  if (rest.rooms && Array.isArray(rest.rooms)) {
-    rest.rooms = rest.rooms.map(r => {
-      const { images: roomImages, ...roomRest } = r;
-      return roomRest;
+    // ===== CLEAN APPROVED HOMESTAYS =====
+    let cleanedApproved = approved.map(h => {
+      // Remove ALL image fields
+      const {
+        images,         // homestay gallery
+        icImage,        // IC photo
+        bankQRImage,    // Bank QR
+        pbtLicense,     // PBT license
+        ...rest
+      } = h;
+
+      // Remove room images
+      if (rest.rooms && Array.isArray(rest.rooms)) {
+        rest.rooms = rest.rooms.map(r => {
+          const { images: roomImages, ...roomRest } = r;
+          return roomRest;
+        });
+      }
+      return rest;
     });
-  }
-  return rest;
-});
-    // ===== 2. Clean bookings =====
+
+    // ===== CLEAN BOOKINGS =====
     let cleanedBookings = bookings.map(b => {
-      // Remove roomImages from booking if present
       const { roomImages, ...rest } = b;
       return rest;
     });
 
-    // ===== 3. Update the database =====
+    // ===== UPDATE DATABASE =====
     const stmt1 = db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
       .bind('kd_approved', JSON.stringify(cleanedApproved));
     const stmt2 = db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
@@ -52,9 +57,11 @@ export async function onRequestPost({ request, env }) {
 
     return jsonResponse({
       success: true,
-      message: 'Images removed from approved and bookings.',
+      message: 'All images removed from approved and bookings.',
       approvedCount: cleanedApproved.length,
-      bookingsCount: cleanedBookings.length
+      bookingsCount: cleanedBookings.length,
+      oldSize: results['kd_approved'].length,
+      newSize: JSON.stringify(cleanedApproved).length
     }, 200, request);
 
   } catch (e) {
@@ -63,7 +70,6 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// Also allow GET for quick testing (but keep it secure)
 export async function onRequestGet({ request, env }) {
   return new Response('Use POST to clean images. Admin auth required.', {
     status: 200,
