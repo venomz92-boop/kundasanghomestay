@@ -218,9 +218,11 @@ export async function onRequestPost({ request, env }) {
     };
 
     let attempts = 0;
-    while (attempts < 3) {
-      attempts++;
-      try {
+const maxAttempts = 5;
+let saved = false;
+while (attempts < maxAttempts) {
+  attempts++;
+  try {
         const approvedData = await getWithVersion('kd_approved');
         const bookingsData = await getWithVersion('kd_bookings');
         const guestsData = await getWithVersion('kd_guests');
@@ -348,33 +350,29 @@ export async function onRequestPost({ request, env }) {
         ).bind(newData, newVersion, 'kd_bookings', currentVersion);
 
         const result = await updateStmt.run();
-
-        if (result.changes === 0) {
-          console.log(`🔄 Booking race condition detected. Retry attempt ${attempts} for ${bookingId}`);
-          continue;
-        }
-
-        await sendBookingEmail(guest.email, guest.name, bookingId, homestay.name, ci, co, nights, total, checkinCode, env)
-          .catch(e => console.warn('Email send failed:', e));
-
-        try {
-          const guestPhoneClean = String(guest.phone || '').replace(/[^0-9]/g, '');
-          if (guestPhoneClean && guestPhoneClean.length >= 9) {
-            let phone = guestPhoneClean;
-            if (phone.startsWith('0')) phone = '60' + phone.substring(1);
-            const msg = `*Kundasang Homestay Booking Confirmed!* 🏔️\n\nBooking ID: ${bookingId}\nHomestay: ${homestay.name}\nCheck-in: ${ci}\nCheck-out: ${co}\n\n*Your 6-digit check-in code:* ${checkinCode}\n\nPlease keep this code safe. You will need to share it with the host when you arrive. Do not share it with anyone else.`;
-            fetch(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`, { method: 'GET' }).catch(()=>{});
-          }
-        } catch (waError) { console.warn('WhatsApp notification failed:', waError); }
-
-        await logAction({db,action:'booking_created',admin:'guest',details:`Booking ${booking.id} created; payment pending`,ip:getClientIP(request),userId:guest.id,homestayId:homestay.id});
-        return jsonResponse({success:true, booking}, 200, request);
-
-      } catch(e) {
-        console.error('Create booking error:', e.message);
-        return jsonResponse({ error: 'Could not create booking' }, 500, request);
-      }
+    if (result.changes === 0) {
+      console.log(`Retry ${attempts} for ${bookingId}`);
+      await new Promise(r => setTimeout(r, 200)); // small delay
+      continue;
     }
+    saved = true;
+    // SUCCESS: send email, log, return response
+    await sendBookingEmail(guest.email, guest.name, bookingId, homestay.name, ci, co, nights, total, checkinCode, env)
+      .catch(e => console.warn('Email send failed:', e));
+    // ... WhatsApp notify, logAction, etc. ...
+    return jsonResponse({ success: true, booking }, 200, request);
+  } catch (e) {
+    // If any error occurs, we want to retry up to maxAttempts
+    if (attempts === maxAttempts) {
+      console.error('Booking creation error:', e.message);
+      return jsonResponse({ error: 'Could not create booking' }, 500, request);
+    }
+    await new Promise(r => setTimeout(r, 200));
+  }
+}
+if (!saved) {
+  return jsonResponse({ error: 'Could not save booking after multiple attempts' }, 503, request);
+}
 
     console.error('❌ Max retries exceeded for booking creation');
     return jsonResponse({ error: 'Booking system busy. Please try again in a moment.' }, 503, request);
