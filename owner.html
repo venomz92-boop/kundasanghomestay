@@ -1023,6 +1023,18 @@ async function loadBookings() {
       // ---- ROOM INFO ----
       const roomInfo = b.roomName ? ` • Room: <span class="font-semibold">${b.roomName}</span>` : '';
 
+      let roomImagesHtml = '';
+if (b.roomImages && b.roomImages.length > 0) {
+  roomImagesHtml = '<div class="flex gap-1 mt-1">';
+  b.roomImages.slice(0, 3).forEach(img => {
+    roomImagesHtml += `<img src="${img}" class="w-10 h-10 object-cover rounded border border-zinc-200" />`;
+  });
+  if (b.roomImages.length > 3) {
+    roomImagesHtml += `<span class="text-[10px] text-zinc-400 flex items-center">+${b.roomImages.length - 3}</span>`;
+  }
+  roomImagesHtml += '</div>';
+}
+
       let statusBadge = '';
       if (isCompleted) {
         if (b.payoutSuccess === true && b.payoutSuccessDate) {
