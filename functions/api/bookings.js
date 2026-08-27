@@ -1,4 +1,4 @@
-// /api/bookings.js - with pagination and D1 batch
+// /api/bookings.js - with pagination and D1 batch, and image stripping on approval
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -294,7 +294,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
     }
 
-    // ===== APPROVE HOMESTAY WITH db.batch() =====
+    // ===== APPROVE HOMESTAY WITH db.batch() AND STRIP IMAGES =====
     if (action === "approveHomestay" && body.id) {
       try {
         // Read pending
@@ -311,9 +311,12 @@ export async function onRequestPost({ request, env }) {
           return jsonResponse({ error: "Pending homestay not found" }, 404, request);
         }
         const homestay = pending[idx];
+        
+        // ✅ STRIP SENSITIVE FIELDS BEFORE APPROVAL
+        const { icImage, icOriginalName, bankQRImage, bankQROriginalName, ...safeHomestay } = homestay;
         // Mark approved
-        homestay.approved = true;
-        homestay.verified = true;
+        safeHomestay.approved = true;
+        safeHomestay.verified = true;
         pending.splice(idx, 1);
         
         // Read approved
@@ -325,7 +328,7 @@ export async function onRequestPost({ request, env }) {
             return jsonResponse({ error: "Corrupt approved data" }, 500, request);
           }
         }
-        approved.push(homestay);
+        approved.push(safeHomestay);
         
         // Use db.batch() for atomic update
         const stmt1 = db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
@@ -338,13 +341,13 @@ export async function onRequestPost({ request, env }) {
           db,
           action: 'homestay_approved',
           admin: 'admin',
-          details: `Approved homestay "${homestay.name}" (ID: ${homestay.id}) by ${homestay.ownerName}`,
+          details: `Approved homestay "${safeHomestay.name}" (ID: ${safeHomestay.id}) by ${safeHomestay.ownerName}`,
           ip: clientIP,
-          userId: homestay.ownerEmail,
-          homestayId: homestay.id
+          userId: safeHomestay.ownerEmail,
+          homestayId: safeHomestay.id
         });
         
-        return jsonResponse({ success: true, homestay }, 200, request);
+        return jsonResponse({ success: true, homestay: safeHomestay }, 200, request);
       } catch (approveErr) {
         console.error("Approve homestay error:", approveErr.message, approveErr.stack);
         return jsonResponse({ error: "Approval failed: " + approveErr.message }, 500, request);
