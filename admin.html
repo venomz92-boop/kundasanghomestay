@@ -573,6 +573,8 @@ let deletedDemoIds = [];
 
 // ===== NEW: Current booking filter =====
 let currentBookingFilter = 'all';
+let bookingsPage = 1;
+const BOOKINGS_PER_PAGE = 5;
 
 // =============================================================
 // FETCH WITH AUTH
@@ -885,8 +887,9 @@ function showAdminTab(tab){
   if(tab==='availability') renderAvailabilityTab();
   if(tab==='guests') renderGuestsTable();
   if(tab==='bookings') {
-    populateBookingFilter();
-    renderBookingsTable(currentBookingFilter);
+  bookingsPage = 1;
+  populateBookingFilter();
+  renderBookingsTable(currentBookingFilter, 1);
   }
 }
 
@@ -1116,22 +1119,45 @@ function closePendingDetail() {
 // =============================================================
 // RENDER BOOKINGS TABLE – with filter support
 // =============================================================
-function renderBookingsTable(filterHomestayId) {
+function renderBookingsTable(filterHomestayId, page = bookingsPage) {
   const div = document.getElementById("bookingsTable");
   if (!div) return;
 
+  // Apply filter
   let filteredBookings = bookings;
   if (filterHomestayId && filterHomestayId !== 'all') {
     filteredBookings = bookings.filter(b => String(b.homestayId) === String(filterHomestayId));
   }
 
-  if (filteredBookings.length === 0) {
+  const total = filteredBookings.length;
+  const totalPages = Math.ceil(total / BOOKINGS_PER_PAGE) || 1;
+  if (page < 1) page = 1;
+  if (page > totalPages) page = totalPages;
+  bookingsPage = page;
+
+  const start = (page - 1) * BOOKINGS_PER_PAGE;
+  const end = start + BOOKINGS_PER_PAGE;
+  const pageBookings = filteredBookings.slice(start, end);
+
+  if (total === 0) {
     div.innerHTML = safeHTML('<div class="text-center text-zinc-500 py-6">No bookings' + (filterHomestayId && filterHomestayId !== 'all' ? ' for this homestay' : '') + '.</div>');
     return;
   }
 
-  let html = '<div class="mb-3 text-[11px] text-zinc-500">Flow: Check-in → Complete → Owner gets Base via ToyyibPay → You keep Fee • No F5 needed <button onclick="renderAdmin()" class="ml-2 border rounded-full px-2 py-0.5 bg-white">Reload</button></div><div class="space-y-4">';
-  filteredBookings.forEach(b => {
+  let html = `
+    <div class="mb-3 text-[11px] text-zinc-500 flex items-center justify-between flex-wrap">
+      <span>Showing ${start + 1}–${Math.min(end, total)} of ${total} bookings</span>
+      <div class="flex items-center gap-2">
+        <button onclick="goToBookingsPage(${page - 1})" ${page <= 1 ? 'disabled' : ''} class="px-3 py-1 border rounded-full text-xs ${page <= 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-100'}">← Prev</button>
+        <span class="text-xs">Page ${page} of ${totalPages}</span>
+        <button onclick="goToBookingsPage(${page + 1})" ${page >= totalPages ? 'disabled' : ''} class="px-3 py-1 border rounded-full text-xs ${page >= totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-100'}">Next →</button>
+        <button onclick="renderAdmin()" class="ml-2 border rounded-full px-2 py-0.5 bg-white">Reload</button>
+      </div>
+    </div>
+    <div class="space-y-4">
+  `;
+
+  pageBookings.forEach(b => {
     const status = b.status || "Paid - Awaiting Check-in";
     const isAwaiting = status.toLowerCase().includes("awaiting");
     const isCompleted = status.toLowerCase().includes("completed") || status.toLowerCase().includes("payout");
@@ -1151,10 +1177,23 @@ function renderBookingsTable(filterHomestayId) {
     }
     html += '<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">' + b.id + '</div><div class="text-[12px] mt-1">' + homestayName + ' • ' + nights + ' nights • ' + checkin + ' → ' + checkout + ' • RM' + total + '</div><div class="text-[12px]">Guest: ' + (b.guestName || '') + ' ' + (b.guestEmail || '') + ' ' + (b.guestPhone || '') + '</div><div class="text-[10px] text-zinc-500 mt-1">Base RM' + base + ' + Fee RM' + fee + ' = You receive RM' + youReceive + ' ' + (b.payoutAmount ? '• Owner Paid RM' + b.payoutAmount + (b.payoutDate ? ' on ' + toMYDate(b.payoutDate) : '') : '') + '</div></div><div><span class="text-[11px] px-2 py-1 rounded-full ' + badgeClass + '">' + badgeText + '</span></div></div><div class="flex gap-2 mt-3 flex-wrap">' + btns + '<button onclick="whatsappGuest(\'' + b.id + '\')" class="px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600">WHATSAPP GUEST</button><button onclick="copyBookingId(\'' + b.id + '\')" class="px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600">COPY ID</button><button onclick="changeBookingDates(\'' + b.id + '\')" class="px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600">CHANGE DATES</button><button onclick="deleteBooking(\'' + b.id + '\')" class="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600">DELETE</button></div></div>';
   });
+
   html += '</div>';
   div.innerHTML = safeHTML(html);
 }
 
+function goToBookingsPage(page) {
+  if (page < 1) return;
+  const total = bookings.filter(b => {
+    const filter = document.getElementById('bookingFilterHomestay');
+    const val = filter ? filter.value : 'all';
+    return val === 'all' || String(b.homestayId) === String(val);
+  }).length;
+  const totalPages = Math.ceil(total / BOOKINGS_PER_PAGE) || 1;
+  if (page > totalPages) return;
+  bookingsPage = page;
+  renderBookingsTable(currentBookingFilter, page);
+}
 // =============================================================
 // BOOKINGS FILTER DROPDOWN
 // =============================================================
@@ -1183,7 +1222,8 @@ function bookingFilterChangeHandler() {
   const select = document.getElementById('bookingFilterHomestay');
   if (select) {
     currentBookingFilter = select.value;
-    renderBookingsTable(currentBookingFilter);
+    bookingsPage = 1;
+    renderBookingsTable(currentBookingFilter, 1);
   }
 }
 
