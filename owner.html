@@ -1057,7 +1057,7 @@ async function loadBookings() {
           : (payoutDate ? new Date(payoutDate).toLocaleDateString('en-MY') : 'Check-In Logged');
         
         if (b.payoutSuccess === true && b.payoutSuccessDate) {
-          actionButtons = `<span class="text-xs text-green-700 font-bold">✅ Payout success (${payoutDisplay}). Please wait 1-4 business day for processing.</span>`;
+          actionButtons = `<span class="text-xs text-green-700 font-bold">✅ Payout success (${payoutDisplay}).<br>Please wait 1-4 business day for processing.</span>`;
         } else if (payoutDate) {
           actionButtons = `<span class="text-xs text-yellow-600 font-bold">⏳ Payout processing since ${payoutDisplay} • <span class="text-green-600">Guest Checked in</span></span>`;
         } else {
