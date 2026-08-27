@@ -2192,7 +2192,7 @@ function renderGrid() {
 }
 
 // =============================================================
-// DETAIL MODAL
+// DETAIL MODAL – Patched for multi‑room
 // =============================================================
 function openDetail(id) {
   selectedHomestay = homestays.find(h => h.id === id) || pendingHomestays.find(h => h.id === id);
@@ -2262,10 +2262,135 @@ function openDetail(id) {
   updateDetailPrice();
 }
 
-function closeBooking() {
-  document.getElementById("bookingModal").classList.add("hidden");
+// =============================================================
+// UPDATE DETAIL PRICE – Patched
+// =============================================================
+function updateDetailPrice() {
+  if (!selectedHomestay) return;
+  const ci = document.getElementById("detailCheckin")?.value;
+  const co = document.getElementById("detailCheckout")?.value;
+  const nights = calculateNights(ci, co);
+
+  let pricePerNight = selectedHomestay.ownerPrice || 200;
+  let selectedRoom = null;
+  const roomSelect = document.getElementById('roomSelect');
+  const rooms = selectedHomestay.rooms || [];
+  if (roomSelect && rooms.length > 0) {
+    const selectedRoomId = roomSelect.value;
+    selectedRoom = rooms.find(r => r.id === selectedRoomId);
+    if (selectedRoom) {
+      pricePerNight = parseFloat(selectedRoom.price) || pricePerNight;
+    }
+  }
+
+  const p = calculatePrice(pricePerNight, nights);
+  const avail = isHomestayAvailableForRange(selectedHomestay, ci, co); // homestay‑level check
+
+  const statusEl = document.getElementById("detailAvailabilityStatus");
+  if (statusEl) {
+    statusEl.className = avail.available ? "text-emerald-700" : "text-red-600";
+    statusEl.textContent = avail.available ? '✓ Selected dates are available (' + nights + ' Nights)' : '✕ Selected dates are fully booked';
+  }
+
+  const box = document.getElementById("detailPriceBox");
+  if (box) {
+    const roomName = selectedRoom ? selectedRoom.name : 'Unit';
+    box.innerHTML = safeHTML(`
+      <div class="text-xs space-y-1.5 font-poppins">
+        <div class="flex justify-between"><span>${roomName} – RM${pricePerNight} x ${nights} Nights</span><span>RM${p.base}</span></div>
+        <div class="flex justify-between"><span>Service Fee</span><span>RM${p.fee}</span></div>
+        <div class="flex justify-between font-bold text-sm text-[#0F382E] border-t pt-2 mt-2"><span>Total Amount:</span><span>RM${p.total.toFixed(2)}</span></div>
+      </div>
+    `);
+  }
+
+  // Store selected room for booking
+  window._selectedRoom = selectedRoom;
+  window._selectedPricePerNight = pricePerNight;
 }
 
+// =============================================================
+// OPEN BOOKING – Patched
+// =============================================================
+function openBooking() {
+  if (!currentGuest) {
+    showModal("Login Required", 
+      "Please create a guest account to book this homestay.",
+      [
+        { label: 'Cancel', class: 'btn-secondary', value: false },
+        { label: 'Register Now →', class: 'btn-primary', value: true }
+      ]
+    ).then(function(result) {
+      if (result) {
+        window.location.href = '/register.html';
+      }
+    });
+    return;
+  }
+
+  var csrfToken = localStorage.getItem('kd_csrf_token');
+  if (!csrfToken) {
+    showAlert("Session Expired", "Your session token is missing. Please log out and log back in.");
+    logoutGuest();
+    return;
+  }
+
+  var nameEl = document.getElementById("guestName");
+  var emailEl = document.getElementById("guestEmail");
+  var phoneEl = document.getElementById("guestPhone");
+  if (nameEl) nameEl.value = currentGuest.name || "";
+  if (emailEl) emailEl.value = currentGuest.email || "";
+  if (phoneEl) phoneEl.value = currentGuest.phone || "";
+  
+  var ci = document.getElementById("detailCheckin")?.value;
+  var co = document.getElementById("detailCheckout")?.value;
+  if (ci) document.getElementById("bookingCheckin").value = ci;
+  if (co) document.getElementById("bookingCheckout").value = co;
+
+  // Store selected room in booking modal
+  const roomSelect = document.getElementById('roomSelect');
+  if (roomSelect && roomSelect.value) {
+    const rooms = selectedHomestay.rooms || [];
+    const selectedRoom = rooms.find(r => r.id === roomSelect.value);
+    window._bookingRoom = selectedRoom || null;
+  } else {
+    window._bookingRoom = null;
+  }
+
+  updateBookingPrice();
+  document.getElementById("bookingModal").classList.remove("hidden");
+}
+
+// =============================================================
+// UPDATE BOOKING PRICE – Patched
+// =============================================================
+function updateBookingPrice() {
+  if (!selectedHomestay) return;
+  var ci = document.getElementById("bookingCheckin").value;
+  var co = document.getElementById("bookingCheckout").value;
+  var nights = calculateNights(ci, co);
+  let pricePerNight = selectedHomestay.ownerPrice || 200;
+  if (window._bookingRoom) {
+    pricePerNight = parseFloat(window._bookingRoom.price) || pricePerNight;
+  }
+  var p = calculatePrice(pricePerNight, nights);
+  document.getElementById("bookingNights").innerText = nights;
+
+  var summaryEl = document.getElementById("bookingSummary");
+  if (summaryEl) {
+    const roomName = window._bookingRoom ? window._bookingRoom.name : 'Unit';
+    summaryEl.innerHTML = safeHTML(`
+      <div class="font-bold text-[#0F382E]">${selectedHomestay.name}</div>
+      <div class="mt-2 text-xs flex justify-between"><span>${roomName} – RM${pricePerNight} x ${nights} Nights:</span><span class="font-semibold">RM${p.base}</span></div>
+      <div class="text-xs flex justify-between"><span>Service Fee:</span><span class="font-semibold">RM${p.fee}</span></div>
+      <div class="text-sm font-bold flex justify-between border-t pt-2 mt-2 text-[#0F382E]"><span>Total FPX:</span><span>RM${p.total.toFixed(2)}</span></div>
+    `);
+  }
+}
+
+// =============================================================
+// PROCESS PAYMENT – add roomId in draft
+// =============================================================
 async function processPayment() {
   if (!currentGuest) {
     showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
@@ -2285,7 +2410,8 @@ async function processPayment() {
     return;
   }
   var bookingId = "KDH-" + crypto.randomUUID().slice(0,8).toUpperCase();
-  var draft = { id: bookingId, homestayId: selectedHomestay.id, checkin: ci, checkout: co, guestId: currentGuest.id };
+  var roomId = window._bookingRoom ? window._bookingRoom.id : null;
+  var draft = { id: bookingId, homestayId: selectedHomestay.id, checkin: ci, checkout: co, guestId: currentGuest.id, roomId: roomId };
   window.lastCreatedBooking = draft;
 
   try {
