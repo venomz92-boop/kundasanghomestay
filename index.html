@@ -2578,6 +2578,93 @@ function toggleMobileMenu() {
 }
 
 // =============================================================
+// CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION
+// =============================================================
+function renderAvailabilityCalendar(homestay, containerId) {
+  var container = document.getElementById(containerId);
+  if (!container || !homestay) return;
+
+  var blocked = getAllBlockedDatesForHomestay(homestay);
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var todayIso = dateToIso(today);
+
+  // Initialize month/year if not set
+  if (!container._currentMonth) {
+    container._currentMonth = today.getMonth();
+    container._currentYear = today.getFullYear();
+  }
+
+  function renderMonth() {
+    var month = container._currentMonth;
+    var year = container._currentYear;
+    var monthLabel = new Date(year, month, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var startDay = new Date(year, month, 1).getDay();
+
+    var html = `
+      <div class="flex items-center justify-between mb-2">
+        <button onclick="navigateCalendar(this, -1, '${containerId}')" class="calendar-nav-btn">‹</button>
+        <span class="calendar-month-label">${monthLabel}</span>
+        <button onclick="navigateCalendar(this, 1, '${containerId}')" class="calendar-nav-btn">›</button>
+      </div>
+      <div style="max-height:220px; overflow-y:auto; padding-right:4px;">
+        <div class="calendar-mini mt-1">
+    `;
+
+    var dayNames = ["S", "M", "T", "W", "T", "F", "S"];
+    dayNames.forEach(function(d) {
+      html += '<div class="text-[9px] text-center font-bold text-zinc-400 py-1">' + d + '</div>';
+    });
+
+    for (var e = 0; e < startDay; e++) {
+      html += '<div class="calendar-day empty"></div>';
+    }
+
+    for (var day = 1; day <= daysInMonth; day++) {
+      var d = new Date(year, month, day);
+      d.setHours(0, 0, 0, 0);
+      var iso = dateToIso(d);
+      var isBlocked = blocked.indexOf(iso) !== -1;
+      var isPast = d < today;
+      var isToday = iso === todayIso;
+
+      var cls = isPast ? "calendar-day past" : (isBlocked ? "calendar-day booked" : "calendar-day available");
+      if (isToday) cls += " today";
+      html += '<div class="' + cls + '" title="' + iso + '">' + day + '</div>';
+    }
+
+    html += '</div></div>'; // close calendar-mini and scroll wrapper
+
+    html += `
+      <div class="calendar-legend mt-1">
+        <span><span class="dot green"></span> Free</span>
+        <span><span class="dot red"></span> Booked</span>
+        ${today.getMonth() === month && today.getFullYear() === year ? '<span><span class="dot today-dot"></span> Today</span>' : ''}
+      </div>
+    `;
+
+    container.innerHTML = safeHTML(html);
+  }
+
+  // Navigation helper (global)
+  window.navigateCalendar = function(btn, direction, containerId) {
+    var c = document.getElementById(containerId);
+    if (!c) return;
+    var newMonth = (c._currentMonth || today.getMonth()) + direction;
+    var newYear = c._currentYear || today.getFullYear();
+    if (newMonth > 11) { newMonth = 0; newYear++; }
+    if (newMonth < 0) { newMonth = 11; newYear--; }
+    c._currentMonth = newMonth;
+    c._currentYear = newYear;
+    renderMonth.call(c);
+  };
+
+  container._render = renderMonth;
+  renderMonth.call(container);
+}
+
+// =============================================================
 // INITIALIZATION - FETCH PUBLIC AVAILABILITY WITH credentials: 'omit'
 // =============================================================
 (function init() {
