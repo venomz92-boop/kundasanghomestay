@@ -376,7 +376,6 @@ body {
     </div>
     <div id="adminPending" class="mt-4"></div>
     <div id="adminApproved" class="mt-4 hidden"></div>
-    <!-- ===== UPDATED BOOKINGS TAB WITH FILTER ===== -->
     <div id="adminBookings" class="mt-4 hidden">
       <div class="flex items-center gap-3 mb-4 flex-wrap">
         <label class="text-xs font-semibold text-zinc-600">Filter by Homestay:</label>
@@ -384,7 +383,6 @@ body {
       </div>
       <div id="bookingsTable" class="card p-6"></div>
     </div>
-    <!-- ===== END UPDATED ===== -->
     <div id="adminAvailability" class="mt-4 hidden"><div id="availabilityTable" class="card p-6"></div></div>
     <div id="adminGuests" class="mt-4 hidden"><div id="guestsTable" class="card p-6"></div></div>
     <div id="adminSettings" class="hidden mt-4 card p-6">
@@ -739,7 +737,6 @@ async function fetchCloudData(){
     if(data.demoOverrides !== undefined){ demoOverrides=data.demoOverrides; localStorage.setItem("kd_demo_overrides", JSON.stringify(demoOverrides)); }
     if(data.demoBlocked !== undefined){ demoBlockedMap=data.demoBlocked; localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap)); }
     if(data.deletedDemo !== undefined){ deletedDemoIds=data.deletedDemo; localStorage.setItem("kd_deleted_demo", JSON.stringify(deletedDemoIds)); }
-    if(data.bannedGuests && Array.isArray(data.bannedGuests)){ localStorage.setItem("kd_banned_guests", JSON.stringify(data.bannedGuests)); }
     if(data.pending !== undefined){
       if(Array.isArray(data.pending)){ pendingHomestays = data.pending; localStorage.setItem("kd_pending", JSON.stringify(pendingHomestays)); }
       else { pendingHomestays = []; localStorage.setItem("kd_pending", JSON.stringify([])); }
@@ -757,7 +754,6 @@ async function fetchCloudData(){
         }catch(e){}
       }
     }
-    // No demo merging – only use storedApproved from database
     allHomestays = storedApproved.map(h => ({ blockedDates: h.blockedDates || [], ...h }));
     allHomestays = allHomestays.map(h => { if(!h.blockedDates) h.blockedDates = []; return h; });
     homestays = [...allHomestays];
@@ -1495,7 +1491,7 @@ function renderGuestsTable(){
     } else {
         let html = '<div class="text-[11px] text-zinc-500 mb-2">Total: '+guests.length+' guests</div>';
         guests.forEach((g, i) => {
-            html += '<div class="border rounded-xl p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+'</div></div><button onclick="deleteGuest('+i+')" class="text-xs px-3 py-1.5 rounded-full bg-red-600 text-white">Delete & Ban</button></div>';
+            html += '<div class="border rounded-xl p-3 text-sm flex justify-between items-center"><div><div class="font-bold">'+(g.name||'')+' • '+(g.email||'')+'</div><div class="text-[11px] text-zinc-500">'+(g.phone||'')+'</div></div></div>';
         });
         div.innerHTML = safeHTML(html);
     }
@@ -1507,68 +1503,17 @@ async function forceSyncGuests(){
     renderGuestsTable();
     renderAdmin();
     const g=JSON.parse(localStorage.getItem("kd_guests")||"[]");
-    const b=JSON.parse(localStorage.getItem("kd_banned_guests")||"[]");
-    await showAlert("Sync Complete", "Synced! Guests:"+g.length+" Banned:"+b.length);
+    await showAlert("Sync Complete", "Synced! Guests:"+g.length);
   }catch(e){ await showAlert("Error", "Sync failed: "+e.message); }
 }
 async function checkCloudRaw(){
   try{
     const res=await fetchWithAuth(API_BASE + "/bookings", {cache:"no-store"});
     const data=await res.json();
-    await showAlert("Cloud Data", "Cloud: bookings:"+(data.bookings?.length||0)+" guests:"+(data.guests?.length||0)+" banned:"+(data.bannedGuests?.length||0));
+    await showAlert("Cloud Data", "Cloud: bookings:"+(data.bookings?.length||0)+" guests:"+(data.guests?.length||0));
   }catch(e){ await showAlert("Error", "Check failed: "+e.message); }
 }
 
-  
-// ===== DELETE GUEST =====
-async function deleteGuest(indexOrId) {
-    let guests = [];
-    try {
-        guests = JSON.parse(localStorage.getItem("kd_guests") || "[]");
-    } catch(e) { guests = []; }
-
-    let guest = null;
-    if (typeof indexOrId === 'number') {
-        guest = guests[indexOrId];
-    } else {
-        guest = guests.find(g => String(g.id) === String(indexOrId) || String(g.email) === String(indexOrId));
-    }
-
-    if (!guest) {
-        await showAlert("Error", "Guest not found in local data.");
-        return;
-    }
-
-    const confirmed = await showConfirm(
-        "Delete Guest",
-        `Delete <strong>${guest.name || guest.email}</strong> (${guest.email})?<br><br>This will permanently remove the guest and ban their email address.`
-    );
-    if (!confirmed) return;
-
-    try {
-        const res = await fetchWithAuth(API_BASE + "/bookings", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action: "deleteGuest",
-                guestId: guest.id || "",
-                email: guest.email || ""
-            })
-        });
-        const data = await res.json();
-
-        if (!res.ok || !data.success) {
-            throw new Error(data.error || "Cloud delete failed");
-        }
-
-        await fetchCloudData();
-        renderGuestsTable();
-        renderAdmin();
-        await showAlert("Success", `Deleted and banned ${guest.email}.`);
-    } catch(e) {
-        await showAlert("Error", "Guest was NOT deleted: " + e.message);
-    }
-}
   
 async function deleteBooking(id) {
   const confirmed = await showConfirm("Delete Booking", "Delete " + id + "? This will free blocked dates.");
