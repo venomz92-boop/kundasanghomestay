@@ -1,4 +1,4 @@
-// /api/bookings.js - with checkinCode, email sending, and all existing functionality
+// /api/bookings.js - with checkinCode, email sending, and per‑room availability
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -170,7 +170,7 @@ export async function onRequestGet({ request, env }) {
       }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
-    // ===== PUBLIC VIEW =====
+    // ===== PUBLIC VIEW (availability map still at homestay level for simplicity) =====
     const availability = {};
     for (const h of approved) {
       const homestayId = String(h.id);
@@ -234,6 +234,7 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Homestay price is not configured correctly' }, 500, request);
       }
 
+      // ---- Date validation ----
       const ci = String(incoming.checkin || ''), co = String(incoming.checkout || '');
       const d1 = new Date(ci+'T00:00:00'), d2 = new Date(co+'T00:00:00');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(ci) || !/^\d{4}-\d{2}-\d{2}$/.test(co) || isNaN(d1) || isNaN(d2) || d1 >= d2) return jsonResponse({ error: 'Invalid dates' }, 400, request);
@@ -243,7 +244,8 @@ export async function onRequestPost({ request, env }) {
       if (nights > MAX_NIGHTS) return jsonResponse({ error: `Maximum booking is ${MAX_NIGHTS} nights` }, 400, request);
       const today = new Date(); today.setHours(0,0,0,0);
       if (d1 < today) return jsonResponse({ error: 'Cannot book past dates' }, 400, request);
-      
+
+      // ---- Check for existing pending booking (guest same dates) ----
       const existingPending = bookings.find(b =>
         String(b.guestId) === String(guest.id) &&
         String(b.homestayId) === String(homestay.id) &&
@@ -260,22 +262,44 @@ export async function onRequestPost({ request, env }) {
         }, 200, request);
       }
 
-      const blocked = new Set((homestay.blockedDates || []).map(String));
-      for (let i=0;i<nights;i++){ const d=new Date(d1); d.setDate(d.getDate()+i); const ds=d.toISOString().slice(0,10); if(blocked.has(ds)) return jsonResponse({ error: `Selected dates are unavailable (${ds})` }, 409, request); }
-      
+      // ---- Homestay‑wide blocked dates ----
+      const homestayBlocked = new Set((homestay.blockedDates || []).map(String));
+      const requestedDates = getDatesInRange(ci, co);
+      for (const ds of requestedDates) {
+        if (homestayBlocked.has(ds)) {
+          return jsonResponse({ error: `Selected dates are unavailable (${ds}) due to homestay block` }, 409, request);
+        }
+      }
+
+      // ---- Per‑room blocked dates ----
+      if (selectedRoom) {
+        const roomBlocked = new Set((selectedRoom.blockedDates || []).map(String));
+        for (const ds of requestedDates) {
+          if (roomBlocked.has(ds)) {
+            return jsonResponse({ error: `Room "${selectedRoom.name}" is blocked on ${ds}` }, 409, request);
+          }
+        }
+      }
+
+      // ---- Overlap with existing bookings (for the same room) ----
       const overlaps = bookings.some(b => {
         const pendingExpired = String(b.status||'') === 'Pending Payment' && b.date && Date.now() - Date.parse(b.date) > 15*60*1000;
         const isOwnPending = String(b.guestId) === String(guest.id) && b.status === 'Pending Payment';
-        return String(b.homestayId) === String(homestay.id) &&
+        // If a roomId is selected, we must match the same roomId; if no room (single unit), match homestayId.
+        const roomMatch = selectedRoom ? String(b.roomId) === String(selectedRoom.id) : String(b.homestayId) === String(homestay.id);
+        return roomMatch &&
                !pendingExpired &&
                !/cancelled|failed|expired/i.test(String(b.status||'')) &&
                !isOwnPending &&
                ci < String(b.checkout||'') &&
                co > String(b.checkin||'');
       });
-      if (overlaps) return jsonResponse({ error: 'Selected dates are no longer available' }, 409, request);
+      if (overlaps) {
+        return jsonResponse({ error: 'Selected dates are already booked for this room' }, 409, request);
+      }
 
-      const base = Math.round(ownerPrice * nights * 100) / 100;  // use ownerPrice
+      // ---- Calculate pricing ----
+      const base = Math.round(ownerPrice * nights * 100) / 100;
       const fee = Math.round(base * 0.11 * 100) / 100;
       const gatewayFee = 1.00;
       const total = Math.round((base + fee + gatewayFee) * 100) / 100;
