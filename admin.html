@@ -1500,24 +1500,52 @@ async function deleteGuest(indexOrId) {
         await showAlert("Error", "Guest was NOT deleted: " + e.message);
     }
 }
-async function deleteBooking(id){
-  const confirmed = await showConfirm("Delete Booking", "Delete "+id+"? This will free blocked dates?");
+async function deleteBooking(id) {
+  const confirmed = await showConfirm("Delete Booking", "Delete " + id + "? This will free blocked dates.");
   if (!confirmed) return;
-  const toDelete = bookings.find(x=> String(x.id)===String(id));
-  const homestayId = toDelete?.homestayId || toDelete?.homestay;
-  bookings=bookings.filter(x=> String(x.id)!==String(id));
+
+  const toDelete = bookings.find(function(b) { return String(b.id) === String(id); });
+  if (!toDelete) {
+    await showAlert("Error", "Booking not found locally.");
+    return;
+  }
+
+  // Remove from local array first (optimistic update)
+  bookings = bookings.filter(function(b) { return String(b.id) !== String(id); });
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
   renderBookingsTable();
   renderAdmin();
-  try{
-    const res = await fetchWithAuth(API_BASE + "/bookings?id=" + encodeURIComponent(id), {method:"DELETE", cache:"no-store"});
-    if(!res.ok){ await showAlert("Error", "Cloud delete failed"); }
-    else {
-      await showAlert("Success", "Deleted "+id+" and freed dates");
+
+  try {
+    const res = await fetchWithAuth(API_BASE + "/bookings?id=" + encodeURIComponent(id), {
+      method: "DELETE",
+      cache: "no-store"
+    });
+
+    if (!res.ok) {
+      // If cloud deletion fails, we need to roll back the local deletion
+      const data = await res.json();
+      await showAlert("Error", "Cloud delete failed: " + (data.error || res.statusText));
+      // Re-fetch to restore the item
       await fetchCloudData();
       renderAdmin();
+      return;
     }
-  } catch(e){ await showAlert("Error", "Delete error: "+e.message); }
+
+    const data = await res.json();
+    await showAlert("Success", "Deleted " + id + " and freed dates.");
+
+    // Refresh fully from cloud to ensure consistency
+    await fetchCloudData();
+    renderAdmin();
+
+  } catch (e) {
+    console.error("Delete error:", e);
+    await showAlert("Error", "Delete error: " + e.message);
+    // Re-fetch to restore the item
+    await fetchCloudData();
+    renderAdmin();
+  }
 }
 
 // =============================================================
