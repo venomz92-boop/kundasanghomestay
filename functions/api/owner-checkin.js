@@ -1,4 +1,4 @@
-// /api/owner-checkin.js - SECURE Owner Check-In (with simulation support)
+// /api/owner-checkin.js - with checkinCode verification
 import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
@@ -13,6 +13,8 @@ export async function onRequestPost({ request, env }) {
 
     const body = await request.json();
     const bookingId = body.bookingId;
+    const checkinCode = body.checkinCode;   // <-- get from request
+
     if (!bookingId) {
       return jsonResponse({ error: 'Missing bookingId' }, 400, request);
     }
@@ -52,6 +54,12 @@ export async function onRequestPost({ request, env }) {
     if (!booking.status || !booking.status.toLowerCase().includes("paid")) {
       return jsonResponse({ error: 'Booking is not paid yet' }, 400, request);
     }
+
+    // ===== CHECK-IN CODE VERIFICATION =====
+    if (booking.checkinCode && booking.checkinCode !== checkinCode) {
+      return jsonResponse({ error: 'Invalid check-in code. Please ask the guest for the 6-digit code sent to their WhatsApp.' }, 400, request);
+    }
+    // If no code (legacy bookings), skip verification (or you can reject)
 
     // Verify with ToyyibPay API if billcode exists
     if (booking.toyyibpay_billcode && env.TOYYIBPAY_SECRET_KEY) {
