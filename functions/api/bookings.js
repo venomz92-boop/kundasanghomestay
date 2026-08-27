@@ -313,7 +313,7 @@ export async function onRequestPost({ request, env }) {
         const homestay = pending[idx];
         
         // ✅ STRIP SENSITIVE FIELDS BEFORE APPROVAL
-        const { icImage, icOriginalName, bankQRImage, bankQROriginalName, ...safeHomestay } = homestay;
+        const { icImage, icOriginalName, bankQRImage, bankQROriginalName, pbtLicense, ...safeHomestay } = homestay;
         // Mark approved
         safeHomestay.approved = true;
         safeHomestay.verified = true;
