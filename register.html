@@ -669,17 +669,22 @@ async function handleRegister(e) {
       body: JSON.stringify({ name, email, phone, password })
     });
     const data = await res.json();
+   
     if (data.success) {
-      currentGuest = data.guest;
-      localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
-      if (data.csrfToken) {
-        localStorage.setItem('kd_csrf_token', data.csrfToken);
-      }
-      renderGuestNav();
-      // ---- UPDATED: Use the server's message ----
-      await showAlert('Registration Successful', data.message);
-      window.location.href = '/';
-    } else {
+  currentGuest = data.guest;
+  localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
+  if (data.csrfToken) {
+    localStorage.setItem('kd_csrf_token', data.csrfToken);
+  }
+  if (data.token) {
+    localStorage.setItem('kd_guest_token', data.token);
+  }
+  renderGuestNav();
+  await showAlert('Registration Successful', data.message);
+  window.location.href = '/';
+}
+    
+    else {
       errorEl.textContent = data.error || 'Registration failed. Please try again.';
       errorEl.classList.remove('hidden');
     }
