@@ -94,7 +94,7 @@ export async function onRequestPost({ request, env }) {
     try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
 
     if (guests.some(g => String(g.email || '').toLowerCase() === email)) {
-      return jsonResponse({ error: 'Registration failed. Please try another email.' }, 400, request);
+      return jsonResponse({ error: 'Email has been used. Please try another email.' }, 400, request);
     }
 
     const hashed = await hashPassword(password, env);
