@@ -1,4 +1,4 @@
-// /api/bookings.js - with pagination, D1 batch, image stripping, and checkinCode
+// /api/bookings.js - with checkinCode, email sending, and all existing functionality
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -39,6 +39,63 @@ async function requireGuest(request, env, body) {
   const csrf = getCSRFToken(request);
   if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) return { error: jsonResponse({ error: 'Invalid security token' }, 403, request) };
   return { session };
+}
+
+// ===== Send booking confirmation email with check‑in code =====
+async function sendBookingEmail(guestEmail, guestName, bookingId, homestayName, checkin, checkout, nights, total, checkinCode, env) {
+  const html = `
+    <h2>Hello ${guestName || 'Guest'},</h2>
+    <p>Your booking at <strong>${homestayName}</strong> is confirmed!</p>
+    <p><strong>Booking ID:</strong> ${bookingId}</p>
+    <p><strong>Check‑in:</strong> ${checkin}</p>
+    <p><strong>Check‑out:</strong> ${checkout}</p>
+    <p><strong>Nights:</strong> ${nights}</p>
+    <p><strong>Total Paid:</strong> RM ${total.toFixed(2)}</p>
+    <p style="font-size:20px; font-weight:bold; background:#f0fdf4; padding:10px; border-radius:8px; border:1px solid #bbf7d0; display:inline-block;">
+      🏔️ Your 6‑digit check‑in code: <span style="color:#0F382E;">${checkinCode}</span>
+    </p>
+    <p><strong>Please keep this code safe.</strong> You will need to share it with the host when you arrive. Do not share it with anyone else.</p>
+    <p>If you have any questions, please contact us.</p>
+    <p>— Kundasang Homestay Team</p>
+  `;
+
+  try {
+    if (env.RESEND_API_KEY) {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.RESEND_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
+          to: guestEmail,
+          subject: 'Booking Confirmed – Your Check‑in Code',
+          html
+        })
+      });
+      return r.ok;
+    }
+    if (env.SENDGRID_API_KEY) {
+      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.SENDGRID_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: guestEmail }] }],
+          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
+          subject: 'Booking Confirmed – Your Check‑in Code',
+          content: [{ type: 'text/html', value: html }]
+        })
+      });
+      return r.ok;
+    }
+  } catch (e) {
+    console.error('Booking email error:', e.message);
+  }
+  return false;
 }
 
 // ========== GET ==========
@@ -220,7 +277,7 @@ export async function onRequestPost({ request, env }) {
         guestId: guest.id, guestName: guest.name, guestEmail: guest.email, guestPhone: guest.phone || '',
         checkin: ci, checkout: co, nights, base, fee, gatewayFee, total, status: 'Pending Payment',
         date: new Date().toISOString(),
-        checkinCode: checkinCode   // <-- ADDED
+        checkinCode: checkinCode
       };
       
       bookings.push(booking);
@@ -228,14 +285,27 @@ export async function onRequestPost({ request, env }) {
         .bind('kd_bookings', JSON.stringify(bookings));
       await db.batch([stmt1]);
       
-      // ===== SEND CODE TO GUEST VIA WHATSAPP =====
+      // ===== SEND EMAIL TO GUEST WITH CODE =====
+      await sendBookingEmail(
+        guest.email,
+        guest.name,
+        bookingId,
+        homestay.name,
+        ci,
+        co,
+        nights,
+        total,
+        checkinCode,
+        env
+      ).catch(e => console.warn('Email send failed:', e));
+
+      // ===== ALSO TRY WHATSAPP (fallback) =====
       try {
         const guestPhoneClean = String(guest.phone || '').replace(/[^0-9]/g, '');
         if (guestPhoneClean && guestPhoneClean.length >= 9) {
           let phone = guestPhoneClean;
           if (phone.startsWith('0')) phone = '60' + phone.substring(1);
           const msg = `*Kundasang Homestay Booking Confirmed!* 🏔️\n\nBooking ID: ${bookingId}\nHomestay: ${homestay.name}\nCheck-in: ${ci}\nCheck-out: ${co}\n\n*Your 6-digit check-in code:* ${checkinCode}\n\nPlease keep this code safe. You will need to share it with the host when you arrive. Do not share it with anyone else.`;
-          // Fire and forget – we don't want to block the response
           fetch(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`, { method: 'GET' }).catch(()=>{});
         }
       } catch (waError) {
