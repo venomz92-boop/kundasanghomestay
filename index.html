@@ -2580,6 +2580,9 @@ function toggleMobileMenu() {
 // =============================================================
 // CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION
 // =============================================================
+// =============================================================
+// CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION (BIGGER)
+// =============================================================
 function renderAvailabilityCalendar(homestay, containerId) {
   var container = document.getElementById(containerId);
   if (!container || !homestay) return;
@@ -2589,7 +2592,6 @@ function renderAvailabilityCalendar(homestay, containerId) {
   today.setHours(0, 0, 0, 0);
   var todayIso = dateToIso(today);
 
-  // Initialize month/year if not set
   if (!container._currentMonth) {
     container._currentMonth = today.getMonth();
     container._currentYear = today.getFullYear();
@@ -2604,17 +2606,17 @@ function renderAvailabilityCalendar(homestay, containerId) {
 
     var html = `
       <div class="flex items-center justify-between mb-2">
-        <button onclick="navigateCalendar(this, -1, '${containerId}')" class="calendar-nav-btn">‹</button>
-        <span class="calendar-month-label">${monthLabel}</span>
-        <button onclick="navigateCalendar(this, 1, '${containerId}')" class="calendar-nav-btn">›</button>
+        <button onclick="navigateCalendar(this, -1, '${containerId}')" class="calendar-nav-btn" style="width:32px; height:32px; font-size:18px;">‹</button>
+        <span class="calendar-month-label" style="font-size:15px; font-weight:700;">${monthLabel}</span>
+        <button onclick="navigateCalendar(this, 1, '${containerId}')" class="calendar-nav-btn" style="width:32px; height:32px; font-size:18px;">›</button>
       </div>
-      <div style="max-height:220px; overflow-y:auto; padding-right:4px;">
+      <div style="max-height:280px; overflow-y:auto; padding-right:4px;">
         <div class="calendar-mini mt-1">
     `;
 
     var dayNames = ["S", "M", "T", "W", "T", "F", "S"];
     dayNames.forEach(function(d) {
-      html += '<div class="text-[9px] text-center font-bold text-zinc-400 py-1">' + d + '</div>';
+      html += '<div class="text-[11px] text-center font-bold text-zinc-400 py-1">' + d + '</div>';
     });
 
     for (var e = 0; e < startDay; e++) {
@@ -2631,13 +2633,13 @@ function renderAvailabilityCalendar(homestay, containerId) {
 
       var cls = isPast ? "calendar-day past" : (isBlocked ? "calendar-day booked" : "calendar-day available");
       if (isToday) cls += " today";
-      html += '<div class="' + cls + '" title="' + iso + '">' + day + '</div>';
+      html += '<div class="' + cls + '" title="' + iso + '" style="font-size:12px; font-weight:600;">' + day + '</div>';
     }
 
-    html += '</div></div>'; // close calendar-mini and scroll wrapper
+    html += '</div></div>';
 
     html += `
-      <div class="calendar-legend mt-1">
+      <div class="calendar-legend mt-1" style="font-size:11px;">
         <span><span class="dot green"></span> Free</span>
         <span><span class="dot red"></span> Booked</span>
         ${today.getMonth() === month && today.getFullYear() === year ? '<span><span class="dot today-dot"></span> Today</span>' : ''}
@@ -2647,7 +2649,6 @@ function renderAvailabilityCalendar(homestay, containerId) {
     container.innerHTML = safeHTML(html);
   }
 
-  // Navigation helper (global)
   window.navigateCalendar = function(btn, direction, containerId) {
     var c = document.getElementById(containerId);
     if (!c) return;
