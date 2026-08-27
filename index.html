@@ -2026,21 +2026,43 @@ function renderGuestNav() {
   var profileNav = document.getElementById("guestProfileNav");
   var mLoginNav = document.getElementById("mGuestNav");
   var mProfileNav = document.getElementById("mGuestProfileNav");
+  var mAvatar = document.getElementById("mGuestAvatar");
+  var mNameNav = document.getElementById("mGuestNameNav");
+  var mSubNav = document.querySelector("#mGuestProfileNav .sub"); // the subtitle in mobile
 
   if (currentGuest && currentGuest.id) {
+    // ---- DESKTOP HEADER ----
     if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
     if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
+
     var avatar = document.getElementById("guestAvatar");
     var nameNav = document.getElementById("guestNameNav");
     if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
     if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
-    if (mLoginNav) mLoginNav.classList.add("hidden");
-    if (mProfileNav) mProfileNav.classList.remove("hidden");
+
+    // ---- DESKTOP BADGE: Add a small verified badge next to the name ----
+    var badgeContainer = document.querySelector("#guestProfileNav .flex .badge-container");
+    if (!badgeContainer) {
+    }
+    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
+    if (mAvatar) mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+    if (mSubNav) {
+      if (currentGuest.verified === true) {
+        mSubNav.textContent = "✅ Verified";
+        mSubNav.className = "sub text-emerald-300 text-[10px]";
+      } else {
+        mSubNav.textContent = "⚠️ Pending Verification";
+        mSubNav.className = "sub text-amber-300 text-[10px]";
+      }
+    }
   } else {
+    // ---- NOT LOGGED IN ----
     if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
     if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-    if (mLoginNav) mLoginNav.classList.remove("hidden");
-    if (mProfileNav) mProfileNav.classList.add("hidden");
+    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
   }
 }
 
