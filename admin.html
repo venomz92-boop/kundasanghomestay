@@ -392,8 +392,6 @@ body {
       <div class="p-3 bg-green-50 border border-green-200 rounded-xl text-xs">✅ Live: Category <b>08myr5uc</b><br>Secret Key: Set in Cloudflare Secrets (TOYYIBPAY_SECRET_KEY)<br>Payout Mode: <b>Auto via ToyyibPay</b> - ToyyibPay transfers to owner on Check-in, fee stays with you.<br>Return URL: https://kundasanghomestay.my/?booking=ID&paid=1<br>Callback: /api/toyyibpay-webhook</div>
       <div id="liveBankInfo" class="mt-3 p-3 bg-zinc-50 border rounded-xl text-xs">Loading locked bank...</div>
       <div class="flex gap-2 mt-4 flex-wrap">
-        <button onclick="restoreDemos()" class="text-xs border rounded-full px-3 py-1">Restore Demos</button>
-        <button onclick="resetDemoEdits()" class="text-xs border rounded-full px-3 py-1">Reset Edits</button>
         <button onclick="forceSyncPending()" class="text-xs border rounded-full px-3 py-1 bg-blue-500 text-white">🔄 Force Sync Pending</button>
         <button onclick="clearLocalBookings()" class="text-xs border rounded-full px-3 py-1 bg-red-50">Clear Bookings (fix duplicates)</button>
         <button onclick="clearAllBookingsCloud()" class="text-xs border rounded-full px-3 py-1 bg-red-600 text-white">PURGE CLOUD D1 (Fix F5 bug)</button>
@@ -609,14 +607,6 @@ function toMYDateTime(dateInput){
 const CONFIG = { platformFeePercent: 11, toyyibpay: { enabled: true, gatewayFee: 1.00, category: "08myr5uc" } };
 
 // =============================================================
-// DEMO DATA
-// =============================================================
-const DEMO_HOMESTAYS = [
-  { id: 1, name: "A-Frame Cabin with Kinabalu View", location: "Bundu Tuhan", ownerPrice: 300, rating: 4.9, reviews: 127, guests: 4, bedrooms: 2, image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800", images: [], approved: true, verified: true, ownerName: "Ali", ownerBank: "CIMB", ownerBankAccount: "8600-123456", whatsapp: "60123456789", description: "View Gunung Kinabalu terus dari bilik." },
-  { id: 2, name: "Desa Cattle Farm View Homestay", location: "Desa", ownerPrice: 250, rating: 4.8, reviews: 89, guests: 6, bedrooms: 3, image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800", images: [], approved: true, verified: true, ownerName: "Maria", ownerBank: "Maybank", ownerBankAccount: "1140-987654", whatsapp: "60123456789", description: "5 min to Desa Cattle Farm, ada dapur." }
-];
-
-// =============================================================
 // DATE HELPERS
 // =============================================================
 function isoToDate(s){ return new Date(s+'T00:00:00'); }
@@ -767,16 +757,10 @@ async function fetchCloudData(){
         }catch(e){}
       }
     }
-    try{
-      let baseDemos = DEMO_HOMESTAYS.filter(d => !deletedDemoIds.includes(String(d.id))).map(d => {
-        let merged = demoOverrides[d.id] ? {...d, ...demoOverrides[d.id]} : {...d};
-        if(demoBlockedMap[d.id]) merged.blockedDates = demoBlockedMap[d.id];
-        return merged;
-      });
-      allHomestays = [...baseDemos, ...storedApproved].map(h => ({ blockedDates: [], ...h }));
-      allHomestays = allHomestays.map(h => { if(!h.blockedDates) h.blockedDates = []; return h; });
-      homestays = [...allHomestays];
-    }catch(e){}
+    // No demo merging – only use storedApproved from database
+    allHomestays = storedApproved.map(h => ({ blockedDates: h.blockedDates || [], ...h }));
+    allHomestays = allHomestays.map(h => { if(!h.blockedDates) h.blockedDates = []; return h; });
+    homestays = [...allHomestays];
     const cacheStatus = document.getElementById('cacheStatus');
     if (cacheStatus) cacheStatus.classList.add('hidden');
     return true;
@@ -804,11 +788,10 @@ async function forceSync() {
 }
 
 // =============================================================
-// SAVE FUNCTIONS
+// SAVE FUNCTIONS (demo overrides are still used for block dates, but we keep them)
 // =============================================================
-function isDemo(id){ return DEMO_HOMESTAYS.some(d => String(d.id)===String(id)); }
 function saveApproved(){
-  const toSave = allHomestays.filter(h => !isDemo(h.id));
+  const toSave = allHomestays;
   localStorage.setItem("kd_approved", JSON.stringify(toSave));
   storedApproved = toSave;
   pushHomestaysToCloud();
@@ -948,7 +931,6 @@ function renderAdmin(){
     approvedHtml = '<div class="grid gap-4">';
     homestays.forEach(h => {
       const blocked=getAllBlockedDatesForHomestay(h);
-      const isDemoHomestay = isDemo(h.id);
       approvedHtml += `
         <div class="card p-4 flex flex-wrap gap-4 items-center justify-between">
           <div class="flex items-center gap-4">
@@ -956,7 +938,6 @@ function renderAdmin(){
             <div>
               <div class="font-bold text-sm">${h.name}</div>
               <div class="text-xs">RM${h.ownerPrice} • ${h.location} • ${blocked.length} booked</div>
-              ${isDemoHomestay ? '<span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Demo</span>' : ''}
             </div>
           </div>
           <div class="flex gap-2 flex-wrap">
@@ -982,14 +963,12 @@ async function removeApprovedHomestay(id) {
   const confirmed = await showConfirm("Remove Homestay", "Remove this homestay from Approved list?");
   if (!confirmed) return;
   try {
-    const isDemoHomestay = isDemo(id);
     const res = await fetchWithAuth(API_BASE + "/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "removeApprovedHomestay",
-        id: id,
-        isDemo: isDemoHomestay
+        id: id
       })
     });
     const data = await res.json();
@@ -1341,8 +1320,7 @@ async function openOwnerAvailabilityManager(id){
   if(response===null) return;
   const a = response.trim();
   if(a==='clear'){
-    h.blockedDates=[]; if(isDemo(h.id)){demoBlockedMap[h.id]=[]; saveDemoBlocked();}
-    saveApproved(); renderAdmin(); return;
+    h.blockedDates=[]; saveApproved(); renderAdmin(); return;
   }
   if(a.includes(",")){
     const parts=a.split(",").map(x=>x.trim());
@@ -1352,13 +1330,11 @@ async function openOwnerAvailabilityManager(id){
       else h.blockedDates.push(d);
     });
     h.blockedDates.sort();
-    if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();}
     saveApproved(); renderAdmin(); return;
   }
   if(h.blockedDates.includes(a)) h.blockedDates=h.blockedDates.filter(d=>d!==a);
   else h.blockedDates.push(a);
   h.blockedDates.sort();
-  if(isDemo(h.id)){demoBlockedMap[h.id]=[...h.blockedDates]; saveDemoBlocked();}
   saveApproved(); renderAdmin();
 }
 
@@ -1420,21 +1396,6 @@ async function forceSyncPending(){
     else { await showAlert("Error", "Sync failed: "+await res.text()); }
   } catch(e) { await showAlert("Error", "Sync error: "+e.message); }
 }
-async function restoreDemos(){
-  const confirmed = await showConfirm("Restore Demos", "Restore demo homestays?");
-  if (!confirmed) return;
-  localStorage.removeItem("kd_deleted_demo"); deletedDemoIds=[];
-  const base=DEMO_HOMESTAYS.map(d=> demoOverrides[d.id]?{...d, ...demoOverrides[d.id]}:d);
-  allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin();
-}
-async function resetDemoEdits(){
-  const confirmed = await showConfirm("Reset Edits", "Reset all demo edits?");
-  if (!confirmed) return;
-  localStorage.removeItem("kd_demo_overrides"); demoOverrides={};
-  const base=DEMO_HOMESTAYS.filter(d=> !deletedDemoIds.includes(d.id));
-  allHomestays=[...base, ...storedApproved]; homestays=[...allHomestays]; renderAdmin();
-}
-
 // =============================================================
 // FETCH EARNINGS – updates the big number with available balance
 // =============================================================
