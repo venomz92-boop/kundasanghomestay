@@ -1,5 +1,5 @@
 // /api/register.js
-import { corsHeaders, getClientIP, enforceHttps, hashPassword, generateCSRFToken, createSignedToken, cookieHeader, jsonResponse, parseJSONSafely, logAction, checkRateLimit, recordRateLimit } from './_utils.js';
+import { corsHeaders, getClientIP, enforceHttps, hashPassword, jsonResponse, parseJSONSafely, logAction, checkRateLimit, recordRateLimit } from './_utils.js';
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 function validatePhone(phone) { const d = String(phone).replace(/\D/g, ''); return d.length >= 10 && d.length <= 12; }
@@ -120,61 +120,49 @@ export async function onRequestPost({ request, env }) {
       .run();
 
     // ===== SEND VERIFICATION EMAIL =====
-    const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
-    const verifyToken = await createSignedToken({
-      type: 'email_verification',
-      userId: newGuest.id,
-      email: newGuest.email
-    }, env, 24 * 60 * 60 * 1000);
-    const verifyUrl = `${domain}/api/verify-email?token=${encodeURIComponent(verifyToken)}`;
+const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
+const verifyToken = await createSignedToken({
+  type: 'email_verification',
+  userId: newGuest.id,
+  email: newGuest.email
+}, env, 24 * 60 * 60 * 1000);
+const verifyUrl = `${domain}/api/verify-email?token=${encodeURIComponent(verifyToken)}`;
 
-    //console.log(`🔗 Verification URL for ${email}: ${verifyUrl}`);
+const emailSent = await sendVerificationEmail(newGuest.email, newGuest.name, verifyUrl, env);
 
-    const emailSent = await sendVerificationEmail(newGuest.email, newGuest.name, verifyUrl, env);
+await logAction({
+  db,
+  action: 'guest_registered',
+  admin: 'public',
+  details: `Guest ${newGuest.id} registered (email: ${newGuest.email})`,
+  ip: clientIP,
+  userId: newGuest.id
+});
 
-    await logAction({
-      db,
-      action: 'guest_registered',
-      admin: 'public',
-      details: `Guest ${newGuest.id} registered (email: ${newGuest.email})`,
-      ip: clientIP,
-      userId: newGuest.id
-    });
+await recordRateLimit(db, clientIP, 'register');
 
-    await recordRateLimit(db, clientIP, 'register');
+// ---- NO AUTO-LOGIN ----
+// Remove sensitive data from response
+const { password: _, salt: __, ...safeGuest } = newGuest;
 
-    const session = await createSignedToken({
-      type: 'guest',
-      userId: String(newGuest.id),
-      email: newGuest.email,
-      passwordVersion: newGuest.passwordVersion,
-      sessionVersion: newGuest.sessionVersion
-    }, env);
+const responseData = {
+  success: true,
+  guest: safeGuest, // Only for display, but we don't store it in frontend
+  message: emailSent 
+    ? 'Registration successful. Please check your email to verify your account before logging in.'
+    : 'Registration successful, but verification email could not be sent. Please contact support.',
+};
 
-    const csrfToken = await generateCSRFToken(newGuest.id, env);
-    const { password: _, salt: __, ...safeGuest } = newGuest;
-
-    // ===== RESPONSE WITH VERIFICATION URL (for debugging) =====
-    const responseData = {
-      success: true,
-      guest: safeGuest,
-      token: session,
-      csrfToken,
-      message: emailSent 
-        ? 'Registration successful. Please check your email to verify your account.'
-        : 'Registration successful, but verification email could not be sent. Please contact support.',
-    };
-
-    return new Response(
-      JSON.stringify(responseData),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders(request),
-          'Set-Cookie': cookieHeader('guest_token', session)
-        }
-      }
-    );
+return new Response(
+  JSON.stringify(responseData),
+  {
+    status: 200,
+    headers: {
+      ...corsHeaders(request)
+      // No Set-Cookie header, no token
+    }
+  }
+);
 
   } catch (e) {
     console.error('❌ Register error:', e.message, e.stack);
