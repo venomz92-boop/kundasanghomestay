@@ -1,4 +1,4 @@
-// /api/owner-update-booking.js - Owner can change dates, confirm check-in, and cancel
+// /api/owner-update-booking.js - Owner can change dates and cancel (check-in removed)
 import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
 
 async function verifyOwner(request, env) { return getOwnerSession(request, env); }
@@ -159,88 +159,6 @@ export async function onRequestPost({ request, env }) {
         success: true,
         message: `Booking dates updated to ${checkin} → ${checkout}`,
         booking: bookings[idx]
-      }), { status: 200, headers: corsHeaders(request) });
-    }
-
-    // ========== ACTION: CONFIRM CHECK-IN ==========
-    if (action === "confirmCheckin") {
-      // Check if already checked in
-      if (booking.payoutDate) {
-        return new Response(JSON.stringify({
-          success: false,
-          message: `Booking ${bookingId} already checked in on ${booking.payoutDate}`
-        }), { status: 200, headers: corsHeaders(request) });
-      }
-
-      // Check if paid
-      if (!booking.status || !booking.status.toLowerCase().includes("paid")) {
-        return new Response(JSON.stringify({ 
-          error: "Booking is not paid yet. Cannot check-in." 
-        }), { status: 400, headers: corsHeaders(request) });
-      }
-
-      // Call the payout API
-      const ownerAmount = booking.base || 0;
-      const yourFee = booking.youReceive || booking.fee || 0;
-
-      // Get owner bank details from homestay
-      const rApproved = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
-      let homestays = [];
-      if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch(e) {} }
-      const rPending = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
-      if (rPending && rPending.data) { try { homestays = [...homestays, ...JSON.parse(rPending.data)]; } catch(e) {} }
-      const homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
-
-      if (!homestay) {
-        return new Response(JSON.stringify({ error: "Homestay not found" }), { status: 404, headers: corsHeaders(request) });
-      }
-
-      // Get the bank code from the booking (which came from the homestay)
-      const ownerBankCode = booking.ownerBankCode || homestay.bankCode || 'MBBEMYKL';
-
-      // Use PUBLIC_DOMAIN from env
-      const publicDomain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
-
-      // Now trigger the actual payout
-      const payoutReq = await fetch(`${publicDomain}/api/payout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bookingId: booking.id,
-          homestayId: booking.homestayId,
-          homestay: booking.homestay,
-          amount: ownerAmount,
-          ownerAmount: ownerAmount,
-          yourFee: yourFee,
-          fee: booking.fee,
-          total: booking.total,
-          ownerBankCode: ownerBankCode,
-          ownerAcc: homestay.ownerBankAccount || '',
-          ownerName: homestay.bankHolder || homestay.ownerName || 'Owner',
-          checkin: booking.checkin
-        })
-      });
-
-      const payoutData = await payoutReq.json().catch(() => ({}));
-
-      // Update booking status
-      bookings[idx].status = "Completed - Owner Paid via Owner Check-in";
-      bookings[idx].payoutDate = new Date().toISOString();
-      bookings[idx].payoutAmount = ownerAmount;
-      bookings[idx].completedDate = new Date().toISOString();
-      bookings[idx].ownerPayoutId = payoutData?.payoutId || payoutData?.payoutCode || "OWNER_" + Date.now();
-
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-        .bind("kd_bookings", JSON.stringify(bookings))
-        .run();
-
-      // Return the success message with the fee
-      const finalFee = yourFee < 0 ? 0 : yourFee;
-      return new Response(JSON.stringify({
-        success: true,
-        message: `✅ Check-in confirmed! You (${homestay.ownerName}) will receive RM${ownerAmount} in 1-4 business days.`,
-        booking: bookings[idx],
-        payout: payoutData
       }), { status: 200, headers: corsHeaders(request) });
     }
 
