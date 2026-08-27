@@ -376,7 +376,15 @@ body {
     </div>
     <div id="adminPending" class="mt-4"></div>
     <div id="adminApproved" class="mt-4 hidden"></div>
-    <div id="adminBookings" class="mt-4 hidden"><div id="bookingsTable" class="card p-6"></div></div>
+    <!-- ===== UPDATED BOOKINGS TAB WITH FILTER ===== -->
+    <div id="adminBookings" class="mt-4 hidden">
+      <div class="flex items-center gap-3 mb-4 flex-wrap">
+        <label class="text-xs font-semibold text-zinc-600">Filter by Homestay:</label>
+        <select id="bookingFilterHomestay" class="homestay-selector text-sm"></select>
+      </div>
+      <div id="bookingsTable" class="card p-6"></div>
+    </div>
+    <!-- ===== END UPDATED ===== -->
     <div id="adminAvailability" class="mt-4 hidden"><div id="availabilityTable" class="card p-6"></div></div>
     <div id="adminGuests" class="mt-4 hidden"><div id="guestsTable" class="card p-6"></div></div>
     <div id="adminSettings" class="hidden mt-4 card p-6">
@@ -562,6 +570,9 @@ let storedApproved = [];
 let demoOverrides = {};
 let demoBlockedMap = {};
 let deletedDemoIds = [];
+
+// ===== NEW: Current booking filter =====
+let currentBookingFilter = 'all';
 
 // =============================================================
 // FETCH WITH AUTH
@@ -873,7 +884,10 @@ function showAdminTab(tab){
   document.getElementById("tab"+tab.charAt(0).toUpperCase()+tab.slice(1)).className="px-5 py-2.5 rounded-full bg-[#212121] text-white text-[11px] uppercase font-700";
   if(tab==='availability') renderAvailabilityTab();
   if(tab==='guests') renderGuestsTable();
-  if(tab==='bookings') renderBookingsTable();
+  if(tab==='bookings') {
+    populateBookingFilter();
+    renderBookingsTable(currentBookingFilter);
+  }
 }
 
 function renderAdmin(){
@@ -952,7 +966,9 @@ function renderAdmin(){
     approvedHtml += '</div>';
   }
   approvedDiv.innerHTML = safeHTML(approvedHtml);
-  renderBookingsTable();
+  // Bookings tab will be rendered when clicked, but we also need to update the dropdown options.
+  // We'll call populateBookingFilter() when the tab is shown.
+  // No need to render here because it's hidden.
   fetchEarnings(); // refresh the big number and inline values
 }
 
@@ -1039,6 +1055,7 @@ function viewPendingDetails(id) {
           </div>
           <div><span class="text-sm font-bold">IC Uploaded:</span> ${h.icImage ? '✅ Yes' : '❌ No'}</div>
           <div><span class="text-sm font-bold">QR Uploaded:</span> ${h.bankQRImage ? '✅ Yes' : '❌ No'}</div>
+          <div><span class="text-sm font-bold">PBT License:</span> ${h.pbtLicense ? '✅ Uploaded' : '❌ Not uploaded'}</div>
         </div>
       </div>
     </div>
@@ -1097,37 +1114,77 @@ function closePendingDetail() {
 }
 
 // =============================================================
-// RENDER BOOKINGS TABLE
+// RENDER BOOKINGS TABLE – with filter support
 // =============================================================
-function renderBookingsTable(){
-  const div=document.getElementById("bookingsTable"); if(!div) return;
-  if(bookings.length===0){
-    div.innerHTML = safeHTML('<div class="text-center text-zinc-500 py-6">No bookings yet.</div>');
+function renderBookingsTable(filterHomestayId) {
+  const div = document.getElementById("bookingsTable");
+  if (!div) return;
+
+  let filteredBookings = bookings;
+  if (filterHomestayId && filterHomestayId !== 'all') {
+    filteredBookings = bookings.filter(b => String(b.homestayId) === String(filterHomestayId));
+  }
+
+  if (filteredBookings.length === 0) {
+    div.innerHTML = safeHTML('<div class="text-center text-zinc-500 py-6">No bookings' + (filterHomestayId && filterHomestayId !== 'all' ? ' for this homestay' : '') + '.</div>');
     return;
   }
+
   let html = '<div class="mb-3 text-[11px] text-zinc-500">Flow: Check-in → Complete → Owner gets Base via ToyyibPay → You keep Fee • No F5 needed <button onclick="renderAdmin()" class="ml-2 border rounded-full px-2 py-0.5 bg-white">Reload</button></div><div class="space-y-4">';
-  bookings.forEach(b => {
-    const status=b.status||"Paid - Awaiting Check-in";
-    const isAwaiting=status.toLowerCase().includes("awaiting");
-    const isCompleted=status.toLowerCase().includes("completed") || status.toLowerCase().includes("payout");
-    const isCancelled=status.toLowerCase().includes("cancelled");
-    const homestayName=b.homestay||"Homestay";
-    const nights=b.nights||calculateNights(b.checkin,b.checkout);
-    const checkin=b.checkin||"", checkout=b.checkout||"", total=b.total||0;
-    const base=b.base||0, fee=b.fee||0, youReceive=b.youReceive||fee;
-    let badgeClass=isCancelled?'bg-gray-100 text-gray-600':isAwaiting?'bg-yellow-100 text-yellow-800':isCompleted?'bg-green-100 text-green-800':'bg-blue-100 text-blue-800';
-    let badgeText=isCancelled?'❌ Cancelled':isAwaiting?'🟡 Awaiting Check-in':isCompleted?'✅ Completed':'💳 Paid';
-    let btns="";
-    if(isAwaiting){
-      btns+='<button onclick="confirmCheckIn(\''+b.id+'\')" class="px-3 py-1.5 bg-[#0F382E] text-white rounded-full text-[11px] uppercase font-700">✓ CHECK IN</button>';
+  filteredBookings.forEach(b => {
+    const status = b.status || "Paid - Awaiting Check-in";
+    const isAwaiting = status.toLowerCase().includes("awaiting");
+    const isCompleted = status.toLowerCase().includes("completed") || status.toLowerCase().includes("payout");
+    const isCancelled = status.toLowerCase().includes("cancelled");
+    const homestayName = b.homestay || "Homestay";
+    const nights = b.nights || calculateNights(b.checkin, b.checkout);
+    const checkin = b.checkin || "", checkout = b.checkout || "", total = b.total || 0;
+    const base = b.base || 0, fee = b.fee || 0, youReceive = b.youReceive || fee;
+    let badgeClass = isCancelled ? 'bg-gray-100 text-gray-600' : isAwaiting ? 'bg-yellow-100 text-yellow-800' : isCompleted ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800';
+    let badgeText = isCancelled ? '❌ Cancelled' : isAwaiting ? '🟡 Awaiting Check-in' : isCompleted ? '✅ Completed' : '💳 Paid';
+    let btns = "";
+    if (isAwaiting) {
+      btns += '<button onclick="confirmCheckIn(\'' + b.id + '\')" class="px-3 py-1.5 bg-[#0F382E] text-white rounded-full text-[11px] uppercase font-700">✓ CHECK IN</button>';
     }
-    if(!isCompleted && !isCancelled){
-      btns+='<button onclick="updateBookingStatus(\''+b.id+'\',\'Completed\')" class="px-3 py-1.5 bg-green-600 text-white rounded-full text-[11px] uppercase font-600">COMPLETE</button>';
+    if (!isCompleted && !isCancelled) {
+      btns += '<button onclick="updateBookingStatus(\'' + b.id + '\',\'Completed\')" class="px-3 py-1.5 bg-green-600 text-white rounded-full text-[11px] uppercase font-600">COMPLETE</button>';
     }
-    html += '<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">'+b.id+'</div><div class="text-[12px] mt-1">'+homestayName+' • '+nights+' nights • '+checkin+' → '+checkout+' • RM'+total+'</div><div class="text-[12px]">Guest: '+(b.guestName||'')+' '+(b.guestEmail||'')+' '+(b.guestPhone||'')+'</div><div class="text-[10px] text-zinc-500 mt-1">Base RM'+base+' + Fee RM'+fee+' = You receive RM'+youReceive+' '+(b.payoutAmount ? '• Owner Paid RM'+b.payoutAmount+(b.payoutDate ? ' on '+toMYDate(b.payoutDate) : '') : '')+'</div></div><div><span class="text-[11px] px-2 py-1 rounded-full '+badgeClass+'">'+badgeText+'</span></div></div><div class="flex gap-2 mt-3 flex-wrap">'+btns+'<button onclick="whatsappGuest(\''+b.id+'\')" class="px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600">WHATSAPP GUEST</button><button onclick="copyBookingId(\''+b.id+'\')" class="px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600">COPY ID</button><button onclick="changeBookingDates(\''+b.id+'\')" class="px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600">CHANGE DATES</button><button onclick="deleteBooking(\''+b.id+'\')" class="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600">DELETE</button></div></div>';
+    html += '<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">' + b.id + '</div><div class="text-[12px] mt-1">' + homestayName + ' • ' + nights + ' nights • ' + checkin + ' → ' + checkout + ' • RM' + total + '</div><div class="text-[12px]">Guest: ' + (b.guestName || '') + ' ' + (b.guestEmail || '') + ' ' + (b.guestPhone || '') + '</div><div class="text-[10px] text-zinc-500 mt-1">Base RM' + base + ' + Fee RM' + fee + ' = You receive RM' + youReceive + ' ' + (b.payoutAmount ? '• Owner Paid RM' + b.payoutAmount + (b.payoutDate ? ' on ' + toMYDate(b.payoutDate) : '') : '') + '</div></div><div><span class="text-[11px] px-2 py-1 rounded-full ' + badgeClass + '">' + badgeText + '</span></div></div><div class="flex gap-2 mt-3 flex-wrap">' + btns + '<button onclick="whatsappGuest(\'' + b.id + '\')" class="px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600">WHATSAPP GUEST</button><button onclick="copyBookingId(\'' + b.id + '\')" class="px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600">COPY ID</button><button onclick="changeBookingDates(\'' + b.id + '\')" class="px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600">CHANGE DATES</button><button onclick="deleteBooking(\'' + b.id + '\')" class="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600">DELETE</button></div></div>';
   });
   html += '</div>';
   div.innerHTML = safeHTML(html);
+}
+
+// =============================================================
+// BOOKINGS FILTER DROPDOWN
+// =============================================================
+function populateBookingFilter() {
+  const select = document.getElementById('bookingFilterHomestay');
+  if (!select) return;
+  // Clear existing options
+  select.innerHTML = '<option value="all">🏠 All Homestays</option>';
+  // Add each approved homestay
+  homestays.forEach(h => {
+    const opt = document.createElement('option');
+    opt.value = h.id;
+    opt.textContent = h.name;
+    select.appendChild(opt);
+  });
+  // Set current filter
+  if (currentBookingFilter) {
+    select.value = currentBookingFilter;
+  }
+  // Remove old listener to avoid duplicates
+  select.removeEventListener('change', bookingFilterChangeHandler);
+  select.addEventListener('change', bookingFilterChangeHandler);
+}
+
+function bookingFilterChangeHandler() {
+  const select = document.getElementById('bookingFilterHomestay');
+  if (select) {
+    currentBookingFilter = select.value;
+    renderBookingsTable(currentBookingFilter);
+  }
 }
 
 // =============================================================
@@ -1150,7 +1207,7 @@ async function confirmCheckIn(id){
     b.status="Checked In - Processing Owner Payout...";
     b.statusUpdated=new Date().toISOString();
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    renderBookingsTable();
+    renderBookingsTable(currentBookingFilter);
     let payoutData=null;
     try{
       const res=await fetchWithAuth('/api/payout', {
@@ -1181,14 +1238,14 @@ async function confirmCheckIn(id){
     if(!b.nights) b.nights=calculateNights(b.checkin,b.checkout);
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
     fetchWithAuth(API_BASE + '/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id:b.id, status:b.status, booking:b})}).catch(()=>{});
-    renderBookingsTable();
+    renderBookingsTable(currentBookingFilter);
     await fetchEarnings();
     await showAlert("Check-in Complete", 'CHECK-IN COMPLETE!\nOwner: RM'+ownerAmount+' '+(payoutData?.simulation?'(Simulation)':'via ToyyibPay Auto')+'\nYour fee: RM'+yourFee);
   }catch(e){
     await showAlert("Error", 'Failed: '+e.message);
     b.status="Paid - Awaiting Check-in";
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    renderBookingsTable();
+    renderBookingsTable(currentBookingFilter);
   }
 }
 
@@ -1200,7 +1257,7 @@ function updateBookingStatus(id, newStatus){
     b.status=newStatus; b.statusUpdated=new Date().toISOString();
     if(!b.nights) b.nights=calculateNights(b.checkin,b.checkout);
     localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    renderBookingsTable();
+    renderBookingsTable(currentBookingFilter);
     fetchEarnings();
     fetchWithAuth('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id, status:newStatus, booking:b})}).catch(()=>{});
   });
@@ -1228,7 +1285,7 @@ async function changeBookingDates(id){
   b.checkin=ci; b.checkout=co; b.nights=nights; b.base=price.base; b.fee=price.fee; b.total=price.total; b.youReceive=price.youReceive;
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
   try{ await fetchWithAuth('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'updateDates', id:b.id, checkin:ci, checkout:co, nights:price.nights, base:price.base, fee:price.fee, total:price.total, youReceive:price.youReceive})}); }catch(e){}
-  renderBookingsTable();
+  renderBookingsTable(currentBookingFilter);
   renderAvailabilityTab();
   fetchEarnings();
 }
@@ -1519,7 +1576,7 @@ async function deleteBooking(id) {
   // Remove from local list immediately (optimistic)
   bookings = bookings.filter(b => String(b.id) !== String(id));
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-  renderBookingsTable();
+  renderBookingsTable(currentBookingFilter);
   renderAdmin();
 
   try {
