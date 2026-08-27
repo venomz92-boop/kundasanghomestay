@@ -1,4 +1,5 @@
 // /api/bookings.js - with checkinCode, email sending, per‑room availability, optimistic locking, and room images
+// BAN FUNCTIONALITY REMOVED – guest deletion only
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -114,7 +115,7 @@ export async function onRequestGet({ request, env }) {
     const isAdmin = adminToken && adminToken === env.ADMIN_TOKEN;
 
     const keys = ['kd_bookings', 'kd_approved', 'kd_pending', 'kd_guests',
-                  'kd_banned_guests', 'kd_demo_overrides', 'kd_demo_blocked', 'kd_deleted_demo'];
+                  'kd_demo_overrides', 'kd_demo_blocked', 'kd_deleted_demo'];
     const stmts = keys.map(key => db.prepare('SELECT data FROM store WHERE key = ?').bind(key));
     const results = await db.batch(stmts);
 
@@ -128,7 +129,6 @@ export async function onRequestGet({ request, env }) {
     const approved = dataMap['kd_approved'];
     const pending = dataMap['kd_pending'];
     const guests = dataMap['kd_guests'];
-    const bannedGuests = dataMap['kd_banned_guests'];
     const demoOverrides = dataMap['kd_demo_overrides'];
     const demoBlocked = dataMap['kd_demo_blocked'];
     const deletedDemo = dataMap['kd_deleted_demo'];
@@ -152,8 +152,7 @@ export async function onRequestGet({ request, env }) {
         demoBlocked,
         deletedDemo,
         pending,
-        guests: guests.map(g => { const { password, salt, ...safe } = g; return safe; }),
-        bannedGuests
+        guests: guests.map(g => { const { password, salt, ...safe } = g; return safe; })
       }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
@@ -586,6 +585,7 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
+    // ===== DELETE GUEST (no ban) =====
     if (action === "deleteGuest") {
       const guestId = body.guestId ? String(body.guestId) : '';
       const email = body.email ? String(body.email).toLowerCase().trim() : '';
@@ -615,30 +615,21 @@ export async function onRequestPost({ request, env }) {
         return !sameId && !sameEmail;
       });
 
-      const bannedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_banned_guests").first();
-      let banned = [];
-      if (bannedRes?.data) { try { banned = JSON.parse(bannedRes.data); } catch (_) {} }
-      if (!Array.isArray(banned)) banned = [];
-      if (deletedEmail && !banned.includes(deletedEmail)) banned.push(deletedEmail);
-
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_guests", JSON.stringify(remainingGuests)).run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-        .bind("kd_banned_guests", JSON.stringify(banned)).run();
 
       await logAction({
         db,
-        action: 'guest_deleted_and_banned',
+        action: 'guest_deleted',
         admin: 'admin',
-        details: `Deleted and banned guest ${deletedEmail || deletedId}`,
+        details: `Deleted guest ${deletedEmail || deletedId}`,
         ip: clientIP,
         userId: deletedId || deletedEmail
       });
 
       return jsonResponse({
         success: true,
-        deleted: { id: deletedId, email: deletedEmail },
-        bannedGuests: banned
+        deleted: { id: deletedId, email: deletedEmail }
       }, 200, request);
     }
 
