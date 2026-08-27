@@ -1,5 +1,4 @@
-// /api/bookings.js - with checkinCode, email sending, per‑room availability, optimistic locking, and room images
-// PATCHED: improved retry logic with delays and proper error returns
+// /api/bookings.js - PATCHED: Simplified save with INSERT OR REPLACE, no version checks
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -108,7 +107,7 @@ export async function onRequestGet({ request, env }) {
   if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
 
   try {
-    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT, version INTEGER DEFAULT 0)').run();
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
     const guestSession = await getGuestSession(request, env);
     const adminToken = await getAdminToken(request);
@@ -210,27 +209,23 @@ export async function onRequestPost({ request, env }) {
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
 
-    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT, version INTEGER DEFAULT 0)').run();
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    const getWithVersion = async key => {
-      const r = await db.prepare('SELECT data, version FROM store WHERE key=?').bind(key).first();
-      try { return { data: r?.data ? JSON.parse(r.data) : [], version: r?.version || 0 }; } catch(_) { return { data: [], version: 0 }; }
+    const getData = async key => {
+      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
+      try { return r?.data ? JSON.parse(r.data) : []; } catch(_) { return []; }
     };
 
     let attempts = 0;
-    const maxAttempts = 5;
+    const maxAttempts = 3;
     let saved = false;
+
     while (attempts < maxAttempts) {
       attempts++;
       try {
-        const approvedData = await getWithVersion('kd_approved');
-        const bookingsData = await getWithVersion('kd_bookings');
-        const guestsData = await getWithVersion('kd_guests');
-
-        const approved = approvedData.data;
-        const bookings = bookingsData.data;
-        const guests = guestsData.data;
-        const currentVersion = bookingsData.version;
+        const approved = await getData('kd_approved');
+        const bookings = await getData('kd_bookings');
+        const guests = await getData('kd_guests');
 
         const guest = guests.find(g => String(g.id) === String(auth.session.userId));
         const homestay = approved.find(h => String(h.id) === String(incoming.homestayId) && (h.approved === true || h.verified === true));
@@ -338,24 +333,13 @@ export async function onRequestPost({ request, env }) {
           checkinCode: checkinCode,
           roomId: selectedRoom ? selectedRoom.id : null,
           roomName: selectedRoom ? selectedRoom.name : null,
-          roomImages: selectedRoom ? (selectedRoom.images || []) : []  // <-- Store room images
+          roomImages: selectedRoom ? (selectedRoom.images || []) : []
         };
-        
+
         bookings.push(booking);
-        const newData = JSON.stringify(bookings);
-        const newVersion = currentVersion + 1;
-
-        const updateStmt = await db.prepare(
-          'UPDATE store SET data = ?, version = ? WHERE key = ? AND version = ?'
-        ).bind(newData, newVersion, 'kd_bookings', currentVersion);
-
-        const result = await updateStmt.run();
-
-        if (result.changes === 0) {
-          console.log(`🔄 Booking race condition detected. Retry attempt ${attempts} for ${bookingId}`);
-          await new Promise(r => setTimeout(r, 200));
-          continue;
-        }
+        await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+          .bind('kd_bookings', JSON.stringify(bookings))
+          .run();
 
         saved = true;
 
@@ -395,7 +379,7 @@ export async function onRequestPost({ request, env }) {
     if (body.status !== 'Cancelled by Guest') return jsonResponse({ error: 'Guests may only cancel their own booking.' }, 403, request);
     const db = env.DB; if (!db) return jsonResponse({error:'DB not configured'},500,request);
     try {
-      await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT, version INTEGER DEFAULT 0)').run();
+      await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
       const r=await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first(); let bookings=[]; try{if(r?.data)bookings=JSON.parse(r.data)}catch(_){}
       const idx=bookings.findIndex(b=>String(b.id)===String(body.id));
       if(idx<0)return jsonResponse({error:'Booking not found'},404,request);
@@ -419,7 +403,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   try {
-    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT, version INTEGER DEFAULT 0)").run();
+    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
     if (action === "updateDates" && body.id) {
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
@@ -665,7 +649,7 @@ export async function onRequestDelete({ request, env }) {
 
   const db = env.DB;
   if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
-  await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT, version INTEGER DEFAULT 0)').run();
+  await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
   const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
   let bookings = [];
