@@ -2229,13 +2229,7 @@ function renderGrid() {
 function openDetail(id) {
   selectedHomestay = homestays.find(h => h.id === id) || pendingHomestays.find(h => h.id === id);
   if (!selectedHomestay) return;
-function closeDetail() {
-  document.getElementById("detailModal").classList.add("hidden");
-}
 
-function closeBooking() {
-  document.getElementById("bookingModal").classList.add("hidden");
-}
   const defaultCi = document.getElementById("checkin")?.value || dateToIso(new Date(Date.now() + 86400000));
   const defaultCo = document.getElementById("checkout")?.value || dateToIso(new Date(Date.now() + 86400000 * 2));
 
@@ -2313,7 +2307,14 @@ if (roomSelect) {
   renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
   updateDetailPrice();
 }
+  
+function closeDetail() {
+  document.getElementById("detailModal").classList.add("hidden");
+}
 
+function closeBooking() {
+  document.getElementById("bookingModal").classList.add("hidden");
+}
 // =============================================================
 // UPDATE DETAIL PRICE – Patched
 // =============================================================
