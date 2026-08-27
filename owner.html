@@ -1101,7 +1101,7 @@ function openWhatsappToGuest(bookingId) {
 async function confirmCheckIn(bookingId) {
   const code = await showPrompt(
     'Enter Check‑in Code',
-    `Booking ${bookingId}: Ask the guest for the 6‑digit code sent to their WhatsApp or email.`
+    `Booking ${bookingId}: Ask the guest for the 6‑digit code sent to their Email.`
   );
   if (!code || code.length !== 6 || isNaN(code)) {
     await showAlert('Invalid Code', 'Please enter the exact 6‑digit code from the guest.');
