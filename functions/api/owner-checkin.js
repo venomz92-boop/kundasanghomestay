@@ -57,7 +57,7 @@ export async function onRequestPost({ request, env }) {
 
     // ===== CHECK-IN CODE VERIFICATION =====
     if (booking.checkinCode && booking.checkinCode !== checkinCode) {
-      return jsonResponse({ error: 'Invalid check-in code. Please ask the guest for the 6-digit code sent to their WhatsApp.' }, 400, request);
+      return jsonResponse({ error: 'Invalid check-in code. Please ask the guest for the 6-digit code sent to their WhatsApp/email.' }, 400, request);
     }
     // If no code (legacy bookings), skip verification (or you can reject)
 
