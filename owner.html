@@ -1074,11 +1074,12 @@ function openWhatsappToGuest(bookingId) {
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
+// ===== UPDATED confirmCheckIn – with prompt mentioning email =====
 async function confirmCheckIn(bookingId) {
-  // Ask for the code
+  // Ask for the code – mention both WhatsApp and email
   const code = await showPrompt(
     'Enter Check‑in Code',
-    'Ask the guest for the 6‑digit code sent to their WhatsApp. It was included in their booking confirmation.'
+    'Ask the guest for the 6‑digit code sent to their WhatsApp or email. It was included in their booking confirmation.'
   );
   if (!code || code.length !== 6 || isNaN(code)) {
     await showAlert('Invalid Code', 'Please enter the exact 6‑digit code from the guest.');
