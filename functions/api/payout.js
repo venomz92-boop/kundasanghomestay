@@ -1,16 +1,34 @@
-// /api/payout.js - with retry logic
-import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
+// /api/payout.js - with retry logic, and dual auth (admin + owner)
+import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, getOwnerSession, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
 
-async function verifyAdmin(request, env) {
-  const auth = await getAdminToken(request);
-  if (!env.ADMIN_TOKEN) return new Response(JSON.stringify({ error: "Server misconfigured" }), { status: 500, headers: corsHeaders(request) });
-  if (auth !== env.ADMIN_TOKEN) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders(request) });
-  return null;
-}
+// ===== New auth helper for payouts (accepts both admin and owner) =====
+async function verifyPayoutAuth(request, env, bookingId) {
+  // 1. Check admin token
+  const adminToken = await getAdminToken(request);
+  if (adminToken && adminToken === env.ADMIN_TOKEN) {
+    return { authorized: true, role: 'admin' };
+  }
 
-function validateBankAccount(account) {
-  const clean = String(account).replace(/[^0-9]/g, '');
-  return clean.length >= 10 && clean.length <= 15;
+  // 2. Check owner token
+  const ownerData = await getOwnerSession(request, env);
+  if (ownerData && ownerData.type === 'owner') {
+    // Verify the booking belongs to this owner
+    const db = env.DB;
+    const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+    let bookings = [];
+    if (r?.data) try { bookings = JSON.parse(r.data); } catch(e) {}
+    const booking = bookings.find(b => String(b.id) === String(bookingId));
+    if (!booking) {
+      return { authorized: false, error: 'Booking not found' };
+    }
+    const ownerHomestayIds = (ownerData.homestayIds || [ownerData.ownerId]).map(String);
+    if (!ownerHomestayIds.includes(String(booking.homestayId))) {
+      return { authorized: false, error: 'You do not own this homestay' };
+    }
+    return { authorized: true, role: 'owner', booking };
+  }
+
+  return { authorized: false, error: 'Unauthorized' };
 }
 
 // Retry helper with exponential backoff
@@ -31,11 +49,21 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
-  
-  const authError = await verifyAdmin(request, env);
-  if (authError) return authError;
 
   try {
+    const body = await parseJSONSafely(request);
+    const { bookingId, amount, fee, ownerBankCode, ownerAcc, ownerName } = body;
+
+    if (!bookingId) {
+      return new Response(JSON.stringify({ error: "Missing bookingId" }), { status: 400, headers: corsHeaders(request) });
+    }
+
+    // ---- Auth check with ownership verification ----
+    const auth = await verifyPayoutAuth(request, env, bookingId);
+    if (!auth.authorized) {
+      return new Response(JSON.stringify({ error: auth.error || 'Unauthorized' }), { status: 401, headers: corsHeaders(request) });
+    }
+
     const clientIP = getClientIP(request);
     const db = env.DB;
     if (!db) {
@@ -47,13 +75,6 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: "Too many payout attempts. Please wait 5 minutes." }), { status: 429, headers: corsHeaders(request) });
     }
 
-    const body = await parseJSONSafely(request);
-    const { bookingId, amount, fee, ownerBankCode, ownerAcc, ownerName } = body;
-
-    if (!bookingId) {
-      return new Response(JSON.stringify({ error: "Missing bookingId" }), { status: 400, headers: corsHeaders(request) });
-    }
-
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
       return new Response(JSON.stringify({ error: "Invalid amount" }), { status: 400, headers: corsHeaders(request) });
     }
@@ -62,11 +83,12 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: "Missing owner name" }), { status: 400, headers: corsHeaders(request) });
     }
 
-    if (!validateBankAccount(ownerAcc)) {
+    // Validate bank account (basic length check)
+    const cleanOwnerAcc = String(ownerAcc || "").replace(/[^0-9]/g, "");
+    if (!cleanOwnerAcc || cleanOwnerAcc.length < 10 || cleanOwnerAcc.length > 15) {
       return new Response(JSON.stringify({ error: "Invalid owner bank account. Must be at least 10 digits." }), { status: 400, headers: corsHeaders(request) });
     }
 
-    const cleanOwnerAcc = String(ownerAcc || "").replace(/[^0-9]/g, "");
     const payoutAmount = Number(amount);
     const isToyyibLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
     const isSimulation = env.PAYOUT_SIMULATION === "true";
@@ -97,7 +119,6 @@ export async function onRequestPost({ request, env }) {
     // ---- Simulation ----
     if (isSimulation) {
       console.log(`🔵 SIMULATION: Payout for booking ${bookingId} (RM${payoutAmount}) to ${ownerName} (${cleanOwnerAcc})`);
-      // Update booking with simulated status
       try {
         const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
         let bookings = res ? JSON.parse(res.data) : [];
@@ -117,7 +138,7 @@ export async function onRequestPost({ request, env }) {
           await logAction({
             db,
             action: 'payout_simulation',
-            admin: 'admin',
+            admin: auth.role === 'admin' ? 'admin' : 'owner',
             details: `Simulated payout for booking ${bookingId}: RM${payoutAmount}`,
             ip: clientIP,
             userId: ownerName
@@ -168,7 +189,7 @@ export async function onRequestPost({ request, env }) {
           method: "POST",
           body: formData,
           headers: { 'User-Agent': 'KundasangHomestay/1.0' }
-        }, 2); // 2 retries
+        }, 2);
         const text = await payoutRes.text();
         try { payoutData = JSON.parse(text); } catch { payoutData = { raw: text }; }
         if (payoutRes.ok && (payoutData.status === "success" || payoutData[0]?.status === "success" || payoutData.payoutCode)) {
@@ -208,7 +229,7 @@ export async function onRequestPost({ request, env }) {
         await logAction({
           db,
           action: 'payout_auto',
-          admin: 'admin',
+          admin: auth.role === 'admin' ? 'admin' : 'owner',
           details: `Auto payout for booking ${bookingId}: RM${payoutAmount} to ${ownerName}`,
           ip: clientIP,
           userId: ownerName
@@ -218,7 +239,8 @@ export async function onRequestPost({ request, env }) {
       console.error("❌ Failed to update booking status:", e.message);
     }
 
-    // Record fee earnings
+    // Record fee earnings (only if admin triggered, or owner check-in)
+    // We'll keep the existing logic – it works.
     try {
       const feeRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
       let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
@@ -275,6 +297,7 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
+// GET and OPTIONS remain unchanged (they are fine)
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -286,7 +309,7 @@ export async function onRequestGet({ request, env }) {
     toyyibPayPayoutEnabled: isLive,
     mode: isSimulation ? "SIMULATION" : (isLive ? "AUTO (ToyyibPay)" : "MANUAL (fallback)"),
     bankCode: env.YOUR_BANK_CODE || "MBBEMYKL",
-    security: "Admin auth required for POST",
+    security: "Admin or Owner auth required for POST",
     simulation: isSimulation,
     warning: isSimulation ? "⚠️ SIMULATION MODE – no real money will be sent" : undefined
   }), { status: 200, headers: corsHeaders(request) });
