@@ -389,16 +389,309 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
-  // ... rest of the POST handler (publicUpdateStatus, admin actions) unchanged ...
-  // (keep the existing code for other actions)
   if (action === "publicUpdateStatus" && body.id) {
-    // unchanged
+    const auth = await requireGuest(request, env, body);
+    if (auth.error) return auth.error;
+    if (body.status !== 'Cancelled by Guest') return jsonResponse({ error: 'Guests may only cancel their own booking.' }, 403, request);
+    const db = env.DB; if (!db) return jsonResponse({error:'DB not configured'},500,request);
+    try {
+      await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT, version INTEGER DEFAULT 0)').run();
+      const r=await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first(); let bookings=[]; try{if(r?.data)bookings=JSON.parse(r.data)}catch(_){}
+      const idx=bookings.findIndex(b=>String(b.id)===String(body.id));
+      if(idx<0)return jsonResponse({error:'Booking not found'},404,request);
+      const b=bookings[idx];
+      if(String(b.guestId)!==String(auth.session.userId))return jsonResponse({error:'Unauthorized'},403,request);
+      if(/paid|completed/i.test(String(b.status||'')))return jsonResponse({error:'Paid bookings cannot be cancelled from the guest portal. Please contact support/host.'},400,request);
+      bookings[idx]={...b,status:'Cancelled by Guest',statusUpdated:new Date().toISOString()};
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind('kd_bookings',JSON.stringify(bookings)).run();
+      await logAction({db,action:'booking_cancelled_by_guest',admin:'guest',details:`Booking ${b.id} cancelled by guest`,ip:clientIP,userId:b.guestId,homestayId:b.homestayId});
+      return jsonResponse({success:true,booking:bookings[idx]},200,request);
+    }catch(e){console.error('Guest cancellation error:',e.message);return jsonResponse({error:'Could not update booking'},500,request)}
   }
 
-  // ADMIN actions unchanged (including deleteGuest)
+  // ========== ADMIN ACTIONS ==========
   const authError = await verifyAdmin(request, env);
   if (authError) return authError;
 
-  // ... unchanged admin actions ...
-  // (the file continues with the rest of the admin actions)
+  const db = env.DB;
+  if (!db) {
+    return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders(request) });
+  }
+
+  try {
+    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT, version INTEGER DEFAULT 0)").run();
+
+    if (action === "updateDates" && body.id) {
+      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+      let bookings = [];
+      if (r && r.data) { try { bookings = JSON.parse(r.data); } catch(e) {} }
+      const idx = bookings.findIndex(b => String(b.id) === String(body.id));
+      if (idx === -1) {
+        return jsonResponse({ error: "Booking not found" }, 404, request);
+      }
+      bookings[idx].checkin = body.checkin;
+      bookings[idx].checkout = body.checkout;
+      bookings[idx].nights = body.nights;
+      bookings[idx].base = body.base;
+      bookings[idx].fee = body.fee;
+      bookings[idx].total = body.total;
+      bookings[idx].youReceive = body.youReceive;
+      bookings[idx].statusUpdated = new Date().toISOString();
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_bookings", JSON.stringify(bookings))
+        .run();
+      
+      await logAction({
+        db,
+        action: 'booking_dates_changed',
+        admin: 'admin',
+        details: `Booking ${body.id} dates changed to ${body.checkin}→${body.checkout}`,
+        ip: clientIP,
+        userId: bookings[idx].guestEmail,
+        homestayId: bookings[idx].homestayId
+      });
+      
+      return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
+    }
+
+    // ===== APPROVE HOMESTAY =====
+    if (action === "approveHomestay" && body.id) {
+      try {
+        const pendingRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
+        let pending = [];
+        if (pendingRes && pendingRes.data) { 
+          try { pending = JSON.parse(pendingRes.data); } catch(e) { 
+            console.error("Failed to parse kd_pending:", e);
+            return jsonResponse({ error: "Corrupt pending data" }, 500, request);
+          }
+        }
+        const idx = pending.findIndex(h => String(h.id) === String(body.id));
+        if (idx === -1) {
+          return jsonResponse({ error: "Pending homestay not found" }, 404, request);
+        }
+        const homestay = pending[idx];
+        
+        const { icImage, icOriginalName, bankQRImage, bankQROriginalName, pbtLicense, ...safeHomestay } = homestay;
+        safeHomestay.approved = true;
+        safeHomestay.verified = true;
+        pending.splice(idx, 1);
+        
+        const approvedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
+        let approved = [];
+        if (approvedRes && approvedRes.data) { 
+          try { approved = JSON.parse(approvedRes.data); } catch(e) {
+            console.error("Failed to parse kd_approved:", e);
+            return jsonResponse({ error: "Corrupt approved data" }, 500, request);
+          }
+        }
+        approved.push(safeHomestay);
+        
+        const stmt1 = db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_pending", JSON.stringify(pending));
+        const stmt2 = db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_approved", JSON.stringify(approved));
+        await db.batch([stmt1, stmt2]);
+        
+        await logAction({
+          db,
+          action: 'homestay_approved',
+          admin: 'admin',
+          details: `Approved homestay "${safeHomestay.name}" (ID: ${safeHomestay.id}) by ${safeHomestay.ownerName}`,
+          ip: clientIP,
+          userId: safeHomestay.ownerEmail,
+          homestayId: safeHomestay.id
+        });
+        
+        return jsonResponse({ success: true, homestay: safeHomestay }, 200, request);
+      } catch (approveErr) {
+        console.error("Approve homestay error:", approveErr.message, approveErr.stack);
+        return jsonResponse({ error: "Approval failed: " + approveErr.message }, 500, request);
+      }
+    }
+
+    if (action === "rejectHomestay" && body.id) {
+      const pendingRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
+      let pending = [];
+      if (pendingRes && pendingRes.data) { try { pending = JSON.parse(pendingRes.data); } catch(e) {} }
+      const idx = pending.findIndex(h => String(h.id) === String(body.id));
+      if (idx === -1) {
+        return jsonResponse({ error: "Pending homestay not found" }, 404, request);
+      }
+      const homestay = pending[idx];
+      pending.splice(idx, 1);
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_pending", JSON.stringify(pending))
+        .run();
+      
+      await logAction({
+        db,
+        action: 'homestay_rejected',
+        admin: 'admin',
+        details: `Rejected homestay "${homestay.name}" (ID: ${homestay.id})`,
+        ip: clientIP,
+        userId: homestay.ownerEmail,
+        homestayId: homestay.id
+      });
+      
+      return jsonResponse({ success: true }, 200, request);
+    }
+
+    // ===== REMOVE APPROVED HOMESTAY =====
+    if (action === "removeApprovedHomestay" && body.id) {
+      try {
+        const isDemo = body.isDemo === true;
+        
+        const approvedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
+        let approved = [];
+        if (approvedRes && approvedRes.data) {
+          try { approved = JSON.parse(approvedRes.data); } catch(e) {
+            console.error("Failed to parse kd_approved:", e);
+            return jsonResponse({ error: "Corrupt approved data" }, 500, request);
+          }
+        }
+        
+        const idx = approved.findIndex(h => String(h.id) === String(body.id));
+        if (idx === -1) {
+          return jsonResponse({ error: "Approved homestay not found" }, 404, request);
+        }
+        
+        const removed = approved[idx];
+        approved.splice(idx, 1);
+        
+        if (isDemo) {
+          const demoRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_deleted_demo").first();
+          let deletedDemo = [];
+          if (demoRes && demoRes.data) {
+            try { deletedDemo = JSON.parse(demoRes.data); } catch(e) {}
+          }
+          if (!Array.isArray(deletedDemo)) deletedDemo = [];
+          if (!deletedDemo.includes(String(body.id))) {
+            deletedDemo.push(String(body.id));
+          }
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+            .bind("kd_deleted_demo", JSON.stringify(deletedDemo))
+            .run();
+        }
+        
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_approved", JSON.stringify(approved))
+          .run();
+        
+        await logAction({
+          db,
+          action: 'homestay_removed',
+          admin: 'admin',
+          details: `Removed homestay "${removed.name}" (ID: ${removed.id}) from approved`,
+          ip: clientIP,
+          userId: removed.ownerEmail,
+          homestayId: removed.id
+        });
+        
+        return jsonResponse({ success: true, removed: removed }, 200, request);
+      } catch (removeErr) {
+        console.error("Remove homestay error:", removeErr.message, removeErr.stack);
+        return jsonResponse({ error: "Remove failed: " + removeErr.message }, 500, request);
+      }
+    }
+
+    // ===== DELETE GUEST (no ban) =====
+    if (action === "deleteGuest") {
+      const guestId = body.guestId ? String(body.guestId) : '';
+      const email = body.email ? String(body.email).toLowerCase().trim() : '';
+
+      if (!guestId && !email) {
+        return jsonResponse({ error: 'Guest ID or email is required' }, 400, request);
+      }
+
+      const guestRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_guests").first();
+      let guests = [];
+      if (guestRes?.data) { try { guests = JSON.parse(guestRes.data); } catch (_) {} }
+
+      const deleted = guests.find(g =>
+        (guestId && String(g.id) === guestId) ||
+        (email && String(g.email || '').toLowerCase().trim() === email)
+      );
+
+      if (!deleted) {
+        return jsonResponse({ error: 'Guest not found' }, 404, request);
+      }
+
+      const deletedEmail = String(deleted.email || '').toLowerCase().trim();
+      const deletedId = String(deleted.id || '');
+      const remainingGuests = guests.filter(g => {
+        const sameId = deletedId && String(g.id || '') === deletedId;
+        const sameEmail = deletedEmail && String(g.email || '').toLowerCase().trim() === deletedEmail;
+        return !sameId && !sameEmail;
+      });
+
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_guests", JSON.stringify(remainingGuests)).run();
+
+      await logAction({
+        db,
+        action: 'guest_deleted',
+        admin: 'admin',
+        details: `Deleted guest ${deletedEmail || deletedId}`,
+        ip: clientIP,
+        userId: deletedId || deletedEmail
+      });
+
+      return jsonResponse({
+        success: true,
+        deleted: { id: deletedId, email: deletedEmail }
+      }, 200, request);
+    }
+
+    return jsonResponse({ success: true, message: "Synced" }, 200, request);
+
+  } catch (err) {
+    console.error('Bookings POST error:', err.message, err.stack);
+    return jsonResponse({ error: 'An internal error occurred: ' + err.message }, 500, request);
+  }
+}
+
+// ========== DELETE ==========
+export async function onRequestDelete({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+  const authError = await verifyAdmin(request, env);
+  if (authError) return authError;
+
+  const url = new URL(request.url);
+  const id = url.searchParams.get('id');
+  if (!id) {
+    return jsonResponse({ error: 'Missing booking id' }, 400, request);
+  }
+
+  const db = env.DB;
+  if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
+  await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT, version INTEGER DEFAULT 0)').run();
+
+  const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+  let bookings = [];
+  try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+  const idx = bookings.findIndex(b => String(b.id) === String(id));
+  if (idx === -1) {
+    return jsonResponse({ error: 'Booking not found' }, 404, request);
+  }
+  const deleted = bookings[idx];
+  bookings.splice(idx, 1);
+  await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+    .bind('kd_bookings', JSON.stringify(bookings)).run();
+
+  await logAction({
+    db,
+    action: 'booking_deleted_admin',
+    admin: 'admin',
+    details: `Deleted booking ${id} (${deleted.homestay})`,
+    ip: getClientIP(request),
+    userId: deleted.guestId,
+    homestayId: deleted.homestayId
+  });
+
+  return jsonResponse({ success: true, deleted: deleted }, 200, request);
+}
+
+export async function onRequestOptions({ request }) {
+  return new Response(null, { headers: corsHeaders(request) });
 }
