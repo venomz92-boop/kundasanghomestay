@@ -1,4 +1,4 @@
-// /api/bookings.js - with pagination, D1 batch, image stripping, and removeApprovedHomestay
+// /api/bookings.js - with pagination, D1 batch, image stripping, and checkinCode
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -211,10 +211,16 @@ export async function onRequestPost({ request, env }) {
       const total = Math.round((base + fee + gatewayFee) * 100) / 100;
       let bookingId = String(incoming.id || '');
       if (!/^KDH-[A-Za-z0-9_-]{4,40}$/.test(bookingId) || bookings.some(b=>String(b.id)===bookingId)) bookingId = `KDH-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
+
+      // ===== GENERATE CHECK-IN CODE =====
+      const checkinCode = String(Math.floor(100000 + Math.random() * 900000));
+
       const booking = {
         id: bookingId, homestay: homestay.name, homestayId: homestay.id, ownerWhatsapp: homestay.whatsapp || '',
         guestId: guest.id, guestName: guest.name, guestEmail: guest.email, guestPhone: guest.phone || '',
-        checkin: ci, checkout: co, nights, base, fee, gatewayFee, total, status: 'Pending Payment', date: new Date().toISOString()
+        checkin: ci, checkout: co, nights, base, fee, gatewayFee, total, status: 'Pending Payment',
+        date: new Date().toISOString(),
+        checkinCode: checkinCode   // <-- ADDED
       };
       
       bookings.push(booking);
@@ -222,6 +228,20 @@ export async function onRequestPost({ request, env }) {
         .bind('kd_bookings', JSON.stringify(bookings));
       await db.batch([stmt1]);
       
+      // ===== SEND CODE TO GUEST VIA WHATSAPP =====
+      try {
+        const guestPhoneClean = String(guest.phone || '').replace(/[^0-9]/g, '');
+        if (guestPhoneClean && guestPhoneClean.length >= 9) {
+          let phone = guestPhoneClean;
+          if (phone.startsWith('0')) phone = '60' + phone.substring(1);
+          const msg = `*Kundasang Homestay Booking Confirmed!* 🏔️\n\nBooking ID: ${bookingId}\nHomestay: ${homestay.name}\nCheck-in: ${ci}\nCheck-out: ${co}\n\n*Your 6-digit check-in code:* ${checkinCode}\n\nPlease keep this code safe. You will need to share it with the host when you arrive. Do not share it with anyone else.`;
+          // Fire and forget – we don't want to block the response
+          fetch(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`, { method: 'GET' }).catch(()=>{});
+        }
+      } catch (waError) {
+        console.warn('WhatsApp notification failed:', waError);
+      }
+
       await logAction({db,action:'booking_created',admin:'guest',details:`Booking ${booking.id} created; payment pending`,ip:clientIP,userId:guest.id,homestayId:homestay.id});
       return jsonResponse({success:true,booking},200,request);
     } catch(e){ console.error('Create booking error:',e.message); return jsonResponse({ error:'Could not create booking' },500,request); }
@@ -374,12 +394,11 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true }, 200, request);
     }
 
-    // ===== ✅ NEW: REMOVE APPROVED HOMESTAY =====
+    // ===== REMOVE APPROVED HOMESTAY =====
     if (action === "removeApprovedHomestay" && body.id) {
       try {
         const isDemo = body.isDemo === true;
         
-        // Read approved list
         const approvedRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
         let approved = [];
         if (approvedRes && approvedRes.data) {
@@ -397,7 +416,6 @@ export async function onRequestPost({ request, env }) {
         const removed = approved[idx];
         approved.splice(idx, 1);
         
-        // If it's a demo, add to deletedDemo list
         if (isDemo) {
           const demoRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_deleted_demo").first();
           let deletedDemo = [];
@@ -413,7 +431,6 @@ export async function onRequestPost({ request, env }) {
             .run();
         }
         
-        // Save approved list back
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
           .bind("kd_approved", JSON.stringify(approved))
           .run();
