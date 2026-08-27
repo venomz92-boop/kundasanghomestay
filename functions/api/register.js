@@ -1,11 +1,11 @@
 // /api/register.js
-import { corsHeaders, getClientIP, enforceHttps, hashPassword, jsonResponse, parseJSONSafely, logAction, checkRateLimit, recordRateLimit } from './_utils.js';
+import { corsHeaders, getClientIP, enforceHttps, hashPassword, createSignedToken, jsonResponse, parseJSONSafely, logAction, checkRateLimit, recordRateLimit } from './_utils.js';
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 function validatePhone(phone) { const d = String(phone).replace(/\D/g, ''); return d.length >= 10 && d.length <= 12; }
 function clean(s, max = 200) { return String(s || '').replace(/[<>]/g, '').trim().slice(0, max); }
 
-// ===== COPY THIS FROM forgot-password.js =====
+// ===== Send verification email =====
 async function sendVerificationEmail(email, name, url, env) {
   const html = `<h2>Hello ${String(name || 'Guest').replace(/[<>]/g, '')}</h2>
     <p>Thank you for registering at Kundasang Homestay.</p>
@@ -31,7 +31,7 @@ async function sendVerificationEmail(email, name, url, env) {
       });
       const data = await r.json();
       if (r.ok) {
-        (`✅ Verification email sent to ${email} (ID: ${data.id})`);
+        console.log(`✅ Verification email sent to ${email} (ID: ${data.id})`);
         return true;
       } else {
         console.error(`❌ Resend error:`, data);
@@ -120,49 +120,48 @@ export async function onRequestPost({ request, env }) {
       .run();
 
     // ===== SEND VERIFICATION EMAIL =====
-const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
-const verifyToken = await createSignedToken({
-  type: 'email_verification',
-  userId: newGuest.id,
-  email: newGuest.email
-}, env, 24 * 60 * 60 * 1000);
-const verifyUrl = `${domain}/api/verify-email?token=${encodeURIComponent(verifyToken)}`;
+    const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
+    const verifyToken = await createSignedToken({
+      type: 'email_verification',
+      userId: newGuest.id,
+      email: newGuest.email
+    }, env, 24 * 60 * 60 * 1000);
+    const verifyUrl = `${domain}/api/verify-email?token=${encodeURIComponent(verifyToken)}`;
 
-const emailSent = await sendVerificationEmail(newGuest.email, newGuest.name, verifyUrl, env);
+    const emailSent = await sendVerificationEmail(newGuest.email, newGuest.name, verifyUrl, env);
 
-await logAction({
-  db,
-  action: 'guest_registered',
-  admin: 'public',
-  details: `Guest ${newGuest.id} registered (email: ${newGuest.email})`,
-  ip: clientIP,
-  userId: newGuest.id
-});
+    await logAction({
+      db,
+      action: 'guest_registered',
+      admin: 'public',
+      details: `Guest ${newGuest.id} registered (email: ${newGuest.email})`,
+      ip: clientIP,
+      userId: newGuest.id
+    });
 
-await recordRateLimit(db, clientIP, 'register');
+    await recordRateLimit(db, clientIP, 'register');
 
-// ---- NO AUTO-LOGIN ----
-// Remove sensitive data from response
-const { password: _, salt: __, ...safeGuest } = newGuest;
+    // ---- NO AUTO-LOGIN ----
+    const { password: _, salt: __, ...safeGuest } = newGuest;
 
-const responseData = {
-  success: true,
-  guest: safeGuest, // Only for display, but we don't store it in frontend
-  message: emailSent 
-    ? 'Registration successful. Please check your email to verify your account before logging in.'
-    : 'Registration successful, but verification email could not be sent. Please contact support.',
-};
+    const responseData = {
+      success: true,
+      guest: safeGuest,
+      message: emailSent 
+        ? 'Registration successful. Please check your email to verify your account before logging in.'
+        : 'Registration successful, but verification email could not be sent. Please contact support.',
+    };
 
-return new Response(
-  JSON.stringify(responseData),
-  {
-    status: 200,
-    headers: {
-      ...corsHeaders(request)
-      // No Set-Cookie header, no token
-    }
-  }
-);
+    return new Response(
+      JSON.stringify(responseData),
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders(request)
+          // No Set-Cookie header
+        }
+      }
+    );
 
   } catch (e) {
     console.error('❌ Register error:', e.message, e.stack);
