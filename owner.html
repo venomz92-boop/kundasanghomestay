@@ -1026,7 +1026,7 @@ async function loadBookings() {
       let statusBadge = '';
       if (isCompleted) {
         if (b.payoutSuccess === true && b.payoutSuccessDate) {
-          statusBadge = `<span class="text-[10px] bg-green-100 text-green-800 border border-green-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">✅ Payout Success</span>`;
+          statusBadge = `<span class="text-[10px] bg-green-100 text-green-800 border border-green-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">✅ Payout Success. Please wait 1-4 business day for Toyyibpay processing.</span>`;
         } else if (payoutDate) {
           statusBadge = `<span class="text-[10px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">⏳ Payout Processing • <span class="text-green-600">Guest Checked In</span></span>`;
         } else {
@@ -1057,7 +1057,7 @@ async function loadBookings() {
           : (payoutDate ? new Date(payoutDate).toLocaleDateString('en-MY') : 'Check-In Logged');
         
         if (b.payoutSuccess === true && b.payoutSuccessDate) {
-          actionButtons = `<span class="text-xs text-green-700 font-bold">✅ Payout success (${payoutDisplay}).<br>Please wait 1-4 business day for processing.</span>`;
+          actionButtons = `<span class="text-xs text-green-700 font-bold">✅ Payout success (${payoutDisplay})</span>`;
         } else if (payoutDate) {
           actionButtons = `<span class="text-xs text-yellow-600 font-bold">⏳ Payout processing since ${payoutDisplay} • <span class="text-green-600">Guest Checked in</span></span>`;
         } else {
