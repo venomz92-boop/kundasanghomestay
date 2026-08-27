@@ -1,5 +1,5 @@
 // /api/resend-code.js - PATCHED: returns code even if email fails
-import { corsHeaders, jsonResponse, getGuestSession, logAction, enforceHttps } from './_utils.js';
+import { corsHeaders, jsonResponse, getGuestSession, logAction, enforceHttps, getClientIP } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
