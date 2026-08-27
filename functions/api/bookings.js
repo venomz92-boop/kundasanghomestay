@@ -1,4 +1,4 @@
-// /api/bookings.js - with checkinCode, email sending, per‑room availability, and optimistic locking
+// /api/bookings.js - with checkinCode, email sending, per‑room availability, optimistic locking, and room images
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -107,7 +107,6 @@ export async function onRequestGet({ request, env }) {
   if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
 
   try {
-    // Ensure table has version column (idempotent)
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT, version INTEGER DEFAULT 0)').run();
 
     const guestSession = await getGuestSession(request, env);
@@ -171,7 +170,7 @@ export async function onRequestGet({ request, env }) {
       }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
-    // ===== PUBLIC VIEW (availability map still at homestay level) =====
+    // ===== PUBLIC VIEW =====
     const availability = {};
     for (const h of approved) {
       const homestayId = String(h.id);
@@ -212,21 +211,17 @@ export async function onRequestPost({ request, env }) {
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
 
-    // Ensure table has version column
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT, version INTEGER DEFAULT 0)').run();
 
-    // Helper to read with version
     const getWithVersion = async key => {
       const r = await db.prepare('SELECT data, version FROM store WHERE key=?').bind(key).first();
       try { return { data: r?.data ? JSON.parse(r.data) : [], version: r?.version || 0 }; } catch(_) { return { data: [], version: 0 }; }
     };
 
-    // Retry loop (max 3 attempts)
     let attempts = 0;
     while (attempts < 3) {
       attempts++;
       try {
-        // 1. READ with version
         const approvedData = await getWithVersion('kd_approved');
         const bookingsData = await getWithVersion('kd_bookings');
         const guestsData = await getWithVersion('kd_guests');
@@ -240,7 +235,6 @@ export async function onRequestPost({ request, env }) {
         const homestay = approved.find(h => String(h.id) === String(incoming.homestayId) && (h.approved === true || h.verified === true));
         if (!guest || !homestay) return jsonResponse({ error: 'Guest or homestay not found' }, 404, request);
 
-        // ---- Handle room selection ----
         const rooms = homestay.rooms || [];
         let selectedRoom = null;
         if (incoming.roomId) {
@@ -252,7 +246,6 @@ export async function onRequestPost({ request, env }) {
           return jsonResponse({ error: 'Homestay price is not configured correctly' }, 500, request);
         }
 
-        // ---- Date validation ----
         const ci = String(incoming.checkin || ''), co = String(incoming.checkout || '');
         const d1 = new Date(ci+'T00:00:00'), d2 = new Date(co+'T00:00:00');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(ci) || !/^\d{4}-\d{2}-\d{2}$/.test(co) || isNaN(d1) || isNaN(d2) || d1 >= d2) {
@@ -264,7 +257,6 @@ export async function onRequestPost({ request, env }) {
         const today = new Date(); today.setHours(0,0,0,0);
         if (d1 < today) return jsonResponse({ error: 'Cannot book past dates' }, 400, request);
 
-        // ---- Check for existing pending booking (guest same dates) ----
         const existingPending = bookings.find(b =>
           String(b.guestId) === String(guest.id) &&
           String(b.homestayId) === String(homestay.id) &&
@@ -281,7 +273,6 @@ export async function onRequestPost({ request, env }) {
           }, 200, request);
         }
 
-        // ---- Homestay‑wide blocked dates ----
         const homestayBlocked = new Set((homestay.blockedDates || []).map(String));
         const requestedDates = getDatesInRange(ci, co);
         for (const ds of requestedDates) {
@@ -290,7 +281,6 @@ export async function onRequestPost({ request, env }) {
           }
         }
 
-        // ---- Per‑room blocked dates ----
         if (selectedRoom) {
           const roomBlocked = new Set((selectedRoom.blockedDates || []).map(String));
           for (const ds of requestedDates) {
@@ -300,7 +290,6 @@ export async function onRequestPost({ request, env }) {
           }
         }
 
-        // ---- Overlap with existing bookings (for the same room) ----
         const overlaps = bookings.some(b => {
           const pendingExpired = String(b.status||'') === 'Pending Payment' && b.date && Date.now() - Date.parse(b.date) > 15*60*1000;
           const isOwnPending = String(b.guestId) === String(guest.id) && b.status === 'Pending Payment';
@@ -316,7 +305,6 @@ export async function onRequestPost({ request, env }) {
           return jsonResponse({ error: 'Selected dates are already booked for this room' }, 409, request);
         }
 
-        // ---- Calculate pricing ----
         const base = Math.round(ownerPrice * nights * 100) / 100;
         const fee = Math.round(base * 0.11 * 100) / 100;
         const gatewayFee = 1.00;
@@ -348,28 +336,25 @@ export async function onRequestPost({ request, env }) {
           date: new Date().toISOString(),
           checkinCode: checkinCode,
           roomId: selectedRoom ? selectedRoom.id : null,
-          roomName: selectedRoom ? selectedRoom.name : null
+          roomName: selectedRoom ? selectedRoom.name : null,
+          roomImages: selectedRoom ? (selectedRoom.images || []) : []  // <-- Store room images
         };
         
         bookings.push(booking);
         const newData = JSON.stringify(bookings);
         const newVersion = currentVersion + 1;
 
-        // ---- ATOMIC WRITE: Only update if version hasn't changed ----
         const updateStmt = await db.prepare(
           'UPDATE store SET data = ?, version = ? WHERE key = ? AND version = ?'
         ).bind(newData, newVersion, 'kd_bookings', currentVersion);
 
         const result = await updateStmt.run();
 
-        // ---- If no rows were updated, someone else wrote first – RETRY ----
         if (result.changes === 0) {
           console.log(`🔄 Booking race condition detected. Retry attempt ${attempts} for ${bookingId}`);
-          continue; // Go to next attempt
+          continue;
         }
 
-        // ---- SUCCESS – we hold the lock ----
-        // Send email, WhatsApp, log action, return success
         await sendBookingEmail(guest.email, guest.name, bookingId, homestay.name, ci, co, nights, total, checkinCode, env)
           .catch(e => console.warn('Email send failed:', e));
 
@@ -388,12 +373,10 @@ export async function onRequestPost({ request, env }) {
 
       } catch(e) {
         console.error('Create booking error:', e.message);
-        // If it's a DB error, break retry
         return jsonResponse({ error: 'Could not create booking' }, 500, request);
       }
     }
 
-    // If we exit the loop (max retries exceeded)
     console.error('❌ Max retries exceeded for booking creation');
     return jsonResponse({ error: 'Booking system busy. Please try again in a moment.' }, 503, request);
   }
