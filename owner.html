@@ -824,47 +824,28 @@ function renderGuestNav() {
   const profileNav = document.getElementById("guestProfileNav");
   const mLoginNav = document.getElementById("mGuestNav");
   const mProfileNav = document.getElementById("mGuestProfileNav");
-  const mAvatar = document.getElementById("mGuestAvatar");
-  const mNameNav = document.getElementById("mGuestNameNav");
-
   if (currentGuest && currentGuest.id) {
-    // ---- DESKTOP ----
     if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
     if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
-
     const avatar = document.getElementById("guestAvatar");
     const nameNav = document.getElementById("guestNameNav");
-    if (avatar) {
-      if (currentGuest.verified === true) {
-        avatar.innerText = "✓";
-        avatar.className = "guest-avatar w-7 h-7 text-xs bg-emerald-600 text-white flex items-center justify-center rounded-full font-bold";
-      } else {
-        avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-        avatar.className = "guest-avatar w-7 h-7 text-xs bg-[#3FD0D4] text-white flex items-center justify-center rounded-full font-bold";
-      }
-    }
+    if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
     if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
-
-    // ---- MOBILE ----
-    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
-    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
-    if (mAvatar) {
-      if (currentGuest.verified === true) {
-        mAvatar.innerText = "✓";
-        mAvatar.className = "avatar bg-emerald-600 text-white";
-      } else {
-        mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-        mAvatar.className = "avatar bg-[#3FD0D4] text-white";
-      }
-    }
-    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+    if (mLoginNav) mLoginNav.classList.add("hidden");
+    if (mProfileNav) mProfileNav.classList.remove("hidden");
   } else {
-    // ---- NOT LOGGED IN ----
     if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
     if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
-    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
+    if (mLoginNav) mLoginNav.classList.remove("hidden");
+    if (mProfileNav) mProfileNav.classList.add("hidden");
   }
+}
+function logoutGuest() {
+  if (!confirm("Confirm guest profile logout?")) return;
+  currentGuest = null;
+  localStorage.removeItem('kd_guest');
+  renderGuestNav();
+  window.location.href = '/';
 }
 
 // =============================================================
