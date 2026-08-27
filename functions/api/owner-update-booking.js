@@ -1,4 +1,4 @@
-// /api/owner-update-booking.js - Owner can change dates and cancel (check-in removed)
+// /api/owner-update-booking.js - with room block management
 import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
 
 async function verifyOwner(request, env) { return getOwnerSession(request, env); }
@@ -51,6 +51,82 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json();
     const { bookingId, checkin, checkout, action } = body;
 
+    // ===== NEW ACTION: Update room block =====
+    if (action === "updateRoomBlock") {
+      const { homestayId, roomId, date } = body;
+      if (!homestayId || !roomId || !date) {
+        return jsonResponse({ error: 'Missing homestayId, roomId, or date' }, 400, request);
+      }
+
+      // Verify ownership of homestay
+      const ownerHomestayIds = (ownerData.homestayIds || []).map(String);
+      if (!ownerHomestayIds.includes(String(homestayId))) {
+        return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
+      }
+
+      const db = env.DB;
+      if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
+      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+
+      // Load approved and pending (the homestay might be in pending if not approved yet)
+      const rApproved = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
+      let homestays = [];
+      if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch(e) {} }
+      const rPending = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
+      if (rPending && rPending.data) { try { homestays = [...homestays, ...JSON.parse(rPending.data)]; } catch(e) {} }
+
+      const homestay = homestays.find(h => String(h.id) === String(homestayId));
+      if (!homestay) return jsonResponse({ error: 'Homestay not found' }, 404, request);
+
+      if (!homestay.rooms) homestay.rooms = [];
+      const room = homestay.rooms.find(r => r.id === roomId);
+      if (!room) return jsonResponse({ error: 'Room not found' }, 404, request);
+
+      if (!room.blockedDates) room.blockedDates = [];
+
+      // Toggle: if date exists, remove it; else add it
+      const idx = room.blockedDates.indexOf(date);
+      let message = '';
+      if (idx !== -1) {
+        room.blockedDates.splice(idx, 1);
+        message = `Unblocked ${date} for ${room.name}`;
+      } else {
+        room.blockedDates.push(date);
+        room.blockedDates.sort();
+        message = `Blocked ${date} for ${room.name}`;
+      }
+
+      // Update the homestay in the database (both approved and pending if present)
+      let updated = false;
+      for (const key of ['kd_approved', 'kd_pending']) {
+        const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
+        let arr = [];
+        if (res && res.data) { try { arr = JSON.parse(res.data); } catch(e) {} }
+        const index = arr.findIndex(h => String(h.id) === String(homestayId));
+        if (index !== -1) {
+          arr[index] = homestay;
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+            .bind(key, JSON.stringify(arr))
+            .run();
+          updated = true;
+        }
+      }
+      if (!updated) return jsonResponse({ error: 'Failed to save update' }, 500, request);
+
+      await logAction({
+        db,
+        action: 'room_block_toggle',
+        admin: 'owner',
+        details: `${message} (room: ${room.name})`,
+        ip: clientIP,
+        userId: ownerData.ownerId,
+        homestayId: homestayId
+      });
+
+      return jsonResponse({ success: true, message, room }, 200, request);
+    }
+
+    // ===== Existing actions (changeDates, cancelBooking) – unchanged =====
     if (!bookingId) {
       return new Response(JSON.stringify({ error: "Missing bookingId" }), { status: 400, headers: corsHeaders(request) });
     }
