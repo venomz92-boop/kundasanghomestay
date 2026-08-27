@@ -1065,6 +1065,17 @@ function viewPendingDetails(id) {
       </div>
     `;
   }
+  if (h.pbtLicense) {
+  html += `
+    <div class="mt-4">
+      <div class="text-sm font-semibold text-zinc-500">PBT Trading License</div>
+      <div class="mt-2 border rounded-xl p-3 bg-blue-50">
+        <img src="${h.pbtLicense}" class="detail-modal-img max-h-[400px] w-auto mx-auto cursor-pointer" onclick="openLightbox('${h.pbtLicense}')" />
+        <div class="text-[10px] text-zinc-500 mt-2 text-center">Tap image to enlarge</div>
+      </div>
+    </div>
+  `;
+}
   html += `
     <div class="mt-4">
       <button onclick="toggleJsonView()" class="text-xs text-blue-600 underline">Show Full JSON Data</button>
