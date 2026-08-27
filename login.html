@@ -708,16 +708,21 @@ async function handleLogin(e) {
 
     console.log('Parsed data:', data);
 
-    if (data.success) {
-      alert('✅ Login success!');
-      currentGuest = data.guest;
-      localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
-      if (data.csrfToken) {
-        localStorage.setItem('kd_csrf_token', data.csrfToken);
-      }
-      renderGuestNav();
-      window.location.href = '/mybookings.html';
-    } else {
+  if (data.success) {
+  alert('✅ Login success!');
+  currentGuest = data.guest;
+  localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
+  if (data.csrfToken) {
+    localStorage.setItem('kd_csrf_token', data.csrfToken);
+  }
+  if (data.token) {
+    localStorage.setItem('kd_guest_token', data.token);
+  }
+  renderGuestNav();
+  window.location.href = '/mybookings.html';
+}
+    
+    else {
       errorEl.textContent = data.error || 'Login failed. Please try again.';
       errorEl.classList.remove('hidden');
     }
