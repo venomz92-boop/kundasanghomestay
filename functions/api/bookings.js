@@ -1,4 +1,4 @@
-// /api/bookings.js - PATCHED: Fixed duplicate booking creation and email notification.
+// /api/bookings.js - FULLY CORRECTED (with admin updateStatus handler)
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -343,7 +343,7 @@ export async function onRequestPost({ request, env }) {
 
         saved = true;
 
-        // ✅ EMAIL, WHATSAPP, LOG ACTION – now BEFORE the break so they always run
+        // ✅ All post‑creation actions now happen BEFORE the break
         await sendBookingEmail(guest.email, guest.name, bookingId, homestay.name, ci, co, nights, total, checkinCode, env)
           .catch(e => console.warn('Email send failed:', e));
 
@@ -359,7 +359,7 @@ export async function onRequestPost({ request, env }) {
 
         await logAction({db,action:'booking_created',admin:'guest',details:`Booking ${booking.id} created; payment pending`,ip:getClientIP(request),userId:guest.id,homestayId:homestay.id});
 
-        // ✅ break AFTER all post‑creation operations
+        // ✅ Break AFTER all post‑creation operations
         break;
 
       } catch(e) {
@@ -375,7 +375,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Could not save booking after multiple attempts' }, 503, request);
     }
 
-    // ✅ Return the booking after successful creation
+    // ✅ Return the newly created booking to the frontend
     const finalBookings = await getData('kd_bookings');
     const newBooking = finalBookings.find(b => String(b.id) === String(incoming.id || ''));
     return jsonResponse({ success: true, booking: newBooking || { id: incoming.id, status: 'Pending Payment' } }, 200, request);
@@ -413,6 +413,39 @@ export async function onRequestPost({ request, env }) {
   try {
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
+    // ========== ✅ FIX: UPDATE BOOKING STATUS (Admin) ==========
+    if (action === "updateStatus" && body.id) {
+      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+      let bookings = [];
+      if (r && r.data) { try { bookings = JSON.parse(r.data); } catch(e) {} }
+      const idx = bookings.findIndex(b => String(b.id) === String(body.id));
+      if (idx === -1) {
+        return jsonResponse({ error: "Booking not found" }, 404, request);
+      }
+      bookings[idx].status = body.status;
+      bookings[idx].statusUpdated = new Date().toISOString();
+      if (body.booking) {
+        // Merge any other fields sent from admin (like payout details)
+        bookings[idx] = { ...bookings[idx], ...body.booking };
+      }
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_bookings", JSON.stringify(bookings))
+        .run();
+      
+      await logAction({
+        db,
+        action: 'booking_status_updated',
+        admin: 'admin',
+        details: `Booking ${body.id} status changed to ${body.status}`,
+        ip: clientIP,
+        userId: bookings[idx].guestEmail,
+        homestayId: bookings[idx].homestayId
+      });
+      
+      return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
+    }
+
+    // ===== EXISTING: Update Dates =====
     if (action === "updateDates" && body.id) {
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
       let bookings = [];
