@@ -2520,19 +2520,29 @@ function handlePaymentReturn() {
   var bookingId = params.get('booking');
   var paymentReturn = params.get('payment_return');
   if (bookingId && paymentReturn === '1') {
-    var stored = sessionStorage.getItem('kd_pending_booking');
-    var bookingData = null;
-    if (stored) {
-      try { bookingData = JSON.parse(stored); } catch (_) {}
-      sessionStorage.removeItem('kd_pending_booking');
-    }
-    if (!bookingData) {
-      bookingData = bookings.find(function(b) { return String(b.id) === String(bookingId); });
-    }
-    if (bookingData) {
-      showThankYouModal(bookingId, bookingData);
-    } else {
-      showThankYouModal(bookingId, { id: bookingId, total: '---' });
+    // Call verification endpoint
+    fetch('/api/verify-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId: bookingId })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        // Show thank you modal with updated booking info
+        showThankYouModal(bookingId, data.booking);
+      } else {
+        // Still pending, show a message to wait or retry
+        showAlert('Payment Pending', 'Your payment is being processed. Please check back later.');
+      }
+    })
+    .catch(() => {
+      showAlert('Error', 'Could not verify payment. Please contact support.');
+    });
+
+    // Also clear the URL parameters
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }
 }
