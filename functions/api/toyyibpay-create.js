@@ -1,4 +1,4 @@
-// /api/toyyibpay-create.js - with retry for booking read
+// /api/toyyibpay-create.js
 import { corsHeaders, enforceHttps, getClientIP, getGuestSession, jsonResponse, logAction, getCSRFToken, validateCSRFToken } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
@@ -11,7 +11,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Authentication required' }, 401, request);
     }
 
-    // CSRF Validation
     const csrf = getCSRFToken(request);
     if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) {
       return jsonResponse({ error: 'Invalid security token' }, 403, request);
@@ -25,7 +24,6 @@ export async function onRequestPost({ request, env }) {
     if (!db) return jsonResponse({ error: 'Server configuration error' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // ===== RETRY LOOP TO HANDLE EVENTUAL CONSISTENCY =====
     let bookings = [];
     let idx = -1;
     let retries = 3;
@@ -40,7 +38,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Booking not found' }, 404, request);
     }
     const booking = bookings[idx];
-    // ===== END RETRY =====
 
     if (String(booking.guestId) !== String(session.userId)) {
       return jsonResponse({ error: 'Unauthorized' }, 403, request);
@@ -58,16 +55,14 @@ export async function onRequestPost({ request, env }) {
       }, 200, request);
     }
 
-    // ---- Determine if we can use real ToyyibPay or fallback to simulation ----
     const secret = env.TOYYIBPAY_SECRET_KEY;
     const category = env.TOYYIBPAY_CATEGORY_CODE;
     const liveMode = env.TOYYIBPAY_PAYMENT_ENABLED === 'true' && secret && category;
+    const domain = env.PUBLIC_DOMAIN || new URL(request.url).origin;
 
-    // If not live, we simulate the payment
     if (!liveMode) {
-      console.log(`🔵 SIMULATION MODE: Creating fake bill for booking ${booking.id}`);
+      // Simulation
       const fakeBillCode = `SIM-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-      
       bookings[idx] = {
         ...booking,
         toyyibpay_billcode: fakeBillCode,
@@ -91,7 +86,6 @@ export async function onRequestPost({ request, env }) {
         homestayId: booking.homestayId
       });
 
-      const domain = env.PUBLIC_DOMAIN || new URL(request.url).origin;
       const returnUrl = `${domain}/?booking=${encodeURIComponent(booking.id)}&payment_return=1`;
       return jsonResponse({
         success: true,
@@ -104,8 +98,8 @@ export async function onRequestPost({ request, env }) {
       }, 200, request);
     }
 
-    // ---- LIVE ToyyibPay flow ----
-    const domain = env.PUBLIC_DOMAIN || new URL(request.url).origin;
+    // ---- Live ToyyibPay ----
+    const apiBase = env.TOYYIBPAY_ENV === 'production' ? 'https://toyyibpay.com' : 'https://dev.toyyibpay.com';
     const form = new FormData();
     form.append('userSecretKey', secret);
     form.append('categoryCode', category);
@@ -121,12 +115,14 @@ export async function onRequestPost({ request, env }) {
     form.append('billEmail', String(booking.guestEmail || '').slice(0,120));
     form.append('billPhone', String(booking.guestPhone || '').replace(/[^0-9]/g,'').slice(-12));
     form.append('billSplitPayment', '0');
-    form.append('billPaymentChannel', '0');
+    // Use environment variable for payment channel: 0=FPX, 1=Card, 2=Both
+    form.append('billPaymentChannel', env.TOYYIBPAY_PAYMENT_CHANNEL || '0');
     form.append('billDisplayMerchant', '1');
 
-    const res = await fetch('https://dev.toyyibpay.com/index.php/api/createBill', { method: 'POST', body: form });
+    const res = await fetch(`${apiBase}/index.php/api/createBill`, { method: 'POST', body: form });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.[0]?.BillCode) {
+      console.error('ToyyibPay bill creation failed:', data);
       return jsonResponse({ error: 'ToyyibPay bill creation failed. Please try again later.' }, 502, request);
     }
     const billCode = String(data[0].BillCode);
@@ -152,7 +148,7 @@ export async function onRequestPost({ request, env }) {
 
     return jsonResponse({
       success: true,
-      url: `https://dev.toyyibpay.com/${billCode}`,
+      url: `https://${apiBase.includes('dev')?'dev.':''}toyyibpay.com/${billCode}`,
       id: billCode,
       billCode,
       bookingId: booking.id,
