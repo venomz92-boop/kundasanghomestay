@@ -865,17 +865,17 @@ function safeHTML(html) {
       'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
       'button','input','form','label','select','option','textarea',
       'section','article','header','footer','nav','main','aside',
-      'code','pre','blockquote','hr','small','sub','sup','svg','path'
+      'code','pre','blockquote','hr','small','sub','sup','svg','path','canvas'
     ],
     ALLOWED_ATTR: [
       'id','class','style','href','src','alt','title','rel','target',
+      'onclick','onchange','oninput','onload','onerror',
       'method','action','type','name','value','placeholder',
       'checked','disabled','readonly','required','multiple',
       'min','max','step','pattern','autocomplete','inputmode',
       'viewBox','fill','stroke','stroke-width','d'
-      // NO event handlers (onclick, onchange, oninput, onload, onerror, etc.)
     ],
-    ADD_ATTR: ['target'] // if needed
+    ADD_ATTR: ['target']
   });
 }
 
@@ -1107,9 +1107,12 @@ function addRoom(name = '', price = '', guests = '', desc = '', images = []) {
   renderRooms();
 }
 
-function removeRoom(index) {
-  tempRooms.splice(index, 1);
-  renderRooms();
+function removeRoom(roomId) {
+  const index = tempRooms.findIndex(r => r.id === roomId);
+  if (index !== -1) {
+    tempRooms.splice(index, 1);
+    renderRooms();
+  }
 }
 
 function renderRooms() {
@@ -1120,7 +1123,7 @@ function renderRooms() {
     return;
   }
   let html = '';
-  tempRooms.forEach((room, i) => {
+  tempRooms.forEach((room) => {
     let imagesHtml = '';
     if (room.images && room.images.length > 0) {
       imagesHtml = '<div class="flex flex-wrap gap-1 mt-1">';
@@ -1128,7 +1131,7 @@ function renderRooms() {
         imagesHtml += `
           <div class="relative">
             <img src="${img}" class="w-12 h-12 object-cover rounded border border-zinc-200" />
-            <button type="button" onclick="removeRoomImage(${i}, ${imgIdx})" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-600">✕</button>
+            <button type="button" onclick="removeRoomImage('${room.id}', ${imgIdx})" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-600">✕</button>
           </div>
         `;
       });
@@ -1138,35 +1141,50 @@ function renderRooms() {
     html += `
       <div class="flex flex-wrap items-start gap-3 p-3 bg-white rounded-xl border border-zinc-200">
         <div class="flex-1 min-w-[200px] space-y-2">
-          <input class="form-input text-sm" placeholder="Room name (e.g. Hibiscus)" value="${room.name}" onchange="tempRooms[${i}].name = this.value" />
+          <input class="form-input text-sm" placeholder="Room name (e.g. Hibiscus)" value="${room.name}" onchange="updateRoomField('${room.id}', 'name', this.value)" />
           <div class="flex flex-wrap gap-2">
-            <input class="form-input flex-1 min-w-[120px] text-sm" placeholder="RM price" type="number" value="${room.price}" onchange="tempRooms[${i}].price = this.value" />
-            <input class="form-input flex-1 min-w-[100px] text-sm" placeholder="Guests" type="number" value="${room.guests}" onchange="tempRooms[${i}].guests = this.value" />
+            <input class="form-input flex-1 min-w-[120px] text-sm" placeholder="RM price" type="number" value="${room.price}" onchange="updateRoomField('${room.id}', 'price', this.value)" />
+            <input class="form-input flex-1 min-w-[100px] text-sm" placeholder="Guests" type="number" value="${room.guests}" onchange="updateRoomField('${room.id}', 'guests', this.value)" />
           </div>
-          <input class="form-input text-sm" placeholder="Room description" value="${room.desc}" onchange="tempRooms[${i}].desc = this.value" />
+          <input class="form-input text-sm" placeholder="Room description" value="${room.desc}" onchange="updateRoomField('${room.id}', 'desc', this.value)" />
           
           <!-- ==== Room Image Upload (Cloudinary) ==== -->
           <div class="flex items-center gap-2">
             <label class="text-xs font-semibold text-zinc-600 cursor-pointer bg-zinc-100 px-3 py-1.5 rounded-full hover:bg-zinc-200 transition">
               📷 Add Photos
-              <input type="file" accept="image/*" multiple class="hidden" onchange="handleRoomImages(${i}, this)" />
+              <input type="file" accept="image/*" multiple class="hidden" onchange="handleRoomImages('${room.id}', this)" />
             </label>
             <span class="text-[10px] text-zinc-400">${room.images ? room.images.length : 0} images</span>
           </div>
           ${imagesHtml}
         </div>
-        <button type="button" onclick="removeRoom(${i})" class="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 bg-red-50 rounded-full">✕</button>
+        <button type="button" onclick="removeRoom('${room.id}')" class="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 bg-red-50 rounded-full">✕</button>
       </div>
     `;
   });
   list.innerHTML = safeHTML(html);
 }
 
+// Helper to update room field
+function updateRoomField(roomId, field, value) {
+  const room = tempRooms.find(r => r.id === roomId);
+  if (room) {
+    room[field] = value;
+  }
+}
+
 // ===== HANDLE ROOM IMAGES – Upload to Cloudinary =====
-async function handleRoomImages(index, input) {
+async function handleRoomImages(roomId, input) {
   const files = input.files;
   if (!files.length) return;
-  
+
+  const roomIndex = tempRooms.findIndex(r => r.id === roomId);
+  if (roomIndex === -1) {
+    console.error('❌ Room not found with id:', roomId);
+    await showAlert('Upload Failed', 'Room not found. Please try again.');
+    return;
+  }
+
   for (const file of files) {
     try {
       // Compress to reduce upload size
@@ -1182,10 +1200,11 @@ async function handleRoomImages(index, input) {
         body: formData
       });
       const data = await res.json();
-      
+
       if (data.url) {
-        if (!tempRooms[index].images) tempRooms[index].images = [];
-        tempRooms[index].images.push(data.url);
+        if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
+        tempRooms[roomIndex].images.push(data.url);
+        console.log('✅ Image added to room:', roomId, data.url);
       } else {
         console.error('Upload failed:', data);
         await showAlert('Upload Failed', data.error || 'Could not upload image.');
@@ -1199,8 +1218,9 @@ async function handleRoomImages(index, input) {
   input.value = '';
 }
 
-function removeRoomImage(roomIndex, imageIndex) {
-  if (tempRooms[roomIndex] && tempRooms[roomIndex].images) {
+function removeRoomImage(roomId, imageIndex) {
+  const roomIndex = tempRooms.findIndex(r => r.id === roomId);
+  if (roomIndex !== -1 && tempRooms[roomIndex].images) {
     tempRooms[roomIndex].images.splice(imageIndex, 1);
     renderRooms();
   }
