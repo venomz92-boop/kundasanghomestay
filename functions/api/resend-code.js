@@ -1,4 +1,4 @@
-// /api/resend-code.js - PATCHED: returns code even if email fails
+// /api/resend-code.js
 import { corsHeaders, jsonResponse, getGuestSession, logAction, enforceHttps, getClientIP } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
@@ -104,14 +104,13 @@ export async function onRequestPost({ request, env }) {
       userId: session.userId 
     });
     
-    // Return success with the code (and a warning if email failed)
+    // ✅ FIX: Never return the code in the response
     return jsonResponse({
       success: true,
-      code: code,
       emailSent: emailSent,
       message: emailSent 
         ? 'Check‑in code resent to your email.' 
-        : `Check‑in code: ${code}. (Email could not be sent: ${emailError || 'unknown error'})`
+        : `Failed to send email: ${emailError || 'unknown error'}. Please contact support.`
     }, 200, request);
     
   } catch(e) {
