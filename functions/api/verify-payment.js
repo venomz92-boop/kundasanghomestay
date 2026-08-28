@@ -1,35 +1,74 @@
-function handlePaymentReturn() {
-  var params = new URLSearchParams(window.location.search);
-  var bookingId = params.get('booking');
-  var paymentReturn = params.get('payment_return');
-  if (bookingId && paymentReturn === '1') {
-    fetch('/api/verify-payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ bookingId: bookingId })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        showThankYouModal(bookingId, data.booking);
-      } else {
-        // Payment is still processing – show a friendly message
-        showAlert(
-          'Payment Confirmed',
-          'Your payment has been received. We are confirming it with the host. You will see the status update in My Bookings shortly.'
-        ).then(() => {
-          window.location.href = '/mybookings.html';
-        });
-      }
-    })
-    .catch(() => {
-      showAlert('Error', 'Something went wrong. Please check your bookings later.');
-      window.location.href = '/mybookings.html';
+// /api/verify-payment.js
+import { corsHeaders } from './_utils.js';
+
+// ===== POST =====
+export async function onRequestPost({ request, env }) {
+  try {
+    const raw = await request.text();
+    const body = JSON.parse(raw);
+    const bookingId = body.bookingId;
+
+    const db = env.DB;
+    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+    let bookings = JSON.parse(r?.data || '[]');
+    const idx = bookings.findIndex(b => String(b.id) === bookingId);
+    if (idx === -1) {
+      return new Response(JSON.stringify({ error: 'Booking not found' }), {
+        status: 404,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    const booking = bookings[idx];
+
+    // ---- Simulation ----
+    if (booking.toyyibpay_billcode && booking.toyyibpay_billcode.startsWith('SIM-')) {
+      bookings[idx].status = 'Paid - Awaiting Check-in';
+      bookings[idx].paid_at = new Date().toISOString();
+      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+        .bind('kd_bookings', JSON.stringify(bookings)).run();
+      return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
+        status: 200,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    // ---- Check if already paid (webhook may have updated) ----
+    if (booking.status && booking.status.toLowerCase().includes('paid')) {
+      return new Response(JSON.stringify({ success: true, booking }), {
+        status: 200,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    // ---- Still pending – return processing message ----
+    return new Response(JSON.stringify({
+      success: false,
+      message: 'Payment is being processed. You will receive a confirmation shortly.'
+    }), {
+      status: 200,
+      headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
     });
 
-    if (window.history && window.history.replaceState) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
+  } catch (e) {
+    console.error('❌ verify-payment error:', e.message);
+    return new Response(JSON.stringify({ error: 'Internal error' }), {
+      status: 500,
+      headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+    });
   }
+}
+
+// ===== GET (for debugging) =====
+export async function onRequestGet({ request }) {
+  return new Response('verify-payment GET works', {
+    headers: corsHeaders(request)
+  });
+}
+
+// ===== OPTIONS (for CORS) =====
+export async function onRequestOptions({ request }) {
+  return new Response(null, {
+    headers: corsHeaders(request)
+  });
 }
