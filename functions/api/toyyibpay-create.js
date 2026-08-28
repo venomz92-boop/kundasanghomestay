@@ -49,11 +49,15 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: `Booking is not awaiting payment. Current status: ${booking.status}` }, 409, request);
     }
     if (booking.toyyibpay_billcode) {
+      // If bill already exists, redirect to that bill
+      const billUrl = env.TOYYIBPAY_SANDBOX === 'true' 
+        ? `https://dev.toyyibpay.com/${booking.toyyibpay_billcode}`
+        : `https://toyyibpay.com/${booking.toyyibpay_billcode}`;
       return jsonResponse({
         success: true,
+        url: billUrl,
         billCode: booking.toyyibpay_billcode,
-        url: `https://dev.toyyibpay.com/${booking.toyyibpay_billcode}`,
-        bookingId,
+        bookingId: booking.id,
         amount: Number(booking.total)
       }, 200, request);
     }
@@ -124,7 +128,12 @@ export async function onRequestPost({ request, env }) {
     form.append('billPaymentChannel', '0');
     form.append('billDisplayMerchant', '1');
 
-    const res = await fetch('https://dev.toyyibpay.com/index.php/api/createBill', { method: 'POST', body: form });
+    // Use sandbox or live URL based on env
+    const apiUrl = env.TOYYIBPAY_SANDBOX === 'true' 
+      ? 'https://dev.toyyibpay.com/index.php/api/createBill'
+      : 'https://toyyibpay.com/index.php/api/createBill';
+
+    const res = await fetch(apiUrl, { method: 'POST', body: form });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.[0]?.BillCode) {
       return jsonResponse({ error: 'ToyyibPay bill creation failed. Please try again later.' }, 502, request);
@@ -150,10 +159,13 @@ export async function onRequestPost({ request, env }) {
       homestayId: booking.homestayId
     });
 
+    const billUrl = env.TOYYIBPAY_SANDBOX === 'true'
+      ? `https://dev.toyyibpay.com/${billCode}`
+      : `https://toyyibpay.com/${billCode}`;
+
     return jsonResponse({
       success: true,
-      url: `https://dev.toyyibpay.com/${billCode}`,
-      id: billCode,
+      url: billUrl,
       billCode,
       bookingId: booking.id,
       amount: Number(booking.total)
