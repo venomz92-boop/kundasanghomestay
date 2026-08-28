@@ -36,10 +36,12 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, status: booking.status, paid: true }, 200, request);
     }
 
-    // 3. If we have a billcode, query ToyyibPay
+    // 3. Get billcode
     const billcode = booking.toyyibpay_billcode;
     if (!billcode) {
-      return jsonResponse({ error: 'No billcode found' }, 404, request);
+      // Try to fetch billcode from ToyyibPay using the booking ID? Not possible.
+      // So we'll return an error with a hint.
+      return jsonResponse({ error: 'No billcode found. Please try to pay again.' }, 404, request);
     }
 
     const secret = env.TOYYIBPAY_SECRET_KEY;
@@ -57,7 +59,7 @@ export async function onRequestPost({ request, env }) {
     const data = await response.json().catch(() => null);
 
     if (!Array.isArray(data) || data.length === 0) {
-      return jsonResponse({ error: 'No transactions found' }, 404, request);
+      return jsonResponse({ error: 'No transactions found for this bill' }, 404, request);
     }
 
     // Find the latest successful transaction (status=1)
@@ -84,7 +86,7 @@ export async function onRequestPost({ request, env }) {
 
   } catch (error) {
     console.error('Check status error:', error.message);
-    return jsonResponse({ error: 'Failed to check status' }, 500, request);
+    return jsonResponse({ error: 'Failed to check status: ' + error.message }, 500, request);
   }
 }
 
