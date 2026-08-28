@@ -2439,17 +2439,29 @@ function updateBookingPrice() {
   if (window._bookingRoom) {
     pricePerNight = parseFloat(window._bookingRoom.price) || pricePerNight;
   }
-  var p = calculatePrice(pricePerNight, nights);
+
+  // Base price = pricePerNight * nights
+  const base = Math.round(pricePerNight * nights * 100) / 100;
+  // Service fee = 11% of base
+  const fee = Math.round(base * 0.11 * 100) / 100;
+  // Gateway fee = fixed RM1.10
+  const gatewayFee = 1.10;
+  // Total = base + fee + gatewayFee
+  const total = Math.round((base + fee + gatewayFee) * 100) / 100;
+
+  // Update nights display
   document.getElementById("bookingNights").innerText = nights;
 
+  // Update summary
   var summaryEl = document.getElementById("bookingSummary");
   if (summaryEl) {
     const roomName = window._bookingRoom ? window._bookingRoom.name : 'Unit';
     summaryEl.innerHTML = safeHTML(`
       <div class="font-bold text-[#0F382E]">${selectedHomestay.name}</div>
-      <div class="mt-2 text-xs flex justify-between"><span>${roomName} – RM${pricePerNight} x ${nights} Nights:</span><span class="font-semibold">RM${p.base}</span></div>
-      <div class="text-xs flex justify-between"><span>Service Fee:</span><span class="font-semibold">RM${p.fee}</span></div>
-      <div class="text-sm font-bold flex justify-between border-t pt-2 mt-2 text-[#0F382E]"><span>Total FPX:</span><span>RM${p.total.toFixed(2)}</span></div>
+      <div class="mt-2 text-xs flex justify-between"><span>${roomName} – RM${pricePerNight} x ${nights} Nights:</span><span class="font-semibold">RM${base.toFixed(2)}</span></div>
+      <div class="text-xs flex justify-between"><span>Service Fee:</span><span class="font-semibold">RM${fee.toFixed(2)}</span></div>
+      <div class="text-xs flex justify-between"><span>FPX Gateway Fee:</span><span class="font-semibold">RM${gatewayFee.toFixed(2)}</span></div>
+      <div class="text-sm font-bold flex justify-between border-t pt-2 mt-2 text-[#0F382E]"><span>Total :</span><span>RM${total.toFixed(2)}</span></div>
     `);
   }
 }
