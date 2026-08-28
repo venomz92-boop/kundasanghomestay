@@ -2554,12 +2554,53 @@ function renderAvailabilityCalendar(homestay, containerId) {
     container._currentYear = today.getFullYear();
   }
 
+  // Helper to update date inputs and price
+  function selectDate(isoDate) {
+    if (!isoDate) return;
+    var ciInput = document.getElementById('detailCheckin');
+    var coInput = document.getElementById('detailCheckout');
+    if (!ciInput || !coInput) return;
+
+    var currentCi = ciInput.value;
+    var currentCo = coInput.value;
+
+    // If no check-in set, or if the clicked date is before check-in, set as check-in
+    if (!currentCi || (isoDate < currentCi && !currentCo) || (currentCi && currentCo && isoDate < currentCi)) {
+      ciInput.value = isoDate;
+      coInput.value = '';
+    } else if (currentCi && isoDate > currentCi) {
+      // If check-in is set and clicked date is after, set as check-out
+      coInput.value = isoDate;
+    } else {
+      // If clicked date is before check-in, swap: new check-in = clicked, old check-in becomes check-out?
+      // Simpler: if clicked date < current check-in, set as new check-in and clear check-out
+      if (isoDate < currentCi) {
+        ciInput.value = isoDate;
+        coInput.value = '';
+      } else {
+        // If clicked date is between check-in and check-out, do nothing
+        return;
+      }
+    }
+
+    // Update price and availability status
+    updateDetailPrice();
+    // Re-render calendar to reflect new selection (highlight)
+    renderAvailabilityCalendar(homestay, containerId);
+  }
+
   function renderMonth() {
     var month = container._currentMonth;
     var year = container._currentYear;
     var monthLabel = new Date(year, month, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
     var daysInMonth = new Date(year, month + 1, 0).getDate();
     var startDay = new Date(year, month, 1).getDay();
+
+    // Get currently selected dates from inputs
+    var ciInput = document.getElementById('detailCheckin');
+    var coInput = document.getElementById('detailCheckout');
+    var selectedCi = ciInput ? ciInput.value : '';
+    var selectedCo = coInput ? coInput.value : '';
 
     var html = `
       <div class="flex items-center justify-between mb-2">
@@ -2588,9 +2629,24 @@ function renderAvailabilityCalendar(homestay, containerId) {
       var isPast = d < today;
       var isToday = iso === todayIso;
 
-      var cls = isPast ? "calendar-day past" : (isBlocked ? "calendar-day booked" : "calendar-day available");
+      var cls = "calendar-day";
+      if (isPast) cls += " past";
+      else if (isBlocked) cls += " booked";
+      else cls += " available";
       if (isToday) cls += " today";
-      html += '<div class="' + cls + '" title="' + iso + '" style="font-size:12px; font-weight:600;">' + day + '</div>';
+
+      // Highlight if selected
+      if (iso === selectedCi || iso === selectedCo) cls += " bg-[#0F382E] text-white border-[#0F382E]";
+
+      // Onclick: only allow selection if available and not past
+      var onclickAttr = '';
+      if (!isPast && !isBlocked) {
+        onclickAttr = ` onclick="selectDate('${iso}')" style="cursor:pointer;"`;
+      } else {
+        onclickAttr = ' style="cursor:default;"';
+      }
+
+      html += `<div class="${cls}" title="${iso}"${onclickAttr}>${day}</div>`;
     }
 
     html += '</div></div>';
@@ -2600,11 +2656,15 @@ function renderAvailabilityCalendar(homestay, containerId) {
         <span><span class="dot green"></span> Free</span>
         <span><span class="dot red"></span> Booked</span>
         ${today.getMonth() === month && today.getFullYear() === year ? '<span><span class="dot today-dot"></span> Today</span>' : ''}
+        <span style="margin-left:auto;">Click a free date to select</span>
       </div>
     `;
 
     container.innerHTML = safeHTML(html);
   }
+
+  // Expose selectDate globally so onclick can call it
+  window.selectDate = selectDate;
 
   window.navigateCalendar = function(btn, direction, containerId) {
     var c = document.getElementById(containerId);
@@ -2620,10 +2680,6 @@ function renderAvailabilityCalendar(homestay, containerId) {
 
   container._render = renderMonth;
   renderMonth.call(container);
-}
-  
-function toggleMobileMenu() {
-  document.getElementById('mobileNav')?.classList.toggle('open');
 }
 // =============================================================
 // INITIALIZATION - FETCH PUBLIC AVAILABILITY WITH credentials: 'omit'
