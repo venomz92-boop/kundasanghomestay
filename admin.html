@@ -423,6 +423,19 @@ body {
   </div>
 </div>
 
+<!-- ====== EDIT HOMESTAY MODAL ====== -->
+<div id="editHomestayModal" class="fixed inset-0 z-[100] hidden bg-black/70 p-4 overflow-y-auto" onclick="if(event.target===this) closeEditHomestayModal()">
+  <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-2xl p-6 md:p-8 relative mt-10 mb-10">
+    <button onclick="closeEditHomestayModal()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-2xl hover:bg-zinc-200 transition">✕</button>
+    <h3 class="text-2xl font-bold mb-4">Edit Homestay</h3>
+    <div id="editHomestayForm" class="space-y-4"></div>
+    <div class="flex gap-2 mt-6 justify-end">
+      <button onclick="closeEditHomestayModal()" class="btn btn-secondary">Cancel</button>
+      <button onclick="saveEditHomestay()" class="btn btn-primary">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
@@ -938,6 +951,7 @@ function renderAdmin(){
           </div>
           <div class="flex gap-2 flex-wrap">
             <button onclick="openOwnerAvailabilityManager(${h.id})" class="text-xs border rounded-full px-3 py-1">📅 Manage</button>
+            <button onclick="editApprovedHomestay(${h.id})" class="text-xs border rounded-full px-3 py-1 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100">✏️ Edit</button>
             <button onclick="removeApprovedHomestay(${h.id})" class="text-xs border rounded-full px-3 py-1 bg-red-50 text-red-600 border-red-200 hover:bg-red-100">🗑️ Remove</button>
           </div>
         </div>
@@ -951,6 +965,99 @@ function renderAdmin(){
   // No need to render here because it's hidden.
   fetchEarnings(); // refresh the big number and inline values
 }
+
+// =============================================================
+// EDIT HOMESTAY
+// =============================================================
+let currentEditHomestayId = null;
+
+function openEditHomestayModal(id) {
+  const h = allHomestays.find(x => String(x.id) === String(id));
+  if (!h) {
+    showAlert("Error", "Homestay not found");
+    return;
+  }
+  currentEditHomestayId = id;
+  const form = document.getElementById('editHomestayForm');
+  if (!form) return;
+  
+  // Build form fields
+  const fields = [
+    { label: 'Name', id: 'edit_name', type: 'text', value: h.name || '' },
+    { label: 'Location', id: 'edit_location', type: 'text', value: h.location || '' },
+    { label: 'Description', id: 'edit_description', type: 'textarea', value: h.description || '' },
+    { label: 'Price per Night (RM)', id: 'edit_ownerPrice', type: 'number', value: h.ownerPrice || '' },
+    { label: 'Owner Name', id: 'edit_ownerName', type: 'text', value: h.ownerName || '' },
+    { label: 'Owner Email', id: 'edit_ownerEmail', type: 'email', value: h.ownerEmail || '' },
+    { label: 'Owner Phone', id: 'edit_ownerPhone', type: 'text', value: h.ownerPhone || '' },
+    { label: 'Bank Name', id: 'edit_ownerBank', type: 'text', value: h.ownerBank || '' },
+    { label: 'Bank Account Number', id: 'edit_ownerBankAccount', type: 'text', value: h.ownerBankAccount || '' },
+    { label: 'Bank Account Holder', id: 'edit_bankHolder', type: 'text', value: h.bankHolder || '' },
+    { label: 'IC Name (as per IC)', id: 'edit_icName', type: 'text', value: h.icName || '' },
+    { label: 'IC Number', id: 'edit_icNumber', type: 'text', value: h.icNumber || '' },
+    { label: 'Image URL', id: 'edit_image', type: 'url', value: h.image || '' },
+    { label: 'IC Image URL', id: 'edit_icImage', type: 'url', value: h.icImage || '' },
+    { label: 'Bank QR Image URL', id: 'edit_bankQRImage', type: 'url', value: h.bankQRImage || '' },
+    { label: 'PBT License URL', id: 'edit_pbtLicense', type: 'url', value: h.pbtLicense || '' },
+  ];
+
+  let html = '';
+  fields.forEach(f => {
+    if (f.type === 'textarea') {
+      html += `<div><label class="block text-xs font-bold text-zinc-600">${f.label}</label>
+        <textarea id="${f.id}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm">${f.value}</textarea></div>`;
+    } else {
+      html += `<div><label class="block text-xs font-bold text-zinc-600">${f.label}</label>
+        <input type="${f.type}" id="${f.id}" value="${f.value}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm" /></div>`;
+    }
+  });
+  form.innerHTML = html;
+  document.getElementById('editHomestayModal').classList.remove('hidden');
+}
+
+function closeEditHomestayModal() {
+  document.getElementById('editHomestayModal').classList.add('hidden');
+  currentEditHomestayId = null;
+}
+
+async function saveEditHomestay() {
+  if (!currentEditHomestayId) return;
+  const h = allHomestays.find(x => String(x.id) === String(currentEditHomestayId));
+  if (!h) {
+    showAlert("Error", "Homestay not found");
+    return;
+  }
+
+  // Gather values from form
+  const fields = [
+    'name', 'location', 'description', 'ownerPrice', 'ownerName', 'ownerEmail',
+    'ownerPhone', 'ownerBank', 'ownerBankAccount', 'bankHolder', 'icName',
+    'icNumber', 'image', 'icImage', 'bankQRImage', 'pbtLicense'
+  ];
+  const newData = {};
+  fields.forEach(f => {
+    const el = document.getElementById('edit_' + f);
+    if (el) {
+      let val = el.value;
+      if (f === 'ownerPrice') val = parseFloat(val) || 0;
+      newData[f] = val;
+    }
+  });
+
+  // Update homestay object
+  Object.assign(h, newData);
+  
+  // Save to cloud
+  saveApproved();
+  renderAdmin();
+  closeEditHomestayModal();
+  await showAlert("Success", "Homestay updated successfully!");
+}
+
+// Make function globally accessible
+window.editApprovedHomestay = openEditHomestayModal;
+window.closeEditHomestayModal = closeEditHomestayModal;
+window.saveEditHomestay = saveEditHomestay;
 
 // =============================================================
 // REMOVE APPROVED HOMESTAY
