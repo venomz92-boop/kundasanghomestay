@@ -1,10 +1,18 @@
 import { corsHeaders } from './_utils.js';
 
-function fetchWithTimeout(url, options, timeout = 5000) {
-  return Promise.race([
-    fetch(url, options),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeout))
-  ]);
+async function fetchWithRetry(url, options, retries = 2, timeout = 8000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+      const res = await fetch(url, { ...options, signal: controller.signal, cf: { cacheTtl: 0 } });
+      clearTimeout(timer);
+      return res;
+    } catch (e) {
+      if (i === retries - 1) throw e;
+      await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+    }
+  }
 }
 
 export async function onRequestPost({ request, env }) {
@@ -56,31 +64,34 @@ export async function onRequestPost({ request, env }) {
     }
 
     const url = `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${billcode}&userSecretKey=${secret}`;
-    let billData, fetchError = null;
+    let billData = null;
+    let fetchError = null;
     let rawResponse = '';
 
     try {
-      const res = await fetchWithTimeout(url, {}, 5000);
+      const res = await fetchWithRetry(url, {}, 2, 8000);
       rawResponse = await res.text();
-      try { billData = JSON.parse(rawResponse); } catch (e) {
-        fetchError = 'ToyyibPay returned non‑JSON. Response: ' + rawResponse.slice(0, 500);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${rawResponse.slice(0, 200)}`);
       }
+      billData = JSON.parse(rawResponse);
     } catch (e) {
       fetchError = e.message || 'Network error';
-    }
-
-    if (fetchError) {
+      console.error('❌ fetch error:', fetchError);
+      // Return manual check URL as fallback
       return new Response(JSON.stringify({
         success: false,
-        message: 'Verification failed: ' + fetchError,
+        message: 'Payment verification failed. Please check manually.',
         manualCheckUrl: url,
-        billcode
+        billcode,
+        rawResponse: rawResponse.slice(0, 500) // helpful for debugging
       }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
+    // ---- Check status ----
     if (billData && billData[0] && billData[0].billpaymentStatus === "1") {
       bookings[idx].status = 'Paid - Awaiting Check-in';
       bookings[idx].paid_at = new Date().toISOString();
@@ -98,6 +109,7 @@ export async function onRequestPost({ request, env }) {
       });
     }
   } catch (e) {
+    console.error('❌ verify-payment fatal:', e.message, e.stack);
     return new Response(JSON.stringify({ error: 'Internal: ' + e.message }), {
       status: 500,
       headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
