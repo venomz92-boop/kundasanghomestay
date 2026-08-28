@@ -1,10 +1,9 @@
-// /api/bookings.js - FULLY CORRECTED (with admin updateStatus handler + updateHomestays)
+// /api/bookings.js - FULLY PATCHED (email removed on booking creation)
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
 const DEFAULT_PAGE_SIZE = 50;
 
-// ===== Helper: getDatesInRange =====
 function getDatesInRange(checkin, checkout) {
   if (!checkin || !checkout) return [];
   const dates = [];
@@ -22,83 +21,41 @@ function getDatesInRange(checkin, checkout) {
   return dates;
 }
 
-// ===== verifyAdmin =====
 async function verifyAdmin(request, env) {
   const auth = await getAdminToken(request);
-  if (!env.ADMIN_TOKEN) return new Response(JSON.stringify({ error: "Server misconfigured" }), { status: 500, headers: corsHeaders(request) });
-  if (auth !== env.ADMIN_TOKEN) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders(request) });
+  if (!env.ADMIN_TOKEN) {
+    return new Response(JSON.stringify({ error: "Server misconfigured" }), { status: 500, headers: corsHeaders(request) });
+  }
+  if (auth !== env.ADMIN_TOKEN) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders(request) });
+  }
   return null;
 }
 
-// ===== requireGuest =====
 async function requireGuest(request, env, body) {
   const session = await getGuestSession(request, env);
-  if (!session || session.type !== 'guest') return { error: jsonResponse({ error: 'Authentication required' }, 401, request) };
+  if (!session || session.type !== 'guest') {
+    return { error: jsonResponse({ error: 'Authentication required' }, 401, request) };
+  }
   const guestId = body?.booking?.guestId || body?.guestId;
-  if (guestId && String(guestId) !== String(session.userId)) return { error: jsonResponse({ error: 'Guest identity mismatch' }, 403, request) };
+  if (guestId && String(guestId) !== String(session.userId)) {
+    return { error: jsonResponse({ error: 'Guest identity mismatch' }, 403, request) };
+  }
   const csrf = getCSRFToken(request);
-  if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) return { error: jsonResponse({ error: 'Invalid security token' }, 403, request) };
+  if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) {
+    return { error: jsonResponse({ error: 'Invalid security token' }, 403, request) };
+  }
   return { session };
 }
 
-// ===== Send booking confirmation email with check‑in code =====
+// ===== Email helper – kept but NOT called during booking creation =====
+// This function is intentionally never invoked in this file; it's only for reference.
+// Payment confirmation emails are sent from webhook and check-payment-status.
 async function sendBookingEmail(guestEmail, guestName, bookingId, homestayName, checkin, checkout, nights, total, checkinCode, env) {
-  const html = `
-    <h2>Hello ${guestName || 'Guest'},</h2>
-    <p>Your booking at <strong>${homestayName}</strong> is confirmed!</p>
-    <p><strong>Booking ID:</strong> ${bookingId}</p>
-    <p><strong>Check‑in:</strong> ${checkin}</p>
-    <p><strong>Check‑out:</strong> ${checkout}</p>
-    <p><strong>Nights:</strong> ${nights}</p>
-    <p><strong>Total Paid:</strong> RM ${total.toFixed(2)}</p>
-    <p style="font-size:20px; font-weight:bold; background:#f0fdf4; padding:10px; border-radius:8px; border:1px solid #bbf7d0; display:inline-block;">
-      🏔️ Your 6‑digit check‑in code: <span style="color:#0F382E;">${checkinCode}</span>
-    </p>
-    <p><strong>Please keep this code safe.</strong> You will need to share it with the host when you arrive. Do not share it with anyone else.</p>
-    <p>If you have any questions, please contact us.</p>
-    <p>— Kundasang Homestay Team</p>
-  `;
-
-  try {
-    if (env.RESEND_API_KEY) {
-      const r = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + env.RESEND_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
-          to: guestEmail,
-          subject: 'Booking Confirmed – Your Check‑in Code',
-          html
-        })
-      });
-      return r.ok;
-    }
-    if (env.SENDGRID_API_KEY) {
-      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + env.SENDGRID_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email: guestEmail }] }],
-          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
-          subject: 'Booking Confirmed – Your Check‑in Code',
-          content: [{ type: 'text/html', value: html }]
-        })
-      });
-      return r.ok;
-    }
-  } catch (e) {
-    console.error('Booking email error:', e.message);
-  }
-  return false;
+  // Not used here – kept only for completeness.
+  return true;
 }
 
-// ========== GET ==========
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -137,7 +94,6 @@ export async function onRequestGet({ request, env }) {
     const limit = parseInt(url.searchParams.get('limit')) || DEFAULT_PAGE_SIZE;
     const offset = (page - 1) * limit;
 
-    // ===== ADMIN =====
     if (isAdmin) {
       const paginated = bookings.slice(offset, offset + limit);
       return jsonResponse({
@@ -155,7 +111,6 @@ export async function onRequestGet({ request, env }) {
       }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
-    // ===== GUEST =====
     if (guestSession && guestSession.type === 'guest') {
       const mine = bookings.filter(b => String(b.guestId) === String(guestSession.userId));
       const paginated = mine.slice(offset, offset + limit);
@@ -168,7 +123,6 @@ export async function onRequestGet({ request, env }) {
       }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
-    // ===== PUBLIC VIEW =====
     const availability = {};
     for (const h of approved) {
       const homestayId = String(h.id);
@@ -187,7 +141,6 @@ export async function onRequestGet({ request, env }) {
   }
 }
 
-// ========== POST ==========
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -229,13 +182,17 @@ export async function onRequestPost({ request, env }) {
 
         const guest = guests.find(g => String(g.id) === String(auth.session.userId));
         const homestay = approved.find(h => String(h.id) === String(incoming.homestayId) && (h.approved === true || h.verified === true));
-        if (!guest || !homestay) return jsonResponse({ error: 'Guest or homestay not found' }, 404, request);
+        if (!guest || !homestay) {
+          return jsonResponse({ error: 'Guest or homestay not found' }, 404, request);
+        }
 
         const rooms = homestay.rooms || [];
         let selectedRoom = null;
         if (incoming.roomId) {
           selectedRoom = rooms.find(r => r.id === incoming.roomId);
-          if (!selectedRoom) return jsonResponse({ error: 'Selected room not found' }, 400, request);
+          if (!selectedRoom) {
+            return jsonResponse({ error: 'Selected room not found' }, 400, request);
+          }
         }
         const ownerPrice = selectedRoom ? parseFloat(selectedRoom.price) : homestay.ownerPrice;
         if (!Number.isFinite(ownerPrice) || ownerPrice <= 0) {
@@ -243,11 +200,11 @@ export async function onRequestPost({ request, env }) {
         }
 
         const ci = String(incoming.checkin || ''), co = String(incoming.checkout || '');
-        const d1 = new Date(ci+'T00:00:00'), d2 = new Date(co+'T00:00:00');
+        const d1 = new Date(ci + 'T00:00:00'), d2 = new Date(co + 'T00:00:00');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(ci) || !/^\d{4}-\d{2}-\d{2}$/.test(co) || isNaN(d1) || isNaN(d2) || d1 >= d2) {
           return jsonResponse({ error: 'Invalid dates' }, 400, request);
         }
-        const nights = Math.round((d2-d1)/86400000);
+        const nights = Math.round((d2 - d1) / 86400000);
         if (nights < 1) return jsonResponse({ error: 'Booking must be at least 1 night' }, 400, request);
         if (nights > MAX_NIGHTS) return jsonResponse({ error: `Maximum booking is ${MAX_NIGHTS} nights` }, 400, request);
         const today = new Date(); today.setHours(0,0,0,0);
@@ -343,23 +300,18 @@ export async function onRequestPost({ request, env }) {
 
         saved = true;
 
-        // ✅ All post‑creation actions now happen BEFORE the break
-        await sendBookingEmail(guest.email, guest.name, bookingId, homestay.name, ci, co, nights, total, checkinCode, env)
-          .catch(e => console.warn('Email send failed:', e));
+        // EMAIL AND WHATSAPP NOTIFICATIONS REMOVED – will be sent after payment confirmation
 
-        try {
-          const guestPhoneClean = String(guest.phone || '').replace(/[^0-9]/g, '');
-          if (guestPhoneClean && guestPhoneClean.length >= 9) {
-            let phone = guestPhoneClean;
-            if (phone.startsWith('0')) phone = '60' + phone.substring(1);
-            const msg = `*Kundasang Homestay Booking Confirmed!* 🏔️\n\nBooking ID: ${bookingId}\nHomestay: ${homestay.name}\nCheck-in: ${ci}\nCheck-out: ${co}\n\n*Your 6-digit check-in code:* ${checkinCode}\n\nPlease keep this code safe. You will need to share it with the host when you arrive. Do not share it with anyone else.`;
-            fetch(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`, { method: 'GET' }).catch(()=>{});
-          }
-        } catch (waError) { console.warn('WhatsApp notification failed:', waError); }
+        await logAction({
+          db,
+          action: 'booking_created',
+          admin: 'guest',
+          details: `Booking ${booking.id} created; payment pending`,
+          ip: getClientIP(request),
+          userId: guest.id,
+          homestayId: homestay.id
+        });
 
-        await logAction({db,action:'booking_created',admin:'guest',details:`Booking ${booking.id} created; payment pending`,ip:getClientIP(request),userId:guest.id,homestayId:homestay.id});
-
-        // ✅ Break AFTER all post‑creation operations
         break;
 
       } catch(e) {
@@ -375,7 +327,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Could not save booking after multiple attempts' }, 503, request);
     }
 
-    // ✅ Return the newly created booking to the frontend
     const finalBookings = await getData('kd_bookings');
     const newBooking = finalBookings.find(b => String(b.id) === String(incoming.id || ''));
     return jsonResponse({ success: true, booking: newBooking || { id: incoming.id, status: 'Pending Payment' } }, 200, request);
@@ -384,21 +335,43 @@ export async function onRequestPost({ request, env }) {
   if (action === "publicUpdateStatus" && body.id) {
     const auth = await requireGuest(request, env, body);
     if (auth.error) return auth.error;
-    if (body.status !== 'Cancelled by Guest') return jsonResponse({ error: 'Guests may only cancel their own booking.' }, 403, request);
-    const db = env.DB; if (!db) return jsonResponse({error:'DB not configured'},500,request);
+    if (body.status !== 'Cancelled by Guest') {
+      return jsonResponse({ error: 'Guests may only cancel their own booking.' }, 403, request);
+    }
+    const db = env.DB;
+    if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
     try {
       await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
-      const r=await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first(); let bookings=[]; try{if(r?.data)bookings=JSON.parse(r.data)}catch(_){}
-      const idx=bookings.findIndex(b=>String(b.id)===String(body.id));
-      if(idx<0)return jsonResponse({error:'Booking not found'},404,request);
-      const b=bookings[idx];
-      if(String(b.guestId)!==String(auth.session.userId))return jsonResponse({error:'Unauthorized'},403,request);
-      if(/paid|completed/i.test(String(b.status||'')))return jsonResponse({error:'Paid bookings cannot be cancelled from the guest portal. Please contact support/host.'},400,request);
-      bookings[idx]={...b,status:'Cancelled by Guest',statusUpdated:new Date().toISOString()};
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind('kd_bookings',JSON.stringify(bookings)).run();
-      await logAction({db,action:'booking_cancelled_by_guest',admin:'guest',details:`Booking ${b.id} cancelled by guest`,ip:clientIP,userId:b.guestId,homestayId:b.homestayId});
-      return jsonResponse({success:true,booking:bookings[idx]},200,request);
-    }catch(e){console.error('Guest cancellation error:',e.message);return jsonResponse({error:'Could not update booking'},500,request)}
+      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+      let bookings = [];
+      try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+      const idx = bookings.findIndex(b => String(b.id) === String(body.id));
+      if (idx < 0) return jsonResponse({ error: 'Booking not found' }, 404, request);
+      const b = bookings[idx];
+      if (String(b.guestId) !== String(auth.session.userId)) {
+        return jsonResponse({ error: 'Unauthorized' }, 403, request);
+      }
+      if (/paid|completed/i.test(String(b.status||''))) {
+        return jsonResponse({ error: 'Paid bookings cannot be cancelled from the guest portal. Please contact support/host.' }, 400, request);
+      }
+      bookings[idx] = { ...b, status: 'Cancelled by Guest', statusUpdated: new Date().toISOString() };
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings))
+        .run();
+      await logAction({
+        db,
+        action: 'booking_cancelled_by_guest',
+        admin: 'guest',
+        details: `Booking ${b.id} cancelled by guest`,
+        ip: clientIP,
+        userId: b.guestId,
+        homestayId: b.homestayId
+      });
+      return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
+    } catch(e) {
+      console.error('Guest cancellation error:', e.message);
+      return jsonResponse({ error: 'Could not update booking' }, 500, request);
+    }
   }
 
   // ========== ADMIN ACTIONS ==========
@@ -413,7 +386,7 @@ export async function onRequestPost({ request, env }) {
   try {
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-    // ========== ✅ FIX: UPDATE BOOKING STATUS (Admin) ==========
+    // ---- Admin updateStatus ----
     if (action === "updateStatus" && body.id) {
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
       let bookings = [];
@@ -425,7 +398,6 @@ export async function onRequestPost({ request, env }) {
       bookings[idx].status = body.status;
       bookings[idx].statusUpdated = new Date().toISOString();
       if (body.booking) {
-        // Merge any other fields sent from admin (like payout details)
         bookings[idx] = { ...bookings[idx], ...body.booking };
       }
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
@@ -445,7 +417,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
     }
 
-    // ===== EXISTING: Update Dates =====
+    // ---- Admin updateDates ----
     if (action === "updateDates" && body.id) {
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
       let bookings = [];
@@ -479,7 +451,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
     }
 
-    // ===== APPROVE HOMESTAY =====
+    // ---- Admin approveHomestay ----
     if (action === "approveHomestay" && body.id) {
       try {
         const pendingRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
@@ -534,6 +506,7 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
+    // ---- Admin rejectHomestay ----
     if (action === "rejectHomestay" && body.id) {
       const pendingRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
       let pending = [];
@@ -561,7 +534,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true }, 200, request);
     }
 
-    // ===== REMOVE APPROVED HOMESTAY =====
+    // ---- Admin removeApprovedHomestay ----
     if (action === "removeApprovedHomestay" && body.id) {
       try {
         const isDemo = body.isDemo === true;
@@ -619,7 +592,7 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // ===== DELETE GUEST (no ban) =====
+    // ---- Admin deleteGuest ----
     if (action === "deleteGuest") {
       const guestId = body.guestId ? String(body.guestId) : '';
       const email = body.email ? String(body.email).toLowerCase().trim() : '';
@@ -667,7 +640,7 @@ export async function onRequestPost({ request, env }) {
       }, 200, request);
     }
 
-    // ========== ✅ NEW: UPDATE HOMESTAYS (Admin) ==========
+    // ---- Admin updateHomestays ----
     if (action === "updateHomestays") {
       const { approved, demoOverrides, demoBlocked, deletedDemo } = body;
 
@@ -714,7 +687,6 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// ========== DELETE ==========
 export async function onRequestDelete({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
