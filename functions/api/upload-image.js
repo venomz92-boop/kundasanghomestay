@@ -28,7 +28,7 @@ export async function onRequestPost({ request, env }) {
 
     // Generate signature (Cloudinary requires signature for authenticated uploads)
     const signatureString = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
-    const signature = await sha1(signatureString);
+    const signature = await sha256(signatureString);
 
     const uploadData = new URLSearchParams({
       file: `data:${file.type};base64,${base64}`,
