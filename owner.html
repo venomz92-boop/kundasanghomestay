@@ -1121,35 +1121,24 @@ async function confirmCheckIn(bookingId) {
     return;
   }
 
-  // Confirm with host before sending
   const confirmed = await showConfirm('Confirm Check‑in', `Proceed with check‑in for booking ${bookingId}?`);
   if (!confirmed) return;
 
   try {
-    const payload = { bookingId, checkinCode: trimmedCode };
-    console.log('Sending check-in payload:', payload);
     const res = await fetch(API_BASE + '/owner-checkin', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Owner-Authorization': 'Bearer ' + ownerToken
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ bookingId, checkinCode: trimmedCode })
     });
-    const text = await res.text();
-    console.log('Response status:', res.status, 'Response text:', text);
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch(e) {
-      data = { success: false, error: 'Server returned non-JSON: ' + text };
-    }
+    const data = await res.json();
     if (data.success) {
       await showAlert('Check‑in Logged', '✓ ' + data.message);
       await loadBookings();
     } else {
-      // Display the exact server error
-      await showAlert('Operation Faulted', '❌ ' + (data.error || data.message || 'Unknown server error'));
+      await showAlert('Operation Faulted', '❌ ' + (data.error || data.message || 'Unknown error'));
     }
   } catch(e) {
     await showAlert('Operation Faulted', 'Network error: ' + e.message);
