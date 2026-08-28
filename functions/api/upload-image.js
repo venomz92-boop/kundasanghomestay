@@ -1,22 +1,20 @@
 // /api/upload-image.js
-import { corsHeaders } from './_utils.js';
+import { corsHeaders, getOwnerSession, getAdminToken } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
-  try {
-    const formData = await request.formData();
-    const file = formData.get('image');
-    if (!file) {
-      return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400 });
-    }
+  // Check auth
+  const owner = await getOwnerSession(request, env);
+  const admin = await getAdminToken(request);
+  if (!owner && admin !== env.ADMIN_TOKEN) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  }
 
-    const cloudName = env.CLOUDINARY_CLOUD_NAME || 'lk3qg08g';
-    const apiKey = env.CLOUDINARY_API_KEY || '125271253839312';
-    const apiSecret = env.CLOUDINARY_API_SECRET;
-
-    if (!apiSecret) {
-      console.error('❌ CLOUDINARY_API_SECRET not set');
-      return new Response(JSON.stringify({ error: 'Server configuration error' }), { status: 500 });
-    }
+  const cloudName = env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = env.CLOUDINARY_API_KEY;
+  const apiSecret = env.CLOUDINARY_API_SECRET;
+  if (!apiSecret) {
+    return new Response(JSON.stringify({ error: 'Server misconfigured' }), { status: 500 });
+  }
 
     // Convert file to base64
     const buffer = await file.arrayBuffer();
