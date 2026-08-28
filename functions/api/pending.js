@@ -14,15 +14,17 @@ async function read(db, key) {
   try { return r?.data ? JSON.parse(r.data) : []; } catch (_) { return []; }
 }
 
-// ===== Helper to sync homestay to kd_homestays (for payouts) =====
+// ===== Helper to ensure kd_homestays exists and sync =====
 async function syncHomestayToHomestays(db, homestay) {
-  // Ensure the homestay has all required payout fields
-  const now = new Date().toISOString();
-  const homestays = await read(db, 'kd_homestays');
+  // 1. Ensure the store exists by reading (creates empty array if missing)
+  let homestays = await read(db, 'kd_homestays');
+  
+  // 2. Find existing entry by id
   const idx = homestays.findIndex(h => String(h.id) === String(homestay.id));
   
+  // 3. Prepare the entry with all needed fields
+  const now = new Date().toISOString();
   const entry = {
-    // Core fields
     id: homestay.id,
     name: homestay.name,
     location: homestay.location,
@@ -47,20 +49,24 @@ async function syncHomestayToHomestays(db, homestay) {
     verified: homestay.verified || false,
     rating: homestay.rating || 0,
     reviews: homestay.reviews || 0,
-    // Timestamps
-    updatedAt: now,
     createdAt: idx >= 0 ? homestays[idx].createdAt || homestay.createdAt || now : now,
+    updatedAt: now
   };
 
+  // 4. Update or insert
   if (idx >= 0) {
     homestays[idx] = { ...homestays[idx], ...entry };
   } else {
     homestays.push(entry);
   }
 
+  // 5. Write back
   await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
     .bind('kd_homestays', JSON.stringify(homestays))
     .run();
+  
+  console.log(`✅ Synced homestay ${homestay.id} (${homestay.name}) to kd_homestays`);
+  return homestays;
 }
 
 // ===== GET (admin only) =====
@@ -145,7 +151,7 @@ export async function onRequestPost({ request, env }) {
       .bind('kd_pending', JSON.stringify(pending))
       .run();
 
-    // --- 🔥 NEW: Sync to kd_homestays (so payouts can find it) ---
+    // --- 🔥 Sync to kd_homestays (for payouts) ---
     await syncHomestayToHomestays(db, clean);
 
     // --- Log action ---
@@ -194,9 +200,7 @@ export async function onRequestDelete({ request, env }) {
     .bind('kd_pending', JSON.stringify(next))
     .run();
 
-  // Also remove from kd_homestays if desired? We'll keep it for record, but you can optionally remove.
-  // We'll not remove from kd_homestays to avoid losing data if re-submitted.
-
+  // Optionally remove from kd_homestays? Keep for record.
   await logAction({
     db,
     action: 'homestay_pending_deleted',
