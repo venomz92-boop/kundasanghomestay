@@ -63,7 +63,7 @@ export async function onRequestPost({request,env}){
     if(idx<0)return new Response('booking not found',{status:404,headers:corsHeaders(request)});
     const booking=bookings[idx];
     const expectedAmount=Math.round(Number(booking.total)*100);
-    const callbackAmountCents=Math.round(Number(data.amount||0)*100);
+    const callbackAmountCents=Math.round(Number(data.amount||0));
     if(callbackAmountCents!==expectedAmount)return new Response('amount mismatch',{status:400,headers:corsHeaders(request)});
     if(status==='1'){
       if(!/paid|completed/i.test(String(booking.status||''))){
