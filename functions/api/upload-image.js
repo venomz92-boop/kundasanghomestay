@@ -26,8 +26,15 @@ export async function onRequestPost({ request, env }) {
     const timestamp = Math.floor(Date.now() / 1000);
     const folder = 'kundasang-homestay/rooms';
 
-    // Generate signature (Cloudinary requires signature for authenticated uploads)
-    const signatureString = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
+    // Generate signature correctly: include all parameters (except file and signature) sorted alphabetically
+    const paramsToSign = {
+      folder: folder,
+      timestamp: String(timestamp),
+      api_key: apiKey
+    };
+    // Sort keys alphabetically
+    const sortedKeys = Object.keys(paramsToSign).sort();
+    const signatureString = sortedKeys.map(key => `${key}=${paramsToSign[key]}`).join('&') + apiSecret;
     const signature = await sha1(signatureString);
 
     const uploadData = new URLSearchParams({
