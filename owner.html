@@ -1025,16 +1025,16 @@ async function loadBookings() {
       const roomInfo = b.roomName ? ` • Room: <span class="font-semibold">${b.roomName}</span>` : '';
 
       let roomImagesHtml = '';
-if (b.roomImages && b.roomImages.length > 0) {
-  roomImagesHtml = '<div class="flex gap-1 mt-1">';
-  b.roomImages.slice(0, 3).forEach(img => {
-    roomImagesHtml += `<img src="${img}" class="w-10 h-10 object-cover rounded border border-zinc-200" />`;
-  });
-  if (b.roomImages.length > 3) {
-    roomImagesHtml += `<span class="text-[10px] text-zinc-400 flex items-center">+${b.roomImages.length - 3}</span>`;
-  }
-  roomImagesHtml += '</div>';
-}
+      if (b.roomImages && b.roomImages.length > 0) {
+        roomImagesHtml = '<div class="flex gap-1 mt-1">';
+        b.roomImages.slice(0, 3).forEach(img => {
+          roomImagesHtml += `<img src="${img}" class="w-10 h-10 object-cover rounded border border-zinc-200" />`;
+        });
+        if (b.roomImages.length > 3) {
+          roomImagesHtml += `<span class="text-[10px] text-zinc-400 flex items-center">+${b.roomImages.length - 3}</span>`;
+        }
+        roomImagesHtml += '</div>';
+      }
 
       let statusBadge = '';
       if (isCompleted) {
@@ -1101,7 +1101,7 @@ if (b.roomImages && b.roomImages.length > 0) {
 }
 
 // =============================================================
-// FIXED confirmCheckIn – strict 6‑digit validation, no skip, with logging
+// FIXED confirmCheckIn – strict 6‑digit validation, no skip
 // =============================================================
 async function confirmCheckIn(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
@@ -1121,6 +1121,7 @@ async function confirmCheckIn(bookingId) {
     return;
   }
 
+  // Confirm with host before sending
   const confirmed = await showConfirm('Confirm Check‑in', `Proceed with check‑in for booking ${bookingId}?`);
   if (!confirmed) return;
 
@@ -1138,6 +1139,7 @@ async function confirmCheckIn(bookingId) {
       await showAlert('Check‑in Logged', '✓ ' + data.message);
       await loadBookings();
     } else {
+      // Display the exact server error
       await showAlert('Operation Faulted', '❌ ' + (data.error || data.message || 'Unknown error'));
     }
   } catch(e) {
