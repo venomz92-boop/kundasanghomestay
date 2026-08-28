@@ -11,6 +11,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Authentication required' }, 401, request);
     }
 
+    // CSRF Validation
     const csrf = getCSRFToken(request);
     if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) {
       return jsonResponse({ error: 'Invalid security token' }, 403, request);
@@ -24,7 +25,7 @@ export async function onRequestPost({ request, env }) {
     if (!db) return jsonResponse({ error: 'Server configuration error' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // Retry loop for eventual consistency
+    // ===== RETRY LOOP TO HANDLE EVENTUAL CONSISTENCY =====
     let bookings = [];
     let idx = -1;
     let retries = 3;
@@ -39,6 +40,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Booking not found' }, 404, request);
     }
     const booking = bookings[idx];
+    // ===== END RETRY =====
 
     if (String(booking.guestId) !== String(session.userId)) {
       return jsonResponse({ error: 'Unauthorized' }, 403, request);
@@ -47,22 +49,21 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: `Booking is not awaiting payment. Current status: ${booking.status}` }, 409, request);
     }
     if (booking.toyyibpay_billcode) {
-      const billUrl = env.TOYYIBPAY_SANDBOX === 'true' 
-        ? `https://dev.toyyibpay.com/${booking.toyyibpay_billcode}`
-        : `https://toyyibpay.com/${booking.toyyibpay_billcode}`;
       return jsonResponse({
         success: true,
-        url: billUrl,
         billCode: booking.toyyibpay_billcode,
-        bookingId: booking.id,
+        url: `https://dev.toyyibpay.com/${booking.toyyibpay_billcode}`,
+        bookingId,
         amount: Number(booking.total)
       }, 200, request);
     }
 
+    // ---- Determine if we can use real ToyyibPay or fallback to simulation ----
     const secret = env.TOYYIBPAY_SECRET_KEY;
     const category = env.TOYYIBPAY_CATEGORY_CODE;
     const liveMode = env.TOYYIBPAY_PAYMENT_ENABLED === 'true' && secret && category;
 
+    // If not live, we simulate the payment
     if (!liveMode) {
       console.log(`🔵 SIMULATION MODE: Creating fake bill for booking ${booking.id}`);
       const fakeBillCode = `SIM-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -103,6 +104,7 @@ export async function onRequestPost({ request, env }) {
       }, 200, request);
     }
 
+    // ---- LIVE ToyyibPay flow ----
     const domain = env.PUBLIC_DOMAIN || new URL(request.url).origin;
     const form = new FormData();
     form.append('userSecretKey', secret);
@@ -122,11 +124,7 @@ export async function onRequestPost({ request, env }) {
     form.append('billPaymentChannel', '0');
     form.append('billDisplayMerchant', '1');
 
-    const apiUrl = env.TOYYIBPAY_SANDBOX === 'true' 
-      ? 'https://dev.toyyibpay.com/index.php/api/createBill'
-      : 'https://toyyibpay.com/index.php/api/createBill';
-
-    const res = await fetch(apiUrl, { method: 'POST', body: form });
+    const res = await fetch('https://dev.toyyibpay.com/index.php/api/createBill', { method: 'POST', body: form });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.[0]?.BillCode) {
       return jsonResponse({ error: 'ToyyibPay bill creation failed. Please try again later.' }, 502, request);
@@ -152,13 +150,10 @@ export async function onRequestPost({ request, env }) {
       homestayId: booking.homestayId
     });
 
-    const billUrl = env.TOYYIBPAY_SANDBOX === 'true'
-      ? `https://dev.toyyibpay.com/${billCode}`
-      : `https://toyyibpay.com/${billCode}`;
-
     return jsonResponse({
       success: true,
-      url: billUrl,
+      url: `https://dev.toyyibpay.com/${billCode}`,
+      id: billCode,
       billCode,
       bookingId: booking.id,
       amount: Number(booking.total)

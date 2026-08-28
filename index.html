@@ -1797,6 +1797,7 @@ function safeHTML(html) {
       'checked', 'disabled', 'readonly', 'required', 'multiple',
       'min', 'max', 'step', 'pattern', 'autocomplete', 'inputmode',
       'viewBox', 'fill', 'stroke', 'stroke-width', 'd'
+      // NO event handlers
     ],
     ADD_ATTR: ['target']
   });
@@ -1870,7 +1871,6 @@ document.addEventListener('keydown', function(e) {
 // THANK YOU & RECEIPT MODAL LOGIC
 // =============================================================
 var lastBookingDetails = null;
-var lastBookingId = null;
 
 function showThankYouModal(bookingId, customBookingData) {
   var overlay = document.getElementById('thankyouModal');
@@ -1880,7 +1880,6 @@ function showThankYouModal(bookingId, customBookingData) {
   
   var targetId = bookingId || lastBookingId || 'KDH-CONFIRMED';
   if (idEl) idEl.textContent = targetId;
-  lastBookingId = targetId;
 
   var b = customBookingData || bookings.find(function(x) { return String(x.id) === String(targetId); }) || window.lastCreatedBooking;
   if (b) {
@@ -2456,36 +2455,7 @@ function updateBookingPrice() {
 }
 
 // =============================================================
-// PAYMENT VERIFICATION (NEW)
-// =============================================================
-async function verifyPaymentAfterReturn(bookingId) {
-  try {
-    const res = await fetch(`/api/verify-payment?bookingId=${encodeURIComponent(bookingId)}`, {
-      credentials: 'include'
-    });
-    const data = await res.json();
-    if (data.success && data.status === 'Paid - Awaiting Check-in') {
-      console.log('✅ Payment verified via API');
-      // Optionally update the bookings array
-      var idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-      if (idx !== -1) {
-        bookings[idx].status = data.status;
-        bookings[idx].paid_at = data.paid_at || new Date().toISOString();
-        localStorage.setItem('kd_bookings', JSON.stringify(bookings));
-      }
-      return true;
-    } else {
-      console.warn('⚠️ Payment not yet confirmed:', data.message);
-      return false;
-    }
-  } catch (e) {
-    console.error('❌ Verify payment error:', e);
-    return false;
-  }
-}
-
-// =============================================================
-// PROCESS PAYMENT – with better error logging and credentials
+// PROCESS PAYMENT – with booking verification
 // =============================================================
 async function processPayment() {
   if (!currentGuest) {
@@ -2515,18 +2485,10 @@ async function processPayment() {
     var createRes = await fetch(API_BASE + '/bookings', {
       method: 'POST',
       headers: headers,
-      credentials: 'include', // send cookies
       body: JSON.stringify({ action: 'createPublicBooking', booking: draft, guestId: currentGuest.id })
     });
-    var createText = await createRes.text();
-    var created;
-    try { created = JSON.parse(createText); } catch(e) { created = { error: 'Invalid JSON response' }; }
-    if (!createRes.ok) {
-      console.error('Booking creation failed:', createRes.status, createText);
-      showAlert('Booking Error', created.error || 'Could not create booking. Please try again later.');
-      return;
-    }
-    if (!created.success) {
+    var created = await createRes.json();
+    if (!createRes.ok || !created.success) {
       showAlert('Booking Error', created.error || 'Could not create booking.');
       return;
     }
@@ -2538,14 +2500,10 @@ async function processPayment() {
     var payRes = await fetch(API_BASE + '/toyyibpay-create', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader()),
-      credentials: 'include',
       body: JSON.stringify({ bookingId: booking.id })
     });
-    var payText = await payRes.text();
-    var payment;
-    try { payment = JSON.parse(payText); } catch(e) { payment = { error: 'Invalid JSON response' }; }
+    var payment = await payRes.json();
     if (!payRes.ok || !payment.success) {
-      console.error('Payment creation failed:', payRes.status, payText);
       showAlert('Payment Setup Error', payment.error || 'Unable to create the payment bill. Your booking remains pending payment; please retry later.');
       return;
     }
@@ -2553,13 +2511,10 @@ async function processPayment() {
     window.location.href = payment.url;
   } catch (e) {
     console.error('Booking/payment error:', e);
-    showAlert('Network Error', 'Could not connect to the booking server. Please try again. Check console for details.');
+    showAlert('Network Error', 'Could not connect to the booking server. Please try again.');
   }
 }
 
-// =============================================================
-// HANDLE PAYMENT RETURN – with verification call
-// =============================================================
 function handlePaymentReturn() {
   var params = new URLSearchParams(window.location.search);
   var bookingId = params.get('booking');
@@ -2579,16 +2534,6 @@ function handlePaymentReturn() {
     } else {
       showThankYouModal(bookingId, { id: bookingId, total: '---' });
     }
-    // 👇 Call verification in background to update status
-    verifyPaymentAfterReturn(bookingId).then(function(verified) {
-      if (verified) {
-        console.log('Booking status updated to paid.');
-        // Optionally refresh the grid if needed
-        renderGrid();
-      }
-    });
-    // Clean URL
-    history.replaceState({}, document.title, window.location.pathname);
   }
 }
 
@@ -2752,23 +2697,8 @@ function renderAvailabilityCalendar(homestay, containerId) {
   if (checkinInput) checkinInput.value = dateToIso(tomorrow);
   if (checkoutInput) checkoutInput.value = dateToIso(dayAfter);
 
-  // Start with stored approved (if any)
-  var stored = localStorage.getItem('kd_approved');
-  if (stored) {
-    try {
-      var parsed = JSON.parse(stored);
-      if (parsed && parsed.length > 0) {
-        homestays = parsed.map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
-        console.log('Loaded homestays from localStorage initially');
-      }
-    } catch(e) {}
-  }
-
-  // If homestays still empty, fallback to storedApproved (from top)
-  if (homestays.length === 0 && storedApproved.length > 0) {
-    homestays = storedApproved.filter(function(h) { return h.approved === true; }).map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
-  }
-
+  homestays = [];
+  selectedHomestay = null;
   bookings = [];
 
   var grid = document.getElementById("homestayGrid");
@@ -2781,7 +2711,7 @@ function renderAvailabilityCalendar(homestay, containerId) {
   }
 
   if (API_BASE) {
-    // ✅ Fetch public view (no credentials)
+    // ✅ Always fetch public view (no credentials)
     fetch(API_BASE + '/bookings', { cache: 'no-store', credentials: 'omit' })
       .then(function(res) {
         if (!res.ok) throw new Error('API error: ' + res.status);
@@ -2800,21 +2730,8 @@ function renderAvailabilityCalendar(homestay, containerId) {
           });
           localStorage.setItem('kd_approved', JSON.stringify(data.approved));
         } else {
-          // If API returned empty, fallback to localStorage
-          console.warn('API returned empty approved, using localStorage fallback');
-          var fallback = localStorage.getItem('kd_approved');
-          if (fallback) {
-            try {
-              var parsed = JSON.parse(fallback);
-              if (parsed && parsed.length > 0) {
-                homestays = parsed.map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
-              }
-            } catch(e) {}
-          }
-          // If still empty, use storedApproved from top
-          if (homestays.length === 0 && storedApproved.length > 0) {
-            homestays = storedApproved.filter(function(h) { return h.approved === true; }).map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
-          }
+          homestays = [];
+          localStorage.removeItem('kd_approved');
         }
         
         renderGrid();
@@ -2830,20 +2747,14 @@ function renderAvailabilityCalendar(homestay, containerId) {
       })
       .catch(function(err) {
         console.warn('Failed to load homestays from API:', err);
-        // fallback to localStorage
-        var fallback = localStorage.getItem('kd_approved');
-        if (fallback) {
-          try {
-            var parsed = JSON.parse(fallback);
-            if (parsed && parsed.length > 0) {
-              homestays = parsed.map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
-            }
-          } catch(e) {}
+        var grid = document.getElementById("homestayGrid");
+        if (grid) {
+          grid.innerHTML = safeHTML(
+            '<div class="col-span-3 text-center py-16">' +
+              '<div class="text-red-500 font-poppins">Failed to load homestays. Please refresh or try again later.</div>' +
+            '</div>'
+          );
         }
-        if (homestays.length === 0 && storedApproved.length > 0) {
-          homestays = storedApproved.filter(function(h) { return h.approved === true; }).map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
-        }
-        renderGrid();
       });
   }
 
