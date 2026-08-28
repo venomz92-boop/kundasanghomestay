@@ -75,3 +75,13 @@ async function sha1(message) {
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
+export async function onRequestGet({ request }) {
+  return new Response(
+    JSON.stringify({ error: 'Method not allowed. Use POST to upload an image.' }),
+    {
+      status: 405,
+      headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+    }
+  );
+}
