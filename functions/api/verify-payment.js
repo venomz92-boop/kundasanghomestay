@@ -30,7 +30,6 @@ export async function onRequestGet({ request, env }) {
     }
     const booking = bookings[idx];
 
-    // Only verify if booking is still pending
     if (booking.status !== 'Pending Payment') {
       return jsonResponse({
         success: true,
@@ -39,7 +38,6 @@ export async function onRequestGet({ request, env }) {
       }, 200, request);
     }
 
-    // Check if we have a billcode
     const billcode = booking.toyyibpay_billcode;
     if (!billcode) {
       return jsonResponse({ error: 'No billcode found for this booking' }, 400, request);
@@ -50,7 +48,6 @@ export async function onRequestGet({ request, env }) {
       return jsonResponse({ error: 'ToyyibPay secret not configured' }, 500, request);
     }
 
-    // Call ToyyibPay getBill API
     const apiUrl = env.TOYYIBPAY_SANDBOX === 'true'
       ? `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${billcode}&userSecretKey=${secret}`
       : `https://toyyibpay.com/index.php/api/getBill?billCode=${billcode}&userSecretKey=${secret}`;
@@ -67,7 +64,6 @@ export async function onRequestGet({ request, env }) {
     const isFailed = statusCode === '3';
 
     if (isPaid) {
-      // Update booking to paid
       bookings[idx] = {
         ...booking,
         status: 'Paid - Awaiting Check-in',
