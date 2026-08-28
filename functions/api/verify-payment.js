@@ -45,9 +45,11 @@ export async function onRequestPost({ request, env }) {
     }
 
     const booking = bookings[idx];
+    const billcode = booking.toyyibpay_billcode || null;
+    const secret = env.TOYYIBPAY_SECRET_KEY || null;
 
     // ---- Simulation mode ----
-    if (booking.toyyibpay_billcode && booking.toyyibpay_billcode.startsWith('SIM-')) {
+    if (billcode && billcode.startsWith('SIM-')) {
       bookings[idx].status = 'Paid - Awaiting Check-in';
       bookings[idx].paid_at = new Date().toISOString();
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
@@ -58,68 +60,30 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // ---- Real ToyyibPay check ----
-    const billcode = booking.toyyibpay_billcode;
+    // ---- No billcode ----
     if (!billcode) {
-      return new Response(JSON.stringify({ error: 'No billcode associated with this booking' }), {
-        status: 400,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    }
-
-    const secret = env.TOYYIBPAY_SECRET_KEY;
-    if (!secret) {
-      return new Response(JSON.stringify({ error: 'TOYYIBPAY_SECRET_KEY not set' }), {
-        status: 500,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    }
-
-    const url = `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${billcode}&userSecretKey=${secret}`;
-    let billData;
-    try {
-      const res = await fetch(url);
-      const text = await res.text();
-      try {
-        billData = JSON.parse(text);
-      } catch (e) {
-        // If ToyyibPay returns HTML, return the raw response
-        return new Response(JSON.stringify({
-          error: 'ToyyibPay returned non-JSON',
-          status: res.status,
-          preview: text.slice(0, 300)
-        }), {
-          status: 502,
-          headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-        });
-      }
-    } catch (e) {
-      return new Response(JSON.stringify({ error: 'Network error calling ToyyibPay: ' + e.message }), {
-        status: 500,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Check payment status
-    if (billData && billData[0] && billData[0].billpaymentStatus === "1") {
-      bookings[idx].status = 'Paid - Awaiting Check-in';
-      bookings[idx].paid_at = new Date().toISOString();
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_bookings', JSON.stringify(bookings)).run();
-      return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
-        status: 200,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    } else {
       return new Response(JSON.stringify({
         success: false,
-        message: 'Payment not yet confirmed',
-        billData // optional – you can remove if you want
+        message: 'No billcode associated with this booking'
       }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
+
+    // ---- Return billcode & secret status (manual verification) ----
+    return new Response(JSON.stringify({
+      success: false,
+      message: 'Payment not yet confirmed (manual verification needed)',
+      billcode: billcode,
+      secretProvided: !!secret,
+      bookingStatus: booking.status,
+      // Build the manual check URL for the admin
+      manualCheckUrl: secret ? `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${billcode}&userSecretKey=${secret}` : null
+    }), {
+      status: 200,
+      headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+    });
 
   } catch (e) {
     return new Response(JSON.stringify({ error: 'Internal: ' + e.message }), {
