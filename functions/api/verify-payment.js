@@ -24,57 +24,43 @@ export async function onRequestPost({ request, env }) {
     if (billcode && billcode.startsWith('SIM-')) {
       bookings[idx].status = 'Paid - Awaiting Check-in';
       bookings[idx].paid_at = new Date().toISOString();
-      // ⚠️ Critical: ensure this saves
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_bookings', JSON.stringify(bookings))
-        .run();
-      console.log(`✅ Simulation: Booking ${bookingId} updated to PAID`);
+        .bind('kd_bookings', JSON.stringify(bookings)).run();
       return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
-    // ---- Real ToyyibPay ----
+    // ---- No billcode ----
+    if (!billcode) {
+      return new Response(JSON.stringify({ success: false, message: 'No billcode' }), {
+        status: 200,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    // ---- Real Bill – Return Manual Check URL (Safe) ----
     const secret = env.TOYYIBPAY_SECRET_KEY;
-    if (!secret) {
-      return new Response(JSON.stringify({ error: 'Secret missing' }), { status: 500, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } });
-    }
+    const checkUrl = secret
+      ? `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${billcode}&userSecretKey=${secret}`
+      : null;
 
-    const url = `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${billcode}&userSecretKey=${secret}`;
-    const res = await fetch(url);
-    const text = await res.text();
-    let billData;
-    try { billData = JSON.parse(text); } catch (e) {
-      return new Response(JSON.stringify({ error: 'Invalid response from ToyyibPay', preview: text.slice(0, 200) }), {
-        status: 502,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    }
-
-    if (billData && billData[0] && billData[0].billpaymentStatus === "1") {
-      bookings[idx].status = 'Paid - Awaiting Check-in';
-      bookings[idx].paid_at = new Date().toISOString();
-      bookings[idx].toyyibpay_refno = billData[0].billpaymentTransactionId || '';
-      // ⚠️ Critical: ensure this saves
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_bookings', JSON.stringify(bookings))
-        .run();
-      console.log(`✅ Real payment: Booking ${bookingId} updated to PAID`);
-      return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
-        status: 200,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    } else {
-      return new Response(JSON.stringify({ success: false, message: 'Payment not yet confirmed' }), {
-        status: 200,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    }
+    return new Response(JSON.stringify({
+      success: false,
+      message: 'Manual verification required',
+      billcode,
+      manualCheckUrl: checkUrl,
+      bookingStatus: booking.status,
+      // Admin can use this to manually mark paid via the admin panel
+      adminNote: 'Use the admin panel to mark this booking as paid if you confirm payment.'
+    }), {
+      status: 200,
+      headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+    });
 
   } catch (e) {
-    console.error('❌ verify-payment error:', e.message, e.stack);
-    return new Response(JSON.stringify({ error: e.message }), {
+    return new Response(JSON.stringify({ error: 'Internal: ' + e.message }), {
       status: 500,
       headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
     });
