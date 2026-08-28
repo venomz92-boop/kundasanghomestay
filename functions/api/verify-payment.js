@@ -1,7 +1,27 @@
-// /api/verify-payment.js
 import { corsHeaders } from './_utils.js';
 
-// ===== POST =====
+async function fetchBillStatus(billcode, secret, retries = 3) {
+  const url = `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${billcode}&userSecretKey=${secret}`;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'KundasangHomestay/1.0' },
+        cf: { cacheTtl: 0 }
+      });
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch (e) {
+        if (i === retries - 1) throw new Error('Invalid JSON: ' + text.slice(0, 200));
+        continue;
+      }
+      return data;
+    } catch (e) {
+      if (i === retries - 1) throw e;
+      await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+    }
+  }
+}
+
 export async function onRequestPost({ request, env }) {
   try {
     const raw = await request.text();
@@ -21,7 +41,7 @@ export async function onRequestPost({ request, env }) {
 
     const booking = bookings[idx];
 
-    // ---- Simulation ----
+    // Simulation
     if (booking.toyyibpay_billcode && booking.toyyibpay_billcode.startsWith('SIM-')) {
       bookings[idx].status = 'Paid - Awaiting Check-in';
       bookings[idx].paid_at = new Date().toISOString();
@@ -33,7 +53,7 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // ---- Check if already paid (webhook may have updated) ----
+    // Already paid?
     if (booking.status && booking.status.toLowerCase().includes('paid')) {
       return new Response(JSON.stringify({ success: true, booking }), {
         status: 200,
@@ -41,14 +61,58 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // ---- Still pending – return processing message ----
-    return new Response(JSON.stringify({
-      success: false,
-      message: 'Payment is being processed. You will receive a confirmation shortly.'
-    }), {
-      status: 200,
-      headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-    });
+    // No billcode
+    if (!booking.toyyibpay_billcode) {
+      return new Response(JSON.stringify({ success: false, message: 'No billcode' }), {
+        status: 200,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Real – fetch with retry
+    const secret = env.TOYYIBPAY_SECRET_KEY;
+    if (!secret) {
+      return new Response(JSON.stringify({ error: 'Secret missing' }), {
+        status: 500,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    let billData;
+    try {
+      billData = await fetchBillStatus(booking.toyyibpay_billcode, secret, 3);
+    } catch (e) {
+      // If fetch fails, return a "try again" message – frontend will retry
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Payment verification pending. Please wait a moment.',
+        retry: true
+      }), {
+        status: 200,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (billData && billData[0] && billData[0].billpaymentStatus === "1") {
+      bookings[idx].status = 'Paid - Awaiting Check-in';
+      bookings[idx].paid_at = new Date().toISOString();
+      bookings[idx].toyyibpay_refno = billData[0].billpaymentTransactionId || '';
+      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+        .bind('kd_bookings', JSON.stringify(bookings)).run();
+      return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
+        status: 200,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    } else {
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Payment not yet confirmed. Please wait a moment.',
+        retry: true
+      }), {
+        status: 200,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
 
   } catch (e) {
     console.error('❌ verify-payment error:', e.message);
@@ -57,18 +121,4 @@ export async function onRequestPost({ request, env }) {
       headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
     });
   }
-}
-
-// ===== GET (for debugging) =====
-export async function onRequestGet({ request }) {
-  return new Response('verify-payment GET works', {
-    headers: corsHeaders(request)
-  });
-}
-
-// ===== OPTIONS (for CORS) =====
-export async function onRequestOptions({ request }) {
-  return new Response(null, {
-    headers: corsHeaders(request)
-  });
 }
