@@ -11,7 +11,460 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="animations.css" />
   <style>
-    /* same as before – keep existing styles */
+    /* ===== ROOT ===== */
+    :root {
+      --primary: #0F382E;
+      --primary-light: #1a4d3e;
+      --accent: #3FD0D4;
+      --accent-hover: #2bbfc4;
+      --accent-glow: rgba(63, 208, 212, 0.25);
+      --bg: #F8F5F0;
+      --card: #ffffff;
+      --dark: #212121;
+      --glass: rgba(255, 255, 255, 0.72);
+      --shadow-sm: 0 2px 20px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 8px 40px rgba(0, 0, 0, 0.08);
+      --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12);
+      --shadow-glow: 0 8px 30px rgba(63, 208, 212, 0.25);
+    }
+    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+    html { scroll-behavior: smooth; overflow-x: hidden; }
+    body {
+      font-family: "Poppins", sans-serif;
+      background: var(--bg);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .font-poppins { font-family: "Poppins", sans-serif; }
+    .rounded-xl { border-radius: 16px !important; }
+    .rounded-2xl { border-radius: 24px !important; }
+    .rounded-full { border-radius: 999px !important; }
+    .glass {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      padding: 20px;
+    }
+    .card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      border-radius: 999px;
+      padding: 12px 24px;
+      font-weight: 700;
+      font-family: "Poppins", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+      text-decoration: none;
+    }
+    .btn-primary::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3); }
+    .btn-primary:hover::after { opacity: 1; }
+    .btn-accent {
+      background: var(--accent);
+      color: white;
+      border-radius: 999px;
+      padding: 10px 20px;
+      font-weight: 700;
+      font-family: "Poppins", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+    }
+    .btn-accent:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: var(--shadow-glow); }
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid #cbd5e1;
+      color: #475569;
+      border-radius: 999px;
+      padding: 10px 20px;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      cursor: pointer;
+      font-family: "Poppins", sans-serif;
+      text-decoration: none;
+    }
+    .btn-outline:hover { background: #f1f5f9; border-color: #94a3b8; transform: translateY(-2px); }
+    .btn-danger {
+      background: #dc2626;
+      color: white;
+      border-radius: 999px;
+      padding: 10px 20px;
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
+      cursor: pointer;
+      font-family: "Poppins", sans-serif;
+    }
+    .btn-danger:hover { background: #b91c1c; transform: translateY(-2px); }
+    .btn-whatsapp {
+      background: #25D366;
+      color: white;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
+      cursor: pointer;
+      font-family: "Poppins", sans-serif;
+      text-decoration: none;
+    }
+    .btn-whatsapp:hover { background: #1ebe5d; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(37, 211, 102, 0.3); }
+    .guest-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .setsail-nav-link {
+      position: relative;
+      font-family: "Poppins", sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: #212121;
+      padding: 8px 0;
+      cursor: pointer;
+      background: none;
+      border: none;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .setsail-nav-link::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: -2px;
+      width: 0;
+      height: 2.5px;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .setsail-nav-link:hover::after, .setsail-nav-link.active::after { width: 100%; }
+    .setsail-nav-link:hover { color: var(--primary); }
+    .setsail-nav-link.agent {
+      color: #7c3aed;
+      border: 1px solid #7c3aed;
+      padding: 6px 16px;
+      border-radius: 999px;
+    }
+    .setsail-nav-link.agent::after { display: none; }
+    .setsail-nav-link.agent:hover { background: #7c3aed; color: white; }
+    #mobileNav {
+      position: fixed;
+      top: 80px;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: var(--shadow-lg);
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      transform: translateY(-10px);
+      transition: max-height 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                  opacity 0.4s ease,
+                  transform 0.4s ease;
+    }
+    #mobileNav.open {
+      max-height: 80vh;
+      opacity: 1;
+      overflow-y: auto;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    #mobileNav a, #mobileNav button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 14px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #212121;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      transition: background 0.2s, color 0.2s;
+      background: transparent;
+    }
+    #mobileNav a:hover, #mobileNav button:hover { background: #f8f5f0; color: var(--accent); }
+    #mobileNav .mobile-agent-link {
+      color: #7c3aed !important;
+      border: 1px solid #7c3aed !important;
+      margin: 8px 16px;
+      padding: 10px 16px !important;
+      border-radius: 999px !important;
+      width: auto !important;
+      display: inline-block !important;
+    }
+    #mobileNav .mobile-agent-link:hover { background: #7c3aed !important; color: white !important; }
+    #mobileNav .guest-btn {
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      background: transparent;
+      text-align: center;
+      border-radius: 999px;
+      padding: 12px 24px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      width: 100%;
+    }
+    #mobileNav .guest-btn-primary { background: var(--accent); color: white; border: none; }
+    #mobileNav .guest-btn:hover { background: var(--accent); color: white; }
+    #mobileNav .guest-btn-primary:hover { background: var(--accent-hover); }
+    #mobileNav .profile-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--primary);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 8px;
+    }
+    #mobileNav .profile-card .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: white;
+      flex-shrink: 0;
+    }
+    #mobileNav .profile-card .info { flex: 1; min-width: 0; overflow: hidden; }
+    #mobileNav .profile-card .name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #mobileNav .profile-card .sub { font-size: 10px; color: rgba(255,255,255,0.6); }
+    #mobileNav .profile-card .logout-btn {
+      width: auto !important;
+      display: inline-block !important;
+      flex-shrink: 0;
+      font-size: 10px;
+      background: rgba(255,255,255,0.15);
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      border: none;
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: background 0.2s;
+    }
+    #mobileNav .profile-card .logout-btn:hover { background: rgba(255,255,255,0.25); }
+    #mobileNav .my-bookings-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: #212121;
+      color: white;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 16px;
+      border-radius: 12px;
+      transition: background 0.2s;
+    }
+    #mobileNav .my-bookings-btn:hover { background: #333; }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+      background: white;
+      max-width: 480px;
+      width: 100%;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      animation: modalIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.95) translateY(20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-header {
+      padding: 20px 24px 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-header h3 { font-family: "Poppins", sans-serif; font-weight: 700; font-size: 20px; color: #212121; margin: 0; }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #9ca3af;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      transition: color 0.2s;
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-close:hover { color: #212121; background: #f1f5f9; }
+    .modal-body { padding: 16px 24px 20px 24px; font-size: 14px; line-height: 1.7; color: #4b5563; }
+    .modal-footer {
+      padding: 12px 24px 20px 24px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      border-top: 1px solid #f1f5f9;
+    }
+    .modal-footer .btn {
+      padding: 10px 24px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: "Poppins", sans-serif;
+    }
+    .modal-footer .btn-primary { background: var(--primary); color: white; }
+    .modal-footer .btn-primary:hover { background: var(--primary-light); }
+    .modal-footer .btn-secondary { background: #f1f5f9; color: #475569; }
+    .modal-footer .btn-secondary:hover { background: #e2e8f0; }
+    .modal-footer .btn-danger { background: #dc2626; color: white; }
+    .modal-footer .btn-danger:hover { background: #b91c1c; }
+    .badge-paid {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-pending {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-completed {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-cancelled {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .metric-card {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .metric-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-sm); }
+    .metric-card .number { font-size: 28px; font-weight: 800; color: var(--dark); margin-top: 4px; }
+    .metric-card .label { font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: #94a3b8; }
+    @media (max-width: 768px) {
+      #desktopNav { display: none !important; }
+      #mobileMenuBtn { display: flex !important; }
+      .metric-card .number { font-size: 22px; }
+    }
+    @media (max-width: 480px) {
+      .btn-primary, .btn-accent, .btn-outline, .btn-danger { padding: 10px 16px; font-size: 10px; }
+    }
   </style>
 </head>
 <body>
@@ -110,7 +563,7 @@
         <h1 class="font-poppins font-700 text-[28px] md:text-[32px] text-[#212121]">My Bookings</h1>
         <p class="text-sm text-zinc-500 mt-0.5">Logged in as <span id="guestNameDisplay" class="font-semibold text-[#0F382E]"></span></p>
       </div>
-      <button onclick="loadMyBookings()" class="btn-outline flex items-center gap-2">🔄 Hard Refresh</button>
+      <button onclick="loadMyBookings()" class="btn-outline flex items-center gap-2">🔄 Refresh</button>
     </div>
 
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 animate-on-scroll">
@@ -128,28 +581,50 @@
 
 <!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
-  <!-- same as before -->
+  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+    <div>
+      <div class="flex items-center gap-3">
+        <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+        <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div>
+      </div>
+      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
+      <div class="space-y-2 text-[13px] font-poppins">
+        <a href="/" class="hover:text-white block">Browse Homestays</a>
+        <a href="/list.html" class="hover:text-white block">Host Registration</a>
+        <a href="/about.html" class="hover:text-white block">About Us</a>
+        <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
+        <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
+      </div>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
+      <div class="space-y-2 text-[13px] font-poppins">
+        <div>✓ Host Physical Verification</div>
+        <div>✓ ToyyibPay FPX Online Protection</div>
+        <div>✓ Anti-Scam Booking Guarantee</div>
+      </div>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
+      <p class="text-[12px] text-white/50 font-poppins">Average temperature: 18°C – 23°C. Remember to bring warm jackets!</p>
+    </div>
+  </div>
+  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
+    © 2026 Kundasang Homestay. All rights reserved.
+  </div>
 </footer>
-
 <script src="animations.js"></script>
 <script>
-// =============================================================
-// DOMPurify Helper
-// =============================================================
-function safeHTML(html) {
-  if (!html) return '';
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      'div', 'span', 'p', 'h3', 'a', 'br', 'b', 'strong', 'small',
-      'button', 'svg', 'path'
-    ],
-    ALLOWED_ATTR: [
-      'id', 'class', 'style', 'href', 'target', 'rel',
-      'onclick', 'xmlns', 'width', 'height', 'viewBox', 'fill', 'd'
-    ]
-  });
-}
-
+    // =============================================================
+    // CSRF HELPER
+    // =============================================================
+    function getCsrfHeader() {
+      var token = localStorage.getItem('kd_csrf_token');
+      return token ? { 'X-CSRF-Token': token } : {};
+    }
 // =============================================================
 // MODAL SYSTEM
 // =============================================================
@@ -214,6 +689,23 @@ document.getElementById('customModal').addEventListener('click', function(e) {
 });
 
 // =============================================================
+// DOMPurify HELPER
+// =============================================================
+function safeHTML(html) {
+  if (!html) return '';
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'div', 'span', 'p', 'h3', 'a', 'br', 'b', 'strong', 'small',
+      'button', 'svg', 'path'
+    ],
+    ALLOWED_ATTR: [
+      'id', 'class', 'style', 'href', 'target', 'rel',
+      'onclick', 'xmlns', 'width', 'height', 'viewBox', 'fill', 'd'
+    ]
+  });
+}
+
+// =============================================================
 // GUEST SYSTEM
 // =============================================================
 var API_BASE = "/api";
@@ -240,6 +732,8 @@ function renderGuestNav() {
 
     var avatar = document.getElementById("guestAvatar");
     var nameNav = document.getElementById("guestNameNav");
+
+    // ---- DESKTOP AVATAR ----
     if (avatar) {
       if (currentGuest.verified === true) {
         avatar.innerText = "✓";
@@ -251,6 +745,7 @@ function renderGuestNav() {
     }
     if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
 
+    // ---- MOBILE AVATAR ----
     if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
     if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
     if (mAvatar) {
@@ -282,6 +777,9 @@ function logoutGuest() {
   });
 }
 
+// =============================================================
+// MOBILE NAV
+// =============================================================
 function toggleMobileMenu() {
   var nav = document.getElementById('mobileNav');
   if (nav) nav.classList.toggle('open');
@@ -298,7 +796,7 @@ document.addEventListener('click', function(e) {
 });
 
 // =============================================================
-// LOAD BOOKINGS – PATCHED WITH 401 HANDLING
+// LOAD BOOKINGS FROM D1 VIA API
 // =============================================================
 var myBookings = [];
 
@@ -311,35 +809,21 @@ function loadMyBookings() {
     return;
   }
 
-  // 🔥 Clear cache for this guest
-  localStorage.removeItem('kd_guest_bookings_' + currentGuest.id);
-
   const token = localStorage.getItem('kd_guest_token');
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = 'Bearer ' + token;
+const headers = { 'Content-Type': 'application/json' };
+if (token) headers['Authorization'] = 'Bearer ' + token;
 
-  const url = API_BASE + '/bookings?_=' + Date.now();
-
-  fetch(url, {
-    method: 'GET',
-    headers: headers,
-    cache: 'no-store',
-    credentials: 'include'
-  })
+fetch(API_BASE + '/bookings', {
+  method: 'GET',
+  headers: headers,
+  cache: 'no-store',
+  credentials: 'include' // send cookies as fallback
+})
   .then(function(res) {
-    // 🔥 Handle 401 – token expired
-    if (res.status === 401) {
-      console.warn('Guest token expired – redirecting to login');
-      localStorage.removeItem('kd_guest');
-      localStorage.removeItem('kd_guest_token');
-      window.location.href = '/login.html?session_expired=1';
-      return;
-    }
     if (!res.ok) throw new Error('Server error: ' + res.status);
     return res.json();
   })
   .then(function(data) {
-    if (!data) return;
     var allBookings = data.bookings || [];
     var filtered = allBookings.filter(function(b) {
       if (!currentGuest) return false;
@@ -385,7 +869,7 @@ function loadMyBookings() {
 }
 
 // =============================================================
-// RENDER BOOKINGS
+// RENDER BOOKINGS – with prominent Booking ID & Resend Code button
 // =============================================================
 function renderBookings() {
   var listDiv = document.getElementById('bookingsList');
@@ -448,6 +932,7 @@ function renderBookings() {
     );
     var actions = '';
 
+    // ===== CARD =====
     html += '' +
       '<div class="card hover:shadow-md transition-all duration-300">' +
         '<div class="flex flex-col md:flex-row justify-between gap-4">' +
@@ -458,9 +943,11 @@ function renderBookings() {
             '<div class="text-sm text-zinc-600 space-y-1">' +
               '<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
               '<div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span> <span class="text-zinc-400 text-[10px]">(host: RM ' + base.toFixed(2) + ')</span></div>' +
+              // ==== PROMINENT BOOKING ID ====
               '<div class="inline-block text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">' +
                 'Booking ID: <span class="font-mono">' + id + '</span>' +
               '</div>' +
+              // ==== RESEND CODE BUTTON ====
               '<div class="mt-1">' +
                 '<button onclick="resendCode(\'' + id + '\')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition">' +
                   '📧 Resend Code' +
@@ -480,7 +967,7 @@ function renderBookings() {
 }
 
 // =============================================================
-// CANCEL BOOKING / RESEND CODE functions (unchanged)
+// CANCEL BOOKING
 // =============================================================
 function cancelBooking(bookingId) {
   var booking = myBookings.find(function(b) { return String(b.id) === String(bookingId); });
@@ -521,6 +1008,9 @@ function cancelBooking(bookingId) {
     });
 }
 
+// =============================================================
+// RESEND CHECK‑IN CODE VIA EMAIL
+// =============================================================
 async function resendCode(bookingId) {
   const booking = myBookings.find(b => String(b.id) === String(bookingId));
   if (!booking) {
@@ -541,6 +1031,7 @@ async function resendCode(bookingId) {
       if (data.emailSent) {
         showAlert('Code Sent', data.message);
       } else {
+        // Email failed but we have the code
         showAlert('Your Check‑in Code', data.message + '\n\nPlease save this code for check‑in.');
       }
     } else {
