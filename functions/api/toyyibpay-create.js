@@ -52,7 +52,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({
         success: true,
         billCode: booking.toyyibpay_billcode,
-        url: `https://toyyibpay.com/${booking.toyyibpay_billcode}`,
+        url: `https://dev.toyyibpay.com/${booking.toyyibpay_billcode}`,
         bookingId,
         amount: Number(booking.total)
       }, 200, request);
@@ -124,7 +124,7 @@ export async function onRequestPost({ request, env }) {
     form.append('billPaymentChannel', '0');
     form.append('billDisplayMerchant', '1');
 
-    const res = await fetch('https://toyyibpay.com/index.php/api/createBill', { method: 'POST', body: form });
+    const res = await fetch('https://dev.toyyibpay.com/index.php/api/createBill', { method: 'POST', body: form });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.[0]?.BillCode) {
       return jsonResponse({ error: 'ToyyibPay bill creation failed. Please try again later.' }, 502, request);
@@ -152,7 +152,7 @@ export async function onRequestPost({ request, env }) {
 
     return jsonResponse({
       success: true,
-      url: `https://toyyibpay.com/${billCode}`,
+      url: `https://dev.toyyibpay.com/${billCode}`,
       id: billCode,
       billCode,
       bookingId: booking.id,
