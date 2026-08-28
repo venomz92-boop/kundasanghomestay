@@ -1,4 +1,3 @@
-// /api/_middleware.js
 export function onRequest(context) {
   const { request } = context;
   const url = new URL(request.url);
