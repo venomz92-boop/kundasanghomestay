@@ -2752,8 +2752,23 @@ function renderAvailabilityCalendar(homestay, containerId) {
   if (checkinInput) checkinInput.value = dateToIso(tomorrow);
   if (checkoutInput) checkoutInput.value = dateToIso(dayAfter);
 
-  homestays = [];
-  selectedHomestay = null;
+  // Start with stored approved (if any)
+  var stored = localStorage.getItem('kd_approved');
+  if (stored) {
+    try {
+      var parsed = JSON.parse(stored);
+      if (parsed && parsed.length > 0) {
+        homestays = parsed.map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
+        console.log('Loaded homestays from localStorage initially');
+      }
+    } catch(e) {}
+  }
+
+  // If homestays still empty, fallback to storedApproved (from top)
+  if (homestays.length === 0 && storedApproved.length > 0) {
+    homestays = storedApproved.filter(function(h) { return h.approved === true; }).map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
+  }
+
   bookings = [];
 
   var grid = document.getElementById("homestayGrid");
@@ -2766,7 +2781,7 @@ function renderAvailabilityCalendar(homestay, containerId) {
   }
 
   if (API_BASE) {
-    // ✅ Always fetch public view (no credentials)
+    // ✅ Fetch public view (no credentials)
     fetch(API_BASE + '/bookings', { cache: 'no-store', credentials: 'omit' })
       .then(function(res) {
         if (!res.ok) throw new Error('API error: ' + res.status);
@@ -2785,8 +2800,21 @@ function renderAvailabilityCalendar(homestay, containerId) {
           });
           localStorage.setItem('kd_approved', JSON.stringify(data.approved));
         } else {
-          homestays = [];
-          localStorage.removeItem('kd_approved');
+          // If API returned empty, fallback to localStorage
+          console.warn('API returned empty approved, using localStorage fallback');
+          var fallback = localStorage.getItem('kd_approved');
+          if (fallback) {
+            try {
+              var parsed = JSON.parse(fallback);
+              if (parsed && parsed.length > 0) {
+                homestays = parsed.map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
+              }
+            } catch(e) {}
+          }
+          // If still empty, use storedApproved from top
+          if (homestays.length === 0 && storedApproved.length > 0) {
+            homestays = storedApproved.filter(function(h) { return h.approved === true; }).map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
+          }
         }
         
         renderGrid();
@@ -2802,14 +2830,20 @@ function renderAvailabilityCalendar(homestay, containerId) {
       })
       .catch(function(err) {
         console.warn('Failed to load homestays from API:', err);
-        var grid = document.getElementById("homestayGrid");
-        if (grid) {
-          grid.innerHTML = safeHTML(
-            '<div class="col-span-3 text-center py-16">' +
-              '<div class="text-red-500 font-poppins">Failed to load homestays. Please refresh or try again later.</div>' +
-            '</div>'
-          );
+        // fallback to localStorage
+        var fallback = localStorage.getItem('kd_approved');
+        if (fallback) {
+          try {
+            var parsed = JSON.parse(fallback);
+            if (parsed && parsed.length > 0) {
+              homestays = parsed.map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
+            }
+          } catch(e) {}
         }
+        if (homestays.length === 0 && storedApproved.length > 0) {
+          homestays = storedApproved.filter(function(h) { return h.approved === true; }).map(function(h) { return { ...h, blockedDates: h.blockedDates || [] }; });
+        }
+        renderGrid();
       });
   }
 
