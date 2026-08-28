@@ -1,4 +1,4 @@
-// /api/withdraw.js – Full patched with correct ToyyibPay endpoints
+// /api/withdraw.js – Full patched with sandbox detection and fallback to simulation
 import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
 
 // ===== Admin auth =====
@@ -196,27 +196,31 @@ export async function onRequestPost({ request, env }) {
 
     const maskedAccount = accountNumber.slice(-4).padStart(accountNumber.length, "*");
 
-    // ---- Payout mode ----
+    // ---- Determine mode ----
+    const envMode = env.TOYYIBPAY_ENV || 'sandbox';
+    const isSandbox = envMode === 'sandbox';
     const isSimulation = env.PAYOUT_SIMULATION === "true";
     const isToyyibLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
 
     let payoutSuccess = false;
     let payoutData = null;
-    let payoutError = null;
     let usedSimulation = false;
 
-    if (isSimulation) {
-      // Forced simulation
+    // If sandbox, force simulation (real payouts not supported)
+    if (isSandbox) {
+      usedSimulation = true;
+      payoutSuccess = true;
+      payoutData = { simulation: true, reason: "Sandbox environment – real payouts disabled. Simulated withdrawal." };
+      console.log("🔵 SANDBOX: Simulating withdrawal of RM" + withdrawAmount + " to " + accountHolder);
+    } else if (isSimulation) {
       usedSimulation = true;
       payoutSuccess = true;
       payoutData = { simulation: true };
       console.log("🔵 SIMULATION: Withdrawal of RM" + withdrawAmount + " to " + accountHolder);
     } else if (isToyyibLive) {
-      // Real payout – use correct endpoints
+      // Real payout – production only
       const secret = env.TOYYIBPAY_SECRET_KEY;
-      const envMode = env.TOYYIBPAY_ENV || 'sandbox';
-      // Base URL: production uses toyyibpay.com, sandbox uses dev.toyyibpay.com
-      const baseUrl = envMode === 'production' ? 'https://toyyibpay.com' : 'https://dev.toyyibpay.com';
+      const baseUrl = 'https://toyyibpay.com'; // production only
       const amountCents = Math.round(withdrawAmount * 100);
 
       const formData = new FormData();
@@ -228,12 +232,12 @@ export async function onRequestPost({ request, env }) {
       formData.append("payoutDescription", `Platform Withdrawal WD_${Date.now()}`);
       formData.append("payoutReferenceNo", `WD_${Date.now()}`);
 
-      // Official ToyyibPay endpoints (documented)
       const endpoints = [
         `${baseUrl}/index.php/api/createPayout`,
         `${baseUrl}/index.php/api/payout`
       ];
 
+      let payoutError = null;
       for (const endpoint of endpoints) {
         try {
           console.log(`🔍 Attempting payout to endpoint: ${endpoint}`);
@@ -251,14 +255,11 @@ export async function onRequestPost({ request, env }) {
             payoutData = json;
             break;
           } else {
-            // Store error for later
             payoutError = json;
-            // If it's a 404, we might try the next endpoint
             if (res.status === 404) {
               console.warn(`⚠️ Endpoint ${endpoint} returned 404, trying next...`);
               continue;
             }
-            // Other errors: still try next but keep the error
           }
         } catch (e) {
           payoutError = e.message;
@@ -267,9 +268,8 @@ export async function onRequestPost({ request, env }) {
       }
 
       if (!payoutSuccess) {
-        // All endpoints failed
         const errorMsg = payoutError?.message || payoutError?.raw || payoutError || "Unknown error";
-        console.error("❌ Payout failed with details:", errorMsg);
+        console.error("❌ Real payout failed with details:", errorMsg);
         return new Response(JSON.stringify({
           success: false,
           error: `ToyyibPay payout to your bank failed: ${errorMsg}`,
