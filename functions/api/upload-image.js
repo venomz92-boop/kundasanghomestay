@@ -35,7 +35,7 @@ export async function onRequestPost({ request, env }) {
       folder: folder,
       api_key: apiKey,
       timestamp: String(timestamp),
-      signature: signature
+      signature: signature,
       signature_algorithm: 'sha256'
     });
 
