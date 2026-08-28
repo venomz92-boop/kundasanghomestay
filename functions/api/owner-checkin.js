@@ -155,7 +155,7 @@ export async function onRequestPost({ request, env }) {
             if (isSuccess) {
               payoutSuccess = true;
               payoutData = json;
-              payoutMessage = `Check‑in confirmed! Payout of RM${ownerAmount} processed.`;
+              payoutMessage = `Check‑in confirmed! Payout of RM${ownerAmount} processed in 1-4 working days by Toyyibpay.`;
               break;
             } else {
               // Store error for later
