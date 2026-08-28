@@ -809,17 +809,30 @@ function saveDemoBlocked(){
   localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap));
   pushHomestaysToCloud();
 }
-async function pushHomestaysToCloud(){
-  if(!CLOUD_ENABLED) return;
-  try{
-    await fetchWithAuth(API_BASE + "/bookings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({
-      action:"updateHomestays",
-      approved: storedApproved,
-      demoOverrides: demoOverrides,
-      demoBlocked: demoBlockedMap,
-      deletedDemo: deletedDemoIds
-    })});
-  }catch(e){}
+async function pushHomestaysToCloud() {
+  if (!CLOUD_ENABLED) return true;
+  try {
+    const res = await fetchWithAuth(API_BASE + "/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "updateHomestays",
+        approved: storedApproved,
+        demoOverrides: demoOverrides,
+        demoBlocked: demoBlockedMap,
+        deletedDemo: deletedDemoIds
+      })
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`HTTP ${res.status}: ${text}`);
+    }
+    console.log("✅ Homestays synced to cloud");
+    return true;
+  } catch (e) {
+    console.error("❌ Cloud sync failed:", e.message);
+    throw e; // rethrow so caller can catch
+  }
 }
 
 // =============================================================
@@ -1020,11 +1033,18 @@ function closeEditHomestayModal() {
   currentEditHomestayId = null;
 }
 
+async function saveApproved() {
+  const toSave = allHomestays;
+  localStorage.setItem("kd_approved", JSON.stringify(toSave));
+  storedApproved = toSave;
+  await pushHomestaysToCloud();
+}
+  
 async function saveEditHomestay() {
   if (!currentEditHomestayId) return;
   const h = allHomestays.find(x => String(x.id) === String(currentEditHomestayId));
   if (!h) {
-    showAlert("Error", "Homestay not found");
+    await showAlert("Error", "Homestay not found");
     return;
   }
 
@@ -1046,12 +1066,20 @@ async function saveEditHomestay() {
 
   // Update homestay object
   Object.assign(h, newData);
-  
-  // Save to cloud
-  saveApproved();
-  renderAdmin();
-  closeEditHomestayModal();
-  await showAlert("Success", "Homestay updated successfully!");
+
+  // Save locally and sync to cloud – with error handling
+  try {
+    saveApproved(); // this now calls pushHomestaysToCloud
+    // We need to await the push – so we must modify saveApproved to return the promise
+    // For now, we call push directly:
+    await pushHomestaysToCloud();
+
+    renderAdmin();
+    closeEditHomestayModal();
+    await showAlert("Success", "Homestay updated successfully and synced to cloud!");
+  } catch (e) {
+    await showAlert("Error", "Failed to save to cloud: " + e.message);
+  }
 }
 
 // Make function globally accessible
