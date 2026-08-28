@@ -2523,13 +2523,13 @@ function handlePaymentReturn() {
     fetch('/api/verify-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',                     // ← critical
+      credentials: 'include',                     // ← sends the cookie
       body: JSON.stringify({ bookingId: bookingId })
     })
     .then(function(res) {
       if (!res.ok) {
         return res.text().then(function(text) {
-          throw new Error('Server responded with ' + res.status + ': ' + text);
+          throw new Error('Server error ' + res.status + ': ' + text.slice(0, 200));
         });
       }
       return res.json();
@@ -2538,7 +2538,7 @@ function handlePaymentReturn() {
       if (data.success) {
         showThankYouModal(bookingId, data.booking);
       } else {
-        showAlert('Payment Pending', data.message || 'Payment not yet confirmed. Please check your bank or contact support.');
+        showAlert('Payment Pending', data.message || 'Payment is still being processed. Please check back later.');
       }
     })
     .catch(function(error) {                     // ← named error
@@ -2546,6 +2546,7 @@ function handlePaymentReturn() {
       showAlert('Error', 'Could not verify payment. Please contact support.');
     });
 
+    // Clean URL
     if (window.history && window.history.replaceState) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
