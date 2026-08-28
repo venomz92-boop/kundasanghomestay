@@ -1,9 +1,13 @@
+// ===== SHARED HELPERS – Complete (all exports) =====
+
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
+// === PBKDF2 constants ===
 const PBKDF2_ITERATIONS = 100000;
 const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_KEYLEN = 256;
 
+// === Encoding helpers ===
 function b64urlEncode(input) {
   let bytes;
   if (typeof input === 'string') bytes = new TextEncoder().encode(input);
@@ -63,6 +67,7 @@ function requireSessionSecret(env) {
   return secret;
 }
 
+// === TOKEN CREATION (with TTL) ===
 export async function createSignedToken(payload, env, ttlMs = 24 * 60 * 60 * 1000) {
   const secret = requireSessionSecret(env);
   const body = { ...payload, iat: Date.now(), exp: Date.now() + ttlMs };
@@ -71,11 +76,18 @@ export async function createSignedToken(payload, env, ttlMs = 24 * 60 * 60 * 100
   return `${encoded}.${signature}`;
 }
 
+// === ADMIN TOKEN (shorter TTL) ===
+export async function createAdminToken(payload, env) {
+  return createSignedToken(payload, env, 8 * 60 * 60 * 1000);
+}
+
 export async function verifySignedToken(token, env) {
   if (!token || typeof token !== 'string') return null;
-  const parts = token.split('.');
-  if (parts.length !== 2) return null;
-  const [encoded, signature] = parts;
+  const firstDot = token.indexOf('.');
+  if (firstDot <= 0) return null;
+  const encoded = token.slice(0, firstDot);
+  const signature = token.slice(firstDot + 1);
+  if (!signature) return null;
 
   try {
     const secret = requireSessionSecret(env);
@@ -88,16 +100,14 @@ export async function verifySignedToken(token, env) {
   }
 }
 
+// === User session helpers ===
 async function getUserRecord(type, userId, db) {
-  const key = type === 'guest' ? 'kd_guests' : null;
-  if (key) {
-    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
-    let users = [];
-    try { if (r?.data) users = JSON.parse(r.data); } catch(_) {}
-    return users.find(u => String(u.id) === String(userId)) || null;
-  }
-  
-  if (type === 'owner') {
+  if (type === 'guest') {
+    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
+    let guests = [];
+    try { if (r?.data) guests = JSON.parse(r.data); } catch(_) {}
+    return guests.find(g => String(g.id) === String(userId)) || null;
+  } else if (type === 'owner') {
     const approved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
     const pending = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
     let homes = [];
@@ -116,6 +126,7 @@ export async function getGuestSession(request, env) {
 
   const db = env.DB;
   if (!db) return null;
+  await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
   const record = await getUserRecord('guest', payload.userId, db);
   if (!record) return null;
   if (record.sessionVersion !== undefined && payload.sessionVersion !== undefined) {
@@ -132,6 +143,7 @@ export async function getOwnerSession(request, env) {
 
   const db = env.DB;
   if (!db) return null;
+  await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
   const record = await getUserRecord('owner', payload.ownerId, db);
   if (!record) return null;
   if (record.ownerSessionVersion !== undefined && payload.ownerSessionVersion !== undefined) {
@@ -140,6 +152,7 @@ export async function getOwnerSession(request, env) {
   return payload;
 }
 
+// === HTTP helpers ===
 export function getBearerToken(request, headerName = 'Authorization') {
   const auth = request.headers.get(headerName) || '';
   if (!auth.startsWith('Bearer ')) return null;
@@ -148,7 +161,7 @@ export function getBearerToken(request, headerName = 'Authorization') {
 
 export function getCookie(request, name) {
   const cookie = request.headers.get('Cookie') || '';
-  const match = cookie.match(new RegExp('(?:^|;\\s*)' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
+  const match = cookie.match(new RegExp('(?:^|;\\s*)' + name.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&') + '=([^;]*)'));
   return match ? decodeURIComponent(match[1]) : null;
 }
 
@@ -156,6 +169,11 @@ export function cookieHeader(name, value, maxAge = 86400) {
   return `${name}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}; Path=/`;
 }
 
+export function clearCookieHeader(name) {
+  return `${name}=; HttpOnly; Secure; SameSite=Strict; Max-Age=0; Path=/`;
+}
+
+// === Password hashing ===
 export function generateSalt() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return b64urlEncode(bytes);
@@ -195,24 +213,31 @@ export async function sha256(message) {
 }
 
 export async function verifyPassword(password, record, env) {
+  if (!record?.password && !record?.ownerPasswordHash) return { ok: false, legacy: false };
   const hash = record.password || record.ownerPasswordHash;
   const salt = record.salt || record.ownerSalt || '';
   const algorithm = record.passwordAlgorithm || record.ownerPasswordAlgorithm;
   const pepper = env?.PASSWORD_PEPPER || env?.SESSION_SECRET;
-  if (!pepper || !hash) return { ok: false, legacy: false };
+  if (!pepper) return { ok: false, legacy: false };
 
   if (algorithm && algorithm.startsWith('PBKDF2-')) {
     const parts = algorithm.split('-');
     const iterations = parts.length >= 2 ? parseInt(parts[1], 10) : PBKDF2_ITERATIONS;
-    const computed = await derivePassword(password, salt, pepper, isNaN(iterations) ? PBKDF2_ITERATIONS : iterations);
+    if (isNaN(iterations) || iterations <= 0) {
+      const computed = await derivePassword(password, salt, pepper, PBKDF2_ITERATIONS);
+      return { ok: computed === hash, legacy: false };
+    }
+    const computed = await derivePassword(password, salt, pepper, iterations);
     return { ok: computed === hash, legacy: false };
   }
 
-  const legacyPepper = env?.LEGACY_PASSWORD_PEPPER || 'kundasang-homestay-2026';
+  // Legacy SHA-256
+  const legacyPepper = env?.LEGACY_PASSWORD_PEPPER || env?.PASSWORD_PEPPER || 'kundasang-homestay-2026';
   const computedLegacy = await sha256(legacyPepper + password + salt);
   return { ok: computedLegacy === hash, legacy: true };
 }
 
+// === IP / CORS / HTTPS ===
 export function getClientIP(request) {
   return request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown';
 }
@@ -231,7 +256,8 @@ export function corsHeaders(request) {
     'Access-Control-Max-Age': '86400',
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'X-Frame-Options': 'DENY'
+    'X-Frame-Options': 'DENY',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
   };
   if (allowed.has(origin)) {
     headers['Access-Control-Allow-Origin'] = origin;
@@ -249,6 +275,7 @@ export function enforceHttps(request) {
   return null;
 }
 
+// === Audit logging ===
 export async function logAction({ db, action, admin, details, ip, userId, homestayId }) {
   try {
     await db.prepare(`CREATE TABLE IF NOT EXISTS audit_log (
@@ -268,6 +295,7 @@ export async function logAction({ db, action, admin, details, ip, userId, homest
   }
 }
 
+// === CSRF ===
 export async function generateCSRFToken(userId, env) {
   return createSignedToken({ type: 'csrf', userId: String(userId) }, env, 24 * 60 * 60 * 1000);
 }
@@ -281,10 +309,12 @@ export function getCSRFToken(request) {
   return request.headers.get('X-CSRF-Token') || null;
 }
 
+// === Admin token retrieval ===
 export async function getAdminToken(request) {
   return getBearerToken(request) || getCookie(request, 'admin_token');
 }
 
+// === JSON responses ===
 export function jsonResponse(body, status, request, extra = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -292,26 +322,54 @@ export function jsonResponse(body, status, request, extra = {}) {
   });
 }
 
-export async function parseJSONSafely(request) {
-  const text = await request.text();
-  if (text.length > MAX_BODY_SIZE) throw new Error('Payload too large');
-  try { return JSON.parse(text); } catch (_) { throw new Error('Invalid JSON'); }
+export function errorResponse(message, status, request, logDetails = null) {
+  if (logDetails) console.error('Error details:', logDetails);
+  return jsonResponse({ error: message || 'An unexpected error occurred. Please try again later.' }, status, request);
 }
 
+// ===== SAFE JSON PARSING WITH SIZE LIMIT =====
+export async function parseJSONSafely(request) {
+  const text = await request.text();
+  if (text.length > MAX_BODY_SIZE) {
+    throw new Error('Payload too large');
+  }
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    throw new Error('Invalid JSON');
+  }
+}
+
+// ===== RATE LIMITING (Persistent D1) =====
 export async function ensureRateLimitTable(db) {
   if (!db) return;
-  await db.prepare(`CREATE TABLE IF NOT EXISTS rate_limits (id INTEGER PRIMARY KEY AUTOINCREMENT, ip TEXT NOT NULL, action TEXT NOT NULL, timestamp INTEGER NOT NULL)`).run();
-  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_rate_limits_ip_action ON rate_limits(ip, action)`).run();
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS rate_limits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ip TEXT NOT NULL,
+      action TEXT NOT NULL,
+      timestamp INTEGER NOT NULL
+    )`
+  ).run();
+  await db.prepare(
+    `CREATE INDEX IF NOT EXISTS idx_rate_limits_ip_action ON rate_limits(ip, action)`
+  ).run();
 }
 
 export async function checkRateLimit(db, ip, action, maxAttempts, windowSeconds = 60) {
   if (!db || !ip) return true;
   try {
     await ensureRateLimitTable(db);
-    const cutoff = Date.now() - windowSeconds * 1000;
-    const res = await db.prepare(`SELECT COUNT(*) as count FROM rate_limits WHERE ip = ? AND action = ? AND timestamp > ?`).bind(ip, action, cutoff).first();
-    return (res?.count || 0) < maxAttempts;
+    const now = Date.now();
+    const cutoff = now - windowSeconds * 1000;
+    const res = await db.prepare(
+      `SELECT COUNT(*) as count FROM rate_limits 
+       WHERE ip = ? AND action = ? AND timestamp > ?`
+    ).bind(ip, action, cutoff).first();
+    const count = res?.count || 0;
+    return count < maxAttempts;
   } catch (e) {
+    console.error('Rate limit check error:', e);
     return true;
   }
 }
@@ -321,16 +379,25 @@ export async function recordRateLimit(db, ip, action) {
   try {
     await ensureRateLimitTable(db);
     const now = Date.now();
-    await db.prepare(`INSERT INTO rate_limits (ip, action, timestamp) VALUES (?, ?, ?)`).bind(ip, action, now).run();
-    await db.prepare(`DELETE FROM rate_limits WHERE timestamp < ?`).bind(now - 86400000).run();
-  } catch (_) {}
+    await db.prepare(
+      `INSERT INTO rate_limits (ip, action, timestamp) VALUES (?, ?, ?)`
+    ).bind(ip, action, now).run();
+    const cutoff = now - 24 * 60 * 60 * 1000;
+    await db.prepare(
+      `DELETE FROM rate_limits WHERE timestamp < ?`
+    ).bind(cutoff).run();
+  } catch (e) {
+    console.error('Rate limit record error:', e);
+  }
 }
 
+// ===== SESSION VERSION MANAGEMENT =====
 export async function incrementSessionVersion(db, userId, type) {
   if (type === 'guest') {
-    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
+    const key = 'kd_guests';
+    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
     let records = [];
-    if (r?.data) try { records = JSON.parse(r.data); } catch(_) {}
+    if (r?.data) { try { records = JSON.parse(r.data); } catch(_) {} }
     let changed = false;
     records = records.map(record => {
       if (String(record.id) === String(userId)) {
@@ -339,7 +406,10 @@ export async function incrementSessionVersion(db, userId, type) {
       }
       return record;
     });
-    if (changed) await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind('kd_guests', JSON.stringify(records)).run();
+    if (changed) {
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind(key, JSON.stringify(records)).run();
+    }
     return changed;
   } else if (type === 'owner') {
     return incrementOwnerSessionVersion(db, userId);
@@ -349,21 +419,24 @@ export async function incrementSessionVersion(db, userId, type) {
 
 export async function incrementOwnerSessionVersion(db, ownerId) {
   const keys = ['kd_approved', 'kd_pending'];
-  let totalChanged = false;
+  let changed = false;
   for (const key of keys) {
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
     let records = [];
-    if (r?.data) try { records = JSON.parse(r.data); } catch(_) {}
-    let changed = false;
+    if (r?.data) { try { records = JSON.parse(r.data); } catch(_) {} }
+    let updated = false;
     records = records.map(record => {
       if (String(record.id) === String(ownerId)) {
+        updated = true;
         changed = true;
-        totalChanged = true;
         record.ownerSessionVersion = (record.ownerSessionVersion || 0) + 1;
       }
       return record;
     });
-    if (changed) await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind(key, JSON.stringify(records)).run();
+    if (updated) {
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind(key, JSON.stringify(records)).run();
+    }
   }
-  return totalChanged;
+  return changed;
 }
