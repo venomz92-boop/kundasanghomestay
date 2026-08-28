@@ -799,16 +799,6 @@ async function forceSync() {
 // =============================================================
 // SAVE FUNCTIONS (demo overrides are still used for block dates, but we keep them)
 // =============================================================
-function saveApproved(){
-  const toSave = allHomestays;
-  localStorage.setItem("kd_approved", JSON.stringify(toSave));
-  storedApproved = toSave;
-  pushHomestaysToCloud();
-}
-function saveDemoBlocked(){
-  localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap));
-  pushHomestaysToCloud();
-}
 async function pushHomestaysToCloud() {
   console.log("☁️ pushHomestaysToCloud called");
   if (!CLOUD_ENABLED) {
@@ -853,53 +843,9 @@ async function saveApproved() {
   console.log("✅ saveApproved complete");
 }
 
-async function saveEditHomestay() {
-  console.log("✏️ saveEditHomestay called");
-  if (!currentEditHomestayId) {
-    console.warn("No currentEditHomestayId");
-    return;
-  }
-  const h = allHomestays.find(x => String(x.id) === String(currentEditHomestayId));
-  if (!h) {
-    console.error("Homestay not found in allHomestays");
-    await showAlert("Error", "Homestay not found");
-    return;
-  }
-
-  const fields = [
-    'name', 'location', 'description', 'ownerPrice', 'ownerName', 'ownerEmail',
-    'ownerPhone', 'ownerBank', 'ownerBankAccount', 'bankHolder', 'icName',
-    'icNumber', 'image', 'icImage', 'bankQRImage', 'pbtLicense'
-  ];
-  const newData = {};
-  fields.forEach(f => {
-    const el = document.getElementById('edit_' + f);
-    if (el) {
-      let val = el.value;
-      if (f === 'ownerPrice') val = parseFloat(val) || 0;
-      newData[f] = val;
-    }
-  });
-  console.log("📝 New data:", newData);
-
-  // Update the homestay object
-  Object.assign(h, newData);
-  console.log("✅ Homestay updated locally:", h);
-
-  try {
-    await saveApproved(); // this now awaits pushHomestaysToCloud
-    console.log("✅ saveApproved finished successfully");
-    renderAdmin();
-    closeEditHomestayModal();
-    await showAlert("Success", "Homestay updated successfully!");
-    // Optionally, force a fresh cloud fetch to confirm:
-    console.log("🔃 Refreshing cloud data to verify...");
-    await fetchCloudData();
-    renderAdmin();
-  } catch (e) {
-    console.error("❌ Save failed:", e);
-    await showAlert("Error", "Failed to save: " + e.message);
-  }
+function saveDemoBlocked(){
+  localStorage.setItem("kd_demo_blocked", JSON.stringify(demoBlockedMap));
+  pushHomestaysToCloud();
 }
 
 // =============================================================
@@ -1099,8 +1045,20 @@ function closeEditHomestayModal() {
   document.getElementById('editHomestayModal').classList.add('hidden');
   currentEditHomestayId = null;
 }
-  
-  // Gather values from form
+
+async function saveEditHomestay() {
+  console.log("✏️ saveEditHomestay called");
+  if (!currentEditHomestayId) {
+    console.warn("No currentEditHomestayId");
+    return;
+  }
+  const h = allHomestays.find(x => String(x.id) === String(currentEditHomestayId));
+  if (!h) {
+    console.error("Homestay not found in allHomestays");
+    await showAlert("Error", "Homestay not found");
+    return;
+  }
+
   const fields = [
     'name', 'location', 'description', 'ownerPrice', 'ownerName', 'ownerEmail',
     'ownerPhone', 'ownerBank', 'ownerBankAccount', 'bankHolder', 'icName',
@@ -1115,26 +1073,29 @@ function closeEditHomestayModal() {
       newData[f] = val;
     }
   });
+  console.log("📝 New data:", newData);
 
-  // Update homestay object
+  // Update the homestay object
   Object.assign(h, newData);
+  console.log("✅ Homestay updated locally:", h);
 
-  // Save locally and sync to cloud – with error handling
   try {
-    saveApproved(); // this now calls pushHomestaysToCloud
-    // We need to await the push – so we must modify saveApproved to return the promise
-    // For now, we call push directly:
-    await pushHomestaysToCloud();
-
+    await saveApproved(); // this now awaits pushHomestaysToCloud
+    console.log("✅ saveApproved finished successfully");
     renderAdmin();
     closeEditHomestayModal();
-    await showAlert("Success", "Homestay updated successfully and synced to cloud!");
+    await showAlert("Success", "Homestay updated successfully!");
+    // Optionally, force a fresh cloud fetch to confirm:
+    console.log("🔃 Refreshing cloud data to verify...");
+    await fetchCloudData();
+    renderAdmin();
   } catch (e) {
-    await showAlert("Error", "Failed to save to cloud: " + e.message);
+    console.error("❌ Save failed:", e);
+    await showAlert("Error", "Failed to save: " + e.message);
   }
 }
 
-// Make function globally accessible
+// Make functions globally accessible
 window.editApprovedHomestay = openEditHomestayModal;
 window.closeEditHomestayModal = closeEditHomestayModal;
 window.saveEditHomestay = saveEditHomestay;
