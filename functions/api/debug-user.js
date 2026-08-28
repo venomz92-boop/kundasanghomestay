@@ -2,10 +2,21 @@
 import { corsHeaders, getAdminToken } from './_utils.js';
 
 export async function onRequestGet({ request, env }) {
+  // 🔒 Admin only
   const token = await getAdminToken(request);
   if (!token || token !== env.ADMIN_TOKEN) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
+      headers: corsHeaders(request)
+    });
+  }
+
+  const url = new URL(request.url);
+  const email = url.searchParams.get('email') || '';
+  const db = env.DB;
+  if (!db) {
+    return new Response(JSON.stringify({ error: 'DB not configured' }), {
+      status: 500,
       headers: corsHeaders(request)
     });
   }
