@@ -2,19 +2,29 @@
 import { corsHeaders, getOwnerSession, getAdminToken } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
-  // Check auth
+  // 🔒 Auth: owner or admin
   const owner = await getOwnerSession(request, env);
-  const admin = await getAdminToken(request);
-  if (!owner && admin !== env.ADMIN_TOKEN) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  const adminToken = await getAdminToken(request);
+  if (!owner && adminToken !== env.ADMIN_TOKEN) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders(request) });
   }
 
-  const cloudName = env.CLOUDINARY_CLOUD_NAME;
-  const apiKey = env.CLOUDINARY_API_KEY;
-  const apiSecret = env.CLOUDINARY_API_SECRET;
-  if (!apiSecret) {
-    return new Response(JSON.stringify({ error: 'Server misconfigured' }), { status: 500 });
-  }
+  try {
+    const formData = await request.formData();
+    const file = formData.get('image');
+    if (!file) {
+      return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400 });
+    }
+
+    // ✅ Credentials from env
+    const cloudName = env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = env.CLOUDINARY_API_KEY;
+    const apiSecret = env.CLOUDINARY_API_SECRET;
+
+    if (!apiSecret || !cloudName || !apiKey) {
+      console.error('❌ Cloudinary env vars missing');
+      return new Response(JSON.stringify({ error: 'Server configuration error' }), { status: 500 });
+    }
 
     // Convert file to base64
     const buffer = await file.arrayBuffer();
@@ -24,7 +34,6 @@ export async function onRequestPost({ request, env }) {
     const timestamp = Math.floor(Date.now() / 1000);
     const folder = 'kundasang-homestay/rooms';
 
-    // Generate signature (Cloudinary requires signature for authenticated uploads)
     const signatureString = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
     const signature = await sha1(signatureString);
 
@@ -51,7 +60,6 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: data.error?.message || 'Upload failed' }), { status: 500 });
     }
 
-    // Return the secure URL
     return new Response(JSON.stringify({
       success: true,
       url: data.secure_url,
@@ -66,7 +74,7 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// ===== SHA1 helper for Cloudinary signature =====
+// SHA1 helper
 async function sha1(message) {
   const msgBuffer = new TextEncoder().encode(message);
   const hashBuffer = await crypto.subtle.digest('SHA-1', msgBuffer);
