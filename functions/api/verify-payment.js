@@ -37,8 +37,9 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, booking, message: 'Already paid' }, 200, request);
     }
 
-    // ✅ Simulation mode: fake billcode → mark as paid immediately
-    if (booking.simulation === true || String(booking.toyyibpay_billcode || '').startsWith('SIM-')) {
+    // ===== 🔥 FIX: Auto‑confirm simulation bookings =====
+    if (booking.toyyibpay_billcode && booking.toyyibpay_billcode.startsWith('SIM-')) {
+      console.log(`✅ Simulation billcode detected for ${bookingId}, marking as paid.`);
       bookings[idx].status = 'Paid - Awaiting Check-in';
       bookings[idx].paid_at = new Date().toISOString();
       bookings[idx].simulation = true;
@@ -47,7 +48,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, booking: bookings[idx], message: 'Simulated payment confirmed' }, 200, request);
     }
 
-    // Real ToyyibPay flow
+    // No billcode → cannot verify
     if (!booking.toyyibpay_billcode) {
       return jsonResponse({ error: 'No billcode associated with this booking' }, 400, request);
     }
@@ -55,6 +56,7 @@ export async function onRequestPost({ request, env }) {
     const secret = env.TOYYIBPAY_SECRET_KEY;
     if (!secret) return jsonResponse({ error: 'Payment gateway not configured' }, 500, request);
 
+    // Real ToyyibPay check
     const url = `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${booking.toyyibpay_billcode}&userSecretKey=${secret}`;
     const res = await fetch(url);
     const text = await res.text();
@@ -77,5 +79,21 @@ export async function onRequestPost({ request, env }) {
   } catch (e) {
     console.error('❌ verify-payment error:', e.message, e.stack);
     return jsonResponse({ error: 'Internal server error: ' + e.message }, 500, request);
+  }
+}
+
+// GET for debugging
+export async function onRequestGet({ request, env }) {
+  try {
+    const db = env.DB;
+    const r = await db?.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+    const count = r?.data ? JSON.parse(r.data).length : 0;
+    return new Response(`verify-payment GET works. Bookings count: ${count}`, {
+      headers: corsHeaders(request)
+    });
+  } catch (_) {
+    return new Response('verify-payment GET works (DB not available)', {
+      headers: corsHeaders(request)
+    });
   }
 }
