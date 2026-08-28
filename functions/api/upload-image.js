@@ -1,13 +1,5 @@
-// /api/upload-image.js – Secure & fully functional
+// /api/upload-image.js
 import { corsHeaders } from './_utils.js';
-
-// SHA‑256 helper for Cloudinary (signature_algorithm: 'sha256')
-async function sha256(message) {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -17,13 +9,12 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400 });
     }
 
-    // ✅ Credentials MUST come from environment – no fallbacks!
-    const cloudName = env.CLOUDINARY_CLOUD_NAME;
-    const apiKey = env.CLOUDINARY_API_KEY;
+    const cloudName = env.CLOUDINARY_CLOUD_NAME || 'lk3qg08g';
+    const apiKey = env.CLOUDINARY_API_KEY || '125271253839312';
     const apiSecret = env.CLOUDINARY_API_SECRET;
 
-    if (!cloudName || !apiKey || !apiSecret) {
-      console.error('❌ Cloudinary credentials not set in environment');
+    if (!apiSecret) {
+      console.error('❌ CLOUDINARY_API_SECRET not set');
       return new Response(JSON.stringify({ error: 'Server configuration error' }), { status: 500 });
     }
 
@@ -31,20 +22,20 @@ export async function onRequestPost({ request, env }) {
     const buffer = await file.arrayBuffer();
     const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
 
+    // Upload to Cloudinary
     const timestamp = Math.floor(Date.now() / 1000);
     const folder = 'kundasang-homestay/rooms';
 
-    // Generate signature (SHA‑256) – matches signature_algorithm below
+    // Generate signature (Cloudinary requires signature for authenticated uploads)
     const signatureString = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
-    const signature = await sha256(signatureString);
+    const signature = await sha1(signatureString);
 
     const uploadData = new URLSearchParams({
       file: `data:${file.type};base64,${base64}`,
       folder: folder,
       api_key: apiKey,
       timestamp: String(timestamp),
-      signature: signature,
-      signature_algorithm: 'sha256'   // Cloudinary now expects this
+      signature: signature
     });
 
     const response = await fetch(
@@ -62,22 +53,25 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: data.error?.message || 'Upload failed' }), { status: 500 });
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        url: data.secure_url,
-        publicId: data.public_id
-      }),
-      {
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      }
-    );
+    // Return the secure URL
+    return new Response(JSON.stringify({
+      success: true,
+      url: data.secure_url,
+      publicId: data.public_id
+    }), {
+      headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+    });
+
   } catch (e) {
     console.error('❌ Upload error:', e.message);
     return new Response(JSON.stringify({ error: e.message }), { status: 500 });
   }
 }
 
-export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
+// ===== SHA1 helper for Cloudinary signature =====
+async function sha1(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-1', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
