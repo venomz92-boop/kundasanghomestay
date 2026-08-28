@@ -634,7 +634,7 @@ function calculateNights(ci,co){ if(!ci||!co) return 1; const d1=new Date(ci), d
 function calculatePrice(p,n){ n=n||1; const base=p*n; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gw=CONFIG.toyyibpay.enabled?CONFIG.toyyibpay.gatewayFee:0; return {nights:n, base:base, fee:fee, gatewayFee:gw, total:base+fee+gw, youReceive:fee-gw, ownerReceives:base}; }
 
 // =============================================================
-// COMPACT CALENDAR RENDER
+// COMPACT CALENDAR RENDER (single definition with month navigation)
 // =============================================================
 function renderAvailabilityCalendar(h, containerId) {
   const container = document.getElementById(containerId);
@@ -784,7 +784,7 @@ async function forceSync() {
 }
 
 // =============================================================
-// SAVE FUNCTIONS (demo overrides are still used for block dates, but we keep them)
+// SAVE FUNCTIONS
 // =============================================================
 function saveApproved(){
   const toSave = allHomestays;
@@ -866,16 +866,15 @@ function showAdminTab(tab){
   if(tab==='availability') renderAvailabilityTab();
   if(tab==='guests') renderGuestsTable();
   if(tab==='bookings') {
-  bookingsPage = 1;
-  populateBookingFilter();
-  renderBookingsTable(currentBookingFilter, 1);
+    bookingsPage = 1;
+    populateBookingFilter();
+    renderBookingsTable(currentBookingFilter, 1);
   }
 }
 
 function renderAdmin(){
   const dedup=new Map(); bookings.forEach(b=>{ if(b && b.id && !dedup.has(String(b.id))) dedup.set(String(b.id), b); }); if(dedup.size!==bookings.length){ bookings=[...dedup.values()]; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
   
-  // Big number is updated by fetchEarnings(), not here
   const pc=document.getElementById("adminPendingCount"); if(pc) pc.innerText=pendingHomestays.length;
   const bs=document.getElementById("billplzStatus"); if(bs) bs.innerText=CONFIG.toyyibpay.enabled?"LIVE ToyyibPay":"Simulation";
   
@@ -946,10 +945,7 @@ function renderAdmin(){
     approvedHtml += '</div>';
   }
   approvedDiv.innerHTML = safeHTML(approvedHtml);
-  // Bookings tab will be rendered when clicked, but we also need to update the dropdown options.
-  // We'll call populateBookingFilter() when the tab is shown.
-  // No need to render here because it's hidden.
-  fetchEarnings(); // refresh the big number and inline values
+  fetchEarnings();
 }
 
 // =============================================================
@@ -1061,16 +1057,16 @@ function viewPendingDetails(id) {
     `;
   }
   if (h.pbtLicense) {
-  html += `
-    <div class="mt-4">
-      <div class="text-sm font-semibold text-zinc-500">PBT Trading License</div>
-      <div class="mt-2 border rounded-xl p-3 bg-blue-50">
-        <img src="${h.pbtLicense}" class="detail-modal-img max-h-[400px] w-auto mx-auto cursor-pointer" onclick="openLightbox('${h.pbtLicense}')" />
-        <div class="text-[10px] text-zinc-500 mt-2 text-center">Tap image to enlarge</div>
+    html += `
+      <div class="mt-4">
+        <div class="text-sm font-semibold text-zinc-500">PBT Trading License</div>
+        <div class="mt-2 border rounded-xl p-3 bg-blue-50">
+          <img src="${h.pbtLicense}" class="detail-modal-img max-h-[400px] w-auto mx-auto cursor-pointer" onclick="openLightbox('${h.pbtLicense}')" />
+          <div class="text-[10px] text-zinc-500 mt-2 text-center">Tap image to enlarge</div>
+        </div>
       </div>
-    </div>
-  `;
-}
+    `;
+  }
   html += `
     <div class="mt-4">
       <button onclick="toggleJsonView()" class="text-xs text-blue-600 underline">Show Full JSON Data</button>
@@ -1098,7 +1094,6 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
   const div = document.getElementById("bookingsTable");
   if (!div) return;
 
-  // Apply filter
   let filteredBookings = bookings;
   if (filterHomestayId && filterHomestayId !== 'all') {
     filteredBookings = bookings.filter(b => String(b.homestayId) === String(filterHomestayId));
@@ -1169,26 +1164,23 @@ function goToBookingsPage(page) {
   bookingsPage = page;
   renderBookingsTable(currentBookingFilter, page);
 }
+
 // =============================================================
 // BOOKINGS FILTER DROPDOWN
 // =============================================================
 function populateBookingFilter() {
   const select = document.getElementById('bookingFilterHomestay');
   if (!select) return;
-  // Clear existing options
   select.innerHTML = '<option value="all">🏠 All Homestays</option>';
-  // Add each approved homestay
   homestays.forEach(h => {
     const opt = document.createElement('option');
     opt.value = h.id;
     opt.textContent = h.name;
     select.appendChild(opt);
   });
-  // Set current filter
   if (currentBookingFilter) {
     select.value = currentBookingFilter;
   }
-  // Remove old listener to avoid duplicates
   select.removeEventListener('change', bookingFilterChangeHandler);
   select.addEventListener('change', bookingFilterChangeHandler);
 }
@@ -1393,7 +1385,7 @@ async function forceSyncPending(){
   } catch(e) { await showAlert("Error", "Sync error: "+e.message); }
 }
 // =============================================================
-// FETCH EARNINGS – updates the big number with available balance
+// FETCH EARNINGS
 // =============================================================
 async function fetchEarnings(){
   try{
@@ -1546,7 +1538,6 @@ async function deleteBooking(id) {
   const confirmed = await showConfirm("Delete Booking", "Delete " + id + "? This will free blocked dates.");
   if (!confirmed) return;
 
-  // Remove from local list immediately (optimistic)
   bookings = bookings.filter(b => String(b.id) !== String(id));
   localStorage.setItem("kd_bookings", JSON.stringify(bookings));
   renderBookingsTable(currentBookingFilter);
@@ -1559,27 +1550,24 @@ async function deleteBooking(id) {
     });
 
     if (!res.ok) {
-      // If cloud says not found, it's already gone – we already removed it, so ignore error
       if (res.status === 404) {
         console.log("Booking already deleted from cloud, local removed.");
         return;
       }
-      // Otherwise, show error and rollback
       const data = await res.json();
       await showAlert("Error", "Cloud delete failed: " + (data.error || res.statusText));
-      await fetchCloudData(); // restore
+      await fetchCloudData();
       renderAdmin();
       return;
     }
 
-    // Success – just fetch fresh data to be safe
     await fetchCloudData();
     renderAdmin();
 
   } catch (e) {
     console.error("Delete error:", e);
     await showAlert("Error", "Delete error: " + e.message);
-    await fetchCloudData(); // restore if needed
+    await fetchCloudData();
     renderAdmin();
   }
 }
