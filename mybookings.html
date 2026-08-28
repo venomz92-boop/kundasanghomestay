@@ -796,7 +796,7 @@ document.addEventListener('click', function(e) {
 });
 
 // =============================================================
-// PAYMENT STATUS CHECK FUNCTION (for manual button)
+// PAYMENT STATUS CHECK FUNCTION (for manual button & auto)
 // =============================================================
 async function checkPaymentStatus(bookingId) {
   try {
@@ -807,20 +807,41 @@ async function checkPaymentStatus(bookingId) {
     });
     const data = await res.json();
     if (data.paid) {
-      await showAlert('✅ Payment confirmed!', 'Your booking is now active.');
-      loadMyBookings(); // refresh the list
+      // Successfully paid – we don't show alert here for auto, but for manual we will.
       return true;
     } else if (data.error) {
-      await showAlert('Error', data.error);
+      console.warn('Check error:', data.error);
       return false;
     } else {
-      await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
       return false;
     }
   } catch (e) {
     console.error('Check error:', e);
-    await showAlert('Error', 'Could not check payment status.');
     return false;
+  }
+}
+
+// =============================================================
+// AUTO CHECK FOR PENDING BOOKINGS
+// =============================================================
+async function autoCheckPendingBookings() {
+  if (!currentGuest || !currentGuest.id) return;
+  // Find all bookings with status "Pending Payment"
+  const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
+  if (pending.length === 0) return;
+
+  let anyUpdated = false;
+  for (const b of pending) {
+    const paid = await checkPaymentStatus(b.id);
+    if (paid) {
+      anyUpdated = true;
+    }
+    // Small delay between requests to avoid rate limits
+    await new Promise(r => setTimeout(r, 500));
+  }
+  if (anyUpdated) {
+    // Reload the list to reflect changes
+    loadMyBookings();
   }
 }
 
@@ -870,6 +891,8 @@ fetch(API_BASE + '/bookings', {
       localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings));
     }
     renderBookings();
+    // After rendering, run auto-check if there are pending bookings
+    autoCheckPendingBookings();
   })
   .catch(function(err) {
     console.warn('API error:', err);
@@ -885,6 +908,8 @@ fetch(API_BASE + '/bookings', {
         if (listDiv2 && listDiv2.parentNode) {
           listDiv2.parentNode.insertBefore(notice, listDiv2);
         }
+        // Still try auto-check on cached data
+        autoCheckPendingBookings();
       } else {
         myBookings = [];
         renderBookings();
@@ -956,7 +981,7 @@ function renderBookings() {
     // ===== Check Payment button for pending bookings =====
     var checkButton = '';
     if (isPending) {
-      checkButton = `<button onclick="checkPaymentStatus('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Payment</button>`;
+      checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Payment</button>`;
     }
 
     // WhatsApp button to host
@@ -997,6 +1022,33 @@ function renderBookings() {
     '';
   });
   listDiv.innerHTML = safeHTML(html);
+}
+
+// =============================================================
+// MANUAL CHECK (shows alerts)
+// =============================================================
+async function manualCheckPayment(bookingId) {
+  try {
+    const res = await fetch('/api/check-payment-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId })
+    });
+    const data = await res.json();
+    if (data.paid) {
+      await showAlert('✅ Payment confirmed!', 'Your booking is now active.');
+      loadMyBookings(); // refresh the list
+      return;
+    } else if (data.error) {
+      await showAlert('Error', data.error);
+      return;
+    } else {
+      await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
+    }
+  } catch (e) {
+    console.error('Check error:', e);
+    await showAlert('Error', 'Could not check payment status.');
+  }
 }
 
 // =============================================================
@@ -1098,48 +1150,19 @@ async function resendCode(bookingId) {
   }
 
   // =============================================================
-  // Automatic polling after payment return
+  // Auto‑poll on return (fallback)
   // =============================================================
   const urlParams = new URLSearchParams(window.location.search);
   const bookingParam = urlParams.get('booking');
   const paymentReturn = urlParams.get('payment_return');
   if (bookingParam && paymentReturn === '1' && currentGuest && currentGuest.id) {
+    // Wait a bit for booking to be saved, then let autoCheck handle it.
+    // We'll just call loadMyBookings again after a delay to trigger the auto check.
     setTimeout(function() {
-      // First try to check immediately
-      checkPaymentStatus(bookingParam).then(function(success) {
-        if (!success) {
-          // If not paid yet, start polling
-          pollPaymentStatus(bookingParam);
-        }
-      });
-    }, 2000);
-    // Clean URL after a moment (optional)
-    // history.replaceState({}, document.title, window.location.pathname);
+      loadMyBookings();
+    }, 3000);
   }
 })();
-
-// =============================================================
-// POLLING FUNCTION (kept for automatic retries)
-// =============================================================
-async function pollPaymentStatus(bookingId, maxAttempts = 30) {
-  let attempts = 0;
-  let interval = setInterval(async () => {
-    attempts++;
-    try {
-      const success = await checkPaymentStatus(bookingId);
-      if (success) {
-        clearInterval(interval);
-        return;
-      }
-      if (attempts >= maxAttempts) {
-        clearInterval(interval);
-        await showAlert('⏳ Still checking', 'Payment status is taking longer than expected. Please click the "Check Payment" button later or contact support.');
-      }
-    } catch (e) {
-      console.error('Poll error:', e);
-    }
-  }, 3000);
-}
 </script>
 </body>
 </html>
