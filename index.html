@@ -2516,88 +2516,25 @@ async function processPayment() {
 }
 
 function handlePaymentReturn() {
-  console.log('🔍 handlePaymentReturn called');
-
   var params = new URLSearchParams(window.location.search);
   var bookingId = params.get('booking');
   var paymentReturn = params.get('payment_return');
-
-  console.log('📦 bookingId:', bookingId, 'paymentReturn:', paymentReturn);
-
-  if (!bookingId || paymentReturn !== '1') {
-    console.log('⚠️ No bookingId or payment_return=1 – skipping');
-    return;
+  if (bookingId && paymentReturn === '1') {
+    var stored = sessionStorage.getItem('kd_pending_booking');
+    var bookingData = null;
+    if (stored) {
+      try { bookingData = JSON.parse(stored); } catch (_) {}
+      sessionStorage.removeItem('kd_pending_booking');
+    }
+    if (!bookingData) {
+      bookingData = bookings.find(function(b) { return String(b.id) === String(bookingId); });
+    }
+    if (bookingData) {
+      showThankYouModal(bookingId, bookingData);
+    } else {
+      showThankYouModal(bookingId, { id: bookingId, total: '---' });
+    }
   }
-
-  // Clean URL immediately
-  if (window.history && window.history.replaceState) {
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-
-  // Try up to 6 times (30 seconds)
-  var attempts = 0;
-  var maxAttempts = 6;
-  var interval = 5000;
-
-  function checkPayment() {
-    attempts++;
-    console.log(`🔄 Attempt ${attempts}/${maxAttempts} – checking payment`);
-
-    fetch('/api/verify-payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ bookingId: bookingId })
-    })
-    .then(function(res) {
-      console.log('📡 Response status:', res.status);
-      if (!res.ok) {
-        return res.text().then(function(text) {
-          throw new Error('HTTP ' + res.status + ': ' + text.slice(0, 200));
-        });
-      }
-      return res.json();
-    })
-    .then(function(data) {
-      console.log('📦 Response data:', data);
-
-      if (data.success) {
-        // ✅ Paid – show Thank You modal
-        console.log('✅ Payment confirmed!');
-        showThankYouModal(bookingId, data.booking);
-        return;
-      }
-
-      if (data.retry && attempts < maxAttempts) {
-        // ⏳ Still pending – retry
-        console.log('⏳ Still pending – retrying in ' + interval/1000 + 's');
-        setTimeout(checkPayment, interval);
-        return;
-      }
-
-      // ❌ Failed or max attempts
-      console.log('❌ Payment not confirmed after ' + attempts + ' attempts');
-      showAlert(
-        'Payment Processing',
-        'Your payment is being processed. Please check your bookings page for updates.'
-      ).then(function() {
-        window.location.href = '/mybookings.html';
-      });
-    })
-    .catch(function(error) {
-      console.error('💥 Verification error:', error);
-      if (attempts < maxAttempts) {
-        console.log('⏳ Retrying after error...');
-        setTimeout(checkPayment, interval);
-      } else {
-        showAlert('Error', 'Could not verify payment. Please check your bookings later.');
-        window.location.href = '/mybookings.html';
-      }
-    });
-  }
-
-  // Start checking
-  checkPayment();
 }
 
 // =============================================================
