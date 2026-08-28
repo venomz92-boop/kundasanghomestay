@@ -200,17 +200,9 @@ export async function onRequestPost({ request, env }) {
         }), { status: 400, headers: corsHeaders(request) });
       }
 
-      // Recalculate price: use room price if booking has a roomId
-      let pricePerNight = homestay.ownerPrice;
-      if (booking.roomId && homestay.rooms) {
-        const room = homestay.rooms.find(r => r.id === booking.roomId);
-        if (room) {
-          pricePerNight = parseFloat(room.price) || pricePerNight;
-        }
-      }
-
+      // Recalculate price
       const nights = calculateNights(checkin, checkout);
-      const price = calculatePrice(pricePerNight, nights);
+      const price = calculatePrice(homestay.ownerPrice, nights);
 
       // Update booking
       bookings[idx].checkin = checkin;

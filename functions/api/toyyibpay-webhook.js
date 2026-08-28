@@ -59,8 +59,7 @@ export async function onRequestPost({request,env}){
     }
 
     const r=await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();let bookings=[];try{if(r?.data)bookings=JSON.parse(r.data)}catch(_){}
-    // FIX: use refno (external reference) to find booking, not order_id
-    const idx=bookings.findIndex(b=>String(b.id)===refno && String(b.toyyibpay_billcode||'')===billcode);
+    const idx=bookings.findIndex(b=>String(b.id)===orderId && String(b.toyyibpay_billcode||'')===billcode);
     if(idx<0)return new Response('booking not found',{status:404,headers:corsHeaders(request)});
     const booking=bookings[idx];
     const expectedAmount=Math.round(Number(booking.total)*100);
@@ -70,7 +69,7 @@ export async function onRequestPost({request,env}){
       if(!/paid|completed/i.test(String(booking.status||''))){
         bookings[idx]={...booking,status:'Paid - Awaiting Check-in',paid_at:data.transaction_time||new Date().toISOString(),toyyibpay_refno:refno,toyyibpay_status:'1',toyyibpay_reason:String(data.reason||'')};
         await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind('kd_bookings',JSON.stringify(bookings)).run();
-        await logAction({db,action:'payment_success',admin:'toyyibpay',details:`Payment confirmed for ${refno}`,ip:getClientIP(request),userId:booking.guestId,homestayId:booking.homestayId});
+        await logAction({db,action:'payment_success',admin:'toyyibpay',details:`Payment confirmed for ${orderId}`,ip:getClientIP(request),userId:booking.guestId,homestayId:booking.homestayId});
       }
     }else if(status==='3'){
       bookings[idx]={...booking,status:'Payment Failed',toyyibpay_refno:refno,toyyibpay_status:status,toyyibpay_reason:String(data.reason||'')};

@@ -1,6 +1,6 @@
 // ===== SHARED HELPERS – Complete (all exports) =====
 
-export const MAX_BODY_SIZE = 5 * 1024 * 1024; // 5MB (increased for image uploads)
+export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
 // === PBKDF2 constants ===
 const PBKDF2_ITERATIONS = 100000;

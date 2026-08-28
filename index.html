@@ -2543,7 +2543,45 @@ function handlePaymentReturn() {
 }
 
 // =============================================================
-// CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION (single definition)
+// CALENDAR EMBED
+// =============================================================
+function renderAvailabilityCalendar(homestay, containerId) {
+  var container = document.getElementById(containerId);
+  if (!container || !homestay) return;
+  
+  var blocked = getAllBlockedDatesForHomestay(homestay);
+  var today = new Date();
+  var month = today.getMonth();
+  var year = today.getFullYear();
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var startDay = new Date(year, month, 1).getDay();
+
+  var html = '<div class="calendar-mini mt-2">';
+  var dayNames = ["S", "M", "T", "W", "T", "F", "S"];
+  dayNames.forEach(function(d) { html += '<div class="text-[9px] text-center font-bold text-zinc-400 py-1">' + d + '</div>'; });
+  for (var e = 0; e < startDay; e++) html += '<div class="calendar-day empty"></div>';
+
+  for (var day = 1; day <= daysInMonth; day++) {
+    var d = new Date(year, month, day);
+    var iso = dateToIso(d);
+    var isBlocked = blocked.indexOf(iso) !== -1;
+    var isPast = d < new Date().setHours(0,0,0,0);
+    var cls = isPast ? "calendar-day past" : (isBlocked ? "calendar-day booked" : "calendar-day available");
+    html += '<div class="' + cls + '">' + day + '</div>';
+  }
+  html += '</div><div class="calendar-legend"><span><span class="dot green"></span> Free</span><span><span class="dot red"></span> Booked</span></div>';
+  container.innerHTML = safeHTML(html);
+}
+
+function toggleMobileMenu() {
+  document.getElementById('mobileNav')?.classList.toggle('open');
+}
+
+// =============================================================
+// CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION
+// =============================================================
+// =============================================================
+// CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION (BIGGER)
 // =============================================================
 function renderAvailabilityCalendar(homestay, containerId) {
   var container = document.getElementById(containerId);

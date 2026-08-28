@@ -1,4 +1,4 @@
-// /api/withdraw.js - with simulation override and correct env names
+// /api/withdraw.js - with admin auth for GET and fixed simulation logic
 import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
 
 async function verifyAdmin(request, env) {
@@ -350,6 +350,10 @@ export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
   
+  // 🔒 Require admin
+  const authError = await verifyAdmin(request, env);
+  if (authError) return authError;
+
   const db = env.DB;
   let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
 
