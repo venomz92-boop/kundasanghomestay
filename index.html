@@ -2554,7 +2554,7 @@ function renderAvailabilityCalendar(homestay, containerId) {
     container._currentYear = today.getFullYear();
   }
 
-  // Helper to update date inputs and price
+  // --- Shared date selection logic ---
   function selectDate(isoDate) {
     if (!isoDate) return;
     var ciInput = document.getElementById('detailCheckin');
@@ -2564,31 +2564,25 @@ function renderAvailabilityCalendar(homestay, containerId) {
     var currentCi = ciInput.value;
     var currentCo = coInput.value;
 
-    // If no check-in set, or if the clicked date is before check-in, set as check-in
     if (!currentCi || (isoDate < currentCi && !currentCo) || (currentCi && currentCo && isoDate < currentCi)) {
       ciInput.value = isoDate;
       coInput.value = '';
     } else if (currentCi && isoDate > currentCi) {
-      // If check-in is set and clicked date is after, set as check-out
       coInput.value = isoDate;
     } else {
-      // If clicked date is before check-in, swap: new check-in = clicked, old check-in becomes check-out?
-      // Simpler: if clicked date < current check-in, set as new check-in and clear check-out
       if (isoDate < currentCi) {
         ciInput.value = isoDate;
         coInput.value = '';
       } else {
-        // If clicked date is between check-in and check-out, do nothing
         return;
       }
     }
 
-    // Update price and availability status
     updateDetailPrice();
-    // Re-render calendar to reflect new selection (highlight)
     renderAvailabilityCalendar(homestay, containerId);
   }
 
+  // --- Render the current month ---
   function renderMonth() {
     var month = container._currentMonth;
     var year = container._currentYear;
@@ -2596,7 +2590,6 @@ function renderAvailabilityCalendar(homestay, containerId) {
     var daysInMonth = new Date(year, month + 1, 0).getDate();
     var startDay = new Date(year, month, 1).getDay();
 
-    // Get currently selected dates from inputs
     var ciInput = document.getElementById('detailCheckin');
     var coInput = document.getElementById('detailCheckout');
     var selectedCi = ciInput ? ciInput.value : '';
@@ -2604,9 +2597,9 @@ function renderAvailabilityCalendar(homestay, containerId) {
 
     var html = `
       <div class="flex items-center justify-between mb-2">
-        <button onclick="navigateCalendar(this, -1, '${containerId}')" class="calendar-nav-btn" style="width:32px; height:32px; font-size:18px;">‹</button>
-        <span class="calendar-month-label" style="font-size:15px; font-weight:700;">${monthLabel}</span>
-        <button onclick="navigateCalendar(this, 1, '${containerId}')" class="calendar-nav-btn" style="width:32px; height:32px; font-size:18px;">›</button>
+        <button class="calendar-nav-btn" data-dir="-1" style="width:32px;height:32px;font-size:18px;">‹</button>
+        <span class="calendar-month-label" style="font-size:15px;font-weight:700;">${monthLabel}</span>
+        <button class="calendar-nav-btn" data-dir="1" style="width:32px;height:32px;font-size:18px;">›</button>
       </div>
       <div style="max-height:280px; overflow-y:auto; padding-right:4px;">
         <div class="calendar-mini mt-1">
@@ -2634,19 +2627,10 @@ function renderAvailabilityCalendar(homestay, containerId) {
       else if (isBlocked) cls += " booked";
       else cls += " available";
       if (isToday) cls += " today";
-
-      // Highlight if selected
       if (iso === selectedCi || iso === selectedCo) cls += " bg-[#0F382E] text-white border-[#0F382E]";
 
-      // Onclick: only allow selection if available and not past
-      var onclickAttr = '';
-      if (!isPast && !isBlocked) {
-        onclickAttr = ` onclick="selectDate('${iso}')" style="cursor:pointer;"`;
-      } else {
-        onclickAttr = ' style="cursor:default;"';
-      }
-
-      html += `<div class="${cls}" title="${iso}"${onclickAttr}>${day}</div>`;
+      var cursorStyle = (!isPast && !isBlocked) ? 'cursor:pointer;' : 'cursor:default;';
+      html += `<div class="${cls}" data-date="${iso}" title="${iso}" style="${cursorStyle}">${day}</div>`;
     }
 
     html += '</div></div>';
@@ -2661,26 +2645,41 @@ function renderAvailabilityCalendar(homestay, containerId) {
     `;
 
     container.innerHTML = safeHTML(html);
+
+    // ✅ Update price after re-render
+    updateDetailPrice();
   }
 
-  // Expose selectDate globally so onclick can call it
-  window.selectDate = selectDate;
+  // --- Attach event listener once per container ---
+  if (!container._listenerAttached) {
+    container.addEventListener('click', function(e) {
+      // 1) Day click
+      var dayEl = e.target.closest('.calendar-day.available');
+      if (dayEl && dayEl.dataset.date) {
+        selectDate(dayEl.dataset.date);
+        return;
+      }
 
-  window.navigateCalendar = function(btn, direction, containerId) {
-    var c = document.getElementById(containerId);
-    if (!c) return;
-    var newMonth = (c._currentMonth || today.getMonth()) + direction;
-    var newYear = c._currentYear || today.getFullYear();
-    if (newMonth > 11) { newMonth = 0; newYear++; }
-    if (newMonth < 0) { newMonth = 11; newYear--; }
-    c._currentMonth = newMonth;
-    c._currentYear = newYear;
-    renderMonth.call(c);
-  };
+      // 2) Navigation button click
+      var navEl = e.target.closest('.calendar-nav-btn');
+      if (navEl && navEl.dataset.dir !== undefined) {
+        var dir = parseInt(navEl.dataset.dir, 10);
+        var newMonth = (container._currentMonth || 0) + dir;
+        var newYear = container._currentYear || today.getFullYear();
+        if (newMonth > 11) { newMonth = 0; newYear++; }
+        if (newMonth < 0) { newMonth = 11; newYear--; }
+        container._currentMonth = newMonth;
+        container._currentYear = newYear;
+        renderMonth();
+      }
+    });
+    container._listenerAttached = true;
+  }
 
-  container._render = renderMonth;
-  renderMonth.call(container);
+  // --- Initial render ---
+  renderMonth();
 }
+  
 // =============================================================
 // INITIALIZATION - FETCH PUBLIC AVAILABILITY WITH credentials: 'omit'
 // =============================================================
