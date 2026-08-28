@@ -1,5 +1,5 @@
 // /api/upload-image.js
-import { corsHeaders, getOwnerSession, getAdminToken } from './_utils.js';
+import { corsHeaders } from './_utils.js';
 
 async function sha1(message) {
   const msgBuffer = new TextEncoder().encode(message);
