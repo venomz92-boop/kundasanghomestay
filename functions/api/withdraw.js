@@ -216,8 +216,8 @@ export async function onRequestPost({ request, env }) {
       formData.append("payoutReferenceNo", `WD_${Date.now()}`);
 
       const endpoints = [
-        "https://toyyibpay.com/index.php/api/payout",
-        "https://toyyibpay.com/index.php/api/createPayout"
+        "https://dev.toyyibpay.com/index.php/api/payout",
+        "https://dev.toyyibpay.com/index.php/api/createPayout"
       ];
 
       for (const endpoint of endpoints) {
