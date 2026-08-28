@@ -29,20 +29,15 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: false, error: 'Database not available' }, 500, request);
     }
 
-    // 4. Retrieve bookings and homestays
+    // 4. Retrieve bookings store
     const bookingsResult = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
-    const homestaysResult = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
-
     let bookings = [];
-    let homestays = [];
     try {
       if (bookingsResult?.data) bookings = JSON.parse(bookingsResult.data);
-      if (homestaysResult?.data) homestays = JSON.parse(homestaysResult.data);
     } catch (_) {
-      return jsonResponse({ success: false, error: 'Failed to parse store data' }, 500, request);
+      return jsonResponse({ success: false, error: 'Failed to parse booking data' }, 500, request);
     }
     if (!Array.isArray(bookings)) bookings = [];
-    if (!Array.isArray(homestays)) homestays = [];
 
     // 5. Find booking
     const idx = bookings.findIndex(b => String(b.id) === bookingId);
@@ -74,19 +69,7 @@ export async function onRequestPost({ request, env }) {
       }, 400, request);
     }
 
-    // 8. Find the homestay to get owner payout details
-    const homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
-    if (!homestay) {
-      return jsonResponse({ success: false, error: 'Homestay not found for this booking' }, 404, request);
-    }
-
-    // 9. Prepare payout data (owner's share)
-    const ownerShare = Math.round(Number(booking.base) * 100); // amount in cents
-    const ownerBankCode = homestay.ownerBankCode || null;
-    const ownerAccountNumber = homestay.ownerAccountNumber || null;
-    const ownerAccountName = homestay.ownerAccountName || homestay.ownerName || 'Owner';
-
-    // 10. Update booking status to 'Completed' and save (pre‑payout)
+    // 8. Mark booking as Completed (check-in success)
     bookings[idx] = {
       ...booking,
       status: 'Completed',
@@ -94,11 +77,100 @@ export async function onRequestPost({ request, env }) {
       checkedInAt: new Date().toISOString(),
       checkedInBy: 'owner'
     };
+
+    // 9. Retrieve homestays store (if exists) for payout details
+    let homestays = [];
+    try {
+      const homestaysResult = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
+      if (homestaysResult?.data) homestays = JSON.parse(homestaysResult.data);
+    } catch (_) {
+      // If homestays store doesn't exist, we just skip payout
+      console.warn('Homestays store not found, skipping payout');
+    }
+    if (!Array.isArray(homestays)) homestays = [];
+
+    // 10. Find homestay (if any) and get payout details
+    let payoutSkipped = true;
+    let payoutMessage = 'Check‑in confirmed, but payout could not be initiated (missing homestay or bank details).';
+    let payoutCode = null;
+
+    if (homestays.length > 0) {
+      const homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
+      if (homestay) {
+        const ownerShare = Math.round(Number(booking.base) * 100); // amount in cents
+        const ownerBankCode = homestay.ownerBankCode || null;
+        const ownerAccountNumber = homestay.ownerAccountNumber || null;
+        const ownerAccountName = homestay.ownerAccountName || homestay.ownerName || 'Owner';
+
+        if (ownerBankCode && ownerAccountNumber && ownerAccountName) {
+          // Initiate payout
+          const secret = env.TOYYIBPAY_SECRET_KEY;
+          const envMode = env.TOYYIBPAY_ENV || 'sandbox';
+          const apiBase = envMode === 'production' ? 'https://toyyibpay.com' : 'https://dev.toyyibpay.com';
+
+          const payoutParams = new URLSearchParams({
+            userSecretKey: secret,
+            payoutAmount: String(ownerShare),
+            payoutBankCode: ownerBankCode,
+            payoutAccountNumber: ownerAccountNumber,
+            payoutName: ownerAccountName,
+            payoutReferenceNo: bookingId,
+            payoutDescription: `Payout for booking ${bookingId} - ${booking.homestay || 'Homestay'}`,
+            payoutCallbackUrl: `${env.PUBLIC_DOMAIN || ''}/api/toyyibpay-payout-webhook`
+          });
+
+          try {
+            const payoutResponse = await fetch(`${apiBase}/index.php/api/createPayout`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: payoutParams
+            });
+            const payoutData = await payoutResponse.json().catch(() => null);
+            if (payoutResponse.ok && payoutData && payoutData[0]?.PayoutCode) {
+              payoutCode = payoutData[0].PayoutCode;
+              payoutSkipped = false;
+              payoutMessage = `Check‑in confirmed, payout initiated. Payout reference: ${payoutCode}`;
+
+              // Update booking with payout code
+              bookings[idx].ownerPayoutId = payoutCode;
+              bookings[idx].payoutInitiatedAt = new Date().toISOString();
+
+              await logAction({
+                db,
+                action: 'payout_initiated',
+                admin: 'owner',
+                details: `Payout ${payoutCode} initiated for booking ${bookingId}, amount RM${(ownerShare/100).toFixed(2)}`,
+                ip: getClientIP(request),
+                userId: booking.guestId,
+                homestayId: booking.homestayId
+              });
+            } else {
+              console.error('Payout API error:', payoutData);
+              payoutMessage = `Check‑in confirmed, but payout failed: ${payoutData?.error || 'Unknown error'}`;
+            }
+          } catch (e) {
+            console.error('Payout request error:', e.message);
+            payoutMessage = `Check‑in confirmed, but payout request encountered an error: ${e.message}`;
+          }
+        } else {
+          payoutMessage = `Check‑in confirmed, but payout skipped: Missing bank details for homestay ${homestay.name || homestay.id}`;
+          console.warn('Missing owner bank details for homestay', homestay.id);
+        }
+      } else {
+        payoutMessage = `Check‑in confirmed, but homestay not found for this booking (ID: ${booking.homestayId}). Payout skipped.`;
+        console.warn('Homestay not found for booking', bookingId, 'homestayId:', booking.homestayId);
+      }
+    } else {
+      payoutMessage = 'Check‑in confirmed, but no homestays store found. Payout skipped.';
+      console.warn('No homestays store found, skipping payout');
+    }
+
+    // 11. Save updated bookings (with check-in and optional payout data)
     await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
       .bind('kd_bookings', JSON.stringify(bookings))
       .run();
 
-    // 11. Log check‑in action
+    // 12. Log check‑in action
     await logAction({
       db,
       action: 'owner_checkin',
@@ -109,88 +181,14 @@ export async function onRequestPost({ request, env }) {
       homestayId: booking.homestayId
     });
 
-    // 12. Initiate payout (only if bank details exist)
-    let payoutSuccess = false;
-    let payoutMessage = 'Check‑in confirmed, but payout could not be initiated (missing bank details).';
-    let payoutCode = null;
-
-    if (ownerBankCode && ownerAccountNumber && ownerAccountName) {
-      const secret = env.TOYYIBPAY_SECRET_KEY;
-      const envMode = env.TOYYIBPAY_ENV || 'sandbox';
-      const apiBase = envMode === 'production' ? 'https://toyyibpay.com' : 'https://dev.toyyibpay.com';
-
-      // Build payout request
-      const payoutParams = new URLSearchParams({
-        userSecretKey: secret,
-        payoutAmount: String(ownerShare),
-        payoutBankCode: ownerBankCode,
-        payoutAccountNumber: ownerAccountNumber,
-        payoutName: ownerAccountName,
-        payoutReferenceNo: bookingId,
-        payoutDescription: `Payout for booking ${bookingId} - ${booking.homestay || 'Homestay'}`,
-        payoutCallbackUrl: `${env.PUBLIC_DOMAIN || ''}/api/toyyibpay-payout-webhook`
-      });
-
-      try {
-        const payoutResponse = await fetch(`${apiBase}/index.php/api/createPayout`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: payoutParams
-        });
-        const payoutData = await payoutResponse.json().catch(() => null);
-        if (payoutResponse.ok && payoutData && payoutData[0]?.PayoutCode) {
-          payoutCode = payoutData[0].PayoutCode;
-          payoutSuccess = true;
-          payoutMessage = `Check‑in confirmed, payout initiated. Payout reference: ${payoutCode}`;
-
-          // Update booking with payout code
-          bookings[idx] = {
-            ...bookings[idx],
-            ownerPayoutId: payoutCode,
-            payoutInitiatedAt: new Date().toISOString()
-          };
-          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-            .bind('kd_bookings', JSON.stringify(bookings))
-            .run();
-
-          await logAction({
-            db,
-            action: 'payout_initiated',
-            admin: 'owner',
-            details: `Payout ${payoutCode} initiated for booking ${bookingId}, amount RM${(ownerShare/100).toFixed(2)}`,
-            ip: getClientIP(request),
-            userId: booking.guestId,
-            homestayId: booking.homestayId
-          });
-        } else {
-          console.error('Payout API error:', payoutData);
-          payoutMessage = `Check‑in confirmed, but payout failed: ${payoutData?.error || 'Unknown error'}`;
-        }
-      } catch (e) {
-        console.error('Payout request error:', e.message);
-        payoutMessage = `Check‑in confirmed, but payout request encountered an error: ${e.message}`;
-      }
-    } else {
-      // Missing bank details – log and skip
-      console.warn('Missing owner bank details for homestay', homestay.id);
-      await logAction({
-        db,
-        action: 'payout_skipped',
-        admin: 'owner',
-        details: `Payout skipped for booking ${bookingId} – missing bank details for owner ${homestay.ownerName || 'unknown'}`,
-        ip: getClientIP(request),
-        userId: booking.guestId,
-        homestayId: booking.homestayId
-      });
-    }
-
     // 13. Return final response
     return jsonResponse({
       success: true,
       message: payoutMessage,
-      payoutSuccess: payoutSuccess,
+      payoutSkipped: payoutSkipped,
       payoutCode: payoutCode,
-      bookingId: bookingId
+      bookingId: bookingId,
+      status: 'Completed'
     }, 200, request);
 
   } catch (error) {
