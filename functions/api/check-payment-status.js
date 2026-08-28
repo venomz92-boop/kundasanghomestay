@@ -1,7 +1,6 @@
 // /api/check-payment-status.js – with email on payment confirmation
 import { corsHeaders, enforceHttps, getGuestSession, jsonResponse } from './_utils.js';
 
-// ===== Email sender helper =====
 async function sendCheckinCodeEmail(to, guestName, bookingId, checkinCode, homestayName, checkin, checkout, env) {
   const html = `
     <h2>Hello ${guestName || 'Guest'},</h2>
