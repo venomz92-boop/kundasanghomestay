@@ -405,6 +405,65 @@ export async function onRequestPost({ request, env }) {
   try {
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
+    // ===== NEW: updateHomestays =====
+    if (action === "updateHomestays") {
+      const { approved, demoOverrides, demoBlocked, deletedDemo } = body;
+      if (approved !== undefined) {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_approved", JSON.stringify(approved))
+          .run();
+      }
+      if (demoOverrides !== undefined) {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_demo_overrides", JSON.stringify(demoOverrides))
+          .run();
+      }
+      if (demoBlocked !== undefined) {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_demo_blocked", JSON.stringify(demoBlocked))
+          .run();
+      }
+      if (deletedDemo !== undefined) {
+        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_deleted_demo", JSON.stringify(deletedDemo))
+          .run();
+      }
+      await logAction({db, action:'homestays_updated', admin:'admin', details:'Updated homestay data', ip:clientIP});
+      return jsonResponse({ success: true, message: "Homestays updated" }, 200, request);
+    }
+
+    // ===== NEW: updateStatus =====
+    if (action === "updateStatus" && body.id) {
+      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+      let bookings = [];
+      if (r && r.data) { try { bookings = JSON.parse(r.data); } catch(e) {} }
+      const idx = bookings.findIndex(b => String(b.id) === String(body.id));
+      if (idx === -1) {
+        return jsonResponse({ error: "Booking not found" }, 404, request);
+      }
+      bookings[idx].status = body.status;
+      bookings[idx].statusUpdated = new Date().toISOString();
+      if (body.booking) {
+        // Merge any additional fields if provided
+        bookings[idx] = { ...bookings[idx], ...body.booking, id: bookings[idx].id };
+      }
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_bookings", JSON.stringify(bookings))
+        .run();
+      await logAction({db, action:'booking_status_updated', admin:'admin', details:`Status of ${body.id} changed to ${body.status}`, ip:clientIP, userId:bookings[idx].guestEmail, homestayId:bookings[idx].homestayId});
+      return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
+    }
+
+    // ===== NEW: clearAll =====
+    if (action === "clearAll") {
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_bookings", JSON.stringify([]))
+        .run();
+      await logAction({db, action:'bookings_cleared', admin:'admin', details:'All bookings cleared', ip:clientIP});
+      return jsonResponse({ success: true, message: "All bookings cleared", bookings: [] }, 200, request);
+    }
+
+    // ===== updateDates (existing) =====
     if (action === "updateDates" && body.id) {
       const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
       let bookings = [];
