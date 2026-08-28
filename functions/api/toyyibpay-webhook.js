@@ -65,10 +65,10 @@ export async function onRequestPost({ request, env }) {
       return new Response('server not configured', { status: 500, headers: corsHeaders(request) });
     }
 
-    // ---- Correct signature: secret + billcode + status + order_id (and variants) ----
+    // ---- Multiple hash variants ----
     const hash1 = md5(`${secret}${billcode}${status}${orderId}`);
     const hash2 = md5(`${secret}${billcode}${status}${orderId}ok`);
-    const hash3 = md5(`${secret}${status}${orderId}${refno}ok`); // legacy fallback
+    const hash3 = md5(`${secret}${status}${orderId}${refno}ok`); // legacy
     const hash4 = md5(`${secret}${billcode}${status}${orderId}${refno}`); // extra
 
     console.log('🔑 Received hash:', receivedHash);
@@ -127,7 +127,6 @@ export async function onRequestPost({ request, env }) {
     const expectedAmount = Math.round(Number(booking.total) * 100);
     const callbackAmountCents = Math.round(Number(data.amount || 0) * 100);
 
-    // Allow small tolerance (1 cent) for rounding
     if (Math.abs(callbackAmountCents - expectedAmount) > 1) {
       console.warn(`❌ Amount mismatch: expected ${expectedAmount}, got ${callbackAmountCents}`);
       return new Response('amount mismatch', { status: 400, headers: corsHeaders(request) });
