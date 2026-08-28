@@ -9,21 +9,14 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400 });
     }
 
-    const cloudName = env.CLOUDINARY_CLOUD_NAME;
-const apiKey = env.CLOUDINARY_API_KEY;
-const apiSecret = env.CLOUDINARY_API_SECRET;
+    const cloudName = env.CLOUDINARY_CLOUD_NAME || 'lk3qg08g';
+    const apiKey = env.CLOUDINARY_API_KEY || '125271253839312';
+    const apiSecret = env.CLOUDINARY_API_SECRET;
 
-// 2. Validate ALL critical variables, not just the secret.
-if (!cloudName || !apiKey || !apiSecret) {
-  // Log safely internally without exposing raw variable content
-  console.error('❌ Missing required Cloudinary environment configuration.');
-  
-  // Return a generic error to the user/client
-  return new Response(
-    JSON.stringify({ error: 'Server configuration error' }), 
-    { status: 500, headers: { 'Content-Type': 'application/json' } }
-  );
-}
+    if (!apiSecret) {
+      console.error('❌ CLOUDINARY_API_SECRET not set');
+      return new Response(JSON.stringify({ error: 'Server configuration error' }), { status: 500 });
+    }
 
     // Convert file to base64
     const buffer = await file.arrayBuffer();
