@@ -1,4 +1,4 @@
-// /api/owner-checkin.js – Auto check‑in + payout (simulation fallback)
+// /api/owner-checkin.js – Auto check‑in + payout (simulation fallback) with mandatory code
 import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
 
 // ===== Bank code mapping (ToyyibPay numeric codes) =====
@@ -37,9 +37,15 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Unauthorized' }, 401, request);
     }
 
-    const { bookingId } = await request.json();
+    const body = await request.json();
+    const bookingId = body.bookingId;
+    const checkinCode = body.checkinCode;   // <-- get from request
+
     if (!bookingId) {
       return jsonResponse({ error: 'Missing bookingId' }, 400, request);
+    }
+    if (!checkinCode || !/^\d{6}$/.test(checkinCode)) {
+      return jsonResponse({ error: 'Check‑in code must be exactly 6 digits' }, 400, request);
     }
 
     const db = env.DB;
@@ -74,7 +80,20 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Booking is not paid yet' }, 400, request);
     }
 
-    // 5. Find homestay (fallback chain)
+    // ===== 5. CHECK‑IN CODE VERIFICATION – MANDATORY =====
+    if (!booking.checkinCode) {
+      // This should not happen for new bookings, but for legacy bookings we reject
+      return jsonResponse({
+        error: 'This booking does not have a check‑in code. Please ask the guest to use the "Resend Code" button in their My Bookings page to generate one.'
+      }, 400, request);
+    }
+    if (booking.checkinCode !== checkinCode) {
+      return jsonResponse({
+        error: 'Invalid check‑in code. Please ask the guest for the 6‑digit code sent to their email/WhatsApp.'
+      }, 400, request);
+    }
+
+    // 6. Find homestay (fallback chain)
     let homestay = null;
     let homestaySource = null;
     for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
@@ -96,7 +115,7 @@ export async function onRequestPost({ request, env }) {
     let payoutMessage = '';
     let isSimulation = false;
 
-    // 6. Attempt payout (or fallback to simulation)
+    // 7. Attempt payout (or fallback to simulation)
     if (!homestay) {
       payoutMessage = 'Check‑in confirmed, but payout skipped: homestay details not found.';
     } else if (!ownerAcc || ownerAmount <= 0) {
@@ -184,7 +203,7 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // 7. Update booking
+    // 8. Update booking
     const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
     if (idx !== -1) {
       if (payoutSuccess) {
@@ -212,7 +231,7 @@ export async function onRequestPost({ request, env }) {
       .bind('kd_bookings', JSON.stringify(bookings))
       .run();
 
-    // 8. Log action
+    // 9. Log action
     await logAction({
       db,
       action: payoutSuccess ? (isSimulation ? 'owner_checkin_simulation' : 'owner_checkin_payout_success') : 'owner_checkin_payout_failed',
@@ -223,14 +242,14 @@ export async function onRequestPost({ request, env }) {
       homestayId: booking.homestayId
     });
 
-    // 9. Record fee earnings (if success)
+    // 10. Record fee earnings (if success)
     if (payoutSuccess) {
       try {
         const feeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
         let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
         const alreadyRecorded = feeEarnings.history?.some(h => h.bookingId === bookingId && h.type === 'earning');
         if (!alreadyRecorded) {
-          const feeToRecord = booking.fee || 0;
+          const feeToRecord = (booking.fee || 0) + (booking.gatewayFee || 0);
           if (feeToRecord > 0) {
             feeEarnings.total = (feeEarnings.total || 0) + feeToRecord;
             feeEarnings.available = (feeEarnings.available || 0) + feeToRecord;
@@ -252,7 +271,7 @@ export async function onRequestPost({ request, env }) {
       } catch (_) {}
     }
 
-    // 10. Return final response
+    // 11. Return final response
     return jsonResponse({
       success: true,
       message: payoutMessage,
