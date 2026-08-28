@@ -2520,29 +2520,32 @@ function handlePaymentReturn() {
   var bookingId = params.get('booking');
   var paymentReturn = params.get('payment_return');
   if (bookingId && paymentReturn === '1') {
-    // Call verification endpoint
     fetch('/api/verify-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      credentials: 'include',                     // ← critical
       body: JSON.stringify({ bookingId: bookingId })
     })
-    .then(res => res.json())
-    .then(data => {
+    .then(function(res) {
+      if (!res.ok) {
+        return res.text().then(function(text) {
+          throw new Error('Server responded with ' + res.status + ': ' + text);
+        });
+      }
+      return res.json();
+    })
+    .then(function(data) {
       if (data.success) {
-        // Show thank you modal with updated booking info
         showThankYouModal(bookingId, data.booking);
       } else {
-        // Still pending, show a message to wait or retry
-        showAlert('Payment Pending', data.message || 'Payment not yet confirmed.');
+        showAlert('Payment Pending', data.message || 'Payment not yet confirmed. Please check your bank or contact support.');
       }
     })
-    .catch(() => {
-      console.error('Verification error:', err);
+    .catch(function(error) {                     // ← named error
+      console.error('Verification error:', error);
       showAlert('Error', 'Could not verify payment. Please contact support.');
     });
 
-    // Also clear the URL parameters
     if (window.history && window.history.replaceState) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
