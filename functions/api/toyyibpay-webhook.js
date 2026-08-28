@@ -1,5 +1,5 @@
-// /api/toyyibpay-webhook.js - with correct signature + logging
-import { corsHeaders, enforceHttps, getClientIP, logAction, jsonResponse } from './_utils.js';
+// /api/toyyibpay-webhook.js - COMPLETE with MD5
+import { corsHeaders, enforceHttps, getClientIP, logAction } from './_utils.js';
 
 function md5(str) {
   const utf8 = new TextEncoder().encode(str);
@@ -46,7 +46,6 @@ export async function onRequestPost({ request, env }) {
       for (const [k, v] of form.entries()) data[k] = String(v);
     }
 
-    // Log the entire payload for debugging
     console.log('📥 Webhook payload:', JSON.stringify(data, null, 2));
 
     const status = String(data.status || '');
@@ -66,11 +65,10 @@ export async function onRequestPost({ request, env }) {
       return new Response('server not configured', { status: 500, headers: corsHeaders(request) });
     }
 
-    // ---- CORRECT SIGNATURE: secret + billcode + status + order_id (+ optional "ok") ----
-    // Try both common formats
+    // ---- Correct signature: secret + billcode + status + order_id (+ optional "ok") ----
     const hash1 = md5(`${secret}${billcode}${status}${orderId}`);
     const hash2 = md5(`${secret}${billcode}${status}${orderId}ok`);
-    const hash3 = md5(`${secret}${status}${orderId}${refno}ok`); // legacy format (backward compat)
+    const hash3 = md5(`${secret}${status}${orderId}${refno}ok`); // legacy fallback
 
     console.log('🔑 Received hash:', receivedHash);
     console.log('🔑 Computed (billcode+status+order):', hash1);
@@ -93,7 +91,7 @@ export async function onRequestPost({ request, env }) {
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // ===== IDEMPOTENCY CHECK =====
+    // Idempotency
     const webhookId = request.headers.get('X-Webhook-Id') || refno || billcode || crypto.randomUUID();
     await db.prepare(`CREATE TABLE IF NOT EXISTS webhook_log (
       id TEXT PRIMARY KEY,
@@ -175,7 +173,6 @@ export async function onRequestPost({ request, env }) {
       console.log(`ℹ️ Unknown status: ${status}`);
     }
 
-    // Log webhook processing
     await db.prepare('INSERT INTO webhook_log (id, processed_at, type) VALUES (?, ?, ?)')
       .bind(webhookId, new Date().toISOString(), 'payment').run();
 
