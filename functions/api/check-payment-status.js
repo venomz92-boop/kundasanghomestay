@@ -1,13 +1,6 @@
 // /api/check-payment-status.js
 import { corsHeaders, enforceHttps, getGuestSession, jsonResponse } from './_utils.js';
 
-function md5(str) {
-  // Same MD5 implementation as above (copy it here or import)
-  // (I'll assume you copy the md5 function from the webhook file)
-  // For brevity, I'll show the logic without the full MD5 code – but you should copy it.
-  // Use the same md5() function from the webhook.
-}
-
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -28,7 +21,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Server error' }, 500, request);
     }
 
-    // 1. Get booking from store
+    // 1. Get booking
     const result = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
     let bookings = [];
     try { if (result?.data) bookings = JSON.parse(result.data); } catch(_) {}
@@ -43,13 +36,17 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, status: booking.status, paid: true }, 200, request);
     }
 
-    // 3. If we have a billcode, query ToyyibPay for status
+    // 3. If we have a billcode, query ToyyibPay
     const billcode = booking.toyyibpay_billcode;
     if (!billcode) {
       return jsonResponse({ error: 'No billcode found' }, 404, request);
     }
 
     const secret = env.TOYYIBPAY_SECRET_KEY;
+    if (!secret) {
+      return jsonResponse({ error: 'Secret not configured' }, 500, request);
+    }
+
     const apiBase = env.TOYYIBPAY_ENV === 'production' ? 'https://toyyibpay.com' : 'https://dev.toyyibpay.com';
     const url = `${apiBase}/index.php/api/getBillTransactions`;
     const form = new FormData();
@@ -63,13 +60,13 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'No transactions found' }, 404, request);
     }
 
-    // 4. Find the latest transaction (or any with status=1)
+    // Find the latest successful transaction (status=1)
     const paidTransaction = data.find(t => String(t.billpaymentStatus) === '1');
     if (!paidTransaction) {
       return jsonResponse({ success: true, status: 'Pending Payment', paid: false }, 200, request);
     }
 
-    // 5. Update booking to paid
+    // 4. Update booking to paid
     bookings[idx] = {
       ...booking,
       status: 'Paid - Awaiting Check-in',
