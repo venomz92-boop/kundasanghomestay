@@ -57,12 +57,13 @@ export async function onRequestPost({ request, env }) {
 
     const url = `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${billcode}&userSecretKey=${secret}`;
     let billData, fetchError = null;
+    let rawResponse = '';
 
     try {
       const res = await fetchWithTimeout(url, {}, 5000);
-      const text = await res.text();
-      try { billData = JSON.parse(text); } catch (e) {
-        fetchError = 'Invalid JSON: ' + text.slice(0, 200);
+      rawResponse = await res.text();
+      try { billData = JSON.parse(rawResponse); } catch (e) {
+        fetchError = 'ToyyibPay returned non‑JSON. Response: ' + rawResponse.slice(0, 500);
       }
     } catch (e) {
       fetchError = e.message || 'Network error';
@@ -72,7 +73,8 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({
         success: false,
         message: 'Verification failed: ' + fetchError,
-        manualCheckUrl: url
+        manualCheckUrl: url,
+        billcode
       }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
