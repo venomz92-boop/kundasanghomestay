@@ -964,12 +964,26 @@ async function loadBookings() {
   if (!ownerToken) return;
   const listDiv = document.getElementById('ownerBookingsList');
   if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-zinc-400 py-6 text-center">Refreshing dynamic logs...</div>');
+  
   try {
-    const res = await fetch(API_BASE + '/owner-bookings', {
+    // 🔥 Add timestamp to bypass browser cache
+    const res = await fetch(API_BASE + '/owner-bookings?_=' + Date.now(), {
       headers: { 'Owner-Authorization': 'Bearer ' + ownerToken },
       cache: 'no-store'
     });
+    
+    if (res.status === 401) {
+      // Token expired – redirect to login
+      sessionStorage.removeItem('kd_owner_token');
+      ownerToken = '';
+      document.getElementById('loginSection').classList.remove('hidden');
+      document.getElementById('dashboardSection').classList.add('hidden');
+      showAlert('Session Expired', 'Your owner session has expired. Please log in again.');
+      return;
+    }
+    
     if (!res.ok) throw new Error('Data sync failure');
+    
     bookings = await res.json();
     if (!Array.isArray(bookings)) bookings = [];
     let filteredBookings = bookings;
@@ -1094,8 +1108,9 @@ if (b.roomImages && b.roomImages.length > 0) {
       `;
     });
     if (listDiv) listDiv.innerHTML = safeHTML(html);
-  } catch(e) {
+ } catch (e) {
     if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-red-600 text-center py-6 font-semibold">Synchronization failed. Please reload dashboard view.</div>');
+    console.error('Load bookings error:', e);
   }
 }
 
