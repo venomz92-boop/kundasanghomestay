@@ -9,14 +9,13 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400 });
     }
 
-    const cloudName = env.CLOUDINARY_CLOUD_NAME || '';
-    const apiKey = env.CLOUDINARY_API_KEY || '';
+    const cloudName = env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = env.CLOUDINARY_API_KEY;
     const apiSecret = env.CLOUDINARY_API_SECRET;
 
-    if (!apiSecret) {
-      console.error('❌ CLOUDINARY_API_SECRET not set');
-      return new Response(JSON.stringify({ error: 'Server configuration error' }), { status: 500 });
-    }
+    if (!cloudName || !apiKey || !apiSecret) {
+  return new Response(JSON.stringify({ error: 'Cloudinary credentials missing' }), { status: 500 });
+}
 
     // Convert file to base64
     const buffer = await file.arrayBuffer();
