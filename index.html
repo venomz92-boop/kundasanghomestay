@@ -2536,7 +2536,13 @@ function handlePaymentReturn() {
     })
     .then(function(data) {
       if (data.success) {
-        showThankYouModal(bookingId, data.booking);
+        // Use the returned booking if available, otherwise fallback to lastCreatedBooking
+        var bookingData = data.booking || window.lastCreatedBooking;
+        // Ensure we have all fields
+        if (bookingData && !bookingData.checkin && window.lastCreatedBooking) {
+          bookingData = window.lastCreatedBooking;
+        }
+        showThankYouModal(bookingId, bookingData);
       } else {
         showAlert('Payment Pending', data.message || 'Payment is still being processed. Please check back later.');
       }
@@ -2546,6 +2552,7 @@ function handlePaymentReturn() {
       showAlert('Error', 'Could not verify payment. Please contact support.');
     });
 
+    // Clean URL
     if (window.history && window.history.replaceState) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
