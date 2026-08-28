@@ -1,67 +1,5 @@
-import { corsHeaders, getClientIP, jsonResponse, logAction } from './_utils.js';
-
-// Rate limiting: key = ip+email, max 3 attempts per 15 minutes
-const resetAttempts = new Map();
-
-function checkRateLimit(ip, email) {
-  const key = `${ip}:${email}`;
-  const now = Date.now();
-  const attempts = resetAttempts.get(key) || [];
-  const recent = attempts.filter(t => now - t < 15 * 60 * 1000);
-  if (recent.length >= 3) {
-    return { blocked: true, remaining: 0 };
-  }
-  return { blocked: false, remaining: 3 - recent.length };
-}
-
-function recordAttempt(ip, email) {
-  const key = `${ip}:${email}`;
-  const now = Date.now();
-  const attempts = resetAttempts.get(key) || [];
-  const recent = attempts.filter(t => now - t < 15 * 60 * 1000);
-  recent.push(now);
-  resetAttempts.set(key, recent);
-}
-
-async function generateResetToken() {
-  const b = crypto.getRandomValues(new Uint8Array(32));
-  return Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
-}
-
-async function sendResetEmail(email, name, url, env) {
-  const html = `<h2>Hello ${String(name || 'Guest').replace(/[<>]/g, '')}</h2><p>You requested a password reset for Kundasang Homestay.</p><p><a href="${url}">Reset your password</a></p><p>This link expires in 1 hour.</p><p>If you did not request this, ignore this email.</p>`;
-  try {
-    if (env.RESEND_API_KEY) {
-      const r = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
-          to: email,
-          subject: 'Reset Your Password - Kundasang Homestay',
-          html
-        })
-      });
-      return r.ok;
-    }
-    if (env.SENDGRID_API_KEY) {
-      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + env.SENDGRID_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email }] }],
-          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
-          subject: 'Reset Your Password - Kundasang Homestay',
-          content: [{ type: 'text/html', value: html }]
-        })
-      });
-      return r.ok;
-    }
-  } catch (e) {
-    console.error('Reset email error:', e.message);
-  }
-  return false;
-}
+// /api/forgot-password.js
+import { corsHeaders, getClientIP, jsonResponse, logAction, checkRateLimit, recordRateLimit } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -72,14 +10,16 @@ export async function onRequestPost({ request, env }) {
     }
 
     const ip = getClientIP(request);
-    const rate = checkRateLimit(ip, cleanEmail);
-    if (rate.blocked) {
-      return jsonResponse({ error: 'Too many reset attempts. Please wait 15 minutes.' }, 429, request);
-    }
-    recordAttempt(ip, cleanEmail);
-
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'Server configuration error' }, 500, request);
+
+    // ✅ D1-based rate limiting
+    const rateOk = await checkRateLimit(db, ip, 'forgot_password', 3, 15 * 60);
+    if (!rateOk) {
+      return jsonResponse({ error: 'Too many reset attempts. Please wait 15 minutes.' }, 429, request);
+    }
+    await recordRateLimit(db, ip, 'forgot_password');
+
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
     let userId = null, userData = null;
@@ -121,7 +61,6 @@ export async function onRequestPost({ request, env }) {
     const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
     const resetUrl = `${domain}/reset-password.html?token=${encodeURIComponent(token)}&type=${userType}`;
 
-    // Do NOT log the reset URL
     const sent = await sendResetEmail(cleanEmail, userData?.name, resetUrl, env);
     if (!sent) {
       console.error(`Password reset email failed for ${cleanEmail}`);
@@ -132,6 +71,47 @@ export async function onRequestPost({ request, env }) {
     console.error('Forgot password error:', e.message, e.stack);
     return jsonResponse({ error: 'Unable to process request. Please try again later.' }, 500, request);
   }
+}
+
+// Helpers
+async function generateResetToken() {
+  const b = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+}
+
+async function sendResetEmail(email, name, url, env) {
+  const html = `<h2>Hello ${String(name || 'Guest').replace(/[<>]/g, '')}</h2><p>You requested a password reset for Kundasang Homestay.</p><p><a href="${url}">Reset your password</a></p><p>This link expires in 1 hour.</p><p>If you did not request this, ignore this email.</p>`;
+  try {
+    if (env.RESEND_API_KEY) {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
+          to: email,
+          subject: 'Reset Your Password - Kundasang Homestay',
+          html
+        })
+      });
+      return r.ok;
+    }
+    if (env.SENDGRID_API_KEY) {
+      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + env.SENDGRID_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email }] }],
+          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
+          subject: 'Reset Your Password - Kundasang Homestay',
+          content: [{ type: 'text/html', value: html }]
+        })
+      });
+      return r.ok;
+    }
+  } catch (e) {
+    console.error('Reset email error:', e.message);
+  }
+  return false;
 }
 
 export async function onRequestOptions({ request }) {
