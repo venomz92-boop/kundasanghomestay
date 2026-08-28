@@ -989,16 +989,17 @@
       </div>
     </div>
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
-      <a href="/" id="navHome" class="setsail-nav-link active">Home</a>
-      <a href="/list.html" id="navList" class="setsail-nav-link">List Your Homestay</a>
-      <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
-      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
+      <!-- All nav links now have explicit onclick to force navigation -->
+      <a href="/" id="navHome" class="setsail-nav-link" onclick="window.location.href='/'; return false;">Home</a>
+      <a href="/list.html" id="navList" class="setsail-nav-link" onclick="window.location.href='/list.html'; return false;">List Your Homestay</a>
+      <a href="/about.html" id="navAbout" class="setsail-nav-link" onclick="window.location.href='/about.html'; return false;">About</a>
+      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;" onclick="window.location.href='/owner.html'; return false;">🔑 Agent Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
-        <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;">Guest Login</a>
-        <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;">Register</a>
+        <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/login.html'; return false;">Guest Login</a>
+        <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/register.html'; return false;">Register</a>
       </div>
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
-        <a href="/mybookings.html" class="setsail-nav-link" style="font-size:12px;">My Bookings</a>
+        <a href="/mybookings.html" class="setsail-nav-link" style="font-size:12px;" onclick="window.location.href='/mybookings.html'; return false;">My Bookings</a>
         <div class="flex items-center gap-2 bg-[#0F382E] text-white px-4 h-[38px] rounded-full">
           <div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div>
           <span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span>
@@ -1015,15 +1016,15 @@
 <!-- ===== MOBILE MENU ===== -->
 <div id="mobileNav">
   <div class="p-4 space-y-1">
-    <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
-    <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
-    <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
-    <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+    <a href="/" onclick="toggleMobileMenu(); window.location.href='/'; return false;" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+    <a href="/list.html" onclick="toggleMobileMenu(); window.location.href='/list.html'; return false;" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
+    <a href="/about.html" onclick="toggleMobileMenu(); window.location.href='/about.html'; return false;" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
+    <a href="/owner.html" onclick="toggleMobileMenu(); window.location.href='/owner.html'; return false;" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
 
     <div class="pt-3 space-y-3">
       <div id="mGuestNav">
-        <a href="/login.html" onclick="toggleMobileMenu()" class="guest-btn block text-center">Login</a>
-        <a href="/register.html" onclick="toggleMobileMenu()" class="guest-btn guest-btn-primary block text-center">Register</a>
+        <a href="/login.html" onclick="toggleMobileMenu(); window.location.href='/login.html'; return false;" class="guest-btn block text-center">Login</a>
+        <a href="/register.html" onclick="toggleMobileMenu(); window.location.href='/register.html'; return false;" class="guest-btn guest-btn-primary block text-center">Register</a>
       </div>
       <div id="mGuestProfileNav" class="hidden space-y-2">
         <div class="profile-card">
@@ -1034,7 +1035,7 @@
           </div>
           <button onclick="logoutGuest()" class="logout-btn">Logout</button>
         </div>
-        <a href="/mybookings.html" onclick="toggleMobileMenu()" class="my-bookings-btn">📅 My Bookings</a>
+        <a href="/mybookings.html" onclick="toggleMobileMenu(); window.location.href='/mybookings.html'; return false;" class="my-bookings-btn">📅 My Bookings</a>
       </div>
     </div>
   </div>
@@ -1104,8 +1105,9 @@
     </div>
   </div>
 
+  <!-- Grid container – event delegation for clicks -->
   <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-    <!-- Homestays will be rendered here from the API -->
+    <!-- Homestays will be rendered here -->
   </div>
 </main>
 
@@ -1199,15 +1201,14 @@
     </div>
   </div>
 
-  <!-- Gallery container -->
   <div class="w-full px-0">
     <div id="accordionGallery" class="accordion-gallery w-full max-w-full" style="height: 460px; --gap: 10px; --radius: 0px;">
-      <!-- Items will be rendered by JavaScript -->
+      <!-- Items rendered by JS -->
     </div>
   </div>
 </section>
 
-<!-- ===== ACCORDION GALLERY STYLES (ULTRA SMOOTH) ===== -->
+<!-- ===== ACCORDION GALLERY STYLES ===== -->
 <style>
   .accordion-gallery {
     display: flex;
@@ -1451,7 +1452,7 @@
   }
 </style>
 
-<!-- ===== ACCORDION GALLERY SCRIPT (ULTRA SMOOTH) ===== -->
+<!-- ===== ACCORDION GALLERY SCRIPT ===== -->
 <script>
 (function() {
   const galleryItems = [
@@ -1488,7 +1489,6 @@
   let activeIndex = 2;
   let isAnimating = false;
 
-  // Clear and render items
   container.innerHTML = '';
   
   galleryItems.forEach((item, index) => {
@@ -1517,10 +1517,8 @@
       </span>
     `;
 
-    // Store media element reference
     el._media = el.querySelector('.ag-media');
 
-    // Click handler - SMOOTH
     el.addEventListener('click', function(e) {
       e.preventDefault();
       if (!isAnimating) {
@@ -1528,7 +1526,6 @@
       }
     });
 
-    // Mouse enter - SMOOTH
     let hoverTimeout = null;
     el.addEventListener('mouseenter', function() {
       if (window.innerWidth > 768) {
@@ -1542,14 +1539,12 @@
       }
     });
 
-    // Focus
     el.addEventListener('focus', function() {
       if (!isAnimating) {
         setActive(index);
       }
     });
 
-    // Keyboard navigation
     el.addEventListener('keydown', function(e) {
       const count = galleryItems.length;
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
@@ -1572,13 +1567,11 @@
     container.appendChild(el);
   });
 
-  // Cache all items
   const items = container.querySelectorAll('.ag-item');
   const count = items.length;
   const expandRatio = 0.52;
   const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
 
-  // Set active function - ULTRA SMOOTH
   function setActive(index) {
     if (isAnimating || activeIndex === index) return;
     
@@ -1588,13 +1581,11 @@
     const isMobileView = window.innerWidth <= 768;
     const tilt = isMobileView ? 3 : 8;
     
-    // Batch all style updates using requestAnimationFrame
     requestAnimationFrame(function() {
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const isActive = i === index;
         
-        // Toggle class
         if (isActive) {
           item.classList.add('active');
           item.setAttribute('aria-current', 'true');
@@ -1605,10 +1596,8 @@
           item.style.zIndex = '1';
         }
         
-        // Update CSS variable
         item.style.setProperty('--ag-dim', isActive ? '0' : '0.35');
         
-        // Calculate tilt
         const rot = isActive ? 0 : (i < index ? tilt : -tilt);
         
         if (isMobileView) {
@@ -1623,13 +1612,9 @@
           item.style.transform = `rotateY(${rot}deg)`;
         }
         
-        // Media - always at 100% size, no scaling
         const media = item._media;
         if (media) {
-          // Keep media at full size always - no scaling
           media.style.transform = 'translate(-50%, -50%) scale(1)';
-          
-          // Only filter changes
           if (isActive) {
             media.style.filter = 'grayscale(0) brightness(1)';
           } else {
@@ -1637,18 +1622,15 @@
           }
         }
         
-        // Update flex grow
         item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
       }
     });
     
-    // Unlock after transition
     setTimeout(function() {
       isAnimating = false;
     }, 550);
   }
 
-  // Initial layout
   function initGallery() {
     const isMobileView = window.innerWidth <= 768;
     const tilt = isMobileView ? 3 : 8;
@@ -1697,7 +1679,6 @@
     }
   }
 
-  // Initialize
   requestAnimationFrame(function() {
     initGallery();
   });
@@ -1708,7 +1689,6 @@
     });
   });
 
-  // Handle resize
   let resizeTimer;
   window.addEventListener('resize', function() {
     clearTimeout(resizeTimer);
@@ -1748,7 +1728,6 @@
     }, 150);
   });
 
-  // Handle reduced motion
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   if (prefersReduced.matches) {
     for (let i = 0; i < items.length; i++) {
@@ -2170,7 +2149,7 @@ function isHomestayAvailableForRange(homestay, checkin, checkout, roomId) {
 }
 
 // =============================================================
-// HOMESTAY GRID RENDERER
+// HOMESTAY GRID RENDERER (with event delegation)
 // =============================================================
 function renderGrid() {
   var grid = document.getElementById("homestayGrid");
@@ -2195,10 +2174,11 @@ function renderGrid() {
     return;
   }
 
+  // Build cards with data-id attribute (no inline onclick)
   grid.innerHTML = safeHTML(list.map(function(h) {
     var blocked = getAllBlockedDatesForHomestay(h);
     return '' +
-      '<article class="group bg-white rounded-2xl shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden" onclick="openDetail(' + h.id + ')">' +
+      '<article class="group bg-white rounded-2xl shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden" data-id="' + h.id + '">' +
         '<div class="h-[240px] w-full relative overflow-hidden bg-zinc-100">' +
           '<img src="' + (h.image || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800') + '" loading="lazy" alt="' + h.name + '" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onerror="this.src=\'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800\'"/>' +
           '<div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">' +
@@ -2221,6 +2201,22 @@ function renderGrid() {
       '</article>' +
     '';
   }).join(''));
+
+  // Attach click listener to the grid container (event delegation)
+  // Remove any previous listener to avoid duplicates
+  grid.removeEventListener('click', gridClickHandler);
+  grid.addEventListener('click', gridClickHandler);
+}
+
+function gridClickHandler(e) {
+  // Find the closest article with data-id
+  var article = e.target.closest('article[data-id]');
+  if (article) {
+    var id = article.getAttribute('data-id');
+    if (id) {
+      openDetail(parseInt(id));
+    }
+  }
 }
 
 // =============================================================
@@ -2283,7 +2279,6 @@ if (rooms.length === 0) {
   const roomSelect = document.getElementById('roomSelect');
   if (roomSelect) {
     roomSelect.addEventListener('change', function() {
-      const idx = parseInt(this.value);
       const room = rooms.find(r => r.id === this.value);
       const descEl = document.getElementById('roomDescription');
       if (descEl && room) descEl.textContent = room.desc || '';
@@ -2578,9 +2573,6 @@ function toggleMobileMenu() {
 }
 
 // =============================================================
-// CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION
-// =============================================================
-// =============================================================
 // CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION (BIGGER)
 // =============================================================
 function renderAvailabilityCalendar(homestay, containerId) {
@@ -2597,12 +2589,53 @@ function renderAvailabilityCalendar(homestay, containerId) {
     container._currentYear = today.getFullYear();
   }
 
+  // Helper to update date inputs and price
+  function selectDate(isoDate) {
+    if (!isoDate) return;
+    var ciInput = document.getElementById('detailCheckin');
+    var coInput = document.getElementById('detailCheckout');
+    if (!ciInput || !coInput) return;
+
+    var currentCi = ciInput.value;
+    var currentCo = coInput.value;
+
+    // If no check-in set, or if the clicked date is before check-in, set as check-in
+    if (!currentCi || (isoDate < currentCi && !currentCo) || (currentCi && currentCo && isoDate < currentCi)) {
+      ciInput.value = isoDate;
+      coInput.value = '';
+    } else if (currentCi && isoDate > currentCi) {
+      // If check-in is set and clicked date is after, set as check-out
+      coInput.value = isoDate;
+    } else {
+      // If clicked date is before check-in, swap: new check-in = clicked, old check-in becomes check-out?
+      // Simpler: if clicked date < current check-in, set as new check-in and clear check-out
+      if (isoDate < currentCi) {
+        ciInput.value = isoDate;
+        coInput.value = '';
+      } else {
+        // If clicked date is between check-in and check-out, do nothing
+        return;
+      }
+    }
+
+    // Update price and availability status
+    updateDetailPrice();
+    // Re-render calendar to reflect new selection (highlight)
+    renderAvailabilityCalendar(homestay, containerId);
+  }
+
   function renderMonth() {
     var month = container._currentMonth;
     var year = container._currentYear;
     var monthLabel = new Date(year, month, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
     var daysInMonth = new Date(year, month + 1, 0).getDate();
     var startDay = new Date(year, month, 1).getDay();
+
+    // Get currently selected dates from inputs
+    var ciInput = document.getElementById('detailCheckin');
+    var coInput = document.getElementById('detailCheckout');
+    var selectedCi = ciInput ? ciInput.value : '';
+    var selectedCo = coInput ? coInput.value : '';
 
     var html = `
       <div class="flex items-center justify-between mb-2">
@@ -2631,9 +2664,24 @@ function renderAvailabilityCalendar(homestay, containerId) {
       var isPast = d < today;
       var isToday = iso === todayIso;
 
-      var cls = isPast ? "calendar-day past" : (isBlocked ? "calendar-day booked" : "calendar-day available");
+      var cls = "calendar-day";
+      if (isPast) cls += " past";
+      else if (isBlocked) cls += " booked";
+      else cls += " available";
       if (isToday) cls += " today";
-      html += '<div class="' + cls + '" title="' + iso + '" style="font-size:12px; font-weight:600;">' + day + '</div>';
+
+      // Highlight if selected
+      if (iso === selectedCi || iso === selectedCo) cls += " bg-[#0F382E] text-white border-[#0F382E]";
+
+      // Onclick: only allow selection if available and not past
+      var onclickAttr = '';
+      if (!isPast && !isBlocked) {
+        onclickAttr = ` onclick="selectDate('${iso}')" style="cursor:pointer;"`;
+      } else {
+        onclickAttr = ' style="cursor:default;"';
+      }
+
+      html += `<div class="${cls}" title="${iso}"${onclickAttr}>${day}</div>`;
     }
 
     html += '</div></div>';
@@ -2643,11 +2691,15 @@ function renderAvailabilityCalendar(homestay, containerId) {
         <span><span class="dot green"></span> Free</span>
         <span><span class="dot red"></span> Booked</span>
         ${today.getMonth() === month && today.getFullYear() === year ? '<span><span class="dot today-dot"></span> Today</span>' : ''}
+        <span style="margin-left:auto;">Click a free date to select</span>
       </div>
     `;
 
     container.innerHTML = safeHTML(html);
   }
+
+  // Expose selectDate globally so onclick can call it
+  window.selectDate = selectDate;
 
   window.navigateCalendar = function(btn, direction, containerId) {
     var c = document.getElementById(containerId);
