@@ -763,8 +763,9 @@ function showConfirm(title, message) {
     { label: 'Confirm Action', class: 'btn-primary', value: true }
   ]);
 }
+// UPDATED: prompt with numeric input and pattern
 function showPrompt(title, message, defaultValue) {
-  const input = `<input type="text" id="modalInput" value="${defaultValue || ''}" class="w-full border rounded-full px-4 py-2.5 mt-3 text-sm" placeholder="Enter parameters..." />`;
+  const input = `<input type="text" id="modalInput" value="${defaultValue || ''}" class="w-full border rounded-full px-4 py-2.5 mt-3 text-sm" placeholder="Enter parameters..." inputmode="numeric" pattern="[0-9]*" />`;
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
     const titleEl = document.getElementById('modalTitle');
@@ -1099,28 +1100,29 @@ if (b.roomImages && b.roomImages.length > 0) {
   }
 }
 
-function openWhatsappToGuest(bookingId) {
-  const booking = bookings.find(b => String(b.id) === String(bookingId));
-  if (!booking) { showAlert('Error', 'Target booking index not found'); return; }
-  let rawPhone = booking.guestPhone || booking.guestWhatsapp || '';
-  let phone = String(rawPhone).replace(/[^0-9]/g, '');
-  if (!phone || phone.length < 9) { showAlert('Notice', 'Guest contact parameter missing.'); return; }
-  if (phone.startsWith('0')) phone = '60' + phone.substring(1);
-  const msg = `Hi ${booking.guestName || 'Guest'}! 🎉\n\nYour check-in at *${booking.homestay || 'Kundasang Homestay'}* has been confirmed!\n\n📅 Check-in: ${booking.checkin}\n📅 Check-out: ${booking.checkout}\n🌙 Nights: ${booking.nights}\n🆔 Booking ID: ${booking.id}\n\nWe hope you enjoy your stay! Welcome to Kundasang! 🏔️`;
-  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-}
-
+// =============================================================
+// FIXED confirmCheckIn – strict 6‑digit validation, no skip
+// =============================================================
 async function confirmCheckIn(bookingId) {
+  const booking = bookings.find(b => String(b.id) === String(bookingId));
+  const guestName = booking ? booking.guestName : 'Guest';
+
   const code = await showPrompt(
     'Enter Check‑in Code',
-    `Booking ${bookingId}: Ask the guest for the 6‑digit code sent to their Email.`
+    `Booking ${bookingId}<br>Guest: <strong>${guestName}</strong><br><br>Ask the guest for the <strong>6‑digit code</strong> sent to their email.`,
+    ''
   );
-  if (!code || code.length !== 6 || isNaN(code)) {
-    await showAlert('Invalid Code', 'Please enter the exact 6‑digit code from the guest.');
+  if (code === null) return; // user cancelled
+
+  const trimmedCode = code.trim();
+  // Strict validation: exactly 6 digits
+  if (!/^\d{6}$/.test(trimmedCode)) {
+    await showAlert('Invalid Code', 'The code must be exactly 6 digits (0‑9). Please try again.');
     return;
   }
 
-  const confirmed = await showConfirm('Guest Check‑In', `Confirm guest arrival for booking ${bookingId}? The code will be verified.`);
+  // Confirm with host before sending
+  const confirmed = await showConfirm('Confirm Check‑in', `Proceed with check‑in for booking ${bookingId}?`);
   if (!confirmed) return;
 
   try {
@@ -1130,14 +1132,15 @@ async function confirmCheckIn(bookingId) {
         'Content-Type': 'application/json',
         'Owner-Authorization': 'Bearer ' + ownerToken
       },
-      body: JSON.stringify({ bookingId, checkinCode: code })
+      body: JSON.stringify({ bookingId, checkinCode: trimmedCode })
     });
     const data = await res.json();
     if (data.success) {
       await showAlert('Check‑in Logged', '✓ ' + data.message);
       await loadBookings();
     } else {
-      await showAlert('Operation Faulted', '❌ error: ' + (data.error || data.message));
+      // Display the exact server error
+      await showAlert('Operation Faulted', '❌ ' + (data.error || data.message || 'Unknown error'));
     }
   } catch(e) {
     await showAlert('Operation Faulted', 'Network error: ' + e.message);
@@ -1235,12 +1238,11 @@ async function cancelBooking(bookingId) {
 }
 
 // =============================================================
-// ROOM BLOCK MANAGEMENT – moved to top-level
+// ROOM BLOCK MANAGEMENT
 // =============================================================
 async function loadRoomBlocks() {
   const selector = document.getElementById('blockRoomSelect');
   if (!selector) return;
-  // Populate rooms from allHomestays (only those owned by this host)
   const rooms = [];
   allHomestays.forEach(h => {
     if (h.rooms && h.rooms.length) {
@@ -1305,8 +1307,8 @@ async function toggleRoomBlock() {
     const data = await res.json();
     if (data.success) {
       await showAlert('Success', data.message);
-      await loadBookings(); // refresh data
-      await loadRoomBlocks(); // refresh dropdown and list
+      await loadBookings();
+      await loadRoomBlocks();
       dateInput.value = '';
     } else {
       await showAlert('Error', data.error || 'Failed to update block.');
@@ -1322,7 +1324,6 @@ async function removeRoomBlock(date) {
   if (!selected || !selected.value) return;
   const roomId = selected.value;
   const homestayId = selected.dataset.homestay;
-  // We toggle by sending the same date – the server will remove it if it exists
   try {
     const res = await fetch(API_BASE + '/owner-update-booking', {
       method: 'POST',
@@ -1380,7 +1381,7 @@ async function removeRoomBlock(date) {
         if (dashboardSection) dashboardSection.classList.remove('hidden');
         document.getElementById('welcomeName').innerText = data.ownerName || 'Owner';
         loadBookings();
-        loadRoomBlocks(); // populate room blocks
+        loadRoomBlocks();
       } else {
         showAlert('Authentication Required', 'Please log in to your host credentials account.').then(() => {
           sessionStorage.removeItem('kd_owner_token');
