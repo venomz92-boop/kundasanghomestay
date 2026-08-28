@@ -9,8 +9,8 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400 });
     }
 
-    const cloudName = env.CLOUDINARY_CLOUD_NAME || 'lk3qg08g';
-    const apiKey = env.CLOUDINARY_API_KEY || '125271253839312';
+    const cloudName = env.CLOUDINARY_CLOUD_NAME || '';
+    const apiKey = env.CLOUDINARY_API_KEY || '';
     const apiSecret = env.CLOUDINARY_API_SECRET;
 
     if (!apiSecret) {
