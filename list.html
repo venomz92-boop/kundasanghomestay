@@ -865,17 +865,17 @@ function safeHTML(html) {
       'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
       'button','input','form','label','select','option','textarea',
       'section','article','header','footer','nav','main','aside',
-      'code','pre','blockquote','hr','small','sub','sup','svg','path','canvas'
+      'code','pre','blockquote','hr','small','sub','sup','svg','path'
     ],
     ALLOWED_ATTR: [
       'id','class','style','href','src','alt','title','rel','target',
-      'onclick','onchange','oninput','onload','onerror',
       'method','action','type','name','value','placeholder',
       'checked','disabled','readonly','required','multiple',
       'min','max','step','pattern','autocomplete','inputmode',
       'viewBox','fill','stroke','stroke-width','d'
+      // NO event handlers (onclick, onchange, oninput, onload, onerror, etc.)
     ],
-    ADD_ATTR: ['target']
+    ADD_ATTR: ['target'] // if needed
   });
 }
 
