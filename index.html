@@ -2524,6 +2524,7 @@ function handlePaymentReturn() {
     fetch('/api/verify-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ bookingId: bookingId })
     })
     .then(res => res.json())
@@ -2533,10 +2534,11 @@ function handlePaymentReturn() {
         showThankYouModal(bookingId, data.booking);
       } else {
         // Still pending, show a message to wait or retry
-        showAlert('Payment Pending', 'Your payment is being processed. Please check back later.');
+        showAlert('Payment Pending', data.message || 'Payment not yet confirmed.');
       }
     })
     .catch(() => {
+      console.error('Verification error:', err);
       showAlert('Error', 'Could not verify payment. Please contact support.');
     });
 
