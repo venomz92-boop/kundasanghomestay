@@ -1,7 +1,7 @@
 // /api/toyyibpay-webhook.js
 import { corsHeaders, enforceHttps, getClientIP, logAction } from './_utils.js';
 
-// ===== MD5 (custom) =====
+// ======== MD5 ========
 function md5(str) {
   const utf8 = new TextEncoder().encode(str);
   const bytes = Array.from(utf8);
@@ -36,25 +36,21 @@ export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
 
-  let rawBody = '';
   try {
-    // 1. Read raw body (for logging)
-    const clone = request.clone();
+    // 1. Parse body (JSON or form)
     const contentType = request.headers.get('content-type') || '';
     let data = {};
     if (contentType.includes('application/json')) {
       data = await request.json();
-      rawBody = JSON.stringify(data);
     } else {
       const form = await request.formData();
       for (const [k, v] of form.entries()) data[k] = String(v);
-      rawBody = new URLSearchParams(data).toString();
     }
 
-    // 2. Log everything (this will appear in Worker logs)
-    console.log('📥 Webhook received:');
-    console.log('  Headers:', Object.fromEntries(request.headers.entries()));
-    console.log('  Body:', data);
+    // 2. Log everything (you'll see this in Cloudflare Logs)
+    console.log('📥 TOYYIBPAY WEBHOOK');
+    console.log('Headers:', Object.fromEntries(request.headers.entries()));
+    console.log('Body:', data);
 
     const status = String(data.status || '').trim();
     const orderId = String(data.order_id || '').trim();
@@ -73,7 +69,7 @@ export async function onRequestPost({ request, env }) {
     // 3. Verify signature
     const secret = env.TOYYIBPAY_SECRET_KEY;
     if (!secret) {
-      console.error('❌ TOYYIBPAY_SECRET_KEY missing');
+      console.error('❌ TOYYIBPAY_SECRET_KEY not set');
       return new Response('Config error', { status: 500, headers: corsHeaders(request) });
     }
     const expected = md5(`${secret}${status}${orderId}${refno}ok`);
@@ -86,25 +82,25 @@ export async function onRequestPost({ request, env }) {
     // 4. DB
     const db = env.DB;
     if (!db) {
-      console.error('❌ DB missing');
+      console.error('❌ DB not available');
       return new Response('DB error', { status: 500, headers: corsHeaders(request) });
     }
 
-    // 5. Retrieve bookings
+    // 5. Get bookings
     const result = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
     let bookings = [];
     try { if (result?.data) bookings = JSON.parse(result.data); } catch(_) {}
     if (!Array.isArray(bookings)) bookings = [];
 
-    // 6. Find booking
+    // 6. Find booking by order_id (ignore billcode mismatch)
     let idx = bookings.findIndex(b => String(b.id) === orderId);
     let booking = null;
     if (idx >= 0) {
       booking = bookings[idx];
       console.log(`✅ Found booking: ${booking.id}, current status: ${booking.status}`);
     } else {
-      console.warn(`⚠️ Booking ${orderId} not found in store – will create a placeholder`);
-      // Create a minimal placeholder so we can still update
+      console.warn(`⚠️ Booking ${orderId} not found – will create a temporary record`);
+      // Create a placeholder so we can still update
       booking = {
         id: orderId,
         status: 'Pending Payment',
@@ -129,8 +125,8 @@ export async function onRequestPost({ request, env }) {
     }
 
     // 8. Update status based on status code
+    let updated = false;
     if (status === '1') {
-      // Success
       bookings[idx] = {
         ...booking,
         status: 'Paid - Awaiting Check-in',
@@ -141,7 +137,8 @@ export async function onRequestPost({ request, env }) {
         toyyibpay_amount: amountRaw,
         toyyibpay_billcode: billcode
       };
-      console.log(`✅ Updating booking ${orderId} to PAID`);
+      updated = true;
+      console.log(`✅ Booking ${orderId} updated to PAID`);
     } else if (status === '3') {
       bookings[idx] = {
         ...booking,
@@ -152,18 +149,21 @@ export async function onRequestPost({ request, env }) {
         toyyibpay_amount: amountRaw,
         toyyibpay_billcode: billcode
       };
+      updated = true;
       console.log(`⚠️ Booking ${orderId} marked as FAILED`);
     } else {
       console.log(`ℹ️ Status ${status} – ignoring`);
-      return new Response('Status ignored', { status: 200, headers: corsHeaders(request) });
     }
 
-    // 9. Save back to DB
-    await db.prepare('INSERT OR REPLACE INTO store(key, data) VALUES(?, ?)')
-      .bind('kd_bookings', JSON.stringify(bookings))
-      .run();
+    if (updated) {
+      // Save back to DB
+      await db.prepare('INSERT OR REPLACE INTO store(key, data) VALUES(?, ?)')
+        .bind('kd_bookings', JSON.stringify(bookings))
+        .run();
+      console.log(`💾 Bookings saved`);
+    }
 
-    // 10. Log action
+    // 9. Log action
     await logAction({
       db,
       action: 'webhook_processed',
