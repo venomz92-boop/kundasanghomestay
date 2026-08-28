@@ -759,12 +759,11 @@ document.addEventListener('DOMContentLoaded', function() {
   renderGuestNav();
   console.log('✅ Login page loaded with modern styling');
 
-  // Check for verification success parameter
+  // Check for verification success parameter (single declaration)
   var urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('registered') === '1') {
-  showAlert('Registration Successful', 'Please check your email to verify your account before logging in.');
-}
-  var urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('registered') === '1') {
+    showAlert('Registration Successful', 'Please check your email to verify your account before logging in.');
+  }
   if (urlParams.get('verified') === '1') {
     showAlert('Email Verified', 'Your email has been verified successfully! You can now log in.');
   } else if (urlParams.get('verified') === 'already') {
