@@ -9,47 +9,42 @@ async function sha1(message) {
 }
 
 export async function onRequestPost({ request, env }) {
-  // 🔒 Auth: owner or admin
   const owner = await getOwnerSession(request, env);
   const adminToken = await getAdminToken(request);
   if (!owner && adminToken !== env.ADMIN_TOKEN) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: corsHeaders(request)
-    });
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: corsHeaders(request) }
+    );
   }
 
   try {
     const formData = await request.formData();
     const file = formData.get('image');
     if (!file) {
-      return new Response(JSON.stringify({ error: 'No file provided' }), {
-        status: 400,
-        headers: corsHeaders(request)
-      });
+      return new Response(
+        JSON.stringify({ error: 'No file provided' }),
+        { status: 400, headers: corsHeaders(request) }
+      );
     }
 
-    // ✅ Credentials from env
     const cloudName = env.CLOUDINARY_CLOUD_NAME;
     const apiKey = env.CLOUDINARY_API_KEY;
     const apiSecret = env.CLOUDINARY_API_SECRET;
 
     if (!apiSecret || !cloudName || !apiKey) {
       console.error('❌ Cloudinary env vars missing');
-      return new Response(JSON.stringify({ error: 'Server configuration error' }), {
-        status: 500,
-        headers: corsHeaders(request)
-      });
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { status: 500, headers: corsHeaders(request) }
+      );
     }
 
-    // Convert file to base64
     const buffer = await file.arrayBuffer();
     const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
 
-    // Upload to Cloudinary
     const timestamp = Math.floor(Date.now() / 1000);
     const folder = 'kundasang-homestay/rooms';
-
     const signatureString = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
     const signature = await sha1(signatureString);
 
@@ -73,10 +68,10 @@ export async function onRequestPost({ request, env }) {
     const data = await response.json();
     if (!response.ok || !data.secure_url) {
       console.error('❌ Cloudinary upload error:', data);
-      return new Response(JSON.stringify({ error: data.error?.message || 'Upload failed' }), {
-        status: 500,
-        headers: corsHeaders(request)
-      });
+      return new Response(
+        JSON.stringify({ error: data.error?.message || 'Upload failed' }),
+        { status: 500, headers: corsHeaders(request) }
+      );
     }
 
     return new Response(
@@ -92,9 +87,9 @@ export async function onRequestPost({ request, env }) {
     );
   } catch (e) {
     console.error('❌ Upload error:', e.message);
-    return new Response(JSON.stringify({ error: e.message }), {
-      status: 500,
-      headers: corsHeaders(request)
-    });
+    return new Response(
+      JSON.stringify({ error: e.message }),
+      { status: 500, headers: corsHeaders(request) }
+    );
   }
 }
