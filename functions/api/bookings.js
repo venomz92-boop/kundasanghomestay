@@ -1,4 +1,4 @@
-// /api/bookings.js - PATCHED: Fixed duplicate booking creation and added break.
+// /api/bookings.js - PATCHED: Fixed duplicate booking creation and email notification.
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -342,8 +342,8 @@ export async function onRequestPost({ request, env }) {
           .run();
 
         saved = true;
-        break;  // ✅ FIX: break out of loop after successful creation
 
+        // ✅ EMAIL, WHATSAPP, LOG ACTION – now BEFORE the break so they always run
         await sendBookingEmail(guest.email, guest.name, bookingId, homestay.name, ci, co, nights, total, checkinCode, env)
           .catch(e => console.warn('Email send failed:', e));
 
@@ -358,7 +358,9 @@ export async function onRequestPost({ request, env }) {
         } catch (waError) { console.warn('WhatsApp notification failed:', waError); }
 
         await logAction({db,action:'booking_created',admin:'guest',details:`Booking ${booking.id} created; payment pending`,ip:getClientIP(request),userId:guest.id,homestayId:homestay.id});
-        return jsonResponse({success:true, booking}, 200, request);
+
+        // ✅ break AFTER all post‑creation operations
+        break;
 
       } catch(e) {
         console.error('Create booking error:', e.message);
@@ -372,6 +374,11 @@ export async function onRequestPost({ request, env }) {
     if (!saved) {
       return jsonResponse({ error: 'Could not save booking after multiple attempts' }, 503, request);
     }
+
+    // ✅ Return the booking after successful creation
+    const finalBookings = await getData('kd_bookings');
+    const newBooking = finalBookings.find(b => String(b.id) === String(incoming.id || ''));
+    return jsonResponse({ success: true, booking: newBooking || { id: incoming.id, status: 'Pending Payment' } }, 200, request);
   }
 
   if (action === "publicUpdateStatus" && body.id) {
