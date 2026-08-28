@@ -2,74 +2,40 @@ import { corsHeaders } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   try {
-    // 1. Read body
     const raw = await request.text();
-    let body;
-    try { body = JSON.parse(raw); } catch (e) {
-      return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-        status: 400,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    }
-
+    const body = JSON.parse(raw);
     const bookingId = body.bookingId;
-    if (!bookingId) {
-      return new Response(JSON.stringify({ error: 'Missing bookingId' }), {
-        status: 400,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    }
 
-    // 2. Get DB
     const db = env.DB;
-    if (!db) {
-      return new Response(JSON.stringify({ error: 'DB not found' }), {
-        status: 500,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    }
-
-    // 3. Query
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
-    let bookings = [];
-    try { bookings = JSON.parse(r?.data || '[]'); } catch (e) {
-      return new Response(JSON.stringify({ error: 'Parse error' }), {
-        status: 500,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    }
+    let bookings = JSON.parse(r?.data || '[]');
+    const booking = bookings.find(b => String(b.id) === bookingId);
 
-    // 4. Find booking
-    const idx = bookings.findIndex(b => String(b.id) === bookingId);
-    if (idx === -1) {
+    if (!booking) {
       return new Response(JSON.stringify({ error: 'Booking not found' }), {
         status: 404,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
-    const booking = bookings[idx];
+    // Return the billcode and the getBill response
+    const secret = env.TOYYIBPAY_SECRET_KEY;
+    const billcode = booking.toyyibpay_billcode;
+    const url = `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${billcode}&userSecretKey=${secret}`;
+    const res = await fetch(url);
+    const billData = await res.json();
 
-    // 5. If simulation billcode, mark paid
-    if (booking.toyyibpay_billcode && booking.toyyibpay_billcode.startsWith('SIM-')) {
-      bookings[idx].status = 'Paid - Awaiting Check-in';
-      bookings[idx].paid_at = new Date().toISOString();
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_bookings', JSON.stringify(bookings)).run();
-      return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
-        status: 200,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    }
-
-    // 6. Otherwise, still pending
-    return new Response(JSON.stringify({ success: false, message: 'Payment not yet confirmed' }), {
+    return new Response(JSON.stringify({
+      billcode,
+      billData,
+      bookingStatus: booking.status,
+      secretProvided: !!secret
+    }), {
       status: 200,
       headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
     });
-
   } catch (e) {
-    return new Response(JSON.stringify({ error: 'Internal: ' + e.message }), {
+    return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
       headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
     });
