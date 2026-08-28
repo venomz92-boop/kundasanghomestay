@@ -1,4 +1,4 @@
-// /api/withdraw.js – Full patched file (no placeholders)
+// /api/withdraw.js – Full patched with correct ToyyibPay endpoints
 import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
 
 // ===== Admin auth =====
@@ -212,10 +212,11 @@ export async function onRequestPost({ request, env }) {
       payoutData = { simulation: true };
       console.log("🔵 SIMULATION: Withdrawal of RM" + withdrawAmount + " to " + accountHolder);
     } else if (isToyyibLive) {
-      // Real payout
+      // Real payout – use correct endpoints
       const secret = env.TOYYIBPAY_SECRET_KEY;
       const envMode = env.TOYYIBPAY_ENV || 'sandbox';
-      const apiBase = envMode === 'production' ? 'https://toyyibpay.com' : 'https://dev.toyyibpay.com';
+      // Base URL: production uses toyyibpay.com, sandbox uses dev.toyyibpay.com
+      const baseUrl = envMode === 'production' ? 'https://toyyibpay.com' : 'https://dev.toyyibpay.com';
       const amountCents = Math.round(withdrawAmount * 100);
 
       const formData = new FormData();
@@ -227,20 +228,22 @@ export async function onRequestPost({ request, env }) {
       formData.append("payoutDescription", `Platform Withdrawal WD_${Date.now()}`);
       formData.append("payoutReferenceNo", `WD_${Date.now()}`);
 
+      // Official ToyyibPay endpoints (documented)
       const endpoints = [
-        `${apiBase}/index.php/api/payout`,
-        `${apiBase}/index.php/api/createPayout`
+        `${baseUrl}/index.php/api/createPayout`,
+        `${baseUrl}/index.php/api/payout`
       ];
 
       for (const endpoint of endpoints) {
         try {
+          console.log(`🔍 Attempting payout to endpoint: ${endpoint}`);
           const res = await fetch(endpoint, {
             method: "POST",
             body: formData,
             headers: { 'User-Agent': 'KundasangHomestay/1.0' }
           });
           const text = await res.text();
-          console.log(`🔍 Payout response from ${endpoint}:`, text);
+          console.log(`📦 Response (${res.status}) from ${endpoint}:`, text);
           let json;
           try { json = JSON.parse(text); } catch { json = { raw: text }; }
           if (res.ok && (json.status === "success" || json[0]?.status === "success" || json.payoutCode)) {
@@ -248,7 +251,14 @@ export async function onRequestPost({ request, env }) {
             payoutData = json;
             break;
           } else {
+            // Store error for later
             payoutError = json;
+            // If it's a 404, we might try the next endpoint
+            if (res.status === 404) {
+              console.warn(`⚠️ Endpoint ${endpoint} returned 404, trying next...`);
+              continue;
+            }
+            // Other errors: still try next but keep the error
           }
         } catch (e) {
           payoutError = e.message;
@@ -257,7 +267,7 @@ export async function onRequestPost({ request, env }) {
       }
 
       if (!payoutSuccess) {
-        // Real payout failed – return error (no auto-fallback)
+        // All endpoints failed
         const errorMsg = payoutError?.message || payoutError?.raw || payoutError || "Unknown error";
         console.error("❌ Payout failed with details:", errorMsg);
         return new Response(JSON.stringify({
