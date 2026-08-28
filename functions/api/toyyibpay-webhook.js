@@ -49,7 +49,7 @@ export async function onRequestPost({ request, env }) {
     console.log('📥 Webhook payload:', JSON.stringify(data, null, 2));
 
     const status = String(data.status || '');
-    const orderId = String(data.order_id || '');
+    const orderId = String(data.order_id || data.refno || '');
     const refno = String(data.refno || '');
     const billcode = String(data.billcode || '');
     const receivedHash = String(data.hash || '');
@@ -65,19 +65,22 @@ export async function onRequestPost({ request, env }) {
       return new Response('server not configured', { status: 500, headers: corsHeaders(request) });
     }
 
-    // ---- Correct signature: secret + billcode + status + order_id (+ optional "ok") ----
+    // ---- Correct signature: secret + billcode + status + order_id (and variants) ----
     const hash1 = md5(`${secret}${billcode}${status}${orderId}`);
     const hash2 = md5(`${secret}${billcode}${status}${orderId}ok`);
     const hash3 = md5(`${secret}${status}${orderId}${refno}ok`); // legacy fallback
+    const hash4 = md5(`${secret}${billcode}${status}${orderId}${refno}`); // extra
 
     console.log('🔑 Received hash:', receivedHash);
     console.log('🔑 Computed (billcode+status+order):', hash1);
     console.log('🔑 Computed (with "ok"):', hash2);
     console.log('🔑 Computed (legacy):', hash3);
+    console.log('🔑 Computed (extra):', hash4);
 
     const isValid = (receivedHash.toLowerCase() === hash1.toLowerCase()) ||
                     (receivedHash.toLowerCase() === hash2.toLowerCase()) ||
-                    (receivedHash.toLowerCase() === hash3.toLowerCase());
+                    (receivedHash.toLowerCase() === hash3.toLowerCase()) ||
+                    (receivedHash.toLowerCase() === hash4.toLowerCase());
 
     if (!isValid) {
       console.error('❌ Invalid signature – rejecting');
@@ -124,7 +127,8 @@ export async function onRequestPost({ request, env }) {
     const expectedAmount = Math.round(Number(booking.total) * 100);
     const callbackAmountCents = Math.round(Number(data.amount || 0) * 100);
 
-    if (callbackAmountCents !== expectedAmount) {
+    // Allow small tolerance (1 cent) for rounding
+    if (Math.abs(callbackAmountCents - expectedAmount) > 1) {
       console.warn(`❌ Amount mismatch: expected ${expectedAmount}, got ${callbackAmountCents}`);
       return new Response('amount mismatch', { status: 400, headers: corsHeaders(request) });
     }
