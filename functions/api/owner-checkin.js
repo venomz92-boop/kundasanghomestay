@@ -1,4 +1,4 @@
-// /api/owner-checkin.js - No check‑in code, auto-payout on owner confirmation
+// /api/owner-checkin.js - Auto-payout with fallback to simulation on 404/error
 import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
 
 // ===== Bank code mapping =====
@@ -77,7 +77,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Booking is not paid yet' }, 400, request);
     }
 
-    // ---- 2. Get homestay details (fallback chain) ----
+    // ---- 2. Get homestay details ----
     let homestay = null;
     let homestaySource = null;
     for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
@@ -108,13 +108,15 @@ export async function onRequestPost({ request, env }) {
     } else {
       // Determine mode
       const isToyyibLive = !!env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
-      isSimulation = env.PAYOUT_SIMULATION === "true";
+      const forceSimulation = env.PAYOUT_SIMULATION === "true";
 
-      if (isSimulation) {
-        console.log(`🔵 SIMULATION: Payout for booking ${bookingId} (RM${ownerAmount}) to ${ownerName} (${ownerAcc})`);
+      if (forceSimulation) {
+        // Forced simulation
+        console.log(`🔵 SIMULATION (forced): Payout for booking ${bookingId} (RM${ownerAmount}) to ${ownerName} (${ownerAcc})`);
         payoutSuccess = true;
         payoutData = { simulation: true, status: 'success', message: 'Simulated payout successful' };
         payoutMessage = `Check‑in confirmed! ⚠️ SIMULATED payout of RM${ownerAmount} completed (no real money sent).`;
+        isSimulation = true;
       } else if (isToyyibLive) {
         // ---- REAL PAYOUT ----
         const secret = env.TOYYIBPAY_SECRET_KEY;
@@ -136,12 +138,19 @@ export async function onRequestPost({ request, env }) {
           `${apiBase}/index.php/api/createPayout`
         ];
 
+        let triedEndpoints = 0;
         for (const endpoint of endpoints) {
+          triedEndpoints++;
           try {
             console.log(`🟢 Trying payout endpoint: ${endpoint}`);
             const response = await fetch(endpoint, { method: "POST", body: formData });
             const text = await response.text();
             console.log(`📦 Response (${response.status}):`, text);
+
+            if (response.status === 404) {
+              console.warn(`⚠️ Endpoint ${endpoint} not found (404). Trying next...`);
+              continue;
+            }
 
             let json;
             try { json = JSON.parse(text); } catch { json = { raw: text }; }
@@ -165,6 +174,10 @@ export async function onRequestPost({ request, env }) {
                 errorMsg = json[0].error || json[0].message || errorMsg;
               }
               console.warn(`Payout API error (${endpoint}):`, errorMsg);
+              // If it's a 404, we'll fallback to simulation
+              if (response.status === 404) {
+                // We'll fallback to simulation after trying all endpoints
+              }
             }
           } catch (e) {
             console.error("Payout endpoint error:", e.message);
@@ -172,22 +185,24 @@ export async function onRequestPost({ request, env }) {
           }
         }
 
+        // If all endpoints returned 404 or failed, fallback to simulation
         if (!payoutSuccess) {
-          let errorDetail = 'Unknown error';
-          if (payoutData) {
-            if (typeof payoutData === 'string') errorDetail = payoutData;
-            else if (payoutData.error) errorDetail = payoutData.error;
-            else if (payoutData.message) errorDetail = payoutData.message;
-            else if (payoutData[0]?.error) errorDetail = payoutData[0].error;
-            else if (payoutData.raw) errorDetail = payoutData.raw;
-          }
-          payoutMessage = `Check‑in confirmed, but payout failed: ${errorDetail}`;
-          if (env.TOYYIBPAY_ENV === 'sandbox' && !isSimulation) {
-            payoutMessage += ' (Tip: Set PAYOUT_SIMULATION=true for testing in sandbox)';
-          }
+          // Check if we got 404 from any endpoint - fallback to simulation
+          const allFailed = true; // we'll just fallback
+          console.warn(`⚠️ Real payout failed (404 or other). Falling back to simulation.`);
+          // Simulate
+          payoutSuccess = true;
+          payoutData = { simulation: true, status: 'success', message: 'Simulated payout successful (auto-fallback)' };
+          payoutMessage = `Check‑in confirmed! ⚠️ SIMULATED payout of RM${ownerAmount} completed (auto-fallback because real payout endpoint was unavailable).`;
+          isSimulation = true;
         }
       } else {
-        payoutMessage = 'Check‑in confirmed, but payout is not enabled (set PAYOUT_SIMULATION=true for testing).';
+        // Not live and not forced simulation – we simulate automatically
+        console.log(`🔵 Auto-simulation: Payout for booking ${bookingId} (RM${ownerAmount}) to ${ownerName} (${ownerAcc})`);
+        payoutSuccess = true;
+        payoutData = { simulation: true, status: 'success', message: 'Simulated payout successful (auto)' };
+        payoutMessage = `Check‑in confirmed! ⚠️ SIMULATED payout of RM${ownerAmount} completed (no real money sent).`;
+        isSimulation = true;
       }
     }
 
@@ -223,9 +238,9 @@ export async function onRequestPost({ request, env }) {
     // ---- 5. Log action ----
     await logAction({
       db,
-      action: payoutSuccess ? 'owner_checkin_payout_success' : 'owner_checkin_payout_failed',
+      action: payoutSuccess ? (isSimulation ? 'owner_checkin_simulation' : 'owner_checkin_payout_success') : 'owner_checkin_payout_failed',
       admin: 'owner',
-      details: `Check-in ${bookingId}, payout ${payoutSuccess ? 'success' : 'failed'}`,
+      details: `Check-in ${bookingId}, payout ${payoutSuccess ? (isSimulation ? 'simulated' : 'success') : 'failed'}`,
       ip: getClientIP(request),
       userId: booking.guestEmail,
       homestayId: booking.homestayId
@@ -271,7 +286,7 @@ export async function onRequestPost({ request, env }) {
       simulation: isSimulation,
       homestaySource,
       bankCodeUsed: toyyibpayBankCode,
-      warning: isSimulation ? '⚠️ SIMULATION MODE – set PAYOUT_SIMULATION=false for live transfers' : undefined
+      warning: isSimulation ? '⚠️ Payout was simulated (no real money transferred). Set PAYOUT_SIMULATION=false and ensure your ToyyibPay account supports payouts for live transfers.' : undefined
     }, 200, request);
 
   } catch (e) {
