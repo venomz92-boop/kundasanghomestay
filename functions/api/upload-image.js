@@ -36,6 +36,7 @@ export async function onRequestPost({ request, env }) {
       api_key: apiKey,
       timestamp: String(timestamp),
       signature: signature
+      signature_algorithm: 'sha256'
     });
 
     const response = await fetch(
