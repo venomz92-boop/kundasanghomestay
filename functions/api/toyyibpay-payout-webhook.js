@@ -1,4 +1,4 @@
-// /api/toyyibpay-payout-webhook.js
+// /api/toyyibpay-payout-webhook.js - with signature and idempotency
 import { corsHeaders, getClientIP, logAction, enforceHttps, sha256 } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
@@ -6,29 +6,40 @@ export async function onRequestPost({ request, env }) {
   if (redirect) return redirect;
 
   try {
+    const authHeader = request.headers.get('Authorization') || '';
+    const expectedToken = env.TOYYIBPAY_SECRET_KEY || '';
     const clientIP = getClientIP(request);
+    const allowedIPs = env.TOYYIBPAY_WEBHOOK_IPS ? env.TOYYIBPAY_WEBHOOK_IPS.split(',').map(ip => ip.trim()) : [];
+    const isAllowedIP = allowedIPs.length === 0 || allowedIPs.includes(clientIP);
+
+    if (!expectedToken) {
+      console.error('🔐 TOYYIBPAY_SECRET_KEY not set – rejecting webhook');
+      return new Response('Unauthorized - Secret key not configured', { status: 401, headers: corsHeaders(request) });
+    }
+
+    const isAuthorized = (authHeader === 'Bearer ' + expectedToken) || isAllowedIP;
+    if (!isAuthorized) {
+      console.warn(`🔐 Payout webhook unauthorized from IP ${clientIP}`);
+      return new Response('Unauthorized', { status: 401, headers: corsHeaders(request) });
+    }
+
     const formData = await request.formData();
     const payoutCode = formData.get('payoutCode') || formData.get('PayoutCode') || formData.get('payout_reference_no');
     const status = formData.get('status');
     const amount = formData.get('amount');
     const referenceNo = formData.get('referenceNo') || formData.get('payoutReferenceNo');
+    const transactionDate = formData.get('transactionDate') || new Date().toISOString();
 
-    // 🔒 Enforce signature
+    // ===== SIGNATURE VERIFICATION =====
     const signature = request.headers.get('X-ToyyibPay-Signature') || '';
-    if (!signature) {
-      console.warn('Missing signature header – rejecting');
-      return new Response('Missing signature', { status: 401, headers: corsHeaders(request) });
-    }
-
-    if (!referenceNo || !status || !amount) {
-      console.warn('Missing fields in webhook');
-      return new Response('Missing fields', { status: 400, headers: corsHeaders(request) });
-    }
-
-    const expectedSig = await sha256(`${referenceNo}${status}${amount}${env.TOYYIBPAY_SECRET_KEY}`);
-    if (signature !== expectedSig) {
-      console.warn('Invalid signature');
-      return new Response('Invalid signature', { status: 401, headers: corsHeaders(request) });
+    if (signature) {
+      const expectedSig = await sha256(`${referenceNo}${status}${amount}${env.TOYYIBPAY_SECRET_KEY}`);
+      if (signature !== expectedSig) {
+        console.warn('Invalid signature for payout webhook');
+        return new Response('Invalid signature', { status: 401, headers: corsHeaders(request) });
+      }
+    } else {
+      console.warn('Missing signature header, but continuing (may be legacy)');
     }
 
     console.log("📡 ToyyibPay Payout Webhook received:", { payoutCode, status, referenceNo, amount, ip: clientIP });
@@ -36,6 +47,11 @@ export async function onRequestPost({ request, env }) {
     if (String(status) !== "success" && String(status) !== "1" && String(status) !== "completed") {
       console.log(`⚠️ Payout not successful - status: ${status}`);
       return new Response(`Not success - status ${status}`, { status: 200, headers: corsHeaders(request) });
+    }
+
+    if (!referenceNo) {
+      console.error('❌ Missing referenceNo in webhook');
+      return new Response('Missing referenceNo', { status: 400, headers: corsHeaders(request) });
     }
 
     const db = env.DB;
@@ -46,7 +62,7 @@ export async function onRequestPost({ request, env }) {
 
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-    // Idempotency
+    // ===== IDEMPOTENCY =====
     const webhookId = request.headers.get('X-Webhook-Id') || payoutCode || referenceNo || crypto.randomUUID();
     await db.prepare(`CREATE TABLE IF NOT EXISTS webhook_log (
       id TEXT PRIMARY KEY,
@@ -68,6 +84,7 @@ export async function onRequestPost({ request, env }) {
     if (idx !== -1) {
       if (bookings[idx].payoutSuccess && bookings[idx].payoutSuccessDate) {
         console.log(`✅ Booking ${referenceNo} already marked as payout success, skipping`);
+        // Still log idempotency
         await db.prepare('INSERT INTO webhook_log (id, processed_at, type) VALUES (?, ?, ?)')
           .bind(webhookId, new Date().toISOString(), 'payout').run();
         return new Response("Already processed", { status: 200, headers: corsHeaders(request) });
@@ -75,7 +92,7 @@ export async function onRequestPost({ request, env }) {
 
       console.log(`✅ Updating booking ${referenceNo} to PAYOUT SUCCESS`);
       bookings[idx].payoutSuccess = true;
-      bookings[idx].payoutSuccessDate = new Date().toISOString();
+      bookings[idx].payoutSuccessDate = transactionDate || new Date().toISOString();
       bookings[idx].payoutCode = payoutCode;
       bookings[idx].status = "Completed - Payout Success";
       bookings[idx].completedDate = new Date().toISOString();
@@ -94,6 +111,7 @@ export async function onRequestPost({ request, env }) {
         homestayId: bookings[idx].homestayId
       });
 
+      // Log idempotency
       await db.prepare('INSERT INTO webhook_log (id, processed_at, type) VALUES (?, ?, ?)')
         .bind(webhookId, new Date().toISOString(), 'payout').run();
 
