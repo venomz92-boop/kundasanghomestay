@@ -1,4 +1,4 @@
-// /api/bookings.js - FULLY CORRECTED (with admin updateStatus handler)
+// /api/bookings.js - FULLY CORRECTED (with admin updateStatus handler + updateHomestays)
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -665,6 +665,45 @@ export async function onRequestPost({ request, env }) {
         success: true,
         deleted: { id: deletedId, email: deletedEmail }
       }, 200, request);
+    }
+
+    // ========== ✅ NEW: UPDATE HOMESTAYS (Admin) ==========
+    if (action === "updateHomestays") {
+      const { approved, demoOverrides, demoBlocked, deletedDemo } = body;
+
+      if (!Array.isArray(approved)) {
+        return jsonResponse({ error: 'Invalid approved data' }, 400, request);
+      }
+
+      const stmts = [];
+      stmts.push(db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_approved", JSON.stringify(approved)));
+
+      if (demoOverrides !== undefined) {
+        stmts.push(db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_demo_overrides", JSON.stringify(demoOverrides)));
+      }
+      if (demoBlocked !== undefined) {
+        stmts.push(db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_demo_blocked", JSON.stringify(demoBlocked)));
+      }
+      if (deletedDemo !== undefined) {
+        stmts.push(db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          .bind("kd_deleted_demo", JSON.stringify(deletedDemo)));
+      }
+
+      await db.batch(stmts);
+
+      await logAction({
+        db,
+        action: 'homestays_updated',
+        admin: 'admin',
+        details: `Updated ${approved.length} approved homestays`,
+        ip: clientIP,
+        userId: 'admin'
+      });
+
+      return jsonResponse({ success: true, approved }, 200, request);
     }
 
     return jsonResponse({ success: true, message: "Synced" }, 200, request);
