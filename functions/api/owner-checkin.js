@@ -1,5 +1,47 @@
-// /api/owner-checkin.js - with checkinCode verification and fallback for homestay data
+// /api/owner-checkin.js - with checkinCode verification and payout fixes
 import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
+
+// ===== Mapping from SWIFT/Bank Name to ToyyibPay numeric bank codes =====
+const TOYYIBPAY_BANK_CODES = {
+  // Malaysian banks (common)
+  'MBBEMYKL': '8886',      // Maybank
+  'CIMBMYKL': '8884',      // CIMB
+  'PBBEMYKL': '8883',      // Public Bank
+  'RHBMYKL': '8882',       // RHB
+  'HLBBMYKL': '8881',      // Hong Leong
+  'BIMBMYKL': '8889',      // Bank Islam
+  'BKRMMYKL': '8890',      // Bank Rakyat
+  'BSNMYLKL': '8891',      // BSN
+  'HSBCMYKL': '8887',      // HSBC
+  'SCBLMYKL': '8888',      // Standard Chartered
+  // Add others as needed, or fallback to a default
+};
+
+function getToyyibpayBankCode(inputCode) {
+  if (!inputCode) return '8886'; // default Maybank
+  const clean = inputCode.trim().toUpperCase();
+  // If it's already numeric (e.g., "8886"), return as is
+  if (/^\d{4}$/.test(clean)) return clean;
+  // Check mapping
+  if (TOYYIBPAY_BANK_CODES[clean]) return TOYYIBPAY_BANK_CODES[clean];
+  // If it's a bank name, try to match partially (for "Maybank" -> "8886")
+  const nameMap = {
+    'MAYBANK': '8886',
+    'CIMB': '8884',
+    'PUBLIC BANK': '8883',
+    'RHB': '8882',
+    'HONG LEONG': '8881',
+    'BANK ISLAM': '8889',
+    'BANK RAKYAT': '8890',
+    'BSN': '8891',
+    'HSBC': '8887',
+    'STANDARD CHARTERED': '8888'
+  };
+  for (const [name, code] of Object.entries(nameMap)) {
+    if (clean.includes(name) || name.includes(clean)) return code;
+  }
+  return '8886'; // fallback
+}
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
@@ -13,7 +55,7 @@ export async function onRequestPost({ request, env }) {
 
     const body = await request.json();
     const bookingId = body.bookingId;
-    const checkinCode = body.checkinCode;   // <-- get from request
+    const checkinCode = body.checkinCode;
 
     if (!bookingId) {
       return jsonResponse({ error: 'Missing bookingId' }, 400, request);
@@ -60,47 +102,30 @@ export async function onRequestPost({ request, env }) {
     if (booking.checkinCode && booking.checkinCode !== checkinCode) {
       return jsonResponse({ error: 'Invalid check-in code. Please ask the guest for the 6-digit code sent to their WhatsApp/email.' }, 400, request);
     }
-    // If no code (legacy bookings), skip verification
 
     // ---- 2. Get homestay details from multiple stores (fallback chain) ----
     let homestay = null;
     let homestaySource = null;
 
-    // Try kd_approved first
-    const rApproved = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
-    let approved = [];
-    if (rApproved && rApproved.data) { try { approved = JSON.parse(rApproved.data); } catch(e) {} }
-    homestay = approved.find(h => String(h.id) === String(booking.homestayId));
-    if (homestay) homestaySource = 'kd_approved';
-
-    // If not found, try kd_homestays (synced by pending.js)
-    if (!homestay) {
-      const rHomestays = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_homestays").first();
-      let homestays = [];
-      if (rHomestays && rHomestays.data) { try { homestays = JSON.parse(rHomestays.data); } catch(e) {} }
-      homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
-      if (homestay) homestaySource = 'kd_homestays';
-    }
-
-    // If still not found, try kd_pending (fallback)
-    if (!homestay) {
-      const rPending = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
-      let pending = [];
-      if (rPending && rPending.data) { try { pending = JSON.parse(rPending.data); } catch(e) {} }
-      homestay = pending.find(h => String(h.id) === String(booking.homestayId));
-      if (homestay) homestaySource = 'kd_pending';
-    }
-
-    if (!homestay) {
-      // We'll still allow check-in but skip payout
-      console.warn(`⚠️ Homestay not found for booking ${bookingId} (homestayId: ${booking.homestayId}) in any store. Payout will be skipped.`);
-      // Continue without payout, but mark booking as completed
+    const stores = ['kd_approved', 'kd_homestays', 'kd_pending'];
+    for (const store of stores) {
+      const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind(store).first();
+      let list = [];
+      if (r && r.data) { try { list = JSON.parse(r.data); } catch(e) {} }
+      const found = list.find(h => String(h.id) === String(booking.homestayId));
+      if (found) {
+        homestay = found;
+        homestaySource = store;
+        break;
+      }
     }
 
     const ownerAmount = booking.base || 0;
     const ownerAcc = homestay?.ownerBankAccount || "";
     const ownerName = homestay?.bankHolder || homestay?.ownerName || "";
-    const ownerBankCode = homestay?.bankCode || "MBBEMYKL";
+    // Get bank code: prefer bankCode if stored, else try to derive from ownerBank
+    let bankCodeInput = homestay?.bankCode || homestay?.ownerBank || "";
+    const toyyibpayBankCode = getToyyibpayBankCode(bankCodeInput);
 
     // ---- 3. Determine payout mode ----
     const isToyyibLive = !!env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
@@ -112,50 +137,62 @@ export async function onRequestPost({ request, env }) {
 
     // If homestay not found, skip payout
     if (!homestay) {
-      payoutSuccess = false;
       payoutMessage = 'Check‑in confirmed, but payout skipped: Homestay details not found.';
     } else if (!ownerAcc || ownerAmount <= 0) {
       payoutMessage = 'Check‑in confirmed, but payout skipped: Missing bank account or invalid amount.';
     } else if (isSimulation) {
-      // ---- SIMULATION ----
       console.log(`🔵 SIMULATION: Payout for booking ${bookingId} (RM${ownerAmount}) to ${ownerName} (${ownerAcc})`);
       payoutSuccess = true;
       payoutData = { simulation: true, status: 'success', message: 'Simulated payout successful' };
       payoutMessage = `Check‑in confirmed! ⚠️ SIMULATED payout of RM${ownerAmount} completed (no real money sent).`;
     } else if (isToyyibLive) {
       // ---- REAL TOYYIBPAY PAYOUT ----
-      try {
-        const formData = new FormData();
-        formData.append("userSecretKey", env.TOYYIBPAY_SECRET_KEY);
-        formData.append("bankCode", ownerBankCode);
-        formData.append("bankAccountNumber", ownerAcc.replace(/[^0-9]/g, ''));
-        formData.append("accountHolderName", ownerName);
-        formData.append("amount", Math.round(ownerAmount * 100));
-        formData.append("payoutDescription", `KDH ${bookingId} owner payout RM${ownerAmount}`);
-        formData.append("payoutReferenceNo", bookingId);
-        // ToyyibPay may have two endpoints; try both
-        const endpoints = [
-          "https://toyyibpay.com/index.php/api/payout",
-          "https://toyyibpay.com/index.php/api/createPayout"
-        ];
-        for (const endpoint of endpoints) {
-          try {
-            const res = await fetch(endpoint, { method: "POST", body: formData });
-            const text = await res.text();
-            try { payoutData = JSON.parse(text); } catch { payoutData = { raw: text }; }
-            if (res.ok && (payoutData.status === "success" || payoutData[0]?.status === "success" || payoutData.payoutCode)) {
-              payoutSuccess = true;
-              payoutMessage = `Check‑in confirmed! Payout of RM${ownerAmount} processed.`;
-              break;
-            }
-          } catch(e) { console.error("Payout endpoint error:", e.message); }
+      const secret = env.TOYYIBPAY_SECRET_KEY;
+      const envMode = env.TOYYIBPAY_ENV || 'sandbox';
+      const apiBase = envMode === 'production' ? 'https://toyyibpay.com' : 'https://dev.toyyibpay.com';
+      const amountCents = Math.round(ownerAmount * 100);
+
+      const formData = new FormData();
+      formData.append("userSecretKey", secret);
+      formData.append("bankCode", toyyibpayBankCode);
+      formData.append("bankAccountNumber", ownerAcc.replace(/[^0-9]/g, ''));
+      formData.append("accountHolderName", ownerName);
+      formData.append("amount", amountCents);
+      formData.append("payoutDescription", `KDH ${bookingId} owner payout RM${ownerAmount}`);
+      formData.append("payoutReferenceNo", bookingId);
+
+      const endpoints = [
+        `${apiBase}/index.php/api/payout`,
+        `${apiBase}/index.php/api/createPayout`
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`🟢 Trying payout endpoint: ${endpoint}`);
+          const response = await fetch(endpoint, { method: "POST", body: formData });
+          const text = await response.text();
+          console.log(`📦 Response (${response.status}):`, text);
+          let json;
+          try { json = JSON.parse(text); } catch { json = { raw: text }; }
+          if (response.ok && (json.status === "success" || json[0]?.status === "success" || json.payoutCode || json[0]?.payoutCode)) {
+            payoutSuccess = true;
+            payoutData = json;
+            payoutMessage = `Check‑in confirmed! Payout of RM${ownerAmount} processed.`;
+            break;
+          } else {
+            payoutData = json;
+            console.warn("Payout API error:", json);
+          }
+        } catch (e) {
+          console.error("Payout endpoint error:", e.message);
         }
-        if (!payoutSuccess) {
-          payoutMessage = `Check‑in confirmed, but payout failed: ${payoutData?.error || 'Unknown error'}`;
+      }
+      if (!payoutSuccess) {
+        payoutMessage = `Check‑in confirmed, but payout failed: ${payoutData?.error || payoutData?.message || 'Unknown error'}`;
+        // Additional debug info
+        if (payoutData) {
+          console.error("Full payout response:", JSON.stringify(payoutData));
         }
-      } catch (e) {
-        console.error("Payout request error:", e.message);
-        payoutMessage = `Check‑in confirmed, but payout request encountered an error: ${e.message}`;
       }
     } else {
       payoutMessage = 'Check‑in confirmed, but payout is not enabled (set PAYOUT_SIMULATION=true for testing).';
@@ -173,9 +210,8 @@ export async function onRequestPost({ request, env }) {
         bookings[idx].ownerPayoutId = payoutData?.payoutCode || payoutData?.id || "OWNER_" + Date.now();
         bookings[idx].completedDate = new Date().toISOString();
         bookings[idx].payoutAttempts = (bookings[idx].payoutAttempts || 0) + 1;
-        bookings[idx].homestaySource = homestaySource; // for debugging
+        bookings[idx].homestaySource = homestaySource;
       } else {
-        // Still mark as completed, but note payout not done
         bookings[idx].status = "Completed - Payout Pending";
         bookings[idx].checkedInAt = new Date().toISOString();
         bookings[idx].checkedInBy = 'owner';
@@ -241,6 +277,7 @@ export async function onRequestPost({ request, env }) {
       payoutSuccess,
       simulation: isSimulation,
       homestaySource,
+      bankCodeUsed: toyyibpayBankCode,
       warning: isSimulation ? '⚠️ SIMULATION MODE – set PAYOUT_SIMULATION=false for live transfers' : undefined
     }, 200, request);
 
