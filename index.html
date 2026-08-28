@@ -1800,7 +1800,7 @@
 <script src="animations.js"></script>
 <script>
 // =============================================================
-// SECURE HELPER
+// SECURE HELPER (patched)
 // =============================================================
 function safeHTML(html) {
   if (!html) return '';
@@ -1814,11 +1814,11 @@ function safeHTML(html) {
     ],
     ALLOWED_ATTR: [
       'id', 'class', 'style', 'href', 'src', 'alt', 'title', 'rel', 'target',
-      'onclick', 'onchange', 'oninput', 'onload', 'onerror',
       'method', 'action', 'type', 'name', 'value', 'placeholder',
       'checked', 'disabled', 'readonly', 'required', 'multiple',
       'min', 'max', 'step', 'pattern', 'autocomplete', 'inputmode',
       'viewBox', 'fill', 'stroke', 'stroke-width', 'd'
+      // NO event handlers
     ],
     ADD_ATTR: ['target']
   });
