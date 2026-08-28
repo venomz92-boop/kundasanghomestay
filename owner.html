@@ -1101,7 +1101,7 @@ if (b.roomImages && b.roomImages.length > 0) {
 }
 
 // =============================================================
-// FIXED confirmCheckIn – strict 6‑digit validation, no skip
+// FIXED confirmCheckIn – strict 6‑digit validation, no skip, with logging
 // =============================================================
 async function confirmCheckIn(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
@@ -1126,27 +1126,39 @@ async function confirmCheckIn(bookingId) {
   if (!confirmed) return;
 
   try {
+    const payload = { bookingId, checkinCode: trimmedCode };
+    console.log('Sending check-in payload:', payload);
     const res = await fetch(API_BASE + '/owner-checkin', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Owner-Authorization': 'Bearer ' + ownerToken
       },
-      body: JSON.stringify({ bookingId, checkinCode: trimmedCode })
+      body: JSON.stringify(payload)
     });
-    const data = await res.json();
+    const text = await res.text();
+    console.log('Response status:', res.status, 'Response text:', text);
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch(e) {
+      data = { success: false, error: 'Server returned non-JSON: ' + text };
+    }
     if (data.success) {
       await showAlert('Check‑in Logged', '✓ ' + data.message);
       await loadBookings();
     } else {
       // Display the exact server error
-      await showAlert('Operation Faulted', '❌ ' + (data.error || data.message || 'Unknown error'));
+      await showAlert('Operation Faulted', '❌ ' + (data.error || data.message || 'Unknown server error'));
     }
   } catch(e) {
     await showAlert('Operation Faulted', 'Network error: ' + e.message);
   }
 }
 
+// =============================================================
+// OTHER FUNCTIONS (unchanged)
+// =============================================================
 async function changeBookingDates(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
   if (!booking) return;
