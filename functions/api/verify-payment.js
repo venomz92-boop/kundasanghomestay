@@ -1,119 +1,128 @@
 // /api/verify-payment.js
-import { corsHeaders, getGuestSession, getClientIP } from './_utils.js';
+import { corsHeaders } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
-  try {
-    console.log('📡 verify-payment called');
+  let responseStatus = 200;
+  let responseBody = {};
 
-    // 1. Parse body
+  try {
+    console.log('📡 verify-payment called (minimal functional)');
+
+    // 1. Read and parse body
     const rawBody = await request.text();
     console.log('Raw body:', rawBody);
     let body;
     try {
       body = JSON.parse(rawBody);
     } catch (e) {
-      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-        status: 400,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    }
-
-    // 2. Authenticate guest
-    const session = await getGuestSession(request, env);
-    if (!session) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
+      responseStatus = 400;
+      responseBody = { error: 'Invalid JSON' };
+      return new Response(JSON.stringify(responseBody), {
+        status: responseStatus,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
     const bookingId = body.bookingId;
     if (!bookingId) {
-      return new Response(JSON.stringify({ error: 'Missing bookingId' }), {
-        status: 400,
+      responseStatus = 400;
+      responseBody = { error: 'Missing bookingId' };
+      return new Response(JSON.stringify(responseBody), {
+        status: responseStatus,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
-    // 3. Database
+    // 2. Get database
     const db = env.DB;
     if (!db) {
       console.error('❌ DB not configured');
-      return new Response(JSON.stringify({ error: 'DB not configured' }), {
-        status: 500,
+      responseStatus = 500;
+      responseBody = { error: 'DB not configured' };
+      return new Response(JSON.stringify(responseBody), {
+        status: responseStatus,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
-    // 4. Fetch bookings
+    // 3. Fetch bookings
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
     let bookings = [];
     try {
       bookings = JSON.parse(r?.data || '[]');
     } catch (e) {
-      console.error('❌ Failed to parse bookings:', e);
-      return new Response(JSON.stringify({ error: 'Data corruption' }), {
-        status: 500,
+      console.error('❌ Parse error:', e);
+      responseStatus = 500;
+      responseBody = { error: 'Data corruption' };
+      return new Response(JSON.stringify(responseBody), {
+        status: responseStatus,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
-    // 5. Find booking
-    const idx = bookings.findIndex(b =>
-      String(b.id) === bookingId &&
-      String(b.guestId) === String(session.userId)
-    );
+    console.log(`📦 Found ${bookings.length} bookings`);
+
+    // 4. Find the booking by ID (ignore guest session for now, but we'll later add session check)
+    const idx = bookings.findIndex(b => String(b.id) === bookingId);
     if (idx < 0) {
-      return new Response(JSON.stringify({ error: 'Booking not found' }), {
-        status: 404,
+      responseStatus = 404;
+      responseBody = { error: 'Booking not found' };
+      return new Response(JSON.stringify(responseBody), {
+        status: responseStatus,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
     const booking = bookings[idx];
+    console.log(`✅ Found booking: ${booking.id}, status: ${booking.status}, billcode: ${booking.toyyibpay_billcode}`);
 
-    // 6. Already paid?
+    // 5. If already paid, return success
     if (booking.status && booking.status.toLowerCase().includes('paid')) {
-      return new Response(JSON.stringify({ success: true, booking, message: 'Already paid' }), {
+      responseBody = { success: true, booking, message: 'Already paid' };
+      return new Response(JSON.stringify(responseBody), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
-    // 7. Simulation detection – if billcode starts with SIM-, mark as paid
+    // 6. Simulation detection
     if (booking.toyyibpay_billcode && booking.toyyibpay_billcode.startsWith('SIM-')) {
-      console.log(`✅ Simulation: marking ${bookingId} as paid`);
+      console.log(`✅ Simulation billcode detected, marking as paid`);
       bookings[idx].status = 'Paid - Awaiting Check-in';
       bookings[idx].paid_at = new Date().toISOString();
       bookings[idx].simulation = true;
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_bookings', JSON.stringify(bookings)).run();
-      return new Response(JSON.stringify({ success: true, booking: bookings[idx], message: 'Simulated payment confirmed' }), {
+      responseBody = { success: true, booking: bookings[idx], message: 'Simulated payment confirmed' };
+      return new Response(JSON.stringify(responseBody), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
-    // 8. No billcode – error
+    // 7. If no billcode, return error
     if (!booking.toyyibpay_billcode) {
-      return new Response(JSON.stringify({ error: 'No billcode associated with this booking' }), {
-        status: 400,
+      responseStatus = 400;
+      responseBody = { error: 'No billcode' };
+      return new Response(JSON.stringify(responseBody), {
+        status: responseStatus,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
-    // 9. Call ToyyibPay
+    // 8. Real ToyyibPay check (optional, but keep for completeness)
     const secret = env.TOYYIBPAY_SECRET_KEY;
     if (!secret) {
       console.error('❌ TOYYIBPAY_SECRET_KEY missing');
-      return new Response(JSON.stringify({ error: 'Payment gateway not configured' }), {
-        status: 500,
+      responseStatus = 500;
+      responseBody = { error: 'Payment gateway not configured' };
+      return new Response(JSON.stringify(responseBody), {
+        status: responseStatus,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
     const url = `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${booking.toyyibpay_billcode}&userSecretKey=${secret}`;
-    console.log(`🔍 Verifying bill: ${booking.toyyibpay_billcode}`);
     const res = await fetch(url);
     const text = await res.text();
     let data;
@@ -121,36 +130,36 @@ export async function onRequestPost({ request, env }) {
       data = JSON.parse(text);
     } catch (e) {
       console.error('❌ Invalid JSON from ToyyibPay:', text);
-      return new Response(JSON.stringify({ error: 'Invalid response from payment gateway' }), {
-        status: 502,
+      responseStatus = 502;
+      responseBody = { error: 'Invalid response from payment gateway' };
+      return new Response(JSON.stringify(responseBody), {
+        status: responseStatus,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
-    // 10. Check status
     if (data && data[0] && data[0].billpaymentStatus === "1") {
-      // ✅ Paid
       bookings[idx].status = 'Paid - Awaiting Check-in';
       bookings[idx].paid_at = data[0].billpaymentDatetime || new Date().toISOString();
       bookings[idx].toyyibpay_refno = data[0].billpaymentTransactionId || '';
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_bookings', JSON.stringify(bookings)).run();
-      return new Response(JSON.stringify({ success: true, booking: bookings[idx], message: 'Payment confirmed' }), {
-        status: 200,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
+      responseBody = { success: true, booking: bookings[idx], message: 'Payment confirmed' };
     } else {
-      // ⏳ Not yet paid
-      return new Response(JSON.stringify({ success: false, message: 'Payment not yet confirmed' }), {
-        status: 200,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
+      responseBody = { success: false, message: 'Payment not yet confirmed' };
     }
+
+    return new Response(JSON.stringify(responseBody), {
+      status: 200,
+      headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+    });
+
   } catch (e) {
-    // 🚨 Catch any unhandled error and return it
     console.error('💥 verify-payment fatal error:', e.message, e.stack);
-    return new Response(JSON.stringify({ error: 'Internal server error: ' + e.message }), {
-      status: 500,
+    responseStatus = 500;
+    responseBody = { error: 'Internal server error: ' + e.message };
+    return new Response(JSON.stringify(responseBody), {
+      status: responseStatus,
       headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
     });
   }
