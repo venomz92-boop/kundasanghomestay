@@ -961,19 +961,23 @@ async function ownerLogin() {
 // LOAD BOOKINGS – PATCHED WITH roomName
 // =============================================================
 async function loadBookings() {
-  if (!ownerToken) return;
+  if (!ownerToken) {
+    document.getElementById('loginSection').classList.remove('hidden');
+    document.getElementById('dashboardSection').classList.add('hidden');
+    return;
+  }
   const listDiv = document.getElementById('ownerBookingsList');
   if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-zinc-400 py-6 text-center">Refreshing dynamic logs...</div>');
   
   try {
-    // 🔥 Add timestamp to bypass browser cache
     const res = await fetch(API_BASE + '/owner-bookings?_=' + Date.now(), {
       headers: { 'Owner-Authorization': 'Bearer ' + ownerToken },
       cache: 'no-store'
     });
     
+    // 👇 HANDLE 401
     if (res.status === 401) {
-      // Token expired – redirect to login
+      console.warn('Owner token expired – redirecting to login');
       sessionStorage.removeItem('kd_owner_token');
       ownerToken = '';
       document.getElementById('loginSection').classList.remove('hidden');
@@ -982,7 +986,7 @@ async function loadBookings() {
       return;
     }
     
-    if (!res.ok) throw new Error('Data sync failure');
+    if (!res.ok) throw new Error('Data sync failure: ' + res.status);
     
     bookings = await res.json();
     if (!Array.isArray(bookings)) bookings = [];
@@ -1108,9 +1112,9 @@ if (b.roomImages && b.roomImages.length > 0) {
       `;
     });
     if (listDiv) listDiv.innerHTML = safeHTML(html);
- } catch (e) {
-    if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-red-600 text-center py-6 font-semibold">Synchronization failed. Please reload dashboard view.</div>');
+  } catch (e) {
     console.error('Load bookings error:', e);
+    if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-red-600 text-center py-6 font-semibold">Synchronization failed. Please try again.</div>');
   }
 }
 
