@@ -1,4 +1,4 @@
-// /api/bookings.js - FULLY PATCHED (email removed on booking creation)
+// /api/bookings.js – FULLY PATCHED (email removed on booking creation)
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -23,37 +23,19 @@ function getDatesInRange(checkin, checkout) {
 
 async function verifyAdmin(request, env) {
   const auth = await getAdminToken(request);
-  if (!env.ADMIN_TOKEN) {
-    return new Response(JSON.stringify({ error: "Server misconfigured" }), { status: 500, headers: corsHeaders(request) });
-  }
-  if (auth !== env.ADMIN_TOKEN) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders(request) });
-  }
+  if (!env.ADMIN_TOKEN) return new Response(JSON.stringify({ error: "Server misconfigured" }), { status: 500, headers: corsHeaders(request) });
+  if (auth !== env.ADMIN_TOKEN) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders(request) });
   return null;
 }
 
 async function requireGuest(request, env, body) {
   const session = await getGuestSession(request, env);
-  if (!session || session.type !== 'guest') {
-    return { error: jsonResponse({ error: 'Authentication required' }, 401, request) };
-  }
+  if (!session || session.type !== 'guest') return { error: jsonResponse({ error: 'Authentication required' }, 401, request) };
   const guestId = body?.booking?.guestId || body?.guestId;
-  if (guestId && String(guestId) !== String(session.userId)) {
-    return { error: jsonResponse({ error: 'Guest identity mismatch' }, 403, request) };
-  }
+  if (guestId && String(guestId) !== String(session.userId)) return { error: jsonResponse({ error: 'Guest identity mismatch' }, 403, request) };
   const csrf = getCSRFToken(request);
-  if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) {
-    return { error: jsonResponse({ error: 'Invalid security token' }, 403, request) };
-  }
+  if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) return { error: jsonResponse({ error: 'Invalid security token' }, 403, request) };
   return { session };
-}
-
-// ===== Email helper – kept but NOT called during booking creation =====
-// This function is intentionally never invoked in this file; it's only for reference.
-// Payment confirmation emails are sent from webhook and check-payment-status.
-async function sendBookingEmail(guestEmail, guestName, bookingId, homestayName, checkin, checkout, nights, total, checkinCode, env) {
-  // Not used here – kept only for completeness.
-  return true;
 }
 
 export async function onRequestGet({ request, env }) {
@@ -182,17 +164,13 @@ export async function onRequestPost({ request, env }) {
 
         const guest = guests.find(g => String(g.id) === String(auth.session.userId));
         const homestay = approved.find(h => String(h.id) === String(incoming.homestayId) && (h.approved === true || h.verified === true));
-        if (!guest || !homestay) {
-          return jsonResponse({ error: 'Guest or homestay not found' }, 404, request);
-        }
+        if (!guest || !homestay) return jsonResponse({ error: 'Guest or homestay not found' }, 404, request);
 
         const rooms = homestay.rooms || [];
         let selectedRoom = null;
         if (incoming.roomId) {
           selectedRoom = rooms.find(r => r.id === incoming.roomId);
-          if (!selectedRoom) {
-            return jsonResponse({ error: 'Selected room not found' }, 400, request);
-          }
+          if (!selectedRoom) return jsonResponse({ error: 'Selected room not found' }, 400, request);
         }
         const ownerPrice = selectedRoom ? parseFloat(selectedRoom.price) : homestay.ownerPrice;
         if (!Number.isFinite(ownerPrice) || ownerPrice <= 0) {
@@ -200,11 +178,11 @@ export async function onRequestPost({ request, env }) {
         }
 
         const ci = String(incoming.checkin || ''), co = String(incoming.checkout || '');
-        const d1 = new Date(ci + 'T00:00:00'), d2 = new Date(co + 'T00:00:00');
+        const d1 = new Date(ci+'T00:00:00'), d2 = new Date(co+'T00:00:00');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(ci) || !/^\d{4}-\d{2}-\d{2}$/.test(co) || isNaN(d1) || isNaN(d2) || d1 >= d2) {
           return jsonResponse({ error: 'Invalid dates' }, 400, request);
         }
-        const nights = Math.round((d2 - d1) / 86400000);
+        const nights = Math.round((d2-d1)/86400000);
         if (nights < 1) return jsonResponse({ error: 'Booking must be at least 1 night' }, 400, request);
         if (nights > MAX_NIGHTS) return jsonResponse({ error: `Maximum booking is ${MAX_NIGHTS} nights` }, 400, request);
         const today = new Date(); today.setHours(0,0,0,0);
@@ -300,17 +278,9 @@ export async function onRequestPost({ request, env }) {
 
         saved = true;
 
-        // EMAIL AND WHATSAPP NOTIFICATIONS REMOVED – will be sent after payment confirmation
+        // ✅ EMAIL AND WHATSAPP NOTIFICATIONS REMOVED – will be sent after payment confirmation
 
-        await logAction({
-          db,
-          action: 'booking_created',
-          admin: 'guest',
-          details: `Booking ${booking.id} created; payment pending`,
-          ip: getClientIP(request),
-          userId: guest.id,
-          homestayId: homestay.id
-        });
+        await logAction({db,action:'booking_created',admin:'guest',details:`Booking ${booking.id} created; payment pending`,ip:getClientIP(request),userId:guest.id,homestayId:homestay.id});
 
         break;
 
@@ -335,43 +305,21 @@ export async function onRequestPost({ request, env }) {
   if (action === "publicUpdateStatus" && body.id) {
     const auth = await requireGuest(request, env, body);
     if (auth.error) return auth.error;
-    if (body.status !== 'Cancelled by Guest') {
-      return jsonResponse({ error: 'Guests may only cancel their own booking.' }, 403, request);
-    }
-    const db = env.DB;
-    if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
+    if (body.status !== 'Cancelled by Guest') return jsonResponse({ error: 'Guests may only cancel their own booking.' }, 403, request);
+    const db = env.DB; if (!db) return jsonResponse({error:'DB not configured'},500,request);
     try {
       await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
-      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
-      let bookings = [];
-      try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
-      const idx = bookings.findIndex(b => String(b.id) === String(body.id));
-      if (idx < 0) return jsonResponse({ error: 'Booking not found' }, 404, request);
-      const b = bookings[idx];
-      if (String(b.guestId) !== String(auth.session.userId)) {
-        return jsonResponse({ error: 'Unauthorized' }, 403, request);
-      }
-      if (/paid|completed/i.test(String(b.status||''))) {
-        return jsonResponse({ error: 'Paid bookings cannot be cancelled from the guest portal. Please contact support/host.' }, 400, request);
-      }
-      bookings[idx] = { ...b, status: 'Cancelled by Guest', statusUpdated: new Date().toISOString() };
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind('kd_bookings', JSON.stringify(bookings))
-        .run();
-      await logAction({
-        db,
-        action: 'booking_cancelled_by_guest',
-        admin: 'guest',
-        details: `Booking ${b.id} cancelled by guest`,
-        ip: clientIP,
-        userId: b.guestId,
-        homestayId: b.homestayId
-      });
-      return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
-    } catch(e) {
-      console.error('Guest cancellation error:', e.message);
-      return jsonResponse({ error: 'Could not update booking' }, 500, request);
-    }
+      const r=await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first(); let bookings=[]; try{if(r?.data)bookings=JSON.parse(r.data)}catch(_){}
+      const idx=bookings.findIndex(b=>String(b.id)===String(body.id));
+      if(idx<0)return jsonResponse({error:'Booking not found'},404,request);
+      const b=bookings[idx];
+      if(String(b.guestId)!==String(auth.session.userId))return jsonResponse({error:'Unauthorized'},403,request);
+      if(/paid|completed/i.test(String(b.status||'')))return jsonResponse({error:'Paid bookings cannot be cancelled from the guest portal. Please contact support/host.'},400,request);
+      bookings[idx]={...b,status:'Cancelled by Guest',statusUpdated:new Date().toISOString()};
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind('kd_bookings',JSON.stringify(bookings)).run();
+      await logAction({db,action:'booking_cancelled_by_guest',admin:'guest',details:`Booking ${b.id} cancelled by guest`,ip:clientIP,userId:b.guestId,homestayId:b.homestayId});
+      return jsonResponse({success:true,booking:bookings[idx]},200,request);
+    }catch(e){console.error('Guest cancellation error:',e.message);return jsonResponse({error:'Could not update booking'},500,request)}
   }
 
   // ========== ADMIN ACTIONS ==========
