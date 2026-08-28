@@ -1871,6 +1871,7 @@ document.addEventListener('keydown', function(e) {
 // THANK YOU & RECEIPT MODAL LOGIC
 // =============================================================
 var lastBookingDetails = null;
+var lastBookingId = null;
 
 function showThankYouModal(bookingId, customBookingData) {
   var overlay = document.getElementById('thankyouModal');
@@ -1880,6 +1881,7 @@ function showThankYouModal(bookingId, customBookingData) {
   
   var targetId = bookingId || lastBookingId || 'KDH-CONFIRMED';
   if (idEl) idEl.textContent = targetId;
+  lastBookingId = targetId;
 
   var b = customBookingData || bookings.find(function(x) { return String(x.id) === String(targetId); }) || window.lastCreatedBooking;
   if (b) {
@@ -2455,6 +2457,35 @@ function updateBookingPrice() {
 }
 
 // =============================================================
+// PAYMENT VERIFICATION (NEW)
+// =============================================================
+async function verifyPaymentAfterReturn(bookingId) {
+  try {
+    const res = await fetch(`/api/verify-payment?bookingId=${encodeURIComponent(bookingId)}`, {
+      credentials: 'include'
+    });
+    const data = await res.json();
+    if (data.success && data.status === 'Paid - Awaiting Check-in') {
+      console.log('✅ Payment verified via API');
+      // Optionally update the bookings array
+      var idx = bookings.findIndex(b => String(b.id) === String(bookingId));
+      if (idx !== -1) {
+        bookings[idx].status = data.status;
+        bookings[idx].paid_at = data.paid_at || new Date().toISOString();
+        localStorage.setItem('kd_bookings', JSON.stringify(bookings));
+      }
+      return true;
+    } else {
+      console.warn('⚠️ Payment not yet confirmed:', data.message);
+      return false;
+    }
+  } catch (e) {
+    console.error('❌ Verify payment error:', e);
+    return false;
+  }
+}
+
+// =============================================================
 // PROCESS PAYMENT – with booking verification
 // =============================================================
 async function processPayment() {
@@ -2515,6 +2546,9 @@ async function processPayment() {
   }
 }
 
+// =============================================================
+// HANDLE PAYMENT RETURN – with verification call
+// =============================================================
 function handlePaymentReturn() {
   var params = new URLSearchParams(window.location.search);
   var bookingId = params.get('booking');
@@ -2534,6 +2568,16 @@ function handlePaymentReturn() {
     } else {
       showThankYouModal(bookingId, { id: bookingId, total: '---' });
     }
+    // 👇 Call verification in background to update status
+    verifyPaymentAfterReturn(bookingId).then(function(verified) {
+      if (verified) {
+        console.log('Booking status updated to paid.');
+        // Optionally refresh the grid if needed
+        renderGrid();
+      }
+    });
+    // Clean URL
+    history.replaceState({}, document.title, window.location.pathname);
   }
 }
 
