@@ -1,5 +1,15 @@
 import { corsHeaders } from './_utils.js';
 
+// Helper: fetch with timeout
+function fetchWithTimeout(url, options, timeout = 5000) {
+  return Promise.race([
+    fetch(url, options),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Request timed out')), timeout)
+    )
+  ]);
+}
+
 export async function onRequestPost({ request, env }) {
   try {
     const raw = await request.text();
@@ -34,33 +44,75 @@ export async function onRequestPost({ request, env }) {
 
     // ---- No billcode ----
     if (!billcode) {
-      return new Response(JSON.stringify({ success: false, message: 'No billcode' }), {
+      return new Response(JSON.stringify({ success: false, message: 'No billcode associated' }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
-    // ---- Real Bill – Return Manual Check URL (Safe) ----
+    // ---- Real ToyyibPay ----
     const secret = env.TOYYIBPAY_SECRET_KEY;
-    const checkUrl = secret
-      ? `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${billcode}&userSecretKey=${secret}`
-      : null;
+    if (!secret) {
+      return new Response(JSON.stringify({ error: 'TOYYIBPAY_SECRET_KEY not set' }), {
+        status: 500,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
 
-    return new Response(JSON.stringify({
-      success: false,
-      message: 'Manual verification required',
-      billcode,
-      manualCheckUrl: checkUrl,
-      bookingStatus: booking.status,
-      // Admin can use this to manually mark paid via the admin panel
-      adminNote: 'Use the admin panel to mark this booking as paid if you confirm payment.'
-    }), {
-      status: 200,
-      headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-    });
+    const url = `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${billcode}&userSecretKey=${secret}`;
+    let billData;
+    let fetchError = null;
+
+    try {
+      const res = await fetchWithTimeout(url, {}, 5000);
+      const text = await res.text();
+      try {
+        billData = JSON.parse(text);
+      } catch (e) {
+        fetchError = 'ToyyibPay returned non‑JSON: ' + text.slice(0, 200);
+      }
+    } catch (e) {
+      fetchError = e.message || 'ToyyibPay API unreachable';
+    }
+
+    if (fetchError) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Payment verification failed: ' + fetchError,
+        billcode,
+        // Still provide manual URL for admin
+        manualCheckUrl: url
+      }), {
+        status: 200,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    // ---- Check status ----
+    if (billData && billData[0] && billData[0].billpaymentStatus === "1") {
+      bookings[idx].status = 'Paid - Awaiting Check-in';
+      bookings[idx].paid_at = new Date().toISOString();
+      bookings[idx].toyyibpay_refno = billData[0].billpaymentTransactionId || '';
+      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+        .bind('kd_bookings', JSON.stringify(bookings)).run();
+      return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
+        status: 200,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    } else {
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Payment not yet confirmed',
+        billData // optional – useful for debugging
+      }), {
+        status: 200,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
 
   } catch (e) {
-    return new Response(JSON.stringify({ error: 'Internal: ' + e.message }), {
+    console.error('❌ verify-payment fatal error:', e.message, e.stack);
+    return new Response(JSON.stringify({ error: 'Internal error: ' + e.message }), {
       status: 500,
       headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
     });
