@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="animations.css" />
   <style>
-    /* ===== ROOT (same as before) ===== */
+    /* ===== ROOT ===== */
     :root {
       --primary: #0F382E;
       --primary-light: #1a4d3e;
@@ -658,7 +658,7 @@
 <script src="animations.js"></script>
 <script>
   // =============================================================
-  // DOMPurify Helper
+  // DOMPurify Helper – FIXED: allow onclick and other events
   // =============================================================
   function safeHTML(html) {
     if (!html) return '';
@@ -675,7 +675,9 @@
         'method','action','type','name','value','placeholder',
         'checked','disabled','readonly','required','multiple',
         'min','max','step','pattern','autocomplete','inputmode',
-        'viewBox','fill','stroke','stroke-width','d'
+        'viewBox','fill','stroke','stroke-width','d',
+        // ✅ Allow event handlers so our buttons work
+        'onclick', 'onchange', 'oninput', 'onload', 'onerror', 'onfocus', 'onblur'
       ],
       ADD_ATTR: ['target']
     });
@@ -800,12 +802,11 @@
   }
 
   // =============================================================
-  // RETRY PAYMENT – robust version with logging
+  // RETRY PAYMENT – robust with logging
   // =============================================================
   async function retryPayment(bookingId) {
     console.log('🔁 retryPayment called for booking:', bookingId);
     
-    // 1. Ensure we have a CSRF token
     let token = localStorage.getItem('kd_csrf_token');
     if (!token) {
       console.warn('No CSRF token found, trying to fetch...');
@@ -833,7 +834,6 @@
       }
     }
 
-    // 2. Call the payment creation endpoint
     try {
       const res = await fetch('/api/toyyibpay-create', {
         method: 'POST',
@@ -1144,7 +1144,6 @@
       else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
       else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
       
-      // Build action buttons
       var checkButton = '';
       var retryButton = '';
       var retryPendingButton = '';
