@@ -2032,6 +2032,7 @@ async function retryPayment(bookingId) {
 // =============================================================
 // HANDLE PAYMENT RETURN (UPDATED)
 // =============================================================
+// ===== HANDLE PAYMENT RETURN (UPDATED – detects status_id) =====
 async function handlePaymentReturn() {
   const params = new URLSearchParams(window.location.search);
   let bookingId = params.get('booking') || params.get('order_id');
@@ -2041,14 +2042,14 @@ async function handlePaymentReturn() {
   // If no bookingId, exit
   if (!bookingId) return;
 
-  // Clean URL (remove all query params)
+  // Clean URL (remove all query params) – prevent re‑trigger on refresh
   if (window.history && window.history.replaceState) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  // If status_id is present and not '1' (success), treat as failed immediately
+  // If status_id is present and NOT '1' (success), treat as failed immediately
   if (statusId && statusId !== '1') {
-    // Fetch booking data to show details
+    // Fetch booking data to show details (optional)
     try {
       const res = await fetch(API_BASE + '/verify-payment', {
         method: 'POST',
@@ -2067,7 +2068,7 @@ async function handlePaymentReturn() {
     return;
   }
 
-  // If we have payment_return=1, poll for status
+  // If we have payment_return=1 (our own flag), poll for final status
   if (paymentReturn === '1') {
     let bookingData = null;
     let paymentStatus = 'pending';
