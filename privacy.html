@@ -9,6 +9,9 @@
   <meta name="robots" content="index, follow" />
   <meta name="description" content="Privacy policy for Kundasang Homestay. Learn how we collect, use, and protect your personal data." />
 
+  <!-- DOMPurify (FIX: Added for safeHTML modal function) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="animations.css" />
@@ -174,14 +177,14 @@
     .setsail-nav-link:hover {
       color: var(--primary);
     }
-    .setsail-nav-link.agent {
+    .setsail-nav-link.owner {
       color: #7c3aed;
       border: 1px solid #7c3aed;
       padding: 6px 16px;
       border-radius: 999px;
     }
-    .setsail-nav-link.agent::after { display: none; }
-    .setsail-nav-link.agent:hover {
+    .setsail-nav-link.owner::after { display: none; }
+    .setsail-nav-link.owner:hover {
       background: #7c3aed;
       color: white;
     }
@@ -231,7 +234,7 @@
       background: #f8f5f0;
       color: var(--accent);
     }
-    #mobileNav .mobile-agent-link {
+    #mobileNav .mobile-owner-link {
       color: #7c3aed !important;
       border: 1px solid #7c3aed !important;
       margin: 8px 16px;
@@ -240,7 +243,7 @@
       width: auto !important;
       display: inline-block !important;
     }
-    #mobileNav .mobile-agent-link:hover {
+    #mobileNav .mobile-owner-link:hover {
       background: #7c3aed !important;
       color: white !important;
     }
@@ -502,7 +505,8 @@
       <a href="/" class="setsail-nav-link">Home</a>
       <a href="/list.html" class="setsail-nav-link">List Your Homestay</a>
       <a href="/about.html" class="setsail-nav-link">About</a>
-      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login </a>
+      <!-- FIX: Changed "Agent Login" to "Owner Login" -->
+      <a href="/owner.html" class="setsail-nav-link owner" style="text-decoration:none;">🔑 Owner Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
         <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;">Guest Login</a>
         <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;">Register</a>
@@ -533,7 +537,8 @@
     <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
     <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
     <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
-    <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+    <!-- FIX: Changed "Agent Login" to "Owner Login" -->
+    <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-owner-link" style="text-decoration:none;">🔑 Owner Login</a>
 
     <div class="pt-3 space-y-3">
       <div id="mGuestNav">
@@ -714,7 +719,7 @@
       </p>
     </div>
 
-    <!-- Section 9 -->
+    <!-- Section 9 (FIX: Removed extra <br><br> tags) -->
     <div class="privacy-section border-b-0">
       <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
         <span class="text-[#3FD0D4] text-2xl">9.</span> Contact Us
@@ -730,7 +735,8 @@
             <div class="text-sm font-medium text-[#212121]">support@kundasanghomestay.my</div>
           </div>
         </a>
-      <p class="text-sm text-zinc-600 mt-3 leading-relaxed"><br><br>
+      </div>
+      <p class="text-sm text-zinc-600 mt-3 leading-relaxed">
         We respond to all privacy inquiries within 48 hours.
       </p>
     </div>
