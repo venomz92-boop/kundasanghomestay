@@ -217,6 +217,60 @@
       overflow: visible;
       word-wrap: break-word;
     }
+
+    /* Comparison table responsive */
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .compare-table th,
+    .compare-table td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .compare-table th {
+      background: #0F382E;
+      color: white;
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .compare-table tr:last-child td {
+      border-bottom: none;
+    }
+    .compare-table .highlight {
+      background: #f0fdf4;
+    }
+    .compare-table .check {
+      color: #16a34a;
+      font-weight: 700;
+    }
+    .compare-table .cross {
+      color: #dc2626;
+      font-weight: 700;
+    }
+    .compare-table .pill {
+      display: inline-block;
+      background: #0F382E;
+      color: white;
+      padding: 2px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    @media (max-width: 640px) {
+      .compare-table th,
+      .compare-table td {
+        padding: 10px 12px;
+        font-size: 12px;
+      }
+      .compare-table th {
+        font-size: 11px;
+      }
+    }
     
     [x-cloak] { display: none !important; }
   </style>
@@ -336,7 +390,7 @@
     </div>
   </section>
 
-  <!-- ===== WHY CHOOSE ===== -->
+  <!-- ===== KENAPA PILIH ===== -->
   <section class="bg-white py-16 scroll-fade" x-intersect.once="$el.classList.add('visible')">
     <div class="max-w-[1100px] mx-auto px-4">
       <div class="text-center mb-10">
@@ -358,7 +412,78 @@
     </div>
   </section>
 
-  <!-- ===== REGISTRATION PROCESS ===== -->
+  <!-- ===== PERBANDINGAN PLATFORM (NEW COMPARISON TABLE) ===== -->
+  <section class="max-w-[1100px] mx-auto px-4 py-16 scroll-fade" x-intersect.once="$el.classList.add('visible')">
+    <div class="text-center mb-10">
+      <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Beza Kami Dengan Yang Lain</div>
+      <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Perbandingan Platform</h2>
+      <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
+      <p class="text-[14px] text-zinc-600 mt-3 max-w-2xl mx-auto">Lihat sendiri bagaimana kami berbeza – lebih adil, lebih selamat, dan benar‑benar untuk pengusaha tempatan.</p>
+    </div>
+
+    <div class="card overflow-hidden shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th class="rounded-tl-2xl">Kriteria</th>
+              <th class="text-center"><span class="pill">Kundasang Homestay</span></th>
+              <th class="rounded-tr-2xl text-center text-white/70">Platform Lain</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Pendaftaran</strong></td>
+              <td class="text-center check">✅ PERCUMA</td>
+              <td class="text-center cross">❌ RM100–500</td>
+            </tr>
+            <tr class="highlight">
+              <td><strong>Yuran Bulanan</strong></td>
+              <td class="text-center check">✅ PERCUMA</td>
+              <td class="text-center cross">❌ RM50–200/bulan</td>
+            </tr>
+            <tr>
+              <td><strong>Komisen dari harga penginapan</strong></td>
+              <td class="text-center check">✅ 0% (Anda terima penuh)</td>
+              <td class="text-center cross">❌ 15%–20%</td>
+            </tr>
+            <tr class="highlight">
+              <td><strong>Wang booking disimpan oleh</strong></td>
+              <td class="text-center check">✅ ToyyibPay (bebas)</td>
+              <td class="text-center cross">❌ Platform sendiri (berisiko)</td>
+            </tr>
+            <tr>
+              <td><strong>Pengesahan ID pengusaha</strong></td>
+              <td class="text-center check">✅ Teliti (IC &amp; dokumen)</td>
+              <td class="text-center cross">❌ Minimal / tiada</td>
+            </tr>
+            <tr class="highlight">
+              <td><strong>Tetamu hubungi tuan rumah direct</strong></td>
+              <td class="text-center check">✅ Ya (WhatsApp terus)</td>
+              <td class="text-center cross">❌ Tidak (ada orang tengah)</td>
+            </tr>
+            <tr>
+              <td><strong>Dashboard pengusaha</strong></td>
+              <td class="text-center check">✅ Mudah &amp; lengkap</td>
+              <td class="text-center cross">❌ Terhad / rumit</td>
+            </tr>
+            <tr class="highlight">
+              <td><strong>Dikhas untuk pengusaha tempatan</strong></td>
+              <td class="text-center check">✅ Ya (Kundasang)</td>
+              <td class="text-center cross">❌ Platform umum</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mt-8 text-center">
+      <p class="text-[15px] text-zinc-700">📊 <strong>Rumusannya:</strong> Kami bukan sekadar platform – kami adalah <span class="text-[#0F382E] font-semibold">rakan kongsi</span> untuk pengusaha homestay Kundasang.</p>
+      <a href="/list.html" class="btn-primary mt-4 text-sm md:text-base px-8 py-4">📋 Saya Nak Daftar Sekarang</a>
+    </div>
+  </section>
+
+  <!-- ===== PROSES PENDAFTARAN ===== -->
   <section class="max-w-[1100px] mx-auto px-4 py-16 scroll-fade" x-intersect.once="$el.classList.add('visible')">
     <div class="text-center mb-10">
       <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Langkah Seterusnya</div>
@@ -540,12 +665,9 @@
       },
 
       init() {
-        // ✅ FIX: Disable browser's automatic scroll restoration
         if (history.scrollRestoration) {
           history.scrollRestoration = 'manual';
         }
-
-        // ✅ FIX: Double-guarantee scroll to top after rendering & layout shifts
         requestAnimationFrame(() => {
           window.scrollTo(0, 0);
         });
