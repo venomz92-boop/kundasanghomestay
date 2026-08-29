@@ -494,6 +494,33 @@
   </div>
 </div>
 
+<!-- ===== PAYMENT FAILED MODAL (same as index.html) ===== -->
+<div id="paymentFailedModal" class="modal-overlay thankyou-modal">
+  <div class="modal-box max-w-[500px]">
+    <div class="modal-body text-center p-6 md:p-8">
+      <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">😞</div>
+      <div class="font-poppins font-800 text-[22px] text-red-700">Payment Failed</div>
+      <p class="text-xs text-zinc-500 mt-1">Your payment was not successful.</p>
+      
+      <div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
+        <div class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Booking ID:</span><span id="failedBookingId" class="font-bold text-red-600 text-sm font-mono">-</span></div>
+        <div id="failedDatesRow" class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Dates:</span><span id="failedDates" class="font-semibold text-zinc-800">-</span></div>
+        <div id="failedTotalRow" class="flex justify-between"><span class="text-zinc-500">Total:</span><span id="failedTotal" class="font-bold text-red-800 text-base">-</span></div>
+      </div>
+
+      <p class="text-[12px] text-red-600 mt-4 leading-relaxed font-medium">
+        You can retry the payment now or contact support if the issue persists.
+      </p>
+    </div>
+    <div class="modal-footer justify-center bg-zinc-50 flex-col sm:flex-row gap-2 border-t px-6 py-4">
+      <button onclick="closePaymentFailedModal()" class="btn-outline w-full sm:w-auto">Close</button>
+      <button onclick="retryPaymentFromFailedModal()" class="btn-primary w-full sm:w-auto bg-red-600 hover:bg-red-700">
+        🔄 Retry Payment
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
@@ -627,611 +654,629 @@
     © 2026 Kundasang Homestay. All rights reserved.
   </div>
 </footer>
+
 <script src="animations.js"></script>
 <script>
-  
   function safeHTML(html) {
-  if (!html) return '';
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
-      'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
-      'button','input','form','label','select','option','textarea',
-      'section','article','header','footer','nav','main','aside',
-      'code','pre','blockquote','hr','small','sub','sup','svg','path'
-    ],
-    ALLOWED_ATTR: [
-      'id','class','style','href','src','alt','title','rel','target',
-      'method','action','type','name','value','placeholder',
-      'checked','disabled','readonly','required','multiple',
-      'min','max','step','pattern','autocomplete','inputmode',
-      'viewBox','fill','stroke','stroke-width','d'
-      // NO event handlers (onclick, onchange, oninput, onload, onerror, etc.)
-    ],
-    ADD_ATTR: ['target'] // if needed
-  });
-}
-    // =============================================================
-    // CSRF HELPER
-    // =============================================================
-    function getCsrfHeader() {
-      var token = localStorage.getItem('kd_csrf_token');
-      return token ? { 'X-CSRF-Token': token } : {};
-    }
-// =============================================================
-// MODAL SYSTEM
-// =============================================================
-function showModal(title, message, buttons) {
-  return new Promise(function(resolve) {
-    var overlay = document.getElementById('customModal');
-    var titleEl = document.getElementById('modalTitle');
-    var bodyEl = document.getElementById('modalBody');
-    var footerEl = document.getElementById('modalFooter');
-    titleEl.textContent = title || 'Notice';
-    bodyEl.innerHTML = typeof message === 'string' ? message : '';
-    footerEl.innerHTML = '';
-    buttons.forEach(function(btn) {
-      var el = document.createElement('button');
-      el.textContent = btn.label;
-      el.className = 'btn ' + (btn.class || 'btn-primary');
-      el.onclick = function() {
-        overlay.classList.remove('active');
-        document.body.style.overflow = '';
-        if (btn.value !== undefined) resolve(btn.value);
-        else resolve(true);
-      };
-      footerEl.appendChild(el);
+    if (!html) return '';
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: [
+        'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
+        'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
+        'button','input','form','label','select','option','textarea',
+        'section','article','header','footer','nav','main','aside',
+        'code','pre','blockquote','hr','small','sub','sup','svg','path'
+      ],
+      ALLOWED_ATTR: [
+        'id','class','style','href','src','alt','title','rel','target',
+        'method','action','type','name','value','placeholder',
+        'checked','disabled','readonly','required','multiple',
+        'min','max','step','pattern','autocomplete','inputmode',
+        'viewBox','fill','stroke','stroke-width','d'
+      ],
+      ADD_ATTR: ['target']
     });
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  });
-}
-function closeModal() {
-  var overlay = document.getElementById('customModal');
-  if (overlay) overlay.classList.remove('active');
-  document.body.style.overflow = '';
-}
-function modalConfirm() {
-  var overlay = document.getElementById('customModal');
-  if (overlay) overlay.classList.remove('active');
-  document.body.style.overflow = '';
-}
-function showAlert(title, message) {
-  return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
-}
-function showConfirm(title, message) {
-  return showModal(title, message, [
-    { label: 'Cancel', class: 'btn-secondary', value: false },
-    { label: 'Confirm', class: 'btn-primary', value: true }
-  ]);
-}
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    var overlay = document.getElementById('customModal');
-    if (overlay && overlay.classList.contains('active')) {
-      overlay.classList.remove('active');
-      document.body.style.overflow = '';
-    }
   }
-});
-document.getElementById('customModal').addEventListener('click', function(e) {
-  if (e.target === this) {
-    this.classList.remove('active');
+
+  // =============================================================
+  // CSRF HELPER
+  // =============================================================
+  function getCsrfHeader() {
+    var token = localStorage.getItem('kd_csrf_token');
+    return token ? { 'X-CSRF-Token': token } : {};
+  }
+
+  // =============================================================
+  // MODAL SYSTEM
+  // =============================================================
+  function showModal(title, message, buttons) {
+    return new Promise(function(resolve) {
+      var overlay = document.getElementById('customModal');
+      var titleEl = document.getElementById('modalTitle');
+      var bodyEl = document.getElementById('modalBody');
+      var footerEl = document.getElementById('modalFooter');
+      titleEl.textContent = title || 'Notice';
+      bodyEl.innerHTML = typeof message === 'string' ? message : '';
+      footerEl.innerHTML = '';
+      buttons.forEach(function(btn) {
+        var el = document.createElement('button');
+        el.textContent = btn.label;
+        el.className = 'btn ' + (btn.class || 'btn-primary');
+        el.onclick = function() {
+          overlay.classList.remove('active');
+          document.body.style.overflow = '';
+          if (btn.value !== undefined) resolve(btn.value);
+          else resolve(true);
+        };
+        footerEl.appendChild(el);
+      });
+      overlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    });
+  }
+
+  function closeModal() {
+    var overlay = document.getElementById('customModal');
+    if (overlay) overlay.classList.remove('active');
     document.body.style.overflow = '';
   }
-});
 
-// =============================================================
-// DOMPurify HELPER
-// =============================================================
-function safeHTML(html) {
-  if (!html) return '';
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      'div', 'span', 'p', 'h3', 'a', 'br', 'b', 'strong', 'small',
-      'button', 'svg', 'path'
-    ],
-    ALLOWED_ATTR: [
-      'id', 'class', 'style', 'href', 'target', 'rel',
-      'onclick', 'xmlns', 'width', 'height', 'viewBox', 'fill', 'd'
-    ]
+  function modalConfirm() {
+    var overlay = document.getElementById('customModal');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  function showAlert(title, message) {
+    return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
+  }
+
+  function showConfirm(title, message) {
+    return showModal(title, message, [
+      { label: 'Cancel', class: 'btn-secondary', value: false },
+      { label: 'Confirm', class: 'btn-primary', value: true }
+    ]);
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      var overlay = document.getElementById('customModal');
+      if (overlay && overlay.classList.contains('active')) {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+      var fModal = document.getElementById('paymentFailedModal');
+      if (fModal && fModal.classList.contains('active')) {
+        fModal.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    }
   });
-}
 
-// =============================================================
-// GUEST SYSTEM
-// =============================================================
-var API_BASE = "/api";
-var currentGuest = null;
-try {
-  var saved = localStorage.getItem('kd_guest');
-  if (saved) {
-    var parsed = JSON.parse(saved);
-    if (parsed && parsed.id) currentGuest = parsed;
-  }
-} catch(e) { currentGuest = null; }
-
-function renderGuestNav() {
-  var loginNav = document.getElementById("guestNav");
-  var profileNav = document.getElementById("guestProfileNav");
-  var mLoginNav = document.getElementById("mGuestNav");
-  var mProfileNav = document.getElementById("mGuestProfileNav");
-  var mAvatar = document.getElementById("mGuestAvatar");
-  var mNameNav = document.getElementById("mGuestNameNav");
-
-  if (currentGuest) {
-    if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
-    if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
-
-    var avatar = document.getElementById("guestAvatar");
-    var nameNav = document.getElementById("guestNameNav");
-
-    // ---- DESKTOP AVATAR ----
-    if (avatar) {
-      if (currentGuest.verified === true) {
-        avatar.innerText = "✓";
-        avatar.className = "guest-avatar w-7 h-7 text-xs bg-emerald-600 text-white flex items-center justify-center rounded-full font-bold";
-      } else {
-        avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-        avatar.className = "guest-avatar w-7 h-7 text-xs bg-[#3FD0D4] text-white flex items-center justify-center rounded-full font-bold";
-      }
+  document.getElementById('customModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.classList.remove('active');
+      document.body.style.overflow = '';
     }
-    if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
-
-    // ---- MOBILE AVATAR ----
-    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
-    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
-    if (mAvatar) {
-      if (currentGuest.verified === true) {
-        mAvatar.innerText = "✓";
-        mAvatar.className = "avatar bg-emerald-600 text-white";
-      } else {
-        mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-        mAvatar.className = "avatar bg-[#3FD0D4] text-white";
-      }
-    }
-    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
-
-  } else {
-    if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
-    if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
-    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
-  }
-}
-
-function logoutGuest() {
-  showConfirm("Logout", "Are you sure you want to logout?").then(function(confirmed) {
-    if (!confirmed) return;
-    currentGuest = null;
-    localStorage.removeItem('kd_guest');
-    renderGuestNav();
-    window.location.href = '/';
   });
-}
 
-// =============================================================
-// MOBILE NAV
-// =============================================================
-function toggleMobileMenu() {
-  var nav = document.getElementById('mobileNav');
-  if (nav) nav.classList.toggle('open');
-}
-document.addEventListener('click', function(e) {
-  var nav = document.getElementById('mobileNav');
-  var btn = document.getElementById('mobileMenuBtn');
-  if (!nav || !btn) return;
-  if (nav.classList.contains('open') &&
-      !nav.contains(e.target) &&
-      !btn.contains(e.target)) {
-    nav.classList.remove('open');
+  // =============================================================
+  // PAYMENT FAILED MODAL (same as index.html)
+  // =============================================================
+  function showPaymentFailedModal(bookingId, bookingData) {
+    var overlay = document.getElementById('paymentFailedModal');
+    var idEl = document.getElementById('failedBookingId');
+    var datesEl = document.getElementById('failedDates');
+    var totalEl = document.getElementById('failedTotal');
+
+    if (idEl) idEl.textContent = bookingId || 'N/A';
+    if (datesEl) datesEl.textContent = (bookingData?.checkin || '') + ' → ' + (bookingData?.checkout || '') + ' (' + (bookingData?.nights || 1) + 'N)';
+    if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(bookingData?.total) || 0).toFixed(2);
+
+    window._failedBookingId = bookingId;
+    window._failedBookingData = bookingData;
+
+    if (overlay) overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
   }
-});
 
-// =============================================================
-// PAYMENT STATUS CHECK FUNCTION
-// =============================================================
-async function checkPaymentStatus(bookingId) {
-  try {
-    const res = await fetch(API_BASE + '/verify-payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingId })
-    });
-    const data = await res.json();
-    return data;
-  } catch (e) {
-    console.error('Check error:', e);
-    return { success: false, error: e.message };
+  function closePaymentFailedModal() {
+    var overlay = document.getElementById('paymentFailedModal');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = '';
   }
-}
 
-// =============================================================
-// AUTO CHECK FOR PENDING BOOKINGS
-// =============================================================
-async function autoCheckPendingBookings() {
-  if (!currentGuest || !currentGuest.id) return;
-  const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
-  if (pending.length === 0) return;
-
-  let anyUpdated = false;
-  for (const b of pending) {
-    const result = await checkPaymentStatus(b.id);
-    if (result.success && result.booking) {
-      const status = result.booking.status || '';
-      if (status.toLowerCase().includes('paid')) {
-        anyUpdated = true;
-      } else if (status.toLowerCase().includes('fail')) {
-        anyUpdated = true;
-      }
+  async function retryPaymentFromFailedModal() {
+    var bookingId = window._failedBookingId;
+    if (!bookingId) {
+      showAlert('Error', 'No booking to retry.');
+      return;
     }
-    await new Promise(r => setTimeout(r, 500));
-  }
-  if (anyUpdated) {
-    loadMyBookings();
-  }
-}
-
-// =============================================================
-// LOAD BOOKINGS FROM D1 VIA API
-// =============================================================
-var myBookings = [];
-
-function loadMyBookings() {
-  var listDiv = document.getElementById('bookingsList');
-  if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10">Loading your bookings...</div>';
-  
-  if (!currentGuest || !currentGuest.id) {
-    if (listDiv) listDiv.innerHTML = '<div class="text-sm text-red-500 text-center py-10">Please log in to view your bookings.</div>';
-    return;
+    closePaymentFailedModal();
+    await retryPayment(bookingId);
   }
 
-  const token = localStorage.getItem('kd_guest_token');
-const headers = { 'Content-Type': 'application/json' };
-if (token) headers['Authorization'] = 'Bearer ' + token;
-
-fetch(API_BASE + '/bookings', {
-  method: 'GET',
-  headers: headers,
-  cache: 'no-store',
-  credentials: 'include'
-})
-  .then(function(res) {
-    if (!res.ok) throw new Error('Server error: ' + res.status);
-    return res.json();
-  })
-  .then(function(data) {
-    var allBookings = data.bookings || [];
-    var filtered = allBookings.filter(function(b) {
-      if (!currentGuest) return false;
-      var matchById = b.guestId && String(b.guestId) === String(currentGuest.id);
-      var matchByEmail = b.guestEmail && b.guestEmail.toLowerCase() === (currentGuest.email || '').toLowerCase();
-      var guestPhoneClean = String(currentGuest.phone || '').replace(/[^0-9]/g, '');
-      var bookingPhoneClean = String(b.guestPhone || '').replace(/[^0-9]/g, '');
-      var matchByPhone = guestPhoneClean && bookingPhoneClean && bookingPhoneClean === guestPhoneClean;
-      var matchByName = b.guestName && currentGuest.name && 
-        b.guestName.toLowerCase().includes(currentGuest.name.toLowerCase());
-      return matchById || matchByEmail || matchByPhone || matchByName;
-    });
-    myBookings = filtered;
-    if (currentGuest && currentGuest.id) {
-      localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings));
-    }
-    renderBookings();
-    autoCheckPendingBookings();
-  })
-  .catch(function(err) {
-    console.warn('API error:', err);
+  async function retryPayment(bookingId) {
     try {
-      var cached = localStorage.getItem('kd_guest_bookings_' + currentGuest.id);
-      if (cached) {
-        myBookings = JSON.parse(cached);
-        renderBookings();
-        var notice = document.createElement('div');
-        notice.className = 'text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center mb-4';
-        notice.innerHTML = '📡 Showing cached bookings. Connect to internet for latest updates.';
-        var listDiv2 = document.getElementById('bookingsList');
-        if (listDiv2 && listDiv2.parentNode) {
-          listDiv2.parentNode.insertBefore(notice, listDiv2);
-        }
-        autoCheckPendingBookings();
-      } else {
-        myBookings = [];
-        renderBookings();
-      }
-    } catch(e2) {
-      console.error('Cache error:', e2);
-      myBookings = [];
-      renderBookings();
-    }
-  });
-}
-
-// =============================================================
-// RETRY PAYMENT FROM BOOKINGS PAGE
-// =============================================================
-async function retryPaymentFromBookings(bookingId) {
-  try {
-    const res = await fetch(API_BASE + '/toyyibpay-create', {
-      method: 'POST',
-      headers: Object.assign({
-        'Content-Type': 'application/json'
-      }, getCsrfHeader()),
-      body: JSON.stringify({ bookingId })
-    });
-    const data = await res.json();
-    if (data.success && data.url) {
-      window.location.href = data.url;
-    } else {
-      showAlert('Error', data.error || 'Could not create payment. Please try again.');
-    }
-  } catch (e) {
-    showAlert('Error', 'Network error. Please try again.');
-    console.error('Retry error:', e);
-  }
-}
-
-// =============================================================
-// RENDER BOOKINGS – with Retry Payment button for failed
-// =============================================================
-function renderBookings() {
-  var listDiv = document.getElementById('bookingsList');
-  if (!listDiv) return;
-  
-  var countPaid = 0, countCompleted = 0, countPending = 0;
-  myBookings.forEach(function(b) {
-    var s = (b.status || '').toLowerCase();
-    if (s.includes('completed') || b.payoutDate) countCompleted++;
-    else if (s.includes('paid')) countPaid++;
-    else if (s.includes('pending')) countPending++;
-  });
-  
-  document.getElementById('metricTotal').textContent = myBookings.length;
-  document.getElementById('metricPaid').textContent = countPaid;
-  document.getElementById('metricCompleted').textContent = countCompleted;
-  document.getElementById('metricPending').textContent = countPending;
-
-  if (myBookings.length === 0) {
-    listDiv.innerHTML = safeHTML('' +
-      '<div class="text-center py-16 space-y-4">' +
-        '<div class="text-6xl">🏔️</div>' +
-        '<h3 class="font-poppins font-700 text-[20px] text-[#212121]">No Bookings Yet</h3>' +
-        '<p class="text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed">You have not made any bookings yet. Explore our verified Kundasang homestays!</p>' +
-        '<a href="/" class="btn-primary inline-block mt-2">Browse Homestays</a>' +
-      '</div>' +
-    '');
-    return;
-  }
-  
-  var sorted = myBookings.slice().sort(function(a, b) {
-    return new Date(b.date || 0) - new Date(a.date || 0);
-  });
-  
-  var html = '';
-  sorted.forEach(function(b) {
-    var id = b.id || 'N/A';
-    var homestay = b.homestay || 'Kundasang Homestay';
-    var checkin = b.checkin || 'N/A';
-    var checkout = b.checkout || 'N/A';
-    var nights = b.nights || 1;
-    var total = parseFloat(b.total) || 0;
-    var base = parseFloat(b.base) || 0;
-    var statusRaw = b.status || 'Unknown';
-    var statusLower = statusRaw.toLowerCase();
-    var isCompleted = b.payoutDate || statusLower.includes('completed');
-    var isPaid = statusLower.includes('paid') && !isCompleted;
-    var isPending = statusLower.includes('pending');
-    var isCancelled = statusLower.includes('cancel');
-    var isFailed = statusLower.includes('fail');
-    
-    var badgeClass = 'badge-pending', badgeLabel = 'Pending';
-    if (isCompleted) { badgeClass = 'badge-completed'; badgeLabel = '✓ Completed'; }
-    else if (isPaid) { badgeClass = 'badge-paid'; badgeLabel = '✓ Paid — Awaiting Check‑in Upon Arrival'; }
-    else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
-    else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
-    
-    // ===== Buttons =====
-    var checkButton = '';
-    var retryButton = '';
-    if (isPending) {
-      checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Payment</button>`;
-    }
-    if (isFailed) {
-      retryButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#dc2626; hover:bg:#b91c1c;">🔄 Retry Payment</button>`;
-      // Also add a check button to allow re-checking after retry
-      checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Status</button>`;
-    }
-
-    // WhatsApp button to host
-    var ownerPhone = String(b.ownerWhatsapp || '').replace(/[^0-9]/g, '');
-    if (ownerPhone.startsWith('0')) ownerPhone = '60' + ownerPhone.substring(1);
-    var hasPhone = ownerPhone.length >= 9;
-    var waMsg = encodeURIComponent(
-      'Hi! I have a booking at ' + homestay + '.\n\nBooking ID: ' + id + '\nCheck-in: ' + checkin + '\nCheck-out: ' + checkout + '\n\nPlease confirm my booking. Thank you!'
-    );
-    var actions = '';
-
-    // ===== CARD =====
-    html += '' +
-      '<div class="card hover:shadow-md transition-all duration-300">' +
-        '<div class="flex flex-col md:flex-row justify-between gap-4">' +
-          '<div class="flex-1 min-w-0 space-y-2">' +
-            '<div class="flex items-start justify-between gap-2 flex-wrap">' +
-              '<h3 class="font-poppins font-700 text-[18px] text-[#212121] leading-tight">' + homestay + '</h3>' +
-            '</div>' +
-            '<div class="text-sm text-zinc-600 space-y-1">' +
-              '<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
-              '<div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span> <span class="text-zinc-400 text-[10px]">(host: RM ' + base.toFixed(2) + ')</span></div>' +
-              '<div class="inline-block text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">' +
-                'Booking ID: <span class="font-mono">' + id + '</span>' +
-              '</div>' +
-              '<div class="mt-1 flex flex-wrap gap-2">' +
-                '<button onclick="resendCode(\'' + id + '\')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition">📧 Resend Code</button>' +
-                checkButton +
-                retryButton +
-              '</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="flex flex-col items-end gap-2 shrink-0">' +
-            '<span class="' + badgeClass + '">' + badgeLabel + '</span>' +
-            '<div class="flex flex-wrap gap-2 items-center">' + actions + '</div>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-    '';
-  });
-  listDiv.innerHTML = safeHTML(html);
-}
-
-// =============================================================
-// MANUAL CHECK (shows alerts and retry option)
-// =============================================================
-async function manualCheckPayment(bookingId) {
-  try {
-    const result = await checkPaymentStatus(bookingId);
-    if (result.success && result.booking) {
-      const status = result.booking.status || '';
-      if (status.toLowerCase().includes('paid')) {
-        await showAlert('✅ Payment confirmed!', 'Your booking is now active.');
-        loadMyBookings();
-        return;
-      } else if (status.toLowerCase().includes('fail')) {
-        const retry = await showModal('Payment Failed', 
-          'Your payment was not successful.<br><br>Would you like to retry now?',
-          [
-            { label: 'No', class: 'btn-secondary', value: false },
-            { label: 'Retry Payment', class: 'btn-primary', value: true }
-          ]
-        );
-        if (retry) {
-          retryPaymentFromBookings(bookingId);
-        }
-        return;
-      } else {
-        await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
-        return;
-      }
-    } else if (result.retry) {
-      await showAlert('Still Processing', 'The payment is still being processed. Please try again in a few seconds.');
-    } else {
-      await showAlert('Error', result.error || 'Could not check payment status.');
-    }
-  } catch (e) {
-    console.error('Check error:', e);
-    await showAlert('Error', 'Could not connect to the server.');
-  }
-}
-
-// =============================================================
-// CANCEL BOOKING
-// =============================================================
-function cancelBooking(bookingId) {
-  var booking = myBookings.find(function(b) { return String(b.id) === String(bookingId); });
-  if (!booking) {
-    showAlert('Error', 'Booking not found.');
-    return;
-  }
-
-  showConfirm('Cancel Booking', 'Are you sure you want to cancel booking <strong>' + bookingId + '</strong>?<br><br><span class="text-red-600 font-semibold">This action cannot be undone.</span><br>Please WhatsApp the host directly to confirm your cancellation.')
-    .then(function(confirmed) {
-      if (!confirmed) return;
-
-      fetch(API_BASE + '/bookings', {
+      const res = await fetch('/api/toyyibpay-create', {
         method: 'POST',
         headers: Object.assign({
           'Content-Type': 'application/json'
         }, getCsrfHeader()),
-        body: JSON.stringify({
-          action: 'publicUpdateStatus',
-          id: bookingId,
-          status: 'Cancelled by Guest',
-          guestId: currentGuest.id
-        })
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
-        if (data && data.success) {
-          showAlert('Booking Cancelled', '✓ Your booking has been cancelled successfully.');
-          loadMyBookings();
-        } else {
-          showAlert('Error', data.error || 'Failed to cancel booking. Please try again.');
-        }
-      })
-      .catch(function(err) {
-        showAlert('Network Error', 'Could not connect to server. Please try again.');
-        console.error('Cancel error:', err);
+        body: JSON.stringify({ bookingId })
       });
-    });
-}
-
-// =============================================================
-// RESEND CHECK‑IN CODE VIA EMAIL
-// =============================================================
-async function resendCode(bookingId) {
-  const booking = myBookings.find(b => String(b.id) === String(bookingId));
-  if (!booking) {
-    showAlert('Error', 'Booking not found.');
-    return;
-  }
-  try {
-    const res = await fetch(API_BASE + '/resend-code', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getCsrfHeader()
-      },
-      body: JSON.stringify({ bookingId })
-    });
-    const data = await res.json();
-    if (data.success) {
-      if (data.emailSent) {
-        showAlert('Code Sent', data.message);
+      const data = await res.json();
+      if (data.success && data.url) {
+        window.location.href = data.url;
       } else {
-        // Email failed but we have the code
-        showAlert('Your Check‑in Code', data.message + '\n\nPlease save this code for check‑in.');
+        showAlert('Error', data.error || 'Could not create payment. Please try again.');
       }
-    } else {
-      showAlert('Error', data.error || 'Failed to resend.');
+    } catch (e) {
+      showAlert('Error', 'Network error. Please try again.');
+      console.error('Retry error:', e);
     }
-  } catch(e) {
-    showAlert('Error', 'Network error. Please try again.');
-    console.error('Resend error:', e);
-  }
-}
-
-// =============================================================
-// INIT
-// =============================================================
-(function init() {
-  renderGuestNav();
-  var notLoggedIn = document.getElementById('notLoggedIn');
-  var bookingsView = document.getElementById('bookingsView');
-  var nameDisplay = document.getElementById('guestNameDisplay');
-  
-  if (currentGuest && currentGuest.id) {
-    if (notLoggedIn) notLoggedIn.classList.add('hidden');
-    if (bookingsView) bookingsView.classList.remove('hidden');
-    if (nameDisplay) nameDisplay.textContent = currentGuest.name || currentGuest.email || 'Guest';
-    setTimeout(function() {
-      loadMyBookings();
-    }, 100);
-  } else {
-    if (notLoggedIn) notLoggedIn.classList.remove('hidden');
-    if (bookingsView) bookingsView.classList.add('hidden');
   }
 
   // =============================================================
-  // Auto‑poll on return (fallback)
+  // GUEST SYSTEM
   // =============================================================
-  const urlParams = new URLSearchParams(window.location.search);
-  const bookingParam = urlParams.get('booking');
-  const paymentReturn = urlParams.get('payment_return');
-  if (bookingParam && paymentReturn === '1' && currentGuest && currentGuest.id) {
-    setTimeout(function() {
-      loadMyBookings();
-    }, 3000);
+  var API_BASE = "/api";
+  var currentGuest = null;
+  try {
+    var saved = localStorage.getItem('kd_guest');
+    if (saved) {
+      var parsed = JSON.parse(saved);
+      if (parsed && parsed.id) currentGuest = parsed;
+    }
+  } catch(e) { currentGuest = null; }
+
+  function renderGuestNav() {
+    var loginNav = document.getElementById("guestNav");
+    var profileNav = document.getElementById("guestProfileNav");
+    var mLoginNav = document.getElementById("mGuestNav");
+    var mProfileNav = document.getElementById("mGuestProfileNav");
+    var mAvatar = document.getElementById("mGuestAvatar");
+    var mNameNav = document.getElementById("mGuestNameNav");
+
+    if (currentGuest) {
+      if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
+      if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
+
+      var avatar = document.getElementById("guestAvatar");
+      var nameNav = document.getElementById("guestNameNav");
+
+      if (avatar) {
+        if (currentGuest.verified === true) {
+          avatar.innerText = "✓";
+          avatar.className = "guest-avatar w-7 h-7 text-xs bg-emerald-600 text-white flex items-center justify-center rounded-full font-bold";
+        } else {
+          avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+          avatar.className = "guest-avatar w-7 h-7 text-xs bg-[#3FD0D4] text-white flex items-center justify-center rounded-full font-bold";
+        }
+      }
+      if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
+
+      if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
+      if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
+      if (mAvatar) {
+        if (currentGuest.verified === true) {
+          mAvatar.innerText = "✓";
+          mAvatar.className = "avatar bg-emerald-600 text-white";
+        } else {
+          mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+          mAvatar.className = "avatar bg-[#3FD0D4] text-white";
+        }
+      }
+      if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+
+    } else {
+      if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
+      if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
+      if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
+      if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
+    }
   }
-})();
+
+  function logoutGuest() {
+    showConfirm("Logout", "Are you sure you want to logout?").then(function(confirmed) {
+      if (!confirmed) return;
+      currentGuest = null;
+      localStorage.removeItem('kd_guest');
+      renderGuestNav();
+      window.location.href = '/';
+    });
+  }
+
+  // =============================================================
+  // MOBILE NAV
+  // =============================================================
+  function toggleMobileMenu() {
+    var nav = document.getElementById('mobileNav');
+    if (nav) nav.classList.toggle('open');
+  }
+  document.addEventListener('click', function(e) {
+    var nav = document.getElementById('mobileNav');
+    var btn = document.getElementById('mobileMenuBtn');
+    if (!nav || !btn) return;
+    if (nav.classList.contains('open') &&
+        !nav.contains(e.target) &&
+        !btn.contains(e.target)) {
+      nav.classList.remove('open');
+    }
+  });
+
+  // =============================================================
+  // PAYMENT STATUS CHECK FUNCTION
+  // =============================================================
+  async function checkPaymentStatus(bookingId) {
+    try {
+      const res = await fetch(API_BASE + '/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId })
+      });
+      const data = await res.json();
+      return data;
+    } catch (e) {
+      console.error('Check error:', e);
+      return { success: false, error: e.message };
+    }
+  }
+
+  // =============================================================
+  // AUTO CHECK FOR PENDING BOOKINGS
+  // =============================================================
+  async function autoCheckPendingBookings() {
+    if (!currentGuest || !currentGuest.id) return;
+    const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
+    if (pending.length === 0) return;
+
+    let anyUpdated = false;
+    for (const b of pending) {
+      const result = await checkPaymentStatus(b.id);
+      if (result.success && result.booking) {
+        const status = result.booking.status || '';
+        if (status.toLowerCase().includes('paid')) {
+          anyUpdated = true;
+        } else if (status.toLowerCase().includes('fail')) {
+          anyUpdated = true;
+        }
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+    if (anyUpdated) {
+      loadMyBookings();
+    }
+  }
+
+  // =============================================================
+  // LOAD BOOKINGS FROM D1 VIA API
+  // =============================================================
+  var myBookings = [];
+
+  function loadMyBookings() {
+    var listDiv = document.getElementById('bookingsList');
+    if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10">Loading your bookings...</div>';
+    
+    if (!currentGuest || !currentGuest.id) {
+      if (listDiv) listDiv.innerHTML = '<div class="text-sm text-red-500 text-center py-10">Please log in to view your bookings.</div>';
+      return;
+    }
+
+    const token = localStorage.getItem('kd_guest_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    fetch(API_BASE + '/bookings', {
+      method: 'GET',
+      headers: headers,
+      cache: 'no-store',
+      credentials: 'include'
+    })
+    .then(function(res) {
+      if (!res.ok) throw new Error('Server error: ' + res.status);
+      return res.json();
+    })
+    .then(function(data) {
+      var allBookings = data.bookings || [];
+      var filtered = allBookings.filter(function(b) {
+        if (!currentGuest) return false;
+        var matchById = b.guestId && String(b.guestId) === String(currentGuest.id);
+        var matchByEmail = b.guestEmail && b.guestEmail.toLowerCase() === (currentGuest.email || '').toLowerCase();
+        var guestPhoneClean = String(currentGuest.phone || '').replace(/[^0-9]/g, '');
+        var bookingPhoneClean = String(b.guestPhone || '').replace(/[^0-9]/g, '');
+        var matchByPhone = guestPhoneClean && bookingPhoneClean && bookingPhoneClean === guestPhoneClean;
+        var matchByName = b.guestName && currentGuest.name && 
+          b.guestName.toLowerCase().includes(currentGuest.name.toLowerCase());
+        return matchById || matchByEmail || matchByPhone || matchByName;
+      });
+      myBookings = filtered;
+      if (currentGuest && currentGuest.id) {
+        localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings));
+      }
+      renderBookings();
+      autoCheckPendingBookings();
+    })
+    .catch(function(err) {
+      console.warn('API error:', err);
+      try {
+        var cached = localStorage.getItem('kd_guest_bookings_' + currentGuest.id);
+        if (cached) {
+          myBookings = JSON.parse(cached);
+          renderBookings();
+          var notice = document.createElement('div');
+          notice.className = 'text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center mb-4';
+          notice.innerHTML = '📡 Showing cached bookings. Connect to internet for latest updates.';
+          var listDiv2 = document.getElementById('bookingsList');
+          if (listDiv2 && listDiv2.parentNode) {
+            listDiv2.parentNode.insertBefore(notice, listDiv2);
+          }
+          autoCheckPendingBookings();
+        } else {
+          myBookings = [];
+          renderBookings();
+        }
+      } catch(e2) {
+        console.error('Cache error:', e2);
+        myBookings = [];
+        renderBookings();
+      }
+    });
+  }
+
+  // =============================================================
+  // RENDER BOOKINGS – with Retry Payment button for failed
+  // =============================================================
+  function renderBookings() {
+    var listDiv = document.getElementById('bookingsList');
+    if (!listDiv) return;
+    
+    var countPaid = 0, countCompleted = 0, countPending = 0;
+    myBookings.forEach(function(b) {
+      var s = (b.status || '').toLowerCase();
+      if (s.includes('completed') || b.payoutDate) countCompleted++;
+      else if (s.includes('paid')) countPaid++;
+      else if (s.includes('pending')) countPending++;
+    });
+    
+    document.getElementById('metricTotal').textContent = myBookings.length;
+    document.getElementById('metricPaid').textContent = countPaid;
+    document.getElementById('metricCompleted').textContent = countCompleted;
+    document.getElementById('metricPending').textContent = countPending;
+
+    if (myBookings.length === 0) {
+      listDiv.innerHTML = safeHTML('' +
+        '<div class="text-center py-16 space-y-4">' +
+          '<div class="text-6xl">🏔️</div>' +
+          '<h3 class="font-poppins font-700 text-[20px] text-[#212121]">No Bookings Yet</h3>' +
+          '<p class="text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed">You have not made any bookings yet. Explore our verified Kundasang homestays!</p>' +
+          '<a href="/" class="btn-primary inline-block mt-2">Browse Homestays</a>' +
+        '</div>' +
+      '');
+      return;
+    }
+    
+    var sorted = myBookings.slice().sort(function(a, b) {
+      return new Date(b.date || 0) - new Date(a.date || 0);
+    });
+    
+    var html = '';
+    sorted.forEach(function(b) {
+      var id = b.id || 'N/A';
+      var homestay = b.homestay || 'Kundasang Homestay';
+      var checkin = b.checkin || 'N/A';
+      var checkout = b.checkout || 'N/A';
+      var nights = b.nights || 1;
+      var total = parseFloat(b.total) || 0;
+      var base = parseFloat(b.base) || 0;
+      var statusRaw = b.status || 'Unknown';
+      var statusLower = statusRaw.toLowerCase();
+      var isCompleted = b.payoutDate || statusLower.includes('completed');
+      var isPaid = statusLower.includes('paid') && !isCompleted;
+      var isPending = statusLower.includes('pending');
+      var isCancelled = statusLower.includes('cancel');
+      var isFailed = statusLower.includes('fail');
+      
+      var badgeClass = 'badge-pending', badgeLabel = 'Pending';
+      if (isCompleted) { badgeClass = 'badge-completed'; badgeLabel = '✓ Completed'; }
+      else if (isPaid) { badgeClass = 'badge-paid'; badgeLabel = '✓ Paid — Awaiting Check‑in Upon Arrival'; }
+      else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
+      else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
+      
+      var checkButton = '';
+      var retryButton = '';
+      if (isPending) {
+        checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Payment</button>`;
+      }
+      if (isFailed) {
+        retryButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#dc2626; hover:bg:#b91c1c;">🔄 Retry Payment</button>`;
+        checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Status</button>`;
+      }
+
+      var ownerPhone = String(b.ownerWhatsapp || '').replace(/[^0-9]/g, '');
+      if (ownerPhone.startsWith('0')) ownerPhone = '60' + ownerPhone.substring(1);
+      var hasPhone = ownerPhone.length >= 9;
+      var waMsg = encodeURIComponent(
+        'Hi! I have a booking at ' + homestay + '.\n\nBooking ID: ' + id + '\nCheck-in: ' + checkin + '\nCheck-out: ' + checkout + '\n\nPlease confirm my booking. Thank you!'
+      );
+      var actions = '';
+
+      html += '' +
+        '<div class="card hover:shadow-md transition-all duration-300">' +
+          '<div class="flex flex-col md:flex-row justify-between gap-4">' +
+            '<div class="flex-1 min-w-0 space-y-2">' +
+              '<div class="flex items-start justify-between gap-2 flex-wrap">' +
+                '<h3 class="font-poppins font-700 text-[18px] text-[#212121] leading-tight">' + homestay + '</h3>' +
+              '</div>' +
+              '<div class="text-sm text-zinc-600 space-y-1">' +
+                '<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
+                '<div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span> <span class="text-zinc-400 text-[10px]">(host: RM ' + base.toFixed(2) + ')</span></div>' +
+                '<div class="inline-block text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">' +
+                  'Booking ID: <span class="font-mono">' + id + '</span>' +
+                '</div>' +
+                '<div class="mt-1 flex flex-wrap gap-2">' +
+                  '<button onclick="resendCode(\'' + id + '\')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition">📧 Resend Code</button>' +
+                  checkButton +
+                  retryButton +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="flex flex-col items-end gap-2 shrink-0">' +
+              '<span class="' + badgeClass + '">' + badgeLabel + '</span>' +
+              '<div class="flex flex-wrap gap-2 items-center">' + actions + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '';
+    });
+    listDiv.innerHTML = safeHTML(html);
+  }
+
+  // =============================================================
+  // MANUAL CHECK (shows alerts and retry option)
+  // =============================================================
+  async function manualCheckPayment(bookingId) {
+    try {
+      const result = await checkPaymentStatus(bookingId);
+      if (result.success && result.booking) {
+        const status = result.booking.status || '';
+        if (status.toLowerCase().includes('paid')) {
+          await showAlert('✅ Payment confirmed!', 'Your booking is now active.');
+          loadMyBookings();
+          return;
+        } else if (status.toLowerCase().includes('fail')) {
+          // Show the same failed modal as index.html
+          showPaymentFailedModal(bookingId, result.booking);
+          return;
+        } else {
+          await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
+          return;
+        }
+      } else if (result.retry) {
+        await showAlert('Still Processing', 'The payment is still being processed. Please try again in a few seconds.');
+      } else {
+        await showAlert('Error', result.error || 'Could not check payment status.');
+      }
+    } catch (e) {
+      console.error('Check error:', e);
+      await showAlert('Error', 'Could not connect to the server.');
+    }
+  }
+
+  // =============================================================
+  // RETRY PAYMENT FROM BOOKINGS PAGE
+  // =============================================================
+  async function retryPaymentFromBookings(bookingId) {
+    // Use the global retryPayment function which uses the new modal
+    await retryPayment(bookingId);
+  }
+
+  // =============================================================
+  // CANCEL BOOKING
+  // =============================================================
+  function cancelBooking(bookingId) {
+    var booking = myBookings.find(function(b) { return String(b.id) === String(bookingId); });
+    if (!booking) {
+      showAlert('Error', 'Booking not found.');
+      return;
+    }
+
+    showConfirm('Cancel Booking', 'Are you sure you want to cancel booking <strong>' + bookingId + '</strong>?<br><br><span class="text-red-600 font-semibold">This action cannot be undone.</span><br>Please WhatsApp the host directly to confirm your cancellation.')
+      .then(function(confirmed) {
+        if (!confirmed) return;
+
+        fetch(API_BASE + '/bookings', {
+          method: 'POST',
+          headers: Object.assign({
+            'Content-Type': 'application/json'
+          }, getCsrfHeader()),
+          body: JSON.stringify({
+            action: 'publicUpdateStatus',
+            id: bookingId,
+            status: 'Cancelled by Guest',
+            guestId: currentGuest.id
+          })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data && data.success) {
+            showAlert('Booking Cancelled', '✓ Your booking has been cancelled successfully.');
+            loadMyBookings();
+          } else {
+            showAlert('Error', data.error || 'Failed to cancel booking. Please try again.');
+          }
+        })
+        .catch(function(err) {
+          showAlert('Network Error', 'Could not connect to server. Please try again.');
+          console.error('Cancel error:', err);
+        });
+      });
+  }
+
+  // =============================================================
+  // RESEND CHECK‑IN CODE VIA EMAIL
+  // =============================================================
+  async function resendCode(bookingId) {
+    const booking = myBookings.find(b => String(b.id) === String(bookingId));
+    if (!booking) {
+      showAlert('Error', 'Booking not found.');
+      return;
+    }
+    try {
+      const res = await fetch(API_BASE + '/resend-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getCsrfHeader()
+        },
+        body: JSON.stringify({ bookingId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (data.emailSent) {
+          showAlert('Code Sent', data.message);
+        } else {
+          showAlert('Your Check‑in Code', data.message + '\n\nPlease save this code for check‑in.');
+        }
+      } else {
+        showAlert('Error', data.error || 'Failed to resend.');
+      }
+    } catch(e) {
+      showAlert('Error', 'Network error. Please try again.');
+      console.error('Resend error:', e);
+    }
+  }
+
+  // =============================================================
+  // INIT
+  // =============================================================
+  (function init() {
+    renderGuestNav();
+    var notLoggedIn = document.getElementById('notLoggedIn');
+    var bookingsView = document.getElementById('bookingsView');
+    var nameDisplay = document.getElementById('guestNameDisplay');
+    
+    if (currentGuest && currentGuest.id) {
+      if (notLoggedIn) notLoggedIn.classList.add('hidden');
+      if (bookingsView) bookingsView.classList.remove('hidden');
+      if (nameDisplay) nameDisplay.textContent = currentGuest.name || currentGuest.email || 'Guest';
+      setTimeout(function() {
+        loadMyBookings();
+      }, 100);
+    } else {
+      if (notLoggedIn) notLoggedIn.classList.remove('hidden');
+      if (bookingsView) bookingsView.classList.add('hidden');
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookingParam = urlParams.get('booking');
+    const paymentReturn = urlParams.get('payment_return');
+    if (bookingParam && paymentReturn === '1' && currentGuest && currentGuest.id) {
+      setTimeout(function() {
+        loadMyBookings();
+      }, 3000);
+    }
+  })();
 </script>
 </body>
 </html>
