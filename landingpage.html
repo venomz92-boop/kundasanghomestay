@@ -2,19 +2,21 @@
 <html lang="ms">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
   <title>Untuk Pengusaha – Kundasang Homestay</title>
   <meta name="description" content="Platform homestay Kundasang yang selamat dan percuma untuk pengusaha tempatan. Daftar homestay anda, terima tempahan, dan dapatkan bayaran automatik." />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-  <!-- TAILWIND CSS (Utility classes) -->
+  <!-- TAILWIND CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
   <!-- GOOGLE FONTS -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet" />
   
-  <!-- ALPINE.JS (Replaces React State/Events) -->
+  <!-- ALPINE.JS CORE (with Intersect plugin for scroll animations) -->
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- Intersect plugin for scroll detection -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/intersect@3.x.x/dist/cdn.min.js"></script>
 
   <style>
     :root {
@@ -60,8 +62,10 @@
       cursor: pointer;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
       text-decoration: none;
+      min-height: 44px; /* Larger touch target */
     }
     .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(15,56,46,0.3); }
     
@@ -79,8 +83,10 @@
       cursor: pointer;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
       text-decoration: none;
+      min-height: 44px;
     }
     .btn-accent:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(63,208,212,0.25); }
     
@@ -113,6 +119,7 @@
       justify-content: space-between;
       align-items: center;
       user-select: none;
+      padding: 8px 0; /* Larger tap area */
     }
     .faq-answer {
       font-size: 14px;
@@ -125,23 +132,126 @@
       color: var(--accent);
       transition: transform 0.3s;
       display: inline-block;
+      min-width: 30px;
+      text-align: center;
     }
     .faq-toggle.open { transform: rotate(45deg); }
     
-    @media (max-width: 768px) {
-      .badge-step { width: 40px; height: 40px; font-size: 16px; }
+    /* Horizontal scroll steps - snap scrolling */
+    .steps-scroll {
+      display: flex;
+      overflow-x: auto;
+      gap: 16px;
+      padding: 8px 4px 16px 4px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .steps-scroll::-webkit-scrollbar { display: none; }
+    .steps-scroll > * {
+      flex: 0 0 280px;
+      scroll-snap-align: start;
     }
 
-    /* Alpine.js initial hide to prevent flashes */
+    /* Mobile Hamburger Overlay */
+    .mobile-menu-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .mobile-menu-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .mobile-menu-drawer {
+      position: fixed;
+      top: 0;
+      right: -320px;
+      width: 300px;
+      max-width: 80vw;
+      height: 100%;
+      background: white;
+      z-index: 1000;
+      transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      padding: 24px;
+      box-shadow: -8px 0 30px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .mobile-menu-drawer.open {
+      right: 0;
+    }
+
+    /* Floating Action Bar */
+    .floating-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      padding: 12px 16px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+      z-index: 100;
+      border-top: 1px solid rgba(0,0,0,0.05);
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .floating-bar { display: flex; }
+    }
+
+    /* Scroll animation base */
+    .scroll-fade {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .scroll-fade.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Larger touch targets on mobile */
+    @media (max-width: 768px) {
+      .btn-primary, .btn-accent {
+        font-size: 14px;
+        padding: 16px 24px;
+        min-height: 48px;
+      }
+      .faq-question { font-size: 17px; padding: 12px 0; }
+      .badge-step { width: 56px; height: 56px; font-size: 22px; }
+    }
+    
     [x-cloak] { display: none !important; }
   </style>
 </head>
 <body>
 
 <!-- ============================================================ -->
-<!--  ENTIRE APP WRAPPED IN Alpine.js x-data (like React's state)   -->
+<!--  ALPINE.JS APP                                                 -->
 <!-- ============================================================ -->
 <div x-data="landingPageApp()" x-init="init()" class="flex flex-col min-h-screen">
+
+  <!-- ===== MOBILE MENU OVERLAY ===== -->
+  <div class="mobile-menu-overlay" :class="{ 'open': isMobileMenuOpen }" @click="isMobileMenuOpen = false"></div>
+  
+  <!-- ===== MOBILE MENU DRAWER ===== -->
+  <div class="mobile-menu-drawer" :class="{ 'open': isMobileMenuOpen }">
+    <div class="flex justify-between items-center pb-4 border-b border-black/5">
+      <span class="font-poppins font-700 text-[#212121]">Menu</span>
+      <button @click="isMobileMenuOpen = false" class="text-2xl p-2">✕</button>
+    </div>
+    <nav class="flex flex-col gap-4 text-[15px] font-medium">
+      <a href="/" class="hover:text-[#0F382E] py-2">Utama</a>
+      <a href="/list.html" class="hover:text-[#0F382E] py-2">Daftar Homestay</a>
+      <a href="/about.html" class="hover:text-[#0F382E] py-2">Tentang</a>
+      <a href="/owner.html" class="btn-primary text-center text-[12px]">🔑 Log Masuk Pengusaha</a>
+    </nav>
+  </div>
 
   <!-- ===== HEADER ===== -->
   <header class="h-[72px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
@@ -152,18 +262,24 @@
           KUNDASANG<span class="font-600 text-[#212121]/60 text-[14px] md:text-[16px]"> • Homestay</span>
         </div>
       </div>
+      
+      <!-- Desktop Nav -->
       <nav class="hidden md:flex items-center gap-6">
         <a href="/" class="text-[13px] font-600 text-[#212121]/70 hover:text-[#0F382E] transition-colors">Utama</a>
         <a href="/list.html" class="text-[13px] font-600 text-[#212121]/70 hover:text-[#0F382E] transition-colors">Daftar Homestay</a>
         <a href="/about.html" class="text-[13px] font-600 text-[#212121]/70 hover:text-[#0F382E] transition-colors">Tentang</a>
         <a href="/owner.html" class="btn-primary" style="padding:8px 24px;font-size:11px;">🔑 Log Masuk Pengusaha</a>
       </nav>
-      <button @click="window.location.href='/list.html'" class="md:hidden btn-primary text-[11px] px-4 py-2">Daftar</button>
+
+      <!-- Mobile Hamburger -->
+      <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="md:hidden p-2 -mr-2" aria-label="Menu">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
     </div>
   </header>
 
   <!-- ===== HERO ===== -->
-  <section class="relative w-full bg-[#0F382E] text-white py-16 md:py-24 overflow-hidden">
+  <section class="relative w-full bg-[#0F382E] text-white py-16 md:py-24 overflow-hidden scroll-fade" x-intersect.once="$el.classList.add('visible')">
     <div class="absolute inset-0 opacity-10">
       <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Gunung Kinabalu" class="w-full h-full object-cover" />
     </div>
@@ -178,7 +294,7 @@
         Tiada bayaran pendaftaran, tiada yuran tersembunyi.
       </p>
       <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
-        <a href="/list.html" class="btn-accent">📋 Daftar Sekarang – PERCUMA</a>
+        <a href="/list.html" class="btn-accent text-sm md:text-base px-6 py-3">📋 Daftar Sekarang – PERCUMA</a>
         <a href="#faq" class="btn-primary" style="background:transparent;border:2px solid rgba(255,255,255,0.5);color:white;padding:12px 28px;">🤔 Ada Soalan?</a>
       </div>
       <div class="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs md:text-sm text-white/70">
@@ -191,16 +307,27 @@
     </div>
   </section>
 
-  <!-- ===== BAGAIMANA IA BERFUNGSI (Using x-for = React .map()) ===== -->
-  <section class="max-w-[1100px] mx-auto px-4 py-16">
+  <!-- ===== BAGAIMANA IA BERFUNGSI (HORIZONTAL SCROLL ON MOBILE) ===== -->
+  <section class="max-w-[1100px] mx-auto px-4 py-16 scroll-fade" x-intersect.once="$el.classList.add('visible')">
     <div class="text-center mb-12">
       <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Langkah Mudah</div>
       <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Bagaimana Platform Ini Berfungsi?</h2>
       <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
     </div>
 
-    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-      <!-- Alpine.js loop over 'steps' data -->
+    <!-- Mobile: Horizontal scroll -->
+    <div class="md:hidden steps-scroll">
+      <template x-for="(step, index) in steps" :key="index">
+        <div class="card p-6 text-center flex-shrink-0 w-[280px]">
+          <div class="badge-step" :class="{ 'accent': step.accent }" x-text="step.id"></div>
+          <h3 class="font-poppins font-700 text-[18px] text-[#212121] mt-4" x-text="step.title"></h3>
+          <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed" x-html="step.desc"></p>
+        </div>
+      </template>
+    </div>
+
+    <!-- Desktop: Grid -->
+    <div class="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-8">
       <template x-for="(step, index) in steps" :key="index">
         <div class="card p-6 text-center hover:shadow-lg transition-shadow duration-300">
           <div class="badge-step" :class="{ 'accent': step.accent }" x-text="step.id"></div>
@@ -217,12 +344,12 @@
     </div>
 
     <div class="mt-10 text-center">
-      <a href="/list.html" class="btn-primary">📋 Saya Nak Daftar Sekarang</a>
+      <a href="/list.html" class="btn-primary text-sm md:text-base px-8 py-4">📋 Saya Nak Daftar Sekarang</a>
     </div>
   </section>
 
-  <!-- ===== KENAPA PILIH (Data-driven with x-for) ===== -->
-  <section class="bg-white py-16">
+  <!-- ===== KENAPA PILIH ===== -->
+  <section class="bg-white py-16 scroll-fade" x-intersect.once="$el.classList.add('visible')">
     <div class="max-w-[1100px] mx-auto px-4">
       <div class="text-center mb-10">
         <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Kelebihan</div>
@@ -245,7 +372,7 @@
   </section>
 
   <!-- ===== PROSES PENDAFTARAN ===== -->
-  <section class="max-w-[1100px] mx-auto px-4 py-16">
+  <section class="max-w-[1100px] mx-auto px-4 py-16 scroll-fade" x-intersect.once="$el.classList.add('visible')">
     <div class="text-center mb-10">
       <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Langkah Seterusnya</div>
       <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Proses Pendaftaran &amp; Kelulusan</h2>
@@ -278,7 +405,7 @@
   </section>
 
   <!-- ===== PENGURUSAN TEMPAHAN ===== -->
-  <section class="bg-white py-16">
+  <section class="bg-white py-16 scroll-fade" x-intersect.once="$el.classList.add('visible')">
     <div class="max-w-[1100px] mx-auto px-4">
       <div class="text-center mb-10">
         <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Kawalan Penuh</div>
@@ -316,28 +443,21 @@
     </div>
   </section>
 
-  <!-- ===== FAQ (React-like State & Conditional Rendering) ===== -->
-  <section id="faq" class="max-w-[900px] mx-auto px-4 py-16 scroll-mt-20">
+  <!-- ===== FAQ ===== -->
+  <section id="faq" class="max-w-[900px] mx-auto px-4 py-16 scroll-mt-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
     <div class="text-center mb-10">
       <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Ada Soalan?</div>
       <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Soalan Lazim</h2>
       <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
     </div>
 
-    <div class="card p-6 divide-y divide-black/5">
-      <!-- 
-        Alpine.js loop over faqData.
-        'click' toggles the activeIndex (like React's useState).
-        'x-show' conditionally renders the answer (like {isOpen && <p>} in React).
-        'x-bind:class' dynamically adds the 'open' class to the toggle icon.
-      -->
+    <div class="card p-4 md:p-6 divide-y divide-black/5">
       <template x-for="(item, index) in faqData" :key="index">
         <div class="faq-item">
           <div class="faq-question" @click="toggleFaq(index)">
             <span x-text="item.q"></span>
             <span class="faq-toggle" :class="{ 'open': activeFaq === index }" x-text="activeFaq === index ? '−' : '+'"></span>
           </div>
-          <!-- x-show handles conditional rendering (like React's &&) -->
           <div class="faq-answer" x-show="activeFaq === index" x-html="item.a" x-transition.duration.200ms></div>
         </div>
       </template>
@@ -345,7 +465,7 @@
   </section>
 
   <!-- ===== CTA AKHIR ===== -->
-  <section class="bg-[#0F382E] text-white py-16 text-center">
+  <section class="bg-[#0F382E] text-white py-16 text-center scroll-fade" x-intersect.once="$el.classList.add('visible')">
     <div class="max-w-[700px] mx-auto px-4">
       <div class="font-satisfy text-[#3FD0D4] text-[30px] md:text-[40px] leading-none">Sedia Untuk Mulakan?</div>
       <h2 class="font-poppins font-700 text-[26px] md:text-[34px] leading-[1.1] mt-2">Daftar Homestay Anda Sekarang</h2>
@@ -353,7 +473,7 @@
         Isi borang ringkas, hantar dokumen, dan mula terima tempahan dari pelancong yang sah.
       </p>
       <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
-        <a href="/list.html" class="btn-accent">📋 Daftar Sekarang – PERCUMA</a>
+        <a href="/list.html" class="btn-accent text-sm md:text-base px-8 py-4">📋 Daftar Sekarang – PERCUMA</a>
         <a href="https://wa.me/60165833713?text=listingkdsg" target="_blank" class="btn-primary" style="background:#25D366;border:none;padding:12px 28px;">💬 Tanya di WhatsApp</a>
       </div>
       <p class="text-white/40 text-[11px] mt-4">* Sebarang masalah, hubungi kami terus.</p>
@@ -394,18 +514,24 @@
     </div>
   </footer>
 
+  <!-- ===== FLOATING ACTION BAR (Mobile only) ===== -->
+  <div class="floating-bar">
+    <a href="/list.html" class="btn-accent w-full text-center text-sm py-3">📋 Daftar Sekarang – PERCUMA</a>
+  </div>
+
 </div> <!-- END Alpine.js App -->
 
 <!-- ============================================================ -->
-<!--  ALPINE.JS APP STATE & DATA (Like React's useState & props)   -->
+<!--  ALPINE.JS APP STATE                                          -->
 <!-- ============================================================ -->
 <script>
   function landingPageApp() {
     return {
-      // --- STATE (like React useState) ---
-      activeFaq: null, // Tracks which FAQ is open. null = none open.
+      // --- STATE ---
+      activeFaq: null,
+      isMobileMenuOpen: false,
 
-      // --- DATA (like React props/arrays to map over) ---
+      // --- DATA ---
       steps: [
         { id: 1, title: 'Daftar Homestay Anda', desc: 'Isi borang pendaftaran dengan butiran peribadi, maklumat homestay, bilik, harga, dan gambar. Sertakan salinan IC dan bukti bank.', accent: false },
         { id: 2, title: 'Pengesahan & Kelulusan', desc: 'Pihak admin akan menyemak dokumen anda (IC, lesen PBT, QR bank) dan meluluskan homestay dalam masa 24–48 jam.', accent: true },
@@ -436,19 +562,17 @@
         { q: 'Bolehkah saya mengubah tarikh tempahan atau membatalkannya?', a: 'Ya. Di dashboard pengusaha, anda boleh menukar tarikh check‑in/check‑out atau membatalkan tempahan (dengan persetujuan tetamu). Sistem akan mengemas kini ketersediaan secara automatik.' }
       ],
 
-      // --- METHODS (like React event handlers) ---
+      // --- METHODS ---
       toggleFaq(index) {
-        // If the clicked FAQ is already open, close it. Otherwise, open it.
         this.activeFaq = this.activeFaq === index ? null : index;
       },
 
-      // --- LIFECYCLE (like React useEffect for hash routing) ---
+      // --- LIFECYCLE ---
       init() {
         if (window.location.hash === '#faq') {
           setTimeout(() => {
-            // Open the first FAQ when URL has #faq
             this.activeFaq = 0;
-          }, 400);
+          }, 500);
         }
       }
     }
