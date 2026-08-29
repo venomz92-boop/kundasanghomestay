@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="animations.css" />
   <style>
-    /* ===== ROOT ===== */
+    /* ===== ROOT (same as before) ===== */
     :root {
       --primary: #0F382E;
       --primary-light: #1a4d3e;
@@ -495,35 +495,35 @@
 </div>
 
 <!-- ===== PAYMENT FAILED MODAL (friendly version) ===== -->
-  <div id="paymentFailedModal" class="modal-overlay thankyou-modal">
-    <div class="modal-box max-w-[500px]">
-      <div class="modal-body text-center p-6 md:p-8">
-        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">😞</div>
-        <div class="font-poppins font-800 text-[22px] text-red-700">Payment Not Completed</div>
-        <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
-          Your payment didn’t go through this time. No worries — you can try again in <strong>10 minutes</strong>.
-        </p>
-        <p class="text-sm text-zinc-600 mt-1 leading-relaxed">
-          Simply go to your <strong>My Bookings</strong> page and click the <strong>Retry Payment</strong> button next to this booking.
-        </p>
-        
-        <div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
-          <div class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Booking ID:</span><span id="failedBookingId" class="font-bold text-red-600 text-sm font-mono">-</span></div>
-          <div id="failedDatesRow" class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Dates:</span><span id="failedDates" class="font-semibold text-zinc-800">-</span></div>
-          <div id="failedTotalRow" class="flex justify-between"><span class="text-zinc-500">Total:</span><span id="failedTotal" class="font-bold text-red-800 text-base">-</span></div>
-        </div>
-
-        <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
-          💡 <strong>Why wait 10 minutes?</strong> ToyyibPay requires a cooldown period before you can create a new bill for the same booking. This prevents duplicate charges.
-        </div>
+<div id="paymentFailedModal" class="modal-overlay thankyou-modal">
+  <div class="modal-box max-w-[500px]">
+    <div class="modal-body text-center p-6 md:p-8">
+      <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">😞</div>
+      <div class="font-poppins font-800 text-[22px] text-red-700">Payment Not Completed</div>
+      <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
+        Your payment didn’t go through this time. No worries — you can try again in <strong>10 minutes</strong>.
+      </p>
+      <p class="text-sm text-zinc-600 mt-1 leading-relaxed">
+        Simply go to your <strong>My Bookings</strong> page and click the <strong>Retry Payment</strong> button next to this booking.
+      </p>
+      
+      <div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
+        <div class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Booking ID:</span><span id="failedBookingId" class="font-bold text-red-600 text-sm font-mono">-</span></div>
+        <div id="failedDatesRow" class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Dates:</span><span id="failedDates" class="font-semibold text-zinc-800">-</span></div>
+        <div id="failedTotalRow" class="flex justify-between"><span class="text-zinc-500">Total:</span><span id="failedTotal" class="font-bold text-red-800 text-base">-</span></div>
       </div>
-      <div class="modal-footer justify-center bg-zinc-50 flex-col sm:flex-row gap-2 border-t px-6 py-4">
-        <button onclick="closePaymentFailedModal()" class="btn-primary w-full sm:w-auto bg-[#0F382E] hover:bg-[#1a4d3e]">
-          OK, I understand
-        </button>
+
+      <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+        💡 <strong>Why wait 10 minutes?</strong> ToyyibPay requires a cooldown period before you can create a new bill for the same booking. This prevents duplicate charges.
       </div>
     </div>
+    <div class="modal-footer justify-center bg-zinc-50 flex-col sm:flex-row gap-2 border-t px-6 py-4">
+      <button onclick="closePaymentFailedModal()" class="btn-primary w-full sm:w-auto bg-[#0F382E] hover:bg-[#1a4d3e]">
+        OK, I understand
+      </button>
+    </div>
   </div>
+</div>
 
 <!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
@@ -662,7 +662,7 @@
 <script src="animations.js"></script>
 <script>
   // =============================================================
-  // DOMPurify Helper – FIXED: allow onclick and other events
+  // SAFE HTML – ALLOW ONCLICK (patched)
   // =============================================================
   function safeHTML(html) {
     if (!html) return '';
@@ -680,7 +680,6 @@
         'checked','disabled','readonly','required','multiple',
         'min','max','step','pattern','autocomplete','inputmode',
         'viewBox','fill','stroke','stroke-width','d',
-        // ✅ Allow event handlers so our buttons work
         'onclick', 'onchange', 'oninput', 'onload', 'onerror', 'onfocus', 'onblur'
       ],
       ADD_ATTR: ['target']
@@ -731,9 +730,7 @@
   }
 
   function modalConfirm() {
-    var overlay = document.getElementById('customModal');
-    if (overlay) overlay.classList.remove('active');
-    document.body.style.overflow = '';
+    closeModal();
   }
 
   function showAlert(title, message) {
@@ -762,15 +759,8 @@
     }
   });
 
-  document.getElementById('customModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-      this.classList.remove('active');
-      document.body.style.overflow = '';
-    }
-  });
-
   // =============================================================
-  // PAYMENT FAILED MODAL
+  // PAYMENT FAILED MODAL CONTROLS
   // =============================================================
   function showPaymentFailedModal(bookingId, bookingData) {
     var overlay = document.getElementById('paymentFailedModal');
@@ -793,93 +783,6 @@
     var overlay = document.getElementById('paymentFailedModal');
     if (overlay) overlay.classList.remove('active');
     document.body.style.overflow = '';
-  }
-
-  async function retryPaymentFromFailedModal() {
-    var bookingId = window._failedBookingId;
-    if (!bookingId) {
-      showAlert('Error', 'No booking to retry.');
-      return;
-    }
-    closePaymentFailedModal();
-    await retryPayment(bookingId);
-  }
-
-  // =============================================================
-  // RETRY PAYMENT – robust with logging
-  // =============================================================
-  async function retryPayment(bookingId) {
-    console.log('🔁 retryPayment called for booking:', bookingId);
-    
-    let token = localStorage.getItem('kd_csrf_token');
-    if (!token) {
-      console.warn('No CSRF token found, trying to fetch...');
-      try {
-        const res = await fetch('/api/csrf-token', { method: 'GET' });
-        const data = await res.json();
-        if (data.token) {
-          localStorage.setItem('kd_csrf_token', data.token);
-          token = data.token;
-          console.log('✅ New CSRF token obtained');
-        } else {
-          throw new Error('No token received');
-        }
-      } catch (e) {
-        console.error('Could not fetch CSRF token:', e);
-        showModal('Session Expired', 
-          'Your security token is missing. Please log in again to continue.',
-          [
-            { label: 'Login', class: 'btn-primary', value: 'login' }
-          ]
-        ).then(function(result) {
-          if (result === 'login') window.location.href = '/login.html';
-        });
-        return;
-      }
-    }
-
-    try {
-      const res = await fetch('/api/toyyibpay-create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': token
-        },
-        body: JSON.stringify({ bookingId })
-      });
-
-      const data = await res.json();
-      console.log('Response from /api/toyyibpay-create:', data);
-
-      if (res.status === 403 && data.error && data.error.includes('token')) {
-        localStorage.removeItem('kd_csrf_token');
-        showModal('Security Error', 
-          'Your session token is invalid. Please log in again to retry payment.',
-          [
-            { label: 'Login', class: 'btn-primary', value: 'login' }
-          ]
-        ).then(function(result) {
-          if (result === 'login') window.location.href = '/login.html';
-        });
-        return;
-      }
-
-      if (!res.ok || !data.success) {
-        showAlert('Error', data.error || 'Could not create payment. Please try again.');
-        return;
-      }
-
-      if (data.url) {
-        console.log('Redirecting to payment URL:', data.url);
-        window.location.href = data.url;
-      } else {
-        showAlert('Error', 'Payment URL missing.');
-      }
-
-    } catch (e) {
-      console.error('Retry error:', e);
-      showAlert('Network Error', 'Could not connect to the server. Please try again.');
-    }
   }
 
   // =============================================================
@@ -971,7 +874,7 @@
   });
 
   // =============================================================
-  // PAYMENT STATUS CHECK FUNCTION
+  // PAYMENT STATUS CHECK – FIXED: uses /verify-payment
   // =============================================================
   async function checkPaymentStatus(bookingId) {
     try {
@@ -989,7 +892,7 @@
   }
 
   // =============================================================
-  // AUTO CHECK FOR PENDING BOOKINGS
+  // AUTO CHECK FOR PENDING BOOKINGS (using new endpoint)
   // =============================================================
   async function autoCheckPendingBookings() {
     if (!currentGuest || !currentGuest.id) return;
@@ -1015,7 +918,7 @@
   }
 
   // =============================================================
-  // LOAD BOOKINGS FROM D1 VIA API
+  // LOAD BOOKINGS
   // =============================================================
   var myBookings = [];
 
@@ -1090,120 +993,120 @@
   }
 
   // =============================================================
-  // RENDER BOOKINGS – with Retry Payment for pending & failed
+  // RENDER BOOKINGS – with Retry, Cancel, and status badges
   // =============================================================
   function renderBookings() {
-      var listDiv = document.getElementById('bookingsList');
-      if (!listDiv) return;
-      
-      var countPaid = 0, countCompleted = 0, countPending = 0;
-      myBookings.forEach(function(b) {
-        var s = (b.status || '').toLowerCase();
-        if (s.includes('completed') || b.payoutDate) countCompleted++;
-        else if (s.includes('paid')) countPaid++;
-        else if (s.includes('pending')) countPending++;
-      });
-      
-      document.getElementById('metricTotal').textContent = myBookings.length;
-      document.getElementById('metricPaid').textContent = countPaid;
-      document.getElementById('metricCompleted').textContent = countCompleted;
-      document.getElementById('metricPending').textContent = countPending;
+    var listDiv = document.getElementById('bookingsList');
+    if (!listDiv) return;
+    
+    var countPaid = 0, countCompleted = 0, countPending = 0;
+    myBookings.forEach(function(b) {
+      var s = (b.status || '').toLowerCase();
+      if (s.includes('completed') || b.payoutDate) countCompleted++;
+      else if (s.includes('paid')) countPaid++;
+      else if (s.includes('pending')) countPending++;
+    });
+    
+    document.getElementById('metricTotal').textContent = myBookings.length;
+    document.getElementById('metricPaid').textContent = countPaid;
+    document.getElementById('metricCompleted').textContent = countCompleted;
+    document.getElementById('metricPending').textContent = countPending;
 
-      if (myBookings.length === 0) {
-        listDiv.innerHTML = safeHTML('' +
-          '<div class="text-center py-16 space-y-4">' +
-            '<div class="text-6xl">🏔️</div>' +
-            '<h3 class="font-poppins font-700 text-[20px] text-[#212121]">No Bookings Yet</h3>' +
-            '<p class="text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed">You have not made any bookings yet. Explore our verified Kundasang homestays!</p>' +
-            '<a href="/" class="btn-primary inline-block mt-2">Browse Homestays</a>' +
-          '</div>' +
-        '');
-        return;
+    if (myBookings.length === 0) {
+      listDiv.innerHTML = safeHTML('' +
+        '<div class="text-center py-16 space-y-4">' +
+          '<div class="text-6xl">🏔️</div>' +
+          '<h3 class="font-poppins font-700 text-[20px] text-[#212121]">No Bookings Yet</h3>' +
+          '<p class="text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed">You have not made any bookings yet. Explore our verified Kundasang homestays!</p>' +
+          '<a href="/" class="btn-primary inline-block mt-2">Browse Homestays</a>' +
+        '</div>' +
+      '');
+      return;
+    }
+    
+    var sorted = myBookings.slice().sort(function(a, b) {
+      return new Date(b.date || 0) - new Date(a.date || 0);
+    });
+    
+    var html = '';
+    sorted.forEach(function(b) {
+      var id = b.id || 'N/A';
+      var homestay = b.homestay || 'Kundasang Homestay';
+      var checkin = b.checkin || 'N/A';
+      var checkout = b.checkout || 'N/A';
+      var nights = b.nights || 1;
+      var total = parseFloat(b.total) || 0;
+      var base = parseFloat(b.base) || 0;
+      var statusRaw = b.status || 'Unknown';
+      var statusLower = statusRaw.toLowerCase();
+      var isCompleted = b.payoutDate || statusLower.includes('completed');
+      var isPaid = statusLower.includes('paid') && !isCompleted;
+      var isPending = statusLower.includes('pending');
+      var isCancelled = statusLower.includes('cancel');
+      var isFailed = statusLower.includes('fail');
+      
+      var badgeClass = 'badge-pending', badgeLabel = 'Pending';
+      if (isCompleted) { badgeClass = 'badge-completed'; badgeLabel = '✓ Completed'; }
+      else if (isPaid) { badgeClass = 'badge-paid'; badgeLabel = '✓ Paid — Awaiting Check‑in Upon Arrival'; }
+      else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
+      else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
+      
+      var checkButton = '';
+      var retryButton = '';
+      var retryPendingButton = '';
+      var cancelButton = '';
+      
+      if (isPending) {
+        checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Payment</button>`;
+        retryPendingButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#3FD0D4;">🔄 Retry Payment</button>`;
+        cancelButton = `<button onclick="cancelBooking('${id}')" class="btn-danger" style="padding:6px 14px; font-size:10px;">✕ Cancel</button>`;
       }
-      
-      var sorted = myBookings.slice().sort(function(a, b) {
-        return new Date(b.date || 0) - new Date(a.date || 0);
-      });
-      
-      var html = '';
-      sorted.forEach(function(b) {
-        var id = b.id || 'N/A';
-        var homestay = b.homestay || 'Kundasang Homestay';
-        var checkin = b.checkin || 'N/A';
-        var checkout = b.checkout || 'N/A';
-        var nights = b.nights || 1;
-        var total = parseFloat(b.total) || 0;
-        var base = parseFloat(b.base) || 0;
-        var statusRaw = b.status || 'Unknown';
-        var statusLower = statusRaw.toLowerCase();
-        var isCompleted = b.payoutDate || statusLower.includes('completed');
-        var isPaid = statusLower.includes('paid') && !isCompleted;
-        var isPending = statusLower.includes('pending');
-        var isCancelled = statusLower.includes('cancel');
-        var isFailed = statusLower.includes('fail');
-        
-        var badgeClass = 'badge-pending', badgeLabel = 'Pending';
-        if (isCompleted) { badgeClass = 'badge-completed'; badgeLabel = '✓ Completed'; }
-        else if (isPaid) { badgeClass = 'badge-paid'; badgeLabel = '✓ Paid — Awaiting Check‑in Upon Arrival'; }
-        else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
-        else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
-        
-        var checkButton = '';
-        var retryButton = '';
-        var retryPendingButton = '';
-        var cancelButton = ''; // 👈 New cancel button
-        
-        if (isPending) {
-          checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Payment</button>`;
-          retryPendingButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#3FD0D4;">🔄 Retry Payment</button>`;
-          cancelButton = `<button onclick="cancelBooking('${id}')" class="btn-danger" style="padding:6px 14px; font-size:10px;">✕ Cancel</button>`;
-        }
-        if (isFailed) {
-          retryButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#dc2626;">🔄 Retry Payment</button>`;
-          checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Status</button>`;
-          cancelButton = `<button onclick="cancelBooking('${id}')" class="btn-danger" style="padding:6px 14px; font-size:10px;">✕ Cancel</button>`;
-        }
+      if (isFailed) {
+        retryButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#dc2626;">🔄 Retry Payment</button>`;
+        checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Status</button>`;
+        cancelButton = `<button onclick="cancelBooking('${id}')" class="btn-danger" style="padding:6px 14px; font-size:10px;">✕ Cancel</button>`;
+      }
 
-        var pendingNote = '';
-        if (isPending) {
-          pendingNote = `<div class="text-xs text-amber-600 mt-1">⏳ If your payment is pending for more than 10 minutes, you can retry.</div>`;
-        }
+      var pendingNote = '';
+      if (isPending) {
+        pendingNote = `<div class="text-xs text-amber-600 mt-1">⏳ If your payment is pending for more than 10 minutes, you can retry.</div>`;
+      }
 
-        html += '' +
-          '<div class="card hover:shadow-md transition-all duration-300" data-id="' + id + '">' +
-            '<div class="flex flex-col md:flex-row justify-between gap-4">' +
-              '<div class="flex-1 min-w-0 space-y-2">' +
-                '<div class="flex items-start justify-between gap-2 flex-wrap">' +
-                  '<h3 class="font-poppins font-700 text-[18px] text-[#212121] leading-tight">' + homestay + '</h3>' +
-                '</div>' +
-                '<div class="text-sm text-zinc-600 space-y-1">' +
-                  '<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
-                  '<div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span> <span class="text-zinc-400 text-[10px]">(host: RM ' + base.toFixed(2) + ')</span></div>' +
-                  '<div class="inline-block text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">' +
-                    'Booking ID: <span class="font-mono">' + id + '</span>' +
-                  '</div>' +
-                  pendingNote +
-                  '<div class="mt-1 flex flex-wrap gap-2">' +
-                    '<button onclick="resendCode(\'' + id + '\')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition">📧 Resend Code</button>' +
-                    checkButton +
-                    retryButton +
-                    retryPendingButton +
-                    cancelButton + // 👈 Cancel button here
-                  '</div>' +
-                '</div>' +
+      html += '' +
+        '<div class="card hover:shadow-md transition-all duration-300" data-id="' + id + '">' +
+          '<div class="flex flex-col md:flex-row justify-between gap-4">' +
+            '<div class="flex-1 min-w-0 space-y-2">' +
+              '<div class="flex items-start justify-between gap-2 flex-wrap">' +
+                '<h3 class="font-poppins font-700 text-[18px] text-[#212121] leading-tight">' + homestay + '</h3>' +
               '</div>' +
-              '<div class="flex flex-col items-end gap-2 shrink-0">' +
-                '<span class="' + badgeClass + '">' + badgeLabel + '</span>' +
+              '<div class="text-sm text-zinc-600 space-y-1">' +
+                '<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
+                '<div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span> <span class="text-zinc-400 text-[10px]">(host: RM ' + base.toFixed(2) + ')</span></div>' +
+                '<div class="inline-block text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">' +
+                  'Booking ID: <span class="font-mono">' + id + '</span>' +
+                '</div>' +
+                pendingNote +
+                '<div class="mt-1 flex flex-wrap gap-2">' +
+                  '<button onclick="resendCode(\'' + id + '\')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition">📧 Resend Code</button>' +
+                  checkButton +
+                  retryButton +
+                  retryPendingButton +
+                  cancelButton +
+                '</div>' +
               '</div>' +
             '</div>' +
+            '<div class="flex flex-col items-end gap-2 shrink-0">' +
+              '<span class="' + badgeClass + '">' + badgeLabel + '</span>' +
+            '</div>' +
           '</div>' +
-        '';
-      });
-      listDiv.innerHTML = safeHTML(html);
-    }
+        '</div>' +
+      '';
+    });
+    listDiv.innerHTML = safeHTML(html);
+  }
 
   // =============================================================
-  // MANUAL CHECK
+  // MANUAL CHECK (UPDATED to use /verify-payment)
   // =============================================================
   async function manualCheckPayment(bookingId) {
     try {
@@ -1222,7 +1125,7 @@
           return;
         }
       } else if (result.retry) {
-        await showAlert('Still Processing', 'The payment is still being processed. Please try again in a few minutes.');
+        await showAlert('Still Processing', 'The payment is still being processed. Please try again in a few seconds.');
       } else {
         await showAlert('Error', result.error || 'Could not check payment status.');
       }
@@ -1233,10 +1136,79 @@
   }
 
   // =============================================================
-  // RETRY PAYMENT FROM BOOKINGS PAGE
+  // RETRY PAYMENT – uses the global retryPayment function
   // =============================================================
+  async function retryPayment(bookingId) {
+    console.log('🔁 retryPayment called for booking:', bookingId);
+    
+    let token = localStorage.getItem('kd_csrf_token');
+    if (!token) {
+      try {
+        const res = await fetch('/api/csrf-token', { method: 'GET' });
+        const data = await res.json();
+        if (data.token) {
+          localStorage.setItem('kd_csrf_token', data.token);
+          token = data.token;
+        } else {
+          throw new Error('No token received');
+        }
+      } catch (e) {
+        console.warn('Could not fetch CSRF token:', e);
+        showModal('Session Expired', 
+          'Your security token is missing. Please log in again to continue.',
+          [
+            { label: 'Login', class: 'btn-primary', value: 'login' }
+          ]
+        ).then(function(result) {
+          if (result === 'login') window.location.href = '/login.html';
+        });
+        return;
+      }
+    }
+
+    try {
+      const res = await fetch('/api/toyyibpay-create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': token
+        },
+        body: JSON.stringify({ bookingId })
+      });
+
+      const data = await res.json();
+
+      if (res.status === 403 && data.error && data.error.includes('token')) {
+        localStorage.removeItem('kd_csrf_token');
+        showModal('Security Error', 
+          'Your session token is invalid. Please log in again to retry payment.',
+          [
+            { label: 'Login', class: 'btn-primary', value: 'login' }
+          ]
+        ).then(function(result) {
+          if (result === 'login') window.location.href = '/login.html';
+        });
+        return;
+      }
+
+      if (!res.ok || !data.success) {
+        showAlert('Error', data.error || 'Could not create payment. Please try again.');
+        return;
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        showAlert('Error', 'Payment URL missing.');
+      }
+
+    } catch (e) {
+      console.error('Retry error:', e);
+      showAlert('Network Error', 'Could not connect to the server. Please try again.');
+    }
+  }
+
   async function retryPaymentFromBookings(bookingId) {
-    console.log('🔄 retryPaymentFromBookings called for:', bookingId);
     await retryPayment(bookingId);
   }
 
