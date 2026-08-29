@@ -2527,25 +2527,116 @@ async function processPayment() {
   }
 }
 
-function handlePaymentReturn() {
-  var params = new URLSearchParams(window.location.search);
-  var bookingId = params.get('booking');
-  var paymentReturn = params.get('payment_return');
-  if (bookingId && paymentReturn === '1') {
-    var stored = sessionStorage.getItem('kd_pending_booking');
-    var bookingData = null;
-    if (stored) {
-      try { bookingData = JSON.parse(stored); } catch (_) {}
-      sessionStorage.removeItem('kd_pending_booking');
+// ===== HANDLE PAYMENT RETURN =====
+async function handlePaymentReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const bookingId = params.get('booking');
+  const paymentReturn = params.get('payment_return');
+  if (!bookingId || paymentReturn !== '1') return;
+
+  // Clean URL to avoid re-trigger on refresh
+  if (window.history && window.history.replaceState) {
+    const newUrl = window.location.pathname + window.location.search.replace(/[?&]payment_return=1/, '').replace(/[?&]booking=[^&]*/, '');
+    window.history.replaceState({}, document.title, newUrl);
+  }
+
+  // Poll for status
+  let bookingData = null;
+  let status = 'pending';
+  let attempts = 0;
+  const maxAttempts = 5;
+
+  while (attempts < maxAttempts) {
+    attempts++;
+    try {
+      const res = await fetch(API_BASE + '/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId })
+      });
+      const data = await res.json();
+      if (data.success && data.booking) {
+        bookingData = data.booking;
+        status = bookingData.status || 'pending';
+        // If we have a final status, break
+        if (!status.toLowerCase().includes('pending')) break;
+      } else if (data.retry) {
+        // Still pending, wait and retry
+        await new Promise(r => setTimeout(r, 2000));
+        continue;
+      } else {
+        // Some error (booking not found, etc.)
+        break;
+      }
+    } catch (e) {
+      console.error('Payment status check error:', e);
+      break;
     }
-    if (!bookingData) {
-      bookingData = bookings.find(function(b) { return String(b.id) === String(bookingId); });
+    // Wait before next attempt if still pending
+    if (attempts < maxAttempts && status.toLowerCase().includes('pending')) {
+      await new Promise(r => setTimeout(r, 2000));
     }
-    if (bookingData) {
-      showThankYouModal(bookingId, bookingData);
+  }
+
+  // Now decide what to show
+  if (bookingData && status.toLowerCase().includes('paid')) {
+    showThankYouModal(bookingId, bookingData);
+  } else if (bookingData && status.toLowerCase().includes('fail')) {
+    showPaymentFailedModal(bookingId, bookingData);
+  } else {
+    // Still pending or unknown
+    showPaymentPendingModal(bookingId);
+  }
+}
+
+// ===== MODALS FOR PAYMENT RESULTS =====
+function showPaymentFailedModal(bookingId, bookingData) {
+  showModal('Payment Failed', 
+    `Your payment was not successful.<br><br>Booking ID: <strong>${bookingId}</strong><br>Please try again or contact support.`,
+    [
+      { label: 'Retry Payment', class: 'btn-primary', value: 'retry' },
+      { label: 'My Bookings', class: 'btn-secondary', value: 'bookings' }
+    ]
+  ).then(function(result) {
+    if (result === 'retry') {
+      retryPayment(bookingId);
     } else {
-      showThankYouModal(bookingId, { id: bookingId, total: '---' });
+      window.location.href = '/mybookings.html';
     }
+  });
+}
+
+function showPaymentPendingModal(bookingId) {
+  showModal('Payment Pending', 
+    `Your payment is still being processed.<br><br>Booking ID: <strong>${bookingId}</strong><br>Please wait a moment or check your bookings page later.`,
+    [
+      { label: 'Check Now', class: 'btn-primary', value: 'check' },
+      { label: 'My Bookings', class: 'btn-secondary', value: 'bookings' }
+    ]
+  ).then(function(result) {
+    if (result === 'check') {
+      window.location.reload();
+    } else {
+      window.location.href = '/mybookings.html';
+    }
+  });
+}
+
+async function retryPayment(bookingId) {
+  try {
+    const res = await fetch(API_BASE + '/toyyibpay-create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId })
+    });
+    const data = await res.json();
+    if (data.success && data.url) {
+      window.location.href = data.url;
+    } else {
+      showAlert('Error', data.error || 'Could not create payment. Please try again.');
+    }
+  } catch (e) {
+    showAlert('Error', 'Network error. Please try again.');
   }
 }
 
