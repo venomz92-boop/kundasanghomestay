@@ -2044,11 +2044,11 @@ async function handlePaymentReturn() {
     window.history.replaceState({}, document.title, newUrl);
   }
 
-  // Poll for status
+  // Poll for status with max attempts
   let bookingData = null;
-  let status = 'pending';
+  let paymentStatus = 'pending';
   let attempts = 0;
-  const maxAttempts = 5;
+  const maxAttempts = 6; // increase to allow more time
 
   while (attempts < maxAttempts) {
     attempts++;
@@ -2059,31 +2059,38 @@ async function handlePaymentReturn() {
         body: JSON.stringify({ bookingId })
       });
       const data = await res.json();
-      if (data.success && data.booking) {
-        bookingData = data.booking;
-        status = bookingData.status || 'pending';
-        if (!status.toLowerCase().includes('pending')) break;
-      } else if (data.retry) {
+      
+      // If we have a definitive status, break
+      if (data.paymentStatus) {
+        paymentStatus = data.paymentStatus;
+        bookingData = data.booking || null;
+        // Stop polling for paid or failed
+        if (paymentStatus === 'paid' || paymentStatus === 'failed') {
+          break;
+        }
+      }
+      
+      // If still pending and not last attempt, wait and retry
+      if (paymentStatus === 'pending' && attempts < maxAttempts) {
         await new Promise(r => setTimeout(r, 2000));
         continue;
       } else {
+        // Either we got a status or exhausted attempts
         break;
       }
     } catch (e) {
       console.error('Payment status check error:', e);
       break;
     }
-    if (attempts < maxAttempts && status.toLowerCase().includes('pending')) {
-      await new Promise(r => setTimeout(r, 2000));
-    }
   }
-
-  if (bookingData && status.toLowerCase().includes('paid')) {
+  
+  // Now decide what to show based on paymentStatus
+  if (paymentStatus === 'paid' && bookingData) {
     showThankYouModal(bookingId, bookingData);
-  } else if (bookingData && status.toLowerCase().includes('fail')) {
+  } else if (paymentStatus === 'failed' && bookingData) {
     showPaymentFailedModal(bookingId, bookingData);
   } else {
-    // Still pending – show a simple alert or redirect to My Bookings
+    // Still pending or unknown – show pending modal
     showModal('Payment Pending', 
       `Your payment is still being processed.<br><br>Booking ID: <strong>${bookingId}</strong><br>Please wait or check your bookings page later.`,
       [
