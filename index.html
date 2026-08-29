@@ -2086,94 +2086,132 @@ async function retryPayment(bookingId) {
   }
 }
 
-// =============================================================
-// HANDLE PAYMENT RETURN (UPDATED)
-// =============================================================
+
 // ===== HANDLE PAYMENT RETURN (UPDATED – detects status_id) =====
 async function handlePaymentReturn() {
-  const params = new URLSearchParams(window.location.search);
-  let bookingId = params.get('booking') || params.get('order_id');
-  const paymentReturn = params.get('payment_return');
-  const statusId = params.get('status_id');
+      const params = new URLSearchParams(window.location.search);
+      let bookingId = params.get('booking') || params.get('order_id');
+      const paymentReturn = params.get('payment_return');
+      const statusId = params.get('status_id');
 
-  // If no bookingId, exit
-  if (!bookingId) return;
+      if (!bookingId) return;
 
-  // Clean URL (remove all query params) – prevent re‑trigger on refresh
-  if (window.history && window.history.replaceState) {
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-
-  // If status_id is present and NOT '1' (success), treat as failed immediately
-  if (statusId && statusId !== '1') {
-    // Fetch booking data to show details (optional)
-    try {
-      const res = await fetch(API_BASE + '/verify-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId })
-      });
-      const data = await res.json();
-      if (data.booking) {
-        showPaymentFailedModal(bookingId, data.booking);
-      } else {
-        showPaymentFailedModal(bookingId, null);
+      // Clean URL (remove all query params)
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
-    } catch (e) {
-      showPaymentFailedModal(bookingId, null);
-    }
-    return;
-  }
 
-  // If we have payment_return=1 (our own flag), poll for final status
-  if (paymentReturn === '1') {
-    let bookingData = null;
-    let paymentStatus = 'pending';
-    let attempts = 0;
-    const maxAttempts = 6;
-
-    while (attempts < maxAttempts) {
-      attempts++;
-      try {
-        const res = await fetch(API_BASE + '/verify-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId })
-        });
-        const data = await res.json();
-        if (data.paymentStatus) {
-          paymentStatus = data.paymentStatus;
-          bookingData = data.booking || null;
-          if (paymentStatus === 'paid' || paymentStatus === 'failed') break;
+      // ---- CASE 1: status_id=1 (success) – show Thank You modal immediately ----
+      if (statusId === '1') {
+        try {
+          const res = await fetch(API_BASE + '/verify-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookingId })
+          });
+          const data = await res.json();
+          if (data.booking) {
+            showThankYouModal(bookingId, data.booking);
+          } else {
+            // Fallback: show with minimal info
+            showThankYouModal(bookingId, { id: bookingId, total: '---' });
+          }
+        } catch (e) {
+          console.error('Failed to fetch booking after success:', e);
+          showThankYouModal(bookingId, { id: bookingId, total: '---' });
         }
-        if (paymentStatus === 'pending' && attempts < maxAttempts) {
-          await new Promise(r => setTimeout(r, 2000));
-          continue;
+        return;
+      }
+
+      // ---- CASE 2: status_id=3 (or any non-1) – failed ----
+      if (statusId && statusId !== '1') {
+        // Immediately update the booking status to 'Payment Failed'
+        try {
+          await fetch('/api/bookings', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getCsrfHeader()
+            },
+            body: JSON.stringify({
+              action: 'publicUpdateStatus',
+              id: bookingId,
+              status: 'Payment Failed',
+              guestId: currentGuest ? currentGuest.id : null
+            })
+          });
+        } catch (e) {
+          console.warn('Could not update status to failed:', e);
+        }
+
+        // Show the failed modal
+        try {
+          const res = await fetch(API_BASE + '/verify-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookingId })
+          });
+          const data = await res.json();
+          if (data.booking) {
+            showPaymentFailedModal(bookingId, data.booking);
+          } else {
+            showPaymentFailedModal(bookingId, null);
+          }
+        } catch (e) {
+          showPaymentFailedModal(bookingId, null);
+        }
+        return;
+      }
+
+      // ---- CASE 3: payment_return=1 (our own flag) – poll for status ----
+      if (paymentReturn === '1') {
+        let bookingData = null;
+        let paymentStatus = 'pending';
+        let attempts = 0;
+        const maxAttempts = 10; // increased to 20 seconds
+
+        while (attempts < maxAttempts) {
+          attempts++;
+          try {
+            const res = await fetch(API_BASE + '/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ bookingId })
+            });
+            const data = await res.json();
+            if (data.paymentStatus) {
+              paymentStatus = data.paymentStatus;
+              bookingData = data.booking || null;
+              if (paymentStatus === 'paid' || paymentStatus === 'failed') break;
+            }
+            if (paymentStatus === 'pending' && attempts < maxAttempts) {
+              await new Promise(r => setTimeout(r, 2000));
+              continue;
+            } else {
+              break;
+            }
+          } catch (e) {
+            console.error('Payment status check error:', e);
+            break;
+          }
+        }
+
+        if (paymentStatus === 'paid' && bookingData) {
+          showThankYouModal(bookingId, bookingData);
+        } else if (paymentStatus === 'failed' && bookingData) {
+          showPaymentFailedModal(bookingId, bookingData);
         } else {
-          break;
+          showModal('Payment Pending', 
+            `Your payment is still being processed.<br><br>Booking ID: <strong>${bookingId}</strong><br>Please wait or check your bookings page later.`,
+            [
+              { label: 'My Bookings', class: 'btn-primary', value: 'bookings' }
+            ]
+          ).then(function(result) {
+            if (result === 'bookings') window.location.href = '/mybookings.html';
+          });
         }
-      } catch (e) {
-        console.error('Payment status check error:', e);
-        break;
       }
     }
-
-    if (paymentStatus === 'paid' && bookingData) {
-      showThankYouModal(bookingId, bookingData);
-    } else if (paymentStatus === 'failed' && bookingData) {
-      showPaymentFailedModal(bookingId, bookingData);
-    } else {
-      showModal('Payment Pending', 
-        `Your payment is still being processed.<br><br>Booking ID: <strong>${bookingId}</strong><br>Please wait or check your bookings page later.`,
-        [
-          { label: 'My Bookings', class: 'btn-primary', value: 'bookings' }
-        ]
-      ).then(function(result) {
-        if (result === 'bookings') window.location.href = '/mybookings.html';
-      });
-    }
-  }
-}
 
 // =============================================================
 // CSRF HELPER
