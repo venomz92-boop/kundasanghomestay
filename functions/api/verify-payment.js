@@ -1,3 +1,4 @@
+// /api/verify-payment.js
 import { corsHeaders } from './_utils.js';
 
 async function fetchBillStatus(billcode, secret, retries = 3) {
@@ -47,7 +48,10 @@ export async function onRequestPost({ request, env }) {
       bookings[idx].paid_at = new Date().toISOString();
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_bookings', JSON.stringify(bookings)).run();
-      return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        booking: bookings[idx] 
+      }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
@@ -61,9 +65,26 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
+    // Already failed? Return failure state so frontend can show retry option
+    if (booking.status && booking.status.toLowerCase().includes('fail')) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: 'Payment failed. Please retry.',
+        booking,
+        retry: true 
+      }), {
+        status: 200,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
     // No billcode
     if (!booking.toyyibpay_billcode) {
-      return new Response(JSON.stringify({ success: false, message: 'No billcode' }), {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: 'No billcode',
+        booking 
+      }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
@@ -86,7 +107,8 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({
         success: false,
         message: 'Payment verification pending. Please wait a moment.',
-        retry: true
+        retry: true,
+        booking
       }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
@@ -99,15 +121,27 @@ export async function onRequestPost({ request, env }) {
       bookings[idx].toyyibpay_refno = billData[0].billpaymentTransactionId || '';
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_bookings', JSON.stringify(bookings)).run();
-      return new Response(JSON.stringify({ success: true, booking: bookings[idx] }), {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        booking: bookings[idx] 
+      }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     } else {
+      // Payment not successful – mark as failed if appropriate
+      // ToyyibPay status 0 means unpaid, 3 means expired/cancelled
+      const billStatus = billData && billData[0] ? billData[0].billpaymentStatus : null;
+      if (billStatus === "3") {
+        bookings[idx].status = 'Payment Failed';
+        await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+          .bind('kd_bookings', JSON.stringify(bookings)).run();
+      }
       return new Response(JSON.stringify({
         success: false,
-        message: 'Payment not yet confirmed. Please wait a moment.',
-        retry: true
+        message: billStatus === "3" ? 'Payment failed or expired.' : 'Payment not yet confirmed. Please wait a moment.',
+        retry: billStatus === "3" ? true : false,
+        booking: bookings[idx]
       }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
@@ -121,4 +155,8 @@ export async function onRequestPost({ request, env }) {
       headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
     });
   }
+}
+
+export async function onRequestOptions({ request }) {
+  return new Response(null, { headers: corsHeaders(request) });
 }
