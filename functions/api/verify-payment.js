@@ -41,18 +41,12 @@ export async function onRequestPost({ request, env }) {
     }
 
     const booking = bookings[idx];
-
-    // --- Determine payment status ---
-    let paymentStatus = 'pending'; // default
+    let paymentStatus = 'pending';
     const statusLower = (booking.status || '').toLowerCase();
 
-    if (statusLower.includes('paid')) {
-      paymentStatus = 'paid';
-    } else if (statusLower.includes('fail')) {
-      paymentStatus = 'failed';
-    } else if (statusLower.includes('pending')) {
-      paymentStatus = 'pending';
-    }
+    if (statusLower.includes('paid')) paymentStatus = 'paid';
+    else if (statusLower.includes('fail')) paymentStatus = 'failed';
+    else if (statusLower.includes('pending')) paymentStatus = 'pending';
 
     // Simulation
     if (booking.toyyibpay_billcode && booking.toyyibpay_billcode.startsWith('SIM-')) {
@@ -70,7 +64,6 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // Already paid or failed – return immediately
     if (paymentStatus === 'paid' || paymentStatus === 'failed') {
       return new Response(JSON.stringify({ 
         success: paymentStatus === 'paid',
@@ -83,7 +76,6 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // No billcode – still pending
     if (!booking.toyyibpay_billcode) {
       return new Response(JSON.stringify({ 
         success: false, 
@@ -97,7 +89,6 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // Real – fetch with retry
     const secret = env.TOYYIBPAY_SECRET_KEY;
     if (!secret) {
       return new Response(JSON.stringify({ error: 'Secret missing' }), {
@@ -110,7 +101,6 @@ export async function onRequestPost({ request, env }) {
     try {
       billData = await fetchBillStatus(booking.toyyibpay_billcode, secret, 3);
     } catch (e) {
-      // If fetch fails, still pending
       return new Response(JSON.stringify({
         success: false,
         message: 'Payment verification pending. Please wait a moment.',
@@ -124,7 +114,6 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (billData && billData[0] && billData[0].billpaymentStatus === "1") {
-      // Paid
       bookings[idx].status = 'Paid - Awaiting Check-in';
       bookings[idx].paid_at = new Date().toISOString();
       bookings[idx].toyyibpay_refno = billData[0].billpaymentTransactionId || '';
@@ -139,7 +128,6 @@ export async function onRequestPost({ request, env }) {
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     } else {
-      // Not paid – check if expired/cancelled
       const billStatus = billData && billData[0] ? billData[0].billpaymentStatus : null;
       if (billStatus === "3") {
         bookings[idx].status = 'Payment Failed';
@@ -156,7 +144,6 @@ export async function onRequestPost({ request, env }) {
           headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
         });
       } else {
-        // Still pending (billStatus 0 or other)
         return new Response(JSON.stringify({
           success: false,
           message: 'Payment not yet confirmed. Please wait a moment.',
