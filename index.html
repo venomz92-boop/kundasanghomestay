@@ -2012,20 +2012,77 @@ async function retryPaymentFromFailedModal() {
 }
 
 async function retryPayment(bookingId) {
+  // 1. Ensure we have a CSRF token – if missing, get one
+  let token = localStorage.getItem('kd_csrf_token');
+  if (!token) {
+    // Try to fetch a fresh token
+    try {
+      const res = await fetch('/api/csrf-token', { method: 'GET' });
+      const data = await res.json();
+      if (data.token) {
+        localStorage.setItem('kd_csrf_token', data.token);
+        token = data.token;
+      } else {
+        throw new Error('No token received');
+      }
+    } catch (e) {
+      console.warn('Could not fetch CSRF token:', e);
+      // If we can't get a token, ask user to login again
+      showModal('Session Expired', 
+        'Your security token is missing. Please log in again to continue.',
+        [
+          { label: 'Login', class: 'btn-primary', value: 'login' }
+        ]
+      ).then(function(result) {
+        if (result === 'login') window.location.href = '/login.html';
+      });
+      return;
+    }
+  }
+
+  // 2. Call the payment creation endpoint
   try {
-    const res = await fetch(API_BASE + '/toyyibpay-create', {
+    const res = await fetch('/api/toyyibpay-create', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': token
+      },
       body: JSON.stringify({ bookingId })
     });
+
     const data = await res.json();
-    if (data.success && data.url) {
+
+    // 3. Handle specific error responses
+    if (res.status === 403 && data.error && data.error.includes('token')) {
+      // Token invalid – clear it and ask to re-login
+      localStorage.removeItem('kd_csrf_token');
+      showModal('Security Error', 
+        'Your session token is invalid. Please log in again to retry payment.',
+        [
+          { label: 'Login', class: 'btn-primary', value: 'login' }
+        ]
+      ).then(function(result) {
+        if (result === 'login') window.location.href = '/login.html';
+      });
+      return;
+    }
+
+    if (!res.ok || !data.success) {
+      showAlert('Error', data.error || 'Could not create payment. Please try again.');
+      return;
+    }
+
+    // 4. Redirect to payment URL
+    if (data.url) {
       window.location.href = data.url;
     } else {
-      showAlert('Error', data.error || 'Could not create payment. Please try again.');
+      showAlert('Error', 'Payment URL missing.');
     }
+
   } catch (e) {
-    showAlert('Error', 'Network error. Please try again.');
+    console.error('Retry error:', e);
+    showAlert('Network Error', 'Could not connect to the server. Please try again.');
   }
 }
 
