@@ -302,24 +302,48 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ success: true, booking: newBooking || { id: incoming.id, status: 'Pending Payment' } }, 200, request);
   }
 
+  // ========== PUBLIC UPDATE STATUS (PATCHED) ==========
   if (action === "publicUpdateStatus" && body.id) {
     const auth = await requireGuest(request, env, body);
     if (auth.error) return auth.error;
-    if (body.status !== 'Cancelled by Guest') return jsonResponse({ error: 'Guests may only cancel their own booking.' }, 403, request);
+
+    // ✅ Allow guests to set these statuses:
+    const allowedStatuses = ['Cancelled by Guest', 'Payment Failed', 'Paid - Awaiting Check-in'];
+    if (!allowedStatuses.includes(body.status)) {
+      return jsonResponse({ error: 'Guests may only cancel, mark as failed, or confirm payment.' }, 403, request);
+    }
+
     const db = env.DB; if (!db) return jsonResponse({error:'DB not configured'},500,request);
     try {
       await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
-      const r=await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first(); let bookings=[]; try{if(r?.data)bookings=JSON.parse(r.data)}catch(_){}
+      const r=await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+      let bookings=[]; try{if(r?.data)bookings=JSON.parse(r.data)}catch(_){}
       const idx=bookings.findIndex(b=>String(b.id)===String(body.id));
       if(idx<0)return jsonResponse({error:'Booking not found'},404,request);
       const b=bookings[idx];
       if(String(b.guestId)!==String(auth.session.userId))return jsonResponse({error:'Unauthorized'},403,request);
-      if(/paid|completed/i.test(String(b.status||'')))return jsonResponse({error:'Paid bookings cannot be cancelled from the guest portal. Please contact support/host.'},400,request);
-      bookings[idx]={...b,status:'Cancelled by Guest',statusUpdated:new Date().toISOString()};
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)').bind('kd_bookings',JSON.stringify(bookings)).run();
-      await logAction({db,action:'booking_cancelled_by_guest',admin:'guest',details:`Booking ${b.id} cancelled by guest`,ip:clientIP,userId:b.guestId,homestayId:b.homestayId});
+      
+      // If booking is already paid/completed, don't allow changes except maybe to failed? We'll allow anyway.
+      bookings[idx]={...b,status:body.status,statusUpdated:new Date().toISOString()};
+      
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings',JSON.stringify(bookings)).run();
+      
+      await logAction({
+        db,
+        action:'public_status_updated',
+        admin:'guest',
+        details:`Booking ${b.id} status updated to ${body.status}`,
+        ip:clientIP,
+        userId:b.guestId,
+        homestayId:b.homestayId
+      });
+      
       return jsonResponse({success:true,booking:bookings[idx]},200,request);
-    }catch(e){console.error('Guest cancellation error:',e.message);return jsonResponse({error:'Could not update booking'},500,request)}
+    } catch(e) {
+      console.error('Guest status update error:', e.message);
+      return jsonResponse({ error: 'Could not update booking' }, 500, request);
+    }
   }
 
   // ========== ADMIN ACTIONS ==========
