@@ -9,6 +9,9 @@
   <meta name="robots" content="index, follow" />
   <meta name="description" content="Terms and conditions for using Kundasang Homestay platform. Read our policies on bookings, payments, and host-guest agreements." />
 
+  <!-- DOMPurify (FIX: Added for safeHTML modal function) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="animations.css" />
@@ -154,14 +157,14 @@
     }
     .setsail-nav-link:hover::after, .setsail-nav-link.active::after { width: 100%; }
     .setsail-nav-link:hover { color: var(--primary); }
-    .setsail-nav-link.agent {
+    .setsail-nav-link.owner {
       color: #7c3aed;
       border: 1px solid #7c3aed;
       padding: 6px 16px;
       border-radius: 999px;
     }
-    .setsail-nav-link.agent::after { display: none; }
-    .setsail-nav-link.agent:hover { background: #7c3aed; color: white; }
+    .setsail-nav-link.owner::after { display: none; }
+    .setsail-nav-link.owner:hover { background: #7c3aed; color: white; }
 
     #mobileNav {
       position: fixed;
@@ -203,7 +206,7 @@
       background: transparent;
     }
     #mobileNav a:hover, #mobileNav button:hover { background: #f8f5f0; color: var(--accent); }
-    #mobileNav .mobile-agent-link {
+    #mobileNav .mobile-owner-link {
       color: #7c3aed !important;
       border: 1px solid #7c3aed !important;
       margin: 8px 16px;
@@ -212,7 +215,7 @@
       width: auto !important;
       display: inline-block !important;
     }
-    #mobileNav .mobile-agent-link:hover { background: #7c3aed !important; color: white !important; }
+    #mobileNav .mobile-owner-link:hover { background: #7c3aed !important; color: white !important; }
     #mobileNav .guest-btn {
       border: 1px solid var(--accent);
       color: var(--accent);
@@ -364,7 +367,7 @@
     .modal-footer .btn-secondary { background: #f1f5f9; color: #475569; }
     .modal-footer .btn-secondary:hover { background: #e2e8f0; }
 
-    /* ===== TERMS SECTION STYLES (SAME AS PRIVACY) ===== */
+    /* ===== TERMS SECTION STYLES ===== */
     .terms-section {
       padding: 24px 0;
       border-bottom: 1px solid rgba(0, 0, 0, 0.05);
@@ -422,7 +425,8 @@
       <a href="/" id="navHome" class="setsail-nav-link">Home</a>
       <a href="/list.html" id="navList" class="setsail-nav-link">List Your Homestay</a>
       <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
-      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Agent Login</a>
+      <!-- FIX: Changed "Agent Login" to "Owner Login" -->
+      <a href="/owner.html" class="setsail-nav-link owner" style="text-decoration:none;">🔑 Owner Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
         <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;">Guest Login</a>
         <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;">Register</a>
@@ -448,7 +452,8 @@
     <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
     <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
     <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
-    <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+    <!-- FIX: Changed "Agent Login" to "Owner Login" -->
+    <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-owner-link" style="text-decoration:none;">🔑 Owner Login</a>
 
     <div class="pt-3 space-y-3">
       <div id="mGuestNav">
@@ -497,7 +502,7 @@
       </p>
     </div>
 
-    <!-- Section 2 -->
+    <!-- Section 2 (FIX: Added 0% commission & ToyyibPay liability) -->
     <div class="terms-section">
       <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
         <span class="text-[#3FD0D4] text-2xl">2.</span> Booking & Payments
@@ -505,12 +510,22 @@
       <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
         All bookings made through Kundasang Homestay are processed via ToyyibPay FPX, Malaysia's trusted online banking gateway. Payments are held securely and only released to hosts after guest check-in is confirmed.
       </p>
+      <!-- NEW: 0% Commission Clause -->
+      <div class="mt-3 p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
+        <span class="font-semibold">💰 0% Commission – You Keep It All!</span><br />
+        Kundasang Homestay <strong>does not deduct any commission</strong> from the host. The host receives the <strong>full listed price</strong>. Our service fee (11% + RM1.10) is charged to the guest, not the host.
+      </div>
       <ul class="mt-3 space-y-2 text-sm text-zinc-600">
         <li>Full payment is required at the time of booking</li>
         <li>Prices are displayed in Malaysian Ringgit (RM)</li>
         <li>A service fee of 11% is applied to each booking</li>
         <li>All payment will directly go to verified host</li>
       </ul>
+      <!-- NEW: ToyyibPay Liability Disclaimer -->
+      <div class="mt-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+        <span class="font-semibold">⚠️ Payment Gateway Disclaimer:</span><br />
+        Kundasang Homestay is not responsible for payment processing delays, failures, or errors caused by ToyyibPay or the guest's bank. We will assist in resolving issues but accept no financial liability for third-party payment gateway failures.
+      </div>
     </div>
 
     <!-- Section 3 -->
@@ -561,7 +576,7 @@
       </ul>
     </div>
 
-    <!-- Section 6 -->
+    <!-- Section 6 (FIX: Changed GDPR to PDPA 2010) -->
     <div class="terms-section">
       <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
         <span class="text-[#3FD0D4] text-2xl">6.</span> Privacy & Data Protection
@@ -571,7 +586,8 @@
       </p>
       <div class="mt-3 flex flex-wrap gap-3">
         <span class="text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded-full border border-green-200">✅ AES-256 Encryption</span>
-        <span class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200">✅ GDPR Compliant</span>
+        <!-- FIX: Changed "GDPR Compliant" to "PDPA 2010 Compliant" -->
+        <span class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200">✅ PDPA 2010 Compliant</span>
         <span class="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full border border-purple-200">✅ SHA-256 Hashed Passwords</span>
       </div>
     </div>
@@ -599,10 +615,20 @@
       </p>
     </div>
 
-    <!-- Section 9 -->
+    <!-- Section 9 (NEW: Force Majeure) -->
+    <div class="terms-section">
+      <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
+        <span class="text-[#3FD0D4] text-2xl">9.</span> Force Majeure
+      </h2>
+      <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
+        Kundasang Homestay is not liable for any failure to perform its obligations due to circumstances beyond its reasonable control, including but not limited to natural disasters, government restrictions, internet outages, payment gateway downtime, or public health emergencies (e.g., pandemics).
+      </p>
+    </div>
+
+    <!-- Section 10 (Re-numbered from 9) -->
     <div class="terms-section border-b-0">
       <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
-        <span class="text-[#3FD0D4] text-2xl">9.</span> Contact Us
+        <span class="text-[#3FD0D4] text-2xl">10.</span> Contact Us
       </h2>
       <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
         If you have any questions about these terms, please contact us:
@@ -834,5 +860,6 @@ document.addEventListener('DOMContentLoaded', function() {
   renderGuestNav();
   console.log('✅ Terms page loaded with modern styling');
 });
+</script>
 </body>
 </html>
