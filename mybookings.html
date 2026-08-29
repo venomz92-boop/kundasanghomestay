@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="animations.css" />
   <style>
-    /* ===== ROOT (same as before) ===== */
+    /* ===== ROOT ===== */
     :root {
       --primary: #0F382E;
       --primary-light: #1a4d3e;
@@ -874,7 +874,7 @@
   });
 
   // =============================================================
-  // PAYMENT STATUS CHECK – FIXED: uses /verify-payment
+  // PAYMENT STATUS CHECK – uses /verify-payment
   // =============================================================
   async function checkPaymentStatus(bookingId) {
     try {
@@ -892,7 +892,7 @@
   }
 
   // =============================================================
-  // AUTO CHECK FOR PENDING BOOKINGS (using new endpoint)
+  // AUTO CHECK FOR PENDING BOOKINGS
   // =============================================================
   async function autoCheckPendingBookings() {
     if (!currentGuest || !currentGuest.id) return;
@@ -918,7 +918,7 @@
   }
 
   // =============================================================
-  // LOAD BOOKINGS
+  // LOAD BOOKINGS – with cache‑buster
   // =============================================================
   var myBookings = [];
 
@@ -935,7 +935,8 @@
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = 'Bearer ' + token;
 
-    fetch(API_BASE + '/bookings', {
+    // ✅ Add timestamp to prevent caching
+    fetch(API_BASE + '/bookings?t=' + Date.now(), {
       method: 'GET',
       headers: headers,
       cache: 'no-store',
@@ -1136,7 +1137,7 @@
   }
 
   // =============================================================
-  // RETRY PAYMENT – uses the global retryPayment function
+  // RETRY PAYMENT – with CSRF refresh
   // =============================================================
   async function retryPayment(bookingId) {
     console.log('🔁 retryPayment called for booking:', bookingId);
