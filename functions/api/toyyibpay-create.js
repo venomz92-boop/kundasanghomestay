@@ -52,21 +52,40 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Booking not found' }, 404, request);
     }
 
-    const booking = bookings[idx];
+    let booking = bookings[idx];
 
     // ---- 6. Validate booking ownership and status ----
     if (String(booking.guestId) !== String(session.userId)) {
       return jsonResponse({ error: 'Unauthorized' }, 403, request);
     }
 
-    if (booking.status !== 'Pending Payment') {
+    // Allow both 'Pending Payment' and 'Payment Failed' to create a bill
+    if (!['Pending Payment', 'Payment Failed'].includes(booking.status)) {
       return jsonResponse({
         error: `Booking is not awaiting payment. Current status: ${booking.status}`
       }, 409, request);
     }
 
-    // ---- 7. Return existing bill if already created ----
-    if (booking.toyyibpay_billcode) {
+    // If booking is 'Payment Failed', reset status and clear old billcode
+    if (booking.status === 'Payment Failed') {
+      bookings[idx] = {
+        ...booking,
+        status: 'Pending Payment',
+        toyyibpay_billcode: undefined,
+        toyyibpay_created_at: undefined,
+        paymentProvider: undefined,
+        paid_at: undefined,
+        simulation: undefined
+      };
+      booking = bookings[idx];
+      // Save immediately so that we don't reuse a stale billcode
+      await db.prepare('INSERT OR REPLACE INTO store(key, data) VALUES(?, ?)')
+        .bind('kd_bookings', JSON.stringify(bookings))
+        .run();
+    }
+
+    // ---- 7. Return existing bill if already created (and not failed) ----
+    if (booking.toyyibpay_billcode && booking.status === 'Pending Payment') {
       const apiBase = env.TOYYIBPAY_ENV === 'production' ? 'https://toyyibpay.com' : 'https://dev.toyyibpay.com';
       return jsonResponse({
         success: true,
@@ -135,7 +154,7 @@ export async function onRequestPost({ request, env }) {
     form.append('billDescription', `Booking ${booking.id} ${booking.checkin} to ${booking.checkout}`.replace(/[^A-Za-z0-9 _]/g, ' ').slice(0, 100));
     form.append('billPriceSetting', '1'); // Fixed amount
     form.append('billPayorInfo', '1'); // Collect payer info
-    form.append('billAmount', String(Math.round(Number(booking.total) * 100))); // Amount in cents[reference:6]
+    form.append('billAmount', String(Math.round(Number(booking.total) * 100))); // Amount in cents
     form.append('billReturnUrl', `${domain}/?booking=${encodeURIComponent(booking.id)}&payment_return=1`);
     form.append('billCallbackUrl', `${domain}/api/toyyibpay-webhook`);
     form.append('billExternalReferenceNo', booking.id);
