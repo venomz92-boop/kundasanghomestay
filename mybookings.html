@@ -935,7 +935,6 @@
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = 'Bearer ' + token;
 
-    // ✅ Add timestamp to prevent caching
     fetch(API_BASE + '/bookings?t=' + Date.now(), {
       method: 'GET',
       headers: headers,
@@ -994,7 +993,7 @@
   }
 
   // =============================================================
-  // RENDER BOOKINGS – with Retry, Cancel, and status badges
+  // RENDER BOOKINGS – with conditional Resend Code button
   // =============================================================
   function renderBookings() {
     var listDiv = document.getElementById('bookingsList');
@@ -1082,13 +1081,14 @@
               '</div>' +
               '<div class="text-sm text-zinc-600 space-y-1">' +
                 '<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
-                '<div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span> <span class="text-zinc-400 text-[10px]"></span></div>' +
+                '<div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span> <span class="text-zinc-400 text-[10px]">(host: RM ' + base.toFixed(2) + ')</span></div>' +
                 '<div class="inline-block text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">' +
                   'Booking ID: <span class="font-mono">' + id + '</span>' +
                 '</div>' +
                 pendingNote +
                 '<div class="mt-1 flex flex-wrap gap-2">' +
-                  '<button onclick="resendCode(\'' + id + '\')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition">📧 Resend Code</button>' +
+                  // ✅ Resend Code only for Paid or Completed
+                  (isPaid || isCompleted) ? '<button onclick="resendCode(\'' + id + '\')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition">📧 Resend Code</button>' : '' +
                   checkButton +
                   retryButton +
                   retryPendingButton +
