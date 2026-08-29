@@ -2097,23 +2097,30 @@ async function handlePaymentReturn() {
   // ---- CASE 1: status_id=1 (success) – update status, send email, show Thank You ----
   if (statusId === '1') {
     // 1. Update booking status to "Paid - Awaiting Check-in"
-    try {
-      await fetch('/api/bookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getCsrfHeader()
-        },
-        body: JSON.stringify({
-          action: 'publicUpdateStatus',
-          id: bookingId,
-          status: 'Paid - Awaiting Check-in',
-          guestId: currentGuest ? currentGuest.id : null
-        })
-      });
-    } catch (e) {
-      console.warn('Could not update status to paid:', e);
-    }
+try {
+  const updateRes = await fetch('/api/bookings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getCsrfHeader()
+    },
+    body: JSON.stringify({
+      action: 'publicUpdateStatus',
+      id: bookingId,
+      status: 'Paid - Awaiting Check-in',
+      guestId: currentGuest ? currentGuest.id : null
+    })
+  });
+  const updateData = await updateRes.json();
+  if (!updateData.success) {
+    console.warn('Status update failed:', updateData.error);
+    // Optionally show a toast or alert
+  } else {
+    console.log('Status updated successfully');
+  }
+} catch (e) {
+  console.warn('Could not update status to paid:', e);
+}
 
     // 2. Send the check‑in code email (same as "Resend Code")
     try {
