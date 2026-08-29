@@ -993,7 +993,7 @@
   }
 
   // =============================================================
-  // RENDER BOOKINGS – with button array (fixed)
+  // RENDER BOOKINGS – NO CANCEL BUTTON
   // =============================================================
   function renderBookings() {
     var listDiv = document.getElementById('bookingsList');
@@ -1051,7 +1051,7 @@
       else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
       else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
       
-      // Build buttons array
+      // Build buttons array (NO CANCEL BUTTON)
       var buttons = [];
       
       // Resend Code – only for Paid or Completed
@@ -1062,12 +1062,10 @@
       if (isPending) {
         buttons.push('<button onclick="manualCheckPayment(\'' + id + '\')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Payment</button>');
         buttons.push('<button onclick="retryPaymentFromBookings(\'' + id + '\')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#3FD0D4;">🔄 Retry Payment</button>');
-        buttons.push('<button onclick="cancelBooking(\'' + id + '\')" class="btn-danger" style="padding:6px 14px; font-size:10px;">✕ Cancel</button>');
       }
       if (isFailed) {
         buttons.push('<button onclick="manualCheckPayment(\'' + id + '\')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Status</button>');
         buttons.push('<button onclick="retryPaymentFromBookings(\'' + id + '\')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#dc2626;">🔄 Retry Payment</button>');
-        buttons.push('<button onclick="cancelBooking(\'' + id + '\')" class="btn-danger" style="padding:6px 14px; font-size:10px;">✕ Cancel</button>');
       }
       
       var pendingNote = '';
@@ -1124,7 +1122,7 @@
           return;
         }
       } else if (result.retry) {
-        await showAlert('Still Processing', 'The payment is still being processed. Please try again in a few minutes.');
+        await showAlert('Still Processing', 'The payment is still being processed. Please try again in a few seconds.');
       } else {
         await showAlert('Error', result.error || 'Could not check payment status.');
       }
@@ -1212,46 +1210,10 @@
   }
 
   // =============================================================
-  // CANCEL BOOKING
+  // CANCEL BOOKING (function kept but NOT used anywhere)
   // =============================================================
-  function cancelBooking(bookingId) {
-    var booking = myBookings.find(function(b) { return String(b.id) === String(bookingId); });
-    if (!booking) {
-      showAlert('Error', 'Booking not found.');
-      return;
-    }
-
-    showConfirm('Cancel Booking', 'Are you sure you want to cancel booking <strong>' + bookingId + '</strong>?<br><br><span class="text-red-600 font-semibold">This action cannot be undone.</span><br>Please WhatsApp the host directly to confirm your cancellation.')
-      .then(function(confirmed) {
-        if (!confirmed) return;
-
-        fetch(API_BASE + '/bookings', {
-          method: 'POST',
-          headers: Object.assign({
-            'Content-Type': 'application/json'
-          }, getCsrfHeader()),
-          body: JSON.stringify({
-            action: 'publicUpdateStatus',
-            id: bookingId,
-            status: 'Cancelled by Guest',
-            guestId: currentGuest.id
-          })
-        })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data && data.success) {
-            showAlert('Booking Cancelled', '✓ Your booking has been cancelled successfully.');
-            loadMyBookings();
-          } else {
-            showAlert('Error', data.error || 'Failed to cancel booking. Please try again.');
-          }
-        })
-        .catch(function(err) {
-          showAlert('Network Error', 'Could not connect to server. Please try again.');
-          console.error('Cancel error:', err);
-        });
-      });
-  }
+  // The cancelBooking function is removed from the UI entirely.
+  // Guests can no longer cancel bookings to prevent date-blocking abuse.
 
   // =============================================================
   // RESEND CHECK‑IN CODE
