@@ -103,6 +103,8 @@
       font-weight: 800;
       font-size: 20px;
       flex-shrink: 0;
+      position: relative;
+      z-index: 2;
     }
     .badge-step.accent { background: var(--accent); }
     
@@ -209,11 +211,11 @@
       .badge-step { width: 56px; height: 56px; font-size: 22px; }
     }
     
-    /* Fix for step cards on mobile - FULL WIDTH, no overflow */
+    /* Fix for step cards - full width, no overflow */
     .step-card {
       width: 100%;
       max-width: 100%;
-      overflow: hidden;
+      overflow: visible;
       word-wrap: break-word;
     }
     
@@ -297,7 +299,7 @@
     </div>
   </section>
 
-  <!-- ===== BAGAIMANA IA BERFUNGSI (FIXED: FULL WIDTH ON MOBILE) ===== -->
+  <!-- ===== BAGAIMANA IA BERFUNGSI (NUMBERS NOW POINT TOP-CENTER) ===== -->
   <section class="max-w-[1100px] mx-auto px-4 py-16 scroll-fade overflow-hidden" x-intersect.once="$el.classList.add('visible')">
     <div class="text-center mb-12">
       <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Langkah Mudah</div>
@@ -305,22 +307,22 @@
       <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
     </div>
 
-    <!-- Mobile: Vertical stack (full width, no scroll) -->
+    <!-- Mobile: Vertical stack (badge overlaps top edge) -->
     <div class="md:hidden flex flex-col gap-4">
       <template x-for="(step, index) in steps" :key="index">
-        <div class="card p-4 text-center step-card">
-          <div class="badge-step" :class="{ 'accent': step.accent }" x-text="step.id"></div>
+        <div class="card pt-6 pb-4 px-4 text-center step-card">
+          <div class="badge-step -mt-4 mx-auto" :class="{ 'accent': step.accent }" x-text="step.id"></div>
           <h3 class="font-poppins font-700 text-[17px] text-[#212121] mt-3" x-text="step.title"></h3>
           <p class="text-[13px] text-zinc-600 mt-1.5 leading-relaxed" x-html="step.desc"></p>
         </div>
       </template>
     </div>
 
-    <!-- Desktop: 3-column grid -->
+    <!-- Desktop: 3-column grid (badge overlaps top edge) -->
     <div class="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6">
       <template x-for="(step, index) in steps" :key="index">
-        <div class="card p-6 text-center hover:shadow-lg transition-shadow duration-300">
-          <div class="badge-step" :class="{ 'accent': step.accent }" x-text="step.id"></div>
+        <div class="card pt-8 pb-6 px-6 text-center hover:shadow-lg transition-shadow duration-300">
+          <div class="badge-step -mt-6 mx-auto" :class="{ 'accent': step.accent }" x-text="step.id"></div>
           <h3 class="font-poppins font-700 text-[18px] text-[#212121] mt-4" x-text="step.title"></h3>
           <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed" x-html="step.desc"></p>
         </div>
@@ -539,8 +541,12 @@
       },
 
       init() {
+        // 🔥 FORCE SCROLL TO TOP ON REFRESH
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        
         this.alpineReady = true;
         console.log('✅ Alpine.js initialized successfully!');
+        
         if (window.location.hash === '#faq') {
           setTimeout(() => { this.activeFaq = 0; }, 500);
         }
