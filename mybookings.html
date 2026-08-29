@@ -1051,25 +1051,33 @@ function renderBookings() {
 // =============================================================
 async function manualCheckPayment(bookingId) {
   try {
-    const res = await fetch('/api/check-payment-status', {
+    const res = await fetch('/api/verify-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookingId })
     });
     const data = await res.json();
-    if (data.paid) {
-      await showAlert('✅ Payment confirmed!', 'Your booking is now active.');
-      loadMyBookings(); // refresh the list
-      return;
-    } else if (data.error) {
-      await showAlert('Error', data.error);
-      return;
+    if (data.success && data.booking) {
+      const status = data.booking.status || '';
+      if (status.toLowerCase().includes('paid')) {
+        await showAlert('✅ Payment confirmed!', 'Your booking is now active.');
+        loadMyBookings();
+        return;
+      } else if (status.toLowerCase().includes('fail')) {
+        await showAlert('❌ Payment failed', 'Your payment was not successful. You can try again from the booking page.');
+        return;
+      } else {
+        await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
+        return;
+      }
+    } else if (data.retry) {
+      await showAlert('Still Processing', 'The payment is still being processed. Please try again in a few seconds.');
     } else {
-      await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
+      await showAlert('Error', data.error || 'Could not check payment status.');
     }
   } catch (e) {
     console.error('Check error:', e);
-    await showAlert('Error', 'Could not check payment status.');
+    await showAlert('Error', 'Could not connect to the server.');
   }
 }
 
