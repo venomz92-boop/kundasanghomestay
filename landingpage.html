@@ -6,9 +6,16 @@
   <title>Untuk Pengusaha – Kundasang Homestay</title>
   <meta name="description" content="Platform homestay Kundasang yang selamat dan percuma untuk pengusaha tempatan. Daftar homestay anda, terima tempahan, dan dapatkan bayaran automatik." />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <!-- TAILWIND CSS (Utility classes) -->
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- GOOGLE FONTS -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="animations.css" />
+  
+  <!-- ALPINE.JS (Replaces React State/Events) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
   <style>
     :root {
       --primary: #0F382E;
@@ -29,6 +36,7 @@
       flex-direction: column;
     }
     .font-satisfy { font-family: "Satisfy", cursive; }
+    
     .card {
       background: white;
       border-radius: 24px;
@@ -37,6 +45,7 @@
       transition: all 0.3s ease;
     }
     .card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    
     .btn-primary {
       background: var(--primary);
       color: white;
@@ -55,6 +64,7 @@
       text-decoration: none;
     }
     .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(15,56,46,0.3); }
+    
     .btn-accent {
       background: var(--accent);
       color: white;
@@ -73,6 +83,7 @@
       text-decoration: none;
     }
     .btn-accent:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(63,208,212,0.25); }
+    
     .badge-step {
       width: 48px;
       height: 48px;
@@ -87,6 +98,7 @@
       flex-shrink: 0;
     }
     .badge-step.accent { background: var(--accent); }
+    
     .faq-item {
       border-bottom: 1px solid rgba(0,0,0,0.05);
       padding: 16px 0;
@@ -100,410 +112,346 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      user-select: none;
     }
     .faq-answer {
       font-size: 14px;
       color: #4b5563;
       line-height: 1.6;
       margin-top: 8px;
-      display: none;
     }
-    .faq-answer.open { display: block; }
-    .faq-toggle { font-size: 22px; color: var(--accent); transition: transform 0.3s; }
+    .faq-toggle {
+      font-size: 22px;
+      color: var(--accent);
+      transition: transform 0.3s;
+      display: inline-block;
+    }
     .faq-toggle.open { transform: rotate(45deg); }
+    
     @media (max-width: 768px) {
       .badge-step { width: 40px; height: 40px; font-size: 16px; }
     }
+
+    /* Alpine.js initial hide to prevent flashes */
+    [x-cloak] { display: none !important; }
   </style>
 </head>
 <body>
 
-<!-- ===== HEADER ===== -->
-<header class="h-[72px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
-  <div class="max-w-[1300px] mx-auto h-full px-4 lg:px-8 flex items-center justify-between">
-    <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
-      <img src="/logo.svg" alt="Kundasang Homestay" class="w-10 h-10 md:w-14 md:h-14" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
-      <div class="font-poppins font-800 text-[18px] md:text-[20px] tracking-[-0.5px] text-[#212121] leading-none">
-        KUNDASANG<span class="font-600 text-[#212121]/60 text-[14px] md:text-[16px]"> • Homestay</span>
+<!-- ============================================================ -->
+<!--  ENTIRE APP WRAPPED IN Alpine.js x-data (like React's state)   -->
+<!-- ============================================================ -->
+<div x-data="landingPageApp()" x-init="init()" class="flex flex-col min-h-screen">
+
+  <!-- ===== HEADER ===== -->
+  <header class="h-[72px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
+    <div class="max-w-[1300px] mx-auto h-full px-4 lg:px-8 flex items-center justify-between">
+      <div class="flex items-center gap-3 cursor-pointer" @click="window.location.href='/'">
+        <img src="/logo.svg" alt="Kundasang Homestay" class="w-10 h-10 md:w-14 md:h-14" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
+        <div class="font-poppins font-800 text-[18px] md:text-[20px] tracking-[-0.5px] text-[#212121] leading-none">
+          KUNDASANG<span class="font-600 text-[#212121]/60 text-[14px] md:text-[16px]"> • Homestay</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-6">
+        <a href="/" class="text-[13px] font-600 text-[#212121]/70 hover:text-[#0F382E] transition-colors">Utama</a>
+        <a href="/list.html" class="text-[13px] font-600 text-[#212121]/70 hover:text-[#0F382E] transition-colors">Daftar Homestay</a>
+        <a href="/about.html" class="text-[13px] font-600 text-[#212121]/70 hover:text-[#0F382E] transition-colors">Tentang</a>
+        <a href="/owner.html" class="btn-primary" style="padding:8px 24px;font-size:11px;">🔑 Log Masuk Pengusaha</a>
+      </nav>
+      <button @click="window.location.href='/list.html'" class="md:hidden btn-primary text-[11px] px-4 py-2">Daftar</button>
+    </div>
+  </header>
+
+  <!-- ===== HERO ===== -->
+  <section class="relative w-full bg-[#0F382E] text-white py-16 md:py-24 overflow-hidden">
+    <div class="absolute inset-0 opacity-10">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Gunung Kinabalu" class="w-full h-full object-cover" />
+    </div>
+    <div class="relative z-10 max-w-[900px] mx-auto px-4 text-center">
+      <div class="font-satisfy text-[#3FD0D4] text-[30px] md:text-[40px] leading-none">Platform Untuk Pengusaha</div>
+      <h1 class="font-poppins font-800 text-[34px] md:text-[52px] leading-[1.1] tracking-[-0.5px] mt-2">
+        Daftar Homestay Anda <br class="hidden md:block" />
+        <span class="text-[#3FD0D4]">Selamat &amp; Automatik</span>
+      </h1>
+      <p class="mt-4 text-white/80 text-[15px] md:text-[18px] max-w-[620px] mx-auto leading-[1.7]">
+        Platform ini dibina khas untuk pengusaha homestay di Kundasang. <br class="hidden md:block" />
+        Tiada bayaran pendaftaran, tiada yuran tersembunyi.
+      </p>
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+        <a href="/list.html" class="btn-accent">📋 Daftar Sekarang – PERCUMA</a>
+        <a href="#faq" class="btn-primary" style="background:transparent;border:2px solid rgba(255,255,255,0.5);color:white;padding:12px 28px;">🤔 Ada Soalan?</a>
+      </div>
+      <div class="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs md:text-sm text-white/70">
+        <span class="flex items-center gap-1">✅ Pendaftaran Percuma</span>
+        <span class="w-1 h-1 bg-white/30 rounded-full"></span>
+        <span class="flex items-center gap-1">🔒 Wang Disimpan di ToyyibPay</span>
+        <span class="w-1 h-1 bg-white/30 rounded-full"></span>
+        <span class="flex items-center gap-1">🆔 Pengesahan ID Teliti</span>
       </div>
     </div>
-    <nav class="hidden md:flex items-center gap-6">
-      <a href="/" class="text-[13px] font-600 text-[#212121]/70 hover:text-[#0F382E] transition-colors">Utama</a>
-      <a href="/list.html" class="text-[13px] font-600 text-[#212121]/70 hover:text-[#0F382E] transition-colors">Daftar Homestay</a>
-      <a href="/about.html" class="text-[13px] font-600 text-[#212121]/70 hover:text-[#0F382E] transition-colors">Tentang</a>
-      <a href="/owner.html" class="btn-primary" style="padding:8px 24px;font-size:11px;">🔑 Log Masuk Pengusaha</a>
-    </nav>
-    <button onclick="window.location.href='/list.html'" class="md:hidden btn-primary text-[11px] px-4 py-2">Daftar</button>
-  </div>
-</header>
+  </section>
 
-<!-- ===== HERO ===== -->
-<section class="relative w-full bg-[#0F382E] text-white py-16 md:py-24 overflow-hidden">
-  <div class="absolute inset-0 opacity-10">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Gunung Kinabalu" class="w-full h-full object-cover" />
-  </div>
-  <div class="relative z-10 max-w-[900px] mx-auto px-4 text-center">
-    <div class="font-satisfy text-[#3FD0D4] text-[30px] md:text-[40px] leading-none">Platform Untuk Pengusaha</div>
-    <h1 class="font-poppins font-800 text-[34px] md:text-[52px] leading-[1.1] tracking-[-0.5px] mt-2">
-      Daftar Homestay Anda <br class="hidden md:block" />
-      <span class="text-[#3FD0D4]">Selamat &amp; Automatik</span>
-    </h1>
-    <p class="mt-4 text-white/80 text-[15px] md:text-[18px] max-w-[620px] mx-auto leading-[1.7]">
-      Platform ini dibina khas untuk pengusaha homestay di Kundasang. <br class="hidden md:block" />
-      Tiada bayaran pendaftaran, tiada yuran tersembunyi.
-    </p>
-    <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
-      <a href="/list.html" class="btn-accent">📋 Daftar Sekarang – PERCUMA</a>
-      <a href="#faq" class="btn-primary" style="background:transparent;border:2px solid rgba(255,255,255,0.5);color:white;padding:12px 28px;">🤔 Ada Soalan?</a>
-    </div>
-    <div class="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs md:text-sm text-white/70">
-      <span class="flex items-center gap-1">✅ Pendaftaran Percuma</span>
-      <span class="w-1 h-1 bg-white/30 rounded-full"></span>
-      <span class="flex items-center gap-1">🔒 Wang Disimpan di ToyyibPay</span>
-      <span class="w-1 h-1 bg-white/30 rounded-full"></span>
-      <span class="flex items-center gap-1">🆔 Pengesahan ID Teliti</span>
-    </div>
-  </div>
-</section>
-
-<!-- ===== BAGAIMANA IA BERFUNGSI ===== -->
-<section class="max-w-[1100px] mx-auto px-4 py-16">
-  <div class="text-center mb-12">
-    <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Langkah Mudah</div>
-    <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Bagaimana Platform Ini Berfungsi?</h2>
-    <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
-  </div>
-
-  <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-    <div class="card p-6 text-center hover:shadow-lg transition-shadow">
-      <div class="badge-step mx-auto">1</div>
-      <h3 class="font-poppins font-700 text-[18px] text-[#212121] mt-4">Daftar Homestay Anda</h3>
-      <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">
-        Isi borang pendaftaran dengan butiran peribadi, maklumat homestay, bilik, harga, dan gambar. Sertakan salinan IC dan bukti bank.
-      </p>
-    </div>
-    <div class="card p-6 text-center hover:shadow-lg transition-shadow">
-      <div class="badge-step accent mx-auto">2</div>
-      <h3 class="font-poppins font-700 text-[18px] text-[#212121] mt-4">Pengesahan &amp; Kelulusan</h3>
-      <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">
-        Pihak admin akan menyemak dokumen anda (IC, lesen PBT, QR bank) dan meluluskan homestay dalam masa 24–48 jam.
-      </p>
-    </div>
-    <div class="card p-6 text-center hover:shadow-lg transition-shadow">
-      <div class="badge-step mx-auto">3</div>
-      <h3 class="font-poppins font-700 text-[18px] text-[#212121] mt-4">Terima Tempahan</h3>
-      <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">
-        Homestay anda dipaparkan di laman utama. Tetamu boleh membuat tempahan dan membayar melalui FPX. Wang disimpan selamat oleh ToyyibPay.
-      </p>
-    </div>
-    <div class="card p-6 text-center hover:shadow-lg transition-shadow">
-      <div class="badge-step accent mx-auto">4</div>
-      <h3 class="font-poppins font-700 text-[18px] text-[#212121] mt-4">Urus Tempahan di Dashboard</h3>
-      <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">
-        Log masuk ke <strong>Dashboard Pengusaha</strong> untuk melihat semua tempahan, status bayaran, dan tarikh check‑in/check‑out.
-      </p>
-    </div>
-    <div class="card p-6 text-center hover:shadow-lg transition-shadow">
-      <div class="badge-step mx-auto">5</div>
-      <h3 class="font-poppins font-700 text-[18px] text-[#212121] mt-4">Sahkan Ketibaan Tetamu</h3>
-      <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">
-        Tetamu akan memberikan <strong>kod 6 digit</strong> yang diterima melalui e‑mel. Masukkan kod tersebut di dashboard untuk mengesahkan check‑in.
-      </p>
-    </div>
-    <div class="card p-6 text-center hover:shadow-lg transition-shadow">
-      <div class="badge-step accent mx-auto">6</div>
-      <h3 class="font-poppins font-700 text-[18px] text-[#212121] mt-4">Bayaran Penuh ke Akaun Anda</h3>
-      <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">
-        Selepas check‑in disahkan, platform akan <strong>mengarahkan ToyyibPay</strong> untuk memindahkan <strong>jumlah penuh harga penginapan</strong> terus ke akaun bank anda. <span class="text-[#0F382E] font-semibold">Tiada potongan!</span>
-      </p>
-    </div>
-  </div>
-
-  <div class="mt-12 text-center bg-blue-50 border border-blue-200 rounded-2xl p-4 md:p-6 max-w-3xl mx-auto">
-    <p class="text-[14px] text-blue-800 font-medium">
-      💡 <strong>Penting:</strong> Platform <span class="underline">tidak memegang</span> wang anda. Wang disimpan oleh ToyyibPay dan hanya dilepaskan ke akaun bank anda selepas check‑in disahkan.
-    </p>
-  </div>
-
-  <div class="mt-10 text-center">
-    <a href="/list.html" class="btn-primary">📋 Saya Nak Daftar Sekarang</a>
-  </div>
-</section>
-
-<!-- ===== KENAPA PILIH PLATFORM INI ===== -->
-<section class="bg-white py-16">
-  <div class="max-w-[1100px] mx-auto px-4">
-    <div class="text-center mb-10">
-      <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Kelebihan</div>
-      <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Kenapa Pilih Platform Ini?</h2>
+  <!-- ===== BAGAIMANA IA BERFUNGSI (Using x-for = React .map()) ===== -->
+  <section class="max-w-[1100px] mx-auto px-4 py-16">
+    <div class="text-center mb-12">
+      <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Langkah Mudah</div>
+      <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Bagaimana Platform Ini Berfungsi?</h2>
       <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
     </div>
 
-    <div class="grid md:grid-cols-2 gap-6">
-      <div class="flex gap-4 items-start">
-        <div class="text-3xl">💰</div>
-        <div>
-          <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Pendaftaran &amp; Yuran Bulanan PERCUMA</h3>
-          <p class="text-[14px] text-zinc-600 leading-relaxed">Tiada bayaran tersembunyi. Yuran Platform (11% + RM1.10) dikenakan <strong>kepada tetamu</strong>, bukan kepada anda.</p>
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <!-- Alpine.js loop over 'steps' data -->
+      <template x-for="(step, index) in steps" :key="index">
+        <div class="card p-6 text-center hover:shadow-lg transition-shadow duration-300">
+          <div class="badge-step" :class="{ 'accent': step.accent }" x-text="step.id"></div>
+          <h3 class="font-poppins font-700 text-[18px] text-[#212121] mt-4" x-text="step.title"></h3>
+          <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed" x-html="step.desc"></p>
         </div>
+      </template>
+    </div>
+
+    <div class="mt-12 text-center bg-blue-50 border border-blue-200 rounded-2xl p-4 md:p-6 max-w-3xl mx-auto">
+      <p class="text-[14px] text-blue-800 font-medium">
+        💡 <strong>Penting:</strong> Platform <span class="underline">tidak memegang</span> wang anda. Wang disimpan oleh ToyyibPay dan hanya dilepaskan ke akaun bank anda selepas check‑in disahkan.
+      </p>
+    </div>
+
+    <div class="mt-10 text-center">
+      <a href="/list.html" class="btn-primary">📋 Saya Nak Daftar Sekarang</a>
+    </div>
+  </section>
+
+  <!-- ===== KENAPA PILIH (Data-driven with x-for) ===== -->
+  <section class="bg-white py-16">
+    <div class="max-w-[1100px] mx-auto px-4">
+      <div class="text-center mb-10">
+        <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Kelebihan</div>
+        <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Kenapa Pilih Platform Ini?</h2>
+        <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
       </div>
-      <div class="flex gap-4 items-start">
-        <div class="text-3xl">🛡️</div>
-        <div>
-          <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Pengesahan ID dan Anti‑Scam</h3>
-          <p class="text-[14px] text-zinc-600 leading-relaxed">Setiap pengusaha disahkan melalui IC dan dokumen sokongan. Melindungi anda dan tetamu daripada penipuan.</p>
-        </div>
-      </div>
-      <div class="flex gap-4 items-start">
-        <div class="text-3xl">🤝</div>
-        <div>
-          <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Tetamu Berhubung Terus Dengan Anda</h3>
-          <p class="text-[14px] text-zinc-600 leading-relaxed">Tiada orang tengah. Selepas tempahan, tetamu boleh WhatsApp anda terus.</p>
-        </div>
-      </div>
-      <div class="flex gap-4 items-start">
-        <div class="text-3xl">⏱️</div>
-        <div>
-          <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Bayaran Penuh &amp; Automatik</h3>
-          <p class="text-[14px] text-zinc-600 leading-relaxed">Anda menerima <strong>jumlah penuh harga penginapan</strong> tanpa sebarang potongan. Proses automatik selepas check‑in.</p>
-        </div>
-      </div>
-      <div class="flex gap-4 items-start">
-        <div class="text-3xl">📱</div>
-        <div>
-          <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Dashboard Pengusaha Yang Mudah</h3>
-          <p class="text-[14px] text-zinc-600 leading-relaxed">Lihat semua tempahan, urus tarikh, dan sahkan ketibaan tetamu dengan beberapa klik sahaja.</p>
-        </div>
-      </div>
-      <div class="flex gap-4 items-start">
-        <div class="text-3xl">🔒</div>
-        <div>
-          <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Bayaran FPX – Selamat &amp; Dipercayai</h3>
-          <p class="text-[14px] text-zinc-600 leading-relaxed">Semua pembayaran dibuat melalui ToyyibPay FPX, gateway online banking yang digunakan oleh bank‑bank utama Malaysia.</p>
-        </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <template x-for="(item, idx) in whyChoose" :key="idx">
+          <div class="flex gap-4 items-start">
+            <div class="text-3xl" x-text="item.icon"></div>
+            <div>
+              <h3 class="font-poppins font-700 text-[17px] text-[#212121]" x-text="item.title"></h3>
+              <p class="text-[14px] text-zinc-600 leading-relaxed" x-html="item.desc"></p>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- ===== PROSES PENDAFTARAN DAN KELULUSAN ===== -->
-<section class="max-w-[1100px] mx-auto px-4 py-16">
-  <div class="text-center mb-10">
-    <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Langkah Seterusnya</div>
-    <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Proses Pendaftaran &amp; Kelulusan</h2>
-    <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
-  </div>
-
-  <div class="grid md:grid-cols-2 gap-8 items-center">
-    <div>
-      <div class="flex gap-4 mb-6">
-        <div class="badge-step">1</div>
-        <div>
-          <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Isi Borang Pendaftaran</h3>
-          <p class="text-[14px] text-zinc-600 leading-relaxed">Masukkan semua maklumat yang diperlukan: butiran peribadi, homestay, bilik, harga, gambar, bank, dan dokumen pengesahan.</p>
-        </div>
-      </div>
-      <div class="flex gap-4 mb-6">
-        <div class="badge-step accent">2</div>
-        <div>
-          <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Serahkan &amp; Tunggu Semakan</h3>
-          <p class="text-[14px] text-zinc-600 leading-relaxed">Permohonan anda akan disemak oleh admin dalam masa 24–48 jam. Anda akan dimaklumkan melalui e‑mel atau WhatsApp.</p>
-        </div>
-      </div>
-      <div class="flex gap-4">
-        <div class="badge-step">3</div>
-        <div>
-          <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Homestay Diluluskan &amp; Dipaparkan</h3>
-          <p class="text-[14px] text-zinc-600 leading-relaxed">Setelah diluluskan, homestay anda akan kelihatan di laman utama dan tetamu boleh mula membuat tempahan.</p>
-        </div>
-      </div>
-    </div>
-    <div class="bg-[#F8F5F0] p-6 rounded-2xl border border-black/5">
-      <h4 class="font-poppins font-700 text-[17px] text-[#212121]">Dokumen yang Diperlukan</h4>
-      <ul class="mt-3 space-y-2 text-[14px] text-zinc-700">
-        <li class="flex items-start gap-2"><span class="text-[#3FD0D4] font-bold">✓</span> Gambar IC (dengan watermark automatik)</li>
-        <li class="flex items-start gap-2"><span class="text-[#3FD0D4] font-bold">✓</span> Gambar QR DuitNow / Bank</li>
-        <li class="flex items-start gap-2"><span class="text-[#3FD0D4] font-bold">✓</span> (Optional) Lesen PBT / Trading License</li>
-        <li class="flex items-start gap-2"><span class="text-[#3FD0D4] font-bold">✓</span> Nama pemilik akaun bank yang sepadan dengan IC</li>
-      </ul>
-      <p class="text-[12px] text-zinc-500 mt-3 italic">Semua dokumen hanya digunakan untuk pengesahan dan akan dipadam selepas kelulusan.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ===== PENGURUSAN TEMPAHAN & BAYARAN ===== -->
-<section class="bg-white py-16">
-  <div class="max-w-[1100px] mx-auto px-4">
+  <!-- ===== PROSES PENDAFTARAN ===== -->
+  <section class="max-w-[1100px] mx-auto px-4 py-16">
     <div class="text-center mb-10">
-      <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Kawalan Penuh</div>
-      <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Pengurusan Tempahan &amp; Bayaran</h2>
+      <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Langkah Seterusnya</div>
+      <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Proses Pendaftaran &amp; Kelulusan</h2>
       <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
     </div>
 
-    <div class="grid md:grid-cols-3 gap-6">
-      <div class="card p-6 text-center">
-        <div class="text-4xl mb-2">📋</div>
-        <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Lihat Semua Tempahan</h3>
-        <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">Dashboard anda menunjukkan senarai tempahan yang telah dibayar, status check‑in, dan tempahan siap.</p>
+    <div class="grid md:grid-cols-2 gap-8 items-center">
+      <div>
+        <template x-for="(step, idx) in registrationSteps" :key="idx">
+          <div class="flex gap-4 mb-6">
+            <div class="badge-step" :class="{ 'accent': step.accent }" x-text="step.id"></div>
+            <div>
+              <h3 class="font-poppins font-700 text-[17px] text-[#212121]" x-text="step.title"></h3>
+              <p class="text-[14px] text-zinc-600 leading-relaxed" x-text="step.desc"></p>
+            </div>
+          </div>
+        </template>
       </div>
-      <div class="card p-6 text-center">
-        <div class="text-4xl mb-2">🔢</div>
-        <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Kod Check‑in 6 Digit</h3>
-        <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">Setiap tempahan diberikan kod unik. Anda mesti memasukkan kod yang diberikan oleh tetamu untuk mengesahkan ketibaan mereka.</p>
-      </div>
-      <div class="card p-6 text-center">
-        <div class="text-4xl mb-2">💰</div>
-        <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Bayaran Penuh ke Bank Anda</h3>
-        <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">Selepas check‑in disahkan, platform mengarahkan ToyyibPay untuk memindahkan <strong>jumlah penuh</strong> (RM X) terus ke akaun bank anda. <span class="text-green-700 font-semibold">Tiada potongan!</span></p>
+      <div class="bg-[#F8F5F0] p-6 rounded-2xl border border-black/5">
+        <h4 class="font-poppins font-700 text-[17px] text-[#212121]">Dokumen yang Diperlukan</h4>
+        <ul class="mt-3 space-y-2 text-[14px] text-zinc-700">
+          <li class="flex items-start gap-2"><span class="text-[#3FD0D4] font-bold">✓</span> Gambar IC (dengan watermark automatik)</li>
+          <li class="flex items-start gap-2"><span class="text-[#3FD0D4] font-bold">✓</span> Gambar QR DuitNow / Bank</li>
+          <li class="flex items-start gap-2"><span class="text-[#3FD0D4] font-bold">✓</span> (Optional) Lesen PBT / Trading License</li>
+          <li class="flex items-start gap-2"><span class="text-[#3FD0D4] font-bold">✓</span> Nama pemilik akaun bank yang sepadan dengan IC</li>
+        </ul>
+        <p class="text-[12px] text-zinc-500 mt-3 italic">Semua dokumen hanya digunakan untuk pengesahan dan akan dipadam selepas kelulusan.</p>
       </div>
     </div>
+  </section>
 
-    <div class="mt-10 bg-green-50 border border-green-200 rounded-2xl p-6 md:p-8 text-center">
-      <p class="text-[15px] text-green-800 font-semibold leading-relaxed max-w-2xl mx-auto">
-        📌 <strong>Contoh:</strong> Tetamu membayar RM 556.10 untuk 2 malam (RM 500 + RM 55 Yuran Platform + RM 1.10 FPX Fee).<br />
-        <span class="text-[#0F382E] text-[18px]">Anda akan menerima RM 500.00 terus ke akaun bank anda.</span><br />
-        <span class="text-[13px] font-normal text-green-700">Yuran Platform dikenakan kepada tetamu, <strong>bukan kepada tuan rumah</strong>.</span>
+  <!-- ===== PENGURUSAN TEMPAHAN ===== -->
+  <section class="bg-white py-16">
+    <div class="max-w-[1100px] mx-auto px-4">
+      <div class="text-center mb-10">
+        <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Kawalan Penuh</div>
+        <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Pengurusan Tempahan &amp; Bayaran</h2>
+        <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="card p-6 text-center hover:shadow-lg transition-shadow duration-300">
+          <div class="text-4xl mb-2">📋</div>
+          <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Lihat Semua Tempahan</h3>
+          <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">Dashboard anda menunjukkan senarai tempahan yang telah dibayar, status check‑in, dan tempahan siap.</p>
+        </div>
+        <div class="card p-6 text-center hover:shadow-lg transition-shadow duration-300">
+          <div class="text-4xl mb-2">🔢</div>
+          <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Kod Check‑in 6 Digit</h3>
+          <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">Setiap tempahan diberikan kod unik. Anda mesti memasukkan kod yang diberikan oleh tetamu untuk mengesahkan ketibaan mereka.</p>
+        </div>
+        <div class="card p-6 text-center hover:shadow-lg transition-shadow duration-300">
+          <div class="text-4xl mb-2">💰</div>
+          <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Bayaran Penuh ke Bank Anda</h3>
+          <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">
+            Selepas check‑in disahkan, platform mengarahkan ToyyibPay untuk memindahkan <strong>jumlah penuh</strong> (RM X) terus ke akaun bank anda. <span class="text-green-700 font-semibold">Tiada potongan!</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-10 bg-green-50 border border-green-200 rounded-2xl p-6 md:p-8 text-center">
+        <p class="text-[15px] text-green-800 font-semibold leading-relaxed max-w-2xl mx-auto">
+          📌 <strong>Contoh:</strong> Tetamu membayar RM 556.10 untuk 2 malam (RM 500 + RM 55 Yuran Platform + RM 1.10 FPX Fee).<br />
+          <span class="text-[#0F382E] text-[18px]">Anda akan menerima RM 500.00 terus ke akaun bank anda.</span><br />
+          <span class="text-[13px] font-normal text-green-700">Yuran Platform dikenakan kepada tetamu, <strong>bukan kepada tuan rumah</strong>.</span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FAQ (React-like State & Conditional Rendering) ===== -->
+  <section id="faq" class="max-w-[900px] mx-auto px-4 py-16 scroll-mt-20">
+    <div class="text-center mb-10">
+      <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Ada Soalan?</div>
+      <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Soalan Lazim</h2>
+      <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
+    </div>
+
+    <div class="card p-6 divide-y divide-black/5">
+      <!-- 
+        Alpine.js loop over faqData.
+        'click' toggles the activeIndex (like React's useState).
+        'x-show' conditionally renders the answer (like {isOpen && <p>} in React).
+        'x-bind:class' dynamically adds the 'open' class to the toggle icon.
+      -->
+      <template x-for="(item, index) in faqData" :key="index">
+        <div class="faq-item">
+          <div class="faq-question" @click="toggleFaq(index)">
+            <span x-text="item.q"></span>
+            <span class="faq-toggle" :class="{ 'open': activeFaq === index }" x-text="activeFaq === index ? '−' : '+'"></span>
+          </div>
+          <!-- x-show handles conditional rendering (like React's &&) -->
+          <div class="faq-answer" x-show="activeFaq === index" x-html="item.a" x-transition.duration.200ms></div>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <!-- ===== CTA AKHIR ===== -->
+  <section class="bg-[#0F382E] text-white py-16 text-center">
+    <div class="max-w-[700px] mx-auto px-4">
+      <div class="font-satisfy text-[#3FD0D4] text-[30px] md:text-[40px] leading-none">Sedia Untuk Mulakan?</div>
+      <h2 class="font-poppins font-700 text-[26px] md:text-[34px] leading-[1.1] mt-2">Daftar Homestay Anda Sekarang</h2>
+      <p class="text-white/70 text-[14px] md:text-[16px] mt-3 leading-relaxed">
+        Isi borang ringkas, hantar dokumen, dan mula terima tempahan dari pelancong yang sah.
       </p>
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+        <a href="/list.html" class="btn-accent">📋 Daftar Sekarang – PERCUMA</a>
+        <a href="https://wa.me/60165833713?text=listingkdsg" target="_blank" class="btn-primary" style="background:#25D366;border:none;padding:12px 28px;">💬 Tanya di WhatsApp</a>
+      </div>
+      <p class="text-white/40 text-[11px] mt-4">* Sebarang masalah, hubungi kami terus.</p>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- ===== SOALAN LAZIM (FAQ) ===== -->
-<section id="faq" class="max-w-[900px] mx-auto px-4 py-16">
-  <div class="text-center mb-10">
-    <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Ada Soalan?</div>
-    <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Soalan Lazim</h2>
-    <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
-  </div>
+  <!-- ===== FOOTER ===== -->
+  <footer class="bg-[#212121] text-white/70 mt-auto">
+    <div class="max-w-[1300px] mx-auto px-4 lg:px-8 py-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div>
+        <div class="flex items-center gap-3">
+          <img src="/logo.svg" alt="Kundasang Homestay" class="w-10 h-10" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
+          <div class="font-poppins font-800 text-[16px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div>
+        </div>
+        <p class="text-[12px] leading-[1.6] mt-3 text-white/50 max-w-[280px]">
+          Platform homestay yang selamat dan dipercayai untuk pengusaha tempatan di Kundasang, Sabah.
+        </p>
+      </div>
+      <div>
+        <div class="font-poppins font-700 text-[12px] uppercase tracking-widest text-white mb-3">Pautan</div>
+        <div class="space-y-1.5 text-[13px]">
+          <a href="/" class="hover:text-white block">Utama</a>
+          <a href="/list.html" class="hover:text-white block">Daftar Homestay</a>
+          <a href="/about.html" class="hover:text-white block">Tentang Kami</a>
+          <a href="/owner.html" class="hover:text-white block">Log Masuk Pengusaha</a>
+        </div>
+      </div>
+      <div>
+        <div class="font-poppins font-700 text-[12px] uppercase tracking-widest text-white mb-3">Hubungi</div>
+        <div class="space-y-1.5 text-[13px]">
+          <a href="https://wa.me/60165833713?text=listingkdsg" target="_blank" class="hover:text-white block">💬 WhatsApp</a>
+          <a href="mailto:support@kundasanghomestay.my" class="hover:text-white block">✉️ support@kundasanghomestay.my</a>
+        </div>
+      </div>
+    </div>
+    <div class="border-t border-white/10 py-4 text-center text-[10px] tracking-widest uppercase font-600 text-white/30">
+      © 2026 Kundasang Homestay. Hak Cipta Terpelihara.
+    </div>
+  </footer>
 
-  <div class="card p-6 divide-y divide-black/5">
-    <div class="faq-item">
-      <div class="faq-question" onclick="toggleFaq(this)">
-        <span>❓ Berapa kos untuk mendaftar?</span>
-        <span class="faq-toggle">+</span>
-      </div>
-      <div class="faq-answer">
-        <strong>PERCUMA</strong> – tiada bayaran pendaftaran, tiada yuran bulanan. Yuran Platform (11% + RM1.10) dikenakan <strong>kepada tetamu</strong>, bukan kepada anda.
-      </div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-question" onclick="toggleFaq(this)">
-        <span>❓ Siapa yang pegang wang booking?</span>
-        <span class="faq-toggle">+</span>
-      </div>
-      <div class="faq-answer">
-        <strong>ToyyibPay</strong> (gateway pembayaran) yang memegang wang tersebut. Platform <span class="underline">tidak memegang</span> wang anda. Kami hanya mengarahkan ToyyibPay untuk melepaskan bayaran penuh kepada anda selepas check‑in disahkan.
-      </div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-question" onclick="toggleFaq(this)">
-        <span>❓ Berapa yang saya akan terima?</span>
-        <span class="faq-toggle">+</span>
-      </div>
-      <div class="faq-answer">
-        Anda akan menerima <strong>jumlah penuh harga penginapan</strong> yang anda tetapkan (contoh: RM 500). Platform tidak memotong sebarang yuran daripada bayaran anda.
-      </div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-question" onclick="toggleFaq(this)">
-        <span>❓ Apakah dokumen yang diperlukan?</span>
-        <span class="faq-toggle">+</span>
-      </div>
-      <div class="faq-answer">
-        Anda perlu menyediakan gambar IC (dengan watermark automatik), gambar QR DuitNow / Bank, dan (pilihan) lesen PBT. Nama pemilik bank mesti sepadan dengan IC.
-      </div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-question" onclick="toggleFaq(this)">
-        <span>❓ Berapa lama proses kelulusan?</span>
-        <span class="faq-toggle">+</span>
-      </div>
-      <div class="faq-answer">
-        Biasanya dalam masa <strong>24–48 jam</strong>. Admin akan menyemak dokumen anda dan menghubungi anda jika ada kekurangan.
-      </div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-question" onclick="toggleFaq(this)">
-        <span>❓ Bolehkah saya mengubah tarikh tempahan atau membatalkannya?</span>
-        <span class="faq-toggle">+</span>
-      </div>
-      <div class="faq-answer">
-        Ya. Di dashboard pengusaha, anda boleh menukar tarikh check‑in/check‑out atau membatalkan tempahan (dengan persetujuan tetamu). Sistem akan mengemas kini ketersediaan secara automatik.
-      </div>
-    </div>
-  </div>
-</section>
+</div> <!-- END Alpine.js App -->
 
-<!-- ===== CTA AKHIR ===== -->
-<section class="bg-[#0F382E] text-white py-16 text-center">
-  <div class="max-w-[700px] mx-auto px-4">
-    <div class="font-satisfy text-[#3FD0D4] text-[30px] md:text-[40px] leading-none">Sedia Untuk Mulakan?</div>
-    <h2 class="font-poppins font-700 text-[26px] md:text-[34px] leading-[1.1] mt-2">Daftar Homestay Anda Sekarang</h2>
-    <p class="text-white/70 text-[14px] md:text-[16px] mt-3 leading-relaxed">
-      Isi borang ringkas, hantar dokumen, dan mula terima tempahan dari pelancong yang sah.
-    </p>
-    <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
-      <a href="/list.html" class="btn-accent">📋 Daftar Sekarang – PERCUMA</a>
-      <a href="https://wa.me/60165833713?text=listingkdsg" target="_blank" class="btn-primary" style="background:#25D366;border:none;padding:12px 28px;">💬 Tanya di WhatsApp</a>
-    </div>
-    <p class="text-white/40 text-[11px] mt-4">* Sebarang masalah, hubungi kami terus.</p>
-  </div>
-</section>
-
-<!-- ===== FOOTER ===== -->
-<footer class="bg-[#212121] text-white/70">
-  <div class="max-w-[1300px] mx-auto px-4 lg:px-8 py-12 grid grid-cols-1 md:grid-cols-3 gap-8">
-    <div>
-      <div class="flex items-center gap-3">
-        <img src="/logo.svg" alt="Kundasang Homestay" class="w-10 h-10" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
-        <div class="font-poppins font-800 text-[16px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div>
-      </div>
-      <p class="text-[12px] leading-[1.6] mt-3 text-white/50 max-w-[280px]">
-        Platform homestay yang selamat dan dipercayai untuk pengusaha tempatan di Kundasang, Sabah.
-      </p>
-    </div>
-    <div>
-      <div class="font-poppins font-700 text-[12px] uppercase tracking-widest text-white mb-3">Pautan</div>
-      <div class="space-y-1.5 text-[13px]">
-        <a href="/" class="hover:text-white block">Utama</a>
-        <a href="/list.html" class="hover:text-white block">Daftar Homestay</a>
-        <a href="/about.html" class="hover:text-white block">Tentang Kami</a>
-        <a href="/owner.html" class="hover:text-white block">Log Masuk Pengusaha</a>
-      </div>
-    </div>
-    <div>
-      <div class="font-poppins font-700 text-[12px] uppercase tracking-widest text-white mb-3">Hubungi</div>
-      <div class="space-y-1.5 text-[13px]">
-        <a href="https://wa.me/60165833713?text=listingkdsg" target="_blank" class="hover:text-white block">💬 WhatsApp</a>
-        <a href="mailto:support@kundasanghomestay.my" class="hover:text-white block">✉️ support@kundasanghomestay.my</a>
-      </div>
-    </div>
-  </div>
-  <div class="border-t border-white/10 py-4 text-center text-[10px] tracking-widest uppercase font-600 text-white/30">
-    © 2026 Kundasang Homestay. Hak Cipta Terpelihara.
-  </div>
-</footer>
-
-<!-- ===== FAQ TOGGLE ===== -->
+<!-- ============================================================ -->
+<!--  ALPINE.JS APP STATE & DATA (Like React's useState & props)   -->
+<!-- ============================================================ -->
 <script>
-  function toggleFaq(el) {
-    const answer = el.nextElementSibling;
-    const toggle = el.querySelector('.faq-toggle');
-    if (answer.classList.contains('open')) {
-      answer.classList.remove('open');
-      toggle.classList.remove('open');
-      toggle.textContent = '+';
-    } else {
-      answer.classList.add('open');
-      toggle.classList.add('open');
-      toggle.textContent = '−';
+  function landingPageApp() {
+    return {
+      // --- STATE (like React useState) ---
+      activeFaq: null, // Tracks which FAQ is open. null = none open.
+
+      // --- DATA (like React props/arrays to map over) ---
+      steps: [
+        { id: 1, title: 'Daftar Homestay Anda', desc: 'Isi borang pendaftaran dengan butiran peribadi, maklumat homestay, bilik, harga, dan gambar. Sertakan salinan IC dan bukti bank.', accent: false },
+        { id: 2, title: 'Pengesahan & Kelulusan', desc: 'Pihak admin akan menyemak dokumen anda (IC, lesen PBT, QR bank) dan meluluskan homestay dalam masa 24–48 jam.', accent: true },
+        { id: 3, title: 'Terima Tempahan', desc: 'Homestay anda dipaparkan di laman utama. Tetamu boleh membuat tempahan dan membayar melalui FPX. Wang disimpan selamat oleh ToyyibPay.', accent: false },
+        { id: 4, title: 'Urus Tempahan di Dashboard', desc: 'Log masuk ke <strong>Dashboard Pengusaha</strong> untuk melihat semua tempahan, status bayaran, dan tarikh check‑in/check‑out.', accent: true },
+        { id: 5, title: 'Sahkan Ketibaan Tetamu', desc: 'Tetamu akan memberikan <strong>kod 6 digit</strong> yang diterima melalui e‑mel. Masukkan kod tersebut di dashboard untuk mengesahkan check‑in.', accent: false },
+        { id: 6, title: 'Bayaran Penuh ke Akaun Anda', desc: 'Selepas check‑in disahkan, platform akan <strong>mengarahkan ToyyibPay</strong> untuk memindahkan <strong>jumlah penuh harga penginapan</strong> terus ke akaun bank anda. <span class="text-[#0F382E] font-semibold">Tiada potongan!</span>', accent: true }
+      ],
+      whyChoose: [
+        { icon: '💰', title: 'Pendaftaran & Yuran Bulanan PERCUMA', desc: 'Tiada bayaran tersembunyi. Yuran Platform (11% + RM1.10) dikenakan <strong>kepada tetamu</strong>, bukan kepada anda.' },
+        { icon: '🛡️', title: 'Pengesahan ID dan Anti‑Scam', desc: 'Setiap pengusaha disahkan melalui IC dan dokumen sokongan. Melindungi anda dan tetamu daripada penipuan.' },
+        { icon: '🤝', title: 'Tetamu Berhubung Terus Dengan Anda', desc: 'Tiada orang tengah. Selepas tempahan, tetamu boleh WhatsApp anda terus.' },
+        { icon: '⏱️', title: 'Bayaran Penuh & Automatik', desc: 'Anda menerima <strong>jumlah penuh harga penginapan</strong> tanpa sebarang potongan. Proses automatik selepas check‑in.' },
+        { icon: '📱', title: 'Dashboard Pengusaha Yang Mudah', desc: 'Lihat semua tempahan, urus tarikh, dan sahkan ketibaan tetamu dengan beberapa klik sahaja.' },
+        { icon: '🔒', title: 'Bayaran FPX – Selamat & Dipercayai', desc: 'Semua pembayaran dibuat melalui ToyyibPay FPX, gateway online banking yang digunakan oleh bank‑bank utama Malaysia.' }
+      ],
+      registrationSteps: [
+        { id: 1, title: 'Isi Borang Pendaftaran', desc: 'Masukkan semua maklumat yang diperlukan: butiran peribadi, homestay, bilik, harga, gambar, bank, dan dokumen pengesahan.', accent: false },
+        { id: 2, title: 'Serahkan & Tunggu Semakan', desc: 'Permohonan anda akan disemak oleh admin dalam masa 24–48 jam. Anda akan dimaklumkan melalui e‑mel atau WhatsApp.', accent: true },
+        { id: 3, title: 'Homestay Diluluskan & Dipaparkan', desc: 'Setelah diluluskan, homestay anda akan kelihatan di laman utama dan tetamu boleh mula membuat tempahan.', accent: false }
+      ],
+      faqData: [
+        { q: 'Berapa kos untuk mendaftar?', a: '<strong>PERCUMA</strong> – tiada bayaran pendaftaran, tiada yuran bulanan. Yuran Platform (11% + RM1.10) dikenakan <strong>kepada tetamu</strong>, bukan kepada anda.' },
+        { q: 'Siapa yang pegang wang booking?', a: '<strong>ToyyibPay</strong> (gateway pembayaran) yang memegang wang tersebut. Platform <span class="underline">tidak memegang</span> wang anda. Kami hanya mengarahkan ToyyibPay untuk melepaskan bayaran penuh kepada anda selepas check‑in disahkan.' },
+        { q: 'Berapa yang saya akan terima?', a: 'Anda akan menerima <strong>jumlah penuh harga penginapan</strong> yang anda tetapkan (contoh: RM 500). Platform tidak memotong sebarang yuran daripada bayaran anda.' },
+        { q: 'Apakah dokumen yang diperlukan?', a: 'Anda perlu menyediakan gambar IC (dengan watermark automatik), gambar QR DuitNow / Bank, dan (pilihan) lesen PBT. Nama pemilik bank mesti sepadan dengan IC.' },
+        { q: 'Berapa lama proses kelulusan?', a: 'Biasanya dalam masa <strong>24–48 jam</strong>. Admin akan menyemak dokumen anda dan menghubungi anda jika ada kekurangan.' },
+        { q: 'Bolehkah saya mengubah tarikh tempahan atau membatalkannya?', a: 'Ya. Di dashboard pengusaha, anda boleh menukar tarikh check‑in/check‑out atau membatalkan tempahan (dengan persetujuan tetamu). Sistem akan mengemas kini ketersediaan secara automatik.' }
+      ],
+
+      // --- METHODS (like React event handlers) ---
+      toggleFaq(index) {
+        // If the clicked FAQ is already open, close it. Otherwise, open it.
+        this.activeFaq = this.activeFaq === index ? null : index;
+      },
+
+      // --- LIFECYCLE (like React useEffect for hash routing) ---
+      init() {
+        if (window.location.hash === '#faq') {
+          setTimeout(() => {
+            // Open the first FAQ when URL has #faq
+            this.activeFaq = 0;
+          }, 400);
+        }
+      }
     }
-  }
-  if (window.location.hash === '#faq') {
-    setTimeout(() => {
-      const firstFaq = document.querySelector('.faq-item .faq-question');
-      if (firstFaq) toggleFaq(firstFaq);
-    }, 300);
   }
 </script>
 
