@@ -13,7 +13,7 @@
   <!-- GOOGLE FONTS -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet" />
   
-  <!-- ALPINE.JS & INTERSECT PLUGIN (load plugin first, then core) -->
+  <!-- ALPINE.JS (with Intersect plugin) -->
   <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/intersect@3.14.3/dist/cdn.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
 
@@ -36,6 +36,7 @@
       display: flex;
       flex-direction: column;
       margin: 0;
+      overflow-x: hidden;
     }
     .font-satisfy { font-family: "Satisfy", cursive; }
     
@@ -137,22 +138,6 @@
     }
     .faq-toggle.open { transform: rotate(45deg); }
     
-    /* Horizontal scroll steps */
-    .steps-scroll {
-      display: flex;
-      overflow-x: auto;
-      gap: 16px;
-      padding: 8px 4px 16px 4px;
-      scroll-snap-type: x mandatory;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-    .steps-scroll::-webkit-scrollbar { display: none; }
-    .steps-scroll > * {
-      flex: 0 0 280px;
-      scroll-snap-align: start;
-    }
-
     /* Mobile Menu */
     .mobile-menu-overlay {
       position: fixed;
@@ -224,18 +209,25 @@
       .badge-step { width: 56px; height: 56px; font-size: 22px; }
     }
     
-    /* Hide flash until Alpine loads */
+    /* Fix for step cards on mobile - FULL WIDTH, no overflow */
+    .step-card {
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+      word-wrap: break-word;
+    }
+    
     [x-cloak] { display: none !important; }
   </style>
 </head>
 <body>
 
 <!-- ============================================================ -->
-<!--  ALPINE.JS APP – now on <body> to avoid extra wrapper issues   -->
+<!--  ALPINE.JS APP                                                -->
 <!-- ============================================================ -->
 <div x-data="landingPageApp()" x-init="init()" x-cloak class="flex flex-col min-h-screen">
   <div class="bg-yellow-100 text-yellow-800 p-2 text-center text-sm" x-show="!alpineReady">
-    ⚠️ Alpine.js is still loading... If this stays, check your internet connection or browser console (F12).
+    ⚠️ Alpine.js is still loading...
   </div>
 
   <!-- ===== MOBILE MENU OVERLAY ===== -->
@@ -305,27 +297,27 @@
     </div>
   </section>
 
-  <!-- ===== STEPS (horizontal on mobile) ===== -->
-  <section class="max-w-[1100px] mx-auto px-4 py-16 scroll-fade" x-intersect.once="$el.classList.add('visible')">
+  <!-- ===== BAGAIMANA IA BERFUNGSI (FIXED: FULL WIDTH ON MOBILE) ===== -->
+  <section class="max-w-[1100px] mx-auto px-4 py-16 scroll-fade overflow-hidden" x-intersect.once="$el.classList.add('visible')">
     <div class="text-center mb-12">
       <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Langkah Mudah</div>
       <h2 class="font-poppins font-700 text-[28px] md:text-[36px] text-[#212121] tracking-[-0.5px] mt-2">Bagaimana Platform Ini Berfungsi?</h2>
       <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
     </div>
 
-    <!-- Mobile scroll -->
-    <div class="md:hidden steps-scroll">
+    <!-- Mobile: Vertical stack (full width, no scroll) -->
+    <div class="md:hidden flex flex-col gap-4">
       <template x-for="(step, index) in steps" :key="index">
-        <div class="card p-6 text-center flex-shrink-0 w-[280px]">
+        <div class="card p-4 text-center step-card">
           <div class="badge-step" :class="{ 'accent': step.accent }" x-text="step.id"></div>
-          <h3 class="font-poppins font-700 text-[18px] text-[#212121] mt-4" x-text="step.title"></h3>
-          <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed" x-html="step.desc"></p>
+          <h3 class="font-poppins font-700 text-[17px] text-[#212121] mt-3" x-text="step.title"></h3>
+          <p class="text-[13px] text-zinc-600 mt-1.5 leading-relaxed" x-html="step.desc"></p>
         </div>
       </template>
     </div>
 
-    <!-- Desktop grid -->
-    <div class="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <!-- Desktop: 3-column grid -->
+    <div class="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6">
       <template x-for="(step, index) in steps" :key="index">
         <div class="card p-6 text-center hover:shadow-lg transition-shadow duration-300">
           <div class="badge-step" :class="{ 'accent': step.accent }" x-text="step.id"></div>
@@ -508,12 +500,10 @@
 <script>
   function landingPageApp() {
     return {
-      // State
       activeFaq: null,
       isMobileMenuOpen: false,
       alpineReady: false,
 
-      // Data
       steps: [
         { id: 1, title: 'Daftar Homestay Anda', desc: 'Isi borang pendaftaran dengan butiran peribadi, maklumat homestay, bilik, harga, dan gambar. Sertakan salinan IC dan bukti bank.', accent: false },
         { id: 2, title: 'Pengesahan & Kelulusan', desc: 'Pihak admin akan menyemak dokumen anda (IC, lesen PBT, QR bank) dan meluluskan homestay dalam masa 24–48 jam.', accent: true },
@@ -544,20 +534,15 @@
         { q: 'Bolehkah saya mengubah tarikh tempahan atau membatalkannya?', a: 'Ya. Di dashboard pengusaha, anda boleh menukar tarikh check‑in/check‑out atau membatalkan tempahan (dengan persetujuan tetamu). Sistem akan mengemas kini ketersediaan secara automatik.' }
       ],
 
-      // Methods
       toggleFaq(index) {
         this.activeFaq = this.activeFaq === index ? null : index;
       },
 
-      // Lifecycle
       init() {
         this.alpineReady = true;
         console.log('✅ Alpine.js initialized successfully!');
-
         if (window.location.hash === '#faq') {
-          setTimeout(() => {
-            this.activeFaq = 0;
-          }, 500);
+          setTimeout(() => { this.activeFaq = 0; }, 500);
         }
       }
     }
