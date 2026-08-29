@@ -211,7 +211,6 @@
       .badge-step { width: 56px; height: 56px; font-size: 22px; }
     }
     
-    /* Fix for step cards - full width, no overflow */
     .step-card {
       width: 100%;
       max-width: 100%;
@@ -299,7 +298,7 @@
     </div>
   </section>
 
-  <!-- ===== BAGAIMANA IA BERFUNGSI (NUMBERS NOW POINT TOP-CENTER) ===== -->
+  <!-- ===== BAGAIMANA IA BERFUNGSI ===== -->
   <section class="max-w-[1100px] mx-auto px-4 py-16 scroll-fade overflow-hidden" x-intersect.once="$el.classList.add('visible')">
     <div class="text-center mb-12">
       <div class="font-satisfy text-[#3FD0D4] text-[28px] leading-none">Langkah Mudah</div>
@@ -307,7 +306,7 @@
       <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
     </div>
 
-    <!-- Mobile: Vertical stack (badge overlaps top edge) -->
+    <!-- Mobile: Vertical stack -->
     <div class="md:hidden flex flex-col gap-4">
       <template x-for="(step, index) in steps" :key="index">
         <div class="card pt-6 pb-4 px-4 text-center step-card">
@@ -318,7 +317,7 @@
       </template>
     </div>
 
-    <!-- Desktop: 3-column grid (badge overlaps top edge) -->
+    <!-- Desktop: Grid -->
     <div class="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6">
       <template x-for="(step, index) in steps" :key="index">
         <div class="card pt-8 pb-6 px-6 text-center hover:shadow-lg transition-shadow duration-300">
@@ -541,12 +540,22 @@
       },
 
       init() {
-        // 🔥 FORCE SCROLL TO TOP ON REFRESH
-        window.scrollTo({ top: 0, behavior: 'instant' });
-        
+        // ✅ FIX: Disable browser's automatic scroll restoration
+        if (history.scrollRestoration) {
+          history.scrollRestoration = 'manual';
+        }
+
+        // ✅ FIX: Double-guarantee scroll to top after rendering & layout shifts
+        requestAnimationFrame(() => {
+          window.scrollTo(0, 0);
+        });
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+        }, 100);
+
         this.alpineReady = true;
         console.log('✅ Alpine.js initialized successfully!');
-        
+
         if (window.location.hash === '#faq') {
           setTimeout(() => { this.activeFaq = 0; }, 500);
         }
