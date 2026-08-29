@@ -446,6 +446,17 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
+    .badge-failed {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
     .metric-card {
       background: white;
       border-radius: 16px;
@@ -818,28 +829,20 @@ document.addEventListener('click', function(e) {
 });
 
 // =============================================================
-// PAYMENT STATUS CHECK FUNCTION (for manual button & auto)
+// PAYMENT STATUS CHECK FUNCTION
 // =============================================================
 async function checkPaymentStatus(bookingId) {
   try {
-    const res = await fetch('/api/check-payment-status', {
+    const res = await fetch(API_BASE + '/verify-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookingId })
     });
     const data = await res.json();
-    if (data.paid) {
-      // Successfully paid – we don't show alert here for auto, but for manual we will.
-      return true;
-    } else if (data.error) {
-      console.warn('Check error:', data.error);
-      return false;
-    } else {
-      return false;
-    }
+    return data;
   } catch (e) {
     console.error('Check error:', e);
-    return false;
+    return { success: false, error: e.message };
   }
 }
 
@@ -848,21 +851,23 @@ async function checkPaymentStatus(bookingId) {
 // =============================================================
 async function autoCheckPendingBookings() {
   if (!currentGuest || !currentGuest.id) return;
-  // Find all bookings with status "Pending Payment"
   const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
   if (pending.length === 0) return;
 
   let anyUpdated = false;
   for (const b of pending) {
-    const paid = await checkPaymentStatus(b.id);
-    if (paid) {
-      anyUpdated = true;
+    const result = await checkPaymentStatus(b.id);
+    if (result.success && result.booking) {
+      const status = result.booking.status || '';
+      if (status.toLowerCase().includes('paid')) {
+        anyUpdated = true;
+      } else if (status.toLowerCase().includes('fail')) {
+        anyUpdated = true;
+      }
     }
-    // Small delay between requests to avoid rate limits
     await new Promise(r => setTimeout(r, 500));
   }
   if (anyUpdated) {
-    // Reload the list to reflect changes
     loadMyBookings();
   }
 }
@@ -889,7 +894,7 @@ fetch(API_BASE + '/bookings', {
   method: 'GET',
   headers: headers,
   cache: 'no-store',
-  credentials: 'include' // send cookies as fallback
+  credentials: 'include'
 })
   .then(function(res) {
     if (!res.ok) throw new Error('Server error: ' + res.status);
@@ -913,7 +918,6 @@ fetch(API_BASE + '/bookings', {
       localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings));
     }
     renderBookings();
-    // After rendering, run auto-check if there are pending bookings
     autoCheckPendingBookings();
   })
   .catch(function(err) {
@@ -930,7 +934,6 @@ fetch(API_BASE + '/bookings', {
         if (listDiv2 && listDiv2.parentNode) {
           listDiv2.parentNode.insertBefore(notice, listDiv2);
         }
-        // Still try auto-check on cached data
         autoCheckPendingBookings();
       } else {
         myBookings = [];
@@ -945,7 +948,31 @@ fetch(API_BASE + '/bookings', {
 }
 
 // =============================================================
-// RENDER BOOKINGS – with "Check Payment" button for pending
+// RETRY PAYMENT FROM BOOKINGS PAGE
+// =============================================================
+async function retryPaymentFromBookings(bookingId) {
+  try {
+    const res = await fetch(API_BASE + '/toyyibpay-create', {
+      method: 'POST',
+      headers: Object.assign({
+        'Content-Type': 'application/json'
+      }, getCsrfHeader()),
+      body: JSON.stringify({ bookingId })
+    });
+    const data = await res.json();
+    if (data.success && data.url) {
+      window.location.href = data.url;
+    } else {
+      showAlert('Error', data.error || 'Could not create payment. Please try again.');
+    }
+  } catch (e) {
+    showAlert('Error', 'Network error. Please try again.');
+    console.error('Retry error:', e);
+  }
+}
+
+// =============================================================
+// RENDER BOOKINGS – with Retry Payment button for failed
 // =============================================================
 function renderBookings() {
   var listDiv = document.getElementById('bookingsList');
@@ -995,15 +1022,24 @@ function renderBookings() {
     var isPaid = statusLower.includes('paid') && !isCompleted;
     var isPending = statusLower.includes('pending');
     var isCancelled = statusLower.includes('cancel');
+    var isFailed = statusLower.includes('fail');
+    
     var badgeClass = 'badge-pending', badgeLabel = 'Pending';
     if (isCompleted) { badgeClass = 'badge-completed'; badgeLabel = '✓ Completed'; }
     else if (isPaid) { badgeClass = 'badge-paid'; badgeLabel = '✓ Paid — Awaiting Check‑in Upon Arrival'; }
     else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
+    else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
     
-    // ===== Check Payment button for pending bookings =====
+    // ===== Buttons =====
     var checkButton = '';
+    var retryButton = '';
     if (isPending) {
       checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Payment</button>`;
+    }
+    if (isFailed) {
+      retryButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#dc2626; hover:bg:#b91c1c;">🔄 Retry Payment</button>`;
+      // Also add a check button to allow re-checking after retry
+      checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Status</button>`;
     }
 
     // WhatsApp button to host
@@ -1032,6 +1068,7 @@ function renderBookings() {
               '<div class="mt-1 flex flex-wrap gap-2">' +
                 '<button onclick="resendCode(\'' + id + '\')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition">📧 Resend Code</button>' +
                 checkButton +
+                retryButton +
               '</div>' +
             '</div>' +
           '</div>' +
@@ -1047,33 +1084,37 @@ function renderBookings() {
 }
 
 // =============================================================
-// MANUAL CHECK (shows alerts)
+// MANUAL CHECK (shows alerts and retry option)
 // =============================================================
 async function manualCheckPayment(bookingId) {
   try {
-    const res = await fetch('/api/verify-payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingId })
-    });
-    const data = await res.json();
-    if (data.success && data.booking) {
-      const status = data.booking.status || '';
+    const result = await checkPaymentStatus(bookingId);
+    if (result.success && result.booking) {
+      const status = result.booking.status || '';
       if (status.toLowerCase().includes('paid')) {
         await showAlert('✅ Payment confirmed!', 'Your booking is now active.');
         loadMyBookings();
         return;
       } else if (status.toLowerCase().includes('fail')) {
-        await showAlert('❌ Payment failed', 'Your payment was not successful. You can try again from the booking page.');
+        const retry = await showModal('Payment Failed', 
+          'Your payment was not successful.<br><br>Would you like to retry now?',
+          [
+            { label: 'No', class: 'btn-secondary', value: false },
+            { label: 'Retry Payment', class: 'btn-primary', value: true }
+          ]
+        );
+        if (retry) {
+          retryPaymentFromBookings(bookingId);
+        }
         return;
       } else {
         await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
         return;
       }
-    } else if (data.retry) {
+    } else if (result.retry) {
       await showAlert('Still Processing', 'The payment is still being processed. Please try again in a few seconds.');
     } else {
-      await showAlert('Error', data.error || 'Could not check payment status.');
+      await showAlert('Error', result.error || 'Could not check payment status.');
     }
   } catch (e) {
     console.error('Check error:', e);
@@ -1186,8 +1227,6 @@ async function resendCode(bookingId) {
   const bookingParam = urlParams.get('booking');
   const paymentReturn = urlParams.get('payment_return');
   if (bookingParam && paymentReturn === '1' && currentGuest && currentGuest.id) {
-    // Wait a bit for booking to be saved, then let autoCheck handle it.
-    // We'll just call loadMyBookings again after a delay to trigger the auto check.
     setTimeout(function() {
       loadMyBookings();
     }, 3000);
