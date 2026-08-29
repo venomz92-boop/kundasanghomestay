@@ -993,7 +993,7 @@
   }
 
   // =============================================================
-  // RENDER BOOKINGS – with conditional Resend Code button
+  // RENDER BOOKINGS – with button array (fixed)
   // =============================================================
   function renderBookings() {
     var listDiv = document.getElementById('bookingsList');
@@ -1051,25 +1051,28 @@
       else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
       else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
       
-      var checkButton = '';
-      var retryButton = '';
-      var retryPendingButton = '';
-      var cancelButton = '';
+      // Build buttons array
+      var buttons = [];
+      
+      // Resend Code – only for Paid or Completed
+      if (isPaid || isCompleted) {
+        buttons.push('<button onclick="resendCode(\'' + id + '\')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition">📧 Resend Code</button>');
+      }
       
       if (isPending) {
-        checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Payment</button>`;
-        retryPendingButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#3FD0D4;">🔄 Retry Payment</button>`;
-        cancelButton = `<button onclick="cancelBooking('${id}')" class="btn-danger" style="padding:6px 14px; font-size:10px;">✕ Cancel</button>`;
+        buttons.push('<button onclick="manualCheckPayment(\'' + id + '\')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Payment</button>');
+        buttons.push('<button onclick="retryPaymentFromBookings(\'' + id + '\')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#3FD0D4;">🔄 Retry Payment</button>');
+        buttons.push('<button onclick="cancelBooking(\'' + id + '\')" class="btn-danger" style="padding:6px 14px; font-size:10px;">✕ Cancel</button>');
       }
       if (isFailed) {
-        retryButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#dc2626;">🔄 Retry Payment</button>`;
-        checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Status</button>`;
-        cancelButton = `<button onclick="cancelBooking('${id}')" class="btn-danger" style="padding:6px 14px; font-size:10px;">✕ Cancel</button>`;
+        buttons.push('<button onclick="manualCheckPayment(\'' + id + '\')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Status</button>');
+        buttons.push('<button onclick="retryPaymentFromBookings(\'' + id + '\')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#dc2626;">🔄 Retry Payment</button>');
+        buttons.push('<button onclick="cancelBooking(\'' + id + '\')" class="btn-danger" style="padding:6px 14px; font-size:10px;">✕ Cancel</button>');
       }
-
+      
       var pendingNote = '';
       if (isPending) {
-        pendingNote = `<div class="text-xs text-amber-600 mt-1">⏳ If your payment is pending for more than 10 minutes, you can retry.</div>`;
+        pendingNote = '<div class="text-xs text-amber-600 mt-1">⏳ If your payment is pending for more than 10 minutes, you can retry.</div>';
       }
 
       html += '' +
@@ -1087,12 +1090,7 @@
                 '</div>' +
                 pendingNote +
                 '<div class="mt-1 flex flex-wrap gap-2">' +
-                  // ✅ Resend Code only for Paid or Completed
-                  (isPaid || isCompleted) ? '<button onclick="resendCode(\'' + id + '\')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition">📧 Resend Code</button>' : '' +
-                  checkButton +
-                  retryButton +
-                  retryPendingButton +
-                  cancelButton +
+                  buttons.join('') +
                 '</div>' +
               '</div>' +
             '</div>' +
