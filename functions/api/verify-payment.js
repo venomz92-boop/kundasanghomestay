@@ -42,6 +42,18 @@ export async function onRequestPost({ request, env }) {
 
     const booking = bookings[idx];
 
+    // --- Determine payment status ---
+    let paymentStatus = 'pending'; // default
+    const statusLower = (booking.status || '').toLowerCase();
+
+    if (statusLower.includes('paid')) {
+      paymentStatus = 'paid';
+    } else if (statusLower.includes('fail')) {
+      paymentStatus = 'failed';
+    } else if (statusLower.includes('pending')) {
+      paymentStatus = 'pending';
+    }
+
     // Simulation
     if (booking.toyyibpay_billcode && booking.toyyibpay_billcode.startsWith('SIM-')) {
       bookings[idx].status = 'Paid - Awaiting Check-in';
@@ -50,40 +62,35 @@ export async function onRequestPost({ request, env }) {
         .bind('kd_bookings', JSON.stringify(bookings)).run();
       return new Response(JSON.stringify({ 
         success: true, 
-        booking: bookings[idx] 
+        booking: bookings[idx],
+        paymentStatus: 'paid'
       }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
-    // Already paid?
-    if (booking.status && booking.status.toLowerCase().includes('paid')) {
-      return new Response(JSON.stringify({ success: true, booking }), {
-        status: 200,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Already failed? Return failure state so frontend can show retry option
-    if (booking.status && booking.status.toLowerCase().includes('fail')) {
+    // Already paid or failed – return immediately
+    if (paymentStatus === 'paid' || paymentStatus === 'failed') {
       return new Response(JSON.stringify({ 
-        success: false, 
-        message: 'Payment failed. Please retry.',
+        success: paymentStatus === 'paid',
         booking,
-        retry: true 
+        paymentStatus,
+        retry: paymentStatus === 'failed' ? true : false
       }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
 
-    // No billcode
+    // No billcode – still pending
     if (!booking.toyyibpay_billcode) {
       return new Response(JSON.stringify({ 
         success: false, 
         message: 'No billcode',
-        booking 
+        booking,
+        paymentStatus: 'pending',
+        retry: true
       }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
@@ -103,12 +110,13 @@ export async function onRequestPost({ request, env }) {
     try {
       billData = await fetchBillStatus(booking.toyyibpay_billcode, secret, 3);
     } catch (e) {
-      // If fetch fails, return a "try again" message – frontend will retry
+      // If fetch fails, still pending
       return new Response(JSON.stringify({
         success: false,
         message: 'Payment verification pending. Please wait a moment.',
         retry: true,
-        booking
+        booking,
+        paymentStatus: 'pending'
       }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
@@ -116,6 +124,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (billData && billData[0] && billData[0].billpaymentStatus === "1") {
+      // Paid
       bookings[idx].status = 'Paid - Awaiting Check-in';
       bookings[idx].paid_at = new Date().toISOString();
       bookings[idx].toyyibpay_refno = billData[0].billpaymentTransactionId || '';
@@ -123,29 +132,42 @@ export async function onRequestPost({ request, env }) {
         .bind('kd_bookings', JSON.stringify(bookings)).run();
       return new Response(JSON.stringify({ 
         success: true, 
-        booking: bookings[idx] 
+        booking: bookings[idx],
+        paymentStatus: 'paid'
       }), {
         status: 200,
         headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
       });
     } else {
-      // Payment not successful – mark as failed if appropriate
-      // ToyyibPay status 0 means unpaid, 3 means expired/cancelled
+      // Not paid – check if expired/cancelled
       const billStatus = billData && billData[0] ? billData[0].billpaymentStatus : null;
       if (billStatus === "3") {
         bookings[idx].status = 'Payment Failed';
         await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
           .bind('kd_bookings', JSON.stringify(bookings)).run();
+        return new Response(JSON.stringify({
+          success: false,
+          message: 'Payment failed or expired.',
+          retry: true,
+          booking: bookings[idx],
+          paymentStatus: 'failed'
+        }), {
+          status: 200,
+          headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+        });
+      } else {
+        // Still pending (billStatus 0 or other)
+        return new Response(JSON.stringify({
+          success: false,
+          message: 'Payment not yet confirmed. Please wait a moment.',
+          retry: true,
+          booking: bookings[idx],
+          paymentStatus: 'pending'
+        }), {
+          status: 200,
+          headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+        });
       }
-      return new Response(JSON.stringify({
-        success: false,
-        message: billStatus === "3" ? 'Payment failed or expired.' : 'Payment not yet confirmed. Please wait a moment.',
-        retry: billStatus === "3" ? true : false,
-        booking: bookings[idx]
-      }), {
-        status: 200,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      });
     }
 
   } catch (e) {
