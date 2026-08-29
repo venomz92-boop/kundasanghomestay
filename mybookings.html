@@ -796,80 +796,79 @@
     await retryPayment(bookingId);
   }
 
+  // =============================================================
+  // RETRY PAYMENT – with CSRF refresh and error handling
+  // =============================================================
   async function retryPayment(bookingId) {
-  // 1. Ensure we have a CSRF token – if missing, get one
-  let token = localStorage.getItem('kd_csrf_token');
-  if (!token) {
-    // Try to fetch a fresh token
-    try {
-      const res = await fetch('/api/csrf-token', { method: 'GET' });
-      const data = await res.json();
-      if (data.token) {
-        localStorage.setItem('kd_csrf_token', data.token);
-        token = data.token;
-      } else {
-        throw new Error('No token received');
+    // 1. Ensure we have a CSRF token – if missing, get one
+    let token = localStorage.getItem('kd_csrf_token');
+    if (!token) {
+      try {
+        const res = await fetch('/api/csrf-token', { method: 'GET' });
+        const data = await res.json();
+        if (data.token) {
+          localStorage.setItem('kd_csrf_token', data.token);
+          token = data.token;
+        } else {
+          throw new Error('No token received');
+        }
+      } catch (e) {
+        console.warn('Could not fetch CSRF token:', e);
+        showModal('Session Expired', 
+          'Your security token is missing. Please log in again to continue.',
+          [
+            { label: 'Login', class: 'btn-primary', value: 'login' }
+          ]
+        ).then(function(result) {
+          if (result === 'login') window.location.href = '/login.html';
+        });
+        return;
       }
+    }
+
+    // 2. Call the payment creation endpoint
+    try {
+      const res = await fetch('/api/toyyibpay-create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': token
+        },
+        body: JSON.stringify({ bookingId })
+      });
+
+      const data = await res.json();
+
+      if (res.status === 403 && data.error && data.error.includes('token')) {
+        localStorage.removeItem('kd_csrf_token');
+        showModal('Security Error', 
+          'Your session token is invalid. Please log in again to retry payment.',
+          [
+            { label: 'Login', class: 'btn-primary', value: 'login' }
+          ]
+        ).then(function(result) {
+          if (result === 'login') window.location.href = '/login.html';
+        });
+        return;
+      }
+
+      if (!res.ok || !data.success) {
+        showAlert('Error', data.error || 'Could not create payment. Please try again.');
+        return;
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        showAlert('Error', 'Payment URL missing.');
+      }
+
     } catch (e) {
-      console.warn('Could not fetch CSRF token:', e);
-      // If we can't get a token, ask user to login again
-      showModal('Session Expired', 
-        'Your security token is missing. Please log in again to continue.',
-        [
-          { label: 'Login', class: 'btn-primary', value: 'login' }
-        ]
-      ).then(function(result) {
-        if (result === 'login') window.location.href = '/login.html';
-      });
-      return;
+      console.error('Retry error:', e);
+      showAlert('Network Error', 'Could not connect to the server. Please try again.');
     }
   }
 
-  // 2. Call the payment creation endpoint
-  try {
-    const res = await fetch('/api/toyyibpay-create', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': token
-      },
-      body: JSON.stringify({ bookingId })
-    });
-
-    const data = await res.json();
-
-    // 3. Handle specific error responses
-    if (res.status === 403 && data.error && data.error.includes('token')) {
-      // Token invalid – clear it and ask to re-login
-      localStorage.removeItem('kd_csrf_token');
-      showModal('Security Error', 
-        'Your session token is invalid. Please log in again to retry payment.',
-        [
-          { label: 'Login', class: 'btn-primary', value: 'login' }
-        ]
-      ).then(function(result) {
-        if (result === 'login') window.location.href = '/login.html';
-      });
-      return;
-    }
-
-    if (!res.ok || !data.success) {
-      showAlert('Error', data.error || 'Could not create payment. Please try again.');
-      return;
-    }
-
-    // 4. Redirect to payment URL
-    if (data.url) {
-      window.location.href = data.url;
-    } else {
-      showAlert('Error', 'Payment URL missing.');
-    }
-
-  } catch (e) {
-    console.error('Retry error:', e);
-    showAlert('Network Error', 'Could not connect to the server. Please try again.');
-  }
-}
   // =============================================================
   // GUEST SYSTEM
   // =============================================================
@@ -1078,7 +1077,7 @@
   }
 
   // =============================================================
-  // RENDER BOOKINGS – with Retry Payment button for failed
+  // RENDER BOOKINGS – with Retry Payment button for pending & failed
   // =============================================================
   function renderBookings() {
     var listDiv = document.getElementById('bookingsList');
@@ -1138,8 +1137,12 @@
       
       var checkButton = '';
       var retryButton = '';
+      var retryPendingButton = '';
+      
       if (isPending) {
         checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Payment</button>`;
+        // Add a retry button for pending bookings – they might have expired bills
+        retryPendingButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#3FD0D4;">🔄 Retry Payment</button>`;
       }
       if (isFailed) {
         retryButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#dc2626; hover:bg:#b91c1c;">🔄 Retry Payment</button>`;
@@ -1154,6 +1157,12 @@
       );
       var actions = '';
 
+      // Show a small note for pending bookings
+      var pendingNote = '';
+      if (isPending) {
+        pendingNote = `<div class="text-xs text-amber-600 mt-1">⏳ If your payment is pending for more than 10 minutes, you can retry.</div>`;
+      }
+
       html += '' +
         '<div class="card hover:shadow-md transition-all duration-300">' +
           '<div class="flex flex-col md:flex-row justify-between gap-4">' +
@@ -1167,10 +1176,12 @@
                 '<div class="inline-block text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">' +
                   'Booking ID: <span class="font-mono">' + id + '</span>' +
                 '</div>' +
+                pendingNote +
                 '<div class="mt-1 flex flex-wrap gap-2">' +
                   '<button onclick="resendCode(\'' + id + '\')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition">📧 Resend Code</button>' +
                   checkButton +
                   retryButton +
+                  retryPendingButton +
                 '</div>' +
               '</div>' +
             '</div>' +
@@ -1198,7 +1209,6 @@
           loadMyBookings();
           return;
         } else if (status.toLowerCase().includes('fail')) {
-          // Show the same failed modal as index.html
           showPaymentFailedModal(bookingId, result.booking);
           return;
         } else {
@@ -1220,7 +1230,6 @@
   // RETRY PAYMENT FROM BOOKINGS PAGE
   // =============================================================
   async function retryPaymentFromBookings(bookingId) {
-    // Use the global retryPayment function which uses the new modal
     await retryPayment(bookingId);
   }
 
