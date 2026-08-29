@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="animations.css" />
   <style>
-    /* ===== ROOT ===== */
+    /* ===== ROOT (same as before) ===== */
     :root {
       --primary: #0F382E;
       --primary-light: #1a4d3e;
@@ -494,7 +494,7 @@
   </div>
 </div>
 
-<!-- ===== PAYMENT FAILED MODAL (same as index.html) ===== -->
+<!-- ===== PAYMENT FAILED MODAL ===== -->
 <div id="paymentFailedModal" class="modal-overlay thankyou-modal">
   <div class="modal-box max-w-[500px]">
     <div class="modal-body text-center p-6 md:p-8">
@@ -657,6 +657,9 @@
 
 <script src="animations.js"></script>
 <script>
+  // =============================================================
+  // DOMPurify Helper
+  // =============================================================
   function safeHTML(html) {
     if (!html) return '';
     return DOMPurify.sanitize(html, {
@@ -761,7 +764,7 @@
   });
 
   // =============================================================
-  // PAYMENT FAILED MODAL (same as index.html)
+  // PAYMENT FAILED MODAL
   // =============================================================
   function showPaymentFailedModal(bookingId, bookingData) {
     var overlay = document.getElementById('paymentFailedModal');
@@ -797,23 +800,27 @@
   }
 
   // =============================================================
-  // RETRY PAYMENT – with CSRF refresh and error handling
+  // RETRY PAYMENT – robust version with logging
   // =============================================================
   async function retryPayment(bookingId) {
-    // 1. Ensure we have a CSRF token – if missing, get one
+    console.log('🔁 retryPayment called for booking:', bookingId);
+    
+    // 1. Ensure we have a CSRF token
     let token = localStorage.getItem('kd_csrf_token');
     if (!token) {
+      console.warn('No CSRF token found, trying to fetch...');
       try {
         const res = await fetch('/api/csrf-token', { method: 'GET' });
         const data = await res.json();
         if (data.token) {
           localStorage.setItem('kd_csrf_token', data.token);
           token = data.token;
+          console.log('✅ New CSRF token obtained');
         } else {
           throw new Error('No token received');
         }
       } catch (e) {
-        console.warn('Could not fetch CSRF token:', e);
+        console.error('Could not fetch CSRF token:', e);
         showModal('Session Expired', 
           'Your security token is missing. Please log in again to continue.',
           [
@@ -838,6 +845,7 @@
       });
 
       const data = await res.json();
+      console.log('Response from /api/toyyibpay-create:', data);
 
       if (res.status === 403 && data.error && data.error.includes('token')) {
         localStorage.removeItem('kd_csrf_token');
@@ -858,6 +866,7 @@
       }
 
       if (data.url) {
+        console.log('Redirecting to payment URL:', data.url);
         window.location.href = data.url;
       } else {
         showAlert('Error', 'Payment URL missing.');
@@ -1077,7 +1086,7 @@
   }
 
   // =============================================================
-  // RENDER BOOKINGS – with Retry Payment button for pending & failed
+  // RENDER BOOKINGS – with Retry Payment for pending & failed
   // =============================================================
   function renderBookings() {
     var listDiv = document.getElementById('bookingsList');
@@ -1135,36 +1144,27 @@
       else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
       else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
       
+      // Build action buttons
       var checkButton = '';
       var retryButton = '';
       var retryPendingButton = '';
       
       if (isPending) {
         checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Payment</button>`;
-        // Add a retry button for pending bookings – they might have expired bills
         retryPendingButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#3FD0D4;">🔄 Retry Payment</button>`;
       }
       if (isFailed) {
-        retryButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#dc2626; hover:bg:#b91c1c;">🔄 Retry Payment</button>`;
+        retryButton = `<button onclick="retryPaymentFromBookings('${id}')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#dc2626;">🔄 Retry Payment</button>`;
         checkButton = `<button onclick="manualCheckPayment('${id}')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Status</button>`;
       }
 
-      var ownerPhone = String(b.ownerWhatsapp || '').replace(/[^0-9]/g, '');
-      if (ownerPhone.startsWith('0')) ownerPhone = '60' + ownerPhone.substring(1);
-      var hasPhone = ownerPhone.length >= 9;
-      var waMsg = encodeURIComponent(
-        'Hi! I have a booking at ' + homestay + '.\n\nBooking ID: ' + id + '\nCheck-in: ' + checkin + '\nCheck-out: ' + checkout + '\n\nPlease confirm my booking. Thank you!'
-      );
-      var actions = '';
-
-      // Show a small note for pending bookings
       var pendingNote = '';
       if (isPending) {
         pendingNote = `<div class="text-xs text-amber-600 mt-1">⏳ If your payment is pending for more than 10 minutes, you can retry.</div>`;
       }
 
       html += '' +
-        '<div class="card hover:shadow-md transition-all duration-300">' +
+        '<div class="card hover:shadow-md transition-all duration-300" data-id="' + id + '">' +
           '<div class="flex flex-col md:flex-row justify-between gap-4">' +
             '<div class="flex-1 min-w-0 space-y-2">' +
               '<div class="flex items-start justify-between gap-2 flex-wrap">' +
@@ -1187,7 +1187,6 @@
             '</div>' +
             '<div class="flex flex-col items-end gap-2 shrink-0">' +
               '<span class="' + badgeClass + '">' + badgeLabel + '</span>' +
-              '<div class="flex flex-wrap gap-2 items-center">' + actions + '</div>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -1197,7 +1196,7 @@
   }
 
   // =============================================================
-  // MANUAL CHECK (shows alerts and retry option)
+  // MANUAL CHECK
   // =============================================================
   async function manualCheckPayment(bookingId) {
     try {
@@ -1230,6 +1229,7 @@
   // RETRY PAYMENT FROM BOOKINGS PAGE
   // =============================================================
   async function retryPaymentFromBookings(bookingId) {
+    console.log('🔄 retryPaymentFromBookings called for:', bookingId);
     await retryPayment(bookingId);
   }
 
@@ -1276,7 +1276,7 @@
   }
 
   // =============================================================
-  // RESEND CHECK‑IN CODE VIA EMAIL
+  // RESEND CHECK‑IN CODE
   // =============================================================
   async function resendCode(bookingId) {
     const booking = myBookings.find(b => String(b.id) === String(bookingId));
