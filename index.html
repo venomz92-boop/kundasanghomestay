@@ -1925,6 +1925,19 @@
         lastBookingDetails = b;
         if (datesEl) datesEl.textContent = (b.checkin || '') + ' → ' + (b.checkout || '') + ' (' + (b.nights || 1) + 'N)';
         if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(b.total) || 0).toFixed(2);
+      } else {
+        // Try to get from sessionStorage
+        try {
+          var pending = sessionStorage.getItem('kd_pending_booking');
+          if (pending) {
+            var pb = JSON.parse(pending);
+            if (String(pb.id) === String(bookingId)) {
+              if (datesEl) datesEl.textContent = (pb.checkin || '') + ' → ' + (pb.checkout || '') + ' (' + (pb.nights || 1) + 'N)';
+              if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(pb.total) || 0).toFixed(2);
+              lastBookingDetails = pb;
+            }
+          }
+        } catch(e) {}
       }
 
       if (overlay) overlay.classList.add('active');
@@ -2576,6 +2589,7 @@ async function handlePaymentReturn() {
   const params = new URLSearchParams(window.location.search);
   let bookingId = params.get('booking') || params.get('order_id');
   const paymentReturn = params.get('payment_return');
+  const statusId = params.get('status_id');
 
   if (!bookingId) {
     console.log('ℹ️ No booking ID in URL, skipping payment return handling.');
@@ -2589,20 +2603,26 @@ async function handlePaymentReturn() {
 
   console.log('✅ Payment return detected for booking:', bookingId);
 
-  // ---- IMMEDIATE MODAL ----
-  // Show a confirmation modal right away without waiting for any API
-  // This ensures the user sees something even if the backend is slow.
-  showModal(
-    '🎉 Booking Confirmed!',
-    `Your booking <strong>${bookingId}</strong> is confirmed!<br><br>You will receive a check‑in code via email shortly.<br>You can also view your booking in <strong>My Bookings</strong>.`,
-    [
-      { label: 'Go to My Bookings', class: 'btn-primary', value: 'bookings' }
-    ]
-  ).then(function(result) {
-    if (result === 'bookings') {
-      window.location.href = '/mybookings.html';
+  // ---- Show the branded Thank You modal immediately ----
+  // Try to get booking data from sessionStorage first, then from bookings array
+  let bookingData = null;
+  try {
+    const pending = sessionStorage.getItem('kd_pending_booking');
+    if (pending) {
+      const pb = JSON.parse(pending);
+      if (String(pb.id) === String(bookingId)) {
+        bookingData = pb;
+      }
     }
-  });
+  } catch(e) {}
+  
+  if (!bookingData) {
+    // Fallback: try to find in bookings array (if loaded)
+    bookingData = bookings.find(b => String(b.id) === String(bookingId)) || null;
+  }
+
+  // Show the branded modal with whatever data we have
+  showThankYouModal(bookingId, bookingData || { id: bookingId, total: '---', checkin: 'N/A', checkout: 'N/A', nights: 1 });
 
   // ---- BACKGROUND STATUS UPDATE ----
   // Try to update the booking status in the background
