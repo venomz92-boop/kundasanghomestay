@@ -40,7 +40,8 @@
   <link rel="stylesheet" href="animations.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://gate.chip-in.asia/api/v1/checkout.js"></script>
+  
+  <script src="https://gate.chip-in.asia/api/v1/checkout.js" async id="chip-sdk"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
   
   <style>
@@ -2610,7 +2611,7 @@
     // =============================================================
     // PROCESS PAYMENT – with booking verification (calls CHIP)
     // =============================================================
-  async function processPayment() {
+ async function processPayment() {
   if (!currentGuest) {
     showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
     return;
@@ -2683,36 +2684,72 @@
       return;
     }
 
-    // ===== DYNAMICALLY LOAD CHIP SDK IF NOT ALREADY LOADED =====
+    // === Wait for CHIP SDK to be ready ===
     if (typeof CHIP === 'undefined' || typeof CHIP.Checkout === 'undefined') {
-      console.log('⏳ CHIP SDK not loaded, loading dynamically...');
+      console.log('⏳ Waiting for CHIP SDK to load...');
       try {
-        // Load the script
-        var script = document.createElement('script');
-        script.src = 'https://gate.chip-in.asia/api/v1/checkout.js';
-        script.async = true;
-        document.head.appendChild(script);
-        // Wait for it to load
         await new Promise(function(resolve, reject) {
-          script.onload = resolve;
-          script.onerror = function() { reject(new Error('Failed to load CHIP SDK')); };
-          setTimeout(function() { reject(new Error('CHIP SDK load timeout')); }, 10000);
+          var script = document.getElementById('chip-sdk');
+          if (script && script.readyState === 'complete') {
+            // Already loaded
+            resolve();
+            return;
+          }
+          function onLoad() {
+            if (typeof CHIP !== 'undefined' && typeof CHIP.Checkout !== 'undefined') {
+              resolve();
+            } else {
+              reject(new Error('CHIP SDK loaded but not defined'));
+            }
+          }
+          function onError() {
+            reject(new Error('CHIP SDK script failed to load'));
+          }
+          // Check if script already exists and is loaded
+          if (typeof CHIP !== 'undefined' && typeof CHIP.Checkout !== 'undefined') {
+            resolve();
+            return;
+          }
+          // Load script dynamically if not already in DOM
+          var existing = document.querySelector('script[src="https://gate.chip-in.asia/api/v1/checkout.js"]');
+          if (existing) {
+            existing.addEventListener('load', onLoad);
+            existing.addEventListener('error', onError);
+          } else {
+            var newScript = document.createElement('script');
+            newScript.src = 'https://gate.chip-in.asia/api/v1/checkout.js';
+            newScript.async = true;
+            newScript.onload = onLoad;
+            newScript.onerror = onError;
+            document.head.appendChild(newScript);
+          }
+          // Timeout after 10 seconds
+          setTimeout(function() {
+            reject(new Error('CHIP SDK load timeout'));
+          }, 10000);
         });
-        console.log('✅ CHIP SDK loaded dynamically');
-      } catch (loadError) {
-        console.error('❌ Failed to load CHIP SDK:', loadError);
-        showAlert('Payment Error', 'Payment system could not be loaded. Please refresh the page and try again.');
-        if (bookingContent) bookingContent.style.display = 'block';
-        if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
+        console.log('✅ CHIP SDK is ready');
+      } catch (sdkError) {
+        console.error('❌ CHIP SDK load error:', sdkError);
+        // Fallback: use redirect method
+        showAlert('Payment', 'Payment system is loading slowly. You will be redirected to the payment page.');
+        if (payment.url) {
+          window.location.href = payment.url;
+        } else {
+          showAlert('Error', 'Payment setup failed. Please try again.');
+        }
         return;
       }
     }
 
-    // Double-check it's loaded
+    // If we get here, CHIP is defined
     if (typeof CHIP === 'undefined' || typeof CHIP.Checkout === 'undefined') {
-      showAlert('Payment Error', 'Payment system is not available. Please refresh the page and try again.');
-      if (bookingContent) bookingContent.style.display = 'block';
-      if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
+      showAlert('Payment Error', 'Payment system not available. Redirecting...');
+      if (payment.url) {
+        window.location.href = payment.url;
+      } else {
+        showAlert('Error', 'Payment setup failed. Please try again.');
+      }
       return;
     }
 
