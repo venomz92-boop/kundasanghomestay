@@ -2710,10 +2710,26 @@ async function handlePaymentReturn() {
   }
 
   // If status_id=3 (failed) or payment=cancel
-  if (statusId === '3' || params.get('payment') === 'cancel') {
-    showAlert('Payment Cancelled or Failed', 'Your payment was not completed. You can retry later from My Bookings.');
-    return;
+if (statusId === '3' || params.get('payment') === 'cancel' || params.get('payment') === 'failed') {
+  // Try to fetch booking data to show the failed modal with details
+  try {
+    const res = await fetch(API_BASE + '/verify-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId })
+    });
+    const data = await res.json();
+    if (data.booking) {
+      showPaymentFailedModal(bookingId, data.booking);
+    } else {
+      // Fallback: show with minimal info
+      showPaymentFailedModal(bookingId, { id: bookingId, total: '---' });
+    }
+  } catch (e) {
+    // Fallback if fetch fails
+    showPaymentFailedModal(bookingId, { id: bookingId, total: '---' });
   }
+  return;
 }
 
     // =============================================================
