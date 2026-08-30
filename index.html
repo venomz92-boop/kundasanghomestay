@@ -1126,29 +1126,32 @@
 
 <!-- ===== BOOKING MODAL ===== -->
 <div id="bookingModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm p-3 md:p-5 overflow-y-auto">
-<div id="chipPaymentContainer" style="display:none; margin-top: 16px;"></div>
-  
   <div class="max-w-[520px] mx-auto card p-6 mt-10">
-    <h3 class="text-2xl font-bold font-poppins text-[#212121]">Reserve Homestay</h3>
-    <p class="text-xs text-zinc-500">Pick check-in and check-out dates to compute exact total.</p>
-    <div class="mt-4 grid grid-cols-2 gap-3">
-      <div><label class="text-xs font-semibold">Check-in</label><input id="bookingCheckin" type="date" class="form-input text-sm mt-1" onchange="updateBookingPrice()"/></div>
-      <div><label class="text-xs font-semibold">Check-out</label><input id="bookingCheckout" type="date" class="form-input text-sm mt-1" onchange="updateBookingPrice()"/></div>
+    <!-- 👇 Booking content wrapper -->
+    <div id="bookingContent">
+      <h3 class="text-2xl font-bold font-poppins text-[#212121]">Reserve Homestay</h3>
+      <p class="text-xs text-zinc-500">Pick check-in and check-out dates to compute exact total.</p>
+      <div class="mt-4 grid grid-cols-2 gap-3">
+        <div><label class="text-xs font-semibold">Check-in</label><input id="bookingCheckin" type="date" class="form-input text-sm mt-1" onchange="updateBookingPrice()"/></div>
+        <div><label class="text-xs font-semibold">Check-out</label><input id="bookingCheckout" type="date" class="form-input text-sm mt-1" onchange="updateBookingPrice()"/></div>
+      </div>
+      <div class="mt-3 text-xs">Total Duration: <span id="bookingNights" class="font-bold text-[#0F382E]">1</span> Nights</div>
+      <div id="bookingSummary" class="mt-3 bg-zinc-50 p-4 rounded-xl text-sm border"></div>
+      <div class="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-800 mt-3">⚠️ Official booking protection: All payments are processed through ToyyibPay FPX online banking. Never transfer to private individual accounts.</div>
+      <div id="guestDetectedBanner" class="hidden mt-3 bg-green-50 border border-green-200 p-3 rounded-xl text-xs text-green-800"></div>
+      <div class="mt-4 space-y-3">
+        <input id="guestName" placeholder="Your Full Name *" class="form-input text-sm"/>
+        <input id="guestEmail" placeholder="Email Address (For FPX Receipt) *" class="form-input text-sm"/>
+        <input id="guestPhone" placeholder="WhatsApp Phone (e.g. 0123456789) *" class="form-input text-sm"/>
+      </div>
+      <div class="mt-5 flex gap-3">
+        <button onclick="closeBooking()" class="flex-1 btn-outline py-3">Cancel</button>
+        <button onclick="processPayment()" class="flex-1 btn-primary py-3">Pay via FPX</button>
+      </div>
+      <p id="toyyibpayNote" class="mt-3 text-[11px] text-zinc-500 text-center"></p>
     </div>
-    <div class="mt-3 text-xs">Total Duration: <span id="bookingNights" class="font-bold text-[#0F382E]">1</span> Nights</div>
-    <div id="bookingSummary" class="mt-3 bg-zinc-50 p-4 rounded-xl text-sm border"></div>
-    <div class="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-800 mt-3">⚠️ Official booking protection: All payments are processed through ToyyibPay FPX online banking. Never transfer to private individual accounts.</div>
-    <div id="guestDetectedBanner" class="hidden mt-3 bg-green-50 border border-green-200 p-3 rounded-xl text-xs text-green-800"></div>
-    <div class="mt-4 space-y-3">
-      <input id="guestName" placeholder="Your Full Name *" class="form-input text-sm"/>
-      <input id="guestEmail" placeholder="Email Address (For FPX Receipt) *" class="form-input text-sm"/>
-      <input id="guestPhone" placeholder="WhatsApp Phone (e.g. 0123456789) *" class="form-input text-sm"/>
-    </div>
-    <div class="mt-5 flex gap-3">
-      <button onclick="closeBooking()" class="flex-1 btn-outline py-3">Cancel</button>
-      <button onclick="processPayment()" class="flex-1 btn-primary py-3">Pay via FPX</button>
-    </div>
-    <p id="toyyibpayNote" class="mt-3 text-[11px] text-zinc-500 text-center"></p>
+    <!-- 👇 CHIP payment container -->
+    <div id="chipPaymentContainer" style="display:none; margin-top: 16px;"></div>
   </div>
 </div>
 
