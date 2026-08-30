@@ -2084,34 +2084,6 @@
     }
 
     // =============================================================
-    // HANDLE PAYMENT RETURN – simplified (no polling, relies on webhook)
-    // =============================================================
-    async function handlePaymentReturn() {
-      const params = new URLSearchParams(window.location.search);
-      const bookingId = params.get('booking') || params.get('order_id');
-      const paymentReturn = params.get('payment_return');
-
-      if (!bookingId) return;
-
-      // Clean URL (remove all query params)
-      if (window.history && window.history.replaceState) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-
-      // If we have a return parameter, show a processing message
-      if (paymentReturn === '1' || params.get('payment') === 'success') {
-        showModal('Payment Submitted', 
-          `Your payment for booking <strong>${bookingId}</strong> is being processed.<br><br>You will receive a confirmation email shortly.<br><br>You can check the status in <a href="/mybookings.html">My Bookings</a>.`,
-          [
-            { label: 'Go to My Bookings', class: 'btn-primary', value: 'bookings' }
-          ]
-        ).then((result) => {
-          if (result === 'bookings') window.location.href = '/mybookings.html';
-        });
-      }
-    }
-
-    // =============================================================
     // CSRF HELPER
     // =============================================================
     function getCsrfHeader() {
@@ -2669,7 +2641,7 @@ async function processPayment() {
   }
 }
 
-// ===== HANDLE PAYMENT RETURN (SHOW THANK YOU MODAL) =====
+// ===== HANDLE PAYMENT RETURN – SHOW BRANDED THANK YOU MODAL =====
 async function handlePaymentReturn() {
   const params = new URLSearchParams(window.location.search);
   const bookingId = params.get('booking') || params.get('order_id');
@@ -2678,21 +2650,61 @@ async function handlePaymentReturn() {
 
   if (!bookingId) return;
 
-  // Clean URL
+  // Clean URL (remove query params)
   if (window.history && window.history.replaceState) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  // If we have payment_return=1, show processing modal and redirect to My Bookings
+  // If we have a successful return flag
   if (paymentReturn === '1' || params.get('payment') === 'success' || statusId === '1') {
-    showModal('Payment Submitted', 
-      `Your payment for booking <strong>${bookingId}</strong> is being processed.<br><br>You will receive a confirmation email shortly.<br><br>You can check the status in <a href="/mybookings.html">My Bookings</a>.`,
-      [
-        { label: 'Go to My Bookings', class: 'btn-primary', value: 'bookings' }
-      ]
-    ).then(function(result) {
-      if (result === 'bookings') window.location.href = '/mybookings.html';
-    });
+    // Try to find the booking in local data (from localStorage or session)
+    let bookingData = null;
+    
+    // 1. Check the global 'bookings' array (from localStorage)
+    if (typeof bookings !== 'undefined' && bookings.length > 0) {
+      bookingData = bookings.find(b => String(b.id) === String(bookingId));
+    }
+    
+    // 2. If not found, check sessionStorage (from processPayment)
+    if (!bookingData) {
+      try {
+        const pending = sessionStorage.getItem('kd_pending_booking');
+        if (pending) {
+          const parsed = JSON.parse(pending);
+          if (String(parsed.id) === String(bookingId)) {
+            bookingData = parsed;
+          }
+        }
+      } catch (e) {}
+    }
+    
+    // 3. If still not found, check localStorage for the pending payment
+    if (!bookingData) {
+      try {
+        const pending = localStorage.getItem('kd_guest_pending_payment');
+        if (pending) {
+          const parsed = JSON.parse(pending);
+          if (String(parsed.id) === String(bookingId)) {
+            bookingData = parsed;
+          }
+        }
+      } catch (e) {}
+    }
+    
+    // 4. If we have booking data, show the branded Thank You modal
+    if (bookingData) {
+      showThankYouModal(bookingId, bookingData);
+    } else {
+      // Fallback: show generic modal with a link to My Bookings
+      showModal('Payment Submitted', 
+        `Your payment for booking <strong>${bookingId}</strong> is being processed.<br><br>You will receive a confirmation email shortly.<br><br>You can check the status in <a href="/mybookings.html">My Bookings</a>.`,
+        [
+          { label: 'Go to My Bookings', class: 'btn-primary', value: 'bookings' }
+        ]
+      ).then(function(result) {
+        if (result === 'bookings') window.location.href = '/mybookings.html';
+      });
+    }
     return;
   }
 
