@@ -48,7 +48,7 @@ async function verifyChipSignature(request, env) {
   }
 }
 
-// ===== EMAIL FUNCTION (copied from toyyibpay-webhook.js) =====
+// ===== YOUR EMAIL FUNCTION (copied exactly from toyyibpay-webhook.js) =====
 async function sendCheckinEmail(to, guestName, bookingId, checkinCode, homestayName, checkin, checkout, env) {
   const html = `
     <h2>Hello ${guestName || 'Guest'},</h2>
@@ -149,7 +149,7 @@ export async function onRequestPost({ request, env }) {
         .bind('kd_bookings', JSON.stringify(bookings))
         .run();
 
-      // Send email using the function from toyyibpay-webhook.js
+      // Call your email function with the required parameters
       await sendCheckinEmail(
         booking.guestEmail,
         booking.guestName || 'Guest',
