@@ -1,4 +1,4 @@
-// /api/verify-payment.js – CHIP‑aware status checker
+// /api/verify-payment.js – CHIP‑aware status checker (with optional ToyyibPay fallback)
 import { corsHeaders, getGuestSession, jsonResponse } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
@@ -27,53 +27,130 @@ export async function onRequestPost({ request, env }) {
     }
     const booking = bookings[idx];
 
-    // If already paid, return immediately
+    // 1. If already paid, return immediately
     if (booking.status === 'Paid - Awaiting Check-in' || booking.status === 'Completed') {
       return jsonResponse({ success: true, booking, paid: true }, 200, request);
     }
 
-    // If no CHIP purchase ID, return error
-    if (!booking.chip_purchase_id) {
-      return jsonResponse({ error: 'No CHIP purchase found for this booking' }, 404, request);
-    }
+    // 2. Handle CHIP bookings
+    if (booking.chip_purchase_id) {
+      const chipApi = 'https://gate.chip-in.asia/api/v1/purchases/' + booking.chip_purchase_id;
+      const response = await fetch(chipApi, {
+        headers: { 'Authorization': `Bearer ${env.CHIP_SECRET_KEY}` }
+      });
+      const purchase = await response.json();
 
-    // Check CHIP purchase status
-    const chipApi = 'https://gate.chip-in.asia/api/v1/purchases/' + booking.chip_purchase_id;
-    const response = await fetch(chipApi, {
-      headers: { 'Authorization': `Bearer ${env.CHIP_SECRET_KEY}` }
-    });
-    const purchase = await response.json();
-
-    if (!response.ok || !purchase.id) {
-      return jsonResponse({ error: 'Could not verify payment with CHIP' }, 502, request);
-    }
-
-    // Purchase status: 'completed' means paid
-    if (purchase.status === 'completed' || purchase.status === 'paid') {
-      // Update booking
-      if (!booking.checkinCode) {
-        booking.checkinCode = Math.floor(100000 + Math.random() * 900000).toString();
+      if (!response.ok || !purchase.id) {
+        return jsonResponse({ error: 'Could not verify payment with CHIP' }, 502, request);
       }
-      bookings[idx] = {
-        ...booking,
-        status: 'Paid - Awaiting Check-in',
-        paid_at: new Date().toISOString(),
-        chip_status: 'paid'
-      };
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind('kd_bookings', JSON.stringify(bookings))
-        .run();
 
-      // Send check‑in code email (optional, we can reuse the webhook logic)
-      // For simplicity, we assume the webhook already sent it, or we can call it here.
+      // Purchase status: 'completed' or 'paid' means success
+      if (purchase.status === 'completed' || purchase.status === 'paid') {
+        if (!booking.checkinCode) {
+          booking.checkinCode = Math.floor(100000 + Math.random() * 900000).toString();
+        }
+        bookings[idx] = {
+          ...booking,
+          status: 'Paid - Awaiting Check-in',
+          paid_at: new Date().toISOString(),
+          chip_status: 'paid'
+        };
+        await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+          .bind('kd_bookings', JSON.stringify(bookings))
+          .run();
 
-      return jsonResponse({ success: true, booking: bookings[idx], paid: true }, 200, request);
-    } else {
-      return jsonResponse({ success: true, booking, paid: false, status: purchase.status }, 200, request);
+        return jsonResponse({ success: true, booking: bookings[idx], paid: true }, 200, request);
+      } else {
+        return jsonResponse({
+          success: false,
+          booking,
+          paid: false,
+          paymentStatus: purchase.status || 'pending',
+          retry: true
+        }, 200, request);
+      }
     }
+
+    // 3. Legacy: ToyyibPay fallback (for old bookings)
+    if (booking.toyyibpay_billcode) {
+      return handleToyyibPay(booking, env, db, bookings, idx, request);
+    }
+
+    // 4. No payment provider found
+    return jsonResponse({
+      success: false,
+      message: 'No payment record found for this booking.',
+      paymentStatus: 'pending',
+      retry: true
+    }, 200, request);
+
   } catch (e) {
-    console.error('Verify payment error:', e.message);
-    return jsonResponse({ error: 'Failed to verify payment' }, 500, request);
+    console.error('❌ verify-payment error:', e.message);
+    return jsonResponse({ error: 'Internal error' }, 500, request);
+  }
+}
+
+// === Legacy ToyyibPay handler (keep for old bookings) ===
+async function handleToyyibPay(booking, env, db, bookings, idx, request) {
+  const secret = env.TOYYIBPAY_SECRET_KEY;
+  if (!secret) {
+    return jsonResponse({ error: 'ToyyibPay secret missing' }, 500, request);
+  }
+
+  // Simulation check
+  if (booking.toyyibpay_billcode.startsWith('SIM-')) {
+    bookings[idx].status = 'Paid - Awaiting Check-in';
+    bookings[idx].paid_at = new Date().toISOString();
+    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+      .bind('kd_bookings', JSON.stringify(bookings)).run();
+    return jsonResponse({ success: true, booking: bookings[idx], paid: true }, 200, request);
+  }
+
+  const url = `https://dev.toyyibpay.com/index.php/api/getBill?billCode=${booking.toyyibpay_billcode}&userSecretKey=${secret}`;
+  let billData;
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'KundasangHomestay/1.0' } });
+    const text = await res.text();
+    billData = JSON.parse(text);
+  } catch {
+    return jsonResponse({
+      success: false,
+      message: 'Payment verification pending. Please wait.',
+      retry: true,
+      booking,
+      paymentStatus: 'pending'
+    }, 200, request);
+  }
+
+  if (billData && billData[0] && billData[0].billpaymentStatus === "1") {
+    bookings[idx].status = 'Paid - Awaiting Check-in';
+    bookings[idx].paid_at = new Date().toISOString();
+    bookings[idx].toyyibpay_refno = billData[0].billpaymentTransactionId || '';
+    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+      .bind('kd_bookings', JSON.stringify(bookings)).run();
+    return jsonResponse({ success: true, booking: bookings[idx], paid: true }, 200, request);
+  } else {
+    const billStatus = billData && billData[0] ? billData[0].billpaymentStatus : null;
+    if (billStatus === "3") {
+      bookings[idx].status = 'Payment Failed';
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings)).run();
+      return jsonResponse({
+        success: false,
+        message: 'Payment failed or expired.',
+        retry: true,
+        booking: bookings[idx],
+        paymentStatus: 'failed'
+      }, 200, request);
+    } else {
+      return jsonResponse({
+        success: false,
+        message: 'Payment not yet confirmed. Please wait.',
+        retry: true,
+        booking,
+        paymentStatus: 'pending'
+      }, 200, request);
+    }
   }
 }
 
