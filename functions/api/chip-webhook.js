@@ -109,6 +109,7 @@ async function sendCheckinEmail(booking, env) {
     emailError = 'No email API key configured';
   }
 
+  // Return both success and error info
   return { emailSent, emailError };
 }
 
