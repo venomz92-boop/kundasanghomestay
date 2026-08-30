@@ -17,8 +17,7 @@
   <meta property="og:title" content="Kundasang Homestay - Verified Mountain Stays" />
   <meta property="og:description" content="Verified Kundasang homestays with breathtaking Kinabalu views. Secure booking with instant WhatsApp confirmation." />
   <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" />
-  <button id="themeBtn">🔅</button>
-
+  
   <!-- JSON-LD -->
   <script type="application/ld+json">
   {
@@ -34,24 +33,7 @@
       "addressCountry": "MY"
     },
     "priceRange": "RM 150 - RM 600"
-  }
-
-    document.addEventListener('DOMContentLoaded', function() {
-  const btn = document.getElementById('themeBtn');
-  if (!btn) return;
-
-  // Set initial state
-  const isDark = localStorage.theme === 'dark';
-  document.body.classList.toggle('dark', isDark);
-  btn.textContent = isDark ? '🔆' : '🔅';
-
-  btn.onclick = function() {
-    const dark = document.body.classList.toggle('dark');
-    localStorage.theme = dark ? 'dark' : 'light';
-    btn.textContent = dark ? '🔆' : '🔅';
-  };
-});
-    
+  } 
   </script>
 
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -1017,6 +999,8 @@
         <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/login.html'; return false;">Guest Login</a>
         <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/register.html'; return false;">Register</a>
       </div>
+        <button id="themeBtn">🔅</button>
+      
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
         <a href="/mybookings.html" class="setsail-nav-link" style="font-size:12px;" onclick="window.location.href='/mybookings.html'; return false;">My Bookings</a>
         <div class="flex items-center gap-2 bg-[#0F382E] text-white px-4 h-[38px] rounded-full">
@@ -1833,6 +1817,23 @@
 <!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
+
+  document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('themeBtn');
+  if (!btn) return;
+
+  // Set initial state
+  const isDark = localStorage.theme === 'dark';
+  document.body.classList.toggle('dark', isDark);
+  btn.textContent = isDark ? '🔆' : '🔅';
+
+  btn.onclick = function() {
+    const dark = document.body.classList.toggle('dark');
+    localStorage.theme = dark ? 'dark' : 'light';
+    btn.textContent = dark ? '🔆' : '🔅';
+  };
+});
+  
 // =============================================================
 // SECURE HELPER (patched)
 // =============================================================
