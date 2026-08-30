@@ -178,7 +178,7 @@ export async function onRequestPost({ request, env }) {
 
     const epoch = Math.floor(Date.now() / 1000);
     const bodyString = JSON.stringify(payoutPayload);
-    const checksum = await hmacSha512(`${epoch}:${bodyString}`, chipSecret);
+    const checksum = await hmacSha512(`${epoch}${env.CHIP_API_KEY}`, chipSecret);
 
     const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
       method: 'POST',
