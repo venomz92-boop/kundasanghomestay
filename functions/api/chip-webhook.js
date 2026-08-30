@@ -1,6 +1,16 @@
-// /api/chip-webhook.js
+// /api/chip-webhook.js – Fixed signature (RSASSA-PKCS1-v1_5 + SHA-256)
 import { corsHeaders, getClientIP, logAction, jsonResponse } from './_utils.js';
 
+// ===== Convert PEM to ArrayBuffer =====
+function pemToArrayBuffer(pem) {
+  const b64 = pem
+    .replace(/-----BEGIN [^-]+-----/, '')
+    .replace(/-----END [^-]+-----/, '')
+    .replace(/\s/g, '');
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+
+// ===== Verify CHIP Collect webhook signature (RSASSA-PKCS1-v1_5 + SHA-256) =====
 async function verifyChipSignature(request, env) {
   const publicKeyPem = env.CHIP_PUBLIC_KEY;
   if (!publicKeyPem) {
@@ -12,35 +22,28 @@ async function verifyChipSignature(request, env) {
   if (!signature) return false;
 
   const body = await request.clone().text();
-  const encoder = new TextEncoder();
 
-  const publicKey = await crypto.subtle.importKey(
-  'spki',
-  pemToArrayBuffer(publicKeyPem),
-  { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },  // ✅ Correct
-  false,
-  ['verify']
-);
-// ...
-await crypto.subtle.verify(
-  { name: 'RSASSA-PKCS1-v1_5' },  // ✅ Correct
-  publicKey,
-  sigBuffer,
-  encoder.encode(body)
-);
+  try {
+    const publicKey = await crypto.subtle.importKey(
+      'spki',
+      pemToArrayBuffer(publicKeyPem),
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
 
-  const sigBuffer = Uint8Array.from(atob(signature), c => c.charCodeAt(0));
-  return await crypto.subtle.verify(
-    { name: 'RSA-PSS', saltLength: 32 },
-    publicKey,
-    sigBuffer,
-    encoder.encode(body)
-  );
-}
+    const sigBuffer = Uint8Array.from(atob(signature), c => c.charCodeAt(0));
 
-function pemToArrayBuffer(pem) {
-  const b64 = pem.replace(/-----BEGIN [^-]+-----/, '').replace(/-----END [^-]+-----/, '').replace(/\s/g, '');
-  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    return await crypto.subtle.verify(
+      { name: 'RSASSA-PKCS1-v1_5' },
+      publicKey,
+      sigBuffer,
+      new TextEncoder().encode(body)
+    );
+  } catch (e) {
+    console.error('❌ Signature verification error:', e.message);
+    return false;
+  }
 }
 
 export async function onRequestPost({ request, env }) {
@@ -137,7 +140,7 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// Helper (copied from your existing logic)
+// Helper – send check-in code email
 async function sendCheckinEmail(booking, env) {
   const html = `
     <h2>Hello ${booking.guestName || 'Guest'},</h2>
