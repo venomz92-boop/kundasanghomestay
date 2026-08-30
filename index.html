@@ -2012,78 +2012,6 @@
     }
 
     // =============================================================
-    // RETRY PAYMENT – with CSRF refresh and error handling (FIXED: uses /chip-create)
-    // =============================================================
-    async function retryPayment(bookingId) {
-      let token = localStorage.getItem('kd_csrf_token');
-      if (!token) {
-        try {
-          const res = await fetch('/api/csrf-token', { method: 'GET' });
-          const data = await res.json();
-          if (data.token) {
-            localStorage.setItem('kd_csrf_token', data.token);
-            token = data.token;
-          } else {
-            throw new Error('No token received');
-          }
-        } catch (e) {
-          console.warn('Could not fetch CSRF token:', e);
-          showModal('Session Expired', 
-            'Your security token is missing. Please log in again to continue.',
-            [
-              { label: 'Login', class: 'btn-primary', value: 'login' }
-            ]
-          ).then(function(result) {
-            if (result === 'login') window.location.href = '/login.html';
-          });
-          return;
-        }
-      }
-
-      try {
-        // 🔧 FIXED: changed from /toyyibpay-create to /chip-create
-        const res = await fetch('/api/chip-create', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': token
-          },
-          body: JSON.stringify({ bookingId })
-        });
-
-        const data = await res.json();
-
-        if (res.status === 403 && data.error && data.error.includes('token')) {
-          localStorage.removeItem('kd_csrf_token');
-          showModal('Security Error', 
-            'Your session token is invalid. Please log in again to retry payment.',
-            [
-              { label: 'Login', class: 'btn-primary', value: 'login' }
-            ]
-          ).then(function(result) {
-            if (result === 'login') window.location.href = '/login.html';
-          });
-          return;
-        }
-
-        if (!res.ok || !data.success) {
-          showAlert('Error', data.error || 'Could not create payment. Please try again.');
-          return;
-        }
-
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          showAlert('Error', 'Payment URL missing.');
-        }
-
-      } catch (e) {
-        console.error('Retry error:', e);
-        showAlert('Network Error', 'Could not connect to the server. Please try again.');
-      }
-    }
-
-    // =============================================================
     // CSRF HELPER
     // =============================================================
     function getCsrfHeader() {
@@ -2642,7 +2570,9 @@ async function processPayment() {
   }
 }
 
-// ===== HANDLE PAYMENT RETURN – SHOW BRANDED THANK YOU MODAL =====
+// =============================================================
+// HANDLE PAYMENT RETURN – SHOW BRANDED THANK YOU MODAL
+// =============================================================
 async function handlePaymentReturn() {
   const params = new URLSearchParams(window.location.search);
   let bookingId = params.get('booking') || params.get('order_id');
@@ -2745,7 +2675,7 @@ async function handlePaymentReturn() {
     let bookingData = null;
     let paymentStatus = 'pending';
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 20; // Increased for reliability
 
     while (attempts < maxAttempts) {
       attempts++;
@@ -2795,6 +2725,7 @@ async function handlePaymentReturn() {
   }
 }
 
+// Ensure modal functions are globally accessible
 window.showThankYouModal = showThankYouModal;
 window.showPaymentFailedModal = showPaymentFailedModal;
 window.handlePaymentReturn = handlePaymentReturn;
