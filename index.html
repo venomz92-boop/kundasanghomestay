@@ -2622,7 +2622,15 @@ async function handlePaymentReturn() {
   }
 
   // Show the branded modal with whatever data we have
-  showThankYouModal(bookingId, bookingData || { id: bookingId, total: '---', checkin: 'N/A', checkout: 'N/A', nights: 1 });
+     showPaymentFailedModal(bookingId, data.booking);
+      } else {
+        showPaymentFailedModal(bookingId, null);
+      }
+    } catch (e) {
+      showPaymentFailedModal(bookingId, null);
+    }
+    return;
+  }
 
   // ---- BACKGROUND STATUS UPDATE ----
   // Try to update the booking status in the background
