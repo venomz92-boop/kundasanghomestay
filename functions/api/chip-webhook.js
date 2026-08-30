@@ -12,12 +12,15 @@ function pemToArrayBuffer(pem) {
 async function verifyChipSignature(request, env) {
   const publicKeyPem = env.CHIP_PUBLIC_KEY;
   if (!publicKeyPem) {
-    console.error('❌ CHIP_PUBLIC_KEY missing');
+    console.error('❌ CHIP_PUBLIC_KEY missing – webhook signature cannot be verified');
     return false;
   }
 
   const signature = request.headers.get('X-Signature');
-  if (!signature) return false;
+  if (!signature) {
+    console.warn('⚠️ Missing X-Signature header');
+    return false;
+  }
 
   const body = await request.clone().text();
 
@@ -31,12 +34,14 @@ async function verifyChipSignature(request, env) {
     );
 
     const sigBuffer = Uint8Array.from(atob(signature), c => c.charCodeAt(0));
-    return await crypto.subtle.verify(
+    const valid = await crypto.subtle.verify(
       { name: 'RSASSA-PKCS1-v1_5' },
       publicKey,
       sigBuffer,
       new TextEncoder().encode(body)
     );
+    if (!valid) console.warn('⚠️ Signature verification failed');
+    return valid;
   } catch (e) {
     console.error('Signature verification error:', e.message);
     return false;
