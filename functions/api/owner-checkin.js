@@ -1,29 +1,68 @@
-// /api/owner-checkin.js – Auto check‑in + payout (simulation fallback) with mandatory code
+// /api/owner-checkin.js – CHIP Send version (owner only)
 import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
 
-// ===== Bank code mapping (ToyyibPay numeric codes) =====
-const BANK_CODE_MAP = {
-  'MBBEMYKL': '8886', 'CIMBMYKL': '8884', 'PBBEMYKL': '8883',
-  'RHBMYKL': '8882', 'HLBBMYKL': '8881', 'BIMBMYKL': '8889',
-  'BKRMMYKL': '8890', 'BSNMYLKL': '8891', 'HSBCMYKL': '8887',
-  'SCBLMYKL': '8888'
-};
-const BANK_NAME_MAP = {
-  'MAYBANK': '8886', 'CIMB': '8884', 'PUBLIC BANK': '8883',
-  'RHB': '8882', 'HONG LEONG': '8881', 'BANK ISLAM': '8889',
-  'BANK RAKYAT': '8890', 'BSN': '8891', 'HSBC': '8887',
-  'STANDARD CHARTERED': '8888'
-};
+// ===== HMAC SHA512 helper (same as in payout.js) =====
+async function hmacSha512(message, secret) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-512' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
-function getToyyibpayBankCode(input) {
-  if (!input) return '8886';
-  const clean = input.trim().toUpperCase();
-  if (/^\d{4}$/.test(clean)) return clean;
-  if (BANK_CODE_MAP[clean]) return BANK_CODE_MAP[clean];
-  for (const [name, code] of Object.entries(BANK_NAME_MAP)) {
-    if (clean.includes(name) || name.includes(clean)) return code;
+// ===== Map bank name to CHIP bank_code =====
+function getChipBankCode(bankName) {
+  const map = {
+    'MAYBANK': 'MBBEMYKL',
+    'CIMB': 'CIMBMYKL',
+    'PUBLIC BANK': 'PBBEMYKL',
+    'RHB': 'RHBMYKL',
+    'HONG LEONG': 'HLBBMYKL',
+    'BANK ISLAM': 'BIMBMYKL',
+    'BANK RAKYAT': 'BKRMMYKL',
+    'BSN': 'BSNMYLKL',
+    'HSBC': 'HSBCMYKL',
+    'STANDARD CHARTERED': 'SCBLMYKL'
+  };
+  const clean = (bankName || '').toUpperCase().trim();
+  for (const [key, code] of Object.entries(map)) {
+    if (clean.includes(key) || key.includes(clean)) return code;
   }
-  return '8886';
+  return 'MBBEMYKL';
+}
+
+// ===== Helpers =====
+async function getHomestay(db, homestayId) {
+  if (!homestayId) return null;
+  for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
+    let list = [];
+    try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
+    const found = list.find(h => String(h.id) === String(homestayId));
+    if (found) return found;
+  }
+  return null;
+}
+
+async function saveBankAccountId(db, homestayId, bankAccountId) {
+  if (!homestayId) return;
+  for (const store of ['kd_approved', 'kd_homestays']) {
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
+    let list = [];
+    try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
+    const idx = list.findIndex(h => String(h.id) === String(homestayId));
+    if (idx !== -1) {
+      list[idx].chip_bank_account_id = bankAccountId;
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind(store, JSON.stringify(list))
+        .run();
+      break;
+    }
+  }
 }
 
 export async function onRequestPost({ request, env }) {
@@ -39,29 +78,23 @@ export async function onRequestPost({ request, env }) {
 
     const body = await request.json();
     const bookingId = body.bookingId;
-    const checkinCode = body.checkinCode;   // <-- get from request
+    const checkinCode = body.checkinCode;
 
-    if (!bookingId) {
-      return jsonResponse({ error: 'Missing bookingId' }, 400, request);
-    }
+    if (!bookingId) return jsonResponse({ error: 'Missing bookingId' }, 400, request);
     if (!checkinCode || !/^\d{6}$/.test(checkinCode)) {
       return jsonResponse({ error: 'Check‑in code must be exactly 6 digits' }, 400, request);
     }
 
     const db = env.DB;
-    if (!db) {
-      return jsonResponse({ error: 'Database unavailable' }, 500, request);
-    }
+    if (!db) return jsonResponse({ error: 'Database unavailable' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
     // 2. Fetch booking
-    const storeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+    const storeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
     let bookings = [];
     try { if (storeRes?.data) bookings = JSON.parse(storeRes.data); } catch (_) {}
     const booking = bookings.find(b => String(b.id) === String(bookingId));
-    if (!booking) {
-      return jsonResponse({ error: 'Booking not found' }, 404, request);
-    }
+    if (!booking) return jsonResponse({ error: 'Booking not found' }, 404, request);
 
     // 3. Authorization
     const allowedIds = (ownerData.homestayIds || [ownerData.ownerId]).map(String);
@@ -80,212 +113,151 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Booking is not paid yet' }, 400, request);
     }
 
-    // ===== 5. CHECK‑IN CODE VERIFICATION – MANDATORY =====
-    if (!booking.checkinCode) {
-      // This should not happen for new bookings, but for legacy bookings we reject
-      return jsonResponse({
-        error: 'This booking does not have a check‑in code. Please ask the guest to use the "Resend Code" button in their My Bookings page to generate one.'
-      }, 400, request);
-    }
-    if (booking.checkinCode !== checkinCode) {
-      return jsonResponse({
-        error: 'Invalid check‑in code. Please ask the guest for the 6‑digit code sent to their email/WhatsApp.'
-      }, 400, request);
+    // 5. Verify check‑in code (mandatory)
+    if (!booking.checkinCode || booking.checkinCode !== checkinCode) {
+      return jsonResponse({ error: 'Invalid check‑in code. Please ask the guest for the 6‑digit code.' }, 400, request);
     }
 
-    // 6. Find homestay (fallback chain)
-    let homestay = null;
-    let homestaySource = null;
-    for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
-      const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(store).first();
-      let list = [];
-      try { if (r?.data) list = JSON.parse(r.data); } catch (_) {}
-      const found = list.find(h => String(h.id) === String(booking.homestayId));
-      if (found) { homestay = found; homestaySource = store; break; }
-    }
-
-    const ownerAmount = booking.base || 0;
-    const ownerAcc = homestay?.ownerBankAccount || '';
-    const ownerName = homestay?.bankHolder || homestay?.ownerName || '';
-    const bankCodeInput = homestay?.bankCode || homestay?.ownerBank || '';
-    const toyyibpayBankCode = getToyyibpayBankCode(bankCodeInput);
-
-    let payoutSuccess = false;
-    let payoutData = null;
-    let payoutMessage = '';
-    let isSimulation = false;
-
-    // 7. Attempt payout (or fallback to simulation)
+    // 6. Find homestay (to get bank details)
+    let homestay = await getHomestay(db, booking.homestayId);
     if (!homestay) {
-      payoutMessage = 'Check‑in confirmed, but payout skipped: homestay details not found.';
-    } else if (!ownerAcc || ownerAmount <= 0) {
-      payoutMessage = 'Check‑in confirmed, but payout skipped: missing bank account or invalid amount.';
-    } else {
-      const isToyyibLive = !!(env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === 'true');
-      const forceSimulation = env.PAYOUT_SIMULATION === 'true';
+      return jsonResponse({ error: 'Homestay not found. Cannot pay owner.' }, 404, request);
+    }
 
-      if (forceSimulation) {
-        // Forced simulation
-        payoutSuccess = true;
-        payoutData = { simulation: true, status: 'success' };
-        payoutMessage = `Check‑in confirmed! ⚠️ SIMULATED payout of RM${ownerAmount} completed.`;
-        isSimulation = true;
-      } else if (isToyyibLive) {
-        // Real payout attempt
-        const secret = env.TOYYIBPAY_SECRET_KEY;
-        const envMode = env.TOYYIBPAY_ENV || 'sandbox';
-        const apiBase = envMode === 'production' ? 'https://toyyibpay.com' : 'https://dev.toyyibpay.com';
-        const amountCents = Math.round(ownerAmount * 100);
+    const ownerAmount = Number(booking.base || 0);
+    if (ownerAmount <= 0) {
+      return jsonResponse({ error: 'Invalid owner amount (RM0).' }, 400, request);
+    }
 
-        const formData = new FormData();
-        formData.append('userSecretKey', secret);
-        formData.append('bankCode', toyyibpayBankCode);
-        formData.append('bankAccountNumber', ownerAcc.replace(/[^0-9]/g, ''));
-        formData.append('accountHolderName', ownerName);
-        formData.append('amount', amountCents);
-        formData.append('payoutDescription', `KDH ${bookingId} owner payout RM${ownerAmount}`);
-        formData.append('payoutReferenceNo', bookingId);
+    // 7. Prepare CHIP Send payout
+    const chipSecret = env.CHIP_SECRET_KEY;
+    if (!chipSecret) return jsonResponse({ error: 'CHIP_SECRET_KEY not configured' }, 500, request);
 
-        const endpoints = [
-          `${apiBase}/index.php/api/payout`,
-          `${apiBase}/index.php/api/createPayout`
-        ];
+    let bankCode = getChipBankCode(homestay.ownerBank || homestay.ownerBankCode || 'MAYBANK');
+    let accountNumber = (homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
+    let accountName = homestay.bankHolder || homestay.ownerName || 'Owner';
+    let bankAccountId = homestay.chip_bank_account_id || null;
 
-        let lastError = null;
-        for (const endpoint of endpoints) {
-          try {
-            const response = await fetch(endpoint, { method: 'POST', body: formData });
-            const text = await response.text();
-            let json;
-            try { json = JSON.parse(text); } catch { json = { raw: text }; }
+    if (!accountNumber || accountNumber.length < 10) {
+      return jsonResponse({ error: 'Owner bank account missing or invalid.' }, 400, request);
+    }
 
-            if (response.status === 404) {
-              // Endpoint not found – try next
-              continue;
-            }
-
-            const isSuccess = response.ok && (
-              json.status === 'success' ||
-              json[0]?.status === 'success' ||
-              json.payoutCode ||
-              json[0]?.payoutCode
-            );
-
-            if (isSuccess) {
-              payoutSuccess = true;
-              payoutData = json;
-              payoutMessage = `Check‑in confirmed! Payout of RM${ownerAmount} processed in 1-4 working days by Toyyibpay.`;
-              break;
-            } else {
-              // Store error for later
-              lastError = json.error || json.message || json[0]?.error || json[0]?.message || json.raw || 'Unknown error';
-              if (Array.isArray(json) && json.length > 0) {
-                lastError = json[0].error || json[0].message || lastError;
-              }
-            }
-          } catch (_) {}
-        }
-
-        // If all endpoints failed, fallback to simulation
-        if (!payoutSuccess) {
-          console.warn(`Real payout failed (${lastError || 'unknown'}), falling back to simulation`);
-          payoutSuccess = true;
-          payoutData = { simulation: true, status: 'success', fallbackReason: lastError || 'endpoint unavailable' };
-          payoutMessage = `Check‑in confirmed! ⚠️ SIMULATED payout of RM${ownerAmount} completed (auto‑fallback).`;
-          isSimulation = true;
-        }
-      } else {
-        // Not live and not forced – auto‑simulate
-        payoutSuccess = true;
-        payoutData = { simulation: true, status: 'success' };
-        payoutMessage = `Check‑in confirmed! ⚠️ SIMULATED payout of RM${ownerAmount} completed.`;
-        isSimulation = true;
+    // Create bank account if not exists
+    if (!bankAccountId) {
+      const createRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${chipSecret}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          bank_code: bankCode,
+          account_number: accountNumber,
+          account_name: accountName
+        })
+      });
+      const bankData = await createRes.json();
+      if (!createRes.ok || !bankData.id) {
+        console.error('CHIP bank account creation failed:', bankData);
+        return jsonResponse({ error: 'Failed to create owner bank account. Contact support.' }, 500, request);
       }
+      bankAccountId = bankData.id;
+      // Save for future use
+      await saveBankAccountId(db, booking.homestayId, bankAccountId);
+    }
+
+    // Execute payout
+    const amountCents = Math.round(ownerAmount * 100);
+    const reference = `KDH-${bookingId}`;
+    const payoutPayload = {
+      bank_account_id: bankAccountId,
+      amount: amountCents,
+      reference: reference,
+      description: `Owner payout for ${bookingId}`
+    };
+
+    const epoch = Math.floor(Date.now() / 1000);
+    const bodyString = JSON.stringify(payoutPayload);
+    const checksum = await hmacSha512(`${epoch}:${bodyString}`, chipSecret);
+
+    const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${chipSecret}`,
+        'Content-Type': 'application/json',
+        'epoch': String(epoch),
+        'checksum': checksum
+      },
+      body: bodyString
+    });
+
+    const payoutData = await payoutRes.json();
+
+    if (!payoutRes.ok || !payoutData.id) {
+      console.error('CHIP Send failed:', payoutData);
+      return jsonResponse({ error: 'Owner payout failed. Please try again.' }, 502, request);
     }
 
     // 8. Update booking
     const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
     if (idx !== -1) {
-      if (payoutSuccess) {
-        bookings[idx].status = 'Completed - Payout Success';
-        bookings[idx].payoutSuccess = true;
-        bookings[idx].payoutSuccessDate = new Date().toISOString();
-        bookings[idx].payoutAmount = Number(ownerAmount);
-        bookings[idx].payoutMethod = isSimulation ? 'Simulated' : 'ToyyibPay Auto Payout';
-        bookings[idx].ownerPayoutId = payoutData?.payoutCode || payoutData?.id || 'OWNER_' + Date.now();
-        bookings[idx].completedDate = new Date().toISOString();
-        bookings[idx].checkedInAt = new Date().toISOString();
-        bookings[idx].checkedInBy = 'owner';
-        bookings[idx].homestaySource = homestaySource;
-      } else {
-        bookings[idx].status = 'Completed - Payout Pending';
-        bookings[idx].checkedInAt = new Date().toISOString();
-        bookings[idx].checkedInBy = 'owner';
-        bookings[idx].payoutFailedAttempt = true;
-        bookings[idx].lastPayoutError = payoutData || payoutMessage;
-        bookings[idx].homestaySource = homestaySource;
-      }
+      bookings[idx].status = 'Completed - Payout Success';
+      bookings[idx].chip_payout_id = payoutData.id;
+      bookings[idx].payoutAmount = ownerAmount;
+      bookings[idx].payoutDate = new Date().toISOString();
+      bookings[idx].checkedInAt = new Date().toISOString();
+      bookings[idx].checkedInBy = 'owner';
+      bookings[idx].homestaySource = homestaySource || 'kd_approved';
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings))
+        .run();
     }
 
-    await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-      .bind('kd_bookings', JSON.stringify(bookings))
-      .run();
+    // 9. Record fee earnings
+    try {
+      const feeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_fee_earnings').first();
+      let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
+      if (!feeEarnings.history?.some(h => h.bookingId === bookingId)) {
+        const yourFee = (booking.fee || 0) + (booking.gatewayFee || 0);
+        if (yourFee > 0) {
+          feeEarnings.total += yourFee;
+          feeEarnings.available += yourFee;
+          feeEarnings.history.push({
+            bookingId,
+            fee: yourFee,
+            date: new Date().toISOString(),
+            type: 'earning',
+            payoutToOwner: ownerAmount,
+            method: 'chip_send'
+          });
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_fee_earnings', JSON.stringify(feeEarnings))
+            .run();
+        }
+      }
+    } catch (_) {}
 
-    // 9. Log action
+    // 10. Log action
     await logAction({
       db,
-      action: payoutSuccess ? (isSimulation ? 'owner_checkin_simulation' : 'owner_checkin_payout_success') : 'owner_checkin_payout_failed',
+      action: 'owner_checkin_chip_payout',
       admin: 'owner',
-      details: `Check‑in ${bookingId}, payout ${payoutSuccess ? (isSimulation ? 'simulated' : 'success') : 'failed'}`,
+      details: `Check‑in ${bookingId}, CHIP payout ${payoutData.id}`,
       ip: getClientIP(request),
       userId: booking.guestEmail,
       homestayId: booking.homestayId
     });
 
-    // 10. Record fee earnings (if success)
-    if (payoutSuccess) {
-      try {
-        const feeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
-        let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
-        const alreadyRecorded = feeEarnings.history?.some(h => h.bookingId === bookingId && h.type === 'earning');
-        if (!alreadyRecorded) {
-          const feeToRecord = (booking.fee || 0) + (booking.gatewayFee || 0);
-          if (feeToRecord > 0) {
-            feeEarnings.total = (feeEarnings.total || 0) + feeToRecord;
-            feeEarnings.available = (feeEarnings.available || 0) + feeToRecord;
-            feeEarnings.history = feeEarnings.history || [];
-            feeEarnings.history.push({
-              bookingId,
-              fee: feeToRecord,
-              date: new Date().toISOString(),
-              type: 'earning',
-              payoutToOwner: Number(ownerAmount),
-              method: isSimulation ? 'simulation' : 'toyyibpay_auto',
-              ip: getClientIP(request)
-            });
-            await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-              .bind('kd_fee_earnings', JSON.stringify(feeEarnings))
-              .run();
-          }
-        }
-      } catch (_) {}
-    }
-
-    // 11. Return final response
     return jsonResponse({
       success: true,
-      message: payoutMessage,
+      message: `Check‑in confirmed! RM${ownerAmount.toFixed(2)} sent to owner via CHIP Send.`,
       bookingId,
-      payoutSuccess,
-      simulation: isSimulation,
-      homestaySource,
-      bankCodeUsed: toyyibpayBankCode,
-      warning: isSimulation ? '⚠️ Payout was simulated (no real money transferred). To enable real payouts, set PAYOUT_SIMULATION=false and ensure your ToyyibPay account supports payouts.' : undefined
+      payoutId: payoutData.id
     }, 200, request);
 
   } catch (e) {
     console.error('Owner check‑in error:', e.message);
-    return jsonResponse({ error: 'Check‑in failed. Please try again later.' }, 500, request);
+    return jsonResponse({ error: 'Check‑in failed: ' + e.message }, 500, request);
   }
 }
 
