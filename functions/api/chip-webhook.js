@@ -48,50 +48,68 @@ async function verifyChipSignature(request, env) {
   }
 }
 
-// ===== YOUR EMAIL FUNCTION (copied exactly from toyyibpay-webhook.js) =====
-async function sendCheckinEmail(to, guestName, bookingId, checkinCode, homestayName, checkin, checkout, env) {
-  const html = `
-    <h2>Hello ${guestName || 'Guest'},</h2>
-    <p>Your booking <strong>${bookingId}</strong> at <strong>${homestayName}</strong> has been paid successfully.</p>
-    <p><strong>Check‑in:</strong> ${checkin}</p>
-    <p><strong>Check‑out:</strong> ${checkout}</p>
-    <p style="font-size:24px; font-weight:bold; background:#f0fdf4; padding:10px; border-radius:8px; border:1px solid #bbf7d0; display:inline-block;">
-      🏔️ Your 6‑digit check‑in code: <span style="color:#0F382E;">${checkinCode}</span>
+// ===== EMAIL FUNCTION (EXACT COPY from resend-code.js) =====
+async function sendCheckinEmail(booking, env) {
+  const emailHtml = `
+    <h2>Hello ${booking.guestName || 'Guest'},</h2>
+    <p>Your booking at <strong>${booking.homestay}</strong> is confirmed!</p>
+    <p><strong>Booking ID:</strong> ${booking.id}</p>
+    <p><strong>Check‑in:</strong> ${booking.checkin}</p>
+    <p><strong>Check‑out:</strong> ${booking.checkout}</p>
+    <p><strong>Nights:</strong> ${booking.nights}</p>
+    <p><strong>Total Paid:</strong> RM ${Number(booking.total).toFixed(2)}</p>
+    <p style="font-size:20px; font-weight:bold; background:#f0fdf4; padding:10px; border-radius:8px; border:1px solid #bbf7d0; display:inline-block;">
+      🏔️ Your 6‑digit check‑in code: <span style="color:#0F382E;">${booking.checkinCode}</span>
     </p>
-    <p>Please present this code to the host upon arrival.</p>
-    <p>Thank you for booking with Kundasang Homestay!</p>
+    <p><strong>Please keep this code safe.</strong> You will need to share it with the host when you arrive. Do not share it with anyone else.</p>
+    <p>— Kundasang Homestay Team</p>
   `;
-  try {
-    if (env.RESEND_API_KEY) {
-      const r = await fetch('https://api.resend.com/emails', {
+
+  let emailSent = false;
+  let emailError = null;
+
+  // Try Resend
+  if (env.RESEND_API_KEY) {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
-          to: to,
-          subject: 'Your Check‑in Code – Payment Confirmed',
-          html
+          to: booking.guestEmail,
+          subject: 'Your Check‑in Code',
+          html: emailHtml
         })
       });
-      return r.ok;
+      emailSent = res.ok;
+      if (!emailSent) emailError = 'Resend API error';
+    } catch (e) {
+      emailError = e.message;
     }
-    if (env.SENDGRID_API_KEY) {
-      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+  } 
+  // Try SendGrid
+  else if (env.SENDGRID_API_KEY) {
+    try {
+      const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + env.SENDGRID_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          personalizations: [{ to: [{ email: to }] }],
+          personalizations: [{ to: [{ email: booking.guestEmail }] }],
           from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
-          subject: 'Your Check‑in Code – Payment Confirmed',
-          content: [{ type: 'text/html', value: html }]
+          subject: 'Your Check‑in Code',
+          content: [{ type: 'text/html', value: emailHtml }]
         })
       });
-      return r.ok;
+      emailSent = res.ok;
+      if (!emailSent) emailError = 'SendGrid API error';
+    } catch (e) {
+      emailError = e.message;
     }
-  } catch (e) {
-    console.error('Email send error:', e.message);
+  } else {
+    emailError = 'No email API key configured';
   }
-  return false;
+
+  return { emailSent, emailError };
 }
 
 export async function onRequestPost({ request, env }) {
@@ -149,17 +167,13 @@ export async function onRequestPost({ request, env }) {
         .bind('kd_bookings', JSON.stringify(bookings))
         .run();
 
-      // Call your email function with the required parameters
-      await sendCheckinEmail(
-        booking.guestEmail,
-        booking.guestName || 'Guest',
-        booking.id,
-        booking.checkinCode,
-        booking.homestay || 'Kundasang Homestay',
-        booking.checkin || 'N/A',
-        booking.checkout || 'N/A',
-        env
-      );
+      // Send email using the **exact same** function as resend-code.js
+      const result = await sendCheckinEmail(bookings[idx], env);
+      if (result.emailSent) {
+        console.log(`✅ Check‑in code email sent to ${booking.guestEmail}`);
+      } else {
+        console.warn(`⚠️ Email failed: ${result.emailError}`);
+      }
 
       await logAction({
         db,
