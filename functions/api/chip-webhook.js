@@ -15,12 +15,19 @@ async function verifyChipSignature(request, env) {
   const encoder = new TextEncoder();
 
   const publicKey = await crypto.subtle.importKey(
-    'spki',
-    pemToArrayBuffer(publicKeyPem),
-    { name: 'RSA-PSS', hash: 'SHA-512' },
-    false,
-    ['verify']
-  );
+  'spki',
+  pemToArrayBuffer(publicKeyPem),
+  { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },  // ✅ Correct
+  false,
+  ['verify']
+);
+// ...
+await crypto.subtle.verify(
+  { name: 'RSASSA-PKCS1-v1_5' },  // ✅ Correct
+  publicKey,
+  sigBuffer,
+  encoder.encode(body)
+);
 
   const sigBuffer = Uint8Array.from(atob(signature), c => c.charCodeAt(0));
   return await crypto.subtle.verify(
