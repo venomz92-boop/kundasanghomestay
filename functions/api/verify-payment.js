@@ -1,38 +1,65 @@
 // /api/verify-payment.js – CHIP + email on success
 import { corsHeaders } from './_utils.js';
 
+// ===== EMAIL FUNCTION (EXACT COPY from resend-code.js) =====
 async function sendCheckinEmail(booking, env) {
-  const html = `
+  const emailHtml = `
     <h2>Hello ${booking.guestName || 'Guest'},</h2>
-    <p>Your booking <strong>${booking.id}</strong> at <strong>${booking.homestay}</strong> is confirmed.</p>
-    <p><strong>Check‑in Code:</strong> <span style="font-size:24px;font-weight:bold;color:#0F382E;">${booking.checkinCode}</span></p>
-    <p>Please present this code to the host upon arrival.</p>
+    <p>Your booking at <strong>${booking.homestay}</strong> is confirmed!</p>
+    <p><strong>Booking ID:</strong> ${booking.id}</p>
+    <p><strong>Check‑in:</strong> ${booking.checkin}</p>
+    <p><strong>Check‑out:</strong> ${booking.checkout}</p>
+    <p><strong>Nights:</strong> ${booking.nights}</p>
+    <p><strong>Total Paid:</strong> RM ${Number(booking.total).toFixed(2)}</p>
+    <p style="font-size:20px; font-weight:bold; background:#f0fdf4; padding:10px; border-radius:8px; border:1px solid #bbf7d0; display:inline-block;">
+      🏔️ Your 6‑digit check‑in code: <span style="color:#0F382E;">${booking.checkinCode}</span>
+    </p>
+    <p><strong>Please keep this code safe.</strong> You will need to share it with the host when you arrive. Do not share it with anyone else.</p>
+    <p>— Kundasang Homestay Team</p>
   `;
-  try {
-    if (env.RESEND_API_KEY) {
-      await fetch('https://api.resend.com/emails', {
+
+  let emailSent = false;
+  let emailError = null;
+
+  if (env.RESEND_API_KEY) {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
           to: booking.guestEmail,
-          subject: 'Your Check‑in Code – Payment Confirmed',
-          html
+          subject: 'Your Check‑in Code',
+          html: emailHtml
         })
       });
-    } else if (env.SENDGRID_API_KEY) {
-      await fetch('https://api.sendgrid.com/v3/mail/send', {
+      emailSent = res.ok;
+      if (!emailSent) emailError = 'Resend API error';
+    } catch (e) {
+      emailError = e.message;
+    }
+  } else if (env.SENDGRID_API_KEY) {
+    try {
+      const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${env.SENDGRID_API_KEY}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': 'Bearer ' + env.SENDGRID_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           personalizations: [{ to: [{ email: booking.guestEmail }] }],
           from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
-          subject: 'Your Check‑in Code – Payment Confirmed',
-          content: [{ type: 'text/html', value: html }]
+          subject: 'Your Check‑in Code',
+          content: [{ type: 'text/html', value: emailHtml }]
         })
       });
+      emailSent = res.ok;
+      if (!emailSent) emailError = 'SendGrid API error';
+    } catch (e) {
+      emailError = e.message;
     }
-  } catch (e) { console.error('Email send error:', e.message); }
+  } else {
+    emailError = 'No email API key configured';
+  }
+
+  return { emailSent, emailError };
 }
 
 export async function onRequestPost({ request, env }) {
@@ -123,7 +150,7 @@ export async function onRequestPost({ request, env }) {
             .bind('kd_bookings', JSON.stringify(bookings))
             .run();
 
-          // ✅ Send email immediately (fallback)
+          // Send email using the new function
           await sendCheckinEmail(bookings[idx], env);
 
           return new Response(JSON.stringify({ success: true, booking: bookings[idx], paid: true }), {
