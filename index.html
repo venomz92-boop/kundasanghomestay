@@ -2649,16 +2649,20 @@ async function handlePaymentReturn() {
   const paymentReturn = params.get('payment_return');
   const statusId = params.get('status_id');
 
-  if (!bookingId) return;
+  if (!bookingId) {
+    console.log('ℹ️ No booking ID in URL, skipping payment return handling.');
+    return;
+  }
 
-  // Clean URL
+  // Clean URL (remove query params)
   if (window.history && window.history.replaceState) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  // ---- CASE 1: status_id=1 (success) – update status, send email, show Thank You ----
+  console.log('🔍 Handling payment return for booking:', bookingId);
+
+  // ---- CASE 1: status_id=1 (ToyyibPay success) ----
   if (statusId === '1') {
-    // Update booking status
     try {
       const updateRes = await fetch('/api/bookings', {
         method: 'POST',
@@ -2674,11 +2678,8 @@ async function handlePaymentReturn() {
         })
       });
       await updateRes.json();
-    } catch (e) {
-      console.warn('Status update failed:', e);
-    }
+    } catch (e) { console.warn('Status update failed:', e); }
 
-    // Send check‑in code email
     try {
       await fetch('/api/resend-code', {
         method: 'POST',
@@ -2688,11 +2689,8 @@ async function handlePaymentReturn() {
         },
         body: JSON.stringify({ bookingId })
       });
-    } catch (e) {
-      console.warn('Resend email failed:', e);
-    }
+    } catch (e) { console.warn('Resend email failed:', e); }
 
-    // Show Thank You modal
     try {
       const res = await fetch(API_BASE + '/verify-payment', {
         method: 'POST',
@@ -2707,9 +2705,9 @@ async function handlePaymentReturn() {
     return;
   }
 
-  // ---- CASE 2: status_id=3 (ToyyibPay failure) OR payment=cancel/failed (CHIP) ----
-  if (statusId === '3' || params.get('payment') === 'cancel' || params.get('payment') === 'failed') {
-    // Update booking status to 'Payment Failed'
+  // ---- CASE 2: payment=cancel or failed (CHIP) ----
+  if (params.get('payment') === 'cancel' || params.get('payment') === 'failed' || statusId === '3') {
+    // Update status to failed
     try {
       await fetch('/api/bookings', {
         method: 'POST',
@@ -2724,11 +2722,9 @@ async function handlePaymentReturn() {
           guestId: currentGuest ? currentGuest.id : null
         })
       });
-    } catch (e) {
-      console.warn('Could not update status to failed:', e);
-    }
+    } catch (e) {}
 
-    // ✅ Show YOUR custom failed modal
+    // Show failed modal
     try {
       const res = await fetch(API_BASE + '/verify-payment', {
         method: 'POST',
@@ -2743,8 +2739,9 @@ async function handlePaymentReturn() {
     return;
   }
 
-  // ---- CASE 3: payment_return=1 (our own flag) – poll for status ----
+  // ---- CASE 3: payment_return=1 (our own success redirect) ----
   if (paymentReturn === '1') {
+    console.log('✅ Payment return detected, polling for status...');
     let bookingData = null;
     let paymentStatus = 'pending';
     let attempts = 0;
@@ -2762,6 +2759,7 @@ async function handlePaymentReturn() {
         if (data.paymentStatus) {
           paymentStatus = data.paymentStatus;
           bookingData = data.booking || null;
+          console.log(`🔄 Attempt ${attempts}: status = ${paymentStatus}`);
           if (paymentStatus === 'paid' || paymentStatus === 'failed') break;
         }
         if (paymentStatus === 'pending' && attempts < maxAttempts) {
@@ -2776,11 +2774,15 @@ async function handlePaymentReturn() {
       }
     }
 
+    // --- Final result ---
     if (paymentStatus === 'paid' && bookingData) {
+      console.log('🎉 Payment confirmed, showing Thank You modal');
       showThankYouModal(bookingId, bookingData);
     } else if (paymentStatus === 'failed' && bookingData) {
+      console.log('❌ Payment failed, showing failed modal');
       showPaymentFailedModal(bookingId, bookingData);
     } else {
+      // If still pending after max attempts, show a message
       showModal('Payment Pending', 
         `Your payment is still being processed.<br><br>Booking ID: <strong>${bookingId}</strong><br>Please wait or check your bookings page later.`,
         [
@@ -2792,6 +2794,10 @@ async function handlePaymentReturn() {
     }
   }
 }
+
+window.showThankYouModal = showThankYouModal;
+window.showPaymentFailedModal = showPaymentFailedModal;
+window.handlePaymentReturn = handlePaymentReturn;
 
     // =============================================================
     // CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION
