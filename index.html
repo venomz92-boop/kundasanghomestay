@@ -2670,7 +2670,6 @@
       const text = await payRes.text();
       console.error('❌ Error response:', text);
       showAlert('Payment Setup Error', `Server error (${payRes.status}): ${text}`);
-      // Restore form
       if (bookingContent) bookingContent.style.display = 'block';
       if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
       return;
@@ -2679,63 +2678,84 @@
     console.log('✅ CHIP purchase created:', payment);
     if (!payment.success) {
       showAlert('Payment Setup Error', payment.error || 'Unable to create payment.');
-      // Restore form
       if (bookingContent) bookingContent.style.display = 'block';
       if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
       return;
     }
 
-    // Open CHIP Checkout
-if (chipContainer) chipContainer.innerHTML = ''; // clear loading
-console.log('🚀 Opening CHIP checkout...');
+    // ===== DYNAMICALLY LOAD CHIP SDK IF NOT ALREADY LOADED =====
+    if (typeof CHIP === 'undefined' || typeof CHIP.Checkout === 'undefined') {
+      console.log('⏳ CHIP SDK not loaded, loading dynamically...');
+      try {
+        // Load the script
+        var script = document.createElement('script');
+        script.src = 'https://gate.chip-in.asia/api/v1/checkout.js';
+        script.async = true;
+        document.head.appendChild(script);
+        // Wait for it to load
+        await new Promise(function(resolve, reject) {
+          script.onload = resolve;
+          script.onerror = function() { reject(new Error('Failed to load CHIP SDK')); };
+          setTimeout(function() { reject(new Error('CHIP SDK load timeout')); }, 10000);
+        });
+        console.log('✅ CHIP SDK loaded dynamically');
+      } catch (loadError) {
+        console.error('❌ Failed to load CHIP SDK:', loadError);
+        showAlert('Payment Error', 'Payment system could not be loaded. Please refresh the page and try again.');
+        if (bookingContent) bookingContent.style.display = 'block';
+        if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
+        return;
+      }
+    }
 
-// Ensure CHIP is loaded, if not try to load it
-if (typeof CHIP === 'undefined' || typeof CHIP.Checkout === 'undefined') {
-  console.log('⏳ CHIP not loaded, attempting to load...');
-  try {
-    // Load the script dynamically
-    var script = document.createElement('script');
-    script.src = 'https://gate.chip-in.asia/api/v1/checkout.js';
-    script.async = true;
-    document.head.appendChild(script);
-    
-    // Wait for it to load
-    await new Promise(function(resolve, reject) {
-      script.onload = resolve;
-      script.onerror = reject;
-      setTimeout(reject, 5000); // timeout after 5s
+    // Double-check it's loaded
+    if (typeof CHIP === 'undefined' || typeof CHIP.Checkout === 'undefined') {
+      showAlert('Payment Error', 'Payment system is not available. Please refresh the page and try again.');
+      if (bookingContent) bookingContent.style.display = 'block';
+      if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
+      return;
+    }
+
+    // Clear loading message and open checkout
+    if (chipContainer) chipContainer.innerHTML = '';
+    console.log('🚀 Opening CHIP checkout with purchase_id:', payment.purchase_id);
+
+    CHIP.Checkout.open({
+      purchase_id: payment.purchase_id,
+      container: chipContainer,
+      onSuccess: function(response) {
+        console.log('✅ Payment success:', response);
+        showThankYouModal(booking.id, booking);
+        setTimeout(function() {
+          document.getElementById('bookingModal').classList.add('hidden');
+          if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
+          if (bookingContent) bookingContent.style.display = 'block';
+        }, 1500);
+      },
+      onCancel: function() {
+        console.log('❌ Payment cancelled');
+        showAlert('Payment Cancelled', 'You cancelled the payment. You can retry later.');
+        if (bookingContent) bookingContent.style.display = 'block';
+        if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
+      },
+      onError: function(error) {
+        console.error('❌ CHIP error:', error);
+        showAlert('Payment Error', 'An error occurred: ' + (error.message || JSON.stringify(error)));
+        if (bookingContent) bookingContent.style.display = 'block';
+        if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
+      }
     });
-    console.log('✅ CHIP script loaded dynamically');
-  } catch (loadError) {
-    console.error('❌ Failed to load CHIP script:', loadError);
-    showAlert('Payment Error', 'Payment system could not be loaded. Please refresh the page and try again.');
+
+  } catch (e) {
+    console.error('🔥 Network error:', e);
+    showAlert('Network Error', 'Could not connect to the server. Please try again.');
+    var bookingContent = document.getElementById('bookingContent');
+    var chipContainer = document.getElementById('chipPaymentContainer');
     if (bookingContent) bookingContent.style.display = 'block';
     if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
-    return;
   }
 }
 
-// Double-check it's loaded
-if (typeof CHIP === 'undefined' || typeof CHIP.Checkout === 'undefined') {
-  showAlert('Payment Error', 'Payment system still not available. Please refresh the page and try again.');
-  if (bookingContent) bookingContent.style.display = 'block';
-  if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
-  return;
-}
-
-CHIP.Checkout.open({
-  purchase_id: payment.purchase_id,
-  container: chipContainer,
-  onSuccess: function(response) {
-    // ...
-  },
-  onCancel: function() {
-    // ...
-  },
-  onError: function(error) {
-    // ...
-  }
-});
     // =============================================================
     // CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION
     // =============================================================
