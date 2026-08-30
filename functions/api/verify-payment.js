@@ -55,14 +55,17 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // 1. Get Chip secret – if missing, return error
+    // ✅ Check if CHIP_SECRET_KEY is available
     const chipSecret = env.CHIP_SECRET_KEY;
     if (!chipSecret) {
+      // Return a user-friendly message but don't crash
       return new Response(JSON.stringify({
-        error: 'CHIP_SECRET_KEY not configured in environment',
-        envKeys: Object.keys(env)  // 👈 Shows what keys are available (safe)
+        success: false,
+        message: 'Payment verification is temporarily unavailable. Please try again later.',
+        retry: true,
+        error: 'CHIP_SECRET_KEY not configured'
       }), {
-        status: 500,
+        status: 200,  // still 200 so the frontend can handle it
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
     }
@@ -74,10 +77,11 @@ export async function onRequestPost({ request, env }) {
       resp = await fetch(chipApi, { headers: { 'Authorization': 'Bearer ' + chipSecret } });
     } catch (fetchErr) {
       return new Response(JSON.stringify({
-        error: 'Chip API fetch failed: ' + fetchErr.message,
-        stack: fetchErr.stack
+        success: false,
+        message: 'Payment gateway is currently unreachable. Please try again.',
+        retry: true
       }), {
-        status: 502,
+        status: 200,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
     }
@@ -88,22 +92,22 @@ export async function onRequestPost({ request, env }) {
       purchase = await resp.json();
     } catch (parseErr) {
       return new Response(JSON.stringify({
-        error: 'Invalid Chip response: ' + parseErr.message,
-        statusCode: resp.status,
-        statusText: resp.statusText
+        success: false,
+        message: 'Invalid response from payment gateway. Please try again.',
+        retry: true
       }), {
-        status: 502,
+        status: 200,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
     }
 
     if (!resp.ok) {
       return new Response(JSON.stringify({
-        error: 'Chip API error',
-        statusCode: resp.status,
-        chipResponse: purchase
+        success: false,
+        message: 'Payment gateway error. Please try again later.',
+        retry: true
       }), {
-        status: 502,
+        status: 200,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
     }
@@ -132,7 +136,6 @@ export async function onRequestPost({ request, env }) {
         booking,
         paid: false,
         paymentStatus: purchase.status || 'pending',
-        chipResponse: purchase,
         retry: true
       }), {
         status: 200,
@@ -143,10 +146,11 @@ export async function onRequestPost({ request, env }) {
   } catch (e) {
     console.error('❌ verify-payment fatal error:', e.message, e.stack);
     return new Response(JSON.stringify({
-      error: 'Internal error: ' + e.message,
-      stack: e.stack
+      success: false,
+      message: 'Internal error. Please try again.',
+      retry: true
     }), {
-      status: 500,
+      status: 200,  // 200 to avoid frontend crash
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
     });
   }
