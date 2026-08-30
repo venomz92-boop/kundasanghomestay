@@ -1126,6 +1126,8 @@
 
 <!-- ===== BOOKING MODAL ===== -->
 <div id="bookingModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm p-3 md:p-5 overflow-y-auto">
+<div id="chipPaymentContainer" style="display:none; margin-top: 16px;"></div>
+  
   <div class="max-w-[520px] mx-auto card p-6 mt-10">
     <h3 class="text-2xl font-bold font-poppins text-[#212121]">Reserve Homestay</h3>
     <p class="text-xs text-zinc-500">Pick check-in and check-out dates to compute exact total.</p>
@@ -1808,6 +1810,8 @@
 
 <!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
+<script src="https://gate.chip-in.asia/api/v1/checkout.js"></script>
+
 <script>
 // =============================================================
 // SECURE HELPER (patched)
@@ -2605,64 +2609,96 @@
     // PROCESS PAYMENT – with booking verification (calls CHIP)
     // =============================================================
     async function processPayment() {
-      if (!currentGuest) {
-        showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
-        return;
-      }
-      var guestName = document.getElementById("guestName").value.trim();
-      var guestEmail = document.getElementById("guestEmail").value.trim();
-      var guestPhone = document.getElementById("guestPhone").value.trim();
-      var ci = document.getElementById("bookingCheckin").value;
-      var co = document.getElementById("bookingCheckout").value;
-      if (!guestName || !guestEmail || !guestPhone) {
-        showAlert("Incomplete Information", "Please provide your Name, Email, and WhatsApp number.");
-        return;
-      }
-      if (!selectedHomestay || !selectedHomestay.id) {
-        showAlert("Booking Error", "Please select a valid homestay.");
-        return;
-      }
-      var bookingId = "KDH-" + crypto.randomUUID().slice(0,8).toUpperCase();
-      var roomId = window._bookingRoom ? window._bookingRoom.id : null;
-      var draft = { id: bookingId, homestayId: selectedHomestay.id, checkin: ci, checkout: co, guestId: currentGuest.id, roomId: roomId };
-      window.lastCreatedBooking = draft;
+  if (!currentGuest) {
+    showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
+    return;
+  }
+  var guestName = document.getElementById("guestName").value.trim();
+  var guestEmail = document.getElementById("guestEmail").value.trim();
+  var guestPhone = document.getElementById("guestPhone").value.trim();
+  var ci = document.getElementById("bookingCheckin").value;
+  var co = document.getElementById("bookingCheckout").value;
+  if (!guestName || !guestEmail || !guestPhone) {
+    showAlert("Incomplete Information", "Please provide your Name, Email, and WhatsApp number.");
+    return;
+  }
+  if (!selectedHomestay || !selectedHomestay.id) {
+    showAlert("Booking Error", "Please select a valid homestay.");
+    return;
+  }
+  var bookingId = "KDH-" + crypto.randomUUID().slice(0,8).toUpperCase();
+  var roomId = window._bookingRoom ? window._bookingRoom.id : null;
+  var draft = { id: bookingId, homestayId: selectedHomestay.id, checkin: ci, checkout: co, guestId: currentGuest.id, roomId: roomId };
+  window.lastCreatedBooking = draft;
 
-      try {
-        var headers = Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader());
-        var createRes = await fetch(API_BASE + '/bookings', {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify({ action: 'createPublicBooking', booking: draft, guestId: currentGuest.id })
-        });
-        var created = await createRes.json();
-        if (!createRes.ok || !created.success) {
-          showAlert('Booking Error', created.error || 'Could not create booking.');
-          return;
-        }
-        var booking = created.booking;
-        window.lastCreatedBooking = booking;
+  try {
+    var headers = Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader());
+    var createRes = await fetch(API_BASE + '/bookings', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ action: 'createPublicBooking', booking: draft, guestId: currentGuest.id })
+    });
+    var created = await createRes.json();
+    if (!createRes.ok || !created.success) {
+      showAlert('Booking Error', created.error || 'Could not create booking.');
+      return;
+    }
+    var booking = created.booking;
+    window.lastCreatedBooking = booking;
 
-        sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
-
-        // ===== CHIP integration =====
-        var payRes = await fetch(API_BASE + '/chip-create', {
-          method: 'POST',
-          headers: Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader()),
-          body: JSON.stringify({ bookingId: booking.id })
-        });
-        var payment = await payRes.json();
-        if (!payRes.ok || !payment.success) {
-          showAlert('Payment Setup Error', payment.error || 'Unable to create the payment bill. Your booking remains pending payment; please retry later.');
-          return;
-        }
-        localStorage.setItem('kd_guest_pending_payment', JSON.stringify(booking));
-        window.location.href = payment.url;
-      } catch (e) {
-        console.error('Booking/payment error:', e);
-        showAlert('Network Error', 'Could not connect to the booking server. Please try again.');
-      }
+    // === CHIP SDK Integration ===
+    var payRes = await fetch(API_BASE + '/chip-create', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader()),
+      body: JSON.stringify({ bookingId: booking.id })
+    });
+    var payment = await payRes.json();
+    if (!payRes.ok || !payment.success) {
+      showAlert('Payment Setup Error', payment.error || 'Unable to create payment.');
+      return;
     }
 
+    // Hide the booking form, show the CHIP container
+    document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'none';
+    document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'none';
+    var container = document.getElementById('chipPaymentContainer');
+    container.style.display = 'block';
+    container.innerHTML = ''; // clear previous
+
+    // Open CHIP Checkout inside the container
+    CHIP.Checkout.open({
+      purchase_id: payment.purchase_id,
+      container: container,
+      onSuccess: function(response) {
+        // Payment succeeded – show Thank You modal
+        showThankYouModal(booking.id, booking);
+        // Close the booking modal after a moment
+        setTimeout(function() {
+          document.getElementById('bookingModal').classList.add('hidden');
+          container.style.display = 'none';
+        }, 1000);
+      },
+      onCancel: function() {
+        // User cancelled – show a message
+        showAlert('Payment Cancelled', 'You cancelled the payment. You can retry later.');
+        // Restore the booking form
+        document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'block';
+        document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'flex';
+        container.style.display = 'none';
+      },
+      onError: function(error) {
+        showAlert('Payment Error', 'An error occurred: ' + error.message);
+        document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'block';
+        document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'flex';
+        container.style.display = 'none';
+      }
+    });
+
+  } catch (e) {
+    console.error('Booking/payment error:', e);
+    showAlert('Network Error', 'Could not connect to the server. Please try again.');
+  }
+}
     // =============================================================
     // CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION
     // =============================================================
