@@ -1,49 +1,63 @@
-// /api/payout.js - with retry logic, and dual auth (admin + owner)
+// /api/payout.js – CHIP Send version (admin + owner)
 import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, getOwnerSession, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
 
-// ===== New auth helper for payouts (accepts both admin and owner) =====
+// ===== HMAC SHA512 helper for CHIP Send =====
+async function hmacSha512(message, secret) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-512' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ===== Map bank name to CHIP bank_code =====
+function getChipBankCode(bankName) {
+  const map = {
+    'MAYBANK': 'MBBEMYKL',
+    'CIMB': 'CIMBMYKL',
+    'PUBLIC BANK': 'PBBEMYKL',
+    'RHB': 'RHBMYKL',
+    'HONG LEONG': 'HLBBMYKL',
+    'BANK ISLAM': 'BIMBMYKL',
+    'BANK RAKYAT': 'BKRMMYKL',
+    'BSN': 'BSNMYLKL',
+    'HSBC': 'HSBCMYKL',
+    'STANDARD CHARTERED': 'SCBLMYKL'
+  };
+  const clean = (bankName || '').toUpperCase().trim();
+  for (const [key, code] of Object.entries(map)) {
+    if (clean.includes(key) || key.includes(clean)) return code;
+  }
+  return 'MBBEMYKL'; // default
+}
+
+// ===== Auth: admin or owner =====
 async function verifyPayoutAuth(request, env, bookingId) {
-  // 1. Check admin token
+  // Admin
   const adminToken = await getAdminToken(request);
   if (adminToken && adminToken === env.ADMIN_TOKEN) {
     return { authorized: true, role: 'admin' };
   }
-
-  // 2. Check owner token
+  // Owner
   const ownerData = await getOwnerSession(request, env);
   if (ownerData && ownerData.type === 'owner') {
-    // Verify the booking belongs to this owner
     const db = env.DB;
-    const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
     let bookings = [];
-    if (r?.data) try { bookings = JSON.parse(r.data); } catch(e) {}
+    try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
     const booking = bookings.find(b => String(b.id) === String(bookingId));
-    if (!booking) {
-      return { authorized: false, error: 'Booking not found' };
-    }
+    if (!booking) return { authorized: false, error: 'Booking not found' };
     const ownerHomestayIds = (ownerData.homestayIds || [ownerData.ownerId]).map(String);
     if (!ownerHomestayIds.includes(String(booking.homestayId))) {
       return { authorized: false, error: 'You do not own this homestay' };
     }
     return { authorized: true, role: 'owner', booking };
   }
-
   return { authorized: false, error: 'Unauthorized' };
-}
-
-// Retry helper with exponential backoff
-async function fetchWithRetry(url, options, maxRetries = 3) {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const res = await fetch(url, options);
-      if (res.ok) return res;
-      if (i < maxRetries - 1) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
-    } catch (e) {
-      if (i === maxRetries - 1) throw e;
-      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
-    }
-  }
-  throw new Error('Max retries exceeded');
 }
 
 export async function onRequestPost({ request, env }) {
@@ -52,266 +66,227 @@ export async function onRequestPost({ request, env }) {
 
   try {
     const body = await parseJSONSafely(request);
-    const { bookingId, amount, fee, ownerBankCode, ownerAcc, ownerName } = body;
+    const { bookingId, amount, fee, ownerBankCode, ownerAcc, ownerName, homestayId } = body;
 
-    if (!bookingId) {
-      return new Response(JSON.stringify({ error: "Missing bookingId" }), { status: 400, headers: corsHeaders(request) });
-    }
+    if (!bookingId) return jsonResponse({ error: 'Missing bookingId' }, 400, request);
 
-    // ---- Auth check with ownership verification ----
+    // Auth
     const auth = await verifyPayoutAuth(request, env, bookingId);
-    if (!auth.authorized) {
-      return new Response(JSON.stringify({ error: auth.error || 'Unauthorized' }), { status: 401, headers: corsHeaders(request) });
-    }
+    if (!auth.authorized) return jsonResponse({ error: auth.error || 'Unauthorized' }, 401, request);
 
     const clientIP = getClientIP(request);
     const db = env.DB;
-    if (!db) {
-      return new Response(JSON.stringify({ error: "Database not configured" }), { status: 500, headers: corsHeaders(request) });
-    }
+    if (!db) return jsonResponse({ error: 'Database not configured' }, 500, request);
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
     const rateOk = await checkRateLimit(db, clientIP, 'payout', 5, 5 * 60);
-    if (!rateOk) {
-      return new Response(JSON.stringify({ error: "Too many payout attempts. Please wait 5 minutes." }), { status: 429, headers: corsHeaders(request) });
-    }
+    if (!rateOk) return jsonResponse({ error: 'Too many attempts. Wait 5 minutes.' }, 429, request);
 
-    if (!amount || isNaN(amount) || Number(amount) <= 0) {
-      return new Response(JSON.stringify({ error: "Invalid amount" }), { status: 400, headers: corsHeaders(request) });
-    }
-
-    if (!ownerName) {
-      return new Response(JSON.stringify({ error: "Missing owner name" }), { status: 400, headers: corsHeaders(request) });
-    }
-
-    // Validate bank account (basic length check)
-    const cleanOwnerAcc = String(ownerAcc || "").replace(/[^0-9]/g, "");
-    if (!cleanOwnerAcc || cleanOwnerAcc.length < 10 || cleanOwnerAcc.length > 15) {
-      return new Response(JSON.stringify({ error: "Invalid owner bank account. Must be at least 10 digits." }), { status: 400, headers: corsHeaders(request) });
-    }
-
+    // Amount and bank validation
     const payoutAmount = Number(amount);
-    const isToyyibLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
-    const isSimulation = env.PAYOUT_SIMULATION === "true";
-
-    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+    if (!payoutAmount || payoutAmount <= 0) return jsonResponse({ error: 'Invalid amount' }, 400, request);
+    const cleanOwnerAcc = String(ownerAcc || '').replace(/[^0-9]/g, '');
+    if (!cleanOwnerAcc || cleanOwnerAcc.length < 10) {
+      return jsonResponse({ error: 'Invalid bank account (must be at least 10 digits)' }, 400, request);
+    }
+    if (!ownerName) return jsonResponse({ error: 'Missing owner name' }, 400, request);
 
     // Duplicate check
-    try {
-      const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
-      let bookings = res ? JSON.parse(res.data) : [];
-      const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-      if (idx !== -1 && bookings[idx].payoutDate) {
-        return new Response(JSON.stringify({
-          success: true,
-          warning: true,
-          message: `Booking ${bookingId} already paid out on ${bookings[idx].payoutDate}`,
-          alreadyPaid: true,
-          payoutAmount: bookings[idx].payoutAmount,
-          payoutDate: bookings[idx].payoutDate
-        }), { headers: corsHeaders(request) });
-      }
-    } catch (e) {
-      console.error("Failed to check duplicate payout:", e.message);
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+    let bookings = [];
+    try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+    const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
+    if (idx !== -1 && bookings[idx].payoutDate) {
+      return jsonResponse({
+        success: true,
+        warning: true,
+        message: `Booking ${bookingId} already paid on ${bookings[idx].payoutDate}`,
+        alreadyPaid: true
+      }, 200, request);
     }
 
     await recordRateLimit(db, clientIP, 'payout');
 
-    // ---- Simulation ----
-    if (isSimulation) {
-      console.log(`🔵 SIMULATION: Payout for booking ${bookingId} (RM${payoutAmount}) to ${ownerName} (${cleanOwnerAcc})`);
-      try {
-        const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
-        let bookings = res ? JSON.parse(res.data) : [];
-        const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-        if (idx !== -1) {
-          bookings[idx].status = "Completed - Owner Paid RM" + payoutAmount + " (SIMULATION)";
-          bookings[idx].payoutDate = new Date().toISOString();
-          bookings[idx].payoutAmount = Number(payoutAmount);
-          bookings[idx].payoutMethod = "Simulation";
-          bookings[idx].completedDate = new Date().toISOString();
-          bookings[idx].payoutAttempts = (bookings[idx].payoutAttempts || 0) + 1;
-          bookings[idx].payoutIP = clientIP;
-          bookings[idx].simulation = true;
-          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-            .bind("kd_bookings", JSON.stringify(bookings))
-            .run();
-          await logAction({
-            db,
-            action: 'payout_simulation',
-            admin: auth.role === 'admin' ? 'admin' : 'owner',
-            details: `Simulated payout for booking ${bookingId}: RM${payoutAmount}`,
-            ip: clientIP,
-            userId: ownerName
-          });
-        }
-      } catch (e) { console.error("Simulation update failed:", e.message); }
+    // ===== Find homestay for bank details if not provided =====
+    let bankCode = ownerBankCode || 'MBBEMYKL';
+    let accountName = ownerName;
+    let accountNumber = cleanOwnerAcc;
+    let bankAccountId = null;
 
-      return new Response(JSON.stringify({
-        success: true,
-        simulation: true,
-        warning: "⚠️ SIMULATION MODE – no real money was transferred. Set PAYOUT_SIMULATION=false in production.",
-        message: `Simulated payout RM${payoutAmount} to ${ownerName}`,
-        bookingId,
-        amount: payoutAmount
-      }), { headers: corsHeaders(request) });
-    }
-
-    // ---- Live ----
-    if (!isToyyibLive) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: "ToyyibPay payout is not enabled and simulation is off. Set PAYOUT_SIMULATION=true for testing."
-      }), { status: 503, headers: corsHeaders(request) });
-    }
-
-    const formData = new FormData();
-    formData.append("userSecretKey", env.TOYYIBPAY_SECRET_KEY);
-    formData.append("bankCode", ownerBankCode || "MBBEMYKL");
-    formData.append("bankAccountNumber", cleanOwnerAcc);
-    formData.append("accountHolderName", ownerName || "Homestay Owner");
-    formData.append("amount", Math.round(payoutAmount * 100));
-    formData.append("payoutDescription", `KDH ${bookingId} owner payout RM${payoutAmount}`);
-    formData.append("payoutReferenceNo", bookingId);
-
-    const payoutEndpoints = [
-      "https://toyyibpay.com/index.php/api/payout",
-      "https://toyyibpay.com/index.php/api/createPayout",
-      "https://toyyibpay.com/index.php/api/runPayout"
-    ];
-
-    let payoutData = null;
-    let payoutRes = null;
-    let lastError = null;
-
-    for (const endpoint of payoutEndpoints) {
-      try {
-        payoutRes = await fetchWithRetry(endpoint, {
-          method: "POST",
-          body: formData,
-          headers: { 'User-Agent': 'KundasangHomestay/1.0' }
-        }, 2);
-        const text = await payoutRes.text();
-        try { payoutData = JSON.parse(text); } catch { payoutData = { raw: text }; }
-        if (payoutRes.ok && (payoutData.status === "success" || payoutData[0]?.status === "success" || payoutData.payoutCode)) {
-          break;
-        }
-        lastError = payoutData;
-      } catch (e) {
-        lastError = e.message;
-        console.error(`❌ Payout endpoint ${endpoint} failed:`, e.message);
+    if (!homestayId) {
+      // try to fetch from booking's homestay
+      const homestay = await getHomestay(db, bookings[idx]?.homestayId);
+      if (homestay) {
+        bankCode = getChipBankCode(homestay.ownerBank || homestay.ownerBankCode || bankCode);
+        accountName = homestay.bankHolder || homestay.ownerName || ownerName;
+        accountNumber = homestay.ownerBankAccount?.replace(/[^0-9]/g, '') || cleanOwnerAcc;
+        bankAccountId = homestay.chip_bank_account_id || null;
+      }
+    } else {
+      // fetch homestay by id
+      const homestay = await getHomestay(db, homestayId);
+      if (homestay) {
+        bankCode = getChipBankCode(homestay.ownerBank || homestay.ownerBankCode || bankCode);
+        accountName = homestay.bankHolder || homestay.ownerName || ownerName;
+        accountNumber = homestay.ownerBankAccount?.replace(/[^0-9]/g, '') || cleanOwnerAcc;
+        bankAccountId = homestay.chip_bank_account_id || null;
       }
     }
 
-    const isSuccess = payoutRes && payoutRes.ok;
+    // ===== CHIP Send =====
+    const chipSecret = env.CHIP_SECRET_KEY;
+    if (!chipSecret) return jsonResponse({ error: 'CHIP_SECRET_KEY not configured' }, 500, request);
+
+    // Create bank account if not exists
+    if (!bankAccountId) {
+      const createRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${chipSecret}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          bank_code: bankCode,
+          account_number: accountNumber,
+          account_name: accountName
+        })
+      });
+      const bankData = await createRes.json();
+      if (!createRes.ok || !bankData.id) {
+        console.error('CHIP bank account creation failed:', bankData);
+        return jsonResponse({ error: 'Failed to create owner bank account' }, 500, request);
+      }
+      bankAccountId = bankData.id;
+      // Save to homestay for future
+      await saveBankAccountId(db, bookings[idx]?.homestayId, bankAccountId);
+    }
+
+    // Execute payout
+    const amountCents = Math.round(payoutAmount * 100);
+    const reference = `KDH-${bookingId}`;
+    const payoutPayload = {
+      bank_account_id: bankAccountId,
+      amount: amountCents,
+      reference: reference,
+      description: `Owner payout for ${bookingId}`
+    };
+
+    const epoch = Math.floor(Date.now() / 1000);
+    const bodyString = JSON.stringify(payoutPayload);
+    const checksum = await hmacSha512(`${epoch}:${bodyString}`, chipSecret);
+
+    const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${chipSecret}`,
+        'Content-Type': 'application/json',
+        'epoch': String(epoch),
+        'checksum': checksum
+      },
+      body: bodyString
+    });
+
+    const payoutData = await payoutRes.json();
+
+    if (!payoutRes.ok || !payoutData.id) {
+      console.error('CHIP Send failed:', payoutData);
+      return jsonResponse({ error: 'Owner payout failed. Please try again.' }, 502, request);
+    }
 
     // Update booking
-    try {
-      const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
-      let bookings = res ? JSON.parse(res.data) : [];
-      const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-      if (idx !== -1) {
-        if (!bookings[idx].payoutDate) {
-          bookings[idx].status = isSuccess
-            ? "Completed - Owner Paid RM" + payoutAmount + " via ToyyibPay"
-            : "Completed - Owner Paid RM" + payoutAmount + " (Payout API error, check settlement)";
-          bookings[idx].payoutDate = new Date().toISOString();
-          bookings[idx].payoutAmount = Number(payoutAmount);
-          bookings[idx].payoutId = payoutData?.payoutCode || payoutData?.id || payoutData?.[0]?.PayoutCode || "TOYYIBPAY_" + Date.now();
-          bookings[idx].payoutMethod = "ToyyibPay Auto Payout";
-          bookings[idx].payoutResponse = payoutData;
-          bookings[idx].completedDate = new Date().toISOString();
-          bookings[idx].payoutAttempts = (bookings[idx].payoutAttempts || 0) + 1;
-          bookings[idx].payoutIP = clientIP;
-        }
-        await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-          .bind("kd_bookings", JSON.stringify(bookings))
-          .run();
-        await logAction({
-          db,
-          action: 'payout_auto',
-          admin: auth.role === 'admin' ? 'admin' : 'owner',
-          details: `Auto payout for booking ${bookingId}: RM${payoutAmount} to ${ownerName}`,
-          ip: clientIP,
-          userId: ownerName
-        });
-      }
-    } catch (e) {
-      console.error("❌ Failed to update booking status:", e.message);
+    if (idx !== -1) {
+      bookings[idx].status = 'Completed - Payout Success';
+      bookings[idx].chip_payout_id = payoutData.id;
+      bookings[idx].payoutAmount = payoutAmount;
+      bookings[idx].payoutDate = new Date().toISOString();
+      bookings[idx].checkedInAt = new Date().toISOString();
+      bookings[idx].checkedInBy = auth.role === 'admin' ? 'admin' : 'owner';
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings))
+        .run();
     }
 
-    // Record fee earnings (only if admin triggered, or owner check-in)
-    // We'll keep the existing logic – it works.
+    // Record fee earnings (your 11% + gateway)
     try {
-      const feeRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_fee_earnings").first();
+      const feeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_fee_earnings').first();
       let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
-      const alreadyRecorded = feeEarnings.history?.some(h => h.bookingId === bookingId && h.type === "earning");
-      if (!alreadyRecorded) {
-        const netFee = Number(fee || 0) - 1.00;
-        const finalFee = netFee > 0 ? netFee : Number(fee || 0);
-        if (finalFee > 0) {
-          feeEarnings.total = (feeEarnings.total || 0) + finalFee;
-          feeEarnings.available = (feeEarnings.available || 0) + finalFee;
-          feeEarnings.history = feeEarnings.history || [];
+      if (!feeEarnings.history?.some(h => h.bookingId === bookingId)) {
+        const yourFee = (Number(fee) || 0) + 1.00; // gateway fee if you want
+        if (yourFee > 0) {
+          feeEarnings.total += yourFee;
+          feeEarnings.available += yourFee;
           feeEarnings.history.push({
             bookingId,
-            fee: finalFee,
+            fee: yourFee,
             date: new Date().toISOString(),
-            type: "earning",
-            payoutToOwner: Number(payoutAmount),
-            ownerAcc: "****" + cleanOwnerAcc.slice(-4),
-            method: isSuccess ? "toyyibpay_auto" : "manual_fallback",
-            ip: clientIP
+            type: 'earning',
+            payoutToOwner: payoutAmount,
+            method: 'chip_send'
           });
-          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-            .bind("kd_fee_earnings", JSON.stringify(feeEarnings))
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_fee_earnings', JSON.stringify(feeEarnings))
             .run();
         }
       }
-    } catch (e) {
-      console.error("❌ Failed to record fee earnings:", e.message);
-    }
+    } catch (e) { console.warn('Fee recording error:', e.message); }
 
-    if (!isSuccess) {
-      return new Response(JSON.stringify({
-        success: true,
-        warning: true,
-        message: `Booking completed but ToyyibPay Payout API returned error. Funds will still settle via daily auto settlement. Transfer manually to owner for now.`,
-        payoutError: lastError,
-        bookingId,
-        amount: payoutAmount,
-        note: "Contact ToyyibPay to enable Payout: support@toyyibpay.com"
-      }), { headers: corsHeaders(request) });
-    }
+    await logAction({
+      db,
+      action: 'payout_chip_send',
+      admin: auth.role,
+      details: `CHIP payout ${payoutData.id} for ${bookingId}`,
+      ip: clientIP,
+      userId: bookings[idx]?.guestEmail,
+      homestayId: bookings[idx]?.homestayId
+    });
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: true,
-      message: `Auto payout RM${payoutAmount} to ${ownerName} via ToyyibPay`,
-      payout: payoutData,
-      bookingId,
-      flow: "Check-in → Complete → Owner gets Base via ToyyibPay → You keep Fee"
-    }), { headers: corsHeaders(request) });
+      message: `RM${payoutAmount.toFixed(2)} sent to owner via CHIP Send.`,
+      payoutId: payoutData.id,
+      bookingId
+    }, 200, request);
 
   } catch (e) {
-    console.error("❌ Payout request failed:", e.message);
-    return new Response(JSON.stringify({ error: "Payout failed. Please try again later." }), { status: 500, headers: corsHeaders(request) });
+    console.error('Payout error:', e.message);
+    return jsonResponse({ error: 'Payout failed: ' + e.message }, 500, request);
   }
 }
 
-// GET and OPTIONS remain unchanged (they are fine)
+// === Helpers ===
+async function getHomestay(db, homestayId) {
+  if (!homestayId) return null;
+  for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
+    let list = [];
+    try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
+    const found = list.find(h => String(h.id) === String(homestayId));
+    if (found) return found;
+  }
+  return null;
+}
+
+async function saveBankAccountId(db, homestayId, bankAccountId) {
+  if (!homestayId) return;
+  for (const store of ['kd_approved', 'kd_homestays']) {
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
+    let list = [];
+    try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
+    const idx = list.findIndex(h => String(h.id) === String(homestayId));
+    if (idx !== -1) {
+      list[idx].chip_bank_account_id = bankAccountId;
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind(store, JSON.stringify(list))
+        .run();
+      break;
+    }
+  }
+}
+
 export async function onRequestGet({ request, env }) {
-  const redirect = enforceHttps(request);
-  if (redirect) return redirect;
-  
-  const isLive = env.TOYYIBPAY_SECRET_KEY && env.TOYYIBPAY_PAYOUT_ENABLED === "true";
-  const isSimulation = env.PAYOUT_SIMULATION === "true";
   return new Response(JSON.stringify({
-    message: "Payout API ready",
-    toyyibPayPayoutEnabled: isLive,
-    mode: isSimulation ? "SIMULATION" : (isLive ? "AUTO (ToyyibPay)" : "MANUAL (fallback)"),
-    bankCode: env.YOUR_BANK_CODE || "MBBEMYKL",
-    security: "Admin or Owner auth required for POST",
-    simulation: isSimulation,
-    warning: isSimulation ? "⚠️ SIMULATION MODE – no real money will be sent" : undefined
+    message: 'CHIP Send Payout API ready',
+    security: 'Admin or Owner auth required'
   }), { status: 200, headers: corsHeaders(request) });
 }
 
