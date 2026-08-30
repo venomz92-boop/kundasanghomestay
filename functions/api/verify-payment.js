@@ -1,4 +1,4 @@
-// /api/verify-payment.js – CHIP‑aware status checker (with optional ToyyibPay fallback)
+// /api/verify-payment.js – Debug version with detailed error logging
 import { corsHeaders, getGuestSession, jsonResponse } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
@@ -8,44 +8,77 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Missing bookingId' }, 400, request);
     }
 
-    // Authenticate guest
-    const session = await getGuestSession(request, env);
-    if (!session || session.type !== 'guest') {
-      return jsonResponse({ error: 'Unauthorized' }, 401, request);
+    // 1. Auth
+    let session;
+    try {
+      session = await getGuestSession(request, env);
+      if (!session || session.type !== 'guest') {
+        return jsonResponse({ error: 'Unauthorized' }, 401, request);
+      }
+    } catch (authErr) {
+      console.error('Auth error:', authErr.message);
+      return jsonResponse({ error: 'Authentication error: ' + authErr.message }, 500, request);
     }
 
+    // 2. DB
     const db = env.DB;
-    if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
+    if (!db) {
+      console.error('DB not configured');
+      return jsonResponse({ error: 'DB not configured' }, 500, request);
+    }
 
-    // Fetch booking
-    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+    // 3. Fetch booking
     let bookings = [];
-    try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
+    try {
+      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+      if (r?.data) bookings = JSON.parse(r.data);
+    } catch (dbErr) {
+      console.error('DB read error:', dbErr.message);
+      return jsonResponse({ error: 'Database read error: ' + dbErr.message }, 500, request);
+    }
+
     const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
     if (idx === -1) {
       return jsonResponse({ error: 'Booking not found' }, 404, request);
     }
     const booking = bookings[idx];
 
-    // 1. If already paid, return immediately
+    // 4. If already paid
     if (booking.status === 'Paid - Awaiting Check-in' || booking.status === 'Completed') {
       return jsonResponse({ success: true, booking, paid: true }, 200, request);
     }
 
-    // 2. Handle CHIP bookings
+    // 5. CHIP handling
     if (booking.chip_purchase_id) {
+      console.log(`🔍 Checking CHIP purchase: ${booking.chip_purchase_id}`);
       const chipApi = 'https://gate.chip-in.asia/api/v1/purchases/' + booking.chip_purchase_id;
-      const response = await fetch(chipApi, {
-        headers: { 'Authorization': `Bearer ${env.CHIP_SECRET_KEY}` }
-      });
-      const purchase = await response.json();
-
-      if (!response.ok || !purchase.id) {
-        return jsonResponse({ error: 'Could not verify payment with CHIP' }, 502, request);
+      let response;
+      try {
+        response = await fetch(chipApi, {
+          headers: { 'Authorization': `Bearer ${env.CHIP_SECRET_KEY}` }
+        });
+      } catch (fetchErr) {
+        console.error('CHIP fetch error:', fetchErr.message);
+        return jsonResponse({ error: 'Could not reach CHIP: ' + fetchErr.message }, 502, request);
       }
 
-      // Purchase status: 'completed' or 'paid' means success
+      let purchase;
+      try {
+        purchase = await response.json();
+      } catch (parseErr) {
+        console.error('CHIP response parse error:', parseErr.message);
+        return jsonResponse({ error: 'Invalid CHIP response' }, 502, request);
+      }
+
+      if (!response.ok || !purchase.id) {
+        console.error('CHIP error response:', purchase);
+        return jsonResponse({ error: 'CHIP API error: ' + (purchase.message || 'unknown') }, 502, request);
+      }
+
+      console.log(`CHIP purchase status: ${purchase.status}`);
+
       if (purchase.status === 'completed' || purchase.status === 'paid') {
+        // Update booking
         if (!booking.checkinCode) {
           booking.checkinCode = Math.floor(100000 + Math.random() * 900000).toString();
         }
@@ -55,9 +88,14 @@ export async function onRequestPost({ request, env }) {
           paid_at: new Date().toISOString(),
           chip_status: 'paid'
         };
-        await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-          .bind('kd_bookings', JSON.stringify(bookings))
-          .run();
+        try {
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+        } catch (saveErr) {
+          console.error('DB save error:', saveErr.message);
+          return jsonResponse({ error: 'Failed to update booking: ' + saveErr.message }, 500, request);
+        }
 
         return jsonResponse({ success: true, booking: bookings[idx], paid: true }, 200, request);
       } else {
@@ -71,12 +109,13 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // 3. Legacy: ToyyibPay fallback (for old bookings)
+    // 6. Legacy ToyyibPay fallback
     if (booking.toyyibpay_billcode) {
+      console.log(`🔄 Fallback to ToyyibPay for booking ${booking.id}`);
       return handleToyyibPay(booking, env, db, bookings, idx, request);
     }
 
-    // 4. No payment provider found
+    // 7. No payment provider
     return jsonResponse({
       success: false,
       message: 'No payment record found for this booking.',
@@ -85,19 +124,19 @@ export async function onRequestPost({ request, env }) {
     }, 200, request);
 
   } catch (e) {
-    console.error('❌ verify-payment error:', e.message);
-    return jsonResponse({ error: 'Internal error' }, 500, request);
+    console.error('❌ verify-payment fatal error:', e.message, e.stack);
+    return jsonResponse({ error: 'Internal server error: ' + e.message }, 500, request);
   }
 }
 
-// === Legacy ToyyibPay handler (keep for old bookings) ===
+// === Legacy ToyyibPay handler ===
 async function handleToyyibPay(booking, env, db, bookings, idx, request) {
   const secret = env.TOYYIBPAY_SECRET_KEY;
   if (!secret) {
     return jsonResponse({ error: 'ToyyibPay secret missing' }, 500, request);
   }
 
-  // Simulation check
+  // Simulation
   if (booking.toyyibpay_billcode.startsWith('SIM-')) {
     bookings[idx].status = 'Paid - Awaiting Check-in';
     bookings[idx].paid_at = new Date().toISOString();
