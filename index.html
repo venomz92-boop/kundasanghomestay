@@ -17,6 +17,7 @@
   <meta property="og:title" content="Kundasang Homestay - Verified Mountain Stays" />
   <meta property="og:description" content="Verified Kundasang homestays with breathtaking Kinabalu views. Secure booking with instant WhatsApp confirmation." />
   <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" />
+  <button id="themeBtn">🔅</button>
 
   <!-- JSON-LD -->
   <script type="application/ld+json">
@@ -34,6 +35,23 @@
     },
     "priceRange": "RM 150 - RM 600"
   }
+
+    document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('themeBtn');
+  if (!btn) return;
+
+  // Set initial state
+  const isDark = localStorage.theme === 'dark';
+  document.body.classList.toggle('dark', isDark);
+  btn.textContent = isDark ? '🔆' : '🔅';
+
+  btn.onclick = function() {
+    const dark = document.body.classList.toggle('dark');
+    localStorage.theme = dark ? 'dark' : 'light';
+    btn.textContent = dark ? '🔆' : '🔅';
+  };
+});
+    
   </script>
 
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
