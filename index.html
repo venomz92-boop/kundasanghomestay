@@ -2786,11 +2786,11 @@ try {
 
         sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
 
-        var payRes = await fetch(API_BASE + '/toyyibpay-create', {
+        var payRes = await fetch(API_BASE + '/chip-create', {
           method: 'POST',
           headers: Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader()),
           body: JSON.stringify({ bookingId: booking.id })
-        });
+      });
         var payment = await payRes.json();
         if (!payRes.ok || !payment.success) {
           showAlert('Payment Setup Error', payment.error || 'Unable to create the payment bill. Your booking remains pending payment; please retry later.');
