@@ -6,13 +6,11 @@ export async function onRequestPost({ request, env }) {
   if (redirect) return redirect;
 
   try {
-    // 1. Auth
     const session = await getGuestSession(request, env);
     if (!session || session.type !== 'guest') {
       return jsonResponse({ error: 'Authentication required' }, 401, request);
     }
 
-    // 2. CSRF
     const csrf = getCSRFToken(request);
     if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) {
       return jsonResponse({ error: 'Invalid security token' }, 403, request);
@@ -25,7 +23,6 @@ export async function onRequestPost({ request, env }) {
     if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // 3. Fetch booking
     const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
     let bookings = [];
     try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
@@ -37,7 +34,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: `Booking is not awaiting payment (status: ${booking.status})` }, 409, request);
     }
 
-    // 4. CHIP Collect API call
     const CHIP_API = 'https://gate.chip-in.asia/api/v1/purchases/';
     const amountCents = Math.round(Number(booking.total) * 100);
     const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
@@ -57,15 +53,12 @@ export async function onRequestPost({ request, env }) {
         ]
       },
       brand_id: env.CHIP_BRAND_ID,
-      skip_thank_you: true,   // ✅ Correct boolean
-      platform: 'web',        // ✅ Helps with redirect
+      skip_thank_you: true,   // ✅ Enable auto-redirect in live
+      platform: 'web',
       success_url: `${domain}/?booking=${encodeURIComponent(booking.id)}&payment_return=1`,
       cancel_url: `${domain}/?booking=${encodeURIComponent(booking.id)}&payment=cancel`,
       webhook: `${domain}/api/chip-webhook`
     };
-
-    // Optional: log payload to see what is being sent
-    console.log('📤 CHIP payload:', JSON.stringify(payload, null, 2));
 
     const response = await fetch(CHIP_API, {
       method: 'POST',
@@ -79,11 +72,10 @@ export async function onRequestPost({ request, env }) {
     const data = await response.json();
 
     if (!response.ok || !data.id) {
-      console.error('❌ CHIP create purchase error:', data);
+      console.error('CHIP create purchase error:', data);
       return jsonResponse({ error: 'Payment gateway error. Please try again.' }, 502, request);
     }
 
-    // 5. Update booking with purchase_id
     bookings[idx] = {
       ...booking,
       chip_purchase_id: data.id,
@@ -104,7 +96,6 @@ export async function onRequestPost({ request, env }) {
       homestayId: booking.homestayId
     });
 
-    // 6. Return checkout URL
     return jsonResponse({
       success: true,
       url: data.checkout_url,
@@ -114,7 +105,7 @@ export async function onRequestPost({ request, env }) {
     }, 200, request);
 
   } catch (error) {
-    console.error('❌ CHIP create error:', error.message, error.stack);
+    console.error('CHIP create error:', error.message, error.stack);
     return jsonResponse({ error: 'Payment setup failed.' }, 500, request);
   }
 }
