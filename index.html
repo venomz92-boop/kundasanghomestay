@@ -2623,6 +2623,7 @@ async function processPayment() {
 
     sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
 
+    // ✅ CHANGED: use /api/chip-create instead of /api/toyyibpay-create
     var payRes = await fetch(API_BASE + '/chip-create', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader()),
