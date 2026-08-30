@@ -1296,12 +1296,14 @@
       if (bookingsView) bookingsView.classList.add('hidden');
     }
 
+    // If returning from payment, force check the booking
     const urlParams = new URLSearchParams(window.location.search);
     const bookingParam = urlParams.get('booking');
     const paymentReturn = urlParams.get('payment_return');
     if (bookingParam && paymentReturn === '1' && currentGuest && currentGuest.id) {
+      // Wait for bookings to load then check this specific booking
       setTimeout(function() {
-        loadMyBookings();
+        manualCheckPayment(bookingParam);
       }, 3000);
     }
   })();
