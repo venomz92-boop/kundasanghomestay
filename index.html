@@ -2686,53 +2686,56 @@
     }
 
     // Open CHIP Checkout
-    if (chipContainer) chipContainer.innerHTML = ''; // clear loading
-    console.log('🚀 Opening CHIP checkout...');
+if (chipContainer) chipContainer.innerHTML = ''; // clear loading
+console.log('🚀 Opening CHIP checkout...');
 
-    // Ensure CHIP is loaded
-    if (typeof CHIP === 'undefined' || typeof CHIP.Checkout === 'undefined') {
-      showAlert('Payment Error', 'Payment system not loaded. Please refresh the page and try again.');
-      if (bookingContent) bookingContent.style.display = 'block';
-      if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
-      return;
-    }
-
-    CHIP.Checkout.open({
-      purchase_id: payment.purchase_id,
-      container: chipContainer,
-      onSuccess: function(response) {
-        console.log('✅ Payment success:', response);
-        showThankYouModal(booking.id, booking);
-        setTimeout(function() {
-          document.getElementById('bookingModal').classList.add('hidden');
-          if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
-          if (bookingContent) bookingContent.style.display = 'block';
-        }, 1500);
-      },
-      onCancel: function() {
-        console.log('❌ Payment cancelled');
-        showAlert('Payment Cancelled', 'You cancelled the payment. You can retry later.');
-        if (bookingContent) bookingContent.style.display = 'block';
-        if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
-      },
-      onError: function(error) {
-        console.error('❌ CHIP error:', error);
-        showAlert('Payment Error', 'An error occurred: ' + (error.message || JSON.stringify(error)));
-        if (bookingContent) bookingContent.style.display = 'block';
-        if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
-      }
+// Ensure CHIP is loaded, if not try to load it
+if (typeof CHIP === 'undefined' || typeof CHIP.Checkout === 'undefined') {
+  console.log('⏳ CHIP not loaded, attempting to load...');
+  try {
+    // Load the script dynamically
+    var script = document.createElement('script');
+    script.src = 'https://gate.chip-in.asia/api/v1/checkout.js';
+    script.async = true;
+    document.head.appendChild(script);
+    
+    // Wait for it to load
+    await new Promise(function(resolve, reject) {
+      script.onload = resolve;
+      script.onerror = reject;
+      setTimeout(reject, 5000); // timeout after 5s
     });
-
-  } catch (e) {
-    console.error('🔥 Network error:', e);
-    showAlert('Network Error', 'Could not connect to the server. Please try again.');
-    // Restore form
-    var bookingContent = document.getElementById('bookingContent');
-    var chipContainer = document.getElementById('chipPaymentContainer');
+    console.log('✅ CHIP script loaded dynamically');
+  } catch (loadError) {
+    console.error('❌ Failed to load CHIP script:', loadError);
+    showAlert('Payment Error', 'Payment system could not be loaded. Please refresh the page and try again.');
     if (bookingContent) bookingContent.style.display = 'block';
     if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
+    return;
   }
 }
+
+// Double-check it's loaded
+if (typeof CHIP === 'undefined' || typeof CHIP.Checkout === 'undefined') {
+  showAlert('Payment Error', 'Payment system still not available. Please refresh the page and try again.');
+  if (bookingContent) bookingContent.style.display = 'block';
+  if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
+  return;
+}
+
+CHIP.Checkout.open({
+  purchase_id: payment.purchase_id,
+  container: chipContainer,
+  onSuccess: function(response) {
+    // ...
+  },
+  onCancel: function() {
+    // ...
+  },
+  onError: function(error) {
+    // ...
+  }
+});
     // =============================================================
     // CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION
     // =============================================================
