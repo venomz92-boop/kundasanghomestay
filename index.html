@@ -2632,6 +2632,7 @@
   window.lastCreatedBooking = draft;
 
   try {
+    console.log('📦 Creating booking...');
     var headers = Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader());
     var createRes = await fetch(API_BASE + '/bookings', {
       method: 'POST',
@@ -2645,49 +2646,67 @@
     }
     var booking = created.booking;
     window.lastCreatedBooking = booking;
+    console.log('✅ Booking created:', booking.id);
 
-    // === CHIP SDK Integration ===
+    // Show loading
+    document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'none';
+    document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'none';
+    var container = document.getElementById('chipPaymentContainer');
+    container.style.display = 'block';
+    container.innerHTML = '<div class="text-center p-4">⏳ Loading payment...</div>';
+
+    console.log('🔗 Creating CHIP purchase...');
     var payRes = await fetch(API_BASE + '/chip-create', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader()),
       body: JSON.stringify({ bookingId: booking.id })
     });
+    console.log('📡 Response status:', payRes.status);
+    if (!payRes.ok) {
+      const text = await payRes.text();
+      console.error('❌ Error response:', text);
+      showAlert('Payment Setup Error', `Server error (${payRes.status}): ${text}`);
+      // Restore form
+      document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'block';
+      document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'flex';
+      container.style.display = 'none';
+      return;
+    }
     var payment = await payRes.json();
-    if (!payRes.ok || !payment.success) {
+    console.log('✅ CHIP purchase created:', payment);
+    if (!payment.success) {
       showAlert('Payment Setup Error', payment.error || 'Unable to create payment.');
+      // Restore form
+      document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'block';
+      document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'flex';
+      container.style.display = 'none';
       return;
     }
 
-    // Hide the booking form, show the CHIP container
-    document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'none';
-    document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'none';
-    var container = document.getElementById('chipPaymentContainer');
-    container.style.display = 'block';
-    container.innerHTML = ''; // clear previous
-
-    // Open CHIP Checkout inside the container
+    // Open CHIP Checkout
+    container.innerHTML = ''; // clear loading
+    console.log('🚀 Opening CHIP checkout...');
     CHIP.Checkout.open({
       purchase_id: payment.purchase_id,
       container: container,
       onSuccess: function(response) {
-        // Payment succeeded – show Thank You modal
+        console.log('✅ Payment success:', response);
         showThankYouModal(booking.id, booking);
-        // Close the booking modal after a moment
         setTimeout(function() {
           document.getElementById('bookingModal').classList.add('hidden');
           container.style.display = 'none';
         }, 1000);
       },
       onCancel: function() {
-        // User cancelled – show a message
+        console.log('❌ Payment cancelled');
         showAlert('Payment Cancelled', 'You cancelled the payment. You can retry later.');
-        // Restore the booking form
         document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'block';
         document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'flex';
         container.style.display = 'none';
       },
       onError: function(error) {
-        showAlert('Payment Error', 'An error occurred: ' + error.message);
+        console.error('❌ CHIP error:', error);
+        showAlert('Payment Error', 'An error occurred: ' + (error.message || JSON.stringify(error)));
         document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'block';
         document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'flex';
         container.style.display = 'none';
@@ -2695,8 +2714,16 @@
     });
 
   } catch (e) {
-    console.error('Booking/payment error:', e);
+    console.error('🔥 Network error:', e);
     showAlert('Network Error', 'Could not connect to the server. Please try again.');
+    // Restore form
+    document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'block';
+    document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'flex';
+    var container = document.getElementById('chipPaymentContainer');
+    if (container) {
+      container.style.display = 'none';
+      container.innerHTML = '';
+    }
   }
 }
     // =============================================================
