@@ -1,7 +1,6 @@
-// /api/payout.js – CHIP Send version with fixed checksum (HMAC-SHA512(epoch + api_key))
+// /api/payout.js – CHIP Send with correct HMAC-SHA512(epoch + api_key)
 import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, getOwnerSession, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
 
-// ===== HMAC SHA512 helper =====
 async function hmacSha512(message, secret) {
   const key = await crypto.subtle.importKey(
     'raw',
@@ -14,7 +13,6 @@ async function hmacSha512(message, secret) {
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ===== Map bank name to CHIP bank_code =====
 function getChipBankCode(bankName) {
   const map = {
     'MAYBANK': 'MBBEMYKL',
@@ -35,12 +33,9 @@ function getChipBankCode(bankName) {
   return 'MBBEMYKL';
 }
 
-// ===== Auth: admin or owner =====
 async function verifyPayoutAuth(request, env, bookingId) {
   const adminToken = await getAdminToken(request);
-  if (adminToken && adminToken === env.ADMIN_TOKEN) {
-    return { authorized: true, role: 'admin' };
-  }
+  if (adminToken && adminToken === env.ADMIN_TOKEN) return { authorized: true, role: 'admin' };
   const ownerData = await getOwnerSession(request, env);
   if (ownerData && ownerData.type === 'owner') {
     const db = env.DB;
@@ -58,7 +53,6 @@ async function verifyPayoutAuth(request, env, bookingId) {
   return { authorized: false, error: 'Unauthorized' };
 }
 
-// ===== Helpers =====
 async function getHomestay(db, homestayId) {
   if (!homestayId) return null;
   for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
@@ -98,7 +92,6 @@ export async function onRequestPost({ request, env }) {
 
     if (!bookingId) return jsonResponse({ error: 'Missing bookingId' }, 400, request);
 
-    // Auth
     const auth = await verifyPayoutAuth(request, env, bookingId);
     if (!auth.authorized) return jsonResponse({ error: auth.error || 'Unauthorized' }, 401, request);
 
@@ -110,7 +103,6 @@ export async function onRequestPost({ request, env }) {
     const rateOk = await checkRateLimit(db, clientIP, 'payout', 5, 5 * 60);
     if (!rateOk) return jsonResponse({ error: 'Too many attempts. Wait 5 minutes.' }, 429, request);
 
-    // Amount and bank validation
     const payoutAmount = Number(amount);
     if (!payoutAmount || payoutAmount <= 0) return jsonResponse({ error: 'Invalid amount' }, 400, request);
     const cleanOwnerAcc = String(ownerAcc || '').replace(/[^0-9]/g, '');
@@ -119,7 +111,6 @@ export async function onRequestPost({ request, env }) {
     }
     if (!ownerName) return jsonResponse({ error: 'Missing owner name' }, 400, request);
 
-    // Duplicate check
     const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
     let bookings = [];
     try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
@@ -135,12 +126,10 @@ export async function onRequestPost({ request, env }) {
 
     await recordRateLimit(db, clientIP, 'payout');
 
-    // ===== Find homestay for bank details =====
     let bankCode = ownerBankCode || 'MBBEMYKL';
     let accountName = ownerName;
     let accountNumber = cleanOwnerAcc;
     let bankAccountId = null;
-
     let booking = null;
     if (idx !== -1) booking = bookings[idx];
 
@@ -162,12 +151,10 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // ===== CHIP Send =====
-    const apiKey = env.CHIP_API_KEY;       // ✅ CHIP Send API Key
-    const apiSecret = env.CHIP_SECRET_KEY; // ✅ CHIP Send API Secret
-
+    const apiKey = env.CHIP_API_KEY;
+    const apiSecret = env.CHIP_SECRET_KEY; // Reuse the same secret for Send
     if (!apiKey) return jsonResponse({ error: 'CHIP_API_KEY not configured' }, 500, request);
-    if (!apiSecret) return jsonResponse({ error: 'CHIP_SECRET_KEY (Send Secret) not configured' }, 500, request);
+    if (!apiSecret) return jsonResponse({ error: 'CHIP_SECRET_KEY not configured for Send' }, 500, request);
 
     // Create bank account if not exists
     if (!bankAccountId) {
@@ -202,10 +189,9 @@ export async function onRequestPost({ request, env }) {
       description: `Owner payout for ${bookingId}`
     };
 
-    // ===== FIXED: checksum = HMAC-SHA512(epoch + api_key) =====
     const epoch = Math.floor(Date.now() / 1000);
     const bodyString = JSON.stringify(payoutPayload);
-    const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret); // ✅ Correct
+    const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
 
     const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
       method: 'POST',
@@ -286,10 +272,7 @@ export async function onRequestPost({ request, env }) {
 }
 
 export async function onRequestGet({ request, env }) {
-  return new Response(JSON.stringify({
-    message: 'CHIP Send Payout API ready',
-    security: 'Admin or Owner auth required'
-  }), { status: 200, headers: corsHeaders(request) });
+  return new Response(JSON.stringify({ message: 'CHIP Send Payout API ready' }), { status: 200, headers: corsHeaders(request) });
 }
 
 export async function onRequestOptions({ request }) {
