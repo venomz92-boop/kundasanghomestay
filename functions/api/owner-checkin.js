@@ -1,7 +1,7 @@
-// /api/owner-checkin.js – CHIP Send version (owner only)
+// /api/owner-checkin.js – CHIP Send version with fixed checksum (HMAC-SHA512(epoch + api_key))
 import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
 
-// ===== HMAC SHA512 helper (same as in payout.js) =====
+// ===== HMAC SHA512 helper =====
 async function hmacSha512(message, secret) {
   const key = await crypto.subtle.importKey(
     'raw',
@@ -130,8 +130,11 @@ export async function onRequestPost({ request, env }) {
     }
 
     // 7. Prepare CHIP Send payout
-    const chipSecret = env.CHIP_SECRET_KEY;
-    if (!chipSecret) return jsonResponse({ error: 'CHIP_SECRET_KEY not configured' }, 500, request);
+    const apiKey = env.CHIP_API_KEY;       // ✅ CHIP Send API Key
+    const apiSecret = env.CHIP_SECRET_KEY; // ✅ CHIP Send API Secret
+
+    if (!apiKey) return jsonResponse({ error: 'CHIP_API_KEY not configured' }, 500, request);
+    if (!apiSecret) return jsonResponse({ error: 'CHIP_SECRET_KEY (Send Secret) not configured' }, 500, request);
 
     let bankCode = getChipBankCode(homestay.ownerBank || homestay.ownerBankCode || 'MAYBANK');
     let accountNumber = (homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
@@ -147,7 +150,7 @@ export async function onRequestPost({ request, env }) {
       const createRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${chipSecret}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -162,7 +165,6 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Failed to create owner bank account. Contact support.' }, 500, request);
       }
       bankAccountId = bankData.id;
-      // Save for future use
       await saveBankAccountId(db, booking.homestayId, bankAccountId);
     }
 
@@ -176,14 +178,15 @@ export async function onRequestPost({ request, env }) {
       description: `Owner payout for ${bookingId}`
     };
 
+    // ===== FIXED: checksum = HMAC-SHA512(epoch + api_key) =====
     const epoch = Math.floor(Date.now() / 1000);
     const bodyString = JSON.stringify(payoutPayload);
-    const checksum = await hmacSha512(`${epoch}${env.CHIP_API_KEY}`, chipSecret);
+    const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret); // ✅ Correct
 
     const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${chipSecret}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'epoch': String(epoch),
         'checksum': checksum
@@ -207,7 +210,7 @@ export async function onRequestPost({ request, env }) {
       bookings[idx].payoutDate = new Date().toISOString();
       bookings[idx].checkedInAt = new Date().toISOString();
       bookings[idx].checkedInBy = 'owner';
-      bookings[idx].homestaySource = homestaySource || 'kd_approved';
+      bookings[idx].homestaySource = 'kd_approved';
       await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
         .bind('kd_bookings', JSON.stringify(bookings))
         .run();
