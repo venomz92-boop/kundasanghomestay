@@ -1,7 +1,6 @@
-// /api/owner-checkin.js – CHIP Send version with fixed checksum (HMAC-SHA512(epoch + api_key))
+// /api/owner-checkin.js – CHIP Send with correct HMAC-SHA512(epoch + api_key)
 import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
 
-// ===== HMAC SHA512 helper =====
 async function hmacSha512(message, secret) {
   const key = await crypto.subtle.importKey(
     'raw',
@@ -14,7 +13,6 @@ async function hmacSha512(message, secret) {
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ===== Map bank name to CHIP bank_code =====
 function getChipBankCode(bankName) {
   const map = {
     'MAYBANK': 'MBBEMYKL',
@@ -35,7 +33,6 @@ function getChipBankCode(bankName) {
   return 'MBBEMYKL';
 }
 
-// ===== Helpers =====
 async function getHomestay(db, homestayId) {
   if (!homestayId) return null;
   for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
@@ -70,7 +67,6 @@ export async function onRequestPost({ request, env }) {
   if (redirect) return redirect;
 
   try {
-    // 1. Authenticate owner
     const ownerData = await getOwnerSession(request, env);
     if (!ownerData || ownerData.type !== 'owner') {
       return jsonResponse({ error: 'Unauthorized' }, 401, request);
@@ -89,20 +85,17 @@ export async function onRequestPost({ request, env }) {
     if (!db) return jsonResponse({ error: 'Database unavailable' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // 2. Fetch booking
     const storeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
     let bookings = [];
     try { if (storeRes?.data) bookings = JSON.parse(storeRes.data); } catch (_) {}
     const booking = bookings.find(b => String(b.id) === String(bookingId));
     if (!booking) return jsonResponse({ error: 'Booking not found' }, 404, request);
 
-    // 3. Authorization
     const allowedIds = (ownerData.homestayIds || [ownerData.ownerId]).map(String);
     if (!allowedIds.includes(String(booking.homestayId))) {
       return jsonResponse({ error: 'Unauthorized – you do not own this homestay' }, 403, request);
     }
 
-    // 4. Check if already completed
     if (booking.payoutSuccessDate || booking.status === 'Completed') {
       return jsonResponse({
         success: false,
@@ -113,12 +106,10 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Booking is not paid yet' }, 400, request);
     }
 
-    // 5. Verify check‑in code (mandatory)
     if (!booking.checkinCode || booking.checkinCode !== checkinCode) {
       return jsonResponse({ error: 'Invalid check‑in code. Please ask the guest for the 6‑digit code.' }, 400, request);
     }
 
-    // 6. Find homestay (to get bank details)
     let homestay = await getHomestay(db, booking.homestayId);
     if (!homestay) {
       return jsonResponse({ error: 'Homestay not found. Cannot pay owner.' }, 404, request);
@@ -129,12 +120,10 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Invalid owner amount (RM0).' }, 400, request);
     }
 
-    // 7. Prepare CHIP Send payout
-    const apiKey = env.CHIP_API_KEY;       // ✅ CHIP Send API Key
-    const apiSecret = env.CHIP_SECRET_KEY; // ✅ CHIP Send API Secret
-
+    const apiKey = env.CHIP_API_KEY;
+    const apiSecret = env.CHIP_SECRET_KEY;
     if (!apiKey) return jsonResponse({ error: 'CHIP_API_KEY not configured' }, 500, request);
-    if (!apiSecret) return jsonResponse({ error: 'CHIP_SECRET_KEY (Send Secret) not configured' }, 500, request);
+    if (!apiSecret) return jsonResponse({ error: 'CHIP_SECRET_KEY not configured for Send' }, 500, request);
 
     let bankCode = getChipBankCode(homestay.ownerBank || homestay.ownerBankCode || 'MAYBANK');
     let accountNumber = (homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
@@ -145,7 +134,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Owner bank account missing or invalid.' }, 400, request);
     }
 
-    // Create bank account if not exists
     if (!bankAccountId) {
       const createRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
         method: 'POST',
@@ -168,7 +156,6 @@ export async function onRequestPost({ request, env }) {
       await saveBankAccountId(db, booking.homestayId, bankAccountId);
     }
 
-    // Execute payout
     const amountCents = Math.round(ownerAmount * 100);
     const reference = `KDH-${bookingId}`;
     const payoutPayload = {
@@ -178,10 +165,9 @@ export async function onRequestPost({ request, env }) {
       description: `Owner payout for ${bookingId}`
     };
 
-    // ===== FIXED: checksum = HMAC-SHA512(epoch + api_key) =====
     const epoch = Math.floor(Date.now() / 1000);
     const bodyString = JSON.stringify(payoutPayload);
-    const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret); // ✅ Correct
+    const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
 
     const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
       method: 'POST',
@@ -201,7 +187,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Owner payout failed. Please try again.' }, 502, request);
     }
 
-    // 8. Update booking
     const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
     if (idx !== -1) {
       bookings[idx].status = 'Completed - Payout Success';
@@ -216,7 +201,6 @@ export async function onRequestPost({ request, env }) {
         .run();
     }
 
-    // 9. Record fee earnings
     try {
       const feeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_fee_earnings').first();
       let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
@@ -240,7 +224,6 @@ export async function onRequestPost({ request, env }) {
       }
     } catch (_) {}
 
-    // 10. Log action
     await logAction({
       db,
       action: 'owner_checkin_chip_payout',
