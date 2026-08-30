@@ -876,20 +876,20 @@
   // =============================================================
   // PAYMENT STATUS CHECK – uses /verify-payment
   // =============================================================
-  async function checkPaymentStatus(bookingId) {
-    try {
-      const res = await fetch(API_BASE + '/verify-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId })
-      });
-      const data = await res.json();
-      return data;
-    } catch (e) {
-      console.error('Check error:', e);
-      return { success: false, error: e.message };
-    }
+async function checkPaymentStatus(bookingId) {
+  try {
+    const res = await fetch(API_BASE + '/verify-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId })
+    });
+    const data = await res.json();
+    return data;
+  } catch (e) {
+    console.error('Check error:', e);
+    return { success: false, error: e.message };
   }
+}
 
   // =============================================================
   // AUTO CHECK FOR PENDING BOOKINGS
