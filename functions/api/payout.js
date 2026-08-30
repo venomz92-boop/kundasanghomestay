@@ -1,7 +1,7 @@
-// /api/payout.js – CHIP Send version (admin + owner)
+// /api/payout.js – CHIP Send version with fixed checksum (HMAC-SHA512(epoch + api_key))
 import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, getOwnerSession, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
 
-// ===== HMAC SHA512 helper for CHIP Send =====
+// ===== HMAC SHA512 helper =====
 async function hmacSha512(message, secret) {
   const key = await crypto.subtle.importKey(
     'raw',
@@ -32,17 +32,15 @@ function getChipBankCode(bankName) {
   for (const [key, code] of Object.entries(map)) {
     if (clean.includes(key) || key.includes(clean)) return code;
   }
-  return 'MBBEMYKL'; // default
+  return 'MBBEMYKL';
 }
 
 // ===== Auth: admin or owner =====
 async function verifyPayoutAuth(request, env, bookingId) {
-  // Admin
   const adminToken = await getAdminToken(request);
   if (adminToken && adminToken === env.ADMIN_TOKEN) {
     return { authorized: true, role: 'admin' };
   }
-  // Owner
   const ownerData = await getOwnerSession(request, env);
   if (ownerData && ownerData.type === 'owner') {
     const db = env.DB;
@@ -58,6 +56,36 @@ async function verifyPayoutAuth(request, env, bookingId) {
     return { authorized: true, role: 'owner', booking };
   }
   return { authorized: false, error: 'Unauthorized' };
+}
+
+// ===== Helpers =====
+async function getHomestay(db, homestayId) {
+  if (!homestayId) return null;
+  for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
+    let list = [];
+    try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
+    const found = list.find(h => String(h.id) === String(homestayId));
+    if (found) return found;
+  }
+  return null;
+}
+
+async function saveBankAccountId(db, homestayId, bankAccountId) {
+  if (!homestayId) return;
+  for (const store of ['kd_approved', 'kd_homestays']) {
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
+    let list = [];
+    try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
+    const idx = list.findIndex(h => String(h.id) === String(homestayId));
+    if (idx !== -1) {
+      list[idx].chip_bank_account_id = bankAccountId;
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind(store, JSON.stringify(list))
+        .run();
+      break;
+    }
+  }
 }
 
 export async function onRequestPost({ request, env }) {
@@ -107,23 +135,24 @@ export async function onRequestPost({ request, env }) {
 
     await recordRateLimit(db, clientIP, 'payout');
 
-    // ===== Find homestay for bank details if not provided =====
+    // ===== Find homestay for bank details =====
     let bankCode = ownerBankCode || 'MBBEMYKL';
     let accountName = ownerName;
     let accountNumber = cleanOwnerAcc;
     let bankAccountId = null;
 
-    if (!homestayId) {
-      // try to fetch from booking's homestay
-      const homestay = await getHomestay(db, bookings[idx]?.homestayId);
+    let booking = null;
+    if (idx !== -1) booking = bookings[idx];
+
+    if (!homestayId && booking) {
+      const homestay = await getHomestay(db, booking.homestayId);
       if (homestay) {
         bankCode = getChipBankCode(homestay.ownerBank || homestay.ownerBankCode || bankCode);
         accountName = homestay.bankHolder || homestay.ownerName || ownerName;
         accountNumber = homestay.ownerBankAccount?.replace(/[^0-9]/g, '') || cleanOwnerAcc;
         bankAccountId = homestay.chip_bank_account_id || null;
       }
-    } else {
-      // fetch homestay by id
+    } else if (homestayId) {
       const homestay = await getHomestay(db, homestayId);
       if (homestay) {
         bankCode = getChipBankCode(homestay.ownerBank || homestay.ownerBankCode || bankCode);
@@ -134,15 +163,18 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ===== CHIP Send =====
-    const chipSecret = env.CHIP_SECRET_KEY;
-    if (!chipSecret) return jsonResponse({ error: 'CHIP_SECRET_KEY not configured' }, 500, request);
+    const apiKey = env.CHIP_API_KEY;       // ✅ CHIP Send API Key
+    const apiSecret = env.CHIP_SECRET_KEY; // ✅ CHIP Send API Secret
+
+    if (!apiKey) return jsonResponse({ error: 'CHIP_API_KEY not configured' }, 500, request);
+    if (!apiSecret) return jsonResponse({ error: 'CHIP_SECRET_KEY (Send Secret) not configured' }, 500, request);
 
     // Create bank account if not exists
     if (!bankAccountId) {
       const createRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${chipSecret}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -157,8 +189,7 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Failed to create owner bank account' }, 500, request);
       }
       bankAccountId = bankData.id;
-      // Save to homestay for future
-      await saveBankAccountId(db, bookings[idx]?.homestayId, bankAccountId);
+      if (booking) await saveBankAccountId(db, booking.homestayId, bankAccountId);
     }
 
     // Execute payout
@@ -171,14 +202,15 @@ export async function onRequestPost({ request, env }) {
       description: `Owner payout for ${bookingId}`
     };
 
+    // ===== FIXED: checksum = HMAC-SHA512(epoch + api_key) =====
     const epoch = Math.floor(Date.now() / 1000);
     const bodyString = JSON.stringify(payoutPayload);
-    const checksum = await hmacSha512(`${epoch}:${bodyString}`, chipSecret);
+    const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret); // ✅ Correct
 
     const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${chipSecret}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'epoch': String(epoch),
         'checksum': checksum
@@ -206,12 +238,12 @@ export async function onRequestPost({ request, env }) {
         .run();
     }
 
-    // Record fee earnings (your 11% + gateway)
+    // Record fee earnings
     try {
       const feeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_fee_earnings').first();
       let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
       if (!feeEarnings.history?.some(h => h.bookingId === bookingId)) {
-        const yourFee = (Number(fee) || 0) + 1.00; // gateway fee if you want
+        const yourFee = (Number(fee) || 0) + 1.00;
         if (yourFee > 0) {
           feeEarnings.total += yourFee;
           feeEarnings.available += yourFee;
@@ -250,36 +282,6 @@ export async function onRequestPost({ request, env }) {
   } catch (e) {
     console.error('Payout error:', e.message);
     return jsonResponse({ error: 'Payout failed: ' + e.message }, 500, request);
-  }
-}
-
-// === Helpers ===
-async function getHomestay(db, homestayId) {
-  if (!homestayId) return null;
-  for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
-    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
-    let list = [];
-    try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
-    const found = list.find(h => String(h.id) === String(homestayId));
-    if (found) return found;
-  }
-  return null;
-}
-
-async function saveBankAccountId(db, homestayId, bankAccountId) {
-  if (!homestayId) return;
-  for (const store of ['kd_approved', 'kd_homestays']) {
-    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
-    let list = [];
-    try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
-    const idx = list.findIndex(h => String(h.id) === String(homestayId));
-    if (idx !== -1) {
-      list[idx].chip_bank_account_id = bankAccountId;
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind(store, JSON.stringify(list))
-        .run();
-      break;
-    }
   }
 }
 
