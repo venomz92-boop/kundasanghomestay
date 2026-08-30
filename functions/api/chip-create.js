@@ -52,13 +52,14 @@ export async function onRequestPost({ request, env }) {
           }
         ]
       },
-      brand_id: env.CHIP_BRAND_ID,
-      skip_thank_you: true,   // ✅ Enable auto-redirect in live
-      platform: 'web',
-      success_url: `${domain}/?booking=${encodeURIComponent(booking.id)}&payment_return=1`,
-      cancel_url: `${domain}/?booking=${encodeURIComponent(booking.id)}&payment=cancel`,
-      webhook: `${domain}/api/chip-webhook`
-    };
+    brand_id: env.CHIP_BRAND_ID,
+  skip_thank_you: true,
+  platform: 'web',
+  success_redirect: `${domain}/?booking=${encodeURIComponent(booking.id)}&payment_return=1`,
+  failure_redirect: `${domain}/?booking=${encodeURIComponent(booking.id)}&payment=cancel`,
+  cancel_redirect: `${domain}/?booking=${encodeURIComponent(booking.id)}&payment=cancel`,
+  webhook: `${domain}/api/chip-webhook`
+};
 
     const response = await fetch(CHIP_API, {
       method: 'POST',
