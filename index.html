@@ -2515,11 +2515,41 @@ async function processPayment() {
     showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
     return;
   }
+  
+  // Check if we have a guest token
+  const guestToken = localStorage.getItem('kd_guest_token');
+  if (!guestToken) {
+    showAlert("Session Expired", "Your session has expired. Please log in again.");
+    logoutGuest();
+    return;
+  }
+
+  // Ensure we have a CSRF token
+  let csrfToken = localStorage.getItem('kd_csrf_token');
+  if (!csrfToken) {
+    try {
+      const res = await fetch('/api/csrf-token', { method: 'GET' });
+      const data = await res.json();
+      if (data.token) {
+        localStorage.setItem('kd_csrf_token', data.token);
+        csrfToken = data.token;
+      } else {
+        throw new Error('No CSRF token received');
+      }
+    } catch (e) {
+      console.warn('Could not fetch CSRF token:', e);
+      showAlert("Session Error", "Could not verify your session. Please log out and log in again.");
+      logoutGuest();
+      return;
+    }
+  }
+
   var guestName = document.getElementById("guestName").value.trim();
   var guestEmail = document.getElementById("guestEmail").value.trim();
   var guestPhone = document.getElementById("guestPhone").value.trim();
   var ci = document.getElementById("bookingCheckin").value;
   var co = document.getElementById("bookingCheckout").value;
+  
   if (!guestName || !guestEmail || !guestPhone) {
     showAlert("Incomplete Information", "Please provide your Name, Email, and WhatsApp number.");
     return;
@@ -2528,41 +2558,68 @@ async function processPayment() {
     showAlert("Booking Error", "Please select a valid homestay.");
     return;
   }
+  
   var bookingId = "KDH-" + crypto.randomUUID().slice(0,8).toUpperCase();
   var roomId = window._bookingRoom ? window._bookingRoom.id : null;
-  var draft = { id: bookingId, homestayId: selectedHomestay.id, checkin: ci, checkout: co, guestId: currentGuest.id, roomId: roomId };
+  var draft = { 
+    id: bookingId, 
+    homestayId: selectedHomestay.id, 
+    checkin: ci, 
+    checkout: co, 
+    guestId: currentGuest.id, 
+    roomId: roomId 
+  };
   window.lastCreatedBooking = draft;
 
   try {
-    var headers = Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader());
+    var headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + guestToken,
+      'X-CSRF-Token': csrfToken
+    };
+    
     var createRes = await fetch(API_BASE + '/bookings', {
       method: 'POST',
       headers: headers,
       body: JSON.stringify({ action: 'createPublicBooking', booking: draft, guestId: currentGuest.id })
     });
+    
     var created = await createRes.json();
     if (!createRes.ok || !created.success) {
+      // If 401, maybe session expired
+      if (createRes.status === 401) {
+        showAlert("Session Expired", "Your session has expired. Please log in again.");
+        logoutGuest();
+        return;
+      }
       showAlert('Booking Error', created.error || 'Could not create booking.');
       return;
     }
+    
     var booking = created.booking;
     window.lastCreatedBooking = booking;
-
     sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
 
     // ✅ CHANGED: use /api/chip-create instead of /api/toyyibpay-create
     var payRes = await fetch(API_BASE + '/chip-create', {
       method: 'POST',
-      headers: Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader()),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + guestToken,
+        'X-CSRF-Token': csrfToken
+      },
       body: JSON.stringify({ bookingId: booking.id })
     });
+    
     var payment = await payRes.json();
     if (!payRes.ok || !payment.success) {
       showAlert('Payment Setup Error', payment.error || 'Unable to create the payment bill. Your booking remains pending payment; please retry later.');
       return;
     }
+    
     localStorage.setItem('kd_guest_pending_payment', JSON.stringify(booking));
     window.location.href = payment.url;
+    
   } catch (e) {
     console.error('Booking/payment error:', e);
     showAlert('Network Error', 'Could not connect to the booking server. Please try again.');
