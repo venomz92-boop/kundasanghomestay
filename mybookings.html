@@ -874,47 +874,66 @@
   });
 
   // =============================================================
-  // PAYMENT STATUS CHECK – uses /verify-payment
+  // PAYMENT STATUS CHECK
   // =============================================================
-async function checkPaymentStatus(bookingId) {
-  try {
-    const res = await fetch(API_BASE + '/verify-payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingId })
-    });
-    const data = await res.json();
-    return data;
-  } catch (e) {
-    console.error('Check error:', e);
-    return { success: false, error: e.message };
+  async function checkPaymentStatus(bookingId) {
+    try {
+      const res = await fetch(API_BASE + '/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId })
+      });
+      const data = await res.json();
+      return data;
+    } catch (e) {
+      console.error('Check error:', e);
+      return { success: false, error: e.message };
+    }
   }
-}
 
   // =============================================================
-  // AUTO CHECK FOR PENDING BOOKINGS
+  // AUTO CHECK WITH POLLING (every 8 seconds)
   // =============================================================
+  let pendingCheckInterval = null;
+
   async function autoCheckPendingBookings() {
     if (!currentGuest || !currentGuest.id) return;
     const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
-    if (pending.length === 0) return;
+    if (pending.length === 0) {
+      if (pendingCheckInterval) {
+        clearInterval(pendingCheckInterval);
+        pendingCheckInterval = null;
+      }
+      return;
+    }
 
     let anyUpdated = false;
     for (const b of pending) {
-      const result = await checkPaymentStatus(b.id);
-      if (result.success && result.booking) {
-        const status = result.booking.status || '';
-        if (status.toLowerCase().includes('paid')) {
-          anyUpdated = true;
-        } else if (status.toLowerCase().includes('fail')) {
-          anyUpdated = true;
+      try {
+        const result = await checkPaymentStatus(b.id);
+        if (result.success && result.booking) {
+          const status = result.booking.status || '';
+          if (status.toLowerCase().includes('paid')) {
+            anyUpdated = true;
+          } else if (status.toLowerCase().includes('fail')) {
+            anyUpdated = true;
+          }
         }
+      } catch (e) {
+        console.error(`Auto-check error for ${b.id}:`, e);
       }
       await new Promise(r => setTimeout(r, 500));
     }
+    
     if (anyUpdated) {
       loadMyBookings();
     }
+  }
+
+  function startPendingCheckInterval() {
+    if (pendingCheckInterval) clearInterval(pendingCheckInterval);
+    autoCheckPendingBookings();
+    pendingCheckInterval = setInterval(autoCheckPendingBookings, 8000);
   }
 
   // =============================================================
@@ -963,7 +982,16 @@ async function checkPaymentStatus(bookingId) {
         localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings));
       }
       renderBookings();
-      autoCheckPendingBookings();
+      // Start polling if there are pending bookings
+      const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
+      if (pending.length > 0) {
+        startPendingCheckInterval();
+      } else {
+        if (pendingCheckInterval) {
+          clearInterval(pendingCheckInterval);
+          pendingCheckInterval = null;
+        }
+      }
     })
     .catch(function(err) {
       console.warn('API error:', err);
@@ -979,7 +1007,11 @@ async function checkPaymentStatus(bookingId) {
           if (listDiv2 && listDiv2.parentNode) {
             listDiv2.parentNode.insertBefore(notice, listDiv2);
           }
-          autoCheckPendingBookings();
+          // Still try to start polling even with cached data
+          const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
+          if (pending.length > 0) {
+            startPendingCheckInterval();
+          }
         } else {
           myBookings = [];
           renderBookings();
@@ -1051,7 +1083,7 @@ async function checkPaymentStatus(bookingId) {
       else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
       else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
       
-      // Build buttons array (NO CANCEL BUTTON)
+      // Build buttons array
       var buttons = [];
       
       // Resend Code – only for Paid or Completed
@@ -1103,7 +1135,7 @@ async function checkPaymentStatus(bookingId) {
   }
 
   // =============================================================
-  // MANUAL CHECK (UPDATED to use /verify-payment)
+  // MANUAL CHECK
   // =============================================================
   async function manualCheckPayment(bookingId) {
     try {
@@ -1122,7 +1154,7 @@ async function checkPaymentStatus(bookingId) {
           return;
         }
       } else if (result.retry) {
-        await showAlert('Still Processing', 'The payment is still being processed. Please try again in a few seconds.');
+        await showAlert('Still Processing', result.message || 'The payment is still being processed. Please try again in a few seconds.');
       } else {
         await showAlert('Error', result.error || 'Could not check payment status.');
       }
@@ -1208,12 +1240,6 @@ async function checkPaymentStatus(bookingId) {
   async function retryPaymentFromBookings(bookingId) {
     await retryPayment(bookingId);
   }
-
-  // =============================================================
-  // CANCEL BOOKING (function kept but NOT used anywhere)
-  // =============================================================
-  // The cancelBooking function is removed from the UI entirely.
-  // Guests can no longer cancel bookings to prevent date-blocking abuse.
 
   // =============================================================
   // RESEND CHECK‑IN CODE
