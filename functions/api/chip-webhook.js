@@ -48,27 +48,84 @@ async function verifyChipSignature(request, env) {
   }
 }
 
+// ===== UPDATED EMAIL FUNCTION =====
 async function sendCheckinEmail(booking, env) {
+  const {
+    guestName = 'Guest',
+    id: bookingId = 'N/A',
+    homestay = 'Kundasang Homestay',
+    checkin = 'N/A',
+    checkout = 'N/A',
+    checkinCode = 'N/A',
+    guestEmail
+  } = booking;
+
+  if (!guestEmail) {
+    console.warn('⚠️ No guest email, skipping email send.');
+    return false;
+  }
+
   const html = `
-    <h2>Hello ${booking.guestName || 'Guest'},</h2>
-    <p>Your booking <strong>${booking.id}</strong> at <strong>${booking.homestay}</strong> is confirmed.</p>
-    <p><strong>Check‑in Code:</strong> <span style="font-size:24px;font-weight:bold;color:#0F382E;">${booking.checkinCode}</span></p>
+    <h2>Hello ${guestName},</h2>
+    <p>Your booking <strong>${bookingId}</strong> at <strong>${homestay}</strong> has been paid successfully.</p>
+    <p><strong>Check‑in:</strong> ${checkin}</p>
+    <p><strong>Check‑out:</strong> ${checkout}</p>
+    <p style="font-size:24px; font-weight:bold; background:#f0fdf4; padding:10px; border-radius:8px; border:1px solid #bbf7d0; display:inline-block;">
+      🏔️ Your 6‑digit check‑in code: <span style="color:#0F382E;">${checkinCode}</span>
+    </p>
     <p>Please present this code to the host upon arrival.</p>
+    <p>Thank you for booking with Kundasang Homestay!</p>
   `;
+
   try {
     if (env.RESEND_API_KEY) {
-      await fetch('https://api.resend.com/emails', {
+      const r = await fetch('https://api.resend.com/emails', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        headers: {
+          'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
-          to: booking.guestEmail,
+          to: guestEmail,
           subject: 'Your Check‑in Code – Payment Confirmed',
           html
         })
       });
+      if (r.ok) {
+        console.log(`✅ Check‑in code email sent to ${guestEmail}`);
+      } else {
+        console.error(`❌ Resend email failed: ${await r.text()}`);
+      }
+      return r.ok;
+    } else if (env.SENDGRID_API_KEY) {
+      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.SENDGRID_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: guestEmail }] }],
+          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
+          subject: 'Your Check‑in Code – Payment Confirmed',
+          content: [{ type: 'text/html', value: html }]
+        })
+      });
+      if (r.ok) {
+        console.log(`✅ Check‑in code email sent to ${guestEmail} via SendGrid`);
+      } else {
+        console.error(`❌ SendGrid email failed: ${await r.text()}`);
+      }
+      return r.ok;
+    } else {
+      console.warn('⚠️ No email API key configured (RESEND_API_KEY or SENDGRID_API_KEY). Skipping email.');
+      return false;
     }
-  } catch (e) { console.error('Email send error:', e.message); }
+  } catch (e) {
+    console.error('Email send error:', e.message);
+    return false;
+  }
 }
 
 export async function onRequestPost({ request, env }) {
@@ -126,7 +183,7 @@ export async function onRequestPost({ request, env }) {
         .bind('kd_bookings', JSON.stringify(bookings))
         .run();
 
-      await sendCheckinEmail(booking, env);
+      await sendCheckinEmail(bookings[idx], env);
 
       await logAction({
         db,
