@@ -57,11 +57,15 @@ export async function onRequestPost({ request, env }) {
         ]
       },
       brand_id: env.CHIP_BRAND_ID,
-      skip_thank_you: true,
-      success_url: `${domain}/?booking=${encodeURIComponent(booking.id)}&payment=success`,
+      skip_thank_you: true,   // ✅ Correct boolean
+      platform: 'web',        // ✅ Helps with redirect
+      success_url: `${domain}/?booking=${encodeURIComponent(booking.id)}&payment_return=1`,
       cancel_url: `${domain}/?booking=${encodeURIComponent(booking.id)}&payment=cancel`,
       webhook: `${domain}/api/chip-webhook`
     };
+
+    // Optional: log payload to see what is being sent
+    console.log('📤 CHIP payload:', JSON.stringify(payload, null, 2));
 
     const response = await fetch(CHIP_API, {
       method: 'POST',
@@ -75,7 +79,7 @@ export async function onRequestPost({ request, env }) {
     const data = await response.json();
 
     if (!response.ok || !data.id) {
-      console.error('CHIP create purchase error:', data);
+      console.error('❌ CHIP create purchase error:', data);
       return jsonResponse({ error: 'Payment gateway error. Please try again.' }, 502, request);
     }
 
@@ -110,7 +114,7 @@ export async function onRequestPost({ request, env }) {
     }, 200, request);
 
   } catch (error) {
-    console.error('CHIP create error:', error.message, error.stack);
+    console.error('❌ CHIP create error:', error.message, error.stack);
     return jsonResponse({ error: 'Payment setup failed.' }, 500, request);
   }
 }
