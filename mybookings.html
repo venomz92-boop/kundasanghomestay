@@ -1237,6 +1237,15 @@ async function retryPayment(bookingId) {
   }
 }
 
+// ✅ WRAPPER FOR ONCLICK (must be globally accessible)
+async function retryPaymentFromBookings(bookingId) {
+  await retryPayment(bookingId);
+}
+
+// ✅ Ensure globals (in case of module scripts)
+window.retryPayment = retryPayment;
+window.retryPaymentFromBookings = retryPaymentFromBookings;
+
   // =============================================================
   // RESEND CHECK‑IN CODE
   // =============================================================
