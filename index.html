@@ -1925,19 +1925,6 @@
         lastBookingDetails = b;
         if (datesEl) datesEl.textContent = (b.checkin || '') + ' → ' + (b.checkout || '') + ' (' + (b.nights || 1) + 'N)';
         if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(b.total) || 0).toFixed(2);
-      } else {
-        // Try to get from sessionStorage
-        try {
-          var pending = sessionStorage.getItem('kd_pending_booking');
-          if (pending) {
-            var pb = JSON.parse(pending);
-            if (String(pb.id) === String(bookingId)) {
-              if (datesEl) datesEl.textContent = (pb.checkin || '') + ' → ' + (pb.checkout || '') + ' (' + (pb.nights || 1) + 'N)';
-              if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(pb.total) || 0).toFixed(2);
-              lastBookingDetails = pb;
-            }
-          }
-        } catch(e) {}
       }
 
       if (overlay) overlay.classList.add('active');
@@ -2603,52 +2590,93 @@ async function handlePaymentReturn() {
 
   console.log('✅ Payment return detected for booking:', bookingId);
 
-  // ---- Show the branded Thank You modal immediately ----
-  // Try to get booking data from sessionStorage first, then from bookings array
-  let bookingData = null;
-  try {
-    const pending = sessionStorage.getItem('kd_pending_booking');
-    if (pending) {
-      const pb = JSON.parse(pending);
-      if (String(pb.id) === String(bookingId)) {
-        bookingData = pb;
+  // ---- Case: Success (payment_return=1) ----
+  if (paymentReturn === '1') {
+    console.log('🎉 Payment success, showing Thank You modal.');
+    // Try to get booking data from sessionStorage first
+    let bookingData = null;
+    try {
+      const pending = sessionStorage.getItem('kd_pending_booking');
+      if (pending) {
+        const pb = JSON.parse(pending);
+        if (String(pb.id) === String(bookingId)) {
+          bookingData = pb;
+        }
       }
+    } catch(e) {}
+    
+    if (!bookingData) {
+      // Fallback: try to find in bookings array (if loaded)
+      bookingData = bookings.find(b => String(b.id) === String(bookingId)) || null;
     }
-  } catch(e) {}
-  
-  if (!bookingData) {
-    // Fallback: try to find in bookings array (if loaded)
-    bookingData = bookings.find(b => String(b.id) === String(bookingId)) || null;
-  }
 
-  // Show the branded modal with whatever data we have
-     showPaymentFailedModal(bookingId, data.booking);
+    // Show the branded Thank You modal
+    showThankYouModal(bookingId, bookingData || { id: bookingId, total: '---', checkin: 'N/A', checkout: 'N/A', nights: 1 });
+
+    // ---- BACKGROUND STATUS UPDATE ----
+    // Try to update the booking status in the background
+    try {
+      const res = await fetch(API_BASE + '/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId })
+      });
+      const data = await res.json();
+      if (data.success && data.paid) {
+        console.log('✅ Booking status updated in background.');
       } else {
-        showPaymentFailedModal(bookingId, null);
+        console.warn('⚠️ Background status update returned:', data);
       }
     } catch (e) {
-      showPaymentFailedModal(bookingId, null);
+      console.warn('Background status update failed:', e);
     }
     return;
   }
 
-  // ---- BACKGROUND STATUS UPDATE ----
-  // Try to update the booking status in the background
-  try {
-    const res = await fetch(API_BASE + '/verify-payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingId })
-    });
-    const data = await res.json();
-    if (data.success && data.paid) {
-      console.log('✅ Booking status updated in background.');
-    } else {
-      console.warn('⚠️ Background status update returned:', data);
+  // ---- Case: Failure (payment=cancel or status_id=3) ----
+  if (params.get('payment') === 'cancel' || params.get('payment') === 'failed' || statusId === '3') {
+    console.log('❌ Payment failed, showing Payment Failed modal.');
+    // Update status to failed
+    try {
+      await fetch('/api/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getCsrfHeader()
+        },
+        body: JSON.stringify({
+          action: 'publicUpdateStatus',
+          id: bookingId,
+          status: 'Payment Failed',
+          guestId: currentGuest ? currentGuest.id : null
+        })
+      });
+    } catch (e) {}
+
+    // Show failed modal
+    try {
+      const res = await fetch(API_BASE + '/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId })
+      });
+      const data = await res.json();
+      showPaymentFailedModal(bookingId, data.booking || { id: bookingId, total: '---' });
+    } catch (e) {
+      showPaymentFailedModal(bookingId, { id: bookingId, total: '---' });
     }
-  } catch (e) {
-    console.warn('Background status update failed:', e);
+    return;
   }
+
+  // ---- Fallback: if no specific flag, show a generic modal ----
+  showModal('Payment Status', 
+    `Your payment is being processed.<br><br>Booking ID: <strong>${bookingId}</strong><br>Please check your bookings page later.`,
+    [
+      { label: 'My Bookings', class: 'btn-primary', value: 'bookings' }
+    ]
+  ).then(function(result) {
+    if (result === 'bookings') window.location.href = '/mybookings.html';
+  });
 }
 
 // Ensure modal functions are globally accessible
