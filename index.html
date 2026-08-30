@@ -2611,7 +2611,7 @@
     // =============================================================
     // PROCESS PAYMENT – with booking verification (calls CHIP)
     // =============================================================
-    async function processPayment() {
+  async function processPayment() {
   if (!currentGuest) {
     showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
     return;
@@ -2651,12 +2651,14 @@
     window.lastCreatedBooking = booking;
     console.log('✅ Booking created:', booking.id);
 
-    // Show loading
-    document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'none';
-    document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'none';
-    var container = document.getElementById('chipPaymentContainer');
-    container.style.display = 'block';
-    container.innerHTML = '<div class="text-center p-4">⏳ Loading payment...</div>';
+    // Hide booking form, show CHIP container
+    var bookingContent = document.getElementById('bookingContent');
+    var chipContainer = document.getElementById('chipPaymentContainer');
+    if (bookingContent) bookingContent.style.display = 'none';
+    if (chipContainer) {
+      chipContainer.style.display = 'block';
+      chipContainer.innerHTML = '<div class="text-center p-4">⏳ Loading payment...</div>';
+    }
 
     console.log('🔗 Creating CHIP purchase...');
     var payRes = await fetch(API_BASE + '/chip-create', {
@@ -2670,9 +2672,8 @@
       console.error('❌ Error response:', text);
       showAlert('Payment Setup Error', `Server error (${payRes.status}): ${text}`);
       // Restore form
-      document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'block';
-      document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'flex';
-      container.style.display = 'none';
+      if (bookingContent) bookingContent.style.display = 'block';
+      if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
       return;
     }
     var payment = await payRes.json();
@@ -2680,39 +2681,46 @@
     if (!payment.success) {
       showAlert('Payment Setup Error', payment.error || 'Unable to create payment.');
       // Restore form
-      document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'block';
-      document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'flex';
-      container.style.display = 'none';
+      if (bookingContent) bookingContent.style.display = 'block';
+      if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
       return;
     }
 
     // Open CHIP Checkout
-    container.innerHTML = ''; // clear loading
+    if (chipContainer) chipContainer.innerHTML = ''; // clear loading
     console.log('🚀 Opening CHIP checkout...');
+
+    // Ensure CHIP is loaded
+    if (typeof CHIP === 'undefined' || typeof CHIP.Checkout === 'undefined') {
+      showAlert('Payment Error', 'Payment system not loaded. Please refresh the page and try again.');
+      if (bookingContent) bookingContent.style.display = 'block';
+      if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
+      return;
+    }
+
     CHIP.Checkout.open({
       purchase_id: payment.purchase_id,
-      container: container,
+      container: chipContainer,
       onSuccess: function(response) {
         console.log('✅ Payment success:', response);
         showThankYouModal(booking.id, booking);
         setTimeout(function() {
           document.getElementById('bookingModal').classList.add('hidden');
-          container.style.display = 'none';
-        }, 1000);
+          if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
+          if (bookingContent) bookingContent.style.display = 'block';
+        }, 1500);
       },
       onCancel: function() {
         console.log('❌ Payment cancelled');
         showAlert('Payment Cancelled', 'You cancelled the payment. You can retry later.');
-        document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'block';
-        document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'flex';
-        container.style.display = 'none';
+        if (bookingContent) bookingContent.style.display = 'block';
+        if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
       },
       onError: function(error) {
         console.error('❌ CHIP error:', error);
         showAlert('Payment Error', 'An error occurred: ' + (error.message || JSON.stringify(error)));
-        document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'block';
-        document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'flex';
-        container.style.display = 'none';
+        if (bookingContent) bookingContent.style.display = 'block';
+        if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
       }
     });
 
@@ -2720,13 +2728,10 @@
     console.error('🔥 Network error:', e);
     showAlert('Network Error', 'Could not connect to the server. Please try again.');
     // Restore form
-    document.getElementById('bookingModal').querySelector('.modal-body').style.display = 'block';
-    document.getElementById('bookingModal').querySelector('.modal-footer').style.display = 'flex';
-    var container = document.getElementById('chipPaymentContainer');
-    if (container) {
-      container.style.display = 'none';
-      container.innerHTML = '';
-    }
+    var bookingContent = document.getElementById('bookingContent');
+    var chipContainer = document.getElementById('chipPaymentContainer');
+    if (bookingContent) bookingContent.style.display = 'block';
+    if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
   }
 }
     // =============================================================
