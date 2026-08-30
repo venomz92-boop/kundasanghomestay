@@ -1,4 +1,4 @@
-// /api/owner-checkin.js – CHIP Send with correct HMAC-SHA512(epoch + api_key)
+// /api/owner-checkin.js – CHIP Send with correct credentials
 import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
 
 async function hmacSha512(message, secret) {
@@ -120,10 +120,12 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Invalid owner amount (RM0).' }, 400, request);
     }
 
-    const apiKey = env.CHIP_API_KEY;
-    const apiSecret = env.CHIP_SECRET_KEY;
+    // ===== CHIP Send credentials =====
+    const apiKey = env.CHIP_API_KEY;           // ✅ Send API Key
+    const apiSecret = env.CHIP_API_SECRET;     // ✅ Send API Secret
+
     if (!apiKey) return jsonResponse({ error: 'CHIP_API_KEY not configured' }, 500, request);
-    if (!apiSecret) return jsonResponse({ error: 'CHIP_SECRET_KEY not configured for Send' }, 500, request);
+    if (!apiSecret) return jsonResponse({ error: 'CHIP_API_SECRET not configured' }, 500, request);
 
     let bankCode = getChipBankCode(homestay.ownerBank || homestay.ownerBankCode || 'MAYBANK');
     let accountNumber = (homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
@@ -167,6 +169,7 @@ export async function onRequestPost({ request, env }) {
 
     const epoch = Math.floor(Date.now() / 1000);
     const bodyString = JSON.stringify(payoutPayload);
+    // ✅ checksum = HMAC-SHA512(epoch + apiKey)
     const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
 
     const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
