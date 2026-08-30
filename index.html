@@ -2611,7 +2611,7 @@
     // =============================================================
     // PROCESS PAYMENT – with booking verification (calls CHIP)
     // =============================================================
- async function processPayment() {
+async function processPayment() {
   if (!currentGuest) {
     showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
     return;
@@ -2635,7 +2635,6 @@
   window.lastCreatedBooking = draft;
 
   try {
-    console.log('📦 Creating booking...');
     var headers = Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader());
     var createRes = await fetch(API_BASE + '/bookings', {
       method: 'POST',
@@ -2649,147 +2648,58 @@
     }
     var booking = created.booking;
     window.lastCreatedBooking = booking;
-    console.log('✅ Booking created:', booking.id);
 
-    // Hide booking form, show CHIP container
-    var bookingContent = document.getElementById('bookingContent');
-    var chipContainer = document.getElementById('chipPaymentContainer');
-    if (bookingContent) bookingContent.style.display = 'none';
-    if (chipContainer) {
-      chipContainer.style.display = 'block';
-      chipContainer.innerHTML = '<div class="text-center p-4">⏳ Loading payment...</div>';
-    }
+    sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
 
-    console.log('🔗 Creating CHIP purchase...');
     var payRes = await fetch(API_BASE + '/chip-create', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, getCsrfHeader()),
       body: JSON.stringify({ bookingId: booking.id })
     });
-    console.log('📡 Response status:', payRes.status);
-    if (!payRes.ok) {
-      const text = await payRes.text();
-      console.error('❌ Error response:', text);
-      showAlert('Payment Setup Error', `Server error (${payRes.status}): ${text}`);
-      if (bookingContent) bookingContent.style.display = 'block';
-      if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
-      return;
-    }
     var payment = await payRes.json();
-    console.log('✅ CHIP purchase created:', payment);
-    if (!payment.success) {
-      showAlert('Payment Setup Error', payment.error || 'Unable to create payment.');
-      if (bookingContent) bookingContent.style.display = 'block';
-      if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
+    if (!payRes.ok || !payment.success) {
+      showAlert('Payment Setup Error', payment.error || 'Unable to create the payment bill. Your booking remains pending payment; please retry later.');
       return;
     }
-
-    // === Wait for CHIP SDK to be ready ===
-    if (typeof CHIP === 'undefined' || typeof CHIP.Checkout === 'undefined') {
-      console.log('⏳ Waiting for CHIP SDK to load...');
-      try {
-        await new Promise(function(resolve, reject) {
-          var script = document.getElementById('chip-sdk');
-          if (script && script.readyState === 'complete') {
-            // Already loaded
-            resolve();
-            return;
-          }
-          function onLoad() {
-            if (typeof CHIP !== 'undefined' && typeof CHIP.Checkout !== 'undefined') {
-              resolve();
-            } else {
-              reject(new Error('CHIP SDK loaded but not defined'));
-            }
-          }
-          function onError() {
-            reject(new Error('CHIP SDK script failed to load'));
-          }
-          // Check if script already exists and is loaded
-          if (typeof CHIP !== 'undefined' && typeof CHIP.Checkout !== 'undefined') {
-            resolve();
-            return;
-          }
-          // Load script dynamically if not already in DOM
-          var existing = document.querySelector('script[src="https://gate.chip-in.asia/api/v1/checkout.js"]');
-          if (existing) {
-            existing.addEventListener('load', onLoad);
-            existing.addEventListener('error', onError);
-          } else {
-            var newScript = document.createElement('script');
-            newScript.src = 'https://gate.chip-in.asia/api/v1/checkout.js';
-            newScript.async = true;
-            newScript.onload = onLoad;
-            newScript.onerror = onError;
-            document.head.appendChild(newScript);
-          }
-          // Timeout after 10 seconds
-          setTimeout(function() {
-            reject(new Error('CHIP SDK load timeout'));
-          }, 10000);
-        });
-        console.log('✅ CHIP SDK is ready');
-      } catch (sdkError) {
-        console.error('❌ CHIP SDK load error:', sdkError);
-        // Fallback: use redirect method
-        showAlert('Payment', 'Payment system is loading slowly. You will be redirected to the payment page.');
-        if (payment.url) {
-          window.location.href = payment.url;
-        } else {
-          showAlert('Error', 'Payment setup failed. Please try again.');
-        }
-        return;
-      }
-    }
-
-    // If we get here, CHIP is defined
-    if (typeof CHIP === 'undefined' || typeof CHIP.Checkout === 'undefined') {
-      showAlert('Payment Error', 'Payment system not available. Redirecting...');
-      if (payment.url) {
-        window.location.href = payment.url;
-      } else {
-        showAlert('Error', 'Payment setup failed. Please try again.');
-      }
-      return;
-    }
-
-    // Clear loading message and open checkout
-    if (chipContainer) chipContainer.innerHTML = '';
-    console.log('🚀 Opening CHIP checkout with purchase_id:', payment.purchase_id);
-
-    CHIP.Checkout.open({
-      purchase_id: payment.purchase_id,
-      container: chipContainer,
-      onSuccess: function(response) {
-        console.log('✅ Payment success:', response);
-        showThankYouModal(booking.id, booking);
-        setTimeout(function() {
-          document.getElementById('bookingModal').classList.add('hidden');
-          if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
-          if (bookingContent) bookingContent.style.display = 'block';
-        }, 1500);
-      },
-      onCancel: function() {
-        console.log('❌ Payment cancelled');
-        showAlert('Payment Cancelled', 'You cancelled the payment. You can retry later.');
-        if (bookingContent) bookingContent.style.display = 'block';
-        if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
-      },
-      onError: function(error) {
-        console.error('❌ CHIP error:', error);
-        showAlert('Payment Error', 'An error occurred: ' + (error.message || JSON.stringify(error)));
-        if (bookingContent) bookingContent.style.display = 'block';
-        if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
-      }
-    });
-
+    localStorage.setItem('kd_guest_pending_payment', JSON.stringify(booking));
+    window.location.href = payment.url;
   } catch (e) {
-    console.error('🔥 Network error:', e);
-    showAlert('Network Error', 'Could not connect to the server. Please try again.');
-    var bookingContent = document.getElementById('bookingContent');
-    var chipContainer = document.getElementById('chipPaymentContainer');
-    if (bookingContent) bookingContent.style.display = 'block';
-    if (chipContainer) { chipContainer.style.display = 'none'; chipContainer.innerHTML = ''; }
+    console.error('Booking/payment error:', e);
+    showAlert('Network Error', 'Could not connect to the booking server. Please try again.');
+  }
+}
+
+// ===== HANDLE PAYMENT RETURN (SHOW THANK YOU MODAL) =====
+async function handlePaymentReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const bookingId = params.get('booking') || params.get('order_id');
+  const paymentReturn = params.get('payment_return');
+  const statusId = params.get('status_id');
+
+  if (!bookingId) return;
+
+  // Clean URL
+  if (window.history && window.history.replaceState) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  // If we have payment_return=1, show processing modal and redirect to My Bookings
+  if (paymentReturn === '1' || params.get('payment') === 'success' || statusId === '1') {
+    showModal('Payment Submitted', 
+      `Your payment for booking <strong>${bookingId}</strong> is being processed.<br><br>You will receive a confirmation email shortly.<br><br>You can check the status in <a href="/mybookings.html">My Bookings</a>.`,
+      [
+        { label: 'Go to My Bookings', class: 'btn-primary', value: 'bookings' }
+      ]
+    ).then(function(result) {
+      if (result === 'bookings') window.location.href = '/mybookings.html';
+    });
+    return;
+  }
+
+  // If status_id=3 (failed) or payment=cancel
+  if (statusId === '3' || params.get('payment') === 'cancel') {
+    showAlert('Payment Cancelled or Failed', 'Your payment was not completed. You can retry later from My Bookings.');
+    return;
   }
 }
 
