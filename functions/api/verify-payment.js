@@ -1,5 +1,39 @@
-// /api/verify-payment.js – CHIP & ToyyibPay hybrid (CHIP preferred)
+// /api/verify-payment.js – CHIP + email on success
 import { corsHeaders } from './_utils.js';
+
+async function sendCheckinEmail(booking, env) {
+  const html = `
+    <h2>Hello ${booking.guestName || 'Guest'},</h2>
+    <p>Your booking <strong>${booking.id}</strong> at <strong>${booking.homestay}</strong> is confirmed.</p>
+    <p><strong>Check‑in Code:</strong> <span style="font-size:24px;font-weight:bold;color:#0F382E;">${booking.checkinCode}</span></p>
+    <p>Please present this code to the host upon arrival.</p>
+  `;
+  try {
+    if (env.RESEND_API_KEY) {
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
+          to: booking.guestEmail,
+          subject: 'Your Check‑in Code – Payment Confirmed',
+          html
+        })
+      });
+    } else if (env.SENDGRID_API_KEY) {
+      await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${env.SENDGRID_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: booking.guestEmail }] }],
+          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
+          subject: 'Your Check‑in Code – Payment Confirmed',
+          content: [{ type: 'text/html', value: html }]
+        })
+      });
+    }
+  } catch (e) { console.error('Email send error:', e.message); }
+}
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -88,6 +122,10 @@ export async function onRequestPost({ request, env }) {
           await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
             .bind('kd_bookings', JSON.stringify(bookings))
             .run();
+
+          // ✅ Send email immediately (fallback)
+          await sendCheckinEmail(bookings[idx], env);
+
           return new Response(JSON.stringify({ success: true, booking: bookings[idx], paid: true }), {
             status: 200,
             headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
@@ -137,13 +175,7 @@ export async function onRequestPost({ request, env }) {
 
     // ---- ToyyibPay fallback (if billcode exists) ----
     if (booking.toyyibpay_billcode) {
-      // ... keep the existing ToyyibPay logic here (unchanged) ...
-      // Or simply return pending if only ToyyibPay but we prefer CHIP.
-      // For completeness, we can include the ToyyibPay check.
-      // But since we are switching to CHIP, we can skip.
-      // If you still have ToyyibPay bookings, you can keep the fallback.
-      // I'll include a minimal fallback to avoid breaking old bookings.
-      // For now, return pending with retry.
+      // Keep your existing ToyyibPay logic here (or skip)
       return new Response(JSON.stringify({
         success: false,
         message: 'Booking uses ToyyibPay. Please use the Check Payment button if needed.',
@@ -156,7 +188,6 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    // ---- No payment provider ----
     return new Response(JSON.stringify({
       success: false,
       message: 'No payment provider found for this booking.',
