@@ -57,7 +57,7 @@ export async function onRequestPost({ request, env }) {
         ]
       },
       brand_id: env.CHIP_BRAND_ID,
-      skip_thank_you: 1,
+      skip_thank_you: true,
       success_url: `${domain}/?booking=${encodeURIComponent(booking.id)}&payment=success`,
       cancel_url: `${domain}/?booking=${encodeURIComponent(booking.id)}&payment=cancel`,
       webhook: `${domain}/api/chip-webhook`
