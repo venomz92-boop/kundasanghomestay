@@ -326,7 +326,7 @@ body {
       <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
       <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
         KUNDASANG<span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay</span>
-        <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">ADMIN • ToyyibPay Auto</div>
+        <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">ADMIN • CHIP Auto</div>
       </div>
     </div>
     <div class="flex items-center gap-3">
@@ -346,7 +346,7 @@ body {
     <div id="loginError" class="text-red-600 text-xs mt-2 hidden"></div>
   </div>
   <div id="adminDashboard" class="hidden">
-    <h2 class="text-3xl font-bold animate-on-scroll">Admin — ToyyibPay Auto Payout</h2>
+    <h2 class="text-3xl font-bold animate-on-scroll">Admin — CHIP Auto Payout</h2>
     <div class="text-[11px] text-zinc-500 mt-1 animate-on-scroll">Malaysia Time: <span id="myTimeNow"></span> • Timezone: Asia/Kuala_Lumpur (UTC+8)</div>
     
     <!-- Force Sync & Cache Status -->
@@ -359,12 +359,12 @@ body {
       <div class="card p-5 animate-on-scroll">
         <div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11% + RM1.10 Gateway)</div>
         <div id="totalFees" class="text-3xl font-bold mt-1">RM0.00</div>
-        <div class="text-[11px] mt-1">After gateway fee RM1.10 • Owner gets Base via ToyyibPay Auto on Check-in</div>
+        <div class="text-[11px] mt-1">After gateway fee RM1.10 • Owner gets Base via CHIP Send on Check-in</div>
         <div class="text-[11px] mt-2"><span id="kdAvailInline">Available: RM0.00</span> • <span id="kdWithdrawnInline">Withdrawn: RM0.00</span> <button onclick="resetWithdrawn()" class="ml-2 text-[10px] px-2 py-0.5 bg-red-600 text-white rounded-full">Reset to 0</button></div>
         <button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw Earnings</button>
       </div>
       <div class="card p-5 animate-on-scroll"><div class="text-[11px] uppercase text-zinc-500">Pending</div><div id="adminPendingCount" class="text-3xl font-bold mt-1">0</div></div>
-      <div class="card p-5 animate-on-scroll"><div class="text-[11px] uppercase text-zinc-500">ToyyibPay Status</div><div id="billplzStatus" class="text-sm font-bold mt-1">Simulation</div><div class="text-[11px] mt-1">Check-in = complete + auto ToyyibPay to owner</div></div>
+      <div class="card p-5 animate-on-scroll"><div class="text-[11px] uppercase text-zinc-500">CHIP Status</div><div id="chipStatus" class="text-sm font-bold mt-1">Simulation</div><div class="text-[11px] mt-1">Check-in = complete + auto CHIP Send to owner</div></div>
     </div>
     <div class="flex gap-2 mt-6 flex-wrap">
       <button onclick="showAdminTab('pending')" id="tabPending" class="px-5 py-2.5 rounded-full bg-[#212121] text-white text-[11px] uppercase font-700">Pending</button>
@@ -386,8 +386,16 @@ body {
     <div id="adminAvailability" class="mt-4 hidden"><div id="availabilityTable" class="card p-6"></div></div>
     <div id="adminGuests" class="mt-4 hidden"><div id="guestsTable" class="card p-6"></div></div>
     <div id="adminSettings" class="hidden mt-4 card p-6">
-      <h3 class="font-bold">ToyyibPay Setup (Server-side)</h3>
-      <div class="p-3 bg-green-50 border border-green-200 rounded-xl text-xs">✅ Live: Category <b>08myr5uc</b><br>Secret Key: Set in Cloudflare Secrets (TOYYIBPAY_SECRET_KEY)<br>Payout Mode: <b>Auto via ToyyibPay</b> - ToyyibPay transfers to owner on Check-in, fee stays with you.<br>Return URL: https://kundasanghomestay.my/?booking=ID&paid=1<br>Callback: /api/toyyibpay-webhook</div>
+      <h3 class="font-bold">CHIP Payment Gateway Setup</h3>
+      <div class="p-3 bg-green-50 border border-green-200 rounded-xl text-xs">
+        ✅ <b>CHIP Collect</b> enabled<br>
+        Secret Key: Set in Cloudflare Secrets (CHIP_SECRET_KEY)<br>
+        Public Key: Set in Cloudflare Secrets (CHIP_PUBLIC_KEY)<br>
+        Brand ID: Set in Cloudflare Secrets (CHIP_BRAND_ID)<br>
+        Payout Mode: <b>Auto via CHIP Send</b> – CHIP transfers to owner on Check‑in<br>
+        Return URL: https://kundasanghomestay.my/?booking=ID&payment_return=1<br>
+        Webhook: https://kundasanghomestay.my/api/chip-webhook
+      </div>
       <div id="liveBankInfo" class="mt-3 p-3 bg-zinc-50 border rounded-xl text-xs">Loading locked bank...</div>
       <div class="flex gap-2 mt-4 flex-wrap">
         <button onclick="forceSyncPending()" class="text-xs border rounded-full px-3 py-1 bg-blue-500 text-white">🔄 Force Sync Pending</button>
@@ -402,7 +410,7 @@ body {
 <div id="kdWithdrawOverlay" class="kd-w-overlay">
   <div class="kd-w-modal">
     <h3 class="font-bold">Withdraw Earnings</h3>
-    <div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after RM1.10 gateway) - Auto payout to owners via ToyyibPay<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button, not here.</div>
+    <div class="mt-2 text-xs text-zinc-600">Your platform fee (11% after RM1.10 gateway) - Auto payout to owners via CHIP Send.<br>Even if admin.html hacked, money goes to locked account. Owner payouts are via Check-In button.</div>
     <div class="mt-3 p-2 bg-green-50 border border-green-200 rounded-xl text-[11px]">🔒 Locked Bank: Loading...<br>Change only in Cloudflare env YOUR_BANK_*</div>
     <input id="kdBankName" placeholder="Bank Name (Locked - ignored)" disabled class="w-full border rounded-full px-3 py-2 mt-3 bg-zinc-100 text-zinc-500" value="Maybank - Locked"/>
     <input id="kdAmt" type="number" placeholder="Amount RM" min="1" step="0.01" class="form-input mt-2" />
@@ -616,11 +624,7 @@ function toMYDateTime(dateInput){
 
 const CONFIG = { 
   platformFeePercent: 11, 
-  toyyibpay: { 
-    enabled: true, 
-    gatewayFee: 1.10,   // ✅ Updated to RM1.10
-    category: "08myr5uc" 
-  } 
+  gatewayFee: 1.10
 };
 
 // =============================================================
@@ -650,7 +654,7 @@ function getAllBlockedDatesForHomestay(h) {
 }
 
 function calculateNights(ci,co){ if(!ci||!co) return 1; const d1=new Date(ci), d2=new Date(co); const diff=Math.round((d2-d1)/86400000); return diff>0?diff:1; }
-function calculatePrice(p,n){ n=n||1; const base=p*n; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gw=CONFIG.toyyibpay.gatewayFee; return {nights:n, base:base, fee:fee, gatewayFee:gw, total:base+fee+gw, youReceive:fee-gw, ownerReceives:base}; }
+function calculatePrice(p,n){ n=n||1; const base=p*n; const fee=Math.round(base*CONFIG.platformFeePercent/100); const gw=CONFIG.gatewayFee; return {nights:n, base:base, fee:fee, gatewayFee:gw, total:base+fee+gw, youReceive:fee-gw, ownerReceives:base}; }
 
 // =============================================================
 // COMPACT CALENDAR RENDER
@@ -921,7 +925,10 @@ function renderAdmin(){
   const dedup=new Map(); bookings.forEach(b=>{ if(b && b.id && !dedup.has(String(b.id))) dedup.set(String(b.id), b); }); if(dedup.size!==bookings.length){ bookings=[...dedup.values()]; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
   
   const pc=document.getElementById("adminPendingCount"); if(pc) pc.innerText=pendingHomestays.length;
-  const bs=document.getElementById("billplzStatus"); if(bs) bs.innerText=CONFIG.toyyibpay.enabled?"LIVE ToyyibPay":"Simulation";
+  const bs=document.getElementById("chipStatus"); 
+  // Check if CHIP is live
+  const isChipLive = !!(sessionStorage.getItem('chip_secret_key') || localStorage.getItem('chip_secret_key'));
+  if(bs) bs.innerText = isChipLive ? "LIVE CHIP" : "Simulation";
   
   const pendingDiv=document.getElementById("adminPending");
   if(pendingHomestays.length===0) {
@@ -1344,7 +1351,7 @@ function bookingFilterChangeHandler() {
 }
 
 // =============================================================
-// CHECK-IN (Admin)
+// CHECK-IN (Admin) – Updated to use /api/payout (which now uses CHIP Send)
 // =============================================================
 async function confirmCheckIn(id){
   const b=bookings.find(x=> String(x.id)===String(id));
@@ -1356,7 +1363,7 @@ async function confirmCheckIn(id){
   const ownerAmount=b.base || Math.round((b.total||0) - (b.fee||0));
   const yourFee=b.youReceive || b.fee || 0;
   const confirmResult = await showConfirm("Confirm Check-in",
-    "CHECK-IN FLOW - ToyyibPay Auto\n\nBooking: "+b.id+"\n"+b.homestay+" • "+b.checkin+" → "+b.checkout+" • RM"+b.total+"\nGuest: "+(b.guestName||b.guestEmail)+"\n\nOwner gets: RM"+ownerAmount+" via ToyyibPay Auto\nYou get: RM"+yourFee+" fee\nStatus will auto become Completed\n\nContinue?"
+    "CHECK-IN FLOW - CHIP Send\n\nBooking: "+b.id+"\n"+b.homestay+" • "+b.checkin+" → "+b.checkout+" • RM"+b.total+"\nGuest: "+(b.guestName||b.guestEmail)+"\n\nOwner gets: RM"+ownerAmount+" via CHIP Send\nYou get: RM"+yourFee+" fee\nStatus will auto become Completed\n\nContinue?"
   );
   if (!confirmResult) return;
   try{
@@ -1386,7 +1393,7 @@ async function confirmCheckIn(id){
       });
       payoutData=await res.json().catch(()=>({}));
     }catch(e){ payoutData={simulation:true}; }
-    b.status = (payoutData && payoutData.simulation) ? "Completed - Owner Paid RM"+ownerAmount+" via ToyyibPay Auto" : "Completed - Owner Paid RM"+ownerAmount;
+    b.status = (payoutData && payoutData.simulation) ? "Completed - Owner Paid RM"+ownerAmount+" (Simulated)" : "Completed - Owner Paid RM"+ownerAmount+" via CHIP Send";
     b.payoutDate=new Date().toISOString();
     b.payoutAmount=ownerAmount;
     b.yourFeeEarned=yourFee;
@@ -1396,7 +1403,7 @@ async function confirmCheckIn(id){
     fetchWithAuth(API_BASE + '/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id:b.id, status:b.status, booking:b})}).catch(()=>{});
     renderBookingsTable(currentBookingFilter);
     await fetchEarnings();
-    await showAlert("Check-in Complete", 'CHECK-IN COMPLETE!\nOwner: RM'+ownerAmount+' '+(payoutData?.simulation?'(Simulation)':'via ToyyibPay Auto')+'\nYour fee: RM'+yourFee);
+    await showAlert("Check-in Complete", 'CHECK-IN COMPLETE!\nOwner: RM'+ownerAmount+' '+(payoutData?.simulation?'(Simulation)':'via CHIP Send')+'\nYour fee: RM'+yourFee);
   }catch(e){
     await showAlert("Error", 'Failed: '+e.message);
     b.status="Paid - Awaiting Check-in";
@@ -1787,8 +1794,6 @@ document.addEventListener('click', async (e)=>{
 // INIT
 // =============================================================
 (async ()=>{
-  const saved=localStorage.getItem("kd_billplz");
-  if(saved){ try{ CONFIG.billplz={...CONFIG.billplz, ...JSON.parse(saved)}; }catch(e){} }
   if(sessionStorage.getItem("kd_admin_token")){
     ADMIN_TOKEN = sessionStorage.getItem("kd_admin_token");
     try{
