@@ -21,18 +21,23 @@
     </script>
 
     <style>
+        /* ── COLOR SYSTEM ── */
         :root {
-            --primary: #0F382E;
-            --primary-light: #1a5a47;
-            --primary-dark: #0a2a22;
-            --accent: #3FD0D4;
-            --accent-hover: #2bbfc4;
-            --accent-glow: rgba(63, 208, 212, 0.25);
-            --bg: #F8F5F0;
+            --primary: #12454B;
+            --primary-light: #1a5f66;
+            --primary-dark: #0b2f33;
+            --primary-soft: #e8f0ee;
+            --bg: #F9F6EF;
             --card: #ffffff;
-            --shadow-sm: 0 2px 20px rgba(0, 0, 0, 0.05);
-            --shadow-md: 0 8px 40px rgba(0, 0, 0, 0.08);
-            --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12);
+            --text-dark: #12454B;
+            --text-light: #F9F6EF;
+            --text-muted: #5a6f6b;
+            --accent: #D4A373;
+            --accent-hover: #c4915e;
+            --accent-glow: rgba(212, 163, 115, 0.25);
+            --shadow-sm: 0 2px 20px rgba(18, 69, 75, 0.06);
+            --shadow-md: 0 8px 40px rgba(18, 69, 75, 0.10);
+            --shadow-lg: 0 20px 60px rgba(18, 69, 75, 0.14);
             --radius: 24px;
         }
         * {
@@ -52,6 +57,7 @@
             margin: 0;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
+            color: var(--text-dark);
         }
         .font-satisfy {
             font-family: "Satisfy", cursive;
@@ -59,24 +65,21 @@
 
         /* ── Cards ── */
         .card {
-            background: white;
+            background: var(--card);
             border-radius: var(--radius);
             box-shadow: var(--shadow-sm);
-            border: 1px solid rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(18, 69, 75, 0.04);
             transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
         .card:hover {
             box-shadow: var(--shadow-md);
             transform: translateY(-4px);
         }
-        .card-glow:hover {
-            box-shadow: 0 8px 40px rgba(63, 208, 212, 0.15);
-        }
 
         /* ── Buttons ── */
         .btn-primary {
             background: var(--primary);
-            color: white;
+            color: var(--text-light);
             border-radius: 999px;
             padding: 14px 32px;
             font-weight: 700;
@@ -99,21 +102,18 @@
             content: '';
             position: absolute;
             inset: 0;
-            background: linear-gradient(135deg, transparent 40%, rgba(255, 255, 255, 0.08) 100%);
+            background: linear-gradient(135deg, transparent 40%, rgba(255, 255, 255, 0.06) 100%);
             pointer-events: none;
         }
         .btn-primary:hover {
             background: var(--primary-light);
             transform: translateY(-2px);
-            box-shadow: 0 12px 40px rgba(15, 56, 46, 0.35);
-        }
-        .btn-primary:active {
-            transform: translateY(0);
+            box-shadow: 0 12px 40px rgba(18, 69, 75, 0.35);
         }
 
         .btn-accent {
             background: var(--accent);
-            color: white;
+            color: var(--text-dark);
             border-radius: 999px;
             padding: 14px 32px;
             font-weight: 700;
@@ -142,21 +142,18 @@
         .btn-accent:hover {
             background: var(--accent-hover);
             transform: translateY(-2px);
-            box-shadow: 0 12px 40px rgba(63, 208, 212, 0.35);
-        }
-        .btn-accent:active {
-            transform: translateY(0);
+            box-shadow: 0 12px 40px rgba(212, 163, 115, 0.35);
         }
 
-        .btn-outline-white {
+        .btn-outline-light {
             background: transparent;
-            color: white;
+            color: var(--text-light);
             border-radius: 999px;
             padding: 12px 28px;
             font-weight: 600;
             font-size: 13px;
             transition: all 0.3s ease;
-            border: 2px solid rgba(255, 255, 255, 0.4);
+            border: 2px solid rgba(249, 246, 239, 0.35);
             cursor: pointer;
             display: inline-flex;
             align-items: center;
@@ -165,9 +162,9 @@
             text-decoration: none;
             min-height: 48px;
         }
-        .btn-outline-white:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: white;
+        .btn-outline-light:hover {
+            background: rgba(249, 246, 239, 0.10);
+            border-color: var(--text-light);
             transform: translateY(-2px);
         }
 
@@ -177,7 +174,7 @@
             height: 52px;
             border-radius: 999px;
             background: var(--primary);
-            color: white;
+            color: var(--text-light);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -190,6 +187,7 @@
         }
         .badge-step.accent {
             background: var(--accent);
+            color: var(--text-dark);
         }
         .badge-step.small {
             width: 40px;
@@ -199,7 +197,7 @@
 
         /* ── FAQ ── */
         .faq-item {
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid rgba(18, 69, 75, 0.06);
             padding: 6px 0;
         }
         .faq-item:last-child {
@@ -208,7 +206,7 @@
         .faq-question {
             font-weight: 700;
             font-size: 16px;
-            color: #1a1a1a;
+            color: var(--text-dark);
             cursor: pointer;
             display: flex;
             justify-content: space-between;
@@ -219,11 +217,11 @@
             transition: color 0.2s;
         }
         .faq-question:hover {
-            color: var(--primary);
+            color: var(--primary-light);
         }
         .faq-answer {
             font-size: 14px;
-            color: #4b5563;
+            color: var(--text-muted);
             line-height: 1.7;
             padding-bottom: 16px;
         }
@@ -245,7 +243,7 @@
         .mobile-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(18, 69, 75, 0.50);
             backdrop-filter: blur(4px);
             z-index: 999;
             opacity: 0;
@@ -263,11 +261,11 @@
             width: 320px;
             max-width: 85vw;
             height: 100%;
-            background: white;
+            background: var(--bg);
             z-index: 1000;
             transition: right 0.4s cubic-bezier(0.22, 1, 0.36, 1);
             padding: 28px 24px;
-            box-shadow: -12px 0 40px rgba(0, 0, 0, 0.12);
+            box-shadow: -12px 0 40px rgba(18, 69, 75, 0.12);
             display: flex;
             flex-direction: column;
             gap: 8px;
@@ -282,12 +280,12 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(255, 255, 255, 0.92);
+            background: rgba(249, 246, 239, 0.94);
             backdrop-filter: blur(12px);
             padding: 12px 16px;
-            box-shadow: 0 -6px 30px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 -6px 30px rgba(18, 69, 75, 0.06);
             z-index: 100;
-            border-top: 1px solid rgba(0, 0, 0, 0.04);
+            border-top: 1px solid rgba(18, 69, 75, 0.04);
             display: none;
             transform: translateY(100%);
             animation: slideUp 0.4s ease forwards;
@@ -313,24 +311,6 @@
             opacity: 1;
             transform: translateY(0);
         }
-        .scroll-fade-left {
-            opacity: 0;
-            transform: translateX(-40px);
-            transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-        }
-        .scroll-fade-left.visible {
-            opacity: 1;
-            transform: translateX(0);
-        }
-        .scroll-fade-right {
-            opacity: 0;
-            transform: translateX(40px);
-            transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-        }
-        .scroll-fade-right.visible {
-            opacity: 1;
-            transform: translateX(0);
-        }
 
         /* ── Comparison Table ── */
         .compare-table {
@@ -342,11 +322,11 @@
         .compare-table td {
             padding: 14px 18px;
             text-align: left;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid rgba(18, 69, 75, 0.05);
         }
         .compare-table th {
             background: var(--primary);
-            color: white;
+            color: var(--text-light);
             font-weight: 600;
             font-size: 12px;
             text-transform: uppercase;
@@ -356,22 +336,22 @@
             border-bottom: none;
         }
         .compare-table .highlight {
-            background: #f0fdf4;
+            background: #f2f7f5;
         }
         .compare-table .check {
-            color: #16a34a;
+            color: #1a7a6a;
             font-weight: 700;
             font-size: 18px;
         }
         .compare-table .cross {
-            color: #dc2626;
+            color: #b14a4a;
             font-weight: 700;
             font-size: 18px;
         }
         .compare-table .pill {
             display: inline-block;
             background: var(--primary);
-            color: white;
+            color: var(--text-light);
             padding: 2px 14px;
             border-radius: 999px;
             font-size: 11px;
@@ -380,7 +360,7 @@
         }
         .compare-table .pill-accent {
             background: var(--accent);
-            color: white;
+            color: var(--text-dark);
         }
         @media (max-width: 640px) {
             .compare-table th,
@@ -397,29 +377,27 @@
             }
         }
 
-        /* ── Hero gradient overlay ── */
-        .hero-gradient {
-            background: linear-gradient(135deg, #0a2a22 0%, #0F382E 40%, #1a5a47 100%);
-        }
-        .hero-pattern {
-            background-image: radial-gradient(circle at 20% 50%, rgba(63, 208, 212, 0.08) 0%, transparent 60%),
-                radial-gradient(circle at 80% 20%, rgba(63, 208, 212, 0.05) 0%, transparent 50%);
+        /* ── Hero ── */
+        .hero-bg {
+            background: var(--primary);
+            background-image:
+                radial-gradient(circle at 20% 50%, rgba(249, 246, 239, 0.06) 0%, transparent 60%),
+                radial-gradient(circle at 80% 20%, rgba(249, 246, 239, 0.04) 0%, transparent 50%);
         }
 
-        /* ── Misc ── */
         .section-tag {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: rgba(63, 208, 212, 0.12);
-            color: var(--accent-hover);
+            background: rgba(18, 69, 75, 0.08);
+            color: var(--primary);
             padding: 4px 16px 4px 12px;
             border-radius: 999px;
             font-size: 12px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            border: 1px solid rgba(63, 208, 212, 0.15);
+            border: 1px solid rgba(18, 69, 75, 0.08);
         }
         .section-tag .dot {
             width: 6px;
@@ -440,43 +418,28 @@
             }
         }
 
-        .trust-badge {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            padding: 6px 16px 6px 12px;
-            border-radius: 999px;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(4px);
-        }
-        .trust-badge .icon {
-            font-size: 16px;
-        }
-
-        .stat-number {
-            font-size: 42px;
-            font-weight: 800;
-            color: var(--primary);
-            line-height: 1;
-        }
-        .stat-label {
-            font-size: 14px;
-            color: #6b7280;
-            font-weight: 500;
-        }
-
         .gradient-line {
             height: 3px;
             width: 48px;
-            background: linear-gradient(90deg, var(--accent), var(--primary));
+            background: var(--accent);
             border-radius: 999px;
             margin: 8px auto 0;
         }
 
-        /* ── Mobile touch targets ── */
+        .trust-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(249, 246, 239, 0.06);
+            border: 1px solid rgba(249, 246, 239, 0.08);
+            padding: 6px 16px 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            color: rgba(249, 246, 239, 0.65);
+            backdrop-filter: blur(4px);
+        }
+
+        /* ── Misc ── */
         @media (max-width: 768px) {
             .btn-primary,
             .btn-accent {
@@ -493,32 +456,17 @@
                 height: 48px;
                 font-size: 18px;
             }
-            .stat-number {
-                font-size: 32px;
-            }
-            .hero-title {
-                font-size: 30px !important;
-            }
         }
 
-        /* ── Utility ── */
         [x-cloak] {
             display: none !important;
         }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
 
-        /* ── Testimonial card ── */
         .testimonial-card {
-            background: white;
+            background: var(--card);
             border-radius: var(--radius);
             padding: 28px 24px;
-            border: 1px solid rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(18, 69, 75, 0.04);
             box-shadow: var(--shadow-sm);
             transition: all 0.3s ease;
         }
@@ -527,22 +475,43 @@
             transform: translateY(-3px);
         }
         .testimonial-card .stars {
-            color: #f59e0b;
+            color: var(--accent);
             letter-spacing: 2px;
         }
 
-        /* ── Chip badge ── */
         .chip-badge {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: #0F382E;
-            color: white;
+            background: var(--primary);
+            color: var(--text-light);
             padding: 2px 14px 2px 10px;
             border-radius: 999px;
             font-size: 11px;
             font-weight: 600;
             letter-spacing: 0.02em;
+        }
+
+        /* ── Hero card preview ── */
+        .hero-preview-card {
+            background: rgba(249, 246, 239, 0.06);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(249, 246, 239, 0.10);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.20);
+        }
+        .hero-preview-card .label {
+            color: rgba(249, 246, 239, 0.50);
+            font-size: 12px;
+        }
+        .hero-preview-card .value {
+            color: var(--text-light);
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .hero-preview-card .divider {
+            border-color: rgba(249, 246, 239, 0.08);
         }
     </style>
 </head>
@@ -558,109 +527,103 @@
 
         <!-- ===== MOBILE DRAWER ===== -->
         <div class="mobile-drawer" :class="{ 'open': isMobileMenuOpen }">
-            <div class="flex justify-between items-center pb-5 border-b border-black/5">
-                <span class="font-bold text-[#212121] text-lg">Menu</span>
-                <button @click="isMobileMenuOpen = false" class="text-2xl p-2 -m-2 hover:bg-black/5 rounded-full transition-colors" aria-label="Tutup menu">✕</button>
+            <div class="flex justify-between items-center pb-5 border-b border-[#12454B]/10">
+                <span class="font-bold text-[#12454B] text-lg">Menu</span>
+                <button @click="isMobileMenuOpen = false" class="text-2xl p-2 -m-2 hover:bg-[#12454B]/5 rounded-full transition-colors" aria-label="Tutup menu">✕</button>
             </div>
             <nav class="flex flex-col gap-2 text-[15px] font-medium mt-2">
-                <a href="/" class="hover:text-[#0F382E] py-3 px-2 rounded-xl hover:bg-black/5 transition-colors">🏠 Utama</a>
-                <a href="/list.html" class="hover:text-[#0F382E] py-3 px-2 rounded-xl hover:bg-black/5 transition-colors">📋 Daftar Homestay</a>
-                <a href="/about.html" class="hover:text-[#0F382E] py-3 px-2 rounded-xl hover:bg-black/5 transition-colors">ℹ️ Tentang</a>
+                <a href="/" class="hover:text-[#12454B] py-3 px-2 rounded-xl hover:bg-[#12454B]/5 transition-colors">🏠 Utama</a>
+                <a href="/list.html" class="hover:text-[#12454B] py-3 px-2 rounded-xl hover:bg-[#12454B]/5 transition-colors">📋 Daftar Homestay</a>
+                <a href="/about.html" class="hover:text-[#12454B] py-3 px-2 rounded-xl hover:bg-[#12454B]/5 transition-colors">ℹ️ Tentang</a>
                 <a href="/owner.html" class="btn-primary text-center text-[12px] mt-3">🔑 Log Masuk Pengusaha</a>
             </nav>
-            <div class="mt-auto pt-6 border-t border-black/5 text-[12px] text-zinc-400">
+            <div class="mt-auto pt-6 border-t border-[#12454B]/10 text-[12px] text-[#12454B]/40">
                 <p>© 2026 Kundasang Homestay</p>
             </div>
         </div>
 
         <!-- ===== HEADER ===== -->
-        <header class="h-[72px] md:h-[80px] bg-white/85 backdrop-blur-lg sticky top-0 z-50 border-b border-black/5 transition-all duration-300" :class="{ 'shadow-sm': scrolled }">
+        <header class="h-[72px] md:h-[80px] bg-[#F9F6EF]/88 backdrop-blur-lg sticky top-0 z-50 border-b border-[#12454B]/8 transition-all duration-300" :class="{ 'shadow-sm': scrolled }">
             <div class="max-w-[1300px] mx-auto h-full px-4 lg:px-8 flex items-center justify-between">
                 <a href="/" class="flex items-center gap-3 group" aria-label="Kundasang Homestay - Laman Utama">
-                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-[#0F382E] flex items-center justify-center text-white font-bold text-lg shadow-sm transition-transform group-hover:scale-105">
+                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-[#12454B] flex items-center justify-center text-[#F9F6EF] font-bold text-lg shadow-sm transition-transform group-hover:scale-105">
                         KH
                     </div>
-                    <div class="font-poppins font-800 text-[18px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
-                        KUNDASANG<span class="font-600 text-[#212121]/50 text-[14px] md:text-[16px]"> • Homestay</span>
+                    <div class="font-poppins font-800 text-[18px] md:text-[22px] tracking-[-0.5px] text-[#12454B] leading-none">
+                        KUNDASANG<span class="font-600 text-[#12454B]/40 text-[14px] md:text-[16px]"> • Homestay</span>
                     </div>
                 </a>
                 <nav class="hidden md:flex items-center gap-8">
-                    <a href="/" class="text-[13px] font-600 text-[#212121]/70 hover:text-[#0F382E] transition-colors relative after:absolute after:bottom-[-2px] after:left-0 after:w-0 after:h-[2px] after:bg-[#0F382E] after:transition-all hover:after:w-full">Utama</a>
-                    <a href="/list.html" class="text-[13px] font-600 text-[#212121]/70 hover:text-[#0F382E] transition-colors relative after:absolute after:bottom-[-2px] after:left-0 after:w-0 after:h-[2px] after:bg-[#0F382E] after:transition-all hover:after:w-full">Daftar Homestay</a>
-                    <a href="/about.html" class="text-[13px] font-600 text-[#212121]/70 hover:text-[#0F382E] transition-colors relative after:absolute after:bottom-[-2px] after:left-0 after:w-0 after:h-[2px] after:bg-[#0F382E] after:transition-all hover:after:w-full">Tentang</a>
+                    <a href="/" class="text-[13px] font-600 text-[#12454B]/60 hover:text-[#12454B] transition-colors relative after:absolute after:bottom-[-2px] after:left-0 after:w-0 after:h-[2px] after:bg-[#12454B] after:transition-all hover:after:w-full">Utama</a>
+                    <a href="/list.html" class="text-[13px] font-600 text-[#12454B]/60 hover:text-[#12454B] transition-colors relative after:absolute after:bottom-[-2px] after:left-0 after:w-0 after:h-[2px] after:bg-[#12454B] after:transition-all hover:after:w-full">Daftar Homestay</a>
+                    <a href="/about.html" class="text-[13px] font-600 text-[#12454B]/60 hover:text-[#12454B] transition-colors relative after:absolute after:bottom-[-2px] after:left-0 after:w-0 after:h-[2px] after:bg-[#12454B] after:transition-all hover:after:w-full">Tentang</a>
                     <a href="/owner.html" class="btn-primary" style="padding:10px 28px;font-size:11px;min-height:40px;">🔑 Log Masuk Pengusaha</a>
                 </nav>
-                <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="md:hidden p-2 -mr-2 hover:bg-black/5 rounded-full transition-colors" aria-label="Buka menu">
-                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="md:hidden p-2 -mr-2 hover:bg-[#12454B]/5 rounded-full transition-colors" aria-label="Buka menu">
+                    <svg class="w-7 h-7 text-[#12454B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
             </div>
         </header>
 
         <!-- ===== HERO ===== -->
-        <section class="relative w-full hero-gradient hero-pattern text-white overflow-hidden scroll-fade" x-intersect.once="$el.classList.add('visible')">
+        <section class="relative w-full hero-bg text-[#F9F6EF] overflow-hidden scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <!-- Decorative blobs -->
-            <div class="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-[#3FD0D4]/5 blur-3xl pointer-events-none"></div>
-            <div class="absolute bottom-[-30%] left-[-10%] w-[400px] h-[400px] rounded-full bg-[#3FD0D4]/5 blur-3xl pointer-events-none"></div>
+            <div class="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-[#F9F6EF]/5 blur-3xl pointer-events-none"></div>
+            <div class="absolute bottom-[-30%] left-[-10%] w-[400px] h-[400px] rounded-full bg-[#F9F6EF]/5 blur-3xl pointer-events-none"></div>
 
             <div class="relative z-10 max-w-[1100px] mx-auto px-4 py-16 md:py-24 lg:py-28">
                 <div class="grid lg:grid-cols-5 gap-12 items-center">
                     <div class="lg:col-span-3 text-center lg:text-left">
-                        <div class="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/10 px-4 py-1.5 rounded-full text-[12px] font-semibold text-white/80 mb-5">
-                            <span class="w-2 h-2 bg-[#3FD0D4] rounded-full animate-pulse"></span>
+                        <div class="inline-flex items-center gap-2 bg-[#F9F6EF]/10 backdrop-blur-sm border border-[#F9F6EF]/10 px-4 py-1.5 rounded-full text-[12px] font-semibold text-[#F9F6EF]/80 mb-5">
+                            <span class="w-2 h-2 bg-[#D4A373] rounded-full animate-pulse"></span>
                             Platform Khas Pengusaha Tempatan
                         </div>
-                        <h1 class="font-poppins font-800 text-[36px] sm:text-[44px] md:text-[52px] lg:text-[58px] leading-[1.05] tracking-[-0.5px] hero-title">
+                        <h1 class="font-poppins font-800 text-[36px] sm:text-[44px] md:text-[52px] lg:text-[58px] leading-[1.05] tracking-[-0.5px] hero-title text-[#F9F6EF]">
                             Daftar Homestay Anda <br />
-                            <span class="text-[#3FD0D4]">Selamat &amp; Percuma</span>
+                            <span class="text-[#D4A373]">Selamat &amp; Percuma</span>
                         </h1>
-                        <p class="mt-4 text-white/80 text-[15px] md:text-[18px] max-w-[540px] mx-auto lg:mx-0 leading-[1.8]">
+                        <p class="mt-4 text-[#F9F6EF]/80 text-[15px] md:text-[18px] max-w-[540px] mx-auto lg:mx-0 leading-[1.8]">
                             Platform ini dibina khas untuk pengusaha homestay di Kundasang.
                             <span class="block md:inline">Tiada bayaran pendaftaran, tiada yuran tersembunyi.</span>
                         </p>
                         <div class="mt-8 flex flex-wrap items-center justify-center lg:justify-start gap-4">
                             <a href="/list.html" class="btn-accent text-sm md:text-base px-8 py-4">📋 Daftar Sekarang – PERCUMA</a>
-                            <a href="#faq" class="btn-outline-white text-sm">🤔 Ada Soalan?</a>
+                            <a href="#faq" class="btn-outline-light text-sm">🤔 Ada Soalan?</a>
                         </div>
-                        <div class="mt-6 flex flex-wrap items-center justify-center lg:justify-start gap-4 text-xs md:text-sm text-white/60">
+                        <div class="mt-6 flex flex-wrap items-center justify-center lg:justify-start gap-4 text-xs md:text-sm text-[#F9F6EF]/50">
                             <span class="flex items-center gap-1.5">✅ Pendaftaran Percuma</span>
-                            <span class="w-1 h-1 bg-white/20 rounded-full"></span>
+                            <span class="w-1 h-1 bg-[#F9F6EF]/20 rounded-full"></span>
                             <span class="flex items-center gap-1.5">🔒 Wang Disimpan di CHIP</span>
-                            <span class="w-1 h-1 bg-white/20 rounded-full"></span>
+                            <span class="w-1 h-1 bg-[#F9F6EF]/20 rounded-full"></span>
                             <span class="flex items-center gap-1.5">🆔 Pengesahan ID Teliti</span>
                         </div>
                     </div>
                     <div class="lg:col-span-2 hidden lg:block">
-                        <div class="relative">
-                            <div class="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 shadow-2xl">
-                                <div class="flex items-center gap-3 mb-4">
-                                    <div class="w-10 h-10 rounded-full bg-[#3FD0D4]/20 flex items-center justify-center text-xl">🏠</div>
-                                    <div>
-                                        <div class="font-semibold text-sm">Homestay Kundasang</div>
-                                        <div class="text-[11px] text-white/50">⭐ 4.9 · 128 ulasan</div>
-                                    </div>
-                                </div>
-                                <div class="space-y-3 text-sm">
-                                    <div class="flex justify-between border-b border-white/5 pb-2">
-                                        <span class="text-white/60">Harga semalam</span>
-                                        <span class="font-semibold">RM 250</span>
-                                    </div>
-                                    <div class="flex justify-between border-b border-white/5 pb-2">
-                                        <span class="text-white/60">Tempahan</span>
-                                        <span class="font-semibold text-[#3FD0D4]">✓ 12 tempahan</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-white/60">Status</span>
-                                        <span class="inline-flex items-center gap-1 text-[#3FD0D4]"><span class="w-2 h-2 bg-[#3FD0D4] rounded-full"></span> Aktif</span>
-                                    </div>
-                                </div>
-                                <div class="mt-4 pt-4 border-t border-white/10 flex items-center justify-between text-[11px] text-white/40">
-                                    <span>✅ Disahkan oleh admin</span>
-                                    <span>🛡️ Dilindungi CHIP</span>
+                        <div class="hero-preview-card">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-10 h-10 rounded-full bg-[#D4A373]/20 flex items-center justify-center text-xl">🏠</div>
+                                <div>
+                                    <div class="font-semibold text-[#F9F6EF] text-sm">Homestay Kundasang</div>
+                                    <div class="text-[11px] text-[#F9F6EF]/50">⭐ 4.9 · 128 ulasan</div>
                                 </div>
                             </div>
-                            <!-- floating badge -->
-                            <div class="absolute -bottom-4 -right-4 bg-[#3FD0D4] text-[#0F382E] text-[11px] font-bold px-4 py-2 rounded-full shadow-lg animate-bounce-slow">
-                                PERCUMA!
+                            <div class="space-y-3 text-sm">
+                                <div class="flex justify-between border-b border-[#F9F6EF]/8 pb-2">
+                                    <span class="text-[#F9F6EF]/50">Harga semalam</span>
+                                    <span class="font-semibold text-[#F9F6EF]">RM 250</span>
+                                </div>
+                                <div class="flex justify-between border-b border-[#F9F6EF]/8 pb-2">
+                                    <span class="text-[#F9F6EF]/50">Tempahan</span>
+                                    <span class="font-semibold text-[#D4A373]">✓ 12 tempahan</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-[#F9F6EF]/50">Status</span>
+                                    <span class="inline-flex items-center gap-1 text-[#D4A373]"><span class="w-2 h-2 bg-[#D4A373] rounded-full"></span> Aktif</span>
+                                </div>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-[#F9F6EF]/8 flex items-center justify-between text-[11px] text-[#F9F6EF]/30">
+                                <span>✅ Disahkan oleh admin</span>
+                                <span>🛡️ Dilindungi CHIP</span>
                             </div>
                         </div>
                     </div>
@@ -669,24 +632,24 @@
         </section>
 
         <!-- ===== TRUST BAR ===== -->
-        <section class="bg-white border-b border-black/5 py-4 scroll-fade" x-intersect.once="$el.classList.add('visible')">
+        <section class="bg-[#F9F6EF] border-b border-[#12454B]/8 py-4 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="flex flex-wrap items-center justify-center gap-6 md:gap-10 text-center">
-                    <div class="flex items-center gap-2 text-[13px] text-zinc-600">
+                    <div class="flex items-center gap-2 text-[13px] text-[#12454B]/70">
                         <span class="text-2xl">🏛️</span>
-                        <span>Berdaftar dengan <strong class="text-[#0F382E]">Bank Negara</strong></span>
+                        <span>Berdaftar dengan <strong class="text-[#12454B]">Bank Negara</strong></span>
                     </div>
-                    <div class="flex items-center gap-2 text-[13px] text-zinc-600">
+                    <div class="flex items-center gap-2 text-[13px] text-[#12454B]/70">
                         <span class="text-2xl">🔐</span>
-                        <span>Pembayaran <strong class="text-[#0F382E]">FPX</strong> Selamat</span>
+                        <span>Pembayaran <strong class="text-[#12454B]">FPX</strong> Selamat</span>
                     </div>
-                    <div class="flex items-center gap-2 text-[13px] text-zinc-600">
+                    <div class="flex items-center gap-2 text-[13px] text-[#12454B]/70">
                         <span class="text-2xl">⭐</span>
-                        <span>Dipercayai <strong class="text-[#0F382E]">10,000+</strong> perniagaan</span>
+                        <span>Dipercayai <strong class="text-[#12454B]">10,000+</strong> perniagaan</span>
                     </div>
-                    <div class="flex items-center gap-2 text-[13px] text-zinc-600">
+                    <div class="flex items-center gap-2 text-[13px] text-[#12454B]/70">
                         <span class="text-2xl">🕒</span>
-                        <span>Kelulusan <strong class="text-[#0F382E]">24–48 jam</strong></span>
+                        <span>Kelulusan <strong class="text-[#12454B]">24–48 jam</strong></span>
                     </div>
                 </div>
             </div>
@@ -696,8 +659,8 @@
         <section class="max-w-[1100px] mx-auto px-4 py-16 md:py-20 scroll-fade overflow-hidden" x-intersect.once="$el.classList.add('visible')">
             <div class="text-center mb-14">
                 <div class="section-tag mx-auto"><span class="dot"></span> Proses Mudah</div>
-                <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#212121] tracking-[-0.5px] mt-4">Bagaimana Ia Berfungsi?</h2>
-                <p class="text-[15px] text-zinc-500 mt-2 max-w-2xl mx-auto">Langkah mudah dari pendaftaran sehingga bayaran masuk ke akaun bank anda.</p>
+                <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#12454B] tracking-[-0.5px] mt-4">Bagaimana Ia Berfungsi?</h2>
+                <p class="text-[15px] text-[#12454B]/60 mt-2 max-w-2xl mx-auto">Langkah mudah dari pendaftaran sehingga bayaran masuk ke akaun bank anda.</p>
                 <div class="gradient-line"></div>
             </div>
 
@@ -706,8 +669,8 @@
                 <template x-for="(step, index) in steps" :key="index">
                     <div class="card p-5 text-center step-card transition-all hover:shadow-md">
                         <div class="badge-step mx-auto" :class="{ 'accent': step.accent }" x-text="step.id"></div>
-                        <h3 class="font-poppins font-700 text-[17px] text-[#212121] mt-3" x-text="step.title"></h3>
-                        <p class="text-[13px] text-zinc-600 mt-1.5 leading-relaxed" x-html="step.desc"></p>
+                        <h3 class="font-poppins font-700 text-[17px] text-[#12454B] mt-3" x-text="step.title"></h3>
+                        <p class="text-[13px] text-[#12454B]/60 mt-1.5 leading-relaxed" x-html="step.desc"></p>
                     </div>
                 </template>
             </div>
@@ -717,14 +680,14 @@
                 <template x-for="(step, index) in steps" :key="index">
                     <div class="card p-7 text-center hover:shadow-lg transition-all duration-300 group">
                         <div class="badge-step mx-auto group-hover:scale-110 transition-transform" :class="{ 'accent': step.accent }" x-text="step.id"></div>
-                        <h3 class="font-poppins font-700 text-[18px] text-[#212121] mt-4" x-text="step.title"></h3>
-                        <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed" x-html="step.desc"></p>
+                        <h3 class="font-poppins font-700 text-[18px] text-[#12454B] mt-4" x-text="step.title"></h3>
+                        <p class="text-[14px] text-[#12454B]/60 mt-2 leading-relaxed" x-html="step.desc"></p>
                     </div>
                 </template>
             </div>
 
-            <div class="mt-12 text-center bg-blue-50/80 border border-blue-200/60 rounded-2xl p-5 md:p-7 max-w-3xl mx-auto">
-                <p class="text-[14px] text-blue-800 font-medium leading-relaxed">💡 <strong>Penting:</strong> Platform <span class="underline">tidak memegang</span> wang anda. Wang disimpan oleh CHIP dan hanya dilepaskan ke akaun bank anda selepas check‑in disahkan.</p>
+            <div class="mt-12 text-center bg-[#12454B]/5 border border-[#12454B]/10 rounded-2xl p-5 md:p-7 max-w-3xl mx-auto">
+                <p class="text-[14px] text-[#12454B] font-medium leading-relaxed">💡 <strong>Penting:</strong> Platform <span class="underline">tidak memegang</span> wang anda. Wang disimpan oleh CHIP dan hanya dilepaskan ke akaun bank anda selepas check‑in disahkan.</p>
             </div>
             <div class="mt-10 text-center">
                 <a href="/list.html" class="btn-primary text-sm md:text-base px-10 py-4">📋 Saya Nak Daftar Sekarang</a>
@@ -732,45 +695,45 @@
         </section>
 
         <!-- ===== STATS ===== -->
-        <section class="bg-[#0F382E] text-white py-12 scroll-fade" x-intersect.once="$el.classList.add('visible')">
+        <section class="bg-[#12454B] text-[#F9F6EF] py-12 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
                     <div>
-                        <div class="text-4xl md:text-5xl font-800 text-[#3FD0D4]" x-text="stats[0].number"></div>
-                        <div class="text-[13px] text-white/60 mt-1" x-text="stats[0].label"></div>
+                        <div class="text-4xl md:text-5xl font-800 text-[#D4A373]" x-text="stats[0].number"></div>
+                        <div class="text-[13px] text-[#F9F6EF]/60 mt-1" x-text="stats[0].label"></div>
                     </div>
                     <div>
-                        <div class="text-4xl md:text-5xl font-800 text-[#3FD0D4]" x-text="stats[1].number"></div>
-                        <div class="text-[13px] text-white/60 mt-1" x-text="stats[1].label"></div>
+                        <div class="text-4xl md:text-5xl font-800 text-[#D4A373]" x-text="stats[1].number"></div>
+                        <div class="text-[13px] text-[#F9F6EF]/60 mt-1" x-text="stats[1].label"></div>
                     </div>
                     <div>
-                        <div class="text-4xl md:text-5xl font-800 text-[#3FD0D4]" x-text="stats[2].number"></div>
-                        <div class="text-[13px] text-white/60 mt-1" x-text="stats[2].label"></div>
+                        <div class="text-4xl md:text-5xl font-800 text-[#D4A373]" x-text="stats[2].number"></div>
+                        <div class="text-[13px] text-[#F9F6EF]/60 mt-1" x-text="stats[2].label"></div>
                     </div>
                     <div>
-                        <div class="text-4xl md:text-5xl font-800 text-[#3FD0D4]" x-text="stats[3].number"></div>
-                        <div class="text-[13px] text-white/60 mt-1" x-text="stats[3].label"></div>
+                        <div class="text-4xl md:text-5xl font-800 text-[#D4A373]" x-text="stats[3].number"></div>
+                        <div class="text-[13px] text-[#F9F6EF]/60 mt-1" x-text="stats[3].label"></div>
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- ===== KENAPA PILIH ===== -->
-        <section class="bg-white py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
+        <section class="bg-[#F9F6EF] py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="text-center mb-14">
                     <div class="section-tag mx-auto"><span class="dot"></span> Kelebihan</div>
-                    <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#212121] tracking-[-0.5px] mt-4">Kenapa Pilih Platform Ini?</h2>
-                    <p class="text-[15px] text-zinc-500 mt-2 max-w-2xl mx-auto">Kami faham cabaran pengusaha tempatan. Inilah sebabnya kami berbeza.</p>
+                    <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#12454B] tracking-[-0.5px] mt-4">Kenapa Pilih Platform Ini?</h2>
+                    <p class="text-[15px] text-[#12454B]/60 mt-2 max-w-2xl mx-auto">Kami faham cabaran pengusaha tempatan. Inilah sebabnya kami berbeza.</p>
                     <div class="gradient-line"></div>
                 </div>
                 <div class="grid md:grid-cols-2 gap-6">
                     <template x-for="(item, idx) in whyChoose" :key="idx">
-                        <div class="flex gap-4 items-start p-4 rounded-xl hover:bg-black/[0.02] transition-colors">
+                        <div class="flex gap-4 items-start p-4 rounded-xl hover:bg-[#12454B]/[0.03] transition-colors">
                             <div class="text-3xl flex-shrink-0 w-12 text-center" x-text="item.icon"></div>
                             <div>
-                                <h3 class="font-poppins font-700 text-[17px] text-[#212121]" x-text="item.title"></h3>
-                                <p class="text-[14px] text-zinc-600 leading-relaxed" x-html="item.desc"></p>
+                                <h3 class="font-poppins font-700 text-[17px] text-[#12454B]" x-text="item.title"></h3>
+                                <p class="text-[14px] text-[#12454B]/70 leading-relaxed" x-html="item.desc"></p>
                             </div>
                         </div>
                     </template>
@@ -782,8 +745,8 @@
         <section class="max-w-[1100px] mx-auto px-4 py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="text-center mb-14">
                 <div class="section-tag mx-auto"><span class="dot"></span> Bandingkan</div>
-                <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#212121] tracking-[-0.5px] mt-4">Beza Kami Dengan Yang Lain</h2>
-                <p class="text-[15px] text-zinc-500 mt-2 max-w-2xl mx-auto">Kami percaya pada ketelusan. Inilah perbezaan sebenar antara kami dan platform lain.</p>
+                <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#12454B] tracking-[-0.5px] mt-4">Beza Kami Dengan Yang Lain</h2>
+                <p class="text-[15px] text-[#12454B]/60 mt-2 max-w-2xl mx-auto">Kami percaya pada ketelusan. Inilah perbezaan sebenar antara kami dan platform lain.</p>
                 <div class="gradient-line"></div>
             </div>
 
@@ -794,7 +757,7 @@
                             <tr>
                                 <th class="rounded-tl-2xl">Kriteria</th>
                                 <th class="text-center"><span class="pill">Kundasang Homestay</span></th>
-                                <th class="rounded-tr-2xl text-center text-white/60"><span class="pill pill-accent bg-white/20">Platform Lain</span></th>
+                                <th class="rounded-tr-2xl text-center text-[#F9F6EF]/60"><span class="pill pill-accent bg-[#D4A373] text-[#12454B]">Platform Lain</span></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -854,18 +817,18 @@
             </div>
 
             <div class="mt-10 text-center">
-                <p class="text-[15px] text-zinc-700">📊 <strong>Rumusannya:</strong> Kami bukan sekadar platform – kami adalah <span class="text-[#0F382E] font-semibold">rakan kongsi</span> untuk pengusaha homestay Kundasang.</p>
+                <p class="text-[15px] text-[#12454B]/80">📊 <strong>Rumusannya:</strong> Kami bukan sekadar platform – kami adalah <span class="text-[#12454B] font-semibold">rakan kongsi</span> untuk pengusaha homestay Kundasang.</p>
                 <a href="/list.html" class="btn-primary mt-5 text-sm md:text-base px-10 py-4">📋 Saya Nak Daftar Sekarang</a>
             </div>
         </section>
 
         <!-- ===== CHIP SECTION ===== -->
-        <section class="bg-white py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
+        <section class="bg-[#F9F6EF] py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="text-center mb-14">
                     <div class="section-tag mx-auto"><span class="dot"></span> Pembayaran Selamat</div>
-                    <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#212121] tracking-[-0.5px] mt-4">Siapa CHIP &amp; Mengapa Ia Dipercayai?</h2>
-                    <p class="text-[15px] text-zinc-500 mt-2 max-w-2xl mx-auto">Kami bekerjasama dengan CHIP – gateway pembayaran dalam talian yang terkemuka di Malaysia.</p>
+                    <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#12454B] tracking-[-0.5px] mt-4">Siapa CHIP &amp; Mengapa Ia Dipercayai?</h2>
+                    <p class="text-[15px] text-[#12454B]/60 mt-2 max-w-2xl mx-auto">Kami bekerjasama dengan CHIP – gateway pembayaran dalam talian yang terkemuka di Malaysia.</p>
                     <div class="gradient-line"></div>
                 </div>
 
@@ -874,44 +837,44 @@
                         <div class="flex items-start gap-4">
                             <div class="text-3xl flex-shrink-0 w-12 text-center">🏛️</div>
                             <div>
-                                <h3 class="font-poppins font-700 text-[18px] text-[#212121]">Berdaftar &amp; Dikawal Selia</h3>
-                                <p class="text-[14px] text-zinc-600 leading-relaxed">CHIP IN Sdn Bhd ialah <strong>pemproses pembayaran yang berdaftar dengan Bank Negara Malaysia</strong>. Mereka mematuhi semua piawaian kewangan dan keselamatan yang ditetapkan oleh pihak berkuasa.</p>
+                                <h3 class="font-poppins font-700 text-[18px] text-[#12454B]">Berdaftar &amp; Dikawal Selia</h3>
+                                <p class="text-[14px] text-[#12454B]/70 leading-relaxed">CHIP IN Sdn Bhd ialah <strong>pemproses pembayaran yang berdaftar dengan Bank Negara Malaysia</strong>. Mereka mematuhi semua piawaian kewangan dan keselamatan yang ditetapkan oleh pihak berkuasa.</p>
                             </div>
                         </div>
                         <div class="flex items-start gap-4">
                             <div class="text-3xl flex-shrink-0 w-12 text-center">🔐</div>
                             <div>
-                                <h3 class="font-poppins font-700 text-[18px] text-[#212121]">FPX – Perbankan Dalam Talian Terbesar</h3>
-                                <p class="text-[14px] text-zinc-600 leading-relaxed">CHIP menggunakan <strong>FPX (Financial Process Exchange)</strong>, sistem yang digunakan oleh semua bank utama di Malaysia. Pembayaran dibuat terus dari akaun bank tetamu ke akaun escrow CHIP – tiada kad kredit, tiada risiko.</p>
+                                <h3 class="font-poppins font-700 text-[18px] text-[#12454B]">FPX – Perbankan Dalam Talian Terbesar</h3>
+                                <p class="text-[14px] text-[#12454B]/70 leading-relaxed">CHIP menggunakan <strong>FPX (Financial Process Exchange)</strong>, sistem yang digunakan oleh semua bank utama di Malaysia. Pembayaran dibuat terus dari akaun bank tetamu ke akaun escrow CHIP – tiada kad kredit, tiada risiko.</p>
                             </div>
                         </div>
                         <div class="flex items-start gap-4">
                             <div class="text-3xl flex-shrink-0 w-12 text-center">🛡️</div>
                             <div>
-                                <h3 class="font-poppins font-700 text-[18px] text-[#212121]">Akaun Amanah (Trust Account)</h3>
-                                <p class="text-[14px] text-zinc-600 leading-relaxed">Wang tempahan <span class="underline">tidak pernah dipegang oleh Kundasang Homestay</span>. Ia disimpan dalam <strong>akaun amanah CHIP yang dikawal selia</strong> dan hanya akan dilepaskan kepada anda <strong>selepas tetamu check‑in dan anda sahkan ketibaan</strong>. Ini melindungi anda daripada penipuan dan pembatalan secara tiba‑tiba.</p>
+                                <h3 class="font-poppins font-700 text-[18px] text-[#12454B]">Akaun Amanah (Trust Account)</h3>
+                                <p class="text-[14px] text-[#12454B]/70 leading-relaxed">Wang tempahan <span class="underline">tidak pernah dipegang oleh Kundasang Homestay</span>. Ia disimpan dalam <strong>akaun amanah CHIP yang dikawal selia</strong> dan hanya akan dilepaskan kepada anda <strong>selepas tetamu check‑in dan anda sahkan ketibaan</strong>. Ini melindungi anda daripada penipuan dan pembatalan secara tiba‑tiba.</p>
                             </div>
                         </div>
                     </div>
-                    <div class="bg-[#F8F5F0] p-7 rounded-2xl border border-black/5">
+                    <div class="bg-[#12454B]/5 p-7 rounded-2xl border border-[#12454B]/10">
                         <div class="text-4xl mb-4 text-center">💳</div>
-                        <h4 class="font-poppins font-700 text-[19px] text-[#212121] text-center">Digunakan oleh Ribuan Perniagaan</h4>
-                        <p class="text-[14px] text-zinc-600 mt-2 text-center leading-relaxed">CHIP dipercayai oleh lebih <strong>10,000 perniagaan</strong> di Malaysia – dari perniagaan kecil sehinggalah syarikat besar. Mereka terkenal dengan kebolehpercayaan, sokongan pelanggan yang responsif, dan yuran yang telus.</p>
-                        <div class="mt-5 flex justify-center gap-8 text-sm text-zinc-500">
+                        <h4 class="font-poppins font-700 text-[19px] text-[#12454B] text-center">Digunakan oleh Ribuan Perniagaan</h4>
+                        <p class="text-[14px] text-[#12454B]/70 mt-2 text-center leading-relaxed">CHIP dipercayai oleh lebih <strong>10,000 perniagaan</strong> di Malaysia – dari perniagaan kecil sehinggalah syarikat besar. Mereka terkenal dengan kebolehpercayaan, sokongan pelanggan yang responsif, dan yuran yang telus.</p>
+                        <div class="mt-5 flex justify-center gap-8 text-sm text-[#12454B]/60">
                             <div class="text-center">
-                                <div class="font-bold text-[#0F382E] text-2xl">10K+</div>
+                                <div class="font-bold text-[#12454B] text-2xl">10K+</div>
                                 <div class="text-[12px]">Perniagaan</div>
                             </div>
                             <div class="text-center">
-                                <div class="font-bold text-[#0F382E] text-2xl">15+</div>
+                                <div class="font-bold text-[#12454B] text-2xl">15+</div>
                                 <div class="text-[12px]">Bank FPX</div>
                             </div>
                             <div class="text-center">
-                                <div class="font-bold text-[#0F382E] text-2xl">24/7</div>
+                                <div class="font-bold text-[#12454B] text-2xl">24/7</div>
                                 <div class="text-[12px]">Sokongan</div>
                             </div>
                         </div>
-                        <div class="mt-5 bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-800">
+                        <div class="mt-5 bg-[#12454B]/10 border border-[#12454B]/10 rounded-xl p-4 text-sm text-[#12454B]">
                             ✅ <strong>Kesimpulan:</strong> Dengan CHIP, anda dan tetamu anda dilindungi sepenuhnya. Wang hanya bergerak apabila anda sahkan ketibaan – tiada risiko, tiada kejutan.
                         </div>
                     </div>
@@ -923,20 +886,20 @@
         <section class="max-w-[1100px] mx-auto px-4 py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="text-center mb-14">
                 <div class="section-tag mx-auto"><span class="dot"></span> Testimoni</div>
-                <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#212121] tracking-[-0.5px] mt-4">Apa Kata Pengusaha Lain?</h2>
-                <p class="text-[15px] text-zinc-500 mt-2 max-w-2xl mx-auto">Dengarkan pengalaman sebenar dari pengusaha homestay yang telah menyertai platform kami.</p>
+                <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#12454B] tracking-[-0.5px] mt-4">Apa Kata Pengusaha Lain?</h2>
+                <p class="text-[15px] text-[#12454B]/60 mt-2 max-w-2xl mx-auto">Dengarkan pengalaman sebenar dari pengusaha homestay yang telah menyertai platform kami.</p>
                 <div class="gradient-line"></div>
             </div>
             <div class="grid md:grid-cols-3 gap-6">
                 <template x-for="(t, idx) in testimonials" :key="idx">
                     <div class="testimonial-card">
                         <div class="stars text-lg" x-text="'★'.repeat(5)"></div>
-                        <p class="text-[14px] text-zinc-700 mt-3 leading-relaxed italic" x-text="t.text"></p>
-                        <div class="flex items-center gap-3 mt-4 pt-4 border-t border-black/5">
-                            <div class="w-10 h-10 rounded-full bg-[#0F382E]/10 flex items-center justify-center text-[#0F382E] font-bold text-sm" x-text="t.name.charAt(0)"></div>
+                        <p class="text-[14px] text-[#12454B]/80 mt-3 leading-relaxed italic" x-text="t.text"></p>
+                        <div class="flex items-center gap-3 mt-4 pt-4 border-t border-[#12454B]/8">
+                            <div class="w-10 h-10 rounded-full bg-[#12454B]/10 flex items-center justify-center text-[#12454B] font-bold text-sm" x-text="t.name.charAt(0)"></div>
                             <div>
-                                <div class="font-semibold text-[14px] text-[#212121]" x-text="t.name"></div>
-                                <div class="text-[12px] text-zinc-400" x-text="t.role"></div>
+                                <div class="font-semibold text-[14px] text-[#12454B]" x-text="t.name"></div>
+                                <div class="text-[12px] text-[#12454B]/50" x-text="t.role"></div>
                             </div>
                         </div>
                     </div>
@@ -945,12 +908,12 @@
         </section>
 
         <!-- ===== PROSES PENDAFTARAN ===== -->
-        <section class="bg-white py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
+        <section class="bg-[#F9F6EF] py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="text-center mb-14">
                     <div class="section-tag mx-auto"><span class="dot"></span> Langkah Seterusnya</div>
-                    <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#212121] tracking-[-0.5px] mt-4">Proses Pendaftaran &amp; Kelulusan</h2>
-                    <p class="text-[15px] text-zinc-500 mt-2 max-w-2xl mx-auto">Ikuti langkah mudah ini untuk mula menerima tempahan.</p>
+                    <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#12454B] tracking-[-0.5px] mt-4">Proses Pendaftaran &amp; Kelulusan</h2>
+                    <p class="text-[15px] text-[#12454B]/60 mt-2 max-w-2xl mx-auto">Ikuti langkah mudah ini untuk mula menerima tempahan.</p>
                     <div class="gradient-line"></div>
                 </div>
                 <div class="grid lg:grid-cols-2 gap-10 items-start">
@@ -959,21 +922,21 @@
                             <div class="flex gap-4 items-start">
                                 <div class="badge-step small" :class="{ 'accent': step.accent }" x-text="step.id"></div>
                                 <div>
-                                    <h3 class="font-poppins font-700 text-[17px] text-[#212121]" x-text="step.title"></h3>
-                                    <p class="text-[14px] text-zinc-600 leading-relaxed" x-text="step.desc"></p>
+                                    <h3 class="font-poppins font-700 text-[17px] text-[#12454B]" x-text="step.title"></h3>
+                                    <p class="text-[14px] text-[#12454B]/70 leading-relaxed" x-text="step.desc"></p>
                                 </div>
                             </div>
                         </template>
                     </div>
-                    <div class="bg-[#F8F5F0] p-7 rounded-2xl border border-black/5">
-                        <h4 class="font-poppins font-700 text-[18px] text-[#212121]">📄 Dokumen yang Diperlukan</h4>
-                        <ul class="mt-4 space-y-2.5 text-[14px] text-zinc-700">
-                            <li class="flex items-start gap-2.5"><span class="text-[#3FD0D4] font-bold text-lg">✓</span> Gambar IC (dengan watermark automatik)</li>
-                            <li class="flex items-start gap-2.5"><span class="text-[#3FD0D4] font-bold text-lg">✓</span> Gambar QR DuitNow / Bank</li>
-                            <li class="flex items-start gap-2.5"><span class="text-[#3FD0D4] font-bold text-lg">✓</span> (Optional) Lesen PBT / Trading License</li>
-                            <li class="flex items-start gap-2.5"><span class="text-[#3FD0D4] font-bold text-lg">✓</span> Nama pemilik akaun bank yang sepadan dengan IC</li>
+                    <div class="bg-[#12454B]/5 p-7 rounded-2xl border border-[#12454B]/10">
+                        <h4 class="font-poppins font-700 text-[18px] text-[#12454B]">📄 Dokumen yang Diperlukan</h4>
+                        <ul class="mt-4 space-y-2.5 text-[14px] text-[#12454B]/80">
+                            <li class="flex items-start gap-2.5"><span class="text-[#D4A373] font-bold text-lg">✓</span> Gambar IC (dengan watermark automatik)</li>
+                            <li class="flex items-start gap-2.5"><span class="text-[#D4A373] font-bold text-lg">✓</span> Gambar QR DuitNow / Bank</li>
+                            <li class="flex items-start gap-2.5"><span class="text-[#D4A373] font-bold text-lg">✓</span> (Optional) Lesen PBT / Trading License</li>
+                            <li class="flex items-start gap-2.5"><span class="text-[#D4A373] font-bold text-lg">✓</span> Nama pemilik akaun bank yang sepadan dengan IC</li>
                         </ul>
-                        <p class="text-[12px] text-zinc-400 mt-4 italic border-t border-black/5 pt-4">🔒 Semua dokumen hanya digunakan untuk pengesahan dan akan dipadam selepas kelulusan.</p>
+                        <p class="text-[12px] text-[#12454B]/40 mt-4 italic border-t border-[#12454B]/10 pt-4">🔒 Semua dokumen hanya digunakan untuk pengesahan dan akan dipadam selepas kelulusan.</p>
                     </div>
                 </div>
             </div>
@@ -983,47 +946,47 @@
         <section class="max-w-[1100px] mx-auto px-4 py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="text-center mb-14">
                 <div class="section-tag mx-auto"><span class="dot"></span> Kawalan Penuh</div>
-                <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#212121] tracking-[-0.5px] mt-4">Pengurusan Tempahan &amp; Bayaran</h2>
-                <p class="text-[15px] text-zinc-500 mt-2 max-w-2xl mx-auto">Dashboard yang mudah digunakan untuk mengurus semua tempahan anda.</p>
+                <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#12454B] tracking-[-0.5px] mt-4">Pengurusan Tempahan &amp; Bayaran</h2>
+                <p class="text-[15px] text-[#12454B]/60 mt-2 max-w-2xl mx-auto">Dashboard yang mudah digunakan untuk mengurus semua tempahan anda.</p>
                 <div class="gradient-line"></div>
             </div>
             <div class="grid md:grid-cols-3 gap-6">
                 <div class="card p-7 text-center hover:shadow-lg transition-all duration-300">
                     <div class="text-4xl mb-3">📋</div>
-                    <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Lihat Semua Tempahan</h3>
-                    <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">Dashboard anda menunjukkan senarai tempahan yang telah dibayar, status check‑in, dan tempahan siap.</p>
+                    <h3 class="font-poppins font-700 text-[17px] text-[#12454B]">Lihat Semua Tempahan</h3>
+                    <p class="text-[14px] text-[#12454B]/70 mt-2 leading-relaxed">Dashboard anda menunjukkan senarai tempahan yang telah dibayar, status check‑in, dan tempahan siap.</p>
                 </div>
                 <div class="card p-7 text-center hover:shadow-lg transition-all duration-300">
                     <div class="text-4xl mb-3">🔢</div>
-                    <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Kod Check‑in 6 Digit</h3>
-                    <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">Setiap tempahan diberikan kod unik. Anda mesti memasukkan kod yang diberikan oleh tetamu untuk mengesahkan ketibaan mereka. Hanya tetamu yang ada kod unik ini.</p>
+                    <h3 class="font-poppins font-700 text-[17px] text-[#12454B]">Kod Check‑in 6 Digit</h3>
+                    <p class="text-[14px] text-[#12454B]/70 mt-2 leading-relaxed">Setiap tempahan diberikan kod unik. Anda mesti memasukkan kod yang diberikan oleh tetamu untuk mengesahkan ketibaan mereka. Hanya tetamu yang ada kod unik ini.</p>
                 </div>
                 <div class="card p-7 text-center hover:shadow-lg transition-all duration-300">
                     <div class="text-4xl mb-3">💰</div>
-                    <h3 class="font-poppins font-700 text-[17px] text-[#212121]">Bayaran Penuh ke Bank Anda</h3>
-                    <p class="text-[14px] text-zinc-600 mt-2 leading-relaxed">Selepas check‑in disahkan, platform mengarahkan CHIP untuk memindahkan <strong>jumlah penuh</strong> terus ke akaun bank anda. <span class="text-green-700 font-semibold">Tiada potongan!</span></p>
+                    <h3 class="font-poppins font-700 text-[17px] text-[#12454B]">Bayaran Penuh ke Bank Anda</h3>
+                    <p class="text-[14px] text-[#12454B]/70 mt-2 leading-relaxed">Selepas check‑in disahkan, platform mengarahkan CHIP untuk memindahkan <strong>jumlah penuh</strong> terus ke akaun bank anda. <span class="text-[#12454B] font-semibold">Tiada potongan!</span></p>
                 </div>
             </div>
-            <div class="mt-10 bg-green-50/80 border border-green-200/60 rounded-2xl p-6 md:p-8 text-center">
-                <p class="text-[15px] text-green-800 font-semibold leading-relaxed max-w-2xl mx-auto">
+            <div class="mt-10 bg-[#12454B]/5 border border-[#12454B]/10 rounded-2xl p-6 md:p-8 text-center">
+                <p class="text-[15px] text-[#12454B] font-semibold leading-relaxed max-w-2xl mx-auto">
                     📌 <strong>Contoh:</strong> Tetamu membayar RM 556.10 untuk 2 malam<br> (RM 500 + RM 55 Service Fee + RM 1.10 FPX Fee).<br />
-                    <span class="text-[#0F382E] text-[18px]">Anda akan menerima RM 500.00 terus ke akaun bank anda.</span><br />
-                    <span class="text-[13px] font-normal text-green-700">Service Fee dikenakan kepada tetamu, <strong>bukan kepada tuan rumah</strong>.</span><br>
-                    <span class="text-[11px] font-normal text-green-700">*Service Fee digunakan untuk maintain platform ini.*</span>
+                    <span class="text-[#12454B] text-[18px]">Anda akan menerima RM 500.00 terus ke akaun bank anda.</span><br />
+                    <span class="text-[13px] font-normal text-[#12454B]/70">Service Fee dikenakan kepada tetamu, <strong>bukan kepada tuan rumah</strong>.</span><br>
+                    <span class="text-[11px] font-normal text-[#12454B]/50">*Service Fee digunakan untuk maintain platform ini.*</span>
                 </p>
             </div>
         </section>
 
         <!-- ===== FAQ ===== -->
-        <section id="faq" class="bg-white py-16 md:py-20 scroll-mt-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
+        <section id="faq" class="bg-[#F9F6EF] py-16 md:py-20 scroll-mt-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[900px] mx-auto px-4">
                 <div class="text-center mb-14">
                     <div class="section-tag mx-auto"><span class="dot"></span> Ada Soalan?</div>
-                    <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#212121] tracking-[-0.5px] mt-4">Soalan Lazim</h2>
-                    <p class="text-[15px] text-zinc-500 mt-2 max-w-2xl mx-auto">Semua yang anda perlu tahu tentang platform kami.</p>
+                    <h2 class="font-poppins font-700 text-[30px] md:text-[40px] text-[#12454B] tracking-[-0.5px] mt-4">Soalan Lazim</h2>
+                    <p class="text-[15px] text-[#12454B]/60 mt-2 max-w-2xl mx-auto">Semua yang anda perlu tahu tentang platform kami.</p>
                     <div class="gradient-line"></div>
                 </div>
-                <div class="card p-5 md:p-7 divide-y divide-black/5">
+                <div class="card p-5 md:p-7 divide-y divide-[#12454B]/8">
                     <template x-for="(item, index) in faqData" :key="index">
                         <div class="faq-item">
                             <div class="faq-question" @click="toggleFaq(index)">
@@ -1038,64 +1001,62 @@
         </section>
 
         <!-- ===== CTA ===== -->
-        <section class="hero-gradient hero-pattern text-white py-16 md:py-20 text-center scroll-fade" x-intersect.once="$el.classList.add('visible')">
-            <div class="max-w-[700px] mx-auto px-4 relative">
-                <div class="absolute top-[-50%] left-[-20%] w-[300px] h-[300px] rounded-full bg-[#3FD0D4]/5 blur-3xl pointer-events-none"></div>
-                <div class="absolute bottom-[-50%] right-[-20%] w-[300px] h-[300px] rounded-full bg-[#3FD0D4]/5 blur-3xl pointer-events-none"></div>
-                <div class="relative z-10">
-                    <div class="font-satisfy text-[#3FD0D4] text-[32px] md:text-[44px] leading-none">Sedia Untuk Mulakan?</div>
-                    <h2 class="font-poppins font-700 text-[28px] md:text-[38px] leading-[1.1] mt-3">Daftar Homestay Anda Sekarang</h2>
-                    <p class="text-white/70 text-[14px] md:text-[16px] mt-3 leading-relaxed max-w-lg mx-auto">Isi borang ringkas, hantar dokumen, dan mula terima tempahan dari pelancong yang sah.</p>
-                    <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
-                        <a href="/list.html" class="btn-accent text-sm md:text-base px-8 py-4">📋 Daftar Sekarang – PERCUMA</a>
-                        <a href="https://wa.me/60165833713?text=listingkdsg" target="_blank" class="btn-primary" style="background:#25D366;border:none;padding:14px 32px;">💬 Tanya di WhatsApp</a>
-                    </div>
-                    <p class="text-white/30 text-[11px] mt-5">* Sebarang masalah, hubungi kami terus.</p>
+        <section class="bg-[#12454B] text-[#F9F6EF] py-16 md:py-20 text-center scroll-fade relative overflow-hidden" x-intersect.once="$el.classList.add('visible')">
+            <div class="absolute top-[-50%] left-[-20%] w-[300px] h-[300px] rounded-full bg-[#F9F6EF]/5 blur-3xl pointer-events-none"></div>
+            <div class="absolute bottom-[-50%] right-[-20%] w-[300px] h-[300px] rounded-full bg-[#F9F6EF]/5 blur-3xl pointer-events-none"></div>
+            <div class="max-w-[700px] mx-auto px-4 relative z-10">
+                <div class="font-satisfy text-[#D4A373] text-[32px] md:text-[44px] leading-none">Sedia Untuk Mulakan?</div>
+                <h2 class="font-poppins font-700 text-[28px] md:text-[38px] leading-[1.1] mt-3 text-[#F9F6EF]">Daftar Homestay Anda Sekarang</h2>
+                <p class="text-[#F9F6EF]/60 text-[14px] md:text-[16px] mt-3 leading-relaxed max-w-lg mx-auto">Isi borang ringkas, hantar dokumen, dan mula terima tempahan dari pelancong yang sah.</p>
+                <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+                    <a href="/list.html" class="btn-accent text-sm md:text-base px-8 py-4 text-[#12454B]">📋 Daftar Sekarang – PERCUMA</a>
+                    <a href="https://wa.me/60165833713?text=listingkdsg" target="_blank" class="btn-primary" style="background:#25D366;border:none;padding:14px 32px;color:white;">💬 Tanya di WhatsApp</a>
                 </div>
+                <p class="text-[#F9F6EF]/30 text-[11px] mt-5">* Sebarang masalah, hubungi kami terus.</p>
             </div>
         </section>
 
         <!-- ===== FOOTER ===== -->
-        <footer class="bg-[#1a1a1a] text-white/60 mt-auto">
+        <footer class="bg-[#0b2f33] text-[#F9F6EF]/50 mt-auto">
             <div class="max-w-[1300px] mx-auto px-4 lg:px-8 py-12 grid grid-cols-1 md:grid-cols-4 gap-10">
                 <div class="md:col-span-1">
                     <a href="/" class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-[#0F382E] flex items-center justify-center text-white font-bold text-lg">KH</div>
-                        <div class="font-poppins font-800 text-[16px] text-white">KUNDASANG<span class="font-600 text-white/40"> • Homestay</span></div>
+                        <div class="w-10 h-10 rounded-xl bg-[#12454B] flex items-center justify-center text-[#F9F6EF] font-bold text-lg">KH</div>
+                        <div class="font-poppins font-800 text-[16px] text-[#F9F6EF]">KUNDASANG<span class="font-600 text-[#F9F6EF]/30"> • Homestay</span></div>
                     </a>
-                    <p class="text-[12px] leading-[1.7] mt-3 text-white/40 max-w-[260px]">Platform homestay yang selamat dan dipercayai untuk pengusaha tempatan di Kundasang, Sabah.</p>
+                    <p class="text-[12px] leading-[1.7] mt-3 text-[#F9F6EF]/30 max-w-[260px]">Platform homestay yang selamat dan dipercayai untuk pengusaha tempatan di Kundasang, Sabah.</p>
                 </div>
                 <div>
-                    <div class="font-poppins font-700 text-[11px] uppercase tracking-widest text-white/40 mb-4">Pautan</div>
+                    <div class="font-poppins font-700 text-[11px] uppercase tracking-widest text-[#F9F6EF]/30 mb-4">Pautan</div>
                     <div class="space-y-2 text-[13px]">
-                        <a href="/" class="hover:text-white transition-colors block">🏠 Utama</a>
-                        <a href="/list.html" class="hover:text-white transition-colors block">📋 Daftar Homestay</a>
-                        <a href="/about.html" class="hover:text-white transition-colors block">ℹ️ Tentang Kami</a>
-                        <a href="/owner.html" class="hover:text-white transition-colors block">🔑 Log Masuk Pengusaha</a>
+                        <a href="/" class="hover:text-[#F9F6EF] transition-colors block">🏠 Utama</a>
+                        <a href="/list.html" class="hover:text-[#F9F6EF] transition-colors block">📋 Daftar Homestay</a>
+                        <a href="/about.html" class="hover:text-[#F9F6EF] transition-colors block">ℹ️ Tentang Kami</a>
+                        <a href="/owner.html" class="hover:text-[#F9F6EF] transition-colors block">🔑 Log Masuk Pengusaha</a>
                     </div>
                 </div>
                 <div>
-                    <div class="font-poppins font-700 text-[11px] uppercase tracking-widest text-white/40 mb-4">Hubungi</div>
+                    <div class="font-poppins font-700 text-[11px] uppercase tracking-widest text-[#F9F6EF]/30 mb-4">Hubungi</div>
                     <div class="space-y-2 text-[13px]">
-                        <a href="https://wa.me/60165833713?text=listingkdsg" target="_blank" class="hover:text-white transition-colors block">💬 WhatsApp</a>
-                        <a href="mailto:support@kundasanghomestay.my" class="hover:text-white transition-colors block">✉️ support@kundasanghomestay.my</a>
+                        <a href="https://wa.me/60165833713?text=listingkdsg" target="_blank" class="hover:text-[#F9F6EF] transition-colors block">💬 WhatsApp</a>
+                        <a href="mailto:support@kundasanghomestay.my" class="hover:text-[#F9F6EF] transition-colors block">✉️ support@kundasanghomestay.my</a>
                     </div>
                 </div>
                 <div>
-                    <div class="font-poppins font-700 text-[11px] uppercase tracking-widest text-white/40 mb-4">Keselamatan</div>
-                    <div class="space-y-2 text-[12px] text-white/30">
+                    <div class="font-poppins font-700 text-[11px] uppercase tracking-widest text-[#F9F6EF]/30 mb-4">Keselamatan</div>
+                    <div class="space-y-2 text-[12px] text-[#F9F6EF]/25">
                         <p>🔒 Pembayaran FPX</p>
                         <p>🏛️ Berdaftar Bank Negara</p>
                         <p>🛡️ Akaun Amanah CHIP</p>
                     </div>
                 </div>
             </div>
-            <div class="border-t border-white/5 py-4 text-center text-[10px] tracking-widest uppercase font-600 text-white/20">© 2026 Kundasang Homestay. Hak Cipta Terpelihara.</div>
+            <div class="border-t border-[#F9F6EF]/5 py-4 text-center text-[10px] tracking-widest uppercase font-600 text-[#F9F6EF]/20">© 2026 Kundasang Homestay. Hak Cipta Terpelihara.</div>
         </footer>
 
         <!-- ===== FLOATING BAR ===== -->
         <div class="floating-bar">
-            <a href="/list.html" class="btn-accent w-full text-center text-sm py-3.5">📋 Daftar Sekarang – PERCUMA</a>
+            <a href="/list.html" class="btn-accent w-full text-center text-sm py-3.5 text-[#12454B]">📋 Daftar Sekarang – PERCUMA</a>
         </div>
     </div>
 
@@ -1116,7 +1077,7 @@
                     { id: 3, title: 'Terima Tempahan', desc: 'Homestay anda dipaparkan di laman utama. Tetamu boleh membuat tempahan dan membayar melalui FPX. Wang disimpan selamat oleh CHIP.', accent: false },
                     { id: 4, title: 'Urus Tempahan di Dashboard', desc: 'Log masuk ke <strong>Dashboard Pengusaha</strong> untuk melihat semua tempahan, status bayaran, dan tarikh check‑in/check‑out.', accent: true },
                     { id: 5, title: 'Sahkan Ketibaan Tetamu', desc: 'Tetamu akan memberikan <strong>kod 6 digit</strong> yang diterima melalui e‑mel. Masukkan kod tersebut di dashboard untuk mengesahkan check‑in.', accent: false },
-                    { id: 6, title: 'Bayaran Penuh ke Akaun Anda', desc: 'Selepas check‑in disahkan, platform akan <strong>mengarahkan CHIP</strong> untuk memindahkan <strong>jumlah penuh harga penginapan</strong> terus ke akaun bank anda. <span class="text-[#0F382E] font-semibold">Tiada potongan!</span>', accent: true }
+                    { id: 6, title: 'Bayaran Penuh ke Akaun Anda', desc: 'Selepas check‑in disahkan, platform akan <strong>mengarahkan CHIP</strong> untuk memindahkan <strong>jumlah penuh harga penginapan</strong> terus ke akaun bank anda. <span class="text-[#12454B] font-semibold">Tiada potongan!</span>', accent: true }
                 ],
 
                 whyChoose: [
@@ -1161,7 +1122,6 @@
                 },
 
                 init() {
-                    // Reset scroll position
                     if (history.scrollRestoration) {
                         history.scrollRestoration = 'manual';
                     }
@@ -1175,12 +1135,10 @@
                     this.alpineReady = true;
                     console.log('✅ Alpine.js initialized!');
 
-                    // Handle hash for FAQ
                     if (window.location.hash === '#faq') {
                         setTimeout(() => { this.activeFaq = 0; }, 600);
                     }
 
-                    // Track scroll for header shadow
                     window.addEventListener('scroll', () => {
                         this.scrolled = window.scrollY > 20;
                     }, { passive: true });
