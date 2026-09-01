@@ -13,10 +13,11 @@ async function hmacSha512(message, secret) {
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// ===== CHIP Bank code mapping (BIC/SWIFT codes) =====
 function getChipBankCode(bankName) {
   const map = {
     'MAYBANK': 'MBBEMYKL',
-    'CIMB': 'CIMBMYKL',
+    'CIMB': 'CIBBMYKL',      // ✅ Fixed: CIMB BIC is CIBBMYKL
     'PUBLIC BANK': 'PBBEMYKL',
     'RHB': 'RHBMYKL',
     'HONG LEONG': 'HLBBMYKL',
@@ -30,7 +31,7 @@ function getChipBankCode(bankName) {
   for (const [key, code] of Object.entries(map)) {
     if (clean.includes(key) || key.includes(clean)) return code;
   }
-  return 'MBBEMYKL';
+  return 'MBBEMYKL'; // Default to Maybank
 }
 
 async function verifyPayoutAuth(request, env, bookingId) {
@@ -152,8 +153,8 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ===== CHIP Send credentials =====
-    const apiKey = env.CHIP_API_KEY;           // ✅ Send API Key
-    const apiSecret = env.CHIP_API_SECRET;     // ✅ Send API Secret (not CHIP_SECRET_KEY)
+    const apiKey = env.CHIP_API_KEY;
+    const apiSecret = env.CHIP_API_SECRET;
 
     if (!apiKey) return jsonResponse({ error: 'CHIP_API_KEY not configured' }, 500, request);
     if (!apiSecret) return jsonResponse({ error: 'CHIP_API_SECRET not configured' }, 500, request);
@@ -193,7 +194,6 @@ export async function onRequestPost({ request, env }) {
 
     const epoch = Math.floor(Date.now() / 1000);
     const bodyString = JSON.stringify(payoutPayload);
-    // ✅ checksum = HMAC-SHA512(epoch + apiKey)
     const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
 
     const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
@@ -222,6 +222,7 @@ export async function onRequestPost({ request, env }) {
       bookings[idx].payoutDate = new Date().toISOString();
       bookings[idx].checkedInAt = new Date().toISOString();
       bookings[idx].checkedInBy = auth.role === 'admin' ? 'admin' : 'owner';
+      bookings[idx].chip_bank_code = bankCode;
       await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
         .bind('kd_bookings', JSON.stringify(bookings))
         .run();
