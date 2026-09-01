@@ -2,23 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
   
-  <!-- PRIMARY META TAGS -->
-  <title>Kundasang Homestay – Verified Mountain Stays with Kinabalu Views</title>
-  <meta name="title" content="Kundasang Homestay – Verified Mountain Stays with Kinabalu Views" />
+  <!-- Primary Meta Tags -->
+  <title>Kundasang Homestay - Platform for Locals</title>
+  <meta name="title" content="Kundasang Homestay - Verified Mountain Stays with Kinabalu Views" />
   <meta name="description" content="Book handpicked and verified homestays in Kundasang & Ranau, Sabah. Direct bookings, secure FPX payment, and Mount Kinabalu views from your balcony." />
   <meta name="keywords" content="Kundasang homestay, homestay kundasang view gunung, chalet kundasang, Mesilau homestay, homestay sabah, chip homestay" />
   <meta name="robots" content="index, follow" />
 
-  <!-- OPEN GRAPH -->
+  <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://kundasanghomestay.my/" />
-  <meta property="og:title" content="Kundasang Homestay – Verified Mountain Stays" />
+  <meta property="og:title" content="Kundasang Homestay - Verified Mountain Stays" />
   <meta property="og:description" content="Verified Kundasang homestays with breathtaking Kinabalu views. Secure booking with instant WhatsApp confirmation." />
   <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" />
   
-  <!-- JSON-LD STRUCTURED DATA -->
+  <!-- JSON-LD -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -37,92 +37,87 @@
   </script>
 
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="animations.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- FONTS & EXTERNAL SCRIPTS (deferred for speed) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js" defer></script>
-  <script src="https://cdn.tailwindcss.com" defer></script>
   <script src="https://gate.chip-in.asia/api/v1/checkout.js" async id="chip-sdk"></script>
-
-  <!-- ===== INLINE STYLES (tidy & grouped) ===== -->
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
+  
   <style>
-    /* ----------------------------------------------
-       CSS VARIABLES
-    ------------------------------------------------ */
+    /* ===== ROOT ===== */
     :root {
       --primary: #0F382E;
       --primary-light: #1a4d3e;
-      --primary-dark: #0a2a22;
       --accent: #3FD0D4;
       --accent-hover: #2bbfc4;
-      --accent-glow: rgba(63, 208, 212, 0.3);
+      --accent-glow: rgba(63, 208, 212, 0.25);
       --bg: #F8F5F0;
-      --card-bg: #ffffff;
-      --text-dark: #212121;
-      --text-muted: #6b7280;
-      --glass: rgba(255, 255, 255, 0.75);
-      --shadow-sm: 0 2px 12px rgba(0,0,0,0.04);
-      --shadow-md: 0 8px 30px rgba(0,0,0,0.08);
-      --shadow-lg: 0 20px 60px rgba(0,0,0,0.12);
-      --shadow-glow: 0 8px 30px rgba(63,208,212,0.25);
-      --radius: 24px;
-      --radius-sm: 12px;
+      --card: #ffffff;
+      --dark: #212121;
+      --glass: rgba(255, 255, 255, 0.72);
+      --shadow-sm: 0 2px 20px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 8px 40px rgba(0, 0, 0, 0.08);
+      --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12);
+      --shadow-glow: 0 8px 30px rgba(63, 208, 212, 0.25);
     }
 
-    /* ----------------------------------------------
-       RESET & BASE
-    ------------------------------------------------ */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; overflow-x: hidden; }
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+    html {
+      scroll-behavior: smooth;
+      overflow-x: hidden;
+    }
     body {
-      font-family: 'Poppins', 'Inter', sans-serif;
+      font-family: "Poppins", "Inter", sans-serif;
       background: var(--bg);
-      color: var(--text-dark);
-      line-height: 1.6;
+      overflow-x: hidden;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
     }
+    .font-poppins { font-family: "Poppins", sans-serif; }
+    .font-satisfy { font-family: "Satisfy", cursive; }
+    .rounded-xl { border-radius: 16px !important; }
+    .rounded-2xl { border-radius: 24px !important; }
+    .rounded-full { border-radius: 999px !important; }
 
-    /* ----------------------------------------------
-       UTILITY CLASSES
-    ------------------------------------------------ */
-    .font-satisfy { font-family: 'Satisfy', cursive; }
-    .font-poppins { font-family: 'Poppins', sans-serif; }
+    /* ===== GLASS ===== */
     .glass {
-      background: var(--glass);
+      background: rgba(255, 255, 255, 0.72);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255,255,255,0.25);
+      border: 1px solid rgba(255, 255, 255, 0.3);
     }
+
+    /* ===== CARD ===== */
     .card {
-      background: var(--card-bg);
-      border-radius: var(--radius);
+      background: var(--card);
+      border-radius: 24px;
       box-shadow: var(--shadow-sm);
-      border: 1px solid rgba(0,0,0,0.04);
-      transition: all 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
     .card:hover {
       box-shadow: var(--shadow-md);
       transform: translateY(-2px);
     }
 
-    /* ----------------------------------------------
-       BUTTONS
-    ------------------------------------------------ */
+    /* ===== BUTTONS ===== */
     .btn-primary {
       background: var(--primary);
       color: white;
-      border: none;
       border-radius: 999px;
-      padding: 14px 32px;
+      padding: 14px 28px;
       font-weight: 700;
-      font-size: 0.8rem;
-      letter-spacing: 0.08em;
+      font-family: "Poppins", sans-serif;
       text-transform: uppercase;
-      transition: all 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -131,28 +126,37 @@
       position: relative;
       overflow: hidden;
     }
+    .btn-primary::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
     .btn-primary:hover {
       background: var(--primary-light);
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(15,56,46,0.3);
+      box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3);
     }
-    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:hover::after { opacity: 1; }
 
     .btn-accent {
       background: var(--accent);
       color: white;
-      border: none;
       border-radius: 999px;
-      padding: 12px 24px;
+      padding: 10px 24px;
       font-weight: 700;
-      font-size: 0.75rem;
-      letter-spacing: 0.08em;
+      font-family: "Poppins", sans-serif;
       text-transform: uppercase;
-      transition: all 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
+      letter-spacing: 0.08em;
+      font-size: 11px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
     .btn-accent:hover {
       background: var(--accent-hover);
@@ -162,15 +166,16 @@
 
     .btn-outline {
       background: transparent;
-      border: 2px solid var(--accent);
+      border: 1.5px solid var(--accent);
       color: var(--accent);
       border-radius: 999px;
-      padding: 12px 24px;
+      padding: 10px 24px;
       font-weight: 700;
-      font-size: 0.75rem;
-      letter-spacing: 0.08em;
+      font-family: "Poppins", sans-serif;
       text-transform: uppercase;
-      transition: all 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
+      letter-spacing: 0.08em;
+      font-size: 11px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
       cursor: pointer;
     }
     .btn-outline:hover {
@@ -182,14 +187,15 @@
     .btn-whatsapp {
       background: #25D366;
       color: white;
-      border: none;
       border-radius: 999px;
       padding: 12px 24px;
       font-weight: 700;
-      font-size: 0.75rem;
-      letter-spacing: 0.05em;
+      font-family: "Poppins", sans-serif;
       text-transform: uppercase;
-      transition: all 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
+      letter-spacing: 0.05em;
+      font-size: 12px;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border: none;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -198,49 +204,83 @@
     .btn-whatsapp:hover {
       background: #1ebe5d;
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(37,211,102,0.3);
+      box-shadow: 0 8px 30px rgba(37, 211, 102, 0.3);
     }
 
-    /* ----------------------------------------------
-       FORM ELEMENTS
-    ------------------------------------------------ */
-    .form-input, .form-select {
+    /* ===== FORM INPUTS (MOBILE FRIENDLY) ===== */
+    .form-input {
       width: 100%;
       border: 2px solid #e2e8f0;
       border-radius: 999px;
       padding: 14px 20px;
-      font-size: 0.9rem;
-      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      font-family: "Poppins", sans-serif;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
       background: white;
-      transition: all 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
       min-height: 52px;
-      color: var(--text-dark);
       -webkit-appearance: none;
       appearance: none;
+      color: #212121;
     }
-    .form-input:focus, .form-select:focus {
+    .form-input:focus {
       outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 4px var(--accent-glow);
       transform: translateY(-1px);
     }
-    .form-input::placeholder { color: #94a3b8; }
+    .form-input::placeholder {
+      color: #94a3b8;
+    }
 
-    /* ----------------------------------------------
-       NAVIGATION
-    ------------------------------------------------ */
-    .nav-link {
+    .form-select {
+      width: 100%;
+      border: 2px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 14px 20px;
+      font-size: 14px;
+      font-family: "Poppins", sans-serif;
+      background: white;
+      appearance: none;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      min-height: 52px;
+    }
+    .form-select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+
+    /* ===== GUEST AVATAR ===== */
+    .guest-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    /* ===== NAV LINKS ===== */
+    .setsail-nav-link {
       position: relative;
+      font-family: "Poppins", sans-serif;
       font-weight: 600;
-      font-size: 0.85rem;
-      text-transform: uppercase;
+      font-size: 13px;
       letter-spacing: 0.3px;
-      color: var(--text-dark);
-      padding: 6px 0;
+      text-transform: uppercase;
+      color: #212121;
+      padding: 8px 0;
       cursor: pointer;
+      background: none;
+      border: none;
+      text-decoration: none;
       transition: color 0.2s;
     }
-    .nav-link::after {
+    .setsail-nav-link::after {
       content: '';
       position: absolute;
       left: 0;
@@ -249,22 +289,28 @@
       height: 2.5px;
       background: var(--accent);
       border-radius: 999px;
-      transition: width 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
+      transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
-    .nav-link:hover::after, .nav-link.active::after { width: 100%; }
-    .nav-link:hover { color: var(--primary); }
-    .nav-link.agent {
+    .setsail-nav-link:hover::after,
+    .setsail-nav-link.active::after {
+      width: 100%;
+    }
+    .setsail-nav-link:hover {
+      color: var(--primary);
+    }
+    .setsail-nav-link.agent {
       color: #7c3aed;
       border: 1px solid #7c3aed;
       padding: 6px 16px;
       border-radius: 999px;
     }
-    .nav-link.agent::after { display: none; }
-    .nav-link.agent:hover { background: #7c3aed; color: white; }
+    .setsail-nav-link.agent::after { display: none; }
+    .setsail-nav-link.agent:hover {
+      background: #7c3aed;
+      color: white;
+    }
 
-    /* ----------------------------------------------
-       MOBILE MENU
-    ------------------------------------------------ */
+    /* ===== MOBILE NAV ===== */
     #mobileNav {
       position: fixed;
       top: 80px;
@@ -274,59 +320,186 @@
       background: var(--glass);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
       box-shadow: var(--shadow-lg);
       max-height: 0;
       opacity: 0;
       overflow: hidden;
       pointer-events: none;
       transform: translateY(-10px);
-      transition: max-height 0.5s cubic-bezier(0.25,0.46,0.45,0.94),
+      transition: max-height 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
                   opacity 0.4s ease,
                   transform 0.4s ease;
     }
     #mobileNav.open {
       max-height: 80vh;
       opacity: 1;
+      overflow-y: auto;
       pointer-events: auto;
       transform: translateY(0);
     }
-    #mobileNav a, #mobileNav button {
+    #mobileNav a,
+    #mobileNav button {
       display: block;
       width: 100%;
       text-align: left;
       padding: 14px 24px;
-      font-size: 0.9rem;
+      font-size: 14px;
       font-weight: 600;
-      color: var(--text-dark);
-      border-bottom: 1px solid rgba(0,0,0,0.05);
-      background: transparent;
+      color: #212121;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
       transition: background 0.2s, color 0.2s;
+      background: transparent;
     }
-    #mobileNav a:hover, #mobileNav button:hover {
-      background: var(--bg);
+    #mobileNav a:hover,
+    #mobileNav button:hover {
+      background: #f8f5f0;
       color: var(--accent);
     }
-    #mobileNav .mobile-agent {
+    #mobileNav .mobile-agent-link {
       color: #7c3aed !important;
       border: 1px solid #7c3aed !important;
-      border-radius: 999px !important;
       margin: 8px 16px;
       padding: 10px 16px !important;
+      border-radius: 999px !important;
       width: auto !important;
       display: inline-block !important;
     }
-    #mobileNav .mobile-agent:hover { background: #7c3aed !important; color: white !important; }
+    #mobileNav .mobile-agent-link:hover {
+      background: #7c3aed !important;
+      color: white !important;
+    }
+    #mobileNav .guest-btn {
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      background: transparent;
+      text-align: center;
+      border-radius: 999px;
+      padding: 12px 24px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      width: 100%;
+    }
+    #mobileNav .guest-btn-primary {
+      background: var(--accent);
+      color: white;
+      border: none;
+    }
+    #mobileNav .guest-btn:hover {
+      background: var(--accent);
+      color: white;
+    }
+    #mobileNav .guest-btn-primary:hover {
+      background: var(--accent-hover);
+    }
+    #mobileNav .profile-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--primary);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 8px;
+    }
+    #mobileNav .profile-card .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: white;
+      flex-shrink: 0;
+    }
+    #mobileNav .profile-card .info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+    #mobileNav .profile-card .name {
+      font-weight: 700;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #mobileNav .profile-card .sub {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    #mobileNav .profile-card .logout-btn {
+      width: auto !important;
+      display: inline-block !important;
+      flex-shrink: 0;
+      font-size: 10px;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      border: none;
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: background 0.2s;
+    }
+    #mobileNav .profile-card .logout-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+    #mobileNav .my-bookings-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: #212121;
+      color: white;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 16px;
+      border-radius: 12px;
+      transition: background 0.2s;
+    }
+    #mobileNav .my-bookings-btn:hover {
+      background: #333;
+    }
 
-    /* ----------------------------------------------
-       BADGES
-    ------------------------------------------------ */
+    /* ===== BADGES ===== */
     .badge-verified {
       background: #dcfce7;
       color: #166534;
       border: 1px solid #bbf7d0;
       border-radius: 999px;
       padding: 4px 14px;
-      font-size: 0.65rem;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-pending {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-available {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 10px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -337,13 +510,13 @@
       border: 1px solid #fecaca;
       border-radius: 999px;
       padding: 4px 14px;
-      font-size: 0.65rem;
+      font-size: 10px;
       font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
-    /* ----------------------------------------------
-       CALENDAR
-    ------------------------------------------------ */
+    /* ===== CALENDAR ===== */
     .calendar-mini {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -355,7 +528,7 @@
       align-items: center;
       justify-content: center;
       border-radius: 999px;
-      font-size: 0.75rem;
+      font-size: 10px;
       font-weight: 500;
       border: 1px solid #e5e7eb;
       cursor: default;
@@ -366,7 +539,6 @@
       background: #f0fdf4;
       border-color: #bbf7d0;
       color: #166534;
-      cursor: pointer;
     }
     .calendar-day.booked {
       background: #fef2f2;
@@ -374,22 +546,81 @@
       color: #991b1b;
       text-decoration: line-through;
     }
-    .calendar-day.today { border-color: var(--primary); border-width: 2px; }
+    .calendar-day.today {
+      border-color: var(--primary);
+      border-width: 2px;
+    }
+    .calendar-day.empty {
+      background: transparent;
+      border-color: transparent;
+    }
     .calendar-day.past {
       background: #f9fafb;
+      border-color: #e5e7eb;
       color: #9ca3af;
     }
-    .calendar-day.empty { background: transparent; border-color: transparent; }
-    .calendar-day.selected { background: var(--primary); color: white; border-color: var(--primary); }
+    .calendar-nav-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .calendar-nav-btn:hover {
+      background: var(--primary-light);
+    }
+    .calendar-month-label {
+      font-weight: 600;
+      font-size: 13px;
+      color: #212121;
+    }
+    .calendar-legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 10px;
+      color: #6b7280;
+      margin-top: 6px;
+    }
+    .calendar-legend span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .calendar-legend .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+    .calendar-legend .dot.green {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+    }
+    .calendar-legend .dot.red {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+    .calendar-legend .dot.today-dot {
+      border: 2px solid var(--primary);
+      background: white;
+      width: 10px;
+      height: 10px;
+    }
 
-    /* ----------------------------------------------
-       MODALS
-    ------------------------------------------------ */
+    /* ===== MODAL ===== */
     .modal-overlay {
       position: fixed;
       inset: 0;
       z-index: 99999;
-      background: rgba(0,0,0,0.6);
+      background: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       display: none;
@@ -401,46 +632,92 @@
     .modal-overlay.active { display: flex; }
     .modal-box {
       background: white;
-      max-width: 520px;
+      max-width: 480px;
       width: 100%;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow-lg);
-      animation: modalIn 0.35s cubic-bezier(0.25,0.46,0.45,0.94);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      animation: modalIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
     @keyframes modalIn {
       from { opacity: 0; transform: scale(0.95) translateY(20px); }
       to { opacity: 1; transform: scale(1) translateY(0); }
     }
     .modal-header {
-      padding: 20px 24px 0;
+      padding: 20px 24px 0 24px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: space-between;
     }
-    .modal-header h3 { font-size: 1.4rem; font-weight: 700; }
+    .modal-header h3 {
+      font-family: "Poppins", sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      color: #212121;
+      margin: 0;
+    }
     .modal-close {
       background: none;
       border: none;
-      font-size: 1.5rem;
+      font-size: 24px;
       color: #9ca3af;
       cursor: pointer;
+      padding: 4px;
+      line-height: 1;
       transition: color 0.2s;
-      padding: 4px 8px;
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .modal-close:hover { color: var(--text-dark); }
-    .modal-body { padding: 16px 24px 20px; }
+    .modal-close:hover {
+      color: #212121;
+      background: #f1f5f9;
+    }
+    .modal-body {
+      padding: 16px 24px 20px 24px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #4b5563;
+    }
     .modal-footer {
-      padding: 12px 24px 20px;
+      padding: 12px 24px 20px 24px;
       display: flex;
       gap: 10px;
       justify-content: flex-end;
       border-top: 1px solid #f1f5f9;
     }
+    .modal-footer .btn {
+      padding: 10px 24px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: "Poppins", sans-serif;
+    }
+    .modal-footer .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    .modal-footer .btn-primary:hover {
+      background: var(--primary-light);
+    }
+    .modal-footer .btn-secondary {
+      background: #f1f5f9;
+      color: #475569;
+    }
+    .modal-footer .btn-secondary:hover {
+      background: #e2e8f0;
+    }
 
-    /* ----------------------------------------------
-       FLOATING WHATSAPP
-    ------------------------------------------------ */
-    .floating-wa {
+    /* ===== FLOATING WHATSAPP ===== */
+    .floating-wa-btn {
       position: fixed;
       bottom: 24px;
       right: 24px;
@@ -453,212 +730,285 @@
       align-items: center;
       gap: 10px;
       font-weight: 700;
-      font-size: 0.85rem;
-      box-shadow: 0 10px 30px rgba(37,211,102,0.4);
-      transition: all 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
+      font-size: 13px;
+      box-shadow: 0 10px 25px rgba(37, 211, 102, 0.4);
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
       border: none;
       cursor: pointer;
       text-decoration: none;
     }
-    .floating-wa:hover {
-      transform: translateY(-3px) scale(1.02);
-      box-shadow: 0 14px 35px rgba(37,211,102,0.5);
+    .floating-wa-btn:hover {
+      transform: translateY(-3px) scale(1.03);
+      box-shadow: 0 14px 30px rgba(37, 211, 102, 0.5);
     }
 
-    /* ----------------------------------------------
-       ACCORDION GALLERY
-    ------------------------------------------------ */
-    .accordion-gallery {
-      display: flex;
-      flex-direction: row;
-      gap: 10px;
-      perspective: 1400px;
-      width: 100%;
-      height: 460px;
-      padding: 0 12px;
-    }
-    .accordion-gallery .ag-item {
+    /* ===== DATE PICKER FIX ===== */
+    #hero {
+      overflow: visible !important;
       position: relative;
-      flex: 1 1 0;
-      min-width: 0;
-      overflow: hidden;
-      background: #0a0713;
-      cursor: pointer;
-      border-radius: var(--radius-sm);
-      transition: flex-grow 0.5s cubic-bezier(0.34,1.56,0.64,1),
-                  transform 0.5s cubic-bezier(0.34,1.56,0.64,1),
-                  box-shadow 0.4s ease;
-      will-change: flex-grow, transform;
-    }
-    .accordion-gallery .ag-item .ag-media-wrap {
-      position: absolute;
-      inset: 0;
-      overflow: hidden;
-    }
-    .accordion-gallery .ag-item .ag-media {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 100%;
-      height: 100%;
-      transform: translate(-50%, -50%) scale(1);
-      filter: grayscale(1) brightness(0.6);
-      transition: filter 0.5s cubic-bezier(0.34,1.56,0.64,1),
-                  transform 0.5s ease;
-    }
-    .accordion-gallery .ag-item .ag-media img {
-      display: block;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      user-select: none;
-    }
-    .accordion-gallery .ag-item.active .ag-media {
-      filter: grayscale(0) brightness(1);
-    }
-    .accordion-gallery .ag-item .ag-overlay {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, transparent 45%, rgba(6,0,16,0.8) 100%);
-      transition: opacity 0.5s ease;
       z-index: 1;
     }
-    .accordion-gallery .ag-item.active .ag-overlay { opacity: 0.6; }
-    .accordion-gallery .ag-item .ag-label-wrap {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      right: 20px;
-      z-index: 2;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      pointer-events: none;
+    #hero .relative.z-10 {
+      overflow: visible !important;
     }
-    .accordion-gallery .ag-item .ag-bar {
-      height: 26px;
-      width: 3px;
+    .date-picker-wrapper {
+      position: relative;
+      z-index: 50;
+    }
+    .form-input[type="date"] {
+      position: relative;
+      z-index: 55;
+      min-height: 52px;
+      cursor: pointer;
+      color: #212121;
       background: white;
-      border-radius: 3px;
-      opacity: 0;
-      transform: translateX(-14px);
-      transition: opacity 0.35s ease, transform 0.35s ease;
+      border: 2px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 14px 20px;
+      font-size: 14px;
+      font-family: "Poppins", sans-serif;
+      width: 100%;
+      display: block;
+      -webkit-appearance: none;
+      appearance: none;
     }
-    .accordion-gallery .ag-item.active .ag-bar {
-      opacity: 1;
-      transform: translateX(0);
+    .form-input[type="date"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
     }
-    .accordion-gallery .ag-item .ag-label {
-      font-size: clamp(1rem, 1.4vw, 1.4rem);
-      font-weight: 600;
-      color: white;
-      text-shadow: 0 2px 14px rgba(0,0,0,0.5);
-      opacity: 0;
-      transform: translateX(-14px);
-      transition: opacity 0.35s ease 0.04s, transform 0.35s ease 0.04s;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .form-input[type="date"]::-webkit-datetime-edit {
+      color: #212121;
     }
-    .accordion-gallery .ag-item.active .ag-label {
-      opacity: 1;
-      transform: translateX(0);
+    .form-input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+      color: #212121;
     }
-    .accordion-gallery .ag-item .ag-number {
-      position: absolute;
-      top: 18px;
-      right: 22px;
-      z-index: 2;
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: rgba(255,255,255,0.25);
-      letter-spacing: 0.1em;
+    .form-input[type="date"]::-webkit-calendar-picker-indicator {
+      opacity: 0.7;
+      padding: 4px;
+      cursor: pointer;
     }
-    .accordion-gallery .ag-item.active .ag-number { color: rgba(255,255,255,0.6); }
+    .form-input[type="date"]:invalid {
+      color: #94a3b8;
+    }
 
-    /* ----------------------------------------------
-       RESPONSIVE BREAKPOINTS
-    ------------------------------------------------ */
+    /* ============================================================ */
+    /* MOBILE SEARCH BAR */
+    /* ============================================================ */
+    @media (max-width: 768px) {
+      #hero {
+        min-height: auto !important;
+        padding-bottom: 0 !important;
+      }
+      #hero .relative.z-10 {
+        min-height: 480px !important;
+        padding: 16px 12px 24px !important;
+        overflow: visible !important;
+      }
+      
+      #hero .bg-white\/95 {
+        background: rgba(255, 255, 255, 0.96) !important;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 24px !important;
+        padding: 16px !important;
+        margin: 0 !important;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        border: 1px solid rgba(255,255,255,0.5);
+        width: 100%;
+      }
+      
+      #hero .grid {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+        width: 100%;
+      }
+      #hero .grid > div {
+        width: 100% !important;
+        flex: none !important;
+      }
+      
+      #hero label {
+        font-size: 10px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.06em !important;
+        color: #1e293b !important;
+        margin-bottom: 4px !important;
+        display: block !important;
+      }
+      
+      .form-input, .form-select {
+        min-height: 48px !important;
+        font-size: 14px !important;
+        padding: 10px 16px !important;
+        border-radius: 40px !important;
+        border-width: 2px !important;
+        border-color: #e2e8f0 !important;
+        background: white !important;
+        width: 100% !important;
+        -webkit-appearance: none !important;
+        appearance: none !important;
+        display: block !important;
+        color: #212121 !important;
+      }
+      
+      .form-input[type="date"] {
+        display: block !important;
+        min-height: 48px !important;
+        background: white !important;
+        border: 2px solid #e2e8f0 !important;
+        border-radius: 40px !important;
+        padding: 10px 16px !important;
+        font-size: 14px !important;
+        color: #212121 !important;
+        width: 100% !important;
+        -webkit-appearance: none !important;
+        appearance: none !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
+      
+      .form-input[type="date"]:focus {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 4px var(--accent-glow) !important;
+        outline: none !important;
+      }
+      
+      .form-input[type="date"]::-webkit-calendar-picker-indicator {
+        padding: 8px !important;
+        opacity: 0.7;
+        cursor: pointer;
+        position: relative;
+        z-index: 70;
+        margin-left: 4px;
+      }
+      
+      .date-picker-wrapper {
+        z-index: 60 !important;
+        width: 100% !important;
+      }
+      
+      #hero .btn-primary {
+        width: 100% !important;
+        padding: 14px !important;
+        font-size: 13px !important;
+        min-height: 52px !important;
+        border-radius: 40px !important;
+        letter-spacing: 0.12em !important;
+        background: var(--primary) !important;
+        color: white !important;
+        font-weight: 700 !important;
+        justify-content: center !important;
+        box-shadow: 0 8px 20px rgba(15, 56, 46, 0.25) !important;
+        margin-top: 4px;
+      }
+      
+      #hero h1 {
+        font-size: 26px !important;
+        line-height: 1.1 !important;
+        letter-spacing: -0.5px !important;
+        text-shadow: 0 2px 12px rgba(0,0,0,0.3) !important;
+      }
+      #hero .font-satisfy {
+        font-size: 24px !important;
+      }
+      #hero p {
+        font-size: 13px !important;
+        max-width: 90% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+      }
+      
+      #hero .w-full.max-w-\[920px\] {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-top: 8px !important;
+        width: 100% !important;
+      }
+      
+      @media (max-width: 380px) {
+        #hero .relative.z-10 {
+          min-height: 440px !important;
+          padding: 12px 8px 20px !important;
+        }
+        #hero .bg-white\/95 {
+          padding: 12px !important;
+        }
+        .form-input, .form-select {
+          min-height: 44px !important;
+          font-size: 13px !important;
+          padding: 8px 14px !important;
+        }
+        .form-input[type="date"] {
+          min-height: 44px !important;
+          font-size: 13px !important;
+          padding: 8px 14px !important;
+        }
+        #hero .btn-primary {
+          min-height: 46px !important;
+          font-size: 12px !important;
+          padding: 12px !important;
+        }
+        #hero h1 {
+          font-size: 22px !important;
+        }
+      }
+    }
+
+    @media (max-width: 768px) {
+      body.date-picker-open {
+        overflow: hidden !important;
+        position: fixed;
+        width: 100%;
+      }
+    }
+
     @media (max-width: 768px) {
       #desktopNav { display: none !important; }
       #mobileMenuBtn { display: flex !important; }
-      .floating-wa { padding: 12px 16px; font-size: 0.75rem; }
-      .floating-wa span { display: none; }
-      
-      #hero .search-card { padding: 20px; margin: 0 12px; }
-      #hero h1 { font-size: 2.2rem; }
-      #hero .font-satisfy { font-size: 1.6rem; }
-      
-      .accordion-gallery {
-        flex-direction: column !important;
-        height: auto !important;
-        min-height: 400px;
-        gap: 8px;
-      }
-      .accordion-gallery .ag-item {
-        min-height: 70px;
-        border-radius: 14px !important;
-        flex: 1 1 0 !important;
-      }
-      .accordion-gallery .ag-item.active {
-        flex: 2.5 1 0 !important;
-        min-height: 280px;
-      }
+      #homePage { padding: 32px 16px 40px !important; }
+      #homestayGrid { grid-template-columns: 1fr !important; gap: 16px !important; }
+      .floating-wa-btn { padding: 12px 16px; font-size: 11px; }
+      .floating-wa-btn span { display: none; }
     }
-
     @media (max-width: 480px) {
-      .btn-primary { padding: 12px 20px; font-size: 0.7rem; }
-      .form-input, .form-select { padding: 12px 16px; font-size: 0.85rem; min-height: 46px; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .accordion-gallery .ag-item,
-      .accordion-gallery .ag-item .ag-media,
-      .accordion-gallery .ag-item .ag-bar,
-      .accordion-gallery .ag-item .ag-label {
-        transition: none !important;
-      }
+      .btn-primary { padding: 12px 20px; font-size: 11px; }
+      .btn-accent { padding: 8px 16px; font-size: 10px; }
     }
   </style>
 </head>
 <body>
 
 <!-- ===== HEADER ===== -->
-<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5 shadow-sm">
+<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
-    <!-- Logo -->
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
-      <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
-      <div>
-        <div class="font-poppins font-800 text-xl md:text-2xl tracking-[-0.5px] text-[#212121] leading-tight">
-          KUNDASANG <span class="font-600 text-[#212121]/60 text-base md:text-lg">• Homestay</span>
-        </div>
-        <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50">Verified • Homestays</div>
+      <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+      <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
+        KUNDASANG<span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay</span>
+        <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Verified • Homestays</div>
       </div>
     </div>
-
-    <!-- Desktop Nav -->
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
-      <a href="/" id="navHome" class="nav-link" onclick="window.location.href='/'">Home</a>
-      <a href="/list.html" id="navList" class="nav-link" onclick="window.location.href='/list.html'">Host Registration</a>
-      <a href="/about.html" id="navAbout" class="nav-link" onclick="window.location.href='/about.html'">About</a>
-      <a href="/owner.html" class="nav-link agent" style="text-decoration:none;" onclick="window.location.href='/owner.html'">🔑 Owner Login</a>
+      <a href="/" id="navHome" class="setsail-nav-link" onclick="window.location.href='/'; return false;">Home</a>
+      <a href="/list.html" id="navList" class="setsail-nav-link" onclick="window.location.href='/list.html'; return false;">Host Registration</a>
+      <a href="/about.html" id="navAbout" class="setsail-nav-link" onclick="window.location.href='/about.html'; return false;">About</a>
+      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;" onclick="window.location.href='/owner.html'; return false;">🔑 Owner Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
-        <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:0.7rem;" onclick="window.location.href='/login.html'">Guest Login</a>
-        <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:0.7rem;" onclick="window.location.href='/register.html'">Register</a>
+        <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/login.html'; return false;">Guest Login</a>
+        <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/register.html'; return false;">Register</a>
       </div>
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
-        <a href="/mybookings.html" class="nav-link" style="font-size:0.7rem;" onclick="window.location.href='/mybookings.html'">My Bookings</a>
+        <a href="/mybookings.html" class="setsail-nav-link" style="font-size:12px;" onclick="window.location.href='/mybookings.html'; return false;">My Bookings</a>
         <div class="flex items-center gap-2 bg-[#0F382E] text-white px-4 h-[38px] rounded-full">
-          <div id="guestAvatar" class="w-7 h-7 rounded-full bg-[#3FD0D4] flex items-center justify-center text-xs font-bold">G</div>
+          <div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div>
           <span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span>
-          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider hover:bg-white/30 transition">Logout</button>
+          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider hover:bg-white/30 transition-colors">Logout</button>
         </div>
       </div>
     </nav>
-
-    <!-- Mobile Menu Toggle -->
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition" aria-label="Toggle Navigation">
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
   </div>
@@ -667,54 +1017,52 @@
 <!-- ===== MOBILE MENU ===== -->
 <div id="mobileNav">
   <div class="p-4 space-y-1">
-    <a href="/" onclick="toggleMobileMenu(); window.location.href='/'">🏠 Home</a>
-    <a href="/list.html" onclick="toggleMobileMenu(); window.location.href='/list.html'">➕ List Your Homestay</a>
-    <a href="/about.html" onclick="toggleMobileMenu(); window.location.href='/about.html'">ℹ️ About</a>
-    <a href="/owner.html" onclick="toggleMobileMenu(); window.location.href='/owner.html'" class="mobile-agent">🔑 Agent Login</a>
+    <a href="/" onclick="toggleMobileMenu(); window.location.href='/'; return false;" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+    <a href="/list.html" onclick="toggleMobileMenu(); window.location.href='/list.html'; return false;" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
+    <a href="/about.html" onclick="toggleMobileMenu(); window.location.href='/about.html'; return false;" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
+    <a href="/owner.html" onclick="toggleMobileMenu(); window.location.href='/owner.html'; return false;" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+
     <div class="pt-3 space-y-3">
       <div id="mGuestNav">
-        <a href="/login.html" onclick="toggleMobileMenu(); window.location.href='/login.html'" class="btn-outline block text-center">Login</a>
-        <a href="/register.html" onclick="toggleMobileMenu(); window.location.href='/register.html'" class="btn-primary block text-center">Register</a>
+        <a href="/login.html" onclick="toggleMobileMenu(); window.location.href='/login.html'; return false;" class="guest-btn block text-center">Login</a>
+        <a href="/register.html" onclick="toggleMobileMenu(); window.location.href='/register.html'; return false;" class="guest-btn guest-btn-primary block text-center">Register</a>
       </div>
       <div id="mGuestProfileNav" class="hidden space-y-2">
-        <div class="profile-card flex items-center gap-3 bg-[#0F382E] text-white p-3 rounded-xl">
-          <div id="mGuestAvatar" class="w-8 h-8 rounded-full bg-[#3FD0D4] flex items-center justify-center text-xs font-bold">G</div>
-          <div class="flex-1">
-            <div id="mGuestNameNav" class="font-bold text-sm">Guest</div>
-            <div class="text-xs opacity-70">Verified guest</div>
+        <div class="profile-card">
+          <div id="mGuestAvatar" class="avatar">G</div>
+          <div class="info">
+            <div id="mGuestNameNav" class="name">Guest</div>
+            <div class="sub">Verified guest</div>
           </div>
-          <button onclick="logoutGuest()" class="text-xs bg-white/20 px-3 py-1 rounded-full">Logout</button>
+          <button onclick="logoutGuest()" class="logout-btn">Logout</button>
         </div>
-        <a href="/mybookings.html" onclick="toggleMobileMenu(); window.location.href='/mybookings.html'" class="my-bookings-btn bg-[#212121] text-white text-center py-2 rounded-xl font-bold text-sm">📅 My Bookings</a>
+        <a href="/mybookings.html" onclick="toggleMobileMenu(); window.location.href='/mybookings.html'; return false;" class="my-bookings-btn">📅 My Bookings</a>
       </div>
     </div>
   </div>
 </div>
 
 <!-- ===== HERO ===== -->
-<section id="hero" class="relative w-full overflow-hidden" style="min-height: 70vh;">
-  <!-- Background -->
-  <div class="absolute inset-0">
+<section id="hero" class="relative w-full overflow-visible pb-4 md:pb-0">
+  <!-- Background Image -->
+  <div class="absolute inset-0 w-full h-full overflow-hidden">
     <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu Sunrise" class="w-full h-full object-cover" />
-    <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/40"></div>
+    <div class="absolute inset-0 bg-black/30"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/30"></div>
   </div>
   
   <!-- Content -->
-  <div class="relative z-10 flex flex-col items-center justify-center text-center px-4 py-12 min-h-[70vh]">
-    <div class="font-satisfy text-[#3FD0D4] text-3xl md:text-5xl drop-shadow-lg">Breathe The Mountain Air</div>
-    <h1 class="font-poppins font-700 text-white text-4xl md:text-7xl leading-[1.1] tracking-[-0.02em] mt-2 drop-shadow-lg">
-      Handpicked Homestays <br class="hidden md:block"/>in Kundasang
-    </h1>
-    <p class="mt-4 text-white/90 text-sm md:text-base max-w-xl leading-relaxed drop-shadow px-2">
-      Verified local hosts, unobstructed Mount Kinabalu views, steamboat amenities & guaranteed safe FPX payments.
-    </p>
+  <div class="relative z-10 flex flex-col items-center justify-center text-center px-4 py-8 md:py-12 min-h-[520px] md:min-h-[640px]">
+    <div class="font-satisfy text-[#3FD0D4] text-[28px] md:text-[38px] leading-none mb-2 drop-shadow">Breathe The Mountain Air</div>
+    <h1 class="font-poppins font-700 text-white text-[30px] md:text-[62px] leading-[1.0] tracking-[-1px] drop-shadow-md">Handpicked Homestays <br class="hidden md:block"/>in Kundasang</h1>
+    <p class="mt-3 font-poppins font-500 text-white/90 text-[13px] md:text-[16px] max-w-[620px] leading-[1.6] drop-shadow px-2">Verified local hosts, unobstructed Mount Kinabalu views, steamboat amenities & guaranteed safe FPX payments.</p>
     
-    <!-- Search Box (Card) -->
-    <div class="w-full max-w-[920px] mt-8 px-4">
-      <div class="search-card glass rounded-2xl shadow-2xl p-5 md:p-6 border border-white/30">
+    <!-- Search Box -->
+    <div class="w-full max-w-[920px] mt-6 md:mt-8 px-4 md:px-0">
+      <div class="bg-white/95 backdrop-blur p-4 md:p-5 rounded-2xl shadow-2xl border border-white/40">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
           <div>
-            <label class="block text-xs font-700 uppercase tracking-wider text-zinc-700 mb-1">Area</label>
+            <label class="block text-[10px] md:text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Area / Location</label>
             <select id="filterLocation" class="form-select text-sm w-full">
               <option value="all">📍 All Kundasang Areas</option>
               <option value="Bundu Tuhan">Bundu Tuhan</option>
@@ -723,12 +1071,12 @@
               <option value="Pekan Kundasang">Pekan Kundasang</option>
             </select>
           </div>
-          <div>
-            <label class="block text-xs font-700 uppercase tracking-wider text-zinc-700 mb-1">Check-in</label>
+          <div class="date-picker-wrapper">
+            <label class="block text-[10px] md:text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Check-in</label>
             <input id="checkin" type="date" class="form-input text-sm w-full" onchange="renderGrid()" />
           </div>
-          <div>
-            <label class="block text-xs font-700 uppercase tracking-wider text-zinc-700 mb-1">Check-out</label>
+          <div class="date-picker-wrapper">
+            <label class="block text-[10px] md:text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Check-out</label>
             <input id="checkout" type="date" class="form-input text-sm w-full" onchange="renderGrid()" />
           </div>
           <div>
@@ -742,56 +1090,53 @@
   </div>
 </section>
 
-<!-- ===== MAIN LISTINGS ===== -->
-<main id="homePage" class="max-w-[1300px] mx-auto px-6 lg:px-8 pt-16 pb-20">
-  <div class="text-center mb-12">
-    <div class="font-satisfy text-[#3FD0D4] text-3xl">Stay with Confidence</div>
-    <h2 class="font-poppins font-700 text-3xl md:text-4xl text-[#212121] tracking-[-0.02em] mt-1">Verified Mountain Accommodations</h2>
-    <div class="w-12 h-1 bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-4 rounded-full"></div>
-    <p class="text-sm text-[#212121]/60 max-w-lg mx-auto mt-3 leading-relaxed">Every property is inspected. Zero booking scams with integrated FPX direct settlement.</p>
+<!-- ===== MAIN HOMESTAY LISTINGS ===== -->
+<main id="homePage" class="page-content max-w-[1300px] mx-auto px-6 lg:px-8 pt-16 pb-16">
+  <div class="text-center mb-10 animate-on-scroll">
+    <div class="font-satisfy text-[#3FD0D4] text-[30px] leading-none">Stay with Confidence</div>
+    <h2 class="font-poppins font-700 text-[32px] md:text-[38px] text-[#212121] tracking-[-0.8px] mt-1">Verified Mountain Accommodations</h2>
+    <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
+    <p class="font-poppins text-[13px] text-[#212121]/60 max-w-[540px] mx-auto mt-3 leading-[1.6]">Every property is inspected. Zero booking scams with integrated FPX direct settlement.</p>
+    
     <div class="mt-4 flex items-center justify-center gap-2 flex-wrap">
-      <div id="pendingInfo" class="text-xs bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full hidden font-semibold text-amber-800">Pending: <span id="pendingCount">0</span> waiting approval</div>
-      <div class="text-xs bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full font-semibold text-emerald-800 flex items-center gap-1">
+      <div id="pendingInfo" class="text-[11px] bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full hidden font-600 text-amber-800">Pending: <span id="pendingCount">0</span> waiting approval</div>
+      <div class="text-[11px] bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full font-600 text-emerald-800 flex items-center gap-1">
         <span>🔒 CHIP FPX Protected</span>
       </div>
     </div>
   </div>
 
-  <!-- Grid -->
+  <!-- Grid container – event delegation for clicks -->
   <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-    <!-- Rendered by JavaScript -->
+    <!-- Homestays will be rendered here -->
   </div>
 </main>
 
 <!-- ===== DETAIL MODAL ===== -->
-<div id="detailModal" class="modal-overlay">
-  <div class="modal-box max-w-[900px]">
-    <div class="modal-header">
-      <h3>Homestay Details</h3>
-      <button onclick="closeDetail()" class="modal-close">✕</button>
-    </div>
-    <div class="modal-body" id="detailContent"></div>
-    <div class="modal-footer">
-      <button onclick="closeDetail()" class="btn-outline">Close</button>
-      <button onclick="openBooking()" class="btn-primary">Book Now</button>
+<div id="detailModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm p-3 md:p-5 overflow-y-auto">
+  <div class="max-w-[900px] mx-auto card overflow-hidden mt-6 md:mt-10">
+    <div id="detailContent" class="p-5 md:p-6"></div>
+    <div class="p-5 border-t flex flex-col md:flex-row justify-between items-center gap-3 bg-zinc-50">
+      <button onclick="closeDetail()" class="btn-outline w-full md:w-auto">Back</button>
+      <div class="flex gap-3 w-full md:w-auto justify-end">
+        <button onclick="openBooking()" class="btn-primary w-full md:w-auto">Book Now</button>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- ===== BOOKING MODAL ===== -->
-<div id="bookingModal" class="modal-overlay">
-  <div class="modal-box max-w-[520px]">
-    <div class="modal-header">
-      <h3>Reserve Homestay</h3>
-      <button onclick="closeBooking()" class="modal-close">✕</button>
-    </div>
-    <div class="modal-body" id="bookingContent">
-      <p class="text-sm text-zinc-500">Pick check-in and check-out dates to compute exact total.</p>
-      <div class="grid grid-cols-2 gap-3 mt-3">
+<div id="bookingModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm p-3 md:p-5 overflow-y-auto">
+  <div class="max-w-[520px] mx-auto card p-6 mt-10">
+    <!-- 👇 Booking content wrapper -->
+    <div id="bookingContent">
+      <h3 class="text-2xl font-bold font-poppins text-[#212121]">Reserve Homestay</h3>
+      <p class="text-xs text-zinc-500">Pick check-in and check-out dates to compute exact total.</p>
+      <div class="mt-4 grid grid-cols-2 gap-3">
         <div><label class="text-xs font-semibold">Check-in</label><input id="bookingCheckin" type="date" class="form-input text-sm mt-1" onchange="updateBookingPrice()"/></div>
         <div><label class="text-xs font-semibold">Check-out</label><input id="bookingCheckout" type="date" class="form-input text-sm mt-1" onchange="updateBookingPrice()"/></div>
       </div>
-      <div class="mt-3 text-sm">Total Duration: <span id="bookingNights" class="font-bold text-[#0F382E]">1</span> Night(s)</div>
+      <div class="mt-3 text-xs">Total Duration: <span id="bookingNights" class="font-bold text-[#0F382E]">1</span> Nights</div>
       <div id="bookingSummary" class="mt-3 bg-zinc-50 p-4 rounded-xl text-sm border"></div>
       <div class="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-800 mt-3">⚠️ Official booking protection: All payments are processed through CHIP FPX online banking. Never transfer to private individual accounts.</div>
       <div id="guestDetectedBanner" class="hidden mt-3 bg-green-50 border border-green-200 p-3 rounded-xl text-xs text-green-800"></div>
@@ -804,53 +1149,71 @@
         <button onclick="closeBooking()" class="flex-1 btn-outline py-3">Cancel</button>
         <button onclick="processPayment()" class="flex-1 btn-primary py-3">Pay via FPX</button>
       </div>
+      <p id="toyyibpayNote" class="mt-3 text-[11px] text-zinc-500 text-center"></p>
     </div>
+    <!-- 👇 CHIP payment container -->
     <div id="chipPaymentContainer" style="display:none; margin-top: 16px;"></div>
   </div>
 </div>
 
-<!-- ===== THANK YOU MODAL ===== -->
-<div id="thankyouModal" class="modal-overlay">
-  <div class="modal-box max-w-[500px] text-center">
-    <div class="modal-body">
-      <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-3xl">🎉</div>
-      <h3 class="font-poppins font-800 text-2xl text-[#0F382E]">Booking Confirmed!</h3>
-      <p class="text-sm text-zinc-500 mt-1">Welcome to Kundasang! Your reservation is securely logged.</p>
-      <div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border text-xs space-y-2">
+<!-- ===== UNIFIED THANK YOU & RECEIPT MODAL ===== -->
+<div id="thankyouModal" class="modal-overlay thankyou-modal">
+  <div class="modal-box max-w-[500px]">
+    <div class="modal-body text-center p-6 md:p-8">
+      <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">🎉</div>
+      <div class="font-poppins font-800 text-[22px] text-[#0F382E]">Booking Confirmed!</div>
+      <p class="text-xs text-zinc-500 mt-1">Welcome to Kundasang! Your reservation is securely logged.</p>
+      
+      <div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
         <div class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Booking ID:</span><span id="thankyouBookingId" class="font-bold text-red-600 text-sm font-mono">-</span></div>
         <div id="receiptNightsRow" class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Dates:</span><span id="thankyouDates" class="font-semibold text-zinc-800">-</span></div>
         <div id="receiptTotalRow" class="flex justify-between"><span class="text-zinc-500">Total Paid:</span><span id="thankyouTotal" class="font-bold text-emerald-800 text-base">-</span></div>
       </div>
-      <p class="text-xs text-red-600 mt-4 leading-relaxed font-medium">Please screenshot this for check‑in reference & check your email for the check‑in code. Tap below to send the confirmation to the host via WhatsApp.</p>
+
+      <p class="text-[12px] text-red-600 mt-4 leading-relaxed font-medium">
+        Please screenshot this for check-in reference &amp; check your email for the check‑in code you'll need upon arrival. Tap below to send the official booking confirmation directly to the homestay host via WhatsApp.
+      </p>
     </div>
     <div class="modal-footer justify-center bg-zinc-50 flex-col sm:flex-row gap-2 border-t px-6 py-4">
-      <button onclick="whatsappOwnerFromThankYou()" class="btn-whatsapp w-full sm:w-auto justify-center">💬 Send Receipt to Host</button>
+      <button onclick="whatsappOwnerFromThankYou()" class="btn-whatsapp w-full sm:w-auto justify-center">
+        💬 Send Receipt to Host on WhatsApp
+      </button>
     </div>
   </div>
 </div>
 
-<!-- ===== PAYMENT FAILED MODAL ===== -->
-<div id="paymentFailedModal" class="modal-overlay">
-  <div class="modal-box max-w-[500px] text-center">
-    <div class="modal-body">
-      <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto text-3xl">😞</div>
-      <h3 class="font-poppins font-800 text-2xl text-red-700">Payment Not Completed</h3>
-      <p class="text-sm text-zinc-600 mt-2 leading-relaxed">Your payment didn’t go through this time. No worries — you can try again in <strong>5 minutes</strong>. Your booking dates will be blocked for a while.</p>
-      <p class="text-sm text-zinc-600 mt-1">Go to <strong>My Bookings</strong> and click <strong>Retry Payment</strong> next to this booking.</p>
-      <div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border text-xs space-y-2">
-        <div class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Booking ID:</span><span id="failedBookingId" class="font-bold text-red-600 text-sm font-mono">-</span></div>
-        <div id="failedDatesRow" class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Dates:</span><span id="failedDates" class="font-semibold text-zinc-800">-</span></div>
-        <div id="failedTotalRow" class="flex justify-between"><span class="text-zinc-500">Total:</span><span id="failedTotal" class="font-bold text-red-800 text-base">-</span></div>
+ <!-- ===== PAYMENT FAILED MODAL (friendly version) ===== -->
+  <div id="paymentFailedModal" class="modal-overlay thankyou-modal">
+    <div class="modal-box max-w-[500px]">
+      <div class="modal-body text-center p-6 md:p-8">
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">😞</div>
+        <div class="font-poppins font-800 text-[22px] text-red-700">Payment Not Completed</div>
+        <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
+          Your payment didn’t go through this time. No worries — you can try again in <strong>5 minutes. Your booking dates will be blocked for awhile.</strong>
+        </p>
+        <p class="text-sm text-zinc-600 mt-1 leading-relaxed">
+          Simply go to your <strong>My Bookings</strong> page and click the <strong>Retry Payment</strong> button next to this booking.
+        </p>
+        
+        <div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
+          <div class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Booking ID:</span><span id="failedBookingId" class="font-bold text-red-600 text-sm font-mono">-</span></div>
+          <div id="failedDatesRow" class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Dates:</span><span id="failedDates" class="font-semibold text-zinc-800">-</span></div>
+          <div id="failedTotalRow" class="flex justify-between"><span class="text-zinc-500">Total:</span><span id="failedTotal" class="font-bold text-red-800 text-base">-</span></div>
+        </div>
+
+        <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+          💡 <strong>Why wait 5 minutes?</strong> CHIP requires a cooldown period before you can create a new bill for the same booking.<br>This prevents duplicate charges.
+        </div>
       </div>
-      <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">💡 <strong>Why wait?</strong> CHIP requires a cooldown period to prevent duplicate charges.</div>
-    </div>
-    <div class="modal-footer justify-center bg-zinc-50 flex-col sm:flex-row gap-2 border-t px-6 py-4">
-      <button onclick="closePaymentFailedModal()" class="btn-primary w-full sm:w-auto bg-[#0F382E] hover:bg-[#1a4d3e]">OK, I understand</button>
+      <div class="modal-footer justify-center bg-zinc-50 flex-col sm:flex-row gap-2 border-t px-6 py-4">
+        <button onclick="closePaymentFailedModal()" class="btn-primary w-full sm:w-auto bg-[#0F382E] hover:bg-[#1a4d3e]">
+          OK, I understand
+        </button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- ===== CUSTOM MODAL (for alerts) ===== -->
+<!-- ===== CUSTOM PROMPT / NOTICE MODAL ===== -->
 <div id="customModal" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-header">
@@ -864,39 +1227,572 @@
   </div>
 </div>
 
-<!-- ===== GALLERY ===== -->
+<!-- ===== ACCORDION GALLERY - ULTRA SMOOTH ===== -->
 <section class="w-full py-16 bg-[#F8F5F0]">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8">
     <div class="text-center mb-10">
-      <div class="font-satisfy text-[#3FD0D4] text-3xl">Explore Kundasang</div>
-      <h2 class="font-poppins font-700 text-3xl md:text-4xl text-[#212121] tracking-[-0.02em]">Discover Our Favorite Spots</h2>
-      <div class="w-12 h-1 bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-4 rounded-full"></div>
-      <p class="text-sm text-[#212121]/60 max-w-lg mx-auto mt-3">Hover or tap to explore the beauty of Kundasang and Mount Kinabalu.</p>
+      <div class="font-satisfy text-[#3FD0D4] text-[30px] leading-none">Explore Kundasang</div>
+      <h2 class="font-poppins font-700 text-[32px] md:text-[38px] text-[#212121] tracking-[-0.8px] mt-1">Discover Our Favorite Spots</h2>
+      <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
+      <p class="font-poppins text-[13px] text-[#212121]/60 max-w-[540px] mx-auto mt-3 leading-[1.6]">Hover or tap to explore the beauty of Kundasang and Mount Kinabalu.</p>
     </div>
   </div>
-  <div class="w-full px-2">
-    <div id="accordionGallery" class="accordion-gallery">
-      <!-- Rendered by JS -->
+
+  <div class="w-full px-0">
+    <div id="accordionGallery" class="accordion-gallery w-full max-w-full" style="height: 460px; --gap: 10px; --radius: 0px;">
+      <!-- Items rendered by JS -->
     </div>
   </div>
 </section>
 
+<!-- ===== ACCORDION GALLERY STYLES ===== -->
+<style>
+  .accordion-gallery {
+    display: flex;
+    flex-direction: row;
+    gap: var(--gap, 10px);
+    perspective: 1400px;
+    width: 100%;
+    max-width: 100%;
+    padding: 0 10px;
+  }
+  .accordion-gallery .ag-item {
+    position: relative;
+    display: block;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    cursor: pointer;
+    overflow: hidden;
+    background: #0a0713;
+    text-decoration: none;
+    outline: none;
+    transform-style: preserve-3d;
+    transform-origin: center;
+    box-shadow: 0 10px 30px -18px rgba(0,0,0,0.8);
+    border-radius: var(--radius, 16px);
+    transition: flex-grow 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), 
+                transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: flex-grow, transform;
+  }
+  .accordion-gallery .ag-item:first-child {
+    border-radius: 0 0 0 0;
+  }
+  .accordion-gallery .ag-item:last-child {
+    border-radius: 0 0 0 0;
+  }
+  .accordion-gallery .ag-item:focus-visible {
+    box-shadow: 0 0 0 2px #3FD0D4, 0 10px 30px -18px rgba(0,0,0,0.8);
+  }
+  .accordion-gallery .ag-item .ag-media-wrap {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: inherit;
+    background: #0a0713;
+  }
+  .accordion-gallery .ag-item .ag-media {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%) scale(1);
+    filter: grayscale(1) brightness(0.7);
+    transition: filter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+                transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: transform, filter;
+    opacity: 1;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .accordion-gallery .ag-item .ag-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    user-select: none;
+    -webkit-user-drag: none;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .accordion-gallery .ag-item.active .ag-media {
+    filter: grayscale(0) brightness(1);
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .accordion-gallery .ag-item .ag-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent 45%, rgba(6, 0, 16, 0.78) 100%);
+    background: linear-gradient(180deg, transparent 45%, color-mix(in srgb, #060010 78%, transparent) 100%), 
+                color-mix(in srgb, #060010 calc(var(--ag-dim, 0.35) * 100%), transparent);
+    transition: --ag-dim 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 1;
+  }
+  .accordion-gallery .ag-item.active .ag-overlay {
+    --ag-dim: 0;
+  }
+  .accordion-gallery .ag-item .ag-label-wrap {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    pointer-events: none;
+  }
+  .accordion-gallery .ag-item .ag-bar {
+    height: 26px;
+    width: 3px;
+    flex: none;
+    border-radius: 3px;
+    background: #ffffff;
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
+    opacity: 0;
+    transition: opacity 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform: translateX(-14px);
+  }
+  .accordion-gallery .ag-item.active .ag-bar {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  .accordion-gallery .ag-item .ag-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: clamp(1rem, 1.4vw, 1.4rem);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #ffffff;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.55);
+    opacity: 0;
+    transition: opacity 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.04s,
+                transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.04s;
+    transform: translateX(-14px);
+  }
+  .accordion-gallery .ag-item.active .ag-label {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  .accordion-gallery .ag-item .ag-number {
+    position: absolute;
+    top: 18px;
+    right: 22px;
+    z-index: 2;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.1em;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.35s ease;
+  }
+  .accordion-gallery .ag-item.active .ag-number {
+    color: rgba(255,255,255,0.6);
+  }
+
+  /* Desktop: first and last items have rounded corners on the outer edges */
+  @media (min-width: 769px) {
+    .accordion-gallery .ag-item:first-child {
+      border-radius: var(--radius, 16px) 0 0 var(--radius, 16px);
+    }
+    .accordion-gallery .ag-item:last-child {
+      border-radius: 0 var(--radius, 16px) var(--radius, 16px) 0;
+    }
+    .accordion-gallery .ag-item:first-child:last-child {
+      border-radius: var(--radius, 16px);
+    }
+    .accordion-gallery .ag-item .ag-media {
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  /* Mobile: vertical stacking WITH DEPTH */
+  @media (max-width: 768px) {
+    .accordion-gallery {
+      flex-direction: column !important;
+      height: auto !important;
+      min-height: 520px;
+      padding: 0 12px;
+      perspective: 1000px !important;
+      gap: 8px !important;
+    }
+    .accordion-gallery .ag-item {
+      min-height: 72px;
+      flex: 1 1 0 !important;
+      border-radius: 14px !important;
+      transform-origin: center center !important;
+      transform-style: preserve-3d !important;
+      box-shadow: 0 4px 16px -10px rgba(0,0,0,0.5) !important;
+      transition: flex-grow 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  box-shadow 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  min-height 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+    }
+    .accordion-gallery .ag-item:first-child {
+      border-radius: 14px 14px 0 0 !important;
+    }
+    .accordion-gallery .ag-item:last-child {
+      border-radius: 0 0 14px 14px !important;
+    }
+    .accordion-gallery .ag-item .ag-media {
+      width: 100%;
+      height: 100%;
+      transform: translate(-50%, -50%) scale(1) !important;
+    }
+    .accordion-gallery .ag-item.active {
+      flex: 2.5 1 0 !important;
+      min-height: 340px;
+      box-shadow: 0 16px 48px -20px rgba(0,0,0,0.6) !important;
+      z-index: 2 !important;
+    }
+    .accordion-gallery .ag-item.active {
+      transform: translateY(-2px) rotateX(0deg) scale(1.01) !important;
+    }
+    .accordion-gallery .ag-item:not(.active) {
+      transform-origin: center !important;
+      transform: rotateX(0deg) translateY(0px) scale(1) !important;
+    }
+    .accordion-gallery .ag-item[data-tilt="up"]:not(.active) {
+      transform: rotateX(3deg) translateY(2px) scale(0.99) !important;
+    }
+    .accordion-gallery .ag-item[data-tilt="down"]:not(.active) {
+      transform: rotateX(-3deg) translateY(-2px) scale(0.99) !important;
+    }
+    .accordion-gallery .ag-item:not(.active):active {
+      transform: scale(0.99) !important;
+    }
+    .accordion-gallery .ag-item .ag-media {
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .accordion-gallery .ag-item .ag-media img {
+      object-fit: cover !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .accordion-gallery .ag-item,
+    .accordion-gallery .ag-item .ag-media,
+    .accordion-gallery .ag-item .ag-bar,
+    .accordion-gallery .ag-item .ag-label {
+      transition: none !important;
+    }
+  }
+</style>
+
+<!-- ===== ACCORDION GALLERY SCRIPT ===== -->
+<script>
+(function() {
+  const galleryItems = [
+    { 
+      image: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjkSvgFVVrdYAgkSktuGggZXhn-aZ8rUVqDxtQ4-nr0TB0MSv0lA73cIf1I7d7fW_KSjVbRwyvy5rU4GNgSUroglJKHhjcQmUR_Jh6cXE7zT6EdED7ub7popAXHn7CMM_SnASVJIhlIo3ry/s1600/MountKinabalu.jpgw=800&h=600&fit=crop', 
+      label: 'Mount Kinabalu Peak', 
+      alt: 'Mount Kinabalu Peak'
+    },
+    { 
+      image: 'https://i.ibb.co/LfwBK5f/Image-s63vfws63vfws63v.jpg?w=800&h=600&fit=crop', 
+      label: 'Sosodikon Hill', 
+      alt: 'Sosodikon Hill'
+    },
+    { 
+      image: 'https://www.clladventureborneo.com/wp-content/uploads/2025/09/dairy-farm-kundasang.webp?w=800&h=600&fit=crop', 
+      label: 'Desa Cattle Farm', 
+      alt: 'Desa Cattle Farm'
+    },
+    { 
+      image: 'https://lh3.googleusercontent.com/gps-cs-s/AHRPTWniaVakOLxjICOwm8MvL-5nK-NHZ8gccOQiKG3YEjyWSonAcfqDPsw3jekF7LOxrBj5ueCfcLggV6EmiNQfQ1DT7vpdz0FKS5rZDRYer4-S6ldsQCScZduQu4CQqjDI7mzXBf4e?w=800&h=600&fit=crop', 
+      label: 'Hounon Ridge Farmstay & Camping', 
+      alt: 'Hounon Ridge Farmstay & Camping'
+    },
+    { 
+      image: 'https://explorekundasang.com/wp-content/uploads/elementor/thumbs/maragang-by-Mas-Light-rakd450ifen9wot91yr978c4pkz9rnvalzg0yi0ewg.webp?w=800&h=600&fit=crop', 
+      label: 'Maragang Hill', 
+      alt: 'Maragang Hill'
+    }
+  ];
+
+  const container = document.getElementById('accordionGallery');
+  if (!container) return;
+
+  let activeIndex = 2;
+  let isAnimating = false;
+
+  container.innerHTML = '';
+  
+  galleryItems.forEach((item, index) => {
+    const el = document.createElement('div');
+    el.className = 'ag-item';
+    if (index === activeIndex) el.classList.add('active');
+    el.style.setProperty('--ag-dim', index === activeIndex ? '0' : '0.35');
+    el.setAttribute('role', 'listitem');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', item.label);
+    if (index === activeIndex) el.setAttribute('aria-current', 'true');
+    
+    const number = String(index + 1).padStart(2, '0');
+    
+    el.innerHTML = `
+      <span class="ag-media-wrap">
+        <span class="ag-media">
+          <img src="${item.image}" alt="${item.alt || item.label}" draggable="false" />
+        </span>
+        <span class="ag-overlay" aria-hidden="true"></span>
+      </span>
+      <span class="ag-number">${number}</span>
+      <span class="ag-label-wrap" aria-hidden="true">
+        <span class="ag-bar"></span>
+        <span class="ag-label">${item.label}</span>
+      </span>
+    `;
+
+    el._media = el.querySelector('.ag-media');
+
+    el.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (!isAnimating) {
+        setActive(index);
+      }
+    });
+
+    let hoverTimeout = null;
+    el.addEventListener('mouseenter', function() {
+      if (window.innerWidth > 768) {
+        if (hoverTimeout) return;
+        hoverTimeout = setTimeout(function() {
+          if (!isAnimating) {
+            setActive(index);
+          }
+          hoverTimeout = null;
+        }, 10);
+      }
+    });
+
+    el.addEventListener('focus', function() {
+      if (!isAnimating) {
+        setActive(index);
+      }
+    });
+
+    el.addEventListener('keydown', function(e) {
+      const count = galleryItems.length;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = (index + 1) % count;
+        if (!isAnimating) {
+          setActive(next);
+          container.children[next]?.focus();
+        }
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = (index - 1 + count) % count;
+        if (!isAnimating) {
+          setActive(prev);
+          container.children[prev]?.focus();
+        }
+      }
+    });
+
+    container.appendChild(el);
+  });
+
+  const items = container.querySelectorAll('.ag-item');
+  const count = items.length;
+  const expandRatio = 0.52;
+  const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
+
+  function setActive(index) {
+    if (isAnimating || activeIndex === index) return;
+    
+    isAnimating = true;
+    activeIndex = index;
+    
+    const isMobileView = window.innerWidth <= 768;
+    const tilt = isMobileView ? 3 : 8;
+    
+    requestAnimationFrame(function() {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const isActive = i === index;
+        
+        if (isActive) {
+          item.classList.add('active');
+          item.setAttribute('aria-current', 'true');
+          item.style.zIndex = '2';
+        } else {
+          item.classList.remove('active');
+          item.removeAttribute('aria-current');
+          item.style.zIndex = '1';
+        }
+        
+        item.style.setProperty('--ag-dim', isActive ? '0' : '0.35');
+        
+        const rot = isActive ? 0 : (i < index ? tilt : -tilt);
+        
+        if (isMobileView) {
+          if (isActive) {
+            item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
+            item.setAttribute('data-tilt', '');
+          } else {
+            item.style.transform = `rotateX(${rot}deg) translateY(${i < index ? 2 : -2}px) scale(0.99)`;
+            item.setAttribute('data-tilt', i < index ? 'up' : 'down');
+          }
+        } else {
+          item.style.transform = `rotateY(${rot}deg)`;
+        }
+        
+        const media = item._media;
+        if (media) {
+          media.style.transform = 'translate(-50%, -50%) scale(1)';
+          if (isActive) {
+            media.style.filter = 'grayscale(0) brightness(1)';
+          } else {
+            media.style.filter = 'grayscale(0.9) brightness(0.7)';
+          }
+        }
+        
+        item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
+      }
+    });
+    
+    setTimeout(function() {
+      isAnimating = false;
+    }, 550);
+  }
+
+  function initGallery() {
+    const isMobileView = window.innerWidth <= 768;
+    const tilt = isMobileView ? 3 : 8;
+    
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const isActive = i === activeIndex;
+      
+      if (isActive) {
+        item.classList.add('active');
+        item.setAttribute('aria-current', 'true');
+        item.style.zIndex = '2';
+      } else {
+        item.classList.remove('active');
+        item.removeAttribute('aria-current');
+        item.style.zIndex = '1';
+      }
+      
+      item.style.setProperty('--ag-dim', isActive ? '0' : '0.35');
+      
+      const rot = isActive ? 0 : (i < activeIndex ? tilt : -tilt);
+      
+      if (isMobileView) {
+        if (isActive) {
+          item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
+          item.setAttribute('data-tilt', '');
+        } else {
+          item.style.transform = `rotateX(${rot}deg) translateY(${i < activeIndex ? 2 : -2}px) scale(0.99)`;
+          item.setAttribute('data-tilt', i < activeIndex ? 'up' : 'down');
+        }
+      } else {
+        item.style.transform = isActive ? 'rotateY(0deg)' : `rotateY(${rot}deg)`;
+      }
+      
+      const media = item._media;
+      if (media) {
+        media.style.transform = 'translate(-50%, -50%) scale(1)';
+        if (isActive) {
+          media.style.filter = 'grayscale(0) brightness(1)';
+        } else {
+          media.style.filter = 'grayscale(0.9) brightness(0.7)';
+        }
+      }
+      
+      item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
+    }
+  }
+
+  requestAnimationFrame(function() {
+    initGallery();
+  });
+
+  window.addEventListener('load', function() {
+    requestAnimationFrame(function() {
+      initGallery();
+    });
+  });
+
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      requestAnimationFrame(function() {
+        const isMobileView = window.innerWidth <= 768;
+        const tilt = isMobileView ? 3 : 8;
+        
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const isActive = i === activeIndex;
+          const rot = isActive ? 0 : (i < activeIndex ? tilt : -tilt);
+          
+          if (isMobileView) {
+            if (isActive) {
+              item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
+              item.setAttribute('data-tilt', '');
+            } else {
+              item.style.transform = `rotateX(${rot}deg) translateY(${i < activeIndex ? 2 : -2}px) scale(0.99)`;
+              item.setAttribute('data-tilt', i < activeIndex ? 'up' : 'down');
+            }
+          } else {
+            item.style.transform = isActive ? 'rotateY(0deg)' : `rotateY(${rot}deg)`;
+          }
+          
+          const media = item._media;
+          if (media) {
+            media.style.transform = 'translate(-50%, -50%) scale(1)';
+            if (isActive) {
+              media.style.filter = 'grayscale(0) brightness(1)';
+            } else {
+              media.style.filter = 'grayscale(0.9) brightness(0.7)';
+            }
+          }
+        }
+      });
+    }, 150);
+  });
+
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (prefersReduced.matches) {
+    for (let i = 0; i < items.length; i++) {
+      items[i].style.transition = 'none';
+    }
+  }
+})();
+</script>
+  
 <!-- ===== FOOTER ===== -->
-<footer class="bg-[#212121] text-white/70 mt-12">
+<footer class="bg-[#212121] text-white/70 mt-20">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div>
       <div class="flex items-center gap-3">
-        <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
-        <div class="font-poppins font-800 text-lg text-white">KUNDASANG <span class="font-600 text-white/60">• Homestay</span></div>
+        <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+        <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div>
       </div>
-      <p class="text-sm leading-relaxed mt-4 text-white/50 max-w-xs">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
+      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
       <div class="mt-4 pt-4 border-t border-white/10">
-        <p class="text-xs text-white/40"><strong class="text-white/60">Company:</strong> NICK'S CREATIONS<br><strong class="text-white/60">Business License:</strong> RNU20183012</p>
+        <p class="text-[11px] text-white/40 font-poppins">
+          <strong class="text-white/60">Company:</strong> NICK'S CREATIONS<br>
+          <strong class="text-white/60">Business License:</strong> RNU20183012
+        </p>
       </div>
     </div>
     <div>
-      <h4 class="font-poppins font-700 text-sm uppercase tracking-widest text-white mb-4">Quick Links</h4>
-      <div class="space-y-2 text-sm">
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
+      <div class="space-y-2 text-[13px] font-poppins">
         <a href="/" class="hover:text-white block">Browse Homestays</a>
         <a href="/list.html" class="hover:text-white block">Host Registration</a>
         <a href="/about.html" class="hover:text-white block">About Us</a>
@@ -905,689 +1801,728 @@
       </div>
     </div>
     <div>
-      <h4 class="font-poppins font-700 text-sm uppercase tracking-widest text-white mb-4">Trust & Safety</h4>
-      <div class="space-y-2 text-sm">✓ Host Physical Verification<br>✓ CHIP FPX Online Protection<br>✓ Anti-Scam Booking Guarantee</div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
+      <div class="space-y-2 text-[13px] font-poppins">
+        <div>✓ Host Physical Verification</div>
+        <div>✓ CHIP FPX Online Protection</div>
+        <div>✓ Anti-Scam Booking Guarantee</div>
+      </div>
     </div>
     <div>
-      <h4 class="font-poppins font-700 text-sm uppercase tracking-widest text-white mb-4">Kundasang Weather</h4>
-      <p class="text-sm text-white/50">Average temperature: 18°C – 23°C. Remember to bring warm jackets!</p>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
+      <p class="text-[12px] text-white/50 font-poppins">Average temperature: 18°C – 23°C. Remember to bring warm jackets!</p>
     </div>
   </div>
-  <div class="border-t border-white/10 py-6 text-center text-xs tracking-widest uppercase font-600 text-white/40">© 2026 Kundasang Homestay. All rights reserved.</div>
+  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
+    © 2026 Kundasang Homestay. All rights reserved.
+  </div>
 </footer>
 
-<!-- ===== FLOATING WHATSAPP BUTTON ===== -->
-<a href="https://wa.me/60123456789?text=Hi%2C%20I%20need%20help%20with%20booking%20a%20homestay." class="floating-wa" target="_blank" aria-label="Chat on WhatsApp">
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-  <span>Chat with us</span>
-</a>
-
-<!-- ===== ALL JAVASCRIPT (tidy & fully included) ===== -->
-<script>
+<!-- ===== SCRIPTS ===== -->
+<script src="animations.js"></script>
+<script>  
 // =============================================================
-// 1. SECURE HELPER
+// SECURE HELPER (patched)
 // =============================================================
-function safeHTML(html) {
-  if (!html) return '';
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      'div','span','p','a','img','br','b','i','u','strong','em',
-      'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
-      'button','input','form','label','select','option','textarea',
-      'section','article','header','footer','nav','main','aside',
-      'code','pre','blockquote','hr','small','sub','sup','svg','path'
-    ],
-    ALLOWED_ATTR: [
-      'id','class','style','href','src','alt','title','rel','target',
-      'method','action','type','name','value','placeholder',
-      'checked','disabled','readonly','required','multiple',
-      'min','max','step','pattern','autocomplete','inputmode',
-      'viewBox','fill','stroke','stroke-width','d',
-      'onclick','onchange','oninput','onload','onerror','onfocus','onblur'
-    ],
-    ADD_ATTR: ['target']
-  });
-}
+ function safeHTML(html) {
+      if (!html) return '';
+      return DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: [
+          'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
+          'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
+          'button','input','form','label','select','option','textarea',
+          'section','article','header','footer','nav','main','aside',
+          'code','pre','blockquote','hr','small','sub','sup','svg','path'
+        ],
+        ALLOWED_ATTR: [
+          'id','class','style','href','src','alt','title','rel','target',
+          'method','action','type','name','value','placeholder',
+          'checked','disabled','readonly','required','multiple',
+          'min','max','step','pattern','autocomplete','inputmode',
+          'viewBox','fill','stroke','stroke-width','d',
+          'onclick', 'onchange', 'oninput', 'onload', 'onerror', 'onfocus', 'onblur'
+        ],
+        ADD_ATTR: ['target']
+      });
+    }
 
-// =============================================================
-// 2. MODAL SYSTEM
-// =============================================================
-function showModal(title, message, buttons) {
-  return new Promise(function(resolve) {
-    var overlay = document.getElementById('customModal');
-    var titleEl = document.getElementById('modalTitle');
-    var bodyEl = document.getElementById('modalBody');
-    var footerEl = document.getElementById('modalFooter');
+    // =============================================================
+    // MODAL SYSTEM - OPTIMIZED
+    // =============================================================
+    function showModal(title, message, buttons) {
+      return new Promise(function(resolve) {
+        var overlay = document.getElementById('customModal');
+        var titleEl = document.getElementById('modalTitle');
+        var bodyEl = document.getElementById('modalBody');
+        var footerEl = document.getElementById('modalFooter');
 
-    titleEl.textContent = title || 'Notice';
-    bodyEl.innerHTML = typeof message === 'string' ? message : '';
-    footerEl.innerHTML = '';
+        titleEl.textContent = title || 'Notice';
+        bodyEl.innerHTML = typeof message === 'string' ? message : '';
+        footerEl.innerHTML = '';
 
-    buttons.forEach(function(btn) {
-      var el = document.createElement('button');
-      el.textContent = btn.label;
-      el.className = 'btn ' + (btn.class || 'btn-primary');
-      el.onclick = function() {
-        overlay.classList.remove('active');
-        document.body.style.overflow = '';
-        if (btn.value !== undefined) resolve(btn.value);
-        else resolve(true);
-      };
-      footerEl.appendChild(el);
+        buttons.forEach(function(btn) {
+          var el = document.createElement('button');
+          el.textContent = btn.label;
+          el.className = 'btn ' + (btn.class || 'btn-primary');
+          el.onclick = function() {
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+            if (btn.value !== undefined) {
+              resolve(btn.value);
+            } else {
+              resolve(true);
+            }
+          };
+          footerEl.appendChild(el);
+        });
+
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      });
+    }
+
+    function closeModal() {
+      var overlay = document.getElementById('customModal');
+      if (overlay) overlay.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    function modalConfirm() {
+      closeModal();
+    }
+
+    function showAlert(title, message) {
+      return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
+    }
+
+    function showConfirm(title, message) {
+      return showModal(title, message, [
+        { label: 'Cancel', class: 'btn-secondary', value: false },
+        { label: 'Confirm', class: 'btn-primary', value: true }
+      ]);
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeModal();
+        var tModal = document.getElementById('thankyouModal');
+        if (tModal && tModal.classList.contains('active')) tModal.classList.remove('active');
+        var fModal = document.getElementById('paymentFailedModal');
+        if (fModal && fModal.classList.contains('active')) fModal.classList.remove('active');
+      }
     });
 
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  });
-}
+    // =============================================================
+    // THANK YOU & RECEIPT MODAL LOGIC
+    // =============================================================
+    var lastBookingDetails = null;
 
-function closeModal() {
-  var overlay = document.getElementById('customModal');
-  if (overlay) overlay.classList.remove('active');
-  document.body.style.overflow = '';
-}
+    function showThankYouModal(bookingId, customBookingData) {
+      var overlay = document.getElementById('thankyouModal');
+      var idEl = document.getElementById('thankyouBookingId');
+      var datesEl = document.getElementById('thankyouDates');
+      var totalEl = document.getElementById('thankyouTotal');
+      
+      var targetId = bookingId || lastBookingId || 'KDH-CONFIRMED';
+      if (idEl) idEl.textContent = targetId;
 
-function modalConfirm() { closeModal(); }
+      var b = customBookingData || bookings.find(function(x) { return String(x.id) === String(targetId); }) || window.lastCreatedBooking;
+      if (b) {
+        lastBookingDetails = b;
+        if (datesEl) datesEl.textContent = (b.checkin || '') + ' → ' + (b.checkout || '') + ' (' + (b.nights || 1) + 'N)';
+        if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(b.total) || 0).toFixed(2);
+      }
 
-function showAlert(title, message) {
-  return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
-}
+      if (overlay) overlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
 
-function showConfirm(title, message) {
-  return showModal(title, message, [
-    { label: 'Cancel', class: 'btn-secondary', value: false },
-    { label: 'Confirm', class: 'btn-primary', value: true }
-  ]);
-}
+    function closeThankYouAndReload() {
+      var overlay = document.getElementById('thankyouModal');
+      if (overlay) overlay.classList.remove('active');
+      document.body.style.overflow = '';
+      window.location.href = '/mybookings.html';
+    }
 
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    closeModal();
-    var tModal = document.getElementById('thankyouModal');
-    if (tModal && tModal.classList.contains('active')) tModal.classList.remove('active');
-    var fModal = document.getElementById('paymentFailedModal');
-    if (fModal && fModal.classList.contains('active')) fModal.classList.remove('active');
-  }
-});
+    function whatsappOwnerFromThankYou() {
+      var bookingId = document.getElementById('thankyouBookingId')?.textContent || lastBookingId;
+      var booking = lastBookingDetails || bookings.find(function(b) { return String(b.id) === String(bookingId); }) || window.lastCreatedBooking;
 
-// =============================================================
-// 3. THANK YOU & PAYMENT FAILED MODALS
-// =============================================================
-var lastBookingDetails = null;
+      if (!booking && selectedHomestay) {
+        booking = {
+          id: bookingId,
+          homestay: selectedHomestay.name,
+          ownerWhatsapp: selectedHomestay.whatsapp || '',
+          guestName: document.getElementById('guestName')?.value || currentGuest?.name || 'Guest',
+          guestPhone: document.getElementById('guestPhone')?.value || currentGuest?.phone || '',
+          checkin: document.getElementById('bookingCheckin')?.value || '',
+          checkout: document.getElementById('bookingCheckout')?.value || '',
+          nights: document.getElementById('bookingNights')?.textContent || '1',
+          total: calculatePrice(selectedHomestay.ownerPrice, 1).total
+        };
+      }
 
-function showThankYouModal(bookingId, customBookingData) {
-  var overlay = document.getElementById('thankyouModal');
-  var idEl = document.getElementById('thankyouBookingId');
-  var datesEl = document.getElementById('thankyouDates');
-  var totalEl = document.getElementById('thankyouTotal');
+      if (!booking) {
+        showAlert('Notice', 'Booking details found in your "My Bookings" profile tab.');
+        setTimeout(function() {
+          window.location.href = '/mybookings.html';
+        }, 1000);
+        return;
+      }
 
-  var targetId = bookingId || lastBookingId || 'KDH-CONFIRMED';
-  if (idEl) idEl.textContent = targetId;
+      var ownerWhatsapp = booking.ownerWhatsapp || (selectedHomestay ? selectedHomestay.whatsapp : '');
+      var phone = String(ownerWhatsapp).replace(/[^0-9]/g, '');
+      if (!phone || phone.length < 9) phone = '60123456789';
+      if (phone.startsWith('0')) phone = '60' + phone.substring(1);
 
-  var b = customBookingData || bookings.find(function(x) {
-    return String(x.id) === String(targetId);
-  }) || window.lastCreatedBooking;
+      var message = '🆕 *Hi,* ' + (booking.homestay || selectedHomestay?.name || 'Kundasang Homestay') + '\n\n' +
+        '*Booking ID:* ' + (booking.id || bookingId) + '\n' +
+        '*Homestay:* ' + (booking.homestay || selectedHomestay?.name || 'Kundasang Homestay') + '\n' +
+        '*Guest Name:* ' + (booking.guestName || 'Guest') + '\n' +
+        '*WhatsApp:* ' + (booking.guestPhone || '-') + '\n' +
+        '*Dates:* ' + booking.checkin + ' to ' + booking.checkout + ' (' + booking.nights + ' nights)\n' +
+        '*Status:* Paid via FPX (CHIP)\n\n' +
+        'Please double confirm. Thank you!';
 
-  if (b) {
-    lastBookingDetails = b;
-    if (datesEl) datesEl.textContent = (b.checkin || '') + ' → ' + (b.checkout || '') + ' (' + (b.nights || 1) + 'N)';
-    if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(b.total) || 0).toFixed(2);
-  }
+      window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(message), '_blank');
+      setTimeout(function() {
+        window.location.href = '/mybookings.html';
+      }, 1500);
+    }
 
-  if (overlay) overlay.classList.add('active');
-  document.body.style.overflow = 'hidden';
-}
+    // =============================================================
+    // PAYMENT FAILED MODAL CONTROLS (friendly version)
+    // =============================================================
+    function showPaymentFailedModal(bookingId, bookingData) {
+      var overlay = document.getElementById('paymentFailedModal');
+      var idEl = document.getElementById('failedBookingId');
+      var datesEl = document.getElementById('failedDates');
+      var totalEl = document.getElementById('failedTotal');
 
-function closeThankYouAndReload() {
-  var overlay = document.getElementById('thankyouModal');
-  if (overlay) overlay.classList.remove('active');
-  document.body.style.overflow = '';
-  window.location.href = '/mybookings.html';
-}
+      if (idEl) idEl.textContent = bookingId || 'N/A';
+      if (datesEl) datesEl.textContent = (bookingData?.checkin || '') + ' → ' + (bookingData?.checkout || '') + ' (' + (bookingData?.nights || 1) + 'N)';
+      if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(bookingData?.total) || 0).toFixed(2);
 
-function whatsappOwnerFromThankYou() {
-  var bookingId = document.getElementById('thankyouBookingId')?.textContent || lastBookingId;
-  var booking = lastBookingDetails || bookings.find(function(b) {
-    return String(b.id) === String(bookingId);
-  }) || window.lastCreatedBooking;
+      window._failedBookingId = bookingId;
+      window._failedBookingData = bookingData;
 
-  if (!booking && selectedHomestay) {
-    booking = {
-      id: bookingId,
-      homestay: selectedHomestay.name,
-      ownerWhatsapp: selectedHomestay.whatsapp || '',
-      guestName: document.getElementById('guestName')?.value || currentGuest?.name || 'Guest',
-      guestPhone: document.getElementById('guestPhone')?.value || currentGuest?.phone || '',
-      checkin: document.getElementById('bookingCheckin')?.value || '',
-      checkout: document.getElementById('bookingCheckout')?.value || '',
-      nights: document.getElementById('bookingNights')?.textContent || '1',
-      total: calculatePrice(selectedHomestay.ownerPrice, 1).total
+      if (overlay) overlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closePaymentFailedModal() {
+      var overlay = document.getElementById('paymentFailedModal');
+      if (overlay) overlay.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    // =============================================================
+    // CSRF HELPER
+    // =============================================================
+    function getCsrfHeader() {
+      var token = localStorage.getItem('kd_csrf_token');
+      return token ? { 'X-CSRF-Token': token } : {};
+    }
+
+    // =============================================================
+    // CONFIG & CONSTANTS
+    // =============================================================
+    var CONFIG = {
+      platformFeePercent: 11,
+      toyyibpay: {
+        sandbox: true,
+        apiKey: "YOUR_TOYYIBPAY_KEY",
+        collectionId: "YOUR_COLLECTION_ID",
+        xSignature: "YOUR_X_SIGNATURE",
+        gatewayFee: 1,
+        splitEnabled: true,
+      }
     };
-  }
 
-  if (!booking) {
-    showAlert('Notice', 'Booking details found in your "My Bookings" profile tab.');
-    setTimeout(function() { window.location.href = '/mybookings.html'; }, 1000);
-    return;
-  }
+    var CLOUD_ENABLED = true;
+    var API_BASE = "/api";
 
-  var ownerWhatsapp = booking.ownerWhatsapp || (selectedHomestay ? selectedHomestay.whatsapp : '');
-  var phone = String(ownerWhatsapp).replace(/[^0-9]/g, '');
-  if (!phone || phone.length < 9) phone = '60123456789';
-  if (phone.startsWith('0')) phone = '60' + phone.substring(1);
+    function fetchWithAuth(url, options) {
+      options = options || {};
+      var token = sessionStorage.getItem('kd_admin_token') || '';
+      var headers = options.headers || {};
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      return fetch(url, { ...options, headers });
+    }
 
-  var message = '🆕 *Hi,* ' + (booking.homestay || selectedHomestay?.name || 'Kundasang Homestay') + '\n\n' +
-    '*Booking ID:* ' + (booking.id || bookingId) + '\n' +
-    '*Homestay:* ' + (booking.homestay || selectedHomestay?.name || 'Kundasang Homestay') + '\n' +
-    '*Guest Name:* ' + (booking.guestName || 'Guest') + '\n' +
-    '*WhatsApp:* ' + (booking.guestPhone || '-') + '\n' +
-    '*Dates:* ' + booking.checkin + ' to ' + booking.checkout + ' (' + booking.nights + ' nights)\n' +
-    '*Status:* Paid via FPX (CHIP)\n\nPlease double confirm. Thank you!';
+    // =============================================================
+    // DATA STORE - NO DEMO DATA
+    // =============================================================
+    var pendingHomestays = JSON.parse(localStorage.getItem("kd_pending") || "[]");
+    var storedApproved = JSON.parse(localStorage.getItem("kd_approved") || "[]");
 
-  window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(message), '_blank');
-  setTimeout(function() { window.location.href = '/mybookings.html'; }, 1500);
-}
+    var homestays = storedApproved.filter(function(h) { return h.approved === true; }).map(function(h) { return { blockedDates: [], ...h }; });
+    var bookings = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
+    var selectedHomestay = null;
+    var availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}");
 
-function showPaymentFailedModal(bookingId, bookingData) {
-  var overlay = document.getElementById('paymentFailedModal');
-  var idEl = document.getElementById('failedBookingId');
-  var datesEl = document.getElementById('failedDates');
-  var totalEl = document.getElementById('failedTotal');
+    // =============================================================
+    // GUEST SESSION SYSTEM
+    // =============================================================
+    var currentGuest = null;
+    try {
+      var saved = localStorage.getItem('kd_guest');
+      if (saved) currentGuest = JSON.parse(saved);
+    } catch(e) { currentGuest = null; }
 
-  if (idEl) idEl.textContent = bookingId || 'N/A';
-  if (datesEl) datesEl.textContent = (bookingData?.checkin || '') + ' → ' + (bookingData?.checkout || '') + ' (' + (bookingData?.nights || 1) + 'N)';
-  if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(bookingData?.total) || 0).toFixed(2);
+    function renderGuestNav() {
+      var loginNav = document.getElementById("guestNav");
+      var profileNav = document.getElementById("guestProfileNav");
+      var mLoginNav = document.getElementById("mGuestNav");
+      var mProfileNav = document.getElementById("mGuestProfileNav");
+      var mAvatar = document.getElementById("mGuestAvatar");
+      var mNameNav = document.getElementById("mGuestNameNav");
 
-  window._failedBookingId = bookingId;
-  window._failedBookingData = bookingData;
+      if (currentGuest && currentGuest.id) {
+        if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
+        if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
 
-  if (overlay) overlay.classList.add('active');
-  document.body.style.overflow = 'hidden';
-}
+        var avatar = document.getElementById("guestAvatar");
+        var nameNav = document.getElementById("guestNameNav");
+        if (avatar) {
+          if (currentGuest.verified === true) {
+            avatar.innerText = "✓";
+            avatar.className = "guest-avatar w-7 h-7 text-xs bg-emerald-600 text-white flex items-center justify-center rounded-full font-bold";
+          } else {
+            avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+            avatar.className = "guest-avatar w-7 h-7 text-xs bg-[#3FD0D4] text-white flex items-center justify-center rounded-full font-bold";
+          }
+        }
+        if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
 
-function closePaymentFailedModal() {
-  var overlay = document.getElementById('paymentFailedModal');
-  if (overlay) overlay.classList.remove('active');
-  document.body.style.overflow = '';
-}
-
-// =============================================================
-// 4. CSRF HELPER
-// =============================================================
-function getCsrfHeader() {
-  var token = localStorage.getItem('kd_csrf_token');
-  return token ? { 'X-CSRF-Token': token } : {};
-}
-
-// =============================================================
-// 5. CONFIG & API
-// =============================================================
-var CONFIG = {
-  platformFeePercent: 11,
-  toyyibpay: {
-    sandbox: true,
-    apiKey: "YOUR_TOYYIBPAY_KEY",
-    collectionId: "YOUR_COLLECTION_ID",
-    xSignature: "YOUR_X_SIGNATURE",
-    gatewayFee: 1,
-    splitEnabled: true,
-  }
-};
-
-var CLOUD_ENABLED = true;
-var API_BASE = "/api";
-
-function fetchWithAuth(url, options) {
-  options = options || {};
-  var token = sessionStorage.getItem('kd_admin_token') || '';
-  var headers = options.headers || {};
-  if (token) headers['Authorization'] = 'Bearer ' + token;
-  return fetch(url, { ...options, headers });
-}
-
-// =============================================================
-// 6. DATA STORE
-// =============================================================
-var pendingHomestays = JSON.parse(localStorage.getItem("kd_pending") || "[]");
-var storedApproved = JSON.parse(localStorage.getItem("kd_approved") || "[]");
-var homestays = storedApproved.filter(function(h) { return h.approved === true; }).map(function(h) {
-  return { blockedDates: [], ...h };
-});
-var bookings = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
-var selectedHomestay = null;
-var availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}");
-
-// =============================================================
-// 7. GUEST SESSION
-// =============================================================
-var currentGuest = null;
-try {
-  var saved = localStorage.getItem('kd_guest');
-  if (saved) currentGuest = JSON.parse(saved);
-} catch(e) { currentGuest = null; }
-
-function renderGuestNav() {
-  var loginNav = document.getElementById("guestNav");
-  var profileNav = document.getElementById("guestProfileNav");
-  var mLoginNav = document.getElementById("mGuestNav");
-  var mProfileNav = document.getElementById("mGuestProfileNav");
-  var mAvatar = document.getElementById("mGuestAvatar");
-  var mNameNav = document.getElementById("mGuestNameNav");
-
-  if (currentGuest && currentGuest.id) {
-    if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
-    if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
-
-    var avatar = document.getElementById("guestAvatar");
-    var nameNav = document.getElementById("guestNameNav");
-    if (avatar) {
-      if (currentGuest.verified === true) {
-        avatar.innerText = "✓";
-        avatar.className = "w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold";
+        if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
+        if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
+        if (mAvatar) {
+          if (currentGuest.verified === true) {
+            mAvatar.innerText = "✓";
+            mAvatar.className = "avatar bg-emerald-600 text-white";
+          } else {
+            mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+            mAvatar.className = "avatar bg-[#3FD0D4] text-white";
+          }
+        }
+        if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
       } else {
-        avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-        avatar.className = "w-7 h-7 rounded-full bg-[#3FD0D4] text-white flex items-center justify-center text-xs font-bold";
+        if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
+        if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
+        if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
+        if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
       }
     }
-    if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
 
-    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
-    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
-    if (mAvatar) {
-      if (currentGuest.verified === true) {
-        mAvatar.innerText = "✓";
-        mAvatar.className = "w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold";
-      } else {
-        mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-        mAvatar.className = "w-8 h-8 rounded-full bg-[#3FD0D4] text-white flex items-center justify-center text-xs font-bold";
+    function logoutGuest() {
+      if (!confirm("Logout from your guest session?")) return;
+      currentGuest = null;
+      localStorage.removeItem('kd_guest');
+      renderGuestNav();
+      window.location.href = '/';
+    }
+
+    // =============================================================
+    // DATE & PRICING CALCULATORS
+    // =============================================================
+    function calculateNights(checkin, checkout) {
+      if (!checkin || !checkout) return 1;
+      var d1 = new Date(checkin);
+      var d2 = new Date(checkout);
+      var diff = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+      return diff > 0 ? diff : 1;
+    }
+
+    function calculatePrice(ownerPrice, nights) {
+      nights = nights || 1;
+      var base = ownerPrice * nights;
+      var fee = Math.round((base * CONFIG.platformFeePercent) / 100);
+      var gatewayFee = CONFIG.toyyibpay.enabled ? CONFIG.toyyibpay.gatewayFee : 0;
+      var total = base + fee + gatewayFee;
+      return { nights: nights, base: base, fee: fee, gatewayFee: gatewayFee, total: total, ownerReceives: base, youReceive: fee - gatewayFee };
+    }
+
+    function isoToDate(str) { return new Date(str + 'T00:00:00'); }
+    function dateToIso(date) {
+      return date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
+    }
+
+    function getDatesInRange(checkin, checkout) {
+      if (!checkin || !checkout) return [];
+      var dates = [];
+      var start = isoToDate(checkin);
+      var end = isoToDate(checkout);
+      if (isNaN(start) || isNaN(end) || start >= end) return [];
+      var cur = new Date(start);
+      while (cur < end) {
+        dates.push(dateToIso(cur));
+        cur.setDate(cur.getDate() + 1);
+      }
+      return dates;
+    }
+
+    // =============================================================
+    // FIXED: getAllBlockedDatesForHomestay – skips cancelled & failed
+    // =============================================================
+    function getAllBlockedDatesForHomestay(homestay) {
+      if (!homestay) return [];
+      var blocked = [];
+      
+      if (homestay.blockedDates) {
+        blocked = blocked.concat(homestay.blockedDates);
+      }
+      if (availabilityMap && availabilityMap[String(homestay.id)]) {
+        blocked = blocked.concat(availabilityMap[String(homestay.id)]);
+      }
+      if (bookings && bookings.length) {
+        var relatedBookings = bookings.filter(function(b) {
+          return b.homestay === homestay.name || String(b.homestayId) === String(homestay.id);
+        });
+        relatedBookings.forEach(function(b) {
+          var status = (b.status || '').toLowerCase();
+          if (status.includes('cancelled') || status.includes('fail')) return;
+          if (b.checkin && b.checkout) {
+            var dates = getDatesInRange(b.checkin, b.checkout);
+            blocked = blocked.concat(dates);
+          }
+        });
+      }
+      var unique = {};
+      blocked.forEach(function(d) { unique[d] = true; });
+      return Object.keys(unique).sort();
+    }
+
+    function isHomestayAvailableForRange(homestay, checkin, checkout, roomId) {
+      if (!checkin || !checkout) return { available: true };
+      var requestedDates = getDatesInRange(checkin, checkout);
+      if (requestedDates.length === 0) return { available: true };
+      var blocked = getAllBlockedDatesForHomestay(homestay);
+      if (roomId && homestay.rooms) {
+        var room = homestay.rooms.find(r => r.id === roomId);
+        if (room && room.blockedDates) {
+          blocked = blocked.concat(room.blockedDates);
+        }
+      }
+
+      var overlap = requestedDates.filter(function(d) { return blocked.indexOf(d) !== -1; });
+      return { available: overlap.length === 0, blockedDates: overlap };
+    }
+
+    // =============================================================
+    // HOMESTAY GRID RENDERER (with event delegation)
+    // =============================================================
+    function renderGrid() {
+      var grid = document.getElementById("homestayGrid");
+      var loc = document.getElementById("filterLocation")?.value || "all";
+      var checkinVal = document.getElementById("checkin")?.value;
+      var checkoutVal = document.getElementById("checkout")?.value;
+      
+      var list = homestays.filter(function(h) { return h.approved === true; });
+      if (loc !== "all") list = list.filter(function(h) { return h.location && h.location.toLowerCase().indexOf(loc.toLowerCase()) !== -1; });
+
+      if (checkinVal && checkoutVal) {
+        list = list.filter(function(h) { return isHomestayAvailableForRange(h, checkinVal, checkoutVal).available; });
+      }
+
+      if (list.length === 0) {
+        grid.innerHTML = safeHTML('' +
+          '<div class="col-span-3 text-center py-16">' +
+            '<div class="text-zinc-500 font-poppins">No homestays available yet. Check back soon or <a href="/list.html" class="text-[#3FD0D4] font-semibold underline">list your property</a>.</div>' +
+            '<button onclick="document.getElementById(\'checkin\').value=\'\'; document.getElementById(\'checkout\').value=\'\'; document.getElementById(\'filterLocation\').value=\'all\'; renderGrid();" class="mt-4 btn-outline">Reset Filters</button>' +
+          '</div>' +
+        '');
+        return;
+      }
+
+      grid.innerHTML = safeHTML(list.map(function(h) {
+        var blocked = getAllBlockedDatesForHomestay(h);
+        return '' +
+          '<article class="group bg-white rounded-2xl shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden" data-id="' + h.id + '">' +
+            '<div class="h-[240px] w-full relative overflow-hidden bg-zinc-100">' +
+              '<img src="' + (h.image || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800') + '" loading="lazy" alt="' + h.name + '" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onerror="this.src=\'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800\'"/>' +
+              '<div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">' +
+                '<span class="font-poppins font-700 text-[11px] text-[#212121]">' + (h.rating ? h.rating.toFixed(1) : '5.0') + ' ★</span>' +
+              '</div>' +
+              (h.verified ? '<div class="absolute top-4 left-[76px] bg-[#3FD0D4] text-white text-[10px] px-2.5 py-1 rounded-full font-700 uppercase tracking-wider shadow-sm">Verified</div>' : '') +
+              '<div class="absolute bottom-3 left-3 bg-black/75 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-full font-500">🔒 Direct FPX Protection</div>' +
+            '</div>' +
+            '<div class="p-5 flex flex-col flex-1">' +
+              '<div class="flex justify-between items-start gap-2">' +
+                '<h3 class="font-poppins font-700 text-[18px] leading-tight text-[#212121]">' + h.name + '</h3>' +
+                '<span class="text-[10px] bg-zinc-100 px-2.5 py-1 rounded-full shrink-0 font-600 uppercase tracking-wider text-[#212121]/70">' + (h.location || 'Kundasang') + '</span>' +
+              '</div>' +
+              '<div class="text-[12px] text-[#212121]/60 mt-2 font-500">' + (h.guests || 2) + ' guests • ' + (h.bedrooms || 1) + ' bedrooms • Water Heater ♨️</div>' +
+              '<div class="mt-auto pt-4 flex justify-between items-center border-t border-black/5">' +
+                '<div class="font-poppins font-700 text-[18px] text-[#0F382E]">RM' + (h.ownerPrice || 200) + '<span class="font-400 text-[12px] text-[#212121]/60 font-normal"> /night</span></div>' +
+                '<div class="text-[11px] text-[#3FD0D4] font-700 uppercase tracking-wider">Book Now →</div>' +
+              '</div>' +
+            '</div>' +
+          '</article>' +
+        '';
+      }).join(''));
+
+      grid.removeEventListener('click', gridClickHandler);
+      grid.addEventListener('click', gridClickHandler);
+    }
+
+    function gridClickHandler(e) {
+      var article = e.target.closest('article[data-id]');
+      if (article) {
+        var id = article.getAttribute('data-id');
+        if (id) {
+          openDetail(parseInt(id));
+        }
       }
     }
-    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
-  } else {
-    if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
-    if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
-    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
-  }
-}
 
-function logoutGuest() {
-  if (!confirm("Logout from your guest session?")) return;
-  currentGuest = null;
-  localStorage.removeItem('kd_guest');
-  renderGuestNav();
-  window.location.href = '/';
-}
+    // =============================================================
+    // DETAIL MODAL – Patched for multi‑room
+    // =============================================================
+    function openDetail(id) {
+      selectedHomestay = homestays.find(h => h.id === id) || pendingHomestays.find(h => h.id === id);
+      if (!selectedHomestay) return;
 
-// =============================================================
-// 8. DATE & PRICING HELPERS
-// =============================================================
-function calculateNights(checkin, checkout) {
-  if (!checkin || !checkout) return 1;
-  var d1 = new Date(checkin);
-  var d2 = new Date(checkout);
-  var diff = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
-  return diff > 0 ? diff : 1;
-}
+      const defaultCi = document.getElementById("checkin")?.value || dateToIso(new Date(Date.now() + 86400000));
+      const defaultCo = document.getElementById("checkout")?.value || dateToIso(new Date(Date.now() + 86400000 * 2));
 
-function calculatePrice(ownerPrice, nights) {
-  nights = nights || 1;
-  var base = ownerPrice * nights;
-  var fee = Math.round((base * CONFIG.platformFeePercent) / 100);
-  var gatewayFee = CONFIG.toyyibpay.enabled ? CONFIG.toyyibpay.gatewayFee : 0;
-  var total = base + fee + gatewayFee;
-  return { nights: nights, base: base, fee: fee, gatewayFee: gatewayFee, total: total, ownerReceives: base, youReceive: fee - gatewayFee };
-}
-
-function isoToDate(str) { return new Date(str + 'T00:00:00'); }
-
-function dateToIso(date) {
-  return date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
-}
-
-function getDatesInRange(checkin, checkout) {
-  if (!checkin || !checkout) return [];
-  var dates = [];
-  var start = isoToDate(checkin);
-  var end = isoToDate(checkout);
-  if (isNaN(start) || isNaN(end) || start >= end) return [];
-  var cur = new Date(start);
-  while (cur < end) {
-    dates.push(dateToIso(cur));
-    cur.setDate(cur.getDate() + 1);
-  }
-  return dates;
-}
-
-// =============================================================
-// 9. AVAILABILITY (blocked dates)
-// =============================================================
-function getAllBlockedDatesForHomestay(homestay) {
-  if (!homestay) return [];
-  var blocked = [];
-
-  if (homestay.blockedDates) blocked = blocked.concat(homestay.blockedDates);
-  if (availabilityMap && availabilityMap[String(homestay.id)]) blocked = blocked.concat(availabilityMap[String(homestay.id)]);
-
-  if (bookings && bookings.length) {
-    var relatedBookings = bookings.filter(function(b) {
-      return b.homestay === homestay.name || String(b.homestayId) === String(homestay.id);
-    });
-    relatedBookings.forEach(function(b) {
-      var status = (b.status || '').toLowerCase();
-      if (status.includes('cancelled') || status.includes('fail')) return;
-      if (b.checkin && b.checkout) {
-        var dates = getDatesInRange(b.checkin, b.checkout);
-        blocked = blocked.concat(dates);
-      }
-    });
-  }
-
-  var unique = {};
-  blocked.forEach(function(d) { unique[d] = true; });
-  return Object.keys(unique).sort();
-}
-
-function isHomestayAvailableForRange(homestay, checkin, checkout, roomId) {
-  if (!checkin || !checkout) return { available: true };
-  var requestedDates = getDatesInRange(checkin, checkout);
-  if (requestedDates.length === 0) return { available: true };
-
-  var blocked = getAllBlockedDatesForHomestay(homestay);
-  if (roomId && homestay.rooms) {
-    var room = homestay.rooms.find(r => r.id === roomId);
-    if (room && room.blockedDates) blocked = blocked.concat(room.blockedDates);
-  }
-
-  var overlap = requestedDates.filter(function(d) { return blocked.indexOf(d) !== -1; });
-  return { available: overlap.length === 0, blockedDates: overlap };
-}
-
-// =============================================================
-// 10. RENDER HOMESTAY GRID
-// =============================================================
-function renderGrid() {
-  var grid = document.getElementById("homestayGrid");
-  var loc = document.getElementById("filterLocation")?.value || "all";
-  var checkinVal = document.getElementById("checkin")?.value;
-  var checkoutVal = document.getElementById("checkout")?.value;
-
-  var list = homestays.filter(function(h) { return h.approved === true; });
-  if (loc !== "all") list = list.filter(function(h) {
-    return h.location && h.location.toLowerCase().indexOf(loc.toLowerCase()) !== -1;
-  });
-
-  if (checkinVal && checkoutVal) {
-    list = list.filter(function(h) {
-      return isHomestayAvailableForRange(h, checkinVal, checkoutVal).available;
-    });
-  }
-
-  if (list.length === 0) {
-    grid.innerHTML = safeHTML(
-      '<div class="col-span-3 text-center py-16">' +
-        '<div class="text-zinc-500 font-poppins">No homestays available yet. Check back soon or <a href="/list.html" class="text-[#3FD0D4] font-semibold underline">list your property</a>.</div>' +
-        '<button onclick="document.getElementById(\'checkin\').value=\'\'; document.getElementById(\'checkout\').value=\'\'; document.getElementById(\'filterLocation\').value=\'all\'; renderGrid();" class="mt-4 btn-outline">Reset Filters</button>' +
-      '</div>'
-    );
-    return;
-  }
-
-  grid.innerHTML = safeHTML(list.map(function(h) {
-    return '<article class="group bg-white rounded-2xl shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden" data-id="' + h.id + '">' +
-      '<div class="h-[240px] w-full relative overflow-hidden bg-zinc-100">' +
-        '<img src="' + (h.image || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800') + '" loading="lazy" alt="' + h.name + '" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onerror="this.src=\'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800\'"/>' +
-        '<div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">' +
-          '<span class="font-poppins font-700 text-[11px] text-[#212121]">' + (h.rating ? h.rating.toFixed(1) : '5.0') + ' ★</span>' +
-        '</div>' +
-        (h.verified ? '<div class="absolute top-4 left-[76px] bg-[#3FD0D4] text-white text-[10px] px-2.5 py-1 rounded-full font-700 uppercase tracking-wider shadow-sm">Verified</div>' : '') +
-        '<div class="absolute bottom-3 left-3 bg-black/75 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-full font-500">🔒 Direct FPX Protection</div>' +
-      '</div>' +
-      '<div class="p-5 flex flex-col flex-1">' +
-        '<div class="flex justify-between items-start gap-2">' +
-          '<h3 class="font-poppins font-700 text-[18px] leading-tight text-[#212121]">' + h.name + '</h3>' +
-          '<span class="text-[10px] bg-zinc-100 px-2.5 py-1 rounded-full shrink-0 font-600 uppercase tracking-wider text-[#212121]/70">' + (h.location || 'Kundasang') + '</span>' +
-        '</div>' +
-        '<div class="text-[12px] text-[#212121]/60 mt-2 font-500">' + (h.guests || 2) + ' guests • ' + (h.bedrooms || 1) + ' bedrooms • Water Heater ♨️</div>' +
-        '<div class="mt-auto pt-4 flex justify-between items-center border-t border-black/5">' +
-          '<div class="font-poppins font-700 text-[18px] text-[#0F382E]">RM' + (h.ownerPrice || 200) + '<span class="font-400 text-[12px] text-[#212121]/60 font-normal"> /night</span></div>' +
-          '<div class="text-[11px] text-[#3FD0D4] font-700 uppercase tracking-wider">Book Now →</div>' +
-        '</div>' +
-      '</div>' +
-    '</article>';
-  }).join(''));
-
-  grid.removeEventListener('click', gridClickHandler);
-  grid.addEventListener('click', gridClickHandler);
-}
-
-function gridClickHandler(e) {
-  var article = e.target.closest('article[data-id]');
-  if (article) {
-    var id = article.getAttribute('data-id');
-    if (id) openDetail(parseInt(id));
-  }
-}
-
-// =============================================================
-// 11. DETAIL MODAL
-// =============================================================
-function openDetail(id) {
-  selectedHomestay = homestays.find(h => h.id === id) || pendingHomestays.find(h => h.id === id);
-  if (!selectedHomestay) return;
-
-  const defaultCi = document.getElementById("checkin")?.value || dateToIso(new Date(Date.now() + 86400000));
-  const defaultCo = document.getElementById("checkout")?.value || dateToIso(new Date(Date.now() + 86400000 * 2));
-
-  let roomsHtml = '';
-  const rooms = selectedHomestay.rooms || [];
-  if (rooms.length === 0) {
-    roomsHtml = '<div class="text-sm text-zinc-500">This homestay offers a single unit.</div>';
-  } else {
-    roomsHtml = '<div class="mt-3 space-y-2">' +
-      '<label class="text-xs font-semibold text-zinc-700">Select a room:</label>' +
-      '<select id="roomSelect" class="form-select text-sm" onchange="updateDetailPrice(); updateRoomImages()">' +
-        rooms.map(r => '<option value="' + r.id + '" data-price="' + r.price + '" data-guests="' + r.guests + '" data-name="' + r.name + '">' + r.name + ' – RM ' + r.price + '/night (max ' + r.guests + ' guests)</option>').join('') +
-      '</select>' +
-      '<div id="roomImageGallery" class="mt-2 flex gap-2 overflow-x-auto pb-2"></div>' +
-      '<div id="roomDescription" class="text-xs text-zinc-500 mt-1">' + (rooms[0]?.desc || '') + '</div>' +
-    '</div>';
-  }
-
-  document.getElementById("detailContent").innerHTML = safeHTML(
-    '<img src="' + (selectedHomestay.image || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800') + '" alt="' + selectedHomestay.name + '" class="w-full h-[320px] object-cover rounded-2xl"/>' +
-    '<div class="flex gap-2 mt-4 flex-wrap">' +
-      (selectedHomestay.verified ? '<span class="badge-verified text-xs px-3 py-1 font-semibold">✓ Verified Host — ' + (selectedHomestay.ownerName || 'Local Host') + '</span>' : '') +
-      '<span class="bg-zinc-100 text-xs px-3 py-1 rounded-full font-semibold">📍 ' + (selectedHomestay.location || 'Kundasang') + '</span>' +
-    '</div>' +
-    '<h2 class="text-2xl md:text-3xl font-bold font-poppins mt-3 text-[#212121]">' + selectedHomestay.name + '</h2>' +
-    '<p class="text-sm text-zinc-500 mt-1">' + (selectedHomestay.guests || 2) + ' Guests Maximum • ' + (selectedHomestay.bedrooms || 1) + ' Bedrooms</p>' +
-    '<p class="text-sm mt-3 leading-relaxed text-zinc-700">' + (selectedHomestay.description || "Cozy mountain homestay in Kundasang.") + '</p>' +
-    '<div class="mt-6 bg-zinc-50 border p-4 rounded-2xl"><h4 class="font-bold text-xs uppercase tracking-wider text-zinc-700">Room Selection</h4>' + roomsHtml + '</div>' +
-    '<div class="mt-4 bg-zinc-50 border p-4 rounded-2xl"><h4 class="font-bold text-xs uppercase tracking-wider text-zinc-700">Check Availability</h4><div id="detailAvailabilityCalendar" class="mt-3"></div><div id="detailAvailabilityStatus" class="mt-2 text-xs font-semibold"></div></div>' +
-    '<div class="mt-6 grid grid-cols-2 gap-3">' +
-      '<div><label class="text-xs font-semibold text-zinc-700">Check-in</label><input id="detailCheckin" type="date" value="' + defaultCi + '" class="form-input text-sm mt-1" onchange="updateDetailPrice()"/></div>' +
-      '<div><label class="text-xs font-semibold text-zinc-700">Check-out</label><input id="detailCheckout" type="date" value="' + defaultCo + '" class="form-input text-sm mt-1" onchange="updateDetailPrice()"/></div>' +
-    '</div>' +
-    '<div id="detailPriceBox" class="mt-4 bg-[#F8F5F0] p-4 rounded-2xl border border-black/5"></div>'
-  );
-
-  const roomSelect = document.getElementById('roomSelect');
-  if (roomSelect) {
-    roomSelect.addEventListener('change', function() {
-      const room = rooms.find(r => r.id === this.value);
-      const descEl = document.getElementById('roomDescription');
-      if (descEl && room) descEl.textContent = room.desc || '';
-      updateDetailPrice();
-      updateRoomImages();
-    });
-    setTimeout(updateRoomImages, 100);
-  }
-
-  document.getElementById("detailModal").classList.remove("hidden");
-  renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
-  updateDetailPrice();
-}
-
-function closeDetail() {
-  document.getElementById("detailModal").classList.add("hidden");
-}
-
-function closeBooking() {
-  document.getElementById("bookingModal").classList.add("hidden");
-}
-
-// =============================================================
-// 12. DETAIL PRICE & ROOM IMAGES
-// =============================================================
-function updateDetailPrice() {
-  if (!selectedHomestay) return;
-  const ci = document.getElementById("detailCheckin")?.value;
-  const co = document.getElementById("detailCheckout")?.value;
-  const nights = calculateNights(ci, co);
-
-  let pricePerNight = selectedHomestay.ownerPrice || 200;
-  let selectedRoom = null;
-  const roomSelect = document.getElementById('roomSelect');
-  const rooms = selectedHomestay.rooms || [];
-  if (roomSelect && rooms.length > 0) {
-    const selectedRoomId = roomSelect.value;
-    selectedRoom = rooms.find(r => r.id === selectedRoomId);
-    if (selectedRoom) pricePerNight = parseFloat(selectedRoom.price) || pricePerNight;
-  }
-
-  const p = calculatePrice(pricePerNight, nights);
-  const avail = isHomestayAvailableForRange(selectedHomestay, ci, co, selectedRoom ? selectedRoom.id : null);
-
-  const statusEl = document.getElementById("detailAvailabilityStatus");
-  if (statusEl) {
-    statusEl.className = avail.available ? "text-emerald-700" : "text-red-600";
-    statusEl.textContent = avail.available ? '✓ Selected dates are available (' + nights + ' Nights)' : '✕ Selected dates are fully booked';
-  }
-
-  const box = document.getElementById("detailPriceBox");
-  if (box) {
-    const roomName = selectedRoom ? selectedRoom.name : 'Unit';
-    box.innerHTML = safeHTML(
-      '<div class="text-xs space-y-1.5 font-poppins">' +
-        '<div class="flex justify-between"><span>' + roomName + ' – RM' + pricePerNight + ' x ' + nights + ' Nights</span><span>RM' + p.base + '</span></div>' +
-        '<div class="flex justify-between"><span>Service Fee</span><span>RM' + p.fee + '</span></div>' +
-        '<div class="flex justify-between font-bold text-sm text-[#0F382E] border-t pt-2 mt-2"><span>Total Amount:</span><span>RM' + p.total.toFixed(2) + '</span></div>' +
-      '</div>'
-    );
-  }
-
-  window._selectedRoom = selectedRoom;
-  window._selectedPricePerNight = pricePerNight;
-}
-
-function updateRoomImages() {
-  const gallery = document.getElementById('roomImageGallery');
-  if (!gallery) return;
-  const roomSelect = document.getElementById('roomSelect');
-  if (!roomSelect) return;
-  const rooms = selectedHomestay.rooms || [];
-  const selectedRoom = rooms.find(r => r.id === roomSelect.value);
-  if (!selectedRoom || !selectedRoom.images || selectedRoom.images.length === 0) {
-    gallery.innerHTML = '<div class="text-[10px] text-zinc-400">No images for this room</div>';
-    return;
-  }
-  let html = '';
-  selectedRoom.images.forEach(img => {
-    html += '<img src="' + img + '" class="w-20 h-20 object-cover rounded-lg border border-zinc-200 flex-shrink-0" />';
-  });
-  gallery.innerHTML = html;
-}
-
-// =============================================================
-// 13. OPEN BOOKING
-// =============================================================
-function openBooking() {
-  if (!currentGuest) {
-    showModal("Login Required", "Please create a guest account to book this homestay.", [
-      { label: 'Cancel', class: 'btn-secondary', value: false },
-      { label: 'Register Now →', class: 'btn-primary', value: true }
-    ]).then(function(result) {
-      if (result) window.location.href = '/register.html';
-    });
-    return;
-  }
-
-  var csrfToken = localStorage.getItem('kd_csrf_token');
-  if (!csrfToken) {
-    showAlert("Session Expired", "Your session token is missing. Please log out and log back in.");
-    logoutGuest();
-    return;
-  }
-
-  var nameEl = document.getElementById("guestName");
-  var emailEl = document.getElementById("guestEmail");
-  var phoneEl = document.getElementById("guestPhone");
-  if (nameEl) nameEl.value = currentGuest.name || "";
-  if (emailEl) emailEl.value = currentGuest.email || "";
-  if (phoneEl) phoneEl.value = currentGuest.phone || "";
-
-  var ci = document.getElementById("detailCheckin")?.value;
-  var co = document.getElementById("detailCheckout")?.value;
-  if (ci) document.getElementById("bookingCheckin").value = ci;
-  if (co) document.getElementById("bookingCheckout").value = co;
-
-  const roomSelect = document.getElementById('roomSelect');
-  if (roomSelect && roomSelect.value) {
+     let roomsHtml = '';
     const rooms = selectedHomestay.rooms || [];
-    const selectedRoom = rooms.find(r => r.id === roomSelect.value);
-    window._bookingRoom = selectedRoom || null;
-  } else {
-    window._bookingRoom = null;
-  }
+    if (rooms.length === 0) {
+      roomsHtml = `<div class="text-sm text-zinc-500">This homestay offers a single unit.</div>`;
+    } else {
+      roomsHtml = `
+        <div class="mt-3 space-y-2">
+          <label class="text-xs font-semibold text-zinc-700">Select a room:</label>
+          <select id="roomSelect" class="form-select text-sm" onchange="updateDetailPrice(); updateRoomImages()">
+            ${rooms.map(r => `<option value="${r.id}" data-price="${r.price}" data-guests="${r.guests}" data-name="${r.name}">${r.name} – RM ${r.price}/night (max ${r.guests} guests)</option>`).join('')}
+          </select>
+          <div id="roomImageGallery" class="mt-2 flex gap-2 overflow-x-auto pb-2"></div>
+          <div id="roomDescription" class="text-xs text-zinc-500 mt-1">${rooms[0]?.desc || ''}</div>
+        </div>
+      `;
+    }
 
-  updateBookingPrice();
-  document.getElementById("bookingModal").classList.remove("hidden");
-}
+      document.getElementById("detailContent").innerHTML = safeHTML(`
+        <img src="${selectedHomestay.image || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800'}" alt="${selectedHomestay.name}" class="w-full h-[320px] object-cover rounded-2xl"/>
+        <div class="flex gap-2 mt-4 flex-wrap">
+          ${selectedHomestay.verified ? '<span class="badge-verified text-xs px-3 py-1 font-semibold">✓ Verified Host — ' + (selectedHomestay.ownerName || 'Local Host') + '</span>' : ''}
+          <span class="bg-zinc-100 text-xs px-3 py-1 rounded-full font-semibold">📍 ${selectedHomestay.location || 'Kundasang'}</span>
+        </div>
+        <h2 class="text-2xl md:text-3xl font-bold font-poppins mt-3 text-[#212121]">${selectedHomestay.name}</h2>
+        <p class="text-sm text-zinc-500 mt-1">${selectedHomestay.guests || 2} Guests Maximum • ${selectedHomestay.bedrooms || 1} Bedrooms</p>
+        <p class="text-sm mt-3 leading-relaxed text-zinc-700">${selectedHomestay.description || "Cozy mountain homestay in Kundasang."}</p>
 
-// =============================================================
-// 14. UPDATE BOOKING PRICE
-// =============================================================
-function updateBookingPrice() {
-  if (!selectedHomestay) return;
-  var ci = document.getElementById("bookingCheckin").value;
-  var co = document.getElementById("bookingCheckout").value;
-  var nights = calculateNights(ci, co);
+        <div class="mt-6 bg-zinc-50 border p-4 rounded-2xl">
+          <h4 class="font-bold text-xs uppercase tracking-wider text-zinc-700">Room Selection</h4>
+          ${roomsHtml}
+        </div>
 
-  let pricePerNight = selectedHomestay.ownerPrice || 200;
-  if (window._bookingRoom) pricePerNight = parseFloat(window._bookingRoom.price) || pricePerNight;
+        <div class="mt-4 bg-zinc-50 border p-4 rounded-2xl">
+          <h4 class="font-bold text-xs uppercase tracking-wider text-zinc-700">Check Availability</h4>
+          <div id="detailAvailabilityCalendar" class="mt-3"></div>
+          <div id="detailAvailabilityStatus" class="mt-2 text-xs font-semibold"></div>
+        </div>
 
-  const base = Math.round(pricePerNight * nights * 100) / 100;
-  const fee = Math.round(base * 0.11 * 100) / 100;
-  const gatewayFee = 1.00;
-  const total = Math.round((base + fee + gatewayFee) * 100) / 100;
+        <div class="mt-6 grid grid-cols-2 gap-3">
+          <div><label class="text-xs font-semibold text-zinc-700">Check-in</label><input id="detailCheckin" type="date" value="${defaultCi}" class="form-input text-sm mt-1" onchange="updateDetailPrice()"/></div>
+          <div><label class="text-xs font-semibold text-zinc-700">Check-out</label><input id="detailCheckout" type="date" value="${defaultCo}" class="form-input text-sm mt-1" onchange="updateDetailPrice()"/></div>
+        </div>
+        <div id="detailPriceBox" class="mt-4 bg-[#F8F5F0] p-4 rounded-2xl border border-black/5"></div>
+      `);
 
-  document.getElementById("bookingNights").innerText = nights;
+      const roomSelect = document.getElementById('roomSelect');
+      if (roomSelect) {
+        roomSelect.addEventListener('change', function() {
+          const room = rooms.find(r => r.id === this.value);
+          const descEl = document.getElementById('roomDescription');
+          if (descEl && room) descEl.textContent = room.desc || '';
+          updateDetailPrice();
+        });
+      }
 
-  var summaryEl = document.getElementById("bookingSummary");
-  if (summaryEl) {
-    const roomName = window._bookingRoom ? window._bookingRoom.name : 'Unit';
-    summaryEl.innerHTML = safeHTML(
-      '<div class="font-bold text-[#0F382E]">' + selectedHomestay.name + '</div>' +
-      '<div class="mt-2 text-xs flex justify-between"><span>' + roomName + ' – RM' + pricePerNight + ' x ' + nights + ' Nights:</span><span class="font-semibold">RM' + base.toFixed(2) + '</span></div>' +
-      '<div class="text-xs flex justify-between"><span>Service Fee:</span><span class="font-semibold">RM' + fee.toFixed(2) + '</span></div>' +
-      '<div class="text-xs flex justify-between"><span>FPX Gateway Fee:</span><span class="font-semibold">RM' + gatewayFee.toFixed(2) + '</span></div>' +
-      '<div class="text-sm font-bold flex justify-between border-t pt-2 mt-2 text-[#0F382E]"><span>Total :</span><span>RM' + total.toFixed(2) + '</span></div>'
-    );
-  }
-}
+    if (roomSelect) {
+      roomSelect.addEventListener('change', function() {
+        const room = rooms.find(r => r.id === this.value);
+        const descEl = document.getElementById('roomDescription');
+        if (descEl && room) descEl.textContent = room.desc || '';
+        updateDetailPrice();
+        updateRoomImages();
+      });
+      setTimeout(updateRoomImages, 100);
+    }
+      
+      document.getElementById("detailModal").classList.remove("hidden");
+      renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
+      updateDetailPrice();
+    }
+      
+    function closeDetail() {
+      document.getElementById("detailModal").classList.add("hidden");
+    }
 
-// =============================================================
-// 15. PROCESS PAYMENT
-// =============================================================
+    function closeBooking() {
+      document.getElementById("bookingModal").classList.add("hidden");
+    }
+
+    // =============================================================
+    // UPDATE DETAIL PRICE – Patched
+    // =============================================================
+    function updateDetailPrice() {
+      if (!selectedHomestay) return;
+      const ci = document.getElementById("detailCheckin")?.value;
+      const co = document.getElementById("detailCheckout")?.value;
+      const nights = calculateNights(ci, co);
+
+      let pricePerNight = selectedHomestay.ownerPrice || 200;
+      let selectedRoom = null;
+      const roomSelect = document.getElementById('roomSelect');
+      const rooms = selectedHomestay.rooms || [];
+      if (roomSelect && rooms.length > 0) {
+        const selectedRoomId = roomSelect.value;
+        selectedRoom = rooms.find(r => r.id === selectedRoomId);
+        if (selectedRoom) {
+          pricePerNight = parseFloat(selectedRoom.price) || pricePerNight;
+        }
+      }
+
+      const p = calculatePrice(pricePerNight, nights);
+      const avail = isHomestayAvailableForRange(selectedHomestay, ci, co, selectedRoom ? selectedRoom.id : null);
+
+      const statusEl = document.getElementById("detailAvailabilityStatus");
+      if (statusEl) {
+        statusEl.className = avail.available ? "text-emerald-700" : "text-red-600";
+        statusEl.textContent = avail.available ? '✓ Selected dates are available (' + nights + ' Nights)' : '✕ Selected dates are fully booked';
+      }
+
+      const box = document.getElementById("detailPriceBox");
+      if (box) {
+        const roomName = selectedRoom ? selectedRoom.name : 'Unit';
+        box.innerHTML = safeHTML(`
+          <div class="text-xs space-y-1.5 font-poppins">
+            <div class="flex justify-between"><span>${roomName} – RM${pricePerNight} x ${nights} Nights</span><span>RM${p.base}</span></div>
+            <div class="flex justify-between"><span>Service Fee</span><span>RM${p.fee}</span></div>
+            <div class="flex justify-between font-bold text-sm text-[#0F382E] border-t pt-2 mt-2"><span>Total Amount:</span><span>RM${p.total.toFixed(2)}</span></div>
+          </div>
+        `);
+      }
+
+      window._selectedRoom = selectedRoom;
+      window._selectedPricePerNight = pricePerNight;
+    }
+
+    function updateRoomImages() {
+      const gallery = document.getElementById('roomImageGallery');
+      if (!gallery) return;
+      const roomSelect = document.getElementById('roomSelect');
+      if (!roomSelect) return;
+      const rooms = selectedHomestay.rooms || [];
+      const selectedRoom = rooms.find(r => r.id === roomSelect.value);
+      if (!selectedRoom || !selectedRoom.images || selectedRoom.images.length === 0) {
+        gallery.innerHTML = '<div class="text-[10px] text-zinc-400">No images for this room</div>';
+        return;
+      }
+      let html = '';
+      selectedRoom.images.forEach(img => {
+        html += `<img src="${img}" class="w-20 h-20 object-cover rounded-lg border border-zinc-200 flex-shrink-0" />`;
+      });
+      gallery.innerHTML = html;
+    }  
+
+    // =============================================================
+    // OPEN BOOKING – Patched
+    // =============================================================
+    function openBooking() {
+      if (!currentGuest) {
+        showModal("Login Required", 
+          "Please create a guest account to book this homestay.",
+          [
+            { label: 'Cancel', class: 'btn-secondary', value: false },
+            { label: 'Register Now →', class: 'btn-primary', value: true }
+          ]
+        ).then(function(result) {
+          if (result) {
+            window.location.href = '/register.html';
+          }
+        });
+        return;
+      }
+
+      var csrfToken = localStorage.getItem('kd_csrf_token');
+      if (!csrfToken) {
+        showAlert("Session Expired", "Your session token is missing. Please log out and log back in.");
+        logoutGuest();
+        return;
+      }
+
+      var nameEl = document.getElementById("guestName");
+      var emailEl = document.getElementById("guestEmail");
+      var phoneEl = document.getElementById("guestPhone");
+      if (nameEl) nameEl.value = currentGuest.name || "";
+      if (emailEl) emailEl.value = currentGuest.email || "";
+      if (phoneEl) phoneEl.value = currentGuest.phone || "";
+      
+      var ci = document.getElementById("detailCheckin")?.value;
+      var co = document.getElementById("detailCheckout")?.value;
+      if (ci) document.getElementById("bookingCheckin").value = ci;
+      if (co) document.getElementById("bookingCheckout").value = co;
+
+      const roomSelect = document.getElementById('roomSelect');
+      if (roomSelect && roomSelect.value) {
+        const rooms = selectedHomestay.rooms || [];
+        const selectedRoom = rooms.find(r => r.id === roomSelect.value);
+        window._bookingRoom = selectedRoom || null;
+      } else {
+        window._bookingRoom = null;
+      }
+
+      updateBookingPrice();
+      document.getElementById("bookingModal").classList.remove("hidden");
+    }
+
+    // =============================================================
+    // UPDATE BOOKING PRICE – Patched
+    // =============================================================
+    function updateBookingPrice() {
+      if (!selectedHomestay) return;
+      var ci = document.getElementById("bookingCheckin").value;
+      var co = document.getElementById("bookingCheckout").value;
+      var nights = calculateNights(ci, co);
+      let pricePerNight = selectedHomestay.ownerPrice || 200;
+      if (window._bookingRoom) {
+        pricePerNight = parseFloat(window._bookingRoom.price) || pricePerNight;
+      }
+
+      const base = Math.round(pricePerNight * nights * 100) / 100;
+      const fee = Math.round(base * 0.11 * 100) / 100;
+      const gatewayFee = 1.00;
+      const total = Math.round((base + fee + gatewayFee) * 100) / 100;
+
+      document.getElementById("bookingNights").innerText = nights;
+
+      var summaryEl = document.getElementById("bookingSummary");
+      if (summaryEl) {
+        const roomName = window._bookingRoom ? window._bookingRoom.name : 'Unit';
+        summaryEl.innerHTML = safeHTML(`
+          <div class="font-bold text-[#0F382E]">${selectedHomestay.name}</div>
+          <div class="mt-2 text-xs flex justify-between"><span>${roomName} – RM${pricePerNight} x ${nights} Nights:</span><span class="font-semibold">RM${base.toFixed(2)}</span></div>
+          <div class="text-xs flex justify-between"><span>Service Fee:</span><span class="font-semibold">RM${fee.toFixed(2)}</span></div>
+          <div class="text-xs flex justify-between"><span>FPX Gateway Fee:</span><span class="font-semibold">RM${gatewayFee.toFixed(2)}</span></div>
+          <div class="text-sm font-bold flex justify-between border-t pt-2 mt-2 text-[#0F382E]"><span>Total :</span><span>RM${total.toFixed(2)}</span></div>
+        `);
+      }
+    }
+
+    // =============================================================
+    // PROCESS PAYMENT – with booking verification (calls CHIP)
+    // =============================================================
 async function processPayment() {
   if (!currentGuest) {
-    showAlert("Login Required", "Please log in to complete your booking.").then(function() {
-      window.location.href = '/login.html';
-    });
+    showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
     return;
   }
-
+  
+  // Check if we have a guest token
   const guestToken = localStorage.getItem('kd_guest_token');
   if (!guestToken) {
     showAlert("Session Expired", "Your session has expired. Please log in again.");
@@ -1595,6 +2530,7 @@ async function processPayment() {
     return;
   }
 
+  // Ensure we have a CSRF token
   let csrfToken = localStorage.getItem('kd_csrf_token');
   if (!csrfToken) {
     try {
@@ -1619,7 +2555,7 @@ async function processPayment() {
   var guestPhone = document.getElementById("guestPhone").value.trim();
   var ci = document.getElementById("bookingCheckin").value;
   var co = document.getElementById("bookingCheckout").value;
-
+  
   if (!guestName || !guestEmail || !guestPhone) {
     showAlert("Incomplete Information", "Please provide your Name, Email, and WhatsApp number.");
     return;
@@ -1628,16 +2564,16 @@ async function processPayment() {
     showAlert("Booking Error", "Please select a valid homestay.");
     return;
   }
-
+  
   var bookingId = "KDH-" + crypto.randomUUID().slice(0,8).toUpperCase();
   var roomId = window._bookingRoom ? window._bookingRoom.id : null;
-  var draft = {
-    id: bookingId,
-    homestayId: selectedHomestay.id,
-    checkin: ci,
-    checkout: co,
-    guestId: currentGuest.id,
-    roomId: roomId
+  var draft = { 
+    id: bookingId, 
+    homestayId: selectedHomestay.id, 
+    checkin: ci, 
+    checkout: co, 
+    guestId: currentGuest.id, 
+    roomId: roomId 
   };
   window.lastCreatedBooking = draft;
 
@@ -1647,15 +2583,16 @@ async function processPayment() {
       'Authorization': 'Bearer ' + guestToken,
       'X-CSRF-Token': csrfToken
     };
-
+    
     var createRes = await fetch(API_BASE + '/bookings', {
       method: 'POST',
       headers: headers,
       body: JSON.stringify({ action: 'createPublicBooking', booking: draft, guestId: currentGuest.id })
     });
-
+    
     var created = await createRes.json();
     if (!createRes.ok || !created.success) {
+      // If 401, maybe session expired
       if (createRes.status === 401) {
         showAlert("Session Expired", "Your session has expired. Please log in again.");
         logoutGuest();
@@ -1664,11 +2601,12 @@ async function processPayment() {
       showAlert('Booking Error', created.error || 'Could not create booking.');
       return;
     }
-
+    
     var booking = created.booking;
     window.lastCreatedBooking = booking;
     sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
 
+    // ✅ CHANGED: use /api/chip-create instead of /api/chip-create
     var payRes = await fetch(API_BASE + '/chip-create', {
       method: 'POST',
       headers: {
@@ -1678,16 +2616,16 @@ async function processPayment() {
       },
       body: JSON.stringify({ bookingId: booking.id })
     });
-
+    
     var payment = await payRes.json();
     if (!payRes.ok || !payment.success) {
       showAlert('Payment Setup Error', payment.error || 'Unable to create the payment bill. Your booking remains pending payment; please retry later.');
       return;
     }
-
+    
     localStorage.setItem('kd_guest_pending_payment', JSON.stringify(booking));
     window.location.href = payment.url;
-
+    
   } catch (e) {
     console.error('Booking/payment error:', e);
     showAlert('Network Error', 'Could not connect to the booking server. Please try again.');
@@ -1695,7 +2633,7 @@ async function processPayment() {
 }
 
 // =============================================================
-// 16. HANDLE PAYMENT RETURN
+// HANDLE PAYMENT RETURN – SHOW BRANDED THANK YOU MODAL
 // =============================================================
 async function handlePaymentReturn() {
   const params = new URLSearchParams(window.location.search);
@@ -1708,27 +2646,38 @@ async function handlePaymentReturn() {
     return;
   }
 
+  // Clean URL (remove query params)
   if (window.history && window.history.replaceState) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
   console.log('✅ Payment return detected for booking:', bookingId);
 
+  // ---- Case: Success (payment_return=1) ----
   if (paymentReturn === '1') {
     console.log('🎉 Payment success, showing Thank You modal.');
+    // Try to get booking data from sessionStorage first
     let bookingData = null;
     try {
       const pending = sessionStorage.getItem('kd_pending_booking');
       if (pending) {
         const pb = JSON.parse(pending);
-        if (String(pb.id) === String(bookingId)) bookingData = pb;
+        if (String(pb.id) === String(bookingId)) {
+          bookingData = pb;
+        }
       }
     } catch(e) {}
+    
+    if (!bookingData) {
+      // Fallback: try to find in bookings array (if loaded)
+      bookingData = bookings.find(b => String(b.id) === String(bookingId)) || null;
+    }
 
-    if (!bookingData) bookingData = bookings.find(b => String(b.id) === String(bookingId)) || null;
-
+    // Show the branded Thank You modal
     showThankYouModal(bookingId, bookingData || { id: bookingId, total: '---', checkin: 'N/A', checkout: 'N/A', nights: 1 });
 
+    // ---- BACKGROUND STATUS UPDATE ----
+    // Try to update the booking status in the background
     try {
       const res = await fetch(API_BASE + '/verify-payment', {
         method: 'POST',
@@ -1736,16 +2685,21 @@ async function handlePaymentReturn() {
         body: JSON.stringify({ bookingId })
       });
       const data = await res.json();
-      if (data.success && data.paid) console.log('✅ Booking status updated in background.');
-      else console.warn('⚠️ Background status update returned:', data);
+      if (data.success && data.paid) {
+        console.log('✅ Booking status updated in background.');
+      } else {
+        console.warn('⚠️ Background status update returned:', data);
+      }
     } catch (e) {
       console.warn('Background status update failed:', e);
     }
     return;
   }
 
+  // ---- Case: Failure (payment=cancel or status_id=3) ----
   if (params.get('payment') === 'cancel' || params.get('payment') === 'failed' || statusId === '3') {
     console.log('❌ Payment failed, showing Payment Failed modal.');
+    // Update status to failed
     try {
       await fetch('/api/bookings', {
         method: 'POST',
@@ -1762,6 +2716,7 @@ async function handlePaymentReturn() {
       });
     } catch (e) {}
 
+    // Show failed modal
     try {
       const res = await fetch(API_BASE + '/verify-payment', {
         method: 'POST',
@@ -1776,455 +2731,235 @@ async function handlePaymentReturn() {
     return;
   }
 
-  showModal('Payment Status',
-    'Your payment is being processed.<br><br>Booking ID: <strong>' + bookingId + '</strong><br>Please check your bookings page later.',
-    [{ label: 'My Bookings', class: 'btn-primary', value: 'bookings' }]
+  // ---- Fallback: if no specific flag, show a generic modal ----
+  showModal('Payment Status', 
+    `Your payment is being processed.<br><br>Booking ID: <strong>${bookingId}</strong><br>Please check your bookings page later.`,
+    [
+      { label: 'My Bookings', class: 'btn-primary', value: 'bookings' }
+    ]
   ).then(function(result) {
     if (result === 'bookings') window.location.href = '/mybookings.html';
   });
 }
 
-// =============================================================
-// 17. AVAILABILITY CALENDAR
-// =============================================================
-function renderAvailabilityCalendar(homestay, containerId) {
-  var container = document.getElementById(containerId);
-  if (!container || !homestay) return;
+// Ensure modal functions are globally accessible
+window.showThankYouModal = showThankYouModal;
+window.showPaymentFailedModal = showPaymentFailedModal;
+window.handlePaymentReturn = handlePaymentReturn;
 
-  var blocked = getAllBlockedDatesForHomestay(homestay);
-  var today = new Date();
-  today.setHours(0, 0, 0, 0);
-  var todayIso = dateToIso(today);
+    // =============================================================
+    // CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION
+    // =============================================================
+    function renderAvailabilityCalendar(homestay, containerId) {
+      var container = document.getElementById(containerId);
+      if (!container || !homestay) return;
 
-  if (!container._currentMonth) {
-    container._currentMonth = today.getMonth();
-    container._currentYear = today.getFullYear();
-  }
+      var blocked = getAllBlockedDatesForHomestay(homestay);
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+      var todayIso = dateToIso(today);
 
-  function selectDate(isoDate) {
-    if (!isoDate) return;
-    var ciInput = document.getElementById('detailCheckin');
-    var coInput = document.getElementById('detailCheckout');
-    if (!ciInput || !coInput) return;
-
-    var currentCi = ciInput.value;
-    var currentCo = coInput.value;
-
-    if (!currentCi || (isoDate < currentCi && !currentCo) || (currentCi && currentCo && isoDate < currentCi)) {
-      ciInput.value = isoDate;
-      coInput.value = '';
-    } else if (currentCi && isoDate > currentCi) {
-      coInput.value = isoDate;
-    } else {
-      if (isoDate < currentCi) {
-        ciInput.value = isoDate;
-        coInput.value = '';
-      } else {
-        return;
-      }
-    }
-
-    updateDetailPrice();
-    renderAvailabilityCalendar(homestay, containerId);
-  }
-
-  function renderMonth() {
-    var month = container._currentMonth;
-    var year = container._currentYear;
-    var monthLabel = new Date(year, month, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
-    var daysInMonth = new Date(year, month + 1, 0).getDate();
-    var startDay = new Date(year, month, 1).getDay();
-
-    var ciInput = document.getElementById('detailCheckin');
-    var coInput = document.getElementById('detailCheckout');
-    var selectedCi = ciInput ? ciInput.value : '';
-    var selectedCo = coInput ? coInput.value : '';
-
-    var html = '<div class="flex items-center justify-between mb-2">' +
-      '<button class="calendar-nav-btn" data-dir="-1" style="width:32px;height:32px;font-size:18px;background:#0F382E;color:white;border:none;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;">‹</button>' +
-      '<span class="calendar-month-label" style="font-size:15px;font-weight:700;">' + monthLabel + '</span>' +
-      '<button class="calendar-nav-btn" data-dir="1" style="width:32px;height:32px;font-size:18px;background:#0F382E;color:white;border:none;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;">›</button>' +
-    '</div>' +
-    '<div style="max-height:280px; overflow-y:auto; padding-right:4px;">' +
-      '<div class="calendar-mini mt-1">';
-
-    var dayNames = ["S", "M", "T", "W", "T", "F", "S"];
-    dayNames.forEach(function(d) {
-      html += '<div class="text-[11px] text-center font-bold text-zinc-400 py-1">' + d + '</div>';
-    });
-
-    for (var e = 0; e < startDay; e++) {
-      html += '<div class="calendar-day empty"></div>';
-    }
-
-    for (var day = 1; day <= daysInMonth; day++) {
-      var d = new Date(year, month, day);
-      d.setHours(0, 0, 0, 0);
-      var iso = dateToIso(d);
-      var isBlocked = blocked.indexOf(iso) !== -1;
-      var isPast = d < today;
-      var isToday = iso === todayIso;
-
-      var cls = "calendar-day";
-      if (isPast) cls += " past";
-      else if (isBlocked) cls += " booked";
-      else cls += " available";
-      if (isToday) cls += " today";
-      if (iso === selectedCi || iso === selectedCo) cls += " selected";
-
-      var cursorStyle = (!isPast && !isBlocked) ? 'cursor:pointer;' : 'cursor:default;';
-      html += '<div class="' + cls + '" data-date="' + iso + '" title="' + iso + '" style="' + cursorStyle + '">' + day + '</div>';
-    }
-
-    html += '</div></div>';
-
-    html += '<div class="calendar-legend mt-1 flex gap-3 text-xs text-zinc-500 flex-wrap">' +
-      '<span><span class="dot inline-block w-3 h-3 rounded-full bg-[#f0fdf4] border border-[#bbf7d0]"></span> Free</span>' +
-      '<span><span class="dot inline-block w-3 h-3 rounded-full bg-[#fef2f2] border border-[#fecaca]"></span> Booked</span>';
-
-    if (today.getMonth() === month && today.getFullYear() === year) {
-      html += '<span><span class="dot inline-block w-3 h-3 rounded-full border-2 border-[#0F382E] bg-white"></span> Today</span>';
-    }
-
-    html += '<span class="ml-auto">Click a free date to select</span></div>';
-
-    container.innerHTML = safeHTML(html);
-    updateDetailPrice();
-  }
-
-  if (!container._listenerAttached) {
-    container.addEventListener('click', function(e) {
-      var dayEl = e.target.closest('.calendar-day.available');
-      if (dayEl && dayEl.dataset.date) {
-        selectDate(dayEl.dataset.date);
-        return;
+      if (!container._currentMonth) {
+        container._currentMonth = today.getMonth();
+        container._currentYear = today.getFullYear();
       }
 
-      var navEl = e.target.closest('.calendar-nav-btn');
-      if (navEl && navEl.dataset.dir !== undefined) {
-        var dir = parseInt(navEl.dataset.dir, 10);
-        var newMonth = (container._currentMonth || 0) + dir;
-        var newYear = container._currentYear || today.getFullYear();
-        if (newMonth > 11) { newMonth = 0; newYear++; }
-        if (newMonth < 0) { newMonth = 11; newYear--; }
-        container._currentMonth = newMonth;
-        container._currentYear = newYear;
-        renderMonth();
-      }
-    });
-    container._listenerAttached = true;
-  }
+      function selectDate(isoDate) {
+        if (!isoDate) return;
+        var ciInput = document.getElementById('detailCheckin');
+        var coInput = document.getElementById('detailCheckout');
+        if (!ciInput || !coInput) return;
 
-  renderMonth();
-}
+        var currentCi = ciInput.value;
+        var currentCo = coInput.value;
 
-// =============================================================
-// 18. GALLERY
-// =============================================================
-(function() {
-  const galleryItems = [
-    { image: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjkSvgFVVrdYAgkSktuGggZXhn-aZ8rUVqDxtQ4-nr0TB0MSv0lA73cIf1I7d7fW_KSjVbRwyvy5rU4GNgSUroglJKHhjcQmUR_Jh6cXE7zT6EdED7ub7popAXHn7CMM_SnASVJIhlIo3ry/s1600/MountKinabalu.jpgw=800&h=600&fit=crop', label: 'Mount Kinabalu Peak', alt: 'Mount Kinabalu Peak' },
-    { image: 'https://i.ibb.co/LfwBK5f/Image-s63vfws63vfws63v.jpg?w=800&h=600&fit=crop', label: 'Sosodikon Hill', alt: 'Sosodikon Hill' },
-    { image: 'https://www.clladventureborneo.com/wp-content/uploads/2025/09/dairy-farm-kundasang.webp?w=800&h=600&fit=crop', label: 'Desa Cattle Farm', alt: 'Desa Cattle Farm' },
-    { image: 'https://lh3.googleusercontent.com/gps-cs-s/AHRPTWniaVakOLxjICOwm8MvL-5nK-NHZ8gccOQiKG3YEjyWSonAcfqDPsw3jekF7LOxrBj5ueCfcLggV6EmiNQfQ1DT7vpdz0FKS5rZDRYer4-S6ldsQCScZduQu4CQqjDI7mzXBf4e?w=800&h=600&fit=crop', label: 'Hounon Ridge Farmstay & Camping', alt: 'Hounon Ridge Farmstay & Camping' },
-    { image: 'https://explorekundasang.com/wp-content/uploads/elementor/thumbs/maragang-by-Mas-Light-rakd450ifen9wot91yr978c4pkz9rnvalzg0yi0ewg.webp?w=800&h=600&fit=crop', label: 'Maragang Hill', alt: 'Maragang Hill' }
-  ];
-
-  const container = document.getElementById('accordionGallery');
-  if (!container) return;
-
-  let activeIndex = 2;
-  let isAnimating = false;
-
-  container.innerHTML = '';
-
-  galleryItems.forEach((item, index) => {
-    const el = document.createElement('div');
-    el.className = 'ag-item';
-    if (index === activeIndex) el.classList.add('active');
-    el.setAttribute('role', 'listitem');
-    el.setAttribute('tabindex', '0');
-    const number = String(index + 1).padStart(2, '0');
-
-    el.innerHTML =
-      '<span class="ag-media-wrap">' +
-        '<span class="ag-media"><img src="' + item.image + '" alt="' + (item.alt || item.label) + '" draggable="false" /></span>' +
-        '<span class="ag-overlay" aria-hidden="true"></span>' +
-      '</span>' +
-      '<span class="ag-number">' + number + '</span>' +
-      '<span class="ag-label-wrap" aria-hidden="true">' +
-        '<span class="ag-bar"></span>' +
-        '<span class="ag-label">' + item.label + '</span>' +
-      '</span>';
-
-    el._media = el.querySelector('.ag-media');
-
-    el.addEventListener('click', function(e) {
-      e.preventDefault();
-      if (!isAnimating) setActive(index);
-    });
-
-    let hoverTimeout = null;
-    el.addEventListener('mouseenter', function() {
-      if (window.innerWidth > 768) {
-        if (hoverTimeout) return;
-        hoverTimeout = setTimeout(function() {
-          if (!isAnimating) setActive(index);
-          hoverTimeout = null;
-        }, 10);
-      }
-    });
-
-    el.addEventListener('focus', function() {
-      if (!isAnimating) setActive(index);
-    });
-
-    el.addEventListener('keydown', function(e) {
-      const count = galleryItems.length;
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        const next = (index + 1) % count;
-        if (!isAnimating) { setActive(next); container.children[next]?.focus(); }
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prev = (index - 1 + count) % count;
-        if (!isAnimating) { setActive(prev); container.children[prev]?.focus(); }
-      }
-    });
-
-    container.appendChild(el);
-  });
-
-  const items = container.querySelectorAll('.ag-item');
-  const count = items.length;
-  const expandRatio = 0.52;
-  const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
-
-  function setActive(index) {
-    if (isAnimating || activeIndex === index) return;
-    isAnimating = true;
-    activeIndex = index;
-
-    const isMobileView = window.innerWidth <= 768;
-    const tilt = isMobileView ? 3 : 8;
-
-    requestAnimationFrame(function() {
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const isActive = i === index;
-
-        if (isActive) {
-          item.classList.add('active');
-          item.setAttribute('aria-current', 'true');
-          item.style.zIndex = '2';
+        if (!currentCi || (isoDate < currentCi && !currentCo) || (currentCi && currentCo && isoDate < currentCi)) {
+          ciInput.value = isoDate;
+          coInput.value = '';
+        } else if (currentCi && isoDate > currentCi) {
+          coInput.value = isoDate;
         } else {
-          item.classList.remove('active');
-          item.removeAttribute('aria-current');
-          item.style.zIndex = '1';
-        }
-
-        const rot = isActive ? 0 : (i < index ? tilt : -tilt);
-
-        if (isMobileView) {
-          if (isActive) {
-            item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
-            item.setAttribute('data-tilt', '');
+          if (isoDate < currentCi) {
+            ciInput.value = isoDate;
+            coInput.value = '';
           } else {
-            item.style.transform = 'rotateX(' + rot + 'deg) translateY(' + (i < index ? 2 : -2) + 'px) scale(0.99)';
-            item.setAttribute('data-tilt', i < index ? 'up' : 'down');
+            return;
           }
-        } else {
-          item.style.transform = 'rotateY(' + rot + 'deg)';
         }
 
-        const media = item._media;
-        if (media) {
-          media.style.transform = 'translate(-50%, -50%) scale(1)';
-          if (isActive) media.style.filter = 'grayscale(0) brightness(1)';
-          else media.style.filter = 'grayscale(0.9) brightness(0.7)';
+        updateDetailPrice();
+        renderAvailabilityCalendar(homestay, containerId);
+      }
+
+      function renderMonth() {
+        var month = container._currentMonth;
+        var year = container._currentYear;
+        var monthLabel = new Date(year, month, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+        var daysInMonth = new Date(year, month + 1, 0).getDate();
+        var startDay = new Date(year, month, 1).getDay();
+
+        var ciInput = document.getElementById('detailCheckin');
+        var coInput = document.getElementById('detailCheckout');
+        var selectedCi = ciInput ? ciInput.value : '';
+        var selectedCo = coInput ? coInput.value : '';
+
+        var html = `
+          <div class="flex items-center justify-between mb-2">
+            <button class="calendar-nav-btn" data-dir="-1" style="width:32px;height:32px;font-size:18px;">‹</button>
+            <span class="calendar-month-label" style="font-size:15px;font-weight:700;">${monthLabel}</span>
+            <button class="calendar-nav-btn" data-dir="1" style="width:32px;height:32px;font-size:18px;">›</button>
+          </div>
+          <div style="max-height:280px; overflow-y:auto; padding-right:4px;">
+            <div class="calendar-mini mt-1">
+        `;
+
+        var dayNames = ["S", "M", "T", "W", "T", "F", "S"];
+        dayNames.forEach(function(d) {
+          html += '<div class="text-[11px] text-center font-bold text-zinc-400 py-1">' + d + '</div>';
+        });
+
+        for (var e = 0; e < startDay; e++) {
+          html += '<div class="calendar-day empty"></div>';
         }
 
-        item.style.flex = isActive ? grow + ' 1 0' : '1 1 0';
-      }
-    });
+        for (var day = 1; day <= daysInMonth; day++) {
+          var d = new Date(year, month, day);
+          d.setHours(0, 0, 0, 0);
+          var iso = dateToIso(d);
+          var isBlocked = blocked.indexOf(iso) !== -1;
+          var isPast = d < today;
+          var isToday = iso === todayIso;
 
-    setTimeout(function() { isAnimating = false; }, 550);
-  }
+          var cls = "calendar-day";
+          if (isPast) cls += " past";
+          else if (isBlocked) cls += " booked";
+          else cls += " available";
+          if (isToday) cls += " today";
+          if (iso === selectedCi || iso === selectedCo) cls += " bg-[#0F382E] text-white border-[#0F382E]";
 
-  function initGallery() {
-    const isMobileView = window.innerWidth <= 768;
-    const tilt = isMobileView ? 3 : 8;
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const isActive = i === activeIndex;
-
-      if (isActive) {
-        item.classList.add('active');
-        item.setAttribute('aria-current', 'true');
-        item.style.zIndex = '2';
-      } else {
-        item.classList.remove('active');
-        item.removeAttribute('aria-current');
-        item.style.zIndex = '1';
-      }
-
-      const rot = isActive ? 0 : (i < activeIndex ? tilt : -tilt);
-
-      if (isMobileView) {
-        if (isActive) {
-          item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
-          item.setAttribute('data-tilt', '');
-        } else {
-          item.style.transform = 'rotateX(' + rot + 'deg) translateY(' + (i < activeIndex ? 2 : -2) + 'px) scale(0.99)';
-          item.setAttribute('data-tilt', i < activeIndex ? 'up' : 'down');
+          var cursorStyle = (!isPast && !isBlocked) ? 'cursor:pointer;' : 'cursor:default;';
+          html += `<div class="${cls}" data-date="${iso}" title="${iso}" style="${cursorStyle}">${day}</div>`;
         }
-      } else {
-        item.style.transform = isActive ? 'rotateY(0deg)' : 'rotateY(' + rot + 'deg)';
+
+        html += '</div></div>';
+
+        html += `
+          <div class="calendar-legend mt-1" style="font-size:11px;">
+            <span><span class="dot green"></span> Free</span>
+            <span><span class="dot red"></span> Booked</span>
+            ${today.getMonth() === month && today.getFullYear() === year ? '<span><span class="dot today-dot"></span> Today</span>' : ''}
+            <span style="margin-left:auto;">Click a free date to select</span>
+          </div>
+        `;
+
+        container.innerHTML = safeHTML(html);
+        updateDetailPrice();
       }
 
-      const media = item._media;
-      if (media) {
-        media.style.transform = 'translate(-50%, -50%) scale(1)';
-        if (isActive) media.style.filter = 'grayscale(0) brightness(1)';
-        else media.style.filter = 'grayscale(0.9) brightness(0.7)';
+      if (!container._listenerAttached) {
+        container.addEventListener('click', function(e) {
+          var dayEl = e.target.closest('.calendar-day.available');
+          if (dayEl && dayEl.dataset.date) {
+            selectDate(dayEl.dataset.date);
+            return;
+          }
+
+          var navEl = e.target.closest('.calendar-nav-btn');
+          if (navEl && navEl.dataset.dir !== undefined) {
+            var dir = parseInt(navEl.dataset.dir, 10);
+            var newMonth = (container._currentMonth || 0) + dir;
+            var newYear = container._currentYear || today.getFullYear();
+            if (newMonth > 11) { newMonth = 0; newYear++; }
+            if (newMonth < 0) { newMonth = 11; newYear--; }
+            container._currentMonth = newMonth;
+            container._currentYear = newYear;
+            renderMonth();
+          }
+        });
+        container._listenerAttached = true;
       }
 
-      item.style.flex = isActive ? grow + ' 1 0' : '1 1 0';
+      renderMonth();
     }
-  }
+      
+    // =============================================================
+    // INITIALIZATION
+    // =============================================================
+    (function init() {
+      renderGuestNav();
 
-  requestAnimationFrame(function() { initGallery(); });
+      var today = new Date();
+      var tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      var dayAfter = new Date(today);
+      dayAfter.setDate(dayAfter.getDate() + 2);
 
-  window.addEventListener('load', function() {
-    requestAnimationFrame(function() { initGallery(); });
-  });
+      var checkinInput = document.getElementById('checkin');
+      var checkoutInput = document.getElementById('checkout');
+      if (checkinInput) checkinInput.value = dateToIso(tomorrow);
+      if (checkoutInput) checkoutInput.value = dateToIso(dayAfter);
 
-  let resizeTimer;
-  window.addEventListener('resize', function() {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function() {
-      requestAnimationFrame(function() {
-        const isMobileView = window.innerWidth <= 768;
-        const tilt = isMobileView ? 3 : 8;
+      homestays = [];
+      selectedHomestay = null;
+      bookings = [];
 
-        for (let i = 0; i < items.length; i++) {
-          const item = items[i];
-          const isActive = i === activeIndex;
-          const rot = isActive ? 0 : (i < activeIndex ? tilt : -tilt);
+      var grid = document.getElementById("homestayGrid");
+      if (grid) {
+        grid.innerHTML = safeHTML(
+          '<div class="col-span-3 text-center py-16">' +
+            '<div class="text-zinc-500 font-poppins">Loading homestays...</div>' +
+          '</div>'
+        );
+      }
 
-          if (isMobileView) {
-            if (isActive) {
-              item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
-              item.setAttribute('data-tilt', '');
-            } else {
-              item.style.transform = 'rotateX(' + rot + 'deg) translateY(' + (i < activeIndex ? 2 : -2) + 'px) scale(0.99)';
-              item.setAttribute('data-tilt', i < activeIndex ? 'up' : 'down');
+      if (API_BASE) {
+        fetch(API_BASE + '/bookings', { cache: 'no-store', credentials: 'omit' })
+          .then(function(res) {
+            if (!res.ok) throw new Error('API error: ' + res.status);
+            return res.json();
+          })
+          .then(function(data) {
+            if (data.availability) {
+              availabilityMap = data.availability;
+              localStorage.setItem('kd_availability', JSON.stringify(availabilityMap));
             }
-          } else {
-            item.style.transform = isActive ? 'rotateY(0deg)' : 'rotateY(' + rot + 'deg)';
-          }
-
-          const media = item._media;
-          if (media) {
-            media.style.transform = 'translate(-50%, -50%) scale(1)';
-            if (isActive) media.style.filter = 'grayscale(0) brightness(1)';
-            else media.style.filter = 'grayscale(0.9) brightness(0.7)';
-          }
-        }
-      });
-    }, 150);
-  });
-
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    for (let i = 0; i < items.length; i++) {
-      items[i].style.transition = 'none';
-    }
-  }
-})();
-
-// =============================================================
-// 19. MOBILE MENU TOGGLE
-// =============================================================
-function toggleMobileMenu() {
-  var nav = document.getElementById('mobileNav');
-  if (nav) nav.classList.toggle('open');
-}
-
-// =============================================================
-// 20. INIT – load data and set default dates
-// =============================================================
-(function init() {
-  renderGuestNav();
-
-  var today = new Date();
-  var tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  var dayAfter = new Date(today);
-  dayAfter.setDate(dayAfter.getDate() + 2);
-
-  var checkinInput = document.getElementById('checkin');
-  var checkoutInput = document.getElementById('checkout');
-  if (checkinInput) checkinInput.value = dateToIso(tomorrow);
-  if (checkoutInput) checkoutInput.value = dateToIso(dayAfter);
-
-  homestays = [];
-  selectedHomestay = null;
-  bookings = [];
-
-  var grid = document.getElementById("homestayGrid");
-  if (grid) {
-    grid.innerHTML = safeHTML('<div class="col-span-3 text-center py-16"><div class="text-zinc-500 font-poppins">Loading homestays...</div></div>');
-  }
-
-  if (API_BASE) {
-    fetch(API_BASE + '/bookings', { cache: 'no-store', credentials: 'omit' })
-      .then(function(res) {
-        if (!res.ok) throw new Error('API error: ' + res.status);
-        return res.json();
-      })
-      .then(function(data) {
-        if (data.availability) {
-          availabilityMap = data.availability;
-          localStorage.setItem('kd_availability', JSON.stringify(availabilityMap));
-        }
-
-        if (data.approved && data.approved.length > 0) {
-          homestays = data.approved.map(function(h) {
-            return { ...h, blockedDates: h.blockedDates || [] };
+            
+            if (data.approved && data.approved.length > 0) {
+              homestays = data.approved.map(function(h) {
+                return { ...h, blockedDates: h.blockedDates || [] };
+              });
+              localStorage.setItem('kd_approved', JSON.stringify(data.approved));
+            } else {
+              homestays = [];
+              localStorage.removeItem('kd_approved');
+            }
+            
+            renderGrid();
+            if (selectedHomestay) {
+              var detailId = selectedHomestay.id;
+              var updated = homestays.find(function(h) { return h.id === detailId; });
+              if (updated) {
+                selectedHomestay = updated;
+                renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
+              }
+            }
+          })
+          .catch(function(err) {
+            console.warn('Failed to load homestays from API:', err);
+            var grid = document.getElementById("homestayGrid");
+            if (grid) {
+              grid.innerHTML = safeHTML(
+                '<div class="col-span-3 text-center py-16">' +
+                  '<div class="text-red-500 font-poppins">Failed to load homestays. Please refresh or try again later.</div>' +
+                '</div>'
+              );
+            }
           });
-          localStorage.setItem('kd_approved', JSON.stringify(data.approved));
-        } else {
-          homestays = [];
-          localStorage.removeItem('kd_approved');
-        }
+      }
 
-        renderGrid();
+      handlePaymentReturn();
+    })();
 
-        if (selectedHomestay) {
-          var detailId = selectedHomestay.id;
-          var updated = homestays.find(function(h) { return h.id === detailId; });
-          if (updated) {
-            selectedHomestay = updated;
-            renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
-          }
-        }
-      })
-      .catch(function(err) {
-        console.warn('Failed to load homestays from API:', err);
-        var grid = document.getElementById("homestayGrid");
-        if (grid) {
-          grid.innerHTML = safeHTML(
-            '<div class="col-span-3 text-center py-16">' +
-              '<div class="text-red-500 font-poppins">Failed to load homestays. Please refresh or try again later.</div>' +
-            '</div>'
-          );
-        }
-      });
-  }
-
-  handlePaymentReturn();
-})();
-</script>
+  </script>
 </body>
 </html>
