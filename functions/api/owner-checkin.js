@@ -1,29 +1,25 @@
-// /api/owner-checkin.js – Auto check‑in + payout with simulation fallback
+// /api/owner-checkin.js – Auto check‑in + CHIP Send payout
 import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
 
-// ===== Bank code mapping (ToyyibPay numeric codes) =====
-const BANK_CODE_MAP = {
-  'MBBEMYKL': '8886', 'CIMBMYKL': '8884', 'PBBEMYKL': '8883',
-  'RHBMYKL': '8882', 'HLBBMYKL': '8881', 'BIMBMYKL': '8889',
-  'BKRMMYKL': '8890', 'BSNMYLKL': '8891', 'HSBCMYKL': '8887',
-  'SCBLMYKL': '8888'
-};
-const BANK_NAME_MAP = {
-  'MAYBANK': '8886', 'CIMB': '8884', 'PUBLIC BANK': '8883',
-  'RHB': '8882', 'HONG LEONG': '8881', 'BANK ISLAM': '8889',
-  'BANK RAKYAT': '8890', 'BSN': '8891', 'HSBC': '8887',
-  'STANDARD CHARTERED': '8888'
-};
-
-function getToyyibpayBankCode(input) {
-  if (!input) return '8886';
-  const clean = input.trim().toUpperCase();
-  if (/^\d{4}$/.test(clean)) return clean;
-  if (BANK_CODE_MAP[clean]) return BANK_CODE_MAP[clean];
-  for (const [name, code] of Object.entries(BANK_NAME_MAP)) {
-    if (clean.includes(name) || name.includes(clean)) return code;
+// ===== CHIP Bank code mapping (BIC/SWIFT codes) =====
+function getChipBankCode(bankName) {
+  const map = {
+    'MAYBANK': 'MBBEMYKL',
+    'CIMB': 'CIBBMYKL',
+    'PUBLIC BANK': 'PBBEMYKL',
+    'RHB': 'RHBMYKL',
+    'HONG LEONG': 'HLBBMYKL',
+    'BANK ISLAM': 'BIMBMYKL',
+    'BANK RAKYAT': 'BKRMMYKL',
+    'BSN': 'BSNMYLKL',
+    'HSBC': 'HSBCMYKL',
+    'STANDARD CHARTERED': 'SCBLMYKL'
+  };
+  const clean = (bankName || '').toUpperCase().trim();
+  for (const [key, code] of Object.entries(map)) {
+    if (clean.includes(key) || key.includes(clean)) return code;
   }
-  return '8886';
+  return 'MBBEMYKL'; // Default to Maybank
 }
 
 export async function onRequestPost({ request, env }) {
@@ -106,8 +102,10 @@ export async function onRequestPost({ request, env }) {
     const ownerAmount = booking.base || 0;
     const ownerAcc = homestay?.ownerBankAccount || '';
     const ownerName = homestay?.bankHolder || homestay?.ownerName || '';
+    
+    // ✅ Get CHIP BIC code directly (no ToyyibPay conversion)
     const bankCodeInput = homestay?.bankCode || homestay?.ownerBank || '';
-    const toyyibpayBankCode = getToyyibpayBankCode(bankCodeInput);
+    const chipBankCode = getChipBankCode(bankCodeInput);
 
     let payoutSuccess = false;
     let payoutData = null;
@@ -120,7 +118,6 @@ export async function onRequestPost({ request, env }) {
 
     // If simulation is forced OR live keys are missing → simulate
     if (forceSimulation || !isLive) {
-      // Simulation mode
       payoutSuccess = true;
       payoutData = { simulation: true };
       payoutMessage = forceSimulation
@@ -137,6 +134,14 @@ export async function onRequestPost({ request, env }) {
           throw new Error('CHIP_API_KEY or CHIP_API_SECRET missing');
         }
 
+        // Validate bank account
+        if (!ownerAcc || ownerAcc.replace(/[^0-9]/g, '').length < 10) {
+          throw new Error('Owner bank account is missing or invalid (must be at least 10 digits)');
+        }
+        if (!ownerName) {
+          throw new Error('Owner bank account holder name is missing');
+        }
+
         // Create or fetch bank account ID
         let bankAccountId = homestay?.chip_bank_account_id || null;
         if (!bankAccountId) {
@@ -147,7 +152,7 @@ export async function onRequestPost({ request, env }) {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              bank_code: toyyibpayBankCode,
+              bank_code: chipBankCode,  // ✅ CHIP BIC code
               account_number: ownerAcc.replace(/[^0-9]/g, ''),
               account_name: ownerName
             })
@@ -175,7 +180,6 @@ export async function onRequestPost({ request, env }) {
 
         const epoch = Math.floor(Date.now() / 1000);
         const bodyString = JSON.stringify(payoutPayload);
-        // HMAC-SHA512(epoch + apiKey) with apiSecret
         const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
 
         const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
@@ -201,12 +205,8 @@ export async function onRequestPost({ request, env }) {
         console.log(`✅ Real payout ${payoutDataRaw.id} for booking ${bookingId}`);
       } catch (err) {
         console.error('Real payout failed:', err.message);
-        // Fallback to simulation if real payout fails (optional)
-        // But we'll mark it as failed to be safe.
         payoutSuccess = false;
-        payoutMessage = `Real payout failed: ${err.message}. Please check CHIP Send credentials.`;
-        // You can optionally fallback to simulation here:
-        // payoutSuccess = true; isSimulation = true; payoutMessage = '...simulated fallback...';
+        payoutMessage = `Real payout failed: ${err.message}. Please check CHIP Send credentials and bank details.`;
       }
     }
 
@@ -224,6 +224,7 @@ export async function onRequestPost({ request, env }) {
         bookings[idx].checkedInAt = new Date().toISOString();
         bookings[idx].checkedInBy = 'owner';
         bookings[idx].homestaySource = homestaySource;
+        bookings[idx].chip_bank_code = chipBankCode; // Store the BIC code used
       } else {
         bookings[idx].status = 'Completed - Payout Pending';
         bookings[idx].checkedInAt = new Date().toISOString();
@@ -286,7 +287,7 @@ export async function onRequestPost({ request, env }) {
       payoutSuccess,
       simulation: isSimulation,
       homestaySource,
-      bankCodeUsed: toyyibpayBankCode,
+      bankCodeUsed: chipBankCode,
       warning: isSimulation ? '⚠️ Payout was simulated (no real money transferred). To enable real payouts, set PAYOUT_SIMULATION=false and ensure CHIP_API_KEY and CHIP_API_SECRET are set.' : undefined
     }, 200, request);
 
