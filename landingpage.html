@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
     <title>Untuk Pengusaha – Kundasang Homestay</title>
     <meta name="description" content="Platform homestay Kundasang yang selamat dan percuma untuk pengusaha tempatan." />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
     <!-- TAILWIND CSS -->
     <script src="https://cdn.tailwindcss.com">
@@ -14,14 +13,14 @@
     <!-- GOOGLE FONTS -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Satisfy&display=swap" rel="stylesheet" />
 
-    <!-- ALPINE.JS (with Intersect plugin) -->
+    <!-- ALPINE.JS -->
     <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/intersect@3.14.3/dist/cdn.min.js">
     </script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js">
     </script>
 
     <style>
-        /* ── COLOR SYSTEM: Mist & Gold ── */
+        /* ── Mist & Gold ── */
         :root {
             --primary: #1E3F3A;
             --primary-light: #2a544d;
@@ -33,7 +32,6 @@
             --text-muted: #5a6b63;
             --accent: #E6A757;
             --accent-hover: #D4873A;
-            --accent-glow: rgba(230, 167, 87, 0.25);
             --shadow-sm: 0 2px 20px rgba(30, 63, 58, 0.06);
             --shadow-md: 0 8px 40px rgba(30, 63, 58, 0.10);
             --shadow-lg: 0 20px 60px rgba(30, 63, 58, 0.14);
@@ -55,14 +53,12 @@
             flex-direction: column;
             margin: 0;
             overflow-x: hidden;
-            -webkit-font-smoothing: antialiased;
             color: var(--text-dark);
         }
         .font-satisfy {
             font-family: "Satisfy", cursive;
         }
 
-        /* ── Cards ── */
         .card {
             background: var(--card);
             border-radius: var(--radius);
@@ -75,7 +71,6 @@
             transform: translateY(-4px);
         }
 
-        /* ── Buttons ── */
         .btn-primary {
             background: var(--primary);
             color: var(--text-light);
@@ -167,7 +162,6 @@
             transform: translateY(-2px);
         }
 
-        /* ── Badges ── */
         .badge-step {
             width: 52px;
             height: 52px;
@@ -194,7 +188,6 @@
             font-size: 16px;
         }
 
-        /* ── FAQ ── */
         .faq-item {
             border-bottom: 1px solid rgba(30, 63, 58, 0.06);
             padding: 6px 0;
@@ -238,7 +231,6 @@
             transform: rotate(45deg);
         }
 
-        /* ── Mobile Menu ── */
         .mobile-overlay {
             position: fixed;
             inset: 0;
@@ -273,7 +265,6 @@
             right: 0;
         }
 
-        /* ── Floating Bar ── */
         .floating-bar {
             position: fixed;
             bottom: 0;
@@ -300,7 +291,6 @@
             }
         }
 
-        /* ── Scroll animations ── */
         .scroll-fade {
             opacity: 0;
             transform: translateY(40px);
@@ -311,7 +301,6 @@
             transform: translateY(0);
         }
 
-        /* ── Comparison Table ── */
         .compare-table {
             width: 100%;
             border-collapse: collapse;
@@ -376,11 +365,9 @@
             }
         }
 
-        /* ── Hero ── */
         .hero-bg {
             background: var(--primary);
-            background-image:
-                radial-gradient(circle at 20% 50%, rgba(246, 243, 239, 0.06) 0%, transparent 60%),
+            background-image: radial-gradient(circle at 20% 50%, rgba(246, 243, 239, 0.06) 0%, transparent 60%),
                 radial-gradient(circle at 80% 20%, rgba(246, 243, 239, 0.04) 0%, transparent 50%);
         }
 
@@ -425,42 +412,6 @@
             margin: 8px auto 0;
         }
 
-        .trust-badge {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(246, 243, 239, 0.06);
-            border: 1px solid rgba(246, 243, 239, 0.08);
-            padding: 6px 16px 6px 12px;
-            border-radius: 999px;
-            font-size: 12px;
-            color: rgba(246, 243, 239, 0.65);
-            backdrop-filter: blur(4px);
-        }
-
-        /* ── Misc ── */
-        @media (max-width: 768px) {
-            .btn-primary,
-            .btn-accent {
-                font-size: 14px;
-                padding: 16px 24px;
-                min-height: 52px;
-            }
-            .faq-question {
-                font-size: 16px;
-                padding: 12px 0;
-            }
-            .badge-step {
-                width: 48px;
-                height: 48px;
-                font-size: 18px;
-            }
-        }
-
-        [x-cloak] {
-            display: none !important;
-        }
-
         .testimonial-card {
             background: var(--card);
             border-radius: var(--radius);
@@ -478,20 +429,6 @@
             letter-spacing: 2px;
         }
 
-        .chip-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: var(--primary);
-            color: var(--text-light);
-            padding: 2px 14px 2px 10px;
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.02em;
-        }
-
-        /* ── Hero preview card ── */
         .hero-preview-card {
             background: rgba(246, 243, 239, 0.06);
             backdrop-filter: blur(8px);
@@ -509,26 +446,41 @@
             font-weight: 600;
             font-size: 15px;
         }
-        .hero-preview-card .divider {
-            border-color: rgba(246, 243, 239, 0.08);
+
+        @media (max-width: 768px) {
+            .btn-primary,
+            .btn-accent {
+                font-size: 14px;
+                padding: 16px 24px;
+                min-height: 52px;
+            }
+            .faq-question {
+                font-size: 16px;
+                padding: 12px 0;
+            }
+            .badge-step {
+                width: 48px;
+                height: 48px;
+                font-size: 18px;
+            }
+        }
+        [x-cloak] {
+            display: none !important;
         }
     </style>
 </head>
 <body>
 
-    <!-- ============================================================ -->
-    <!--  ALPINE.JS APP                                                -->
-    <!-- ============================================================ -->
     <div x-data="landingPageApp()" x-init="init()" x-cloak class="flex flex-col min-h-screen">
 
-        <!-- ===== MOBILE OVERLAY ===== -->
+        <!-- ── Mobile Overlay ── -->
         <div class="mobile-overlay" :class="{ 'open': isMobileMenuOpen }" @click="isMobileMenuOpen = false"></div>
 
-        <!-- ===== MOBILE DRAWER ===== -->
+        <!-- ── Mobile Drawer ── -->
         <div class="mobile-drawer" :class="{ 'open': isMobileMenuOpen }">
             <div class="flex justify-between items-center pb-5 border-b border-[#1E3F3A]/10">
                 <span class="font-bold text-[#1E3F3A] text-lg">Menu</span>
-                <button @click="isMobileMenuOpen = false" class="text-2xl p-2 -m-2 hover:bg-[#1E3F3A]/5 rounded-full transition-colors" aria-label="Tutup menu">✕</button>
+                <button @click="isMobileMenuOpen = false" class="text-2xl p-2 -m-2 hover:bg-[#1E3F3A]/5 rounded-full transition-colors">✕</button>
             </div>
             <nav class="flex flex-col gap-2 text-[15px] font-medium mt-2">
                 <a href="/" class="hover:text-[#1E3F3A] py-3 px-2 rounded-xl hover:bg-[#1E3F3A]/5 transition-colors">🏠 Utama</a>
@@ -541,10 +493,10 @@
             </div>
         </div>
 
-        <!-- ===== HEADER ===== -->
+        <!-- ── Header ── -->
         <header class="h-[72px] md:h-[80px] bg-[#F6F3EF]/88 backdrop-blur-lg sticky top-0 z-50 border-b border-[#1E3F3A]/8 transition-all duration-300" :class="{ 'shadow-sm': scrolled }">
             <div class="max-w-[1300px] mx-auto h-full px-4 lg:px-8 flex items-center justify-between">
-                <a href="/" class="flex items-center gap-3 group" aria-label="Kundasang Homestay - Laman Utama">
+                <a href="/" class="flex items-center gap-3 group">
                     <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-[#1E3F3A] flex items-center justify-center text-[#F6F3EF] font-bold text-lg shadow-sm transition-transform group-hover:scale-105">
                         KH
                     </div>
@@ -558,18 +510,16 @@
                     <a href="/about.html" class="text-[13px] font-600 text-[#1E3F3A]/60 hover:text-[#1E3F3A] transition-colors relative after:absolute after:bottom-[-2px] after:left-0 after:w-0 after:h-[2px] after:bg-[#1E3F3A] after:transition-all hover:after:w-full">Tentang</a>
                     <a href="/owner.html" class="btn-primary" style="padding:10px 28px;font-size:11px;min-height:40px;">🔑 Log Masuk Pengusaha</a>
                 </nav>
-                <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="md:hidden p-2 -mr-2 hover:bg-[#1E3F3A]/5 rounded-full transition-colors" aria-label="Buka menu">
+                <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="md:hidden p-2 -mr-2 hover:bg-[#1E3F3A]/5 rounded-full transition-colors">
                     <svg class="w-7 h-7 text-[#1E3F3A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
             </div>
         </header>
 
-        <!-- ===== HERO ===== -->
+        <!-- ── HERO ── -->
         <section class="relative w-full hero-bg text-[#F6F3EF] overflow-hidden scroll-fade" x-intersect.once="$el.classList.add('visible')">
-            <!-- Decorative blobs -->
             <div class="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-[#F6F3EF]/5 blur-3xl pointer-events-none"></div>
             <div class="absolute bottom-[-30%] left-[-10%] w-[400px] h-[400px] rounded-full bg-[#F6F3EF]/5 blur-3xl pointer-events-none"></div>
-
             <div class="relative z-10 max-w-[1100px] mx-auto px-4 py-16 md:py-24 lg:py-28">
                 <div class="grid lg:grid-cols-5 gap-12 items-center">
                     <div class="lg:col-span-3 text-center lg:text-left">
@@ -577,7 +527,7 @@
                             <span class="w-2 h-2 bg-[#E6A757] rounded-full animate-pulse"></span>
                             Platform Khas Pengusaha Tempatan
                         </div>
-                        <h1 class="font-poppins font-800 text-[36px] sm:text-[44px] md:text-[52px] lg:text-[58px] leading-[1.05] tracking-[-0.5px] hero-title text-[#F6F3EF]">
+                        <h1 class="font-poppins font-800 text-[36px] sm:text-[44px] md:text-[52px] lg:text-[58px] leading-[1.05] tracking-[-0.5px] text-[#F6F3EF]">
                             Daftar Homestay Anda <br />
                             <span class="text-[#E6A757]">Selamat &amp; Percuma</span>
                         </h1>
@@ -630,7 +580,7 @@
             </div>
         </section>
 
-        <!-- ===== TRUST BAR ===== -->
+        <!-- ── TRUST BAR ── -->
         <section class="bg-[#F6F3EF] border-b border-[#1E3F3A]/8 py-4 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="flex flex-wrap items-center justify-center gap-6 md:gap-10 text-center">
@@ -654,7 +604,7 @@
             </div>
         </section>
 
-        <!-- ===== BAGAIMANA IA BERFUNGSI ===== -->
+        <!-- ── BAGAIMANA IA BERFUNGSI ── -->
         <section class="max-w-[1100px] mx-auto px-4 py-16 md:py-20 scroll-fade overflow-hidden" x-intersect.once="$el.classList.add('visible')">
             <div class="text-center mb-14">
                 <div class="section-tag mx-auto"><span class="dot"></span> Proses Mudah</div>
@@ -663,7 +613,7 @@
                 <div class="gradient-line"></div>
             </div>
 
-            <!-- Mobile: Vertical stack -->
+            <!-- Mobile -->
             <div class="md:hidden flex flex-col gap-4">
                 <template x-for="(step, index) in steps" :key="index">
                     <div class="card p-5 text-center step-card transition-all hover:shadow-md">
@@ -674,7 +624,7 @@
                 </template>
             </div>
 
-            <!-- Desktop: Grid -->
+            <!-- Desktop -->
             <div class="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <template x-for="(step, index) in steps" :key="index">
                     <div class="card p-7 text-center hover:shadow-lg transition-all duration-300 group">
@@ -693,31 +643,21 @@
             </div>
         </section>
 
-        <!-- ===== STATS ===== -->
+        <!-- ── STATS ── -->
         <section class="bg-[#1E3F3A] text-[#F6F3EF] py-12 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-                    <div>
-                        <div class="text-4xl md:text-5xl font-800 text-[#E6A757]" x-text="stats[0].number"></div>
-                        <div class="text-[13px] text-[#F6F3EF]/60 mt-1" x-text="stats[0].label"></div>
-                    </div>
-                    <div>
-                        <div class="text-4xl md:text-5xl font-800 text-[#E6A757]" x-text="stats[1].number"></div>
-                        <div class="text-[13px] text-[#F6F3EF]/60 mt-1" x-text="stats[1].label"></div>
-                    </div>
-                    <div>
-                        <div class="text-4xl md:text-5xl font-800 text-[#E6A757]" x-text="stats[2].number"></div>
-                        <div class="text-[13px] text-[#F6F3EF]/60 mt-1" x-text="stats[2].label"></div>
-                    </div>
-                    <div>
-                        <div class="text-4xl md:text-5xl font-800 text-[#E6A757]" x-text="stats[3].number"></div>
-                        <div class="text-[13px] text-[#F6F3EF]/60 mt-1" x-text="stats[3].label"></div>
-                    </div>
+                    <template x-for="(stat, idx) in stats" :key="idx">
+                        <div>
+                            <div class="text-4xl md:text-5xl font-800 text-[#E6A757]" x-text="stat.number"></div>
+                            <div class="text-[13px] text-[#F6F3EF]/60 mt-1" x-text="stat.label"></div>
+                        </div>
+                    </template>
                 </div>
             </div>
         </section>
 
-        <!-- ===== KENAPA PILIH ===== -->
+        <!-- ── KENAPA PILIH ── -->
         <section class="bg-[#F6F3EF] py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="text-center mb-14">
@@ -740,7 +680,7 @@
             </div>
         </section>
 
-        <!-- ===== PERBANDINGAN PLATFORM ===== -->
+        <!-- ── PERBANDINGAN PLATFORM ── -->
         <section class="max-w-[1100px] mx-auto px-4 py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="text-center mb-14">
                 <div class="section-tag mx-auto"><span class="dot"></span> Bandingkan</div>
@@ -821,7 +761,7 @@
             </div>
         </section>
 
-        <!-- ===== CHIP SECTION ===== -->
+        <!-- ── CHIP SECTION ── -->
         <section class="bg-[#F6F3EF] py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="text-center mb-14">
@@ -860,18 +800,9 @@
                         <h4 class="font-poppins font-700 text-[19px] text-[#1E3F3A] text-center">Digunakan oleh Ribuan Perniagaan</h4>
                         <p class="text-[14px] text-[#1E3F3A]/70 mt-2 text-center leading-relaxed">CHIP dipercayai oleh lebih <strong>10,000 perniagaan</strong> di Malaysia – dari perniagaan kecil sehinggalah syarikat besar. Mereka terkenal dengan kebolehpercayaan, sokongan pelanggan yang responsif, dan yuran yang telus.</p>
                         <div class="mt-5 flex justify-center gap-8 text-sm text-[#1E3F3A]/60">
-                            <div class="text-center">
-                                <div class="font-bold text-[#1E3F3A] text-2xl">10K+</div>
-                                <div class="text-[12px]">Perniagaan</div>
-                            </div>
-                            <div class="text-center">
-                                <div class="font-bold text-[#1E3F3A] text-2xl">15+</div>
-                                <div class="text-[12px]">Bank FPX</div>
-                            </div>
-                            <div class="text-center">
-                                <div class="font-bold text-[#1E3F3A] text-2xl">24/7</div>
-                                <div class="text-[12px]">Sokongan</div>
-                            </div>
+                            <div class="text-center"><div class="font-bold text-[#1E3F3A] text-2xl">10K+</div><div class="text-[12px]">Perniagaan</div></div>
+                            <div class="text-center"><div class="font-bold text-[#1E3F3A] text-2xl">15+</div><div class="text-[12px]">Bank FPX</div></div>
+                            <div class="text-center"><div class="font-bold text-[#1E3F3A] text-2xl">24/7</div><div class="text-[12px]">Sokongan</div></div>
                         </div>
                         <div class="mt-5 bg-[#1E3F3A]/10 border border-[#1E3F3A]/10 rounded-xl p-4 text-sm text-[#1E3F3A]">
                             ✅ <strong>Kesimpulan:</strong> Dengan CHIP, anda dan tetamu anda dilindungi sepenuhnya. Wang hanya bergerak apabila anda sahkan ketibaan – tiada risiko, tiada kejutan.
@@ -881,7 +812,7 @@
             </div>
         </section>
 
-        <!-- ===== TESTIMONIALS ===== -->
+        <!-- ── TESTIMONIALS ── -->
         <section class="max-w-[1100px] mx-auto px-4 py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="text-center mb-14">
                 <div class="section-tag mx-auto"><span class="dot"></span> Testimoni</div>
@@ -906,7 +837,7 @@
             </div>
         </section>
 
-        <!-- ===== PROSES PENDAFTARAN ===== -->
+        <!-- ── PROSES PENDAFTARAN ── -->
         <section class="bg-[#F6F3EF] py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="text-center mb-14">
@@ -941,7 +872,7 @@
             </div>
         </section>
 
-        <!-- ===== BOOKING MANAGEMENT ===== -->
+        <!-- ── BOOKING MANAGEMENT ── -->
         <section class="max-w-[1100px] mx-auto px-4 py-16 md:py-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="text-center mb-14">
                 <div class="section-tag mx-auto"><span class="dot"></span> Kawalan Penuh</div>
@@ -976,7 +907,7 @@
             </div>
         </section>
 
-        <!-- ===== FAQ ===== -->
+        <!-- ── FAQ ── -->
         <section id="faq" class="bg-[#F6F3EF] py-16 md:py-20 scroll-mt-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[900px] mx-auto px-4">
                 <div class="text-center mb-14">
@@ -999,7 +930,7 @@
             </div>
         </section>
 
-        <!-- ===== CTA ===== -->
+        <!-- ── CTA ── -->
         <section class="bg-[#1E3F3A] text-[#F6F3EF] py-16 md:py-20 text-center scroll-fade relative overflow-hidden" x-intersect.once="$el.classList.add('visible')">
             <div class="absolute top-[-50%] left-[-20%] w-[300px] h-[300px] rounded-full bg-[#F6F3EF]/5 blur-3xl pointer-events-none"></div>
             <div class="absolute bottom-[-50%] right-[-20%] w-[300px] h-[300px] rounded-full bg-[#F6F3EF]/5 blur-3xl pointer-events-none"></div>
@@ -1015,7 +946,7 @@
             </div>
         </section>
 
-        <!-- ===== FOOTER ===== -->
+        <!-- ── FOOTER ── -->
         <footer class="bg-[#142b27] text-[#F6F3EF]/50 mt-auto">
             <div class="max-w-[1300px] mx-auto px-4 lg:px-8 py-12 grid grid-cols-1 md:grid-cols-4 gap-10">
                 <div class="md:col-span-1">
@@ -1053,15 +984,13 @@
             <div class="border-t border-[#F6F3EF]/5 py-4 text-center text-[10px] tracking-widest uppercase font-600 text-[#F6F3EF]/20">© 2026 Kundasang Homestay. Hak Cipta Terpelihara.</div>
         </footer>
 
-        <!-- ===== FLOATING BAR ===== -->
+        <!-- ── FLOATING BAR ── -->
         <div class="floating-bar">
             <a href="/list.html" class="btn-accent w-full text-center text-sm py-3.5">📋 Daftar Sekarang – PERCUMA</a>
         </div>
     </div>
 
-    <!-- ============================================================ -->
-    <!--  ALPINE.JS APP JAVASCRIPT                                    -->
-    <!-- ============================================================ -->
+    <!-- ─── ALPINE.JS APP ─── -->
     <script>
         function landingPageApp() {
             return {
@@ -1132,10 +1061,10 @@
                     }, 100);
 
                     this.alpineReady = true;
-                    console.log('✅ Alpine.js initialized!');
+                    console.log('✅ Kundasang Homestay loaded!');
 
                     if (window.location.hash === '#faq') {
-                        setTimeout(() => { this.activeFaq = 0; }, 600);
+                        setTimeout(() => { this.activeFaq = 0; }, 500);
                     }
 
                     window.addEventListener('scroll', () => {
