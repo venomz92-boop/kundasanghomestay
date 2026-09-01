@@ -8,7 +8,7 @@
   <title>Kundasang Homestay - Platform for Locals</title>
   <meta name="title" content="Kundasang Homestay - Verified Mountain Stays with Kinabalu Views" />
   <meta name="description" content="Book handpicked and verified homestays in Kundasang & Ranau, Sabah. Direct bookings, secure FPX payment, and Mount Kinabalu views from your balcony." />
-  <meta name="keywords" content="Kundasang homestay, homestay kundasang view gunung, chalet kundasang, Mesilau homestay, homestay sabah, toyyibpay homestay" />
+  <meta name="keywords" content="Kundasang homestay, homestay kundasang view gunung, chalet kundasang, Mesilau homestay, homestay sabah, chip homestay" />
   <meta name="robots" content="index, follow" />
 
   <!-- Open Graph -->
@@ -1101,7 +1101,7 @@
     <div class="mt-4 flex items-center justify-center gap-2 flex-wrap">
       <div id="pendingInfo" class="text-[11px] bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full hidden font-600 text-amber-800">Pending: <span id="pendingCount">0</span> waiting approval</div>
       <div class="text-[11px] bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full font-600 text-emerald-800 flex items-center gap-1">
-        <span>🔒 ToyyibPay FPX Protected</span>
+        <span>🔒 CHIP FPX Protected</span>
       </div>
     </div>
   </div>
@@ -1138,7 +1138,7 @@
       </div>
       <div class="mt-3 text-xs">Total Duration: <span id="bookingNights" class="font-bold text-[#0F382E]">1</span> Nights</div>
       <div id="bookingSummary" class="mt-3 bg-zinc-50 p-4 rounded-xl text-sm border"></div>
-      <div class="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-800 mt-3">⚠️ Official booking protection: All payments are processed through ToyyibPay FPX online banking. Never transfer to private individual accounts.</div>
+      <div class="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-800 mt-3">⚠️ Official booking protection: All payments are processed through CHIP FPX online banking. Never transfer to private individual accounts.</div>
       <div id="guestDetectedBanner" class="hidden mt-3 bg-green-50 border border-green-200 p-3 rounded-xl text-xs text-green-800"></div>
       <div class="mt-4 space-y-3">
         <input id="guestName" placeholder="Your Full Name *" class="form-input text-sm"/>
@@ -1189,7 +1189,7 @@
         <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">😞</div>
         <div class="font-poppins font-800 text-[22px] text-red-700">Payment Not Completed</div>
         <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
-          Your payment didn’t go through this time. No worries — you can try again in <strong>10 minutes. Your booking dates will be blocked for awhile.</strong>
+          Your payment didn’t go through this time. No worries — you can try again in <strong>5 minutes. Your booking dates will be blocked for awhile.</strong>
         </p>
         <p class="text-sm text-zinc-600 mt-1 leading-relaxed">
           Simply go to your <strong>My Bookings</strong> page and click the <strong>Retry Payment</strong> button next to this booking.
@@ -1202,7 +1202,7 @@
         </div>
 
         <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
-          💡 <strong>Why wait 10 minutes?</strong> ToyyibPay requires a cooldown period before you can create a new bill for the same booking.<br>This prevents duplicate charges.
+          💡 <strong>Why wait 5 minutes?</strong> CHIP requires a cooldown period before you can create a new bill for the same booking.<br>This prevents duplicate charges.
         </div>
       </div>
       <div class="modal-footer justify-center bg-zinc-50 flex-col sm:flex-row gap-2 border-t px-6 py-4">
@@ -1798,7 +1798,7 @@
       <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
       <div class="space-y-2 text-[13px] font-poppins">
         <div>✓ Host Physical Verification</div>
-        <div>✓ ToyyibPay FPX Online Protection</div>
+        <div>✓ CHIP FPX Online Protection</div>
         <div>✓ Anti-Scam Booking Guarantee</div>
       </div>
     </div>
@@ -1975,7 +1975,7 @@
         '*Guest Name:* ' + (booking.guestName || 'Guest') + '\n' +
         '*WhatsApp:* ' + (booking.guestPhone || '-') + '\n' +
         '*Dates:* ' + booking.checkin + ' to ' + booking.checkout + ' (' + booking.nights + ' nights)\n' +
-        '*Status:* Paid via FPX (ToyyibPay)\n\n' +
+        '*Status:* Paid via FPX (CHIP)\n\n' +
         'Please double confirm. Thank you!';
 
       window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(message), '_blank');
@@ -2600,7 +2600,7 @@ async function processPayment() {
     window.lastCreatedBooking = booking;
     sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
 
-    // ✅ CHANGED: use /api/chip-create instead of /api/toyyibpay-create
+    // ✅ CHANGED: use /api/chip-create instead of /api/chip-create
     var payRes = await fetch(API_BASE + '/chip-create', {
       method: 'POST',
       headers: {
