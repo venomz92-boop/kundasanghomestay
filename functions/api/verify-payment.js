@@ -1,26 +1,82 @@
 // /api/verify-payment.js – CHIP + email on success
 import { corsHeaders } from './_utils.js';
 
-// ===== EMAIL FUNCTION (EXACT COPY from resend-code.js) =====
+// ===== EMAIL FUNCTION with Professional Receipt Layout =====
 async function sendCheckinEmail(booking, env) {
+  // Generate receipt number: RCP-YYYYMMDD-XXXX (last 6 of booking ID)
+  const receiptNo = `RCP-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${booking.id.slice(-6)}`;
+
+  // Prepare price breakdown
+  const base = Number(booking.base || 0);
+  const fee = Number(booking.fee || 0);
+  const gatewayFee = Number(booking.gatewayFee || 0);
+  const total = Number(booking.total || 0);
+
   const emailHtml = `
-    <h2>Hello ${booking.guestName || 'Guest'},</h2>
-    <p>Your booking at <strong>${booking.homestay}</strong> is confirmed!</p>
-    <p><strong>Booking ID:</strong> ${booking.id}</p>
-    <p><strong>Check‑in:</strong> ${booking.checkin}</p>
-    <p><strong>Check‑out:</strong> ${booking.checkout}</p>
-    <p><strong>Nights:</strong> ${booking.nights}</p>
-    <p><strong>Total Paid:</strong> RM ${Number(booking.total).toFixed(2)}</p>
-    <p style="font-size:20px; font-weight:bold; background:#f0fdf4; padding:10px; border-radius:8px; border:1px solid #bbf7d0; display:inline-block;">
-      🏔️ Your 6‑digit check‑in code: <span style="color:#0F382E;">${booking.checkinCode}</span>
-    </p>
-    <p><strong>Please keep this code safe.</strong> You will need to share it with the host when you arrive. Do not share it with anyone else.</p>
-    <p>— Kundasang Homestay Team</p>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f5f0; padding: 20px; border-radius: 16px;">
+      <div style="background: #ffffff; padding: 30px; border-radius: 16px; border: 1px solid #e5e7eb;">
+        <!-- Header -->
+        <div style="text-align: center; border-bottom: 2px solid #0F382E; padding-bottom: 16px; margin-bottom: 20px;">
+          <div style="font-size: 24px; font-weight: 800; color: #0F382E;">Kundasang Homestay</div>
+          <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">Official Receipt</div>
+        </div>
+
+        <!-- Receipt No. & Booking ID -->
+        <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 12px;">
+          <div><strong>Receipt No.:</strong> ${receiptNo}</div>
+          <div><strong>Booking ID:</strong> ${booking.id}</div>
+        </div>
+
+        <!-- Guest & Property -->
+        <div style="font-size: 13px; margin-bottom: 16px; border-bottom: 1px dashed #d1d5db; padding-bottom: 12px;">
+          <div><strong>Guest:</strong> ${booking.guestName || 'Guest'}</div>
+          <div><strong>Homestay:</strong> ${booking.homestay}</div>
+          <div><strong>Check‑in:</strong> ${booking.checkin} &nbsp;|&nbsp; <strong>Check‑out:</strong> ${booking.checkout} &nbsp;|&nbsp; <strong>Nights:</strong> ${booking.nights}</div>
+        </div>
+
+        <!-- Price Breakdown -->
+        <div style="font-size: 13px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+            <span>Base price (RM ${(base / (booking.nights || 1)).toFixed(2)} × ${booking.nights} nights)</span>
+            <span>RM ${base.toFixed(2)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 4px 0; color: #4b5563;">
+            <span>Service Fee</span>
+            <span>RM ${fee.toFixed(2)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 4px 0; color: #4b5563;">
+            <span>Gateway fee</span>
+            <span>RM ${gatewayFee.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <!-- Total -->
+        <div style="border-top: 2px solid #0F382E; padding-top: 12px; font-size: 16px; font-weight: 700; color: #0F382E; display: flex; justify-content: space-between; margin-bottom: 16px;">
+          <span>Total paid</span>
+          <span>RM ${total.toFixed(2)}</span>
+        </div>
+
+        <!-- Check‑in Code -->
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; text-align: center; margin-bottom: 16px;">
+          <div style="font-size: 20px; font-weight: 700; color: #0F382E;">
+            🏔️ Your 6‑digit check‑in code: <span style="color: #0F382E;">${booking.checkinCode}</span>
+          </div>
+          <div style="font-size: 12px; color: #166534; margin-top: 4px;">Please keep this code safe. You will need to share it with the host upon arrival.</div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 12px;">
+          Payment via CHIP FPX • Status: Completed<br>
+          © ${new Date().getFullYear()} Kundasang Homestay
+        </div>
+      </div>
+    </div>
   `;
 
   let emailSent = false;
   let emailError = null;
 
+  // Try Resend
   if (env.RESEND_API_KEY) {
     try {
       const res = await fetch('https://api.resend.com/emails', {
@@ -29,7 +85,7 @@ async function sendCheckinEmail(booking, env) {
         body: JSON.stringify({
           from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
           to: booking.guestEmail,
-          subject: 'Your Check‑in Code',
+          subject: `Your Receipt ${receiptNo} – Check‑in Code`,
           html: emailHtml
         })
       });
@@ -38,7 +94,9 @@ async function sendCheckinEmail(booking, env) {
     } catch (e) {
       emailError = e.message;
     }
-  } else if (env.SENDGRID_API_KEY) {
+  } 
+  // Try SendGrid
+  else if (env.SENDGRID_API_KEY) {
     try {
       const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
@@ -46,7 +104,7 @@ async function sendCheckinEmail(booking, env) {
         body: JSON.stringify({
           personalizations: [{ to: [{ email: booking.guestEmail }] }],
           from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
-          subject: 'Your Check‑in Code',
+          subject: `Your Receipt ${receiptNo} – Check‑in Code`,
           content: [{ type: 'text/html', value: emailHtml }]
         })
       });
@@ -62,6 +120,7 @@ async function sendCheckinEmail(booking, env) {
   return { emailSent, emailError };
 }
 
+// ===== The rest of verify-payment.js remains unchanged =====
 export async function onRequestPost({ request, env }) {
   try {
     const { bookingId } = await request.json();
@@ -94,7 +153,6 @@ export async function onRequestPost({ request, env }) {
     const booking = bookings[idx];
     const status = booking.status || 'Pending Payment';
 
-    // Already paid?
     if (['Paid - Awaiting Check-in', 'Completed'].includes(status)) {
       return new Response(JSON.stringify({ success: true, booking, paid: true }), {
         status: 200,
@@ -150,7 +208,6 @@ export async function onRequestPost({ request, env }) {
             .bind('kd_bookings', JSON.stringify(bookings))
             .run();
 
-          // Send email using the new function
           await sendCheckinEmail(bookings[idx], env);
 
           return new Response(JSON.stringify({ success: true, booking: bookings[idx], paid: true }), {
@@ -173,7 +230,6 @@ export async function onRequestPost({ request, env }) {
             headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
           });
         } else {
-          // pending
           return new Response(JSON.stringify({
             success: false,
             message: 'Payment not yet confirmed.',
@@ -200,9 +256,8 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // ---- ToyyibPay fallback (if billcode exists) ----
+    // ---- ToyyibPay fallback ----
     if (booking.toyyibpay_billcode) {
-      // Keep your existing ToyyibPay logic here (or skip)
       return new Response(JSON.stringify({
         success: false,
         message: 'Booking uses ToyyibPay. Please use the Check Payment button if needed.',
