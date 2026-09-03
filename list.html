@@ -803,6 +803,18 @@
             <span class="text-red-500">*</span>
           </span>
         </label>
+
+        <!-- ===== NEW: Host Agreement Checkbox ===== -->
+        <label class="flex gap-2.5 text-xs select-none cursor-pointer items-start mt-3">
+          <input id="listHostAgreement" type="checkbox" required class="mt-1" />
+          <span class="text-zinc-700">
+            I have read and agree to the 
+            <a href="/host-agreement.html" target="_blank" class="text-[#0F382E] font-semibold underline hover:text-[#3FD0D4]">Host Agreement</a>
+            and 
+            <a href="/terms.html" target="_blank" class="text-[#0F382E] font-semibold underline hover:text-[#3FD0D4]">Terms &amp; Conditions</a>.
+            <span class="text-red-500">*</span>
+          </span>
+        </label>
       </section>
 
       <!-- SUBMIT -->
@@ -815,7 +827,7 @@
   </div>
 </main>
 
-<!-- ===== FOOTER ===== -->
+<!-- ===== FOOTER (Updated with all policy links) ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div>
@@ -839,6 +851,10 @@
         <a href="/about.html" class="hover:text-white block">About Us</a>
         <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
         <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
+        <a href="/booking-policy.html" class="hover:text-white block">Booking Policy</a>
+        <a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
+        <a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
+        <a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
       </div>
     </div>
     <div>
@@ -859,6 +875,7 @@
   </div>
 </footer>
 
+<!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
 // =============================================================
@@ -1482,6 +1499,14 @@ async function submitHomestay() {
     const consent = document.getElementById('listConsent').checked;
     if (!consent) {
       await showAlert("Consent Required", "Please agree to the data processing consent before submitting.");
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; }
+      return;
+    }
+
+    // ===== NEW: Host Agreement validation =====
+    const hostAgreement = document.getElementById('listHostAgreement').checked;
+    if (!hostAgreement) {
+      await showAlert('Agreement Required', 'You must agree to the Host Agreement before submitting your listing.');
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; }
       return;
     }
