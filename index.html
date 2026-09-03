@@ -1145,6 +1145,16 @@
         <input id="guestEmail" placeholder="Email Address (For FPX Receipt) *" class="form-input text-sm"/>
         <input id="guestPhone" placeholder="WhatsApp Phone (e.g. 0123456789) *" class="form-input text-sm"/>
       </div>
+      <!-- ===== NEW: Booking Policy Checkbox ===== -->
+      <div class="mt-3 flex items-start gap-2.5">
+        <input type="checkbox" id="agreeBookingPolicy" class="mt-1 shrink-0" required />
+        <label for="agreeBookingPolicy" class="text-xs text-zinc-600 leading-relaxed">
+          I have read and agree to the 
+          <a href="/booking-policy.html" target="_blank" class="text-[#0F382E] font-semibold underline hover:text-[#3FD0D4]">Booking Policy</a>
+          and 
+          <a href="/payment-disclaimer.html" target="_blank" class="text-[#0F382E] font-semibold underline hover:text-[#3FD0D4]">Payment Disclaimer</a>.
+        </label>
+      </div>
       <div class="mt-5 flex gap-3">
         <button onclick="closeBooking()" class="flex-1 btn-outline py-3">Cancel</button>
         <button onclick="processPayment()" class="flex-1 btn-primary py-3">Pay via FPX</button>
@@ -1774,7 +1784,7 @@
 })();
 </script>
   
-<!-- ===== FOOTER ===== -->
+<!-- ===== FOOTER (Updated with all policy links) ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div>
@@ -1798,6 +1808,10 @@
         <a href="/about.html" class="hover:text-white block">About Us</a>
         <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
         <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
+        <a href="/booking-policy.html" class="hover:text-white block">Booking Policy</a>
+        <a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
+        <a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
+        <a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
       </div>
     </div>
     <div>
@@ -2521,7 +2535,13 @@ async function processPayment() {
     showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
     return;
   }
-  
+
+  // ===== NEW: Check Booking Policy agreement =====
+  if (!document.getElementById('agreeBookingPolicy').checked) {
+    showAlert('Agreement Required', 'You must agree to the Booking Policy and Payment Disclaimer before proceeding.');
+    return;
+  }
+
   // Check if we have a guest token
   const guestToken = localStorage.getItem('kd_guest_token');
   if (!guestToken) {
@@ -2592,7 +2612,6 @@ async function processPayment() {
     
     var created = await createRes.json();
     if (!createRes.ok || !created.success) {
-      // If 401, maybe session expired
       if (createRes.status === 401) {
         showAlert("Session Expired", "Your session has expired. Please log in again.");
         logoutGuest();
