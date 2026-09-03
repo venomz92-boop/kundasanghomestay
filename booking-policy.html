@@ -8,7 +8,6 @@
   <meta name="description" content="Booking policy for Kundasang Homestay." />
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="animations.css" />
   <style>
     :root {
       --primary: #0F382E;
@@ -23,6 +22,7 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      margin: 0;
     }
     .font-satisfy { font-family: "Satisfy", cursive; }
     .card {
@@ -39,6 +39,8 @@
     .policy-section:last-child { border-bottom: none; }
     .policy-section ul { list-style-type: disc; padding-left: 1.5rem; }
     .policy-section ul li { margin-bottom: 0.5rem; }
+    /* ✅ FIX: Force content visible even if animations fail */
+    .policy-content { opacity: 1 !important; transform: none !important; }
   </style>
 </head>
 <body>
@@ -58,15 +60,15 @@
     </div>
   </header>
 
-  <main class="flex-1 max-w-[1000px] mx-auto px-6 lg:px-8 py-12 md:py-20 w-full">
-    <div class="text-center mb-12 animate-on-scroll">
+  <main class="flex-1 max-w-[1000px] mx-auto px-6 lg:px-8 py-12 md:py-20 w-full policy-content">
+    <div class="text-center mb-12">
       <div class="font-satisfy text-[#3FD0D4] text-[32px] leading-none">Booking Policy</div>
       <h1 class="font-poppins font-700 text-[34px] md:text-[44px] text-[#212121] tracking-[-0.5px] mt-1">Your Reservation Terms</h1>
       <div class="w-[60px] h-[3px] bg-gradient-to-r from-[#3FD0D4] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
       <p class="text-[13px] text-[#212121]/60 mt-3 max-w-[560px] mx-auto">Last updated: September 2026. Please read these terms carefully before completing your booking.</p>
     </div>
 
-    <div class="card p-8 md:p-12 animate-on-scroll">
+    <div class="card p-8 md:p-12">
       <div class="policy-section">
         <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
           <span class="text-[#3FD0D4] text-2xl">1.</span> Booking Confirmation
