@@ -1687,6 +1687,15 @@ function blockedDateClickHandler(e) {
   renderBlockedDatesList();
   renderRooms();
   attachStaticListeners();
+   // Force mobile dropdowns to open on tap
+  document.querySelectorAll('select.form-select').forEach(sel => {
+    sel.addEventListener('touchstart', function(e) {
+      this.focus();
+      setTimeout(() => {
+        this.click();
+      }, 10);
+    }, { passive: false });
+  });
 })();
 </script>
 </body>
