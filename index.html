@@ -1838,27 +1838,29 @@
 // =============================================================
 // SECURE HELPER (patched)
 // =============================================================
- function safeHTML(html) {
-      if (!html) return '';
-      return DOMPurify.sanitize(html, {
-        ALLOWED_TAGS: [
-          'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
-          'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
-          'button','input','form','label','select','option','textarea',
-          'section','article','header','footer','nav','main','aside',
-          'code','pre','blockquote','hr','small','sub','sup','svg','path'
-        ],
-        ALLOWED_ATTR: [
-          'id','class','style','href','src','alt','title','rel','target',
-          'method','action','type','name','value','placeholder',
-          'checked','disabled','readonly','required','multiple',
-          'min','max','step','pattern','autocomplete','inputmode',
-          'viewBox','fill','stroke','stroke-width','d',
-          'onclick', 'onchange', 'oninput', 'onload', 'onerror', 'onfocus', 'onblur'
-        ],
-        ADD_ATTR: ['target']
-      });
-    }
+function safeHTML(html) {
+  if (!html) return '';
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
+      'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
+      'button','input','form','label','select','option','textarea',
+      'section','article','header','footer','nav','main','aside',
+      'code','pre','blockquote','hr','small','sub','sup','svg','path',
+      'canvas', 'figure', 'figcaption', 'blockquote', 'cite'
+    ],
+    ALLOWED_ATTR: [
+      'id','class','style','href','src','alt','title','rel','target',
+      'method','action','type','name','value','placeholder',
+      'checked','disabled','readonly','required','multiple',
+      'min','max','step','pattern','autocomplete','inputmode',
+      'viewBox','fill','stroke','stroke-width','d','aria-*','data-*'
+    ],
+    ADD_ATTR: ['target'],
+    ALLOW_DATA_ATTR: true,
+    FORCE_HTTPS: true
+  });
+}
 
     // =============================================================
     // MODAL SYSTEM - OPTIMIZED
