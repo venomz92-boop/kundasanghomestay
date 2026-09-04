@@ -137,45 +137,58 @@ export async function onRequestPost({ request, env }) {
   const clientIP = getClientIP(request);
 
   // ========== PUBLIC ACTIONS ==========
-  if (action === "createPublicBooking" && body.booking) {
-    const auth = await requireGuest(request, env, body);
-    if (auth.error) return auth.error;
-    const incoming = body.booking;
-    const db = env.DB;
-    if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
+ if (action === "createPublicBooking" && body.booking) {
+  const auth = await requireGuest(request, env, body);
+  if (auth.error) return auth.error;
+  const incoming = body.booking;
+  const db = env.DB;
+  if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
 
-    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+  await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    const getData = async key => {
-      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
-      try { return r?.data ? JSON.parse(r.data) : []; } catch(_) { return []; }
-    };
+  const getData = async key => {
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
+    try { return r?.data ? JSON.parse(r.data) : []; } catch(_) { return []; }
+  };
 
-    let attempts = 0;
-    const maxAttempts = 3;
-    let saved = false;
+  // ===== SERVER‑SIDE VALIDATION =====
+  const guestId = String(auth.session.userId);
+  const homestayId = String(incoming.homestayId || '');
+  const checkin = String(incoming.checkin || '');
+  const checkout = String(incoming.checkout || '');
+  const roomId = incoming.roomId ? String(incoming.roomId) : null;
 
-    while (attempts < maxAttempts) {
-      attempts++;
-      try {
-        const approved = await getData('kd_approved');
-        const bookings = await getData('kd_bookings');
-        const guests = await getData('kd_guests');
+  // Validate dates
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(checkin) || !/^\d{4}-\d{2}-\d{2}$/.test(checkout)) {
+    return jsonResponse({ error: 'Invalid date format' }, 400, request);
+  }
+  const d1 = new Date(checkin + 'T00:00:00');
+  const d2 = new Date(checkout + 'T00:00:00');
+  if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
+    return jsonResponse({ error: 'Invalid dates' }, 400, request);
+  }
+  const nights = Math.round((d2 - d1) / 86400000);
+  if (nights < 1) return jsonResponse({ error: 'Minimum 1 night' }, 400, request);
+  if (nights > 60) return jsonResponse({ error: 'Maximum 60 nights' }, 400, request);
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (d1 < today) return jsonResponse({ error: 'Cannot book past dates' }, 400, request);
 
-        const guest = guests.find(g => String(g.id) === String(auth.session.userId));
-        const homestay = approved.find(h => String(h.id) === String(incoming.homestayId) && (h.approved === true || h.verified === true));
-        if (!guest || !homestay) return jsonResponse({ error: 'Guest or homestay not found' }, 404, request);
+  // Validate homestay exists and is approved
+  const approved = await getData('kd_approved');
+  const homestay = approved.find(h => String(h.id) === homestayId && h.approved === true);
+  if (!homestay) return jsonResponse({ error: 'Homestay not found or not approved' }, 404, request);
 
-        const rooms = homestay.rooms || [];
-        let selectedRoom = null;
-        if (incoming.roomId) {
-          selectedRoom = rooms.find(r => r.id === incoming.roomId);
-          if (!selectedRoom) return jsonResponse({ error: 'Selected room not found' }, 400, request);
-        }
-        const ownerPrice = selectedRoom ? parseFloat(selectedRoom.price) : homestay.ownerPrice;
-        if (!Number.isFinite(ownerPrice) || ownerPrice <= 0) {
-          return jsonResponse({ error: 'Homestay price is not configured correctly' }, 500, request);
-        }
+  // Validate room if provided
+  let selectedRoom = null;
+  const rooms = homestay.rooms || [];
+  if (roomId) {
+    selectedRoom = rooms.find(r => String(r.id) === roomId);
+    if (!selectedRoom) return jsonResponse({ error: 'Selected room not found' }, 400, request);
+  }
+  const ownerPrice = selectedRoom ? parseFloat(selectedRoom.price) : homestay.ownerPrice;
+  if (!Number.isFinite(ownerPrice) || ownerPrice <= 0) {
+    return jsonResponse({ error: 'Invalid price configuration' }, 500, request);
+  }
 
         const ci = String(incoming.checkin || ''), co = String(incoming.checkout || '');
         const d1 = new Date(ci+'T00:00:00'), d2 = new Date(co+'T00:00:00');
