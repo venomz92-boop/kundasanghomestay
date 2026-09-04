@@ -149,15 +149,18 @@
       -webkit-appearance: auto;
       transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
       pointer-events: auto !important;
-      touch-action: manipulation;
-      z-index: 50;
+      touch-action: manipulation !important;
       position: relative;
+      z-index: 60;
+      overflow: visible !important;
     }
     .form-select:focus {
       outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 4px var(--accent-glow);
     }
+    /* Ensure no parent clips dropdown */
+    .card, .space-y-8, .space-y-4, .space-y-2 { overflow: visible !important; }
     .guest-avatar {
       width: 32px;
       height: 32px;
@@ -1671,27 +1674,33 @@ function attachStaticListeners() {
     blockedList.addEventListener('click', blockedDateClickHandler);
   }
 
-  // ===== FIX: Mobile dropdown opener =====
+  // ===== ROBUST MOBILE DROPDOWN FIX =====
   document.querySelectorAll('select.form-select').forEach(function(sel) {
-    // Remove any existing listeners to avoid duplicates
+    // Remove any previous listeners
     sel.removeEventListener('touchstart', mobileSelectHandler);
     sel.removeEventListener('click', mobileSelectHandler);
-    // Add touchstart for iOS, and click for Android/desktop
+    // Add both touchstart (for iOS) and click (for Android/others)
     sel.addEventListener('touchstart', mobileSelectHandler, { passive: false });
     sel.addEventListener('click', mobileSelectHandler);
   });
 }
 
 function mobileSelectHandler(e) {
-  // Prevent default to avoid any scrolling interference
-  e.preventDefault();
+  // Prevent default only for touchstart to avoid scrolling interference
+  if (e.type === 'touchstart') {
+    e.preventDefault();
+  }
   e.stopPropagation();
-  // Force focus and open the dropdown
+  // Force focus
   this.focus();
-  // For some browsers, a second click is needed
-  setTimeout(() => {
+  // For iOS, a delayed click opens the picker reliably
+  if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
+    setTimeout(() => {
+      this.click();
+    }, 10);
+  } else {
     this.click();
-  }, 10);
+  }
 }
 
 function blockedDateClickHandler(e) {
