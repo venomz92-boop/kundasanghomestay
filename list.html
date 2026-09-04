@@ -145,8 +145,9 @@
       font-size: 14px;
       font-family: "Poppins", sans-serif;
       background: white;
-      appearance: none;
+      appearance: auto; /* ✅ Ensure dropdown works */
       transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      pointer-events: auto; /* ✅ Ensure clickable */
     }
     .form-select:focus {
       outline: none;
@@ -641,18 +642,18 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="text-xs font-semibold text-[#212121]">Receiving Bank *</label>
-         <select id="listBankName" class="form-select mt-1">
-            <option value="">Choose Bank</option>
-            <option value="Maybank">Maybank</option>
-            <option value="CIMB Bank">CIMB Bank</option>
-            <option value="Public Bank">Public Bank</option>
-            <option value="RHB Bank">RHB Bank</option>
-            <option value="Hong Leong Bank">Hong Leong Bank</option>
-            <option value="Bank Islam">Bank Islam</option>
-            <option value="Bank Rakyat">Bank Rakyat</option>
-            <option value="BSN">BSN</option>
-            <option value="Other">Other Bank (Define Below)</option>
-        </select>
+            <select id="listBankName" class="form-select mt-1">
+              <option value="">Choose Bank</option>
+              <option value="Maybank">Maybank</option>
+              <option value="CIMB Bank">CIMB Bank</option>
+              <option value="Public Bank">Public Bank</option>
+              <option value="RHB Bank">RHB Bank</option>
+              <option value="Hong Leong Bank">Hong Leong Bank</option>
+              <option value="Bank Islam">Bank Islam</option>
+              <option value="Bank Rakyat">Bank Rakyat</option>
+              <option value="BSN">BSN</option>
+              <option value="Other">Other Bank (Define Below)</option>
+            </select>
           </div>
           <div id="manualBankCodeWrap" class="hidden">
             <label class="text-xs font-semibold text-[#212121]">Bank Swift Code</label>
@@ -1189,7 +1190,6 @@ function setupRoomEventDelegation() {
   const container = document.getElementById('roomsList');
   if (!container) return;
 
-  // Remove old listeners to avoid duplicates
   container.removeEventListener('change', roomFieldChangeHandler);
   container.removeEventListener('click', roomButtonClickHandler);
   container.removeEventListener('change', roomImageUploadHandler);
@@ -1628,10 +1628,10 @@ document.addEventListener('click', function(e) {
 });
 
 // =============================================================
-// ATTACH STATIC EVENT LISTENERS
+// ATTACH STATIC EVENT LISTENERS (FIX: addRoom without event)
 // =============================================================
 function attachStaticListeners() {
-  // Add Room button
+  // Add Room button – wrap in function to avoid passing event
   document.getElementById('addRoomBtn')?.addEventListener('click', function() { addRoom(); });
   // Block Date & Block Range
   document.getElementById('addBlockedDateBtn')?.addEventListener('click', addBlockedDate);
