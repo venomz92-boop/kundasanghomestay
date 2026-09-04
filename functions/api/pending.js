@@ -1,5 +1,6 @@
-// /api/pending.js
+// /api/pending.js – With server‑side validation
 import { corsHeaders, getClientIP, logAction, enforceHttps, hashPassword, getAdminToken, jsonResponse } from './_utils.js';
+import { sanitizeString, isValidEmail, isValidPhone, isValidPrice, sanitizeDescription, validateBankCode } from './_utils.js';
 
 async function requireAdmin(request, env) {
   const token = await getAdminToken(request);
@@ -14,15 +15,9 @@ async function read(db, key) {
   try { return r?.data ? JSON.parse(r.data) : []; } catch (_) { return []; }
 }
 
-// ===== Helper to ensure kd_homestays exists and sync =====
 async function syncHomestayToHomestays(db, homestay) {
-  // 1. Ensure the store exists by reading (creates empty array if missing)
   let homestays = await read(db, 'kd_homestays');
-  
-  // 2. Find existing entry by id
   const idx = homestays.findIndex(h => String(h.id) === String(homestay.id));
-  
-  // 3. Prepare the entry with all needed fields
   const now = new Date().toISOString();
   const entry = {
     id: homestay.id,
@@ -32,13 +27,11 @@ async function syncHomestayToHomestays(db, homestay) {
     ownerName: homestay.ownerName,
     ownerEmail: homestay.ownerEmail,
     whatsapp: homestay.whatsapp,
-    // Payout fields (critical)
     ownerBank: homestay.ownerBank || '',
     ownerBankAccount: homestay.ownerBankAccount || '',
     bankCode: homestay.bankCode || '',
     bankHolder: homestay.bankHolder || '',
     bankQRImage: homestay.bankQRImage || '',
-    // Other listing data
     images: homestay.images || [],
     rooms: homestay.rooms || [],
     ownerPrice: homestay.ownerPrice,
@@ -52,24 +45,17 @@ async function syncHomestayToHomestays(db, homestay) {
     createdAt: idx >= 0 ? homestays[idx].createdAt || homestay.createdAt || now : now,
     updatedAt: now
   };
-
-  // 4. Update or insert
   if (idx >= 0) {
     homestays[idx] = { ...homestays[idx], ...entry };
   } else {
     homestays.push(entry);
   }
-
-  // 5. Write back
   await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
     .bind('kd_homestays', JSON.stringify(homestays))
     .run();
-  
-  console.log(`✅ Synced homestay ${homestay.id} (${homestay.name}) to kd_homestays`);
   return homestays;
 }
 
-// ===== GET (admin only) =====
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -81,7 +67,6 @@ export async function onRequestGet({ request, env }) {
   return jsonResponse(await read(db, 'kd_pending'), 200, request, { 'Cache-Control': 'no-store' });
 }
 
-// ===== POST (public registration) =====
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -90,50 +75,96 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json();
     const h = body.homestay || body.listing;
     const ownerPassword = String(body.ownerPassword || '');
-    
-    // --- Validation ---
+
+    // --- VALIDATION ---
     if (!h || !ownerPassword) {
       return jsonResponse({ error: 'Homestay and ownerPassword are required' }, 400, request);
     }
     if (ownerPassword.length < 8) {
       return jsonResponse({ error: 'Owner password must be at least 8 characters' }, 400, request);
     }
+
     const required = ['name', 'location', 'ownerPrice', 'ownerName', 'whatsapp', 'ownerEmail', 'ownerBankAccount', 'bankHolder'];
     for (const key of required) {
       if (h[key] === undefined || h[key] === null || String(h[key]).trim() === '') {
         return jsonResponse({ error: `Missing required field: ${key}` }, 400, request);
       }
     }
+
+    // --- SANITISE INPUTS ---
+    const name = sanitizeString(h.name, 100);
+    const location = sanitizeString(h.location, 50);
+    const ownerName = sanitizeString(h.ownerName, 100);
+    const ownerEmail = String(h.ownerEmail || '').toLowerCase().trim();
+    const whatsapp = String(h.whatsapp || '').replace(/[^0-9]/g, '');
+    const ownerBankAccount = String(h.ownerBankAccount || '').replace(/[^0-9]/g, '');
+    const bankHolder = sanitizeString(h.bankHolder, 100);
+    const description = sanitizeDescription(h.description || '');
+    const icName = sanitizeString(h.icName || '', 100);
+    const icNumber = String(h.icNumber || '').replace(/[^0-9-]/g, '').slice(0, 20);
+    const bankName = sanitizeString(h.ownerBank || '', 50);
+    const bankCode = validateBankCode(h.bankCode || '');
     const price = Number(h.ownerPrice);
-    if (!Number.isFinite(price) || price <= 0 || price > 100000) {
-      return jsonResponse({ error: 'Invalid nightly price' }, 400, request);
+    const guests = Math.max(1, Math.min(20, Number(h.guests) || 1));
+    const bedrooms = Math.max(1, Math.min(10, Number(h.bedrooms) || 1));
+
+    // --- VALIDATE ---
+    if (!isValidEmail(ownerEmail)) {
+      return jsonResponse({ error: 'Invalid email address' }, 400, request);
+    }
+    if (!isValidPhone(whatsapp)) {
+      return jsonResponse({ error: 'Invalid WhatsApp number' }, 400, request);
+    }
+    if (!isValidPrice(price)) {
+      return jsonResponse({ error: 'Invalid nightly price (must be > RM0 and < RM100,000)' }, 400, request);
+    }
+    if (ownerBankAccount.length < 8) {
+      return jsonResponse({ error: 'Bank account number must be at least 8 digits' }, 400, request);
+    }
+    if (!icName || icName.length < 2) {
+      return jsonResponse({ error: 'IC name is required' }, 400, request);
     }
 
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store(key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // --- Check duplicates in pending & approved ---
+    // Check duplicates
     const pending = await read(db, 'kd_pending');
     const approved = await read(db, 'kd_approved');
-    const whatsapp = String(h.whatsapp).replace(/[^0-9]/g, '');
     const duplicate = [...pending, ...approved].some(x =>
-      String(x.ownerEmail || '').toLowerCase() === String(h.ownerEmail).toLowerCase() &&
-      String(x.name || '').toLowerCase() === String(h.name).toLowerCase()
+      String(x.ownerEmail || '').toLowerCase() === ownerEmail &&
+      String(x.name || '').toLowerCase() === name.toLowerCase()
     );
     if (duplicate) {
       return jsonResponse({ error: 'A listing with this owner email and property name already exists.' }, 409, request);
     }
 
-    // --- Hash password ---
+    // Hash password
     const hashed = await hashPassword(ownerPassword, env);
 
-    // --- Build clean homestay object ---
+    // Build clean homestay object (sanitised)
     const clean = {
       ...h,
       id: h.id || Date.now(),
+      name,
+      location,
+      description,
+      ownerName,
+      ownerEmail,
       whatsapp,
+      ownerBank: bankName,
+      ownerBankAccount,
+      bankCode,
+      bankHolder,
       ownerPrice: Math.round(price * 100) / 100,
+      guests,
+      bedrooms,
+      icName,
+      icNumber,
+      images: Array.isArray(h.images) ? h.images.slice(0, 20) : [],
+      rooms: Array.isArray(h.rooms) ? h.rooms.slice(0, 20) : [],
+      blockedDates: Array.isArray(h.blockedDates) ? h.blockedDates.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 365) : [],
       approved: false,
       verified: false,
       ownerPasswordHash: hashed.hash,
@@ -145,27 +176,22 @@ export async function onRequestPost({ request, env }) {
     delete clean.password;
     delete clean.ownerPassword;
 
-    // --- Save to pending ---
     pending.push(clean);
     await db.prepare('INSERT OR REPLACE INTO store(key, data) VALUES(?, ?)')
       .bind('kd_pending', JSON.stringify(pending))
       .run();
-
-    // --- 🔥 Sync to kd_homestays (for payouts) ---
     await syncHomestayToHomestays(db, clean);
 
-    // --- Log action ---
     await logAction({
       db,
       action: 'homestay_submitted',
       admin: 'public',
-      details: `Homestay ${clean.id} submitted and synced to homestays store`,
+      details: `Homestay ${clean.id} submitted and synced`,
       ip: getClientIP(request),
       userId: clean.ownerEmail,
       homestayId: clean.id
     });
 
-    // --- Return success ---
     return jsonResponse({
       success: true,
       homestay: {
@@ -182,7 +208,6 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// ===== DELETE (admin only) =====
 export async function onRequestDelete({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -200,7 +225,6 @@ export async function onRequestDelete({ request, env }) {
     .bind('kd_pending', JSON.stringify(next))
     .run();
 
-  // Optionally remove from kd_homestays? Keep for record.
   await logAction({
     db,
     action: 'homestay_pending_deleted',
@@ -213,7 +237,6 @@ export async function onRequestDelete({ request, env }) {
   return jsonResponse({ success: true, deleted: id }, 200, request);
 }
 
-// ===== OPTIONS =====
 export async function onRequestOptions({ request }) {
   return new Response(null, { headers: corsHeaders(request) });
 }
