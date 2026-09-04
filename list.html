@@ -55,10 +55,11 @@
       border: 1px solid rgba(0, 0, 0, 0.04);
       transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
       padding: 24px;
+      overflow: visible !important;
     }
     .card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
     /* Ensure dropdowns are not clipped by any parent */
-    .card, .space-y-8, .space-y-4, .space-y-2, section, .drop-zone {
+    .space-y-8, .space-y-4, .space-y-2, section, .grid, .drop-zone {
       overflow: visible !important;
     }
     .btn-primary {
@@ -142,7 +143,7 @@
     }
     .form-input::placeholder { color: #94a3b8; }
 
-    /* ===== DROPDOWN – EXACTLY LIKE index.html ===== */
+    /* ===== DROPDOWN – EXACTLY like index.html ===== */
     .form-select {
       width: 100%;
       border: 2px solid #e2e8f0;
@@ -156,13 +157,17 @@
       transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
       min-height: 52px;
       cursor: pointer;
+      pointer-events: auto !important;
+      touch-action: manipulation !important;
+      z-index: 100;
+      position: relative;
     }
     .form-select:focus {
       outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 4px var(--accent-glow);
     }
-    /* Add a custom arrow for better UX (optional) */
+    /* Custom arrow – matches index.html */
     .form-select {
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23475569' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
@@ -601,7 +606,7 @@
           </div>
           <div>
             <label class="text-xs font-semibold text-[#212121]">Location / Area *</label>
-            <!-- ===== DROPDOWN ===== -->
+            <!-- ===== DROPDOWN 1 ===== -->
             <select id="listArea" class="form-select mt-1">
               <option value="Mesilou">Mesilau</option>
               <option value="Pekan Kundasang">Pekan Kundasang</option>
@@ -659,7 +664,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="text-xs font-semibold text-[#212121]">Receiving Bank *</label>
-            <!-- ===== DROPDOWN ===== -->
+            <!-- ===== DROPDOWN 2 ===== -->
             <select id="listBankName" class="form-select mt-1">
               <option value="">Choose Bank</option>
               <option value="Maybank">Maybank</option>
@@ -846,7 +851,7 @@
   </div>
 </main>
 
-<!-- ===== FOOTER (Updated with all policy links) ===== -->
+<!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div>
@@ -924,7 +929,7 @@ function safeHTML(html) {
 }
 
 // =============================================================
-// SYSTEM MODALS (with event listeners instead of inline onclick)
+// SYSTEM MODALS
 // =============================================================
 function showModal(title, message, buttons) {
   return new Promise((resolve) => {
@@ -1646,46 +1651,35 @@ document.addEventListener('click', function(e) {
 });
 
 // =============================================================
-// ATTACH STATIC EVENT LISTENERS (FIX: addRoom without event)
+// ATTACH STATIC EVENT LISTENERS
 // =============================================================
 function attachStaticListeners() {
-  // Add Room button – wrap in function to avoid passing event
   document.getElementById('addRoomBtn')?.addEventListener('click', function() { addRoom(); });
-  // Block Date & Block Range
   document.getElementById('addBlockedDateBtn')?.addEventListener('click', addBlockedDate);
   document.getElementById('addBlockedRangeBtn')?.addEventListener('click', addBlockedRange);
-  // Submit button
   document.getElementById('submitBtn')?.addEventListener('click', submitHomestay);
-  // File uploads
   document.getElementById('listPhotos')?.addEventListener('change', function(e) { handlePhotos(this); });
   document.getElementById('listIcFront')?.addEventListener('change', function(e) { handleIcFile(this.files[0]); });
   document.getElementById('listBankQR')?.addEventListener('change', function(e) { handleBankQRUpload(this.files[0]); });
   document.getElementById('listPbtLicense')?.addEventListener('change', function(e) { handlePbtLicense(this.files[0]); });
-  // Remove buttons for QR, IC, PBT
   document.getElementById('removeBankQRBtn')?.addEventListener('click', removeBankQR);
   document.getElementById('removeIcBtn')?.addEventListener('click', removeIc);
   document.getElementById('removePbtLicenseBtn')?.addEventListener('click', removePbtLicense);
-  // Drop zone clicks to trigger file inputs
   document.getElementById('photosDropZone')?.addEventListener('click', function() { document.getElementById('listPhotos').click(); });
   document.getElementById('icDropZone')?.addEventListener('click', function() { document.getElementById('listIcFront').click(); });
   document.getElementById('bankQRDropZone')?.addEventListener('click', function() { document.getElementById('listBankQR').click(); });
   document.getElementById('pbtDropZone')?.addEventListener('click', function() { document.getElementById('listPbtLicense').click(); });
-  // Logout buttons
   document.getElementById('logoutGuestBtn')?.addEventListener('click', logoutGuest);
   document.getElementById('mLogoutGuestBtn')?.addEventListener('click', logoutGuest);
-  // Modal close buttons
   document.getElementById('modalCloseBtn')?.addEventListener('click', closeModal);
   document.getElementById('modalConfirmBtn')?.addEventListener('click', modalConfirm);
-  // Room event delegation
   setupRoomEventDelegation();
-  // Blocked dates event delegation
+
   const blockedList = document.getElementById('blockedDatesList');
   if (blockedList) {
     blockedList.removeEventListener('click', blockedDateClickHandler);
     blockedList.addEventListener('click', blockedDateClickHandler);
   }
-
-  // ===== NO CUSTOM SELECT LISTENERS – rely on native browser behavior =====
 }
 
 function blockedDateClickHandler(e) {
