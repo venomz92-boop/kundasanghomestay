@@ -1,4 +1,4 @@
-// /api/bookings.js – FULLY PATCHED (email removed on booking creation)
+// /api/bookings.js – FULLY PATCHED & FIXED (no duplicate declarations)
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -137,75 +137,81 @@ export async function onRequestPost({ request, env }) {
   const clientIP = getClientIP(request);
 
   // ========== PUBLIC ACTIONS ==========
- if (action === "createPublicBooking" && body.booking) {
-  const auth = await requireGuest(request, env, body);
-  if (auth.error) return auth.error;
-  const incoming = body.booking;
-  const db = env.DB;
-  if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
+  if (action === "createPublicBooking" && body.booking) {
+    const auth = await requireGuest(request, env, body);
+    if (auth.error) return auth.error;
+    const incoming = body.booking;
+    const db = env.DB;
+    if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
 
-  await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-  const getData = async key => {
-    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
-    try { return r?.data ? JSON.parse(r.data) : []; } catch(_) { return []; }
-  };
+    const getData = async key => {
+      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
+      try { return r?.data ? JSON.parse(r.data) : []; } catch(_) { return []; }
+    };
 
-  // ===== SERVER‑SIDE VALIDATION =====
-  const guestId = String(auth.session.userId);
-  const homestayId = String(incoming.homestayId || '');
-  const checkin = String(incoming.checkin || '');
-  const checkout = String(incoming.checkout || '');
-  const roomId = incoming.roomId ? String(incoming.roomId) : null;
+    // ===== SERVER‑SIDE VALIDATION =====
+    const guestId = String(auth.session.userId);
+    const homestayId = String(incoming.homestayId || '');
+    const checkin = String(incoming.checkin || '');
+    const checkout = String(incoming.checkout || '');
+    const roomId = incoming.roomId ? String(incoming.roomId) : null;
 
-  // Validate dates
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(checkin) || !/^\d{4}-\d{2}-\d{2}$/.test(checkout)) {
-    return jsonResponse({ error: 'Invalid date format' }, 400, request);
-  }
-  const d1 = new Date(checkin + 'T00:00:00');
-  const d2 = new Date(checkout + 'T00:00:00');
-  if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
-    return jsonResponse({ error: 'Invalid dates' }, 400, request);
-  }
-  const nights = Math.round((d2 - d1) / 86400000);
-  if (nights < 1) return jsonResponse({ error: 'Minimum 1 night' }, 400, request);
-  if (nights > 60) return jsonResponse({ error: 'Maximum 60 nights' }, 400, request);
-  const today = new Date(); today.setHours(0,0,0,0);
-  if (d1 < today) return jsonResponse({ error: 'Cannot book past dates' }, 400, request);
+    // Validate dates
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(checkin) || !/^\d{4}-\d{2}-\d{2}$/.test(checkout)) {
+      return jsonResponse({ error: 'Invalid date format' }, 400, request);
+    }
+    const d1 = new Date(checkin + 'T00:00:00');
+    const d2 = new Date(checkout + 'T00:00:00');
+    if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
+      return jsonResponse({ error: 'Invalid dates' }, 400, request);
+    }
+    const nights = Math.round((d2 - d1) / 86400000);
+    if (nights < 1) return jsonResponse({ error: 'Minimum 1 night' }, 400, request);
+    if (nights > MAX_NIGHTS) return jsonResponse({ error: `Maximum ${MAX_NIGHTS} nights` }, 400, request);
+    const today = new Date(); today.setHours(0,0,0,0);
+    if (d1 < today) return jsonResponse({ error: 'Cannot book past dates' }, 400, request);
 
-  // Validate homestay exists and is approved
-  const approved = await getData('kd_approved');
-  const homestay = approved.find(h => String(h.id) === homestayId && h.approved === true);
-  if (!homestay) return jsonResponse({ error: 'Homestay not found or not approved' }, 404, request);
+    // Validate homestay exists and is approved
+    const approved = await getData('kd_approved');
+    const homestay = approved.find(h => String(h.id) === homestayId && h.approved === true);
+    if (!homestay) return jsonResponse({ error: 'Homestay not found or not approved' }, 404, request);
 
-  // Validate room if provided
-  let selectedRoom = null;
-  const rooms = homestay.rooms || [];
-  if (roomId) {
-    selectedRoom = rooms.find(r => String(r.id) === roomId);
-    if (!selectedRoom) return jsonResponse({ error: 'Selected room not found' }, 400, request);
-  }
-  const ownerPrice = selectedRoom ? parseFloat(selectedRoom.price) : homestay.ownerPrice;
-  if (!Number.isFinite(ownerPrice) || ownerPrice <= 0) {
-    return jsonResponse({ error: 'Invalid price configuration' }, 500, request);
-  }
+    // Validate room if provided
+    let selectedRoom = null;
+    const rooms = homestay.rooms || [];
+    if (roomId) {
+      selectedRoom = rooms.find(r => String(r.id) === roomId);
+      if (!selectedRoom) return jsonResponse({ error: 'Selected room not found' }, 400, request);
+    }
+    const ownerPrice = selectedRoom ? parseFloat(selectedRoom.price) : homestay.ownerPrice;
+    if (!Number.isFinite(ownerPrice) || ownerPrice <= 0) {
+      return jsonResponse({ error: 'Invalid price configuration' }, 500, request);
+    }
 
-        const ci = String(incoming.checkin || ''), co = String(incoming.checkout || '');
-        const d1 = new Date(ci+'T00:00:00'), d2 = new Date(co+'T00:00:00');
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(ci) || !/^\d{4}-\d{2}-\d{2}$/.test(co) || isNaN(d1) || isNaN(d2) || d1 >= d2) {
-          return jsonResponse({ error: 'Invalid dates' }, 400, request);
-        }
-        const nights = Math.round((d2-d1)/86400000);
-        if (nights < 1) return jsonResponse({ error: 'Booking must be at least 1 night' }, 400, request);
-        if (nights > MAX_NIGHTS) return jsonResponse({ error: `Maximum booking is ${MAX_NIGHTS} nights` }, 400, request);
-        const today = new Date(); today.setHours(0,0,0,0);
-        if (d1 < today) return jsonResponse({ error: 'Cannot book past dates' }, 400, request);
+    // ----- NOW PROCEED WITH THE ORIGINAL LOGIC (using validated data) -----
+    // We'll reuse the variables defined above: checkin, checkout, nights, d1, d2, homestay, selectedRoom, ownerPrice
+    // The original code had a retry loop – we'll keep that but use our validated variables.
 
+    let attempts = 0;
+    const maxAttempts = 3;
+    let saved = false;
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        const bookings = await getData('kd_bookings');
+        const guests = await getData('kd_guests');
+        const guest = guests.find(g => String(g.id) === String(auth.session.userId));
+        if (!guest) return jsonResponse({ error: 'Guest not found' }, 404, request);
+
+        // Check existing pending booking for same guest/homestay/dates
         const existingPending = bookings.find(b =>
           String(b.guestId) === String(guest.id) &&
           String(b.homestayId) === String(homestay.id) &&
-          b.checkin === ci &&
-          b.checkout === co &&
+          b.checkin === checkin &&
+          b.checkout === checkout &&
           b.status === 'Pending Payment'
         );
         if (existingPending) {
@@ -217,14 +223,16 @@ export async function onRequestPost({ request, env }) {
           }, 200, request);
         }
 
+        // Check homestay blocked dates
         const homestayBlocked = new Set((homestay.blockedDates || []).map(String));
-        const requestedDates = getDatesInRange(ci, co);
+        const requestedDates = getDatesInRange(checkin, checkout);
         for (const ds of requestedDates) {
           if (homestayBlocked.has(ds)) {
             return jsonResponse({ error: `Selected dates are unavailable (${ds}) due to homestay block` }, 409, request);
           }
         }
 
+        // Check room blocked dates
         if (selectedRoom) {
           const roomBlocked = new Set((selectedRoom.blockedDates || []).map(String));
           for (const ds of requestedDates) {
@@ -234,6 +242,7 @@ export async function onRequestPost({ request, env }) {
           }
         }
 
+        // Check overlaps with existing bookings (excluding own pending and expired)
         const overlaps = bookings.some(b => {
           const pendingExpired = String(b.status||'') === 'Pending Payment' && b.date && Date.now() - Date.parse(b.date) > 15*60*1000;
           const isOwnPending = String(b.guestId) === String(guest.id) && b.status === 'Pending Payment';
@@ -242,13 +251,14 @@ export async function onRequestPost({ request, env }) {
                  !pendingExpired &&
                  !/cancelled|failed|expired/i.test(String(b.status||'')) &&
                  !isOwnPending &&
-                 ci < String(b.checkout||'') &&
-                 co > String(b.checkin||'');
+                 checkin < String(b.checkout||'') &&
+                 checkout > String(b.checkin||'');
         });
         if (overlaps) {
           return jsonResponse({ error: 'Selected dates are already booked for this room' }, 409, request);
         }
 
+        // Calculate price
         const base = Math.round(ownerPrice * nights * 100) / 100;
         const fee = Math.round(base * 0.11 * 100) / 100;
         const gatewayFee = 1.00;
@@ -257,7 +267,6 @@ export async function onRequestPost({ request, env }) {
         if (!/^KDH-[A-Za-z0-9_-]{4,40}$/.test(bookingId) || bookings.some(b=>String(b.id)===bookingId)) {
           bookingId = `KDH-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
         }
-
         const checkinCode = String(Math.floor(100000 + Math.random() * 900000));
 
         const booking = {
@@ -269,13 +278,13 @@ export async function onRequestPost({ request, env }) {
           guestName: guest.name,
           guestEmail: guest.email,
           guestPhone: guest.phone || '',
-          checkin: ci,
-          checkout: co,
-          nights,
-          base,
-          fee,
-          gatewayFee,
-          total,
+          checkin: checkin,
+          checkout: checkout,
+          nights: nights,
+          base: base,
+          fee: fee,
+          gatewayFee: gatewayFee,
+          total: total,
           status: 'Pending Payment',
           date: new Date().toISOString(),
           checkinCode: checkinCode,
@@ -291,9 +300,15 @@ export async function onRequestPost({ request, env }) {
 
         saved = true;
 
-        // ✅ EMAIL AND WHATSAPP NOTIFICATIONS REMOVED – will be sent after payment confirmation
-
-        await logAction({db,action:'booking_created',admin:'guest',details:`Booking ${booking.id} created; payment pending`,ip:getClientIP(request),userId:guest.id,homestayId:homestay.id});
+        await logAction({
+          db,
+          action: 'booking_created',
+          admin: 'guest',
+          details: `Booking ${booking.id} created; payment pending`,
+          ip: clientIP,
+          userId: guest.id,
+          homestayId: homestay.id
+        });
 
         break;
 
@@ -320,7 +335,6 @@ export async function onRequestPost({ request, env }) {
     const auth = await requireGuest(request, env, body);
     if (auth.error) return auth.error;
 
-    // ✅ Allow guests to set these statuses:
     const allowedStatuses = ['Cancelled by Guest', 'Payment Failed', 'Paid - Awaiting Check-in'];
     if (!allowedStatuses.includes(body.status)) {
       return jsonResponse({ error: 'Guests may only cancel, mark as failed, or confirm payment.' }, 403, request);
@@ -336,7 +350,6 @@ export async function onRequestPost({ request, env }) {
       const b=bookings[idx];
       if(String(b.guestId)!==String(auth.session.userId))return jsonResponse({error:'Unauthorized'},403,request);
       
-      // If booking is already paid/completed, don't allow changes except maybe to failed? We'll allow anyway.
       bookings[idx]={...b,status:body.status,statusUpdated:new Date().toISOString()};
       
       await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
