@@ -57,6 +57,8 @@
       padding: 24px;
     }
     .card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    /* All parent containers must be visible for dropdowns */
+    .card, .space-y-8, .space-y-4, .space-y-2, section { overflow: visible !important; }
     .btn-primary {
       background: var(--primary);
       color: white;
@@ -137,6 +139,7 @@
       transform: translateY(-1px);
     }
     .form-input::placeholder { color: #94a3b8; }
+    /* ===== DROPDOWN FIX – Native appearance, no custom listeners ===== */
     .form-select {
       width: 100%;
       border: 2px solid #e2e8f0;
@@ -145,22 +148,16 @@
       font-size: 14px;
       font-family: "Poppins", sans-serif;
       background: white;
-      appearance: auto;
-      -webkit-appearance: auto;
+      -webkit-appearance: menulist-button;
+      appearance: menulist-button;
       transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      pointer-events: auto !important;
-      touch-action: manipulation !important;
-      position: relative;
-      z-index: 60;
-      overflow: visible !important;
+      pointer-events: auto;
     }
     .form-select:focus {
       outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 4px var(--accent-glow);
     }
-    /* Ensure no parent clips dropdown */
-    .card, .space-y-8, .space-y-4, .space-y-2 { overflow: visible !important; }
     .guest-avatar {
       width: 32px;
       height: 32px;
@@ -913,7 +910,7 @@ function safeHTML(html) {
 }
 
 // =============================================================
-// SYSTEM MODALS (with event listeners instead of inline onclick)
+// SYSTEM MODALS
 // =============================================================
 function showModal(title, message, buttons) {
   return new Promise((resolve) => {
@@ -1674,33 +1671,7 @@ function attachStaticListeners() {
     blockedList.addEventListener('click', blockedDateClickHandler);
   }
 
-  // ===== ROBUST MOBILE DROPDOWN FIX =====
-  document.querySelectorAll('select.form-select').forEach(function(sel) {
-    // Remove any previous listeners
-    sel.removeEventListener('touchstart', mobileSelectHandler);
-    sel.removeEventListener('click', mobileSelectHandler);
-    // Add both touchstart (for iOS) and click (for Android/others)
-    sel.addEventListener('touchstart', mobileSelectHandler, { passive: false });
-    sel.addEventListener('click', mobileSelectHandler);
-  });
-}
-
-function mobileSelectHandler(e) {
-  // Prevent default only for touchstart to avoid scrolling interference
-  if (e.type === 'touchstart') {
-    e.preventDefault();
-  }
-  e.stopPropagation();
-  // Force focus
-  this.focus();
-  // For iOS, a delayed click opens the picker reliably
-  if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
-    setTimeout(() => {
-      this.click();
-    }, 10);
-  } else {
-    this.click();
-  }
+  // ===== NO CUSTOM SELECT LISTENERS – rely on native browser behavior =====
 }
 
 function blockedDateClickHandler(e) {
