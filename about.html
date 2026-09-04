@@ -600,6 +600,26 @@
       background: var(--accent);
     }
 
+    /* ===== QUOTE STYLES ===== */
+    .quote-block {
+      background: rgba(63, 208, 212, 0.06);
+      border-left: 4px solid var(--accent);
+      padding: 1.5rem 2rem;
+      border-radius: 0 16px 16px 0;
+      max-width: 800px;
+      margin: 0 auto;
+      font-size: 1.1rem;
+      line-height: 1.7;
+      color: #1e293b;
+    }
+    .quote-block .quote-author {
+      display: block;
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
     /* ===== RESPONSIVE ===== */
     @media (max-width: 768px) {
       #desktopNav { display: none !important; }
@@ -607,6 +627,7 @@
       .stat-card { padding: 20px 16px; }
       .trust-item { padding: 16px; }
       .step-number { width: 44px; height: 44px; font-size: 18px; }
+      .quote-block { padding: 1rem 1.25rem; font-size: 1rem; }
     }
   </style>
 </head>
@@ -630,7 +651,7 @@
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
-      <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+      <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
       <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
         KUNDASANG<span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay</span>
         <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Verified • Homestays</div>
@@ -699,6 +720,18 @@
     <div class="font-satisfy text-[#3FD0D4] text-[30px] md:text-[40px] leading-none mb-2 drop-shadow">Our Story</div>
     <h1 class="font-poppins font-700 text-white text-[36px] md:text-[56px] leading-[1.0] tracking-[-1px] drop-shadow-md">About Kundasang Homestay</h1>
     <p class="mt-4 font-poppins font-500 text-white/90 text-[14px] md:text-[18px] max-w-[580px] leading-[1.6] drop-shadow px-2">A platform built by local, for local hosts — making mountain travel safer, simpler, and more authentic.</p>
+  </div>
+</section>
+
+<!-- ===== NEW QUOTE SECTION ===== -->
+<section class="max-w-4xl mx-auto px-4 py-8 md:py-12">
+  <div class="quote-block animate-on-scroll">
+    <span class="text-3xl text-[#3FD0D4] leading-none">“</span>
+    <p class="inline">
+      Your platform isn't just 'another booking site' – it's a purpose‑built, community‑first, security‑focused ecosystem that addresses the specific pain points of both travelers and hosts in Kundasang.
+    </p>
+    <span class="text-3xl text-[#3FD0D4] leading-none align-top">”</span>
+    <span class="quote-author">— A grateful traveler</span>
   </div>
 </section>
 
@@ -889,7 +922,7 @@
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div>
       <div class="flex items-center gap-3">
-        <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+        <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
         <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div>
       </div>
       <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
@@ -1065,7 +1098,7 @@ document.addEventListener('click', function(e) {
   renderGuestNav();
 })();
 
-  function safeHTML(html) {
+function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
@@ -1081,9 +1114,8 @@ document.addEventListener('click', function(e) {
       'checked','disabled','readonly','required','multiple',
       'min','max','step','pattern','autocomplete','inputmode',
       'viewBox','fill','stroke','stroke-width','d'
-      // NO event handlers (onclick, onchange, oninput, onload, onerror, etc.)
     ],
-    ADD_ATTR: ['target'] // if needed
+    ADD_ATTR: ['target']
   });
 }
 </script>
