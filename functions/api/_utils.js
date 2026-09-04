@@ -440,3 +440,46 @@ export async function incrementOwnerSessionVersion(db, ownerId) {
   }
   return changed;
 }
+
+// =============================================================
+// NEW VALIDATION HELPERS (added)
+// =============================================================
+
+export function sanitizeString(str, maxLen = 200) {
+  if (!str) return '';
+  return String(str).replace(/[<>]/g, '').trim().slice(0, maxLen);
+}
+
+export function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).toLowerCase().trim());
+}
+
+export function isValidPhone(phone) {
+  const digits = String(phone).replace(/\D/g, '');
+  return digits.length >= 9 && digits.length <= 15;
+}
+
+export function isValidPrice(price) {
+  const num = Number(price);
+  return Number.isFinite(num) && num > 0 && num < 100000;
+}
+
+export function sanitizeDescription(desc) {
+  if (!desc) return '';
+  return String(desc)
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<img[^>]*onerror\s*=[^>]*>/gi, '')
+    .replace(/<[^>]*on\w+\s*=\s*["'][^"']*["'][^>]*>/gi, '')
+    .trim()
+    .slice(0, 2000);
+}
+
+export function validateBankCode(code) {
+  if (!code) return '';
+  return String(code).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20);
+}
+
+export function sanitizeArray(arr, maxItems = 20) {
+  if (!Array.isArray(arr)) return [];
+  return arr.slice(0, maxItems);
+}
