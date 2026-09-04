@@ -137,23 +137,26 @@
       transform: translateY(-1px);
     }
     .form-input::placeholder { color: #94a3b8; }
-    .form-select {
-      width: 100%;
-      border: 2px solid #e2e8f0;
-      border-radius: 999px;
-      padding: 14px 20px;
-      font-size: 14px;
-      font-family: "Poppins", sans-serif;
-      background: white;
-      appearance: auto; /* ✅ Ensure dropdown works */
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      pointer-events: auto; /* ✅ Ensure clickable */
-    }
+  .form-select {
+    width: 100%;
+    border: 2px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 14px 20px;
+    font-size: 14px;
+    font-family: "Poppins", sans-serif;
+    background: white;
+    appearance: auto;
+    -webkit-appearance: auto;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    pointer-events: auto !important;
+    touch-action: manipulation;
+    z-index: 10;
+  }
     .form-select:focus {
       outline: none;
       border-color: var(--accent);
-      box-shadow: 0 0 0 4px var(--accent-glow);
-    }
+    box-shadow: 0 0 0 4px var(--accent-glow);
+  }
     .guest-avatar {
       width: 32px;
       height: 32px;
