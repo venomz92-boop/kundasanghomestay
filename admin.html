@@ -448,7 +448,7 @@ body {
 <script src="animations.js"></script>
 <script>
 // =============================================================
-// DOMPurify Helper – prevents XSS via innerHTML
+// DOMPurify Helper – Hardened: No inline event handlers
 // =============================================================
 function safeHTML(html) {
   if (!html) return '';
@@ -919,6 +919,8 @@ function showAdminTab(tab){
   populateBookingFilter();
   renderBookingsTable(currentBookingFilter, 1);
   }
+  // Re-attach event listeners after rendering any tab with dynamic content
+  attachAdminEventListeners();
 }
 
 function renderAdmin(){
@@ -960,9 +962,9 @@ function renderAdmin(){
           </div>
           <div class="flex flex-wrap gap-2 mt-3">${nameMatchBadge} ${icUploaded} ${qrUploaded}</div>
           <div class="flex flex-wrap gap-2 mt-3">
-            <button onclick="viewPendingDetails(${h.id})" class="px-3 py-1.5 bg-blue-600 text-white rounded-full text-xs font-bold">🔍 View Full Details</button>
-            <button onclick="approveHomestay(${h.id})" class="px-4 py-1.5 bg-green-600 text-white rounded-full text-xs font-bold">✅ Approve</button>
-            <button onclick="rejectHomestay(${h.id})" class="px-4 py-1.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">✕ Reject</button>
+            <button class="admin-action-btn" data-action="viewPendingDetails" data-id="${h.id}">🔍 View Full Details</button>
+            <button class="admin-action-btn" data-action="approveHomestay" data-id="${h.id}">✅ Approve</button>
+            <button class="admin-action-btn" data-action="rejectHomestay" data-id="${h.id}">✕ Reject</button>
           </div>
         </div>
       `;
@@ -988,9 +990,9 @@ function renderAdmin(){
             </div>
           </div>
           <div class="flex gap-2 flex-wrap">
-            <button onclick="openOwnerAvailabilityManager(${h.id})" class="text-xs border rounded-full px-3 py-1">📅 Manage</button>
-            <button onclick="editApprovedHomestay(${h.id})" class="text-xs border rounded-full px-3 py-1 bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100">✏️ Edit</button>
-            <button onclick="removeApprovedHomestay(${h.id})" class="text-xs border rounded-full px-3 py-1 bg-red-50 text-red-600 border-red-200 hover:bg-red-100">🗑️ Remove</button>
+            <button class="admin-action-btn" data-action="openOwnerAvailabilityManager" data-id="${h.id}">📅 Manage</button>
+            <button class="admin-action-btn" data-action="editApprovedHomestay" data-id="${h.id}">✏️ Edit</button>
+            <button class="admin-action-btn" data-action="removeApprovedHomestay" data-id="${h.id}">🗑️ Remove</button>
           </div>
         </div>
       `;
@@ -999,6 +1001,39 @@ function renderAdmin(){
   }
   approvedDiv.innerHTML = safeHTML(approvedHtml);
   fetchEarnings();
+  attachAdminEventListeners();
+}
+
+// =============================================================
+// ADMIN EVENT DELEGATION
+// =============================================================
+function attachAdminEventListeners() {
+  // Remove old listeners to avoid duplicates
+  document.removeEventListener('click', adminActionHandler);
+  document.addEventListener('click', adminActionHandler);
+}
+
+function adminActionHandler(e) {
+  const btn = e.target.closest('.admin-action-btn');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const id = btn.dataset.id;
+  if (!action) return;
+  e.preventDefault();
+
+  // Map actions to functions
+  const actionMap = {
+    viewPendingDetails: (id) => viewPendingDetails(Number(id)),
+    approveHomestay: (id) => approveHomestay(Number(id)),
+    rejectHomestay: (id) => rejectHomestay(Number(id)),
+    openOwnerAvailabilityManager: (id) => openOwnerAvailabilityManager(Number(id)),
+    editApprovedHomestay: (id) => editApprovedHomestay(Number(id)),
+    removeApprovedHomestay: (id) => removeApprovedHomestay(Number(id)),
+    // For bookings table, we handle separately
+  };
+  if (actionMap[action]) {
+    actionMap[action](id);
+  }
 }
 
 // =============================================================
@@ -1244,7 +1279,7 @@ function closePendingDetail() {
 }
 
 // =============================================================
-// RENDER BOOKINGS TABLE
+// BOOKINGS TABLE – WITH EVENT DELEGATION
 // =============================================================
 function renderBookingsTable(filterHomestayId, page = bookingsPage) {
   const div = document.getElementById("bookingsTable");
@@ -1296,16 +1331,19 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
     let badgeText = isCancelled ? '❌ Cancelled' : isAwaiting ? '🟡 Awaiting Check-in' : isCompleted ? '✅ Completed' : '💳 Paid';
     let btns = "";
     if (isAwaiting) {
-      btns += '<button onclick="confirmCheckIn(\'' + b.id + '\')" class="px-3 py-1.5 bg-[#0F382E] text-white rounded-full text-[11px] uppercase font-700">✓ CHECK IN</button>';
+      btns += `<button class="booking-action-btn px-3 py-1.5 bg-[#0F382E] text-white rounded-full text-[11px] uppercase font-700" data-action="confirmCheckIn" data-id="${b.id}">✓ CHECK IN</button>`;
     }
     if (!isCompleted && !isCancelled) {
-      btns += '<button onclick="updateBookingStatus(\'' + b.id + '\',\'Completed\')" class="px-3 py-1.5 bg-green-600 text-white rounded-full text-[11px] uppercase font-600">COMPLETE</button>';
+      btns += `<button class="booking-action-btn px-3 py-1.5 bg-green-600 text-white rounded-full text-[11px] uppercase font-600" data-action="updateBookingStatus" data-id="${b.id}" data-status="Completed">COMPLETE</button>`;
     }
-    html += '<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">' + b.id + '</div><div class="text-[12px] mt-1">' + homestayName + ' • ' + nights + ' nights • ' + checkin + ' → ' + checkout + ' • RM' + total + '</div><div class="text-[12px]">Guest: ' + (b.guestName || '') + ' ' + (b.guestEmail || '') + ' ' + (b.guestPhone || '') + '</div><div class="text-[10px] text-zinc-500 mt-1">Base RM' + base + ' + Fee RM' + fee + ' = You receive RM' + youReceive + ' ' + (b.payoutAmount ? '• Owner Paid RM' + b.payoutAmount + (b.payoutDate ? ' on ' + toMYDate(b.payoutDate) : '') : '') + '</div></div><div><span class="text-[11px] px-2 py-1 rounded-full ' + badgeClass + '">' + badgeText + '</span></div></div><div class="flex gap-2 mt-3 flex-wrap">' + btns + '<button onclick="whatsappGuest(\'' + b.id + '\')" class="px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600">WHATSAPP GUEST</button><button onclick="copyBookingId(\'' + b.id + '\')" class="px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600">COPY ID</button><button onclick="changeBookingDates(\'' + b.id + '\')" class="px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600">CHANGE DATES</button><button onclick="deleteBooking(\'' + b.id + '\')" class="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600">DELETE</button></div></div>';
+    html += `<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">${b.id}</div><div class="text-[12px] mt-1">${homestayName} • ${nights} nights • ${checkin} → ${checkout} • RM${total}</div><div class="text-[12px]">Guest: ${b.guestName || ''} ${b.guestEmail || ''} ${b.guestPhone || ''}</div><div class="text-[10px] text-zinc-500 mt-1">Base RM${base} + Fee RM${fee} = You receive RM${youReceive} ${b.payoutAmount ? '• Owner Paid RM' + b.payoutAmount + (b.payoutDate ? ' on ' + toMYDate(b.payoutDate) : '') : ''}</div></div><div><span class="text-[11px] px-2 py-1 rounded-full ${badgeClass}">${badgeText}</span></div></div><div class="flex gap-2 mt-3 flex-wrap">${btns}<button class="booking-action-btn px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600" data-action="whatsappGuest" data-id="${b.id}">WHATSAPP GUEST</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="copyBookingId" data-id="${b.id}">COPY ID</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="changeBookingDates" data-id="${b.id}">CHANGE DATES</button><button class="booking-action-btn px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600" data-action="deleteBooking" data-id="${b.id}">DELETE</button></div></div>`;
   });
 
   html += '</div>';
   div.innerHTML = safeHTML(html);
+  // Attach booking event listeners
+  div.removeEventListener('click', bookingActionHandler);
+  div.addEventListener('click', bookingActionHandler);
 }
 
 function goToBookingsPage(page) {
@@ -1319,6 +1357,40 @@ function goToBookingsPage(page) {
   if (page > totalPages) return;
   bookingsPage = page;
   renderBookingsTable(currentBookingFilter, page);
+}
+
+// ===== Booking action handler =====
+function bookingActionHandler(e) {
+  const btn = e.target.closest('.booking-action-btn');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const id = btn.dataset.id;
+  if (!action || !id) return;
+  e.preventDefault();
+
+  switch (action) {
+    case 'confirmCheckIn':
+      confirmCheckIn(id);
+      break;
+    case 'updateBookingStatus':
+      const status = btn.dataset.status || 'Completed';
+      updateBookingStatus(id, status);
+      break;
+    case 'whatsappGuest':
+      whatsappGuest(id);
+      break;
+    case 'copyBookingId':
+      copyBookingId(id);
+      break;
+    case 'changeBookingDates':
+      changeBookingDates(id);
+      break;
+    case 'deleteBooking':
+      deleteBooking(id);
+      break;
+    default:
+      console.warn('Unknown booking action:', action);
+  }
 }
 
 // =============================================================
@@ -1620,12 +1692,13 @@ function renderAvailabilityTab(){
           <span class="text-xs text-zinc-500">${blocked.length} blocked</span>
         </div>
         <div class="mt-1 flex flex-wrap gap-1 max-h-32 overflow-y-auto">${blockedStr}</div>
-        <button onclick="openOwnerAvailabilityManager(${h.id})" class="mt-2 text-xs border rounded-full px-3 py-1 bg-white hover:bg-zinc-50">📅 Manage</button>
+        <button class="admin-action-btn mt-2 text-xs border rounded-full px-3 py-1 bg-white hover:bg-zinc-50" data-action="openOwnerAvailabilityManager" data-id="${h.id}">📅 Manage</button>
       </div>
     `;
   });
   html += '</div>';
   div.innerHTML = safeHTML(html);
+  attachAdminEventListeners();
 }
 
 function renderGuestsTable(){
@@ -1647,11 +1720,12 @@ function renderGuestsTable(){
             <div class="font-bold">${g.name || ''} • ${g.email || ''}</div>
             <div class="text-[11px] text-zinc-500">${g.phone || ''}</div>
           </div>
-          <button onclick="deleteGuest('${guestId}')" class="text-xs px-3 py-1.5 rounded-full bg-red-600 text-white">Delete</button>
+          <button class="admin-action-btn text-xs px-3 py-1.5 rounded-full bg-red-600 text-white" data-action="deleteGuest" data-id="${guestId}">Delete</button>
         </div>
       `;
     });
     div.innerHTML = safeHTML(html);
+    attachAdminEventListeners();
   }
 }
 
