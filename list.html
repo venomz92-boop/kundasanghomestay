@@ -451,11 +451,11 @@
   <div class="modal-box">
     <div class="modal-header">
       <h3 id="modalTitle">Notice</h3>
-      <button onclick="closeModal()" class="modal-close">✕</button>
+      <button class="modal-close" id="modalCloseBtn">✕</button>
     </div>
     <div class="modal-body" id="modalBody">Message</div>
     <div class="modal-footer" id="modalFooter">
-      <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
+      <button class="btn btn-primary" id="modalConfirmBtn">OK</button>
     </div>
   </div>
 </div>
@@ -485,11 +485,11 @@
         <div class="flex items-center gap-2 bg-[#0F382E] text-white px-4 h-[38px] rounded-full">
           <div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div>
           <span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span>
-          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider hover:bg-white/30 transition-colors">Logout</button>
+          <button class="ml-2 text-[10px] bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider hover:bg-white/30 transition-colors" id="logoutGuestBtn">Logout</button>
         </div>
       </div>
     </nav>
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" aria-label="Toggle Navigation">
+    <button id="mobileMenuBtn" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
   </div>
@@ -498,14 +498,14 @@
 <!-- ===== MOBILE MENU ===== -->
 <div id="mobileNav" class="lg:hidden">
   <div class="p-4 space-y-1">
-    <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
-    <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-[#3FD0D4]">➕ List Your Homestay</a>
-    <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
-    <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+    <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+    <a href="/list.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-[#3FD0D4]">➕ List Your Homestay</a>
+    <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
+    <a href="/owner.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
     <div class="pt-3 space-y-3">
       <div id="mGuestNav">
-        <a href="/login.html" onclick="toggleMobileMenu()" class="guest-btn block text-center">Login</a>
-        <a href="/register.html" onclick="toggleMobileMenu()" class="guest-btn guest-btn-primary block text-center">Register</a>
+        <a href="/login.html" class="guest-btn block text-center">Login</a>
+        <a href="/register.html" class="guest-btn guest-btn-primary block text-center">Register</a>
       </div>
       <div id="mGuestProfileNav" class="hidden space-y-2">
         <div class="profile-card">
@@ -514,9 +514,9 @@
             <div id="mGuestNameNav" class="name">Guest</div>
             <div class="sub">Verified guest</div>
           </div>
-          <button onclick="logoutGuest()" class="logout-btn">Logout</button>
+          <button class="logout-btn" id="mLogoutGuestBtn">Logout</button>
         </div>
-        <a href="/mybookings.html" onclick="toggleMobileMenu()" class="my-bookings-btn">📅 My Bookings</a>
+        <a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
       </div>
     </div>
   </div>
@@ -627,7 +627,7 @@
 
         <div id="roomsContainer">
           <div id="roomsList" class="space-y-3"></div>
-          <button type="button" onclick="addRoom()" class="btn-accent mt-2">+ Add Room</button>
+          <button type="button" id="addRoomBtn" class="btn-accent mt-2">+ Add Room</button>
         </div>
       </section>
 
@@ -667,15 +667,15 @@
         <div class="mt-4">
           <label class="text-xs font-semibold text-[#212121]">DuitNow / Bank QR Code Template *</label>
           <p class="text-[11px] text-zinc-500 mb-2">Upload your bank QR code image so guests can scan directly on success modals.</p>
-          <div class="drop-zone" onclick="document.getElementById('listBankQR').click()">
+          <div class="drop-zone" id="bankQRDropZone">
             <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             <p class="text-xs text-zinc-600 mt-2">Click to select DuitNow / Bank QR image</p>
             <p class="text-[10px] text-zinc-400 mt-1">Accepts JPG, PNG up to 3MB</p>
           </div>
-          <input id="listBankQR" type="file" accept="image/*" class="hidden" onchange="handleBankQRUpload(this)" />
+          <input id="listBankQR" type="file" accept="image/*" class="hidden" />
           <div id="bankQRPreview" class="mt-4 hidden p-3 bg-zinc-50 border rounded-xl inline-flex flex-col items-center">
             <img id="bankQRImg" class="w-[140px] h-[140px] object-contain bg-white p-2 border border-zinc-200 rounded-xl" alt="Bank QR template preview" />
-            <button onclick="removeBankQR()" type="button" class="mt-2 text-xs text-red-600 font-semibold hover:underline">Remove Image</button>
+            <button id="removeBankQRBtn" type="button" class="mt-2 text-xs text-red-600 font-semibold hover:underline">Remove Image</button>
           </div>
         </div>
         <label class="flex gap-2.5 mt-4 text-xs select-none cursor-pointer">
@@ -690,12 +690,12 @@
           <svg class="w-5 h-5 text-[#0F382E]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
           <span class="font-bold text-[16px] text-[#212121]">Property Gallery</span>
         </div>
-        <div class="drop-zone" onclick="document.getElementById('listPhotos').click()">
+        <div class="drop-zone" id="photosDropZone">
           <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
           <p class="text-xs text-zinc-600 mt-2">Click to select 3-5 high-resolution photos of your property</p>
           <p class="text-[10px] text-zinc-400 mt-1">Primary photo will represent listing cover thumbnail</p>
         </div>
-        <input id="listPhotos" type="file" multiple accept="image/*" class="hidden" onchange="handlePhotos(this)" />
+        <input id="listPhotos" type="file" multiple accept="image/*" class="hidden" />
         <div id="photoPreview" class="grid grid-cols-3 md:grid-cols-6 gap-3 mt-4"></div>
       </section>
 
@@ -712,17 +712,17 @@
         </div>
         <div class="mt-4">
           <label class="text-xs font-semibold text-[#212121]">Upload IC (Selfie with IC) image *</label>
-          <div class="drop-zone" onclick="document.getElementById('listIcFront').click()">
+          <div class="drop-zone" id="icDropZone">
             <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
             <p class="text-xs text-zinc-600 mt-2">Click to select IC document photo</p>
             <p class="text-[10px] text-zinc-400 mt-1">Secure client-side watermarks are auto-applied</p>
           </div>
-          <input id="listIcFront" type="file" accept="image/*" class="hidden" onchange="handleIcFile(this)" />
+          <input id="listIcFront" type="file" accept="image/*" class="hidden" />
           <div id="icPreviewWrap" class="mt-4 hidden space-y-3">
             <div class="text-xs font-semibold text-zinc-700">Secured Document Preview:</div>
             <img id="icPreview" class="w-full max-w-[440px] border rounded-xl shadow bg-white" alt="Secure client-side watermark preview" />
             <div id="icWatermarkInfo" class="text-xs text-green-800 p-3 bg-green-50 border border-green-200 rounded-xl"></div>
-            <button onclick="removeIc()" type="button" class="px-4 py-1.5 border bg-white text-xs text-zinc-700 font-semibold rounded-full hover:bg-zinc-50">Cancel Identification Upload</button>
+            <button id="removeIcBtn" type="button" class="px-4 py-1.5 border bg-white text-xs text-zinc-700 font-semibold rounded-full hover:bg-zinc-50">Cancel Identification Upload</button>
           </div>
           <canvas id="icCanvas" class="hidden"></canvas>
         </div>
@@ -740,15 +740,15 @@
         </p>
         <div>
           <label class="text-xs font-semibold text-[#212121]">Upload License (JPG/PNG)</label>
-          <div class="drop-zone mt-1" onclick="document.getElementById('listPbtLicense').click()">
+          <div class="drop-zone mt-1" id="pbtDropZone">
             <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             <p class="text-xs text-zinc-600 mt-2">Tap to select or take a photo</p>
           </div>
-          <input id="listPbtLicense" type="file" accept="image/*" capture="environment" class="hidden" onchange="handlePbtLicense(this)" />
+          <input id="listPbtLicense" type="file" accept="image/*" capture="environment" class="hidden" />
           <div id="pbtPreviewWrap" class="mt-4 hidden space-y-3">
             <div class="text-xs font-semibold text-zinc-700">License Preview:</div>
             <img id="pbtPreview" class="w-full max-w-[440px] border rounded-xl shadow bg-white" alt="PBT License preview" />
-            <button onclick="removePbtLicense()" type="button" class="px-4 py-1.5 border bg-white text-xs text-zinc-700 font-semibold rounded-full hover:bg-zinc-50">Remove</button>
+            <button id="removePbtLicenseBtn" type="button" class="px-4 py-1.5 border bg-white text-xs text-zinc-700 font-semibold rounded-full hover:bg-zinc-50">Remove</button>
           </div>
         </div>
       </section>
@@ -776,8 +776,8 @@
         <div class="flex flex-col md:flex-row gap-3">
           <input id="listBlockedDateInput" type="date" class="form-input max-w-full md:max-w-xs" />
           <div class="flex gap-2">
-            <button onclick="addBlockedDate()" type="button" class="btn-primary">+ Block Date</button>
-            <button onclick="addBlockedRange()" type="button" class="btn-outline">Block Range</button>
+            <button id="addBlockedDateBtn" type="button" class="btn-primary">+ Block Date</button>
+            <button id="addBlockedRangeBtn" type="button" class="btn-outline">Block Range</button>
           </div>
         </div>
         <div id="blockedDatesList" class="mt-3 flex flex-wrap gap-2"></div>
@@ -819,7 +819,7 @@
 
       <!-- SUBMIT -->
       <div class="pt-6 space-y-4">
-        <button onclick="submitHomestay()" class="w-full btn-primary py-4 text-sm tracking-widest font-800" id="submitBtn">Submit Homestay Listing for Approval</button>
+        <button id="submitBtn" class="w-full btn-primary py-4 text-sm tracking-widest font-800">Submit Homestay Listing for Approval</button>
         <div id="submitStatus" class="hidden p-4 rounded-xl border text-sm"></div>
         <p class="text-center text-zinc-400 text-[11px] font-medium leading-relaxed">By compiling this form, you acknowledge our registration policies. IC and financial records are held strictly in compliance with Sabah cyber security frameworks.</p>
       </div>
@@ -879,7 +879,7 @@
 <script src="animations.js"></script>
 <script>
 // =============================================================
-// SECURE HELPER
+// SECURE HELPER – Hardened (no event handlers allowed)
 // =============================================================
 function safeHTML(html) {
   if (!html) return '';
@@ -889,8 +889,7 @@ function safeHTML(html) {
       'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
       'button','input','form','label','select','option','textarea',
       'section','article','header','footer','nav','main','aside',
-      'code','pre','blockquote','hr','small','sub','sup','svg','path',
-      'canvas', 'figure', 'figcaption', 'blockquote', 'cite'
+      'code','pre','blockquote','hr','small','sub','sup','svg','path','canvas'
     ],
     ALLOWED_ATTR: [
       'id','class','style','href','src','alt','title','rel','target',
@@ -906,7 +905,7 @@ function safeHTML(html) {
 }
 
 // =============================================================
-// SYSTEM MODALS
+// SYSTEM MODALS (with event listeners instead of inline onclick)
 // =============================================================
 function showModal(title, message, buttons) {
   return new Promise((resolve) => {
@@ -985,12 +984,6 @@ function showPrompt(title, message, defaultValue) {
     }, 200);
   });
 }
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeModal(); }
-});
-document.getElementById('customModal').addEventListener('click', function(e) {
-  if (e.target === this) { closeModal(); }
-});
 
 // =============================================================
 // SHA256 (PEPPER SECURITY CONSTRAINTS)
@@ -1094,7 +1087,6 @@ function compressImage(file, maxWidth = 800, quality = 0.7) {
   });
 }
 
-// ===== Compress to Blob (for upload) =====
 function compressImageToBlob(file, maxWidth, quality) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -1125,7 +1117,7 @@ let tempIcOriginalName = "";
 let tempBankQRWatermarked = "";
 let tempBankQROriginalName = "";
 
-// ===== ROOMS MANAGEMENT with Cloudinary upload =====
+// ===== ROOMS MANAGEMENT with event delegation =====
 let tempRooms = [];
 
 function addRoom(name = '', price = '', guests = '', desc = '', images = []) {
@@ -1158,7 +1150,7 @@ function renderRooms() {
         imagesHtml += `
           <div class="relative">
             <img src="${img}" class="w-12 h-12 object-cover rounded border border-zinc-200" />
-            <button type="button" onclick="removeRoomImage('${room.id}', ${imgIdx})" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-600">✕</button>
+            <button type="button" class="remove-room-image-btn w-4 h-4 bg-red-500 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-600" data-room-id="${room.id}" data-image-index="${imgIdx}">✕</button>
           </div>
         `;
       });
@@ -1166,71 +1158,103 @@ function renderRooms() {
     }
 
     html += `
-      <div class="flex flex-wrap items-start gap-3 p-3 bg-white rounded-xl border border-zinc-200">
+      <div class="flex flex-wrap items-start gap-3 p-3 bg-white rounded-xl border border-zinc-200" data-room-id="${room.id}">
         <div class="flex-1 min-w-[200px] space-y-2">
-          <input class="form-input text-sm" placeholder="Room name (e.g. Hibiscus)" value="${room.name}" onchange="updateRoomField('${room.id}', 'name', this.value)" />
+          <input class="form-input text-sm room-field" data-room-id="${room.id}" data-field="name" placeholder="Room name (e.g. Hibiscus)" value="${room.name}" />
           <div class="flex flex-wrap gap-2">
-            <input class="form-input flex-1 min-w-[120px] text-sm" placeholder="RM price" type="number" value="${room.price}" onchange="updateRoomField('${room.id}', 'price', this.value)" />
-            <input class="form-input flex-1 min-w-[100px] text-sm" placeholder="Guests" type="number" value="${room.guests}" onchange="updateRoomField('${room.id}', 'guests', this.value)" />
+            <input class="form-input flex-1 min-w-[120px] text-sm room-field" data-room-id="${room.id}" data-field="price" placeholder="RM price" type="number" value="${room.price}" />
+            <input class="form-input flex-1 min-w-[100px] text-sm room-field" data-room-id="${room.id}" data-field="guests" placeholder="Guests" type="number" value="${room.guests}" />
           </div>
-          <input class="form-input text-sm" placeholder="Room description" value="${room.desc}" onchange="updateRoomField('${room.id}', 'desc', this.value)" />
+          <input class="form-input text-sm room-field" data-room-id="${room.id}" data-field="desc" placeholder="Room description" value="${room.desc}" />
           
-          <!-- ==== Room Image Upload (Cloudinary) ==== -->
+          <!-- ==== Room Image Upload ==== -->
           <div class="flex items-center gap-2">
             <label class="text-xs font-semibold text-zinc-600 cursor-pointer bg-zinc-100 px-3 py-1.5 rounded-full hover:bg-zinc-200 transition">
               📷 Add Photos
-              <input type="file" accept="image/*" multiple class="hidden" onchange="handleRoomImages('${room.id}', this)" />
+              <input type="file" accept="image/*" multiple class="hidden room-image-upload" data-room-id="${room.id}" />
             </label>
             <span class="text-[10px] text-zinc-400">${room.images ? room.images.length : 0} images</span>
           </div>
           ${imagesHtml}
         </div>
-        <button type="button" onclick="removeRoom('${room.id}')" class="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 bg-red-50 rounded-full">✕</button>
+        <button type="button" class="remove-room-btn text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 bg-red-50 rounded-full" data-room-id="${room.id}">✕</button>
       </div>
     `;
   });
   list.innerHTML = safeHTML(html);
 }
 
-// Helper to update room field
-function updateRoomField(roomId, field, value) {
+// ===== EVENT DELEGATION FOR ROOMS =====
+function setupRoomEventDelegation() {
+  const container = document.getElementById('roomsList');
+  if (!container) return;
+
+  // Remove old listeners to avoid duplicates
+  container.removeEventListener('change', roomFieldChangeHandler);
+  container.removeEventListener('click', roomButtonClickHandler);
+  container.removeEventListener('change', roomImageUploadHandler);
+
+  container.addEventListener('change', roomFieldChangeHandler);
+  container.addEventListener('click', roomButtonClickHandler);
+  container.addEventListener('change', roomImageUploadHandler);
+}
+
+function roomFieldChangeHandler(e) {
+  const input = e.target.closest('.room-field');
+  if (!input) return;
+  const roomId = input.dataset.roomId;
+  const field = input.dataset.field;
+  const value = input.value;
   const room = tempRooms.find(r => r.id === roomId);
   if (room) {
     room[field] = value;
   }
 }
 
-// ===== HANDLE ROOM IMAGES – Upload to Cloudinary =====
-async function handleRoomImages(roomId, input) {
+function roomButtonClickHandler(e) {
+  const btn = e.target.closest('.remove-room-btn');
+  if (btn) {
+    const roomId = btn.dataset.roomId;
+    removeRoom(roomId);
+    return;
+  }
+  const imgBtn = e.target.closest('.remove-room-image-btn');
+  if (imgBtn) {
+    const roomId = imgBtn.dataset.roomId;
+    const imgIdx = parseInt(imgBtn.dataset.imageIndex, 10);
+    const room = tempRooms.find(r => r.id === roomId);
+    if (room && room.images && room.images.length > imgIdx) {
+      room.images.splice(imgIdx, 1);
+      renderRooms();
+    }
+    return;
+  }
+}
+
+async function roomImageUploadHandler(e) {
+  const input = e.target.closest('.room-image-upload');
+  if (!input) return;
+  const roomId = input.dataset.roomId;
   const files = input.files;
   if (!files.length) return;
 
-  const roomIndex = tempRooms.findIndex(r => r.id === roomId);
-  if (roomIndex === -1) {
-    console.error('❌ Room not found with id:', roomId);
+  const room = tempRooms.find(r => r.id === roomId);
+  if (!room) {
     await showAlert('Upload Failed', 'Room not found. Please try again.');
     return;
   }
 
   for (const file of files) {
     try {
-      // Compress to reduce upload size
       const compressedBlob = await compressImageToBlob(file, 800, 0.7);
       if (!compressedBlob) continue;
-
-      // Upload to Cloudinary via server endpoint
       const formData = new FormData();
       formData.append('image', compressedBlob, file.name);
-
-      const res = await fetch('/api/upload-image', {
-        method: 'POST',
-        body: formData
-      });
+      const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
       const data = await res.json();
-
       if (data.url) {
-        if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
-        tempRooms[roomIndex].images.push(data.url);
+        if (!room.images) room.images = [];
+        room.images.push(data.url);
         console.log('✅ Image added to room:', roomId, data.url);
       } else {
         console.error('Upload failed:', data);
@@ -1245,17 +1269,9 @@ async function handleRoomImages(roomId, input) {
   input.value = '';
 }
 
-function removeRoomImage(roomId, imageIndex) {
-  const roomIndex = tempRooms.findIndex(r => r.id === roomId);
-  if (roomIndex !== -1 && tempRooms[roomIndex].images) {
-    tempRooms[roomIndex].images.splice(imageIndex, 1);
-    renderRooms();
-  }
-}
-
-// Call renderRooms initially
-renderRooms();
-
+// =============================================================
+// BANK NAME CHANGE
+// =============================================================
 document.getElementById('listBankName').addEventListener('change', function() {
   const wrap = document.getElementById('manualBankCodeWrap');
   if (this.value === 'Other') wrap.classList.remove('hidden');
@@ -1287,12 +1303,11 @@ async function handlePhotos(input) {
 }
 
 // ===== IC with compression and watermark =====
-async function handleIcFile(input) {
-  const file = input.files[0];
+async function handleIcFile(file) {
   if (!file) return;
   if (file.size > 5 * 1024 * 1024) { 
     await showAlert("File Exceeded", "IC attachment too heavy (max 5MB limit)."); 
-    input.value=""; 
+    document.getElementById('listIcFront').value = '';
     return; 
   }
   tempIcOriginalName = file.name;
@@ -1362,12 +1377,11 @@ function removeIc() {
 }
 
 // ===== Bank QR with compression =====
-async function handleBankQRUpload(input) {
-  const file = input.files[0];
+async function handleBankQRUpload(file) {
   if (!file) return;
   if (file.size > 3 * 1024 * 1024) {
     await showAlert("File Exceeded", "QR attachment size exceeded (max 3MB).");
-    input.value="";
+    document.getElementById('listBankQR').value = '';
     return;
   }
   tempBankQROriginalName = file.name;
@@ -1430,7 +1444,7 @@ function renderBlockedDatesList() {
     listDiv.innerHTML = safeHTML("<span class='text-xs text-zinc-400'>No exclusions marked</span>");
   } else {
     listDiv.innerHTML = safeHTML(tempBlockedDates.map(d =>
-      `<span class="blocked-date-chip font-semibold text-xs">${d} <button onclick="removeBlockedDate('${d}')" class="ml-1 text-red-600 font-bold hover:text-red-900">✕</button></span>`
+      `<span class="blocked-date-chip font-semibold text-xs">${d} <button class="remove-blocked-date-btn ml-1 text-red-600 font-bold hover:text-red-900" data-date="${d}">✕</button></span>`
     ).join(""));
   }
   if (countDiv) countDiv.innerText = `${tempBlockedDates.length} Dates Blocked`;
@@ -1439,12 +1453,11 @@ function renderBlockedDatesList() {
 // ===== PBT License handling =====
 let tempPbtLicense = "";
 
-function handlePbtLicense(input) {
-  const file = input.files[0];
+function handlePbtLicense(file) {
   if (!file) return;
   if (file.size > 3 * 1024 * 1024) {
     showAlert("File Exceeded", "File size too large (max 3MB).");
-    input.value = "";
+    document.getElementById('listPbtLicense').value = '';
     return;
   }
   compressImage(file, 800, 0.7).then(dataUrl => {
@@ -1505,7 +1518,6 @@ async function submitHomestay() {
       return;
     }
 
-    // ===== NEW: Host Agreement validation =====
     const hostAgreement = document.getElementById('listHostAgreement').checked;
     if (!hostAgreement) {
       await showAlert('Agreement Required', 'You must agree to the Host Agreement before submitting your listing.');
@@ -1616,11 +1628,62 @@ document.addEventListener('click', function(e) {
 });
 
 // =============================================================
+// ATTACH STATIC EVENT LISTENERS
+// =============================================================
+function attachStaticListeners() {
+  // Add Room button
+  document.getElementById('addRoomBtn')?.addEventListener('click', addRoom);
+  // Block Date & Block Range
+  document.getElementById('addBlockedDateBtn')?.addEventListener('click', addBlockedDate);
+  document.getElementById('addBlockedRangeBtn')?.addEventListener('click', addBlockedRange);
+  // Submit button
+  document.getElementById('submitBtn')?.addEventListener('click', submitHomestay);
+  // File uploads
+  document.getElementById('listPhotos')?.addEventListener('change', function(e) { handlePhotos(this); });
+  document.getElementById('listIcFront')?.addEventListener('change', function(e) { handleIcFile(this.files[0]); });
+  document.getElementById('listBankQR')?.addEventListener('change', function(e) { handleBankQRUpload(this.files[0]); });
+  document.getElementById('listPbtLicense')?.addEventListener('change', function(e) { handlePbtLicense(this.files[0]); });
+  // Remove buttons for QR, IC, PBT
+  document.getElementById('removeBankQRBtn')?.addEventListener('click', removeBankQR);
+  document.getElementById('removeIcBtn')?.addEventListener('click', removeIc);
+  document.getElementById('removePbtLicenseBtn')?.addEventListener('click', removePbtLicense);
+  // Drop zone clicks to trigger file inputs
+  document.getElementById('photosDropZone')?.addEventListener('click', function() { document.getElementById('listPhotos').click(); });
+  document.getElementById('icDropZone')?.addEventListener('click', function() { document.getElementById('listIcFront').click(); });
+  document.getElementById('bankQRDropZone')?.addEventListener('click', function() { document.getElementById('listBankQR').click(); });
+  document.getElementById('pbtDropZone')?.addEventListener('click', function() { document.getElementById('listPbtLicense').click(); });
+  // Logout buttons
+  document.getElementById('logoutGuestBtn')?.addEventListener('click', logoutGuest);
+  document.getElementById('mLogoutGuestBtn')?.addEventListener('click', logoutGuest);
+  // Modal close buttons
+  document.getElementById('modalCloseBtn')?.addEventListener('click', closeModal);
+  document.getElementById('modalConfirmBtn')?.addEventListener('click', modalConfirm);
+  // Room event delegation
+  setupRoomEventDelegation();
+  // Blocked dates event delegation
+  const blockedList = document.getElementById('blockedDatesList');
+  if (blockedList) {
+    blockedList.removeEventListener('click', blockedDateClickHandler);
+    blockedList.addEventListener('click', blockedDateClickHandler);
+  }
+}
+
+function blockedDateClickHandler(e) {
+  const btn = e.target.closest('.remove-blocked-date-btn');
+  if (btn) {
+    const date = btn.dataset.date;
+    if (date) removeBlockedDate(date);
+  }
+}
+
+// =============================================================
 // INIT
 // =============================================================
 (async function init() {
   renderGuestNav();
   renderBlockedDatesList();
+  renderRooms();
+  attachStaticListeners();
 })();
 </script>
 </body>
