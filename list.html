@@ -137,26 +137,27 @@
       transform: translateY(-1px);
     }
     .form-input::placeholder { color: #94a3b8; }
-  .form-select {
-    width: 100%;
-    border: 2px solid #e2e8f0;
-    border-radius: 999px;
-    padding: 14px 20px;
-    font-size: 14px;
-    font-family: "Poppins", sans-serif;
-    background: white;
-    appearance: auto;
-    -webkit-appearance: auto;
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    pointer-events: auto !important;
-    touch-action: manipulation;
-    z-index: 10;
-  }
+    .form-select {
+      width: 100%;
+      border: 2px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 14px 20px;
+      font-size: 14px;
+      font-family: "Poppins", sans-serif;
+      background: white;
+      appearance: auto;
+      -webkit-appearance: auto;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      pointer-events: auto !important;
+      touch-action: manipulation;
+      z-index: 50;
+      position: relative;
+    }
     .form-select:focus {
       outline: none;
       border-color: var(--accent);
-    box-shadow: 0 0 0 4px var(--accent-glow);
-  }
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
     .guest-avatar {
       width: 32px;
       height: 32px;
@@ -1669,6 +1670,28 @@ function attachStaticListeners() {
     blockedList.removeEventListener('click', blockedDateClickHandler);
     blockedList.addEventListener('click', blockedDateClickHandler);
   }
+
+  // ===== FIX: Mobile dropdown opener =====
+  document.querySelectorAll('select.form-select').forEach(function(sel) {
+    // Remove any existing listeners to avoid duplicates
+    sel.removeEventListener('touchstart', mobileSelectHandler);
+    sel.removeEventListener('click', mobileSelectHandler);
+    // Add touchstart for iOS, and click for Android/desktop
+    sel.addEventListener('touchstart', mobileSelectHandler, { passive: false });
+    sel.addEventListener('click', mobileSelectHandler);
+  });
+}
+
+function mobileSelectHandler(e) {
+  // Prevent default to avoid any scrolling interference
+  e.preventDefault();
+  e.stopPropagation();
+  // Force focus and open the dropdown
+  this.focus();
+  // For some browsers, a second click is needed
+  setTimeout(() => {
+    this.click();
+  }, 10);
 }
 
 function blockedDateClickHandler(e) {
@@ -1687,15 +1710,6 @@ function blockedDateClickHandler(e) {
   renderBlockedDatesList();
   renderRooms();
   attachStaticListeners();
-   // Force mobile dropdowns to open on tap
-  document.querySelectorAll('select.form-select').forEach(sel => {
-    sel.addEventListener('touchstart', function(e) {
-      this.focus();
-      setTimeout(() => {
-        this.click();
-      }, 10);
-    }, { passive: false });
-  });
 })();
 </script>
 </body>
