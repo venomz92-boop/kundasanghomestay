@@ -1092,87 +1092,86 @@
 
     <!-- ─── ALPINE.JS APP ─── -->
     <script>
-        function landingPageApp() {
-            return {
-                activeFaq: null,
-                isMobileMenuOpen: false,
-                alpineReady: false,
-                scrolled: false,
+    function landingPageApp() {
+    return {
+        activeFaq: null,
+        isMobileMenuOpen: false,
+        alpineReady: false,
+        scrolled: false,
 
-                steps: [
-                    { id: 1, title: 'Daftar Homestay Anda', desc: 'Isi borang pendaftaran dengan butiran peribadi, maklumat homestay, bilik, harga, dan gambar. Sertakan salinan IC dan bukti bank.', accent: false },
-                    { id: 2, title: 'Pengesahan & Kelulusan', desc: 'Pihak admin akan menyemak dokumen anda (IC, lesen PBT, QR bank) dan meluluskan homestay dalam masa 24–48 jam.', accent: true },
-                    { id: 3, title: 'Terima Tempahan', desc: 'Homestay anda dipaparkan di laman utama. Tetamu boleh membuat tempahan dan membayar melalui FPX. Wang disimpan selamat oleh CHIP.', accent: false },
-                    { id: 4, title: 'Urus Tempahan di Dashboard', desc: 'Log masuk ke <strong>Dashboard Pengusaha</strong> untuk melihat semua tempahan, status bayaran, dan tarikh check‑in/check‑out.', accent: true },
-                    { id: 5, title: 'Sahkan Ketibaan Tetamu', desc: 'Tetamu akan memberikan <strong>kod 6 digit</strong> yang diterima melalui e‑mel. Masukkan kod tersebut di dashboard untuk mengesahkan check‑in.', accent: false },
-                    { id: 6, title: 'Bayaran Penuh ke Akaun Anda', desc: 'Selepas check‑in disahkan, platform akan <strong>mengarahkan CHIP</strong> untuk memindahkan <strong>jumlah penuh harga penginapan</strong> terus ke akaun bank anda. <span class="text-[#1E3F3A] font-semibold">Tiada potongan!</span>', accent: true }
-                ],
+        steps: [
+            { id: 1, title: 'Daftar Homestay Anda', desc: 'Isi borang pendaftaran dengan butiran peribadi, maklumat homestay, bilik, harga, dan gambar. Sertakan salinan IC dan bukti bank.', accent: false },
+            { id: 2, title: 'Pengesahan & Kelulusan', desc: 'Pihak admin akan menyemak dokumen anda (IC, lesen PBT, QR bank) dan meluluskan homestay dalam masa 24–48 jam.', accent: true },
+            { id: 3, title: 'Terima Tempahan', desc: 'Homestay anda dipaparkan di laman utama. Tetamu boleh membuat tempahan dan membayar melalui FPX. Wang disimpan selamat oleh CHIP.', accent: false },
+            { id: 4, title: 'Urus Tempahan di Dashboard', desc: 'Log masuk ke <strong>Dashboard Pengusaha</strong> untuk melihat semua tempahan, status bayaran, dan tarikh check‑in/check‑out.', accent: true },
+            { id: 5, title: 'Sahkan Ketibaan Tetamu', desc: 'Tetamu akan memberikan <strong>kod 6 digit</strong> yang diterima melalui e‑mel. Masukkan kod tersebut di dashboard untuk mengesahkan check‑in.', accent: false },
+            { id: 6, title: 'Bayaran Penuh ke Akaun Anda', desc: 'Selepas check‑in disahkan, platform akan <strong>mengarahkan CHIP</strong> untuk memindahkan <strong>jumlah penuh harga penginapan</strong> terus ke akaun bank anda. <span class="text-[#1E3F3A] font-semibold">Tiada potongan!</span>', accent: true }
+        ],
 
-                whyChoose: [
-                    { icon: '💰', title: 'Pendaftaran & Yuran Bulanan PERCUMA', desc: 'Tiada bayaran tersembunyi. Yuran Platform (11% + RM1.10) dikenakan <strong>kepada tetamu</strong>, bukan kepada anda.' },
-                    { icon: '🛡️', title: 'Pengesahan ID dan Anti‑Scam', desc: 'Setiap pengusaha disahkan melalui IC dan dokumen sokongan. Melindungi anda dan tetamu daripada penipuan.' },
-                    { icon: '🤝', title: 'Tetamu Berhubung Terus Dengan Anda', desc: 'Tiada orang tengah. Selepas tempahan, tetamu boleh WhatsApp anda terus.' },
-                    { icon: '⏱️', title: 'Bayaran Penuh & Automatik', desc: 'Anda menerima <strong>jumlah penuh harga penginapan</strong> tanpa sebarang potongan. Proses automatik selepas check‑in.' },
-                    { icon: '📱', title: 'Dashboard Pengusaha Yang Mudah', desc: 'Lihat semua tempahan, urus tarikh, dan sahkan ketibaan tetamu dengan beberapa klik sahaja.' },
-                    { icon: '🔒', title: 'Bayaran FPX – Selamat & Dipercayai', desc: 'Semua pembayaran dibuat melalui CHIP FPX, gateway online banking yang digunakan oleh bank‑bank utama Malaysia.' }
-                ],
+        whyChoose: [
+            { icon: '💰', title: 'Pendaftaran & Yuran Bulanan PERCUMA', desc: 'Tiada bayaran tersembunyi. Yuran Platform (11% + RM1.10) dikenakan <strong>kepada tetamu</strong>, bukan kepada anda.' },
+            { icon: '🛡️', title: 'Pengesahan ID dan Anti‑Scam', desc: 'Setiap pengusaha disahkan melalui IC dan dokumen sokongan. Melindungi anda dan tetamu daripada penipuan.' },
+            { icon: '🤝', title: 'Tetamu Berhubung Terus Dengan Anda', desc: 'Tiada orang tengah. Selepas tempahan, tetamu boleh WhatsApp anda terus.' },
+            { icon: '⏱️', title: 'Bayaran Penuh & Automatik', desc: 'Anda menerima <strong>jumlah penuh harga penginapan</strong> tanpa sebarang potongan. Proses automatik selepas check‑in.' },
+            { icon: '📱', title: 'Dashboard Pengusaha Yang Mudah', desc: 'Lihat semua tempahan, urus tarikh, dan sahkan ketibaan tetamu dengan beberapa klik sahaja.' },
+            { icon: '🔒', title: 'Bayaran FPX – Selamat & Dipercayai', desc: 'Semua pembayaran dibuat melalui CHIP FPX, gateway online banking yang digunakan oleh bank‑bank utama Malaysia.' }
+        ],
 
-                registrationSteps: [
-                    { id: 1, title: 'Isi Borang Pendaftaran', desc: 'Masukkan semua maklumat yang diperlukan: butiran peribadi, homestay, bilik, harga, gambar, bank, dan dokumen pengesahan.', accent: false },
-                    { id: 2, title: 'Serahkan & Tunggu Semakan', desc: 'Permohonan anda akan disemak oleh admin dalam masa 24–48 jam. Anda akan dimaklumkan melalui e‑mel atau WhatsApp.', accent: true },
-                    { id: 3, title: 'Homestay Diluluskan & Dipaparkan', desc: 'Setelah diluluskan, homestay anda akan kelihatan di laman utama dan tetamu boleh mula membuat tempahan.', accent: false }
-                ],
+        registrationSteps: [
+            { id: 1, title: 'Isi Borang Pendaftaran', desc: 'Masukkan semua maklumat yang diperlukan: butiran peribadi, homestay, bilik, harga, gambar, bank, dan dokumen pengesahan.', accent: false },
+            { id: 2, title: 'Serahkan & Tunggu Semakan', desc: 'Permohonan anda akan disemak oleh admin dalam masa 24–48 jam. Anda akan dimaklumkan melalui e‑mel atau WhatsApp.', accent: true },
+            { id: 3, title: 'Homestay Diluluskan & Dipaparkan', desc: 'Setelah diluluskan, homestay anda akan kelihatan di laman utama dan tetamu boleh mula membuat tempahan.', accent: false }
+        ],
 
-                stats: [
-                    { number: '0%', label: 'Komisen dari anda' },
-                    { number: '24-48', label: 'Jam kelulusan' },
-                    { number: '10K+', label: 'Perniagaan percaya CHIP' },
-                    { number: '100%', label: 'Bayaran penuh ke bank anda' }
-                ],
+        stats: [
+            { number: '0%', label: 'Komisen dari anda' },
+            { number: '24-48', label: 'Jam kelulusan' },
+            { number: '10K+', label: 'Perniagaan percaya CHIP' },
+            { number: '100%', label: 'Bayaran penuh ke bank anda' }
+        ],
 
-                testimonials: [
-                    { name: 'Azlan bin Bakar', role: 'Pengusaha Homestay, Kundasang', text: 'Saya suka platform ini kerana tiada potongan daripada harga penginapan saya. Tetamu bayar yuran, saya dapat full! Sangat membantu.' },
-                    { name: 'Siti Aishah', role: 'Tuan Rumah, Pekan Kundasang', text: 'Proses pendaftaran sangat mudah dan cepat. Dalam masa 2 hari homestay saya dah dipaparkan. Terima kasih Kundasang Homestay!' },
-                    { name: 'Mohd Ridzuan', role: 'Pengusaha Homestay, Mesilau', text: 'CHIP memang terbaik. Saya rasa selamat kerana wang tetamu disimpan dalam akaun amanah. Baru 3 bulan, dah 15 tempahan!' }
-                ],
+        testimonials: [
+            { name: 'Azlan bin Bakar', role: 'Pengusaha Homestay, Kundasang', text: 'Saya suka platform ini kerana tiada potongan daripada harga penginapan saya. Tetamu bayar yuran, saya dapat full! Sangat membantu.' },
+            { name: 'Siti Aishah', role: 'Tuan Rumah, Pekan Kundasang', text: 'Proses pendaftaran sangat mudah dan cepat. Dalam masa 2 hari homestay saya dah dipaparkan. Terima kasih Kundasang Homestay!' },
+            { name: 'Mohd Ridzuan', role: 'Pengusaha Homestay, Mesilau', text: 'CHIP memang terbaik. Saya rasa selamat kerana wang tetamu disimpan dalam akaun amanah. Baru 3 bulan, dah 15 tempahan!' }
+        ],
 
-                faqData: [
-                    { q: 'Berapa kos untuk mendaftar?', a: '<strong>PERCUMA</strong> – tiada bayaran pendaftaran, tiada yuran bulanan. Yuran Platform (11% + RM1.10) dikenakan <strong>kepada tetamu</strong>, bukan kepada anda.' },
-                    { q: 'Siapa yang pegang wang booking?', a: '<strong>CHIP</strong> (gateway pembayaran) yang memegang wang tersebut. Platform <span class="underline">tidak memegang</span> wang anda. Kami hanya mengarahkan CHIP untuk melepaskan bayaran penuh kepada anda selepas check‑in disahkan.' },
-                    { q: 'Berapa yang saya akan terima?', a: 'Anda akan menerima <strong>jumlah penuh harga penginapan</strong> yang anda tetapkan (contoh: RM 500). Platform tidak memotong sebarang yuran daripada bayaran anda.' },
-                    { q: 'Apakah dokumen yang diperlukan?', a: 'Anda perlu menyediakan gambar IC (dengan watermark automatik), gambar QR DuitNow / Bank, dan (pilihan) lesen PBT. Nama pemilik bank mesti sepadan dengan IC.' },
-                    { q: 'Berapa lama proses kelulusan?', a: 'Biasanya dalam masa <strong>24–48 jam</strong>. Admin akan menyemak dokumen anda dan menghubungi anda jika ada kekurangan.' },
-                    { q: 'Bolehkah saya mengubah tarikh tempahan atau membatalkannya?', a: 'Ya. Di dashboard pengusaha, anda boleh menukar tarikh check‑in/check‑out atau membatalkan tempahan (dengan persetujuan tetamu). Sistem akan mengemas kini ketersediaan secara automatik.' }
-                ],
+        faqData: [
+            { q: 'Berapa kos untuk mendaftar?', a: '<strong>PERCUMA</strong> – tiada bayaran pendaftaran, tiada yuran bulanan. Yuran Platform (11% + RM1.10) dikenakan <strong>kepada tetamu</strong>, bukan kepada anda.' },
+            { q: 'Siapa yang pegang wang booking?', a: '<strong>CHIP</strong> (gateway pembayaran) yang memegang wang tersebut. Platform <span class="underline">tidak memegang</span> wang anda. Kami hanya mengarahkan CHIP untuk melepaskan bayaran penuh kepada anda selepas check‑in disahkan.' },
+            { q: 'Berapa yang saya akan terima?', a: 'Anda akan menerima <strong>jumlah penuh harga penginapan</strong> yang anda tetapkan (contoh: RM 500). Platform tidak memotong sebarang yuran daripada bayaran anda.' },
+            { q: 'Apakah dokumen yang diperlukan?', a: 'Anda perlu menyediakan gambar IC (dengan watermark automatik), gambar QR DuitNow / Bank, dan (pilihan) lesen PBT. Nama pemilik bank mesti sepadan dengan IC.' },
+            { q: 'Berapa lama proses kelulusan?', a: 'Biasanya dalam masa <strong>24–48 jam</strong>. Admin akan menyemak dokumen anda dan menghubungi anda jika ada kekurangan.' },
+            { q: 'Bolehkah saya mengubah tarikh tempahan atau membatalkannya?', a: 'Ya. Di dashboard pengusaha, anda boleh menukar tarikh check‑in/check‑out atau membatalkan tempahan (dengan persetujuan tetamu). Sistem akan mengemas kini ketersediaan secara automatik.' }
+        ],
 
-                toggleFaq(index) {
-                    this.activeFaq = this.activeFaq === index ? null : index;
-                },
+        toggleFaq(index) {
+            this.activeFaq = this.activeFaq === index ? null : index;
+        },
 
-                init() {
-                    if (history.scrollRestoration) {
-                        history.scrollRestoration = 'manual';
-                    }
-                    requestAnimationFrame(() => {
-                        window.scrollTo(0, 0);
-                    });
-                    setTimeout(() => {
-                        window.scrollTo(0, 0);
-                    }, 100);
-
-                    this.alpineReady = true;
-                    console.log('✅ Kundasang Homestay loaded!');
-
-                    if (window.location.hash === '#faq') {
-                        setTimeout(() => { this.activeFaq = 0; }, 500);
-                    }
-
-                    window.addEventListener('scroll', () => {
-                        this.scrolled = window.scrollY > 20;
-                    }, { passive: true });
-                }
+        init() {
+            if (history.scrollRestoration) {
+                history.scrollRestoration = 'manual';
             }
+            requestAnimationFrame(() => {
+                window.scrollTo(0, 0);
+            });
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+            }, 100);
+
+            this.alpineReady = true;
+
+            if (window.location.hash === '#faq') {
+                setTimeout(() => { this.activeFaq = 0; }, 500);
+            }
+
+            window.addEventListener('scroll', () => {
+                this.scrolled = window.scrollY > 20;
+            }, { passive: true });
         }
+    }
+}
     </script>
 
 </body>
