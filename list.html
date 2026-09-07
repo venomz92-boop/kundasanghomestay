@@ -899,7 +899,7 @@ function safeHTML(html) {
       'viewBox','fill','stroke','stroke-width','d','aria-*','data-*'
     ],
     ADD_ATTR: ['target'],
-    ALLOW_DATA_ATTR: true,   // Enables data-* attributes for event delegation
+    ALLOW_DATA_ATTR: true,
     FORCE_HTTPS: true
   });
 }
@@ -1213,7 +1213,6 @@ async function handleRoomImages(roomId, input) {
 
   const roomIndex = tempRooms.findIndex(r => r.id === roomId);
   if (roomIndex === -1) {
-    console.error('❌ Room not found with id:', roomId);
     await showAlert('Upload Failed', 'Room not found. Please try again.');
     return;
   }
@@ -1237,13 +1236,10 @@ async function handleRoomImages(roomId, input) {
       if (data.url) {
         if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
         tempRooms[roomIndex].images.push(data.url);
-        console.log('✅ Image added to room:', roomId, data.url);
       } else {
-        console.error('Upload failed:', data);
         await showAlert('Upload Failed', data.error || 'Could not upload image.');
       }
     } catch (e) {
-      console.error('Upload error:', e);
       await showAlert('Upload Failed', 'Could not upload room image. Please try again.');
     }
   }
@@ -1287,7 +1283,7 @@ async function handlePhotos(input) {
         if (preview) preview.appendChild(img);
       }
     } catch (e) {
-      console.error('Image compression error:', e);
+      // ignore
     }
   }
 }
@@ -1355,7 +1351,6 @@ async function handleIcFile(input) {
     };
     img.src = compressedDataUrl;
   } catch (e) {
-    console.error('IC processing error:', e);
     await showAlert("Error", "Failed to process IC image.");
   }
 }
@@ -1385,7 +1380,7 @@ async function handleBankQRUpload(input) {
       document.getElementById("bankQRPreview").classList.remove("hidden");
     }
   } catch (e) {
-    console.error('Bank QR compression error:', e);
+    // ignore
   }
 }
 function removeBankQR() {
