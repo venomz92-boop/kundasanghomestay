@@ -6,14 +6,15 @@ function getChipBankCode(bankName) {
   const map = {
     'MAYBANK': 'MBBEMYKL',
     'CIMB': 'CIBBMYKL',
+    'ALLIANCE BANK': 'MFBBMYKL',
     'PUBLIC BANK': 'PBBEMYKL',
     'RHB': 'RHBMYKL',
     'HONG LEONG': 'HLBBMYKL',
     'BANK ISLAM': 'BIMBMYKL',
     'BANK RAKYAT': 'BKRMMYKL',
-    'BSN': 'BSNMYLKL',
+    'BSN': 'BSNAMYK1',
     'HSBC': 'HSBCMYKL',
-    'STANDARD CHARTERED': 'SCBLMYKL'
+    'STANDARD CHARTERED': 'SCBLMYKX'
   };
   const clean = (bankName || '').toUpperCase().trim();
   for (const [key, code] of Object.entries(map)) {
