@@ -177,7 +177,7 @@ export async function onRequestPost({ request, env }) {
         // Create or fetch bank account ID
         let bankAccountId = homestay?.chip_bank_account_id || null;
         if (!bankAccountId) {
-          // --- FIX: Compute epoch and checksum for bank account creation ---
+          // Compute epoch and checksum for bank account creation
           const epoch = Math.floor(Date.now() / 1000);
           const bankBody = JSON.stringify({
             bank_code: chipBankCode,
