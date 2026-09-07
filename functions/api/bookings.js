@@ -1,5 +1,5 @@
-// /api/bookings.js – FULLY PATCHED & FIXED (no duplicate declarations)
-import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
+// /api/bookings.js – FULLY PATCHED with race condition fix, admin rate limiting, and session invalidation
+import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely, acquireHomestayLock, checkRateLimit, recordRateLimit, invalidateOwnerSessions } from './_utils.js';
 
 const MAX_NIGHTS = 60;
 const DEFAULT_PAGE_SIZE = 50;
@@ -190,141 +190,142 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Invalid price configuration' }, 500, request);
     }
 
-    // ----- NOW PROCEED WITH THE ORIGINAL LOGIC (using validated data) -----
-    let attempts = 0;
-    const maxAttempts = 3;
-    let saved = false;
-
-    while (attempts < maxAttempts) {
-      attempts++;
-      try {
-        const bookings = await getData('kd_bookings');
-        const guests = await getData('kd_guests');
-        const guest = guests.find(g => String(g.id) === String(auth.session.userId));
-        if (!guest) return jsonResponse({ error: 'Guest not found' }, 404, request);
-
-        // Check existing pending booking for same guest/homestay/dates
-        const existingPending = bookings.find(b =>
-          String(b.guestId) === String(guest.id) &&
-          String(b.homestayId) === String(homestay.id) &&
-          b.checkin === checkin &&
-          b.checkout === checkout &&
-          b.status === 'Pending Payment'
-        );
-        if (existingPending) {
-          return jsonResponse({
-            success: true,
-            booking: existingPending,
-            alreadyExists: true,
-            message: 'You already have a pending booking for these dates. Please complete the payment.'
-          }, 200, request);
-        }
-
-        // Check homestay blocked dates
-        const homestayBlocked = new Set((homestay.blockedDates || []).map(String));
-        const requestedDates = getDatesInRange(checkin, checkout);
-        for (const ds of requestedDates) {
-          if (homestayBlocked.has(ds)) {
-            return jsonResponse({ error: `Selected dates are unavailable (${ds}) due to homestay block` }, 409, request);
-          }
-        }
-
-        // Check room blocked dates
-        if (selectedRoom) {
-          const roomBlocked = new Set((selectedRoom.blockedDates || []).map(String));
-          for (const ds of requestedDates) {
-            if (roomBlocked.has(ds)) {
-              return jsonResponse({ error: `Room "${selectedRoom.name}" is blocked on ${ds}` }, 409, request);
-            }
-          }
-        }
-
-        // Check overlaps with existing bookings (excluding own pending and expired)
-        const overlaps = bookings.some(b => {
-          const pendingExpired = String(b.status||'') === 'Pending Payment' && b.date && Date.now() - Date.parse(b.date) > 15*60*1000;
-          const isOwnPending = String(b.guestId) === String(guest.id) && b.status === 'Pending Payment';
-          const roomMatch = selectedRoom ? String(b.roomId) === String(selectedRoom.id) : String(b.homestayId) === String(homestay.id);
-          return roomMatch &&
-                 !pendingExpired &&
-                 !/cancelled|failed|expired/i.test(String(b.status||'')) &&
-                 !isOwnPending &&
-                 checkin < String(b.checkout||'') &&
-                 checkout > String(b.checkin||'');
-        });
-        if (overlaps) {
-          return jsonResponse({ error: 'Selected dates are already booked for this room' }, 409, request);
-        }
-
-        // Calculate price
-        const base = Math.round(ownerPrice * nights * 100) / 100;
-        const fee = Math.round(base * 0.11 * 100) / 100;
-        const gatewayFee = 1.00;
-        const total = Math.round((base + fee + gatewayFee) * 100) / 100;
-        let bookingId = String(incoming.id || '');
-        if (!/^KDH-[A-Za-z0-9_-]{4,40}$/.test(bookingId) || bookings.some(b=>String(b.id)===bookingId)) {
-          bookingId = `KDH-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
-        }
-        const checkinCode = String(Math.floor(100000 + Math.random() * 900000));
-
-        const booking = {
-          id: bookingId,
-          homestay: homestay.name,
-          homestayId: homestay.id,
-          ownerWhatsapp: homestay.whatsapp || '',
-          guestId: guest.id,
-          guestName: guest.name,
-          guestEmail: guest.email,
-          guestPhone: guest.phone || '',
-          checkin: checkin,
-          checkout: checkout,
-          nights: nights,
-          base: base,
-          fee: fee,
-          gatewayFee: gatewayFee,
-          total: total,
-          status: 'Pending Payment',
-          date: new Date().toISOString(),
-          checkinCode: checkinCode,
-          roomId: selectedRoom ? selectedRoom.id : null,
-          roomName: selectedRoom ? selectedRoom.name : null,
-          roomImages: selectedRoom ? (selectedRoom.images || []) : []
-        };
-
-        bookings.push(booking);
-        await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_bookings', JSON.stringify(bookings))
-          .run();
-
-        saved = true;
-
-        await logAction({
-          db,
-          action: 'booking_created',
-          admin: 'guest',
-          details: `Booking ${booking.id} created; payment pending`,
-          ip: clientIP,
-          userId: guest.id,
-          homestayId: homestay.id
-        });
-
-        break;
-
-      } catch(e) {
-        console.error('Create booking error:', e.message);
-        if (attempts === maxAttempts) {
-          return jsonResponse({ error: 'Could not create booking' }, 500, request);
-        }
-        await new Promise(r => setTimeout(r, 200));
+    // ============================================================
+    // 🔒 NEW: Acquire a row‑level lock for this homestay
+    // This prevents race conditions (double booking)
+    // ============================================================
+    const lock = await acquireHomestayLock(db, homestayId);
+    let committed = false;
+    try {
+      // ===== Availability checks (now inside the transaction) =====
+      const bookings = await getData('kd_bookings');
+      const guests = await getData('kd_guests');
+      const guest = guests.find(g => String(g.id) === String(auth.session.userId));
+      if (!guest) {
+        await lock.release(false);
+        return jsonResponse({ error: 'Guest not found' }, 404, request);
       }
-    }
 
-    if (!saved) {
-      return jsonResponse({ error: 'Could not save booking after multiple attempts' }, 503, request);
-    }
+      // Check existing pending booking for same guest/homestay/dates
+      const existingPending = bookings.find(b =>
+        String(b.guestId) === String(guest.id) &&
+        String(b.homestayId) === String(homestay.id) &&
+        b.checkin === checkin &&
+        b.checkout === checkout &&
+        b.status === 'Pending Payment'
+      );
+      if (existingPending) {
+        await lock.release(false);
+        return jsonResponse({
+          success: true,
+          booking: existingPending,
+          alreadyExists: true,
+          message: 'You already have a pending booking for these dates. Please complete the payment.'
+        }, 200, request);
+      }
 
-    const finalBookings = await getData('kd_bookings');
-    const newBooking = finalBookings.find(b => String(b.id) === String(incoming.id || ''));
-    return jsonResponse({ success: true, booking: newBooking || { id: incoming.id, status: 'Pending Payment' } }, 200, request);
+      // Check homestay blocked dates
+      const homestayBlocked = new Set((homestay.blockedDates || []).map(String));
+      const requestedDates = getDatesInRange(checkin, checkout);
+      for (const ds of requestedDates) {
+        if (homestayBlocked.has(ds)) {
+          await lock.release(false);
+          return jsonResponse({ error: `Selected dates are unavailable (${ds}) due to homestay block` }, 409, request);
+        }
+      }
+
+      // Check room blocked dates
+      if (selectedRoom) {
+        const roomBlocked = new Set((selectedRoom.blockedDates || []).map(String));
+        for (const ds of requestedDates) {
+          if (roomBlocked.has(ds)) {
+            await lock.release(false);
+            return jsonResponse({ error: `Room "${selectedRoom.name}" is blocked on ${ds}` }, 409, request);
+          }
+        }
+      }
+
+      // Check overlaps with existing bookings (excluding own pending and expired)
+      const overlaps = bookings.some(b => {
+        const pendingExpired = String(b.status||'') === 'Pending Payment' && b.date && Date.now() - Date.parse(b.date) > 15*60*1000;
+        const isOwnPending = String(b.guestId) === String(guest.id) && b.status === 'Pending Payment';
+        const roomMatch = selectedRoom ? String(b.roomId) === String(selectedRoom.id) : String(b.homestayId) === String(homestay.id);
+        return roomMatch &&
+               !pendingExpired &&
+               !/cancelled|failed|expired/i.test(String(b.status||'')) &&
+               !isOwnPending &&
+               checkin < String(b.checkout||'') &&
+               checkout > String(b.checkin||'');
+      });
+      if (overlaps) {
+        await lock.release(false);
+        return jsonResponse({ error: 'Selected dates are already booked for this room' }, 409, request);
+      }
+
+      // Calculate price
+      const base = Math.round(ownerPrice * nights * 100) / 100;
+      const fee = Math.round(base * 0.11 * 100) / 100;
+      const gatewayFee = 1.00;
+      const total = Math.round((base + fee + gatewayFee) * 100) / 100;
+      let bookingId = String(incoming.id || '');
+      if (!/^KDH-[A-Za-z0-9_-]{4,40}$/.test(bookingId) || bookings.some(b=>String(b.id)===bookingId)) {
+        bookingId = `KDH-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
+      }
+      const checkinCode = String(Math.floor(100000 + Math.random() * 900000));
+
+      const booking = {
+        id: bookingId,
+        homestay: homestay.name,
+        homestayId: homestay.id,
+        ownerWhatsapp: homestay.whatsapp || '',
+        guestId: guest.id,
+        guestName: guest.name,
+        guestEmail: guest.email,
+        guestPhone: guest.phone || '',
+        checkin: checkin,
+        checkout: checkout,
+        nights: nights,
+        base: base,
+        fee: fee,
+        gatewayFee: gatewayFee,
+        total: total,
+        status: 'Pending Payment',
+        date: new Date().toISOString(),
+        checkinCode: checkinCode,
+        roomId: selectedRoom ? selectedRoom.id : null,
+        roomName: selectedRoom ? selectedRoom.name : null,
+        roomImages: selectedRoom ? (selectedRoom.images || []) : []
+      };
+
+      // Save booking (still within the transaction)
+      bookings.push(booking);
+      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+        .bind('kd_bookings', JSON.stringify(bookings))
+        .run();
+
+      // Commit the transaction
+      await lock.release(true);
+      committed = true;
+
+      await logAction({
+        db,
+        action: 'booking_created',
+        admin: 'guest',
+        details: `Booking ${booking.id} created; payment pending`,
+        ip: clientIP,
+        userId: guest.id,
+        homestayId: homestay.id
+      });
+
+      return jsonResponse({ success: true, booking: booking }, 200, request);
+
+    } catch (e) {
+      if (!committed) {
+        try { await lock.release(false); } catch (_) {}
+      }
+      console.error('Create booking error:', e.message);
+      return jsonResponse({ error: 'Could not create booking' }, 500, request);
+    }
   }
 
   // ========== PUBLIC UPDATE STATUS (PATCHED) ==========
@@ -378,6 +379,16 @@ export async function onRequestPost({ request, env }) {
   if (!db) {
     return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders(request) });
   }
+
+  // ============================================================
+  // 🔒 NEW: Rate limiting for all admin actions (per IP)
+  // ============================================================
+  const adminIP = getClientIP(request);
+  const rateOk = await checkRateLimit(db, adminIP, 'admin_action', 100, 60);
+  if (!rateOk) {
+    return jsonResponse({ error: 'Too many admin actions. Please slow down.' }, 429, request);
+  }
+  await recordRateLimit(db, adminIP, 'admin_action');
 
   try {
     await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
@@ -485,6 +496,11 @@ export async function onRequestPost({ request, env }) {
           .bind("kd_approved", JSON.stringify(approved));
         await db.batch([stmt1, stmt2]);
         
+        // ============================================================
+        // 🔒 NEW: Invalidate owner sessions after approval
+        // ============================================================
+        await invalidateOwnerSessions(db, safeHomestay.id);
+        
         await logAction({
           db,
           action: 'homestay_approved',
@@ -516,6 +532,11 @@ export async function onRequestPost({ request, env }) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_pending", JSON.stringify(pending))
         .run();
+      
+      // ============================================================
+      // 🔒 NEW: Invalidate owner sessions after rejection
+      // ============================================================
+      await invalidateOwnerSessions(db, homestay.id);
       
       await logAction({
         db,
@@ -570,6 +591,11 @@ export async function onRequestPost({ request, env }) {
         await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
           .bind("kd_approved", JSON.stringify(approved))
           .run();
+        
+        // ============================================================
+        // 🔒 NEW: Invalidate owner sessions after removal
+        // ============================================================
+        await invalidateOwnerSessions(db, removed.id);
         
         await logAction({
           db,
