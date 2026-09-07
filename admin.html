@@ -727,12 +727,10 @@ function renderAvailabilityCalendar(h, containerId) {
 // CLOUD DATA FETCH
 // =============================================================
 async function fetchCloudData(){
-  console.log("☁️ Fetching cloud data...");
   if(!CLOUD_ENABLED) return false;
   try{
     const res = await fetchWithAuth(API_BASE + "/bookings", {cache:"no-store"});
     if(!res.ok) {
-      console.warn("❌ Cloud fetch failed", res.status);
       if (res.status === 401) {
         await showAlert("Session Expired", "Your admin session has expired. Please login again.");
         sessionStorage.removeItem('kd_admin_token');
@@ -746,7 +744,6 @@ async function fetchCloudData(){
       return false;
     }
     const data=await res.json();
-    console.log("✅ Cloud data received:", Object.keys(data));
     if(data.bookings && Array.isArray(data.bookings)){
       const map=new Map();
       data.bookings.forEach(b=>{ if(b && b.id) map.set(String(b.id), b); });
@@ -784,7 +781,6 @@ async function fetchCloudData(){
     if (cacheStatus) cacheStatus.classList.add('hidden');
     return true;
   }catch(e){
-    console.warn("❌ Cloud fetch failed:", e.message);
     const cacheStatus = document.getElementById('cacheStatus');
     const cacheTs = document.getElementById('cacheTimestamp');
     if (cacheStatus) cacheStatus.classList.remove('hidden');
@@ -810,9 +806,7 @@ async function forceSync() {
 // SAVE FUNCTIONS
 // =============================================================
 async function pushHomestaysToCloud() {
-  console.log("☁️ pushHomestaysToCloud called");
   if (!CLOUD_ENABLED) {
-    console.log("CLOUD_ENABLED is false, skipping");
     return true;
   }
   try {
@@ -823,34 +817,26 @@ async function pushHomestaysToCloud() {
       demoBlocked: demoBlockedMap,
       deletedDemo: deletedDemoIds
     };
-    console.log("📤 Sending payload:", payload);
     const res = await fetchWithAuth(API_BASE + "/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-    console.log("📥 Response status:", res.status);
     const responseText = await res.text();
-    console.log("📥 Response body:", responseText);
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}: ${responseText}`);
     }
-    console.log("✅ Homestays synced to cloud");
     return true;
   } catch (e) {
-    console.error("❌ Cloud sync failed:", e.message);
     throw e;
   }
 }
 
 async function saveApproved() {
-  console.log("💾 saveApproved called");
   const toSave = allHomestays;
   localStorage.setItem("kd_approved", JSON.stringify(toSave));
   storedApproved = toSave;
-  console.log("✅ Local storage updated, now syncing to cloud...");
   await pushHomestaysToCloud();
-  console.log("✅ saveApproved complete");
 }
 
 function saveDemoBlocked(){
@@ -919,7 +905,6 @@ function showAdminTab(tab){
   populateBookingFilter();
   renderBookingsTable(currentBookingFilter, 1);
   }
-  // Re-attach event listeners after rendering any tab with dynamic content
   attachAdminEventListeners();
 }
 
@@ -928,7 +913,6 @@ function renderAdmin(){
   
   const pc=document.getElementById("adminPendingCount"); if(pc) pc.innerText=pendingHomestays.length;
   const bs=document.getElementById("chipStatus"); 
-  // Check if CHIP is live
   const isChipLive = !!(sessionStorage.getItem('chip_secret_key') || localStorage.getItem('chip_secret_key'));
   if(bs) bs.innerText = isChipLive ? "LIVE CHIP" : "Simulation";
   
@@ -1008,7 +992,6 @@ function renderAdmin(){
 // ADMIN EVENT DELEGATION
 // =============================================================
 function attachAdminEventListeners() {
-  // Remove old listeners to avoid duplicates
   document.removeEventListener('click', adminActionHandler);
   document.addEventListener('click', adminActionHandler);
 }
@@ -1021,7 +1004,6 @@ function adminActionHandler(e) {
   if (!action) return;
   e.preventDefault();
 
-  // Map actions to functions
   const actionMap = {
     viewPendingDetails: (id) => viewPendingDetails(Number(id)),
     approveHomestay: (id) => approveHomestay(Number(id)),
@@ -1029,7 +1011,6 @@ function adminActionHandler(e) {
     openOwnerAvailabilityManager: (id) => openOwnerAvailabilityManager(Number(id)),
     editApprovedHomestay: (id) => editApprovedHomestay(Number(id)),
     removeApprovedHomestay: (id) => removeApprovedHomestay(Number(id)),
-    // For bookings table, we handle separately
   };
   if (actionMap[action]) {
     actionMap[action](id);
@@ -1090,14 +1071,11 @@ function closeEditHomestayModal() {
 }
 
 async function saveEditHomestay() {
-  console.log("✏️ saveEditHomestay called");
   if (!currentEditHomestayId) {
-    console.warn("No currentEditHomestayId");
     return;
   }
   const h = allHomestays.find(x => String(x.id) === String(currentEditHomestayId));
   if (!h) {
-    console.error("Homestay not found in allHomestays");
     await showAlert("Error", "Homestay not found");
     return;
   }
@@ -1116,21 +1094,17 @@ async function saveEditHomestay() {
       newData[f] = val;
     }
   });
-  console.log("📝 New data:", newData);
 
   Object.assign(h, newData);
-  console.log("✅ Homestay updated locally:", h);
 
   try {
     await saveApproved();
-    console.log("✅ saveApproved finished successfully");
     renderAdmin();
     closeEditHomestayModal();
     await showAlert("Success", "Homestay updated successfully!");
     await fetchCloudData();
     renderAdmin();
   } catch (e) {
-    console.error("❌ Save failed:", e);
     await showAlert("Error", "Failed to save: " + e.message);
   }
 }
@@ -1341,7 +1315,6 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
 
   html += '</div>';
   div.innerHTML = safeHTML(html);
-  // Attach booking event listeners
   div.removeEventListener('click', bookingActionHandler);
   div.addEventListener('click', bookingActionHandler);
 }
@@ -1389,7 +1362,7 @@ function bookingActionHandler(e) {
       deleteBooking(id);
       break;
     default:
-      console.warn('Unknown booking action:', action);
+      break;
   }
 }
 
@@ -1782,7 +1755,6 @@ async function deleteBooking(id) {
 
     if (!res.ok) {
       if (res.status === 404) {
-        console.log("Booking already deleted from cloud, local removed.");
         return;
       }
       const data = await res.json();
@@ -1796,7 +1768,6 @@ async function deleteBooking(id) {
     renderAdmin();
 
   } catch (e) {
-    console.error("Delete error:", e);
     await showAlert("Error", "Delete error: " + e.message);
     await fetchCloudData();
     renderAdmin();
