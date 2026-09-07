@@ -17,13 +17,14 @@ async function hmacSha512(message, secret) {
 function getChipBankCode(bankName) {
   const map = {
     'MAYBANK': 'MBBEMYKL',
-    'CIMB': 'CIBBMYKL',      // ✅ Fixed: CIMB BIC is CIBBMYKL
+    'CIMB': 'CIBBMYKL', 
+    'ALLIANCE BANK': 'MFBBMYKL',
     'PUBLIC BANK': 'PBBEMYKL',
     'RHB': 'RHBMYKL',
     'HONG LEONG': 'HLBBMYKL',
     'BANK ISLAM': 'BIMBMYKL',
     'BANK RAKYAT': 'BKRMMYKL',
-    'BSN': 'BSNMYLKL',
+    'BSN': 'BSNAMYK1',
     'HSBC': 'HSBCMYKL',
     'STANDARD CHARTERED': 'SCBLMYKL'
   };
@@ -166,6 +167,8 @@ export async function onRequestPost({ request, env }) {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
+          'epoch': String(epoch),
+          'checksum': checksum
         },
         body: JSON.stringify({
           bank_code: bankCode,
