@@ -699,7 +699,7 @@ function logoutGuest() {
 }
 
 // =============================================================
-// LOGIN HANDLER
+// LOGIN HANDLER – NOW USES showAlert INSTEAD OF alert()
 // =============================================================
 async function handleLogin(e) {
   e.preventDefault();
@@ -736,21 +736,21 @@ async function handleLogin(e) {
 
     console.log('Parsed data:', data);
 
-  if (data.success) {
-  alert('✅ Login success!');
-  currentGuest = data.guest;
-  localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
-  if (data.csrfToken) {
-    localStorage.setItem('kd_csrf_token', data.csrfToken);
-  }
-  if (data.token) {
-    localStorage.setItem('kd_guest_token', data.token);
-  }
-  renderGuestNav();
-  window.location.href = '/mybookings.html';
-}
-    
-    else {
+    if (data.success) {
+      // ✅ Replace alert with branded modal
+      currentGuest = data.guest;
+      localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
+      if (data.csrfToken) {
+        localStorage.setItem('kd_csrf_token', data.csrfToken);
+      }
+      if (data.token) {
+        localStorage.setItem('kd_guest_token', data.token);
+      }
+      renderGuestNav();
+      // Show success modal and then redirect after user clicks OK
+      await showAlert('Login Successful', 'You have been logged in successfully.');
+      window.location.href = '/mybookings.html';
+    } else {
       errorEl.textContent = data.error || 'Login failed. Please try again.';
       errorEl.classList.remove('hidden');
     }
@@ -789,10 +789,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Check for verification success parameter
   var urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('registered') === '1') {
-  showAlert('Registration Successful', 'Please check your email to verify your account before logging in.');
-}
-  var urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('registered') === '1') {
+    showAlert('Registration Successful', 'Please check your email to verify your account before logging in.');
+  }
   if (urlParams.get('verified') === '1') {
     showAlert('Email Verified', 'Your email has been verified successfully! You can now log in.');
   } else if (urlParams.get('verified') === 'already') {
