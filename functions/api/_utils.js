@@ -575,3 +575,47 @@ export async function invalidateOwnerSessions(db, ownerId) {
     }
   }
 }
+
+// =============================================================
+// D1-Compatible Transaction Lock
+// =============================================================
+export async function withLock(db, homestayId, callback) {
+  // Create lock table if not exists
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS homestay_locks (
+      homestay_id TEXT PRIMARY KEY,
+      locked_at INTEGER
+    )`
+  ).run();
+
+  // Use db.transaction() to start a transaction
+  return await db.transaction(async (txnDb) => {
+    // Try to acquire the lock
+    const now = Date.now();
+    const insertRes = await txnDb.prepare(
+      `INSERT OR IGNORE INTO homestay_locks (homestay_id, locked_at) VALUES (?, ?)`
+    ).bind(homestayId, now).run();
+
+    if (insertRes.meta.changes === 0) {
+      // Lock exists – check if it's stale
+      const existing = await txnDb.prepare(
+        `SELECT locked_at FROM homestay_locks WHERE homestay_id = ?`
+      ).bind(homestayId).first();
+      if (existing && (now - existing.locked_at) > 5000) {
+        // Stale lock – take over
+        await txnDb.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(homestayId).run();
+        await txnDb.prepare(`INSERT INTO homestay_locks (homestay_id, locked_at) VALUES (?, ?)`).bind(homestayId, now).run();
+      } else {
+        throw new Error('Another booking is in progress. Please try again in a moment.');
+      }
+    }
+
+    // Execute the critical section with the transaction db
+    const result = await callback(txnDb);
+
+    // Release the lock (still inside the transaction)
+    await txnDb.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(homestayId).run();
+
+    return result;
+  });
+}
