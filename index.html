@@ -2565,7 +2565,6 @@ async function processPayment() {
         throw new Error('No CSRF token received');
       }
     } catch (e) {
-      console.warn('Could not fetch CSRF token:', e);
       showAlert("Session Error", "Could not verify your session. Please log out and log in again.");
       logoutGuest();
       return;
@@ -2648,7 +2647,6 @@ async function processPayment() {
     window.location.href = payment.url;
     
   } catch (e) {
-    console.error('Booking/payment error:', e);
     showAlert('Network Error', 'Could not connect to the booking server. Please try again.');
   }
 }
@@ -2663,7 +2661,7 @@ async function handlePaymentReturn() {
   const statusId = params.get('status_id');
 
   if (!bookingId) {
-    console.log('ℹ️ No booking ID in URL, skipping payment return handling.');
+    // No booking ID, skip silently
     return;
   }
 
@@ -2672,11 +2670,8 @@ async function handlePaymentReturn() {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  console.log('✅ Payment return detected for booking:', bookingId);
-
   // ---- Case: Success (payment_return=1) ----
   if (paymentReturn === '1') {
-    console.log('🎉 Payment success, showing Thank You modal.');
     // Try to get booking data from sessionStorage first
     let bookingData = null;
     try {
@@ -2700,26 +2695,19 @@ async function handlePaymentReturn() {
     // ---- BACKGROUND STATUS UPDATE ----
     // Try to update the booking status in the background
     try {
-      const res = await fetch(API_BASE + '/verify-payment', {
+      await fetch(API_BASE + '/verify-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookingId })
       });
-      const data = await res.json();
-      if (data.success && data.paid) {
-        console.log('✅ Booking status updated in background.');
-      } else {
-        console.warn('⚠️ Background status update returned:', data);
-      }
     } catch (e) {
-      console.warn('Background status update failed:', e);
+      // ignore
     }
     return;
   }
 
   // ---- Case: Failure (payment=cancel or status_id=3) ----
   if (params.get('payment') === 'cancel' || params.get('payment') === 'failed' || statusId === '3') {
-    console.log('❌ Payment failed, showing Payment Failed modal.');
     // Update status to failed
     try {
       await fetch('/api/bookings', {
@@ -2966,7 +2954,6 @@ window.handlePaymentReturn = handlePaymentReturn;
             }
           })
           .catch(function(err) {
-            console.warn('Failed to load homestays from API:', err);
             var grid = document.getElementById("homestayGrid");
             if (grid) {
               grid.innerHTML = safeHTML(
