@@ -1,5 +1,5 @@
 // /api/payout.js – CHIP Send with correct credentials
-import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, getOwnerSession, checkRateLimit, recordRateLimit, parseJSONSafely } from './_utils.js';
+import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, getOwnerSession, checkRateLimit, recordRateLimit, parseJSONSafely, jsonResponse } from './_utils.js';
 
 async function hmacSha512(message, secret) {
   const key = await crypto.subtle.importKey(
@@ -17,7 +17,7 @@ async function hmacSha512(message, secret) {
 function getChipBankCode(bankName) {
   const map = {
     'MAYBANK': 'MBBEMYKL',
-    'CIMB': 'CIBBMYKL', 
+    'CIMB': 'CIBBMYKL',
     'ALLIANCE BANK': 'MFBBMYKL',
     'PUBLIC BANK': 'PBBEMYKL',
     'RHB': 'RHBMYKL',
@@ -162,19 +162,24 @@ export async function onRequestPost({ request, env }) {
 
     // Create bank account if not exists
     if (!bankAccountId) {
+      // Compute epoch and checksum for bank account creation
+      const epoch = Math.floor(Date.now() / 1000);
+      const bankBody = JSON.stringify({
+        bank_code: bankCode,
+        account_number: accountNumber,
+        account_name: accountName
+      });
+      const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
+
       const createRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
           'epoch': String(epoch),
           'checksum': checksum
         },
-        body: JSON.stringify({
-          bank_code: bankCode,
-          account_number: accountNumber,
-          account_name: accountName
-        })
+        body: bankBody
       });
       const bankData = await createRes.json();
       if (!createRes.ok || !bankData.id) {
