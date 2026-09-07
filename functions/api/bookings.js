@@ -191,9 +191,6 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ----- NOW PROCEED WITH THE ORIGINAL LOGIC (using validated data) -----
-    // We'll reuse the variables defined above: checkin, checkout, nights, d1, d2, homestay, selectedRoom, ownerPrice
-    // The original code had a retry loop – we'll keep that but use our validated variables.
-
     let attempts = 0;
     const maxAttempts = 3;
     let saved = false;
@@ -335,9 +332,10 @@ export async function onRequestPost({ request, env }) {
     const auth = await requireGuest(request, env, body);
     if (auth.error) return auth.error;
 
-    const allowedStatuses = ['Cancelled by Guest', 'Payment Failed', 'Paid - Awaiting Check-in'];
+    // ✅ PATCH: Removed 'Paid - Awaiting Check-in' – guests cannot mark themselves as paid
+    const allowedStatuses = ['Cancelled by Guest', 'Payment Failed'];
     if (!allowedStatuses.includes(body.status)) {
-      return jsonResponse({ error: 'Guests may only cancel, mark as failed, or confirm payment.' }, 403, request);
+      return jsonResponse({ error: 'Guests may only cancel or mark as failed.' }, 403, request);
     }
 
     const db = env.DB; if (!db) return jsonResponse({error:'DB not configured'},500,request);
