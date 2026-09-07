@@ -151,6 +151,8 @@ export async function onRequestPost({ request, env }) {
             headers: {
               'Authorization': `Bearer ${apiKey}`,
               'Content-Type': 'application/json'
+              'epoch': String(epoch),
+              'checksum': checksum
             },
             body: JSON.stringify({
               bank_code: chipBankCode,  // ✅ CHIP BIC code
