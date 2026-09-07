@@ -522,9 +522,9 @@ export async function acquireHomestayLock(db, homestayId, timeoutMs = 5000) {
 }
 
 // =============================================================
-// NEW: Check‑in Attempt Tracking (Brute‑Force Prevention)
+// Helper: Ensure checkin_attempts table exists
 // =============================================================
-export async function recordCheckinAttempt(db, bookingId) {
+async function ensureCheckinAttemptsTable(db) {
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS checkin_attempts (
       booking_id TEXT,
@@ -532,12 +532,20 @@ export async function recordCheckinAttempt(db, bookingId) {
       PRIMARY KEY (booking_id, attempt_time)
     )`
   ).run();
+}
+
+// =============================================================
+// NEW: Check‑in Attempt Tracking (Brute‑Force Prevention)
+// =============================================================
+export async function recordCheckinAttempt(db, bookingId) {
+  await ensureCheckinAttemptsTable(db);
   await db.prepare(
     `INSERT INTO checkin_attempts (booking_id, attempt_time) VALUES (?, ?)`
   ).bind(bookingId, Date.now()).run();
 }
 
 export async function getRecentCheckinAttempts(db, bookingId, windowMs = 3600000) {
+  await ensureCheckinAttemptsTable(db); // ✅ ensures table exists
   const cutoff = Date.now() - windowMs;
   const result = await db.prepare(
     `SELECT COUNT(*) as count FROM checkin_attempts
@@ -547,6 +555,7 @@ export async function getRecentCheckinAttempts(db, bookingId, windowMs = 3600000
 }
 
 export async function clearCheckinAttempts(db, bookingId) {
+  await ensureCheckinAttemptsTable(db); // ✅ ensures table exists
   await db.prepare(
     `DELETE FROM checkin_attempts WHERE booking_id = ?`
   ).bind(bookingId).run();
