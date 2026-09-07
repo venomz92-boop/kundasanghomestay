@@ -1,5 +1,5 @@
-// /api/pending.js – With server‑side validation
-import { corsHeaders, getClientIP, logAction, enforceHttps, hashPassword, getAdminToken, jsonResponse } from './_utils.js';
+// /api/pending.js – With server‑side validation + rate limiting
+import { corsHeaders, getClientIP, logAction, enforceHttps, hashPassword, getAdminToken, jsonResponse, checkRateLimit, recordRateLimit } from './_utils.js';
 import { sanitizeString, isValidEmail, isValidPhone, isValidPrice, sanitizeDescription, validateBankCode } from './_utils.js';
 
 async function requireAdmin(request, env) {
@@ -128,6 +128,16 @@ export async function onRequestPost({ request, env }) {
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store(key TEXT PRIMARY KEY, data TEXT)').run();
+
+    // ============================================================
+    // 🔒 NEW: Rate limiting for homestay submissions (3 per hour per IP)
+    // ============================================================
+    const clientIP = getClientIP(request);
+    const rateOk = await checkRateLimit(db, clientIP, 'pending_submit', 3, 60 * 60);
+    if (!rateOk) {
+      return jsonResponse({ error: 'Too many submissions. Please wait an hour.' }, 429, request);
+    }
+    await recordRateLimit(db, clientIP, 'pending_submit');
 
     // Check duplicates
     const pending = await read(db, 'kd_pending');
