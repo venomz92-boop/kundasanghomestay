@@ -1,4 +1,4 @@
-// /api/chip-webhook.js – RSASSA-PKCS1-v1_5 + SHA-256
+// /api/chip-webhook.js – RSASSA-PKCS1-v1_5 + SHA-256 + Refund handling
 import { corsHeaders, getClientIP, logAction } from './_utils.js';
 
 function pemToArrayBuffer(pem) {
@@ -112,6 +112,63 @@ async function sendCheckinEmail(booking, env) {
   return { emailSent, emailError };
 }
 
+// ===== NEW: Refund email notification to guest =====
+async function sendRefundEmail(booking, env) {
+  const refundAmount = booking.refund_amount || booking.total || 0;
+  const refundId = booking.chip_refund_id || 'N/A';
+  const emailHtml = `
+    <h2>Hello ${booking.guestName || 'Guest'},</h2>
+    <p>Your booking <strong>${booking.id}</strong> at <strong>${booking.homestay}</strong> has been <strong>cancelled and refunded</strong>.</p>
+    <p><strong>Refund Amount:</strong> RM ${Number(refundAmount).toFixed(2)}</p>
+    <p><strong>Refund ID (CHIP):</strong> ${refundId}</p>
+    <p>If you have any questions, please contact the host or our support team.</p>
+    <p>— Kundasang Homestay Team</p>
+  `;
+
+  let emailSent = false;
+  let emailError = null;
+
+  if (env.RESEND_API_KEY) {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
+          to: booking.guestEmail,
+          subject: 'Refund Confirmation – Booking ' + booking.id,
+          html: emailHtml
+        })
+      });
+      emailSent = res.ok;
+      if (!emailSent) emailError = 'Resend API error';
+    } catch (e) {
+      emailError = e.message;
+    }
+  } else if (env.SENDGRID_API_KEY) {
+    try {
+      const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + env.SENDGRID_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: booking.guestEmail }] }],
+          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
+          subject: 'Refund Confirmation – Booking ' + booking.id,
+          content: [{ type: 'text/html', value: emailHtml }]
+        })
+      });
+      emailSent = res.ok;
+      if (!emailSent) emailError = 'SendGrid API error';
+    } catch (e) {
+      emailError = e.message;
+    }
+  } else {
+    emailError = 'No email API key configured';
+  }
+
+  return { emailSent, emailError };
+}
+
 export async function onRequestPost({ request, env }) {
   try {
     const isValid = await verifyChipSignature(request, env);
@@ -145,6 +202,7 @@ export async function onRequestPost({ request, env }) {
 
     const booking = bookings[idx];
 
+    // ===== PURCHASE PAID =====
     if (event === 'purchase.paid' || status === 'completed') {
       if (booking.status === 'Paid - Awaiting Check-in') {
         console.log(`ℹ️ Booking ${booking.id} already paid. Skipping.`);
@@ -167,7 +225,6 @@ export async function onRequestPost({ request, env }) {
         .bind('kd_bookings', JSON.stringify(bookings))
         .run();
 
-      // Send email using the **exact same** function as resend-code.js
       const result = await sendCheckinEmail(bookings[idx], env);
       if (result.emailSent) {
         console.log(`✅ Check‑in code email sent to ${booking.guestEmail}`);
@@ -186,8 +243,10 @@ export async function onRequestPost({ request, env }) {
       });
 
       console.log(`✅ Booking ${booking.id} marked as PAID`);
+    }
 
-    } else if (event === 'purchase.failed' || status === 'failed' || status === 'cancelled') {
+    // ===== PURCHASE FAILED =====
+    else if (event === 'purchase.failed' || status === 'failed' || status === 'cancelled') {
       bookings[idx] = {
         ...booking,
         status: 'Payment Failed',
@@ -197,6 +256,47 @@ export async function onRequestPost({ request, env }) {
         .bind('kd_bookings', JSON.stringify(bookings))
         .run();
       console.log(`⚠️ Booking ${booking.id} marked as FAILED`);
+    }
+
+    // ===== NEW: PURCHASE REFUNDED =====
+    else if (event === 'purchase.refunded' || status === 'refunded') {
+      // Calculate refund amount from webhook payload if available
+      const refundedAmount = payload.data?.refunded_amount 
+        ? Number(payload.data.refunded_amount) / 100 
+        : booking.total || 0;
+
+      bookings[idx] = {
+        ...booking,
+        status: 'Refunded',
+        chip_status: 'refunded',
+        refunded_at: new Date().toISOString(),
+        refund_amount: refundedAmount,
+        chip_refund_id: payload.data?.refund_id || payload.data?.id || 'webhook_refund'
+      };
+
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings))
+        .run();
+
+      // Send refund confirmation email
+      const result = await sendRefundEmail(bookings[idx], env);
+      if (result.emailSent) {
+        console.log(`✅ Refund email sent to ${booking.guestEmail}`);
+      } else {
+        console.warn(`⚠️ Refund email failed: ${result.emailError}`);
+      }
+
+      await logAction({
+        db,
+        action: 'chip_refund_success',
+        admin: 'webhook',
+        details: `Booking ${booking.id} refunded via CHIP (${refundedAmount})`,
+        ip: getClientIP(request),
+        userId: booking.guestId,
+        homestayId: booking.homestayId
+      });
+
+      console.log(`✅ Booking ${booking.id} marked as REFUNDED (RM${refundedAmount.toFixed(2)})`);
     }
 
     return new Response('OK', { status: 200, headers: corsHeaders(request) });
