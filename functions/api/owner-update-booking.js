@@ -1,4 +1,4 @@
-// /api/owner-update-booking.js - with room block management
+// /api/owner-update-booking.js - With automatic refund on host cancellation
 import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
 
 async function verifyOwner(request, env) { return getOwnerSession(request, env); }
@@ -36,6 +36,33 @@ function getDatesInRange(checkin, checkout) {
   return dates;
 }
 
+// ============================================================
+// NEW: Refund helper using CHIP API
+// ============================================================
+async function processChipRefund(purchaseId, amount, env) {
+  const chipSecret = env.CHIP_SECRET_KEY;
+  if (!chipSecret) {
+    throw new Error('CHIP_SECRET_KEY not configured – cannot process refund');
+  }
+  const amountCents = Math.round(amount * 100);
+  const payload = { amount: amountCents };
+
+  const response = await fetch(`https://gate.chip-in.asia/api/v1/purchases/${purchaseId}/refund/`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${chipSecret}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data.id) {
+    throw new Error(`CHIP refund failed: ${data.error || 'unknown'}`);
+  }
+  return data;
+}
+
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -58,7 +85,6 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Missing homestayId, roomId, or date' }, 400, request);
       }
 
-      // Verify ownership of homestay
       const ownerHomestayIds = (ownerData.homestayIds || []).map(String);
       if (!ownerHomestayIds.includes(String(homestayId))) {
         return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
@@ -68,7 +94,6 @@ export async function onRequestPost({ request, env }) {
       if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
       await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
 
-      // Load approved and pending (the homestay might be in pending if not approved yet)
       const rApproved = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
       let homestays = [];
       if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch(e) {} }
@@ -84,7 +109,6 @@ export async function onRequestPost({ request, env }) {
 
       if (!room.blockedDates) room.blockedDates = [];
 
-      // Toggle: if date exists, remove it; else add it
       const idx = room.blockedDates.indexOf(date);
       let message = '';
       if (idx !== -1) {
@@ -96,7 +120,6 @@ export async function onRequestPost({ request, env }) {
         message = `Blocked ${date} for ${room.name}`;
       }
 
-      // Update the homestay in the database (both approved and pending if present)
       let updated = false;
       for (const key of ['kd_approved', 'kd_pending']) {
         const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
@@ -167,7 +190,6 @@ export async function onRequestPost({ request, env }) {
         return new Response(JSON.stringify({ error: "Invalid dates" }), { status: 400, headers: corsHeaders(request) });
       }
 
-      // Get homestay to recalculate price
       const rApproved = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
       let homestays = [];
       if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch(e) {} }
@@ -179,10 +201,8 @@ export async function onRequestPost({ request, env }) {
         return new Response(JSON.stringify({ error: "Homestay not found" }), { status: 404, headers: corsHeaders(request) });
       }
 
-      // Check availability (excluding this booking's own dates)
       const oldDates = getDatesInRange(booking.checkin, booking.checkout);
       
-      // Get availability from DB
       const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
       let availabilityMap = {};
       if (availRes && availRes.data) { try { availabilityMap = JSON.parse(availRes.data); } catch(e) {} }
@@ -200,11 +220,9 @@ export async function onRequestPost({ request, env }) {
         }), { status: 400, headers: corsHeaders(request) });
       }
 
-      // Recalculate price
       const nights = calculateNights(checkin, checkout);
       const price = calculatePrice(homestay.ownerPrice, nights);
 
-      // Update booking
       bookings[idx].checkin = checkin;
       bookings[idx].checkout = checkout;
       bookings[idx].nights = nights;
@@ -215,7 +233,6 @@ export async function onRequestPost({ request, env }) {
       bookings[idx].youReceive = price.youReceive;
       bookings[idx].statusUpdated = new Date().toISOString();
 
-      // Update availability
       if (!availabilityMap[homestay.id]) availabilityMap[homestay.id] = [];
       availabilityMap[homestay.id] = availabilityMap[homestay.id].filter(d => !oldDates.includes(d));
       newDates.forEach(d => {
@@ -223,7 +240,6 @@ export async function onRequestPost({ request, env }) {
       });
       availabilityMap[homestay.id].sort();
 
-      // Save all changes
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_bookings", JSON.stringify(bookings))
         .run();
@@ -254,9 +270,44 @@ export async function onRequestPost({ request, env }) {
         }), { status: 400, headers: corsHeaders(request) });
       }
 
-      // Update status to Cancelled
-      bookings[idx].status = "Cancelled by Host";
-      bookings[idx].statusUpdated = new Date().toISOString();
+      // ============================================================
+      // 🔄 NEW: If booking is paid, automatically process refund
+      // ============================================================
+      const isPaid = booking.status === 'Paid - Awaiting Check-in';
+      let refundSuccess = false;
+      let refundData = null;
+      let refundError = null;
+
+      if (isPaid && booking.chip_purchase_id) {
+        try {
+          // Refund full amount (total)
+          refundData = await processChipRefund(booking.chip_purchase_id, booking.total, env);
+          refundSuccess = true;
+        } catch (err) {
+          refundError = err.message;
+          console.error('❌ Host cancellation refund failed:', err);
+        }
+      }
+
+      // Update booking status
+      if (isPaid && refundSuccess) {
+        bookings[idx].status = 'Refunded';
+        bookings[idx].chip_refund_id = refundData.id;
+        bookings[idx].refunded_at = new Date().toISOString();
+        bookings[idx].refund_amount = booking.total;
+        bookings[idx].cancelled_by = 'host';
+        bookings[idx].statusUpdated = new Date().toISOString();
+      } else if (isPaid && !refundSuccess) {
+        bookings[idx].status = 'Cancelled by Host - Refund Pending';
+        bookings[idx].refund_error = refundError || 'Unknown error';
+        bookings[idx].cancelled_by = 'host';
+        bookings[idx].statusUpdated = new Date().toISOString();
+      } else {
+        // Unpaid booking – just cancel
+        bookings[idx].status = "Cancelled by Host";
+        bookings[idx].cancelled_by = 'host';
+        bookings[idx].statusUpdated = new Date().toISOString();
+      }
 
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_bookings", JSON.stringify(bookings))
@@ -264,9 +315,9 @@ export async function onRequestPost({ request, env }) {
 
       await logAction({
         db,
-        action: 'booking_cancelled_by_host',
+        action: isPaid ? (refundSuccess ? 'booking_cancelled_host_refund_success' : 'booking_cancelled_host_refund_failed') : 'booking_cancelled_host',
         admin: 'owner',
-        details: `Booking ${bookingId} cancelled by host ${ownerData.whatsapp}`,
+        details: `Booking ${bookingId} cancelled by host ${ownerData.whatsapp}. ${isPaid ? (refundSuccess ? 'Refund processed: ' + refundData.id : 'Refund failed: ' + refundError) : '(unpaid)'}`,
         ip: clientIP,
         userId: booking.guestEmail,
         homestayId: booking.homestayId
@@ -274,7 +325,14 @@ export async function onRequestPost({ request, env }) {
 
       return new Response(JSON.stringify({
         success: true,
-        message: `Booking ${bookingId} has been cancelled.`
+        message: isPaid 
+          ? (refundSuccess 
+              ? `Booking ${bookingId} cancelled and full refund of RM${booking.total.toFixed(2)} processed.`
+              : `Booking ${bookingId} cancelled but refund failed. Status set to 'Refund Pending'. Please contact support.`)
+          : `Booking ${bookingId} cancelled (unpaid).`,
+        booking: bookings[idx],
+        refund: refundData || undefined,
+        refundError: refundError || undefined
       }), { status: 200, headers: corsHeaders(request) });
     }
 
