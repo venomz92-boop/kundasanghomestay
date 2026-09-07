@@ -577,10 +577,10 @@ export async function invalidateOwnerSessions(db, ownerId) {
 }
 
 // =============================================================
-// D1-Compatible Transaction Lock
+// D1-Compatible Lock using INSERT OR IGNORE (no transactions)
 // =============================================================
 export async function withLock(db, homestayId, callback) {
-  // Create lock table if not exists
+  // Ensure lock table exists
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS homestay_locks (
       homestay_id TEXT PRIMARY KEY,
@@ -588,34 +588,39 @@ export async function withLock(db, homestayId, callback) {
     )`
   ).run();
 
-  // Use db.transaction() to start a transaction
-  return await db.transaction(async (txnDb) => {
-    // Try to acquire the lock
-    const now = Date.now();
-    const insertRes = await txnDb.prepare(
-      `INSERT OR IGNORE INTO homestay_locks (homestay_id, locked_at) VALUES (?, ?)`
-    ).bind(homestayId, now).run();
+  const now = Date.now();
 
-    if (insertRes.meta.changes === 0) {
-      // Lock exists – check if it's stale
-      const existing = await txnDb.prepare(
-        `SELECT locked_at FROM homestay_locks WHERE homestay_id = ?`
-      ).bind(homestayId).first();
-      if (existing && (now - existing.locked_at) > 5000) {
-        // Stale lock – take over
-        await txnDb.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(homestayId).run();
-        await txnDb.prepare(`INSERT INTO homestay_locks (homestay_id, locked_at) VALUES (?, ?)`).bind(homestayId, now).run();
-      } else {
+  // 1. Try to insert the lock
+  let insertResult = await db.prepare(
+    `INSERT OR IGNORE INTO homestay_locks (homestay_id, locked_at) VALUES (?, ?)`
+  ).bind(homestayId, now).run();
+
+  // 2. If insertion failed, the lock already exists – check if stale
+  if (insertResult.meta.changes === 0) {
+    const existing = await db.prepare(
+      `SELECT locked_at FROM homestay_locks WHERE homestay_id = ?`
+    ).bind(homestayId).first();
+
+    if (existing && (now - existing.locked_at) > 5000) {
+      // Stale lock – take over
+      await db.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(homestayId).run();
+      // Try inserting again
+      insertResult = await db.prepare(
+        `INSERT OR IGNORE INTO homestay_locks (homestay_id, locked_at) VALUES (?, ?)`
+      ).bind(homestayId, now).run();
+      if (insertResult.meta.changes === 0) {
         throw new Error('Another booking is in progress. Please try again in a moment.');
       }
+    } else {
+      throw new Error('Another booking is in progress. Please try again in a moment.');
     }
+  }
 
-    // Execute the critical section with the transaction db
-    const result = await callback(txnDb);
-
-    // Release the lock (still inside the transaction)
-    await txnDb.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(homestayId).run();
-
-    return result;
-  });
+  // 3. Lock acquired – execute the critical section
+  try {
+    return await callback(db);
+  } finally {
+    // 4. Always release the lock
+    await db.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(homestayId).run();
+  }
 }
