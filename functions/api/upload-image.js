@@ -1,4 +1,4 @@
-// /api/upload-image.js – Secure & robust
+// /api/upload-image.js – Secure & robust with file type validation
 import { corsHeaders } from './_utils.js';
 
 async function sha256(message) {
@@ -18,7 +18,20 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400 });
     }
 
-    // 1. Read credentials from environment (no fallbacks!)
+    // ============================================================
+    // 🔒 NEW: Validate file type
+    // ============================================================
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      return new Response(JSON.stringify({ error: 'Invalid file type. Only JPEG, PNG, WEBP, and GIF are allowed.' }), { status: 400 });
+    }
+
+    // Optional: file size limit (e.g., 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      return new Response(JSON.stringify({ error: 'File too large. Maximum size is 5MB.' }), { status: 400 });
+    }
+
+    // 1. Read credentials from environment
     const cloudName = env.CLOUDINARY_CLOUD_NAME;
     const apiKey = env.CLOUDINARY_API_KEY;
     const apiSecret = env.CLOUDINARY_API_SECRET;
@@ -31,10 +44,9 @@ export async function onRequestPost({ request, env }) {
       );
     }
 
-    // 2. Get binary data – works for Blob, File, ReadableStream, and even base64 strings
+    // 2. Get binary data
     let buffer;
     try {
-      // ✅ Most reliable: convert to Response and read as ArrayBuffer
       buffer = await new Response(file).arrayBuffer();
     } catch (e) {
       console.error('Failed to read file:', e.message);
@@ -53,7 +65,7 @@ export async function onRequestPost({ request, env }) {
 
     // 5. Build Cloudinary upload payload
     const uploadData = new URLSearchParams({
-      file: `data:image/jpeg;base64,${base64}`,  // fallback MIME type
+      file: `data:image/jpeg;base64,${base64}`,
       folder: folder,
       api_key: apiKey,
       timestamp: String(timestamp),
