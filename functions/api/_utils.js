@@ -257,7 +257,9 @@ export function corsHeaders(request) {
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'X-Frame-Options': 'DENY',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    // NEW: Content-Security-Policy
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com; connect-src 'self' https://api.chip-in.asia; frame-src 'self';"
   };
   if (allowed.has(origin)) {
     headers['Access-Control-Allow-Origin'] = origin;
@@ -482,4 +484,95 @@ export function validateBankCode(code) {
 export function sanitizeArray(arr, maxItems = 20) {
   if (!Array.isArray(arr)) return [];
   return arr.slice(0, maxItems);
+}
+
+// =============================================================
+// NEW: Homestay Lock for Preventing Race Conditions
+// =============================================================
+export async function acquireHomestayLock(db, homestayId, timeoutMs = 5000) {
+  // Create lock table if not exists
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS homestay_locks (
+      homestay_id TEXT PRIMARY KEY,
+      locked_at INTEGER
+    )`
+  ).run();
+
+  // Use BEGIN IMMEDIATE to start a transaction and lock the row
+  await db.prepare('BEGIN IMMEDIATE').run();
+
+  // Try to insert or update the lock row
+  const now = Date.now();
+  await db.prepare(
+    `INSERT INTO homestay_locks (homestay_id, locked_at)
+     VALUES (?, ?)
+     ON CONFLICT(homestay_id) DO UPDATE SET locked_at = excluded.locked_at`
+  ).bind(homestayId, now).run();
+
+  // The lock is automatically released when the transaction commits or rolls back.
+  return {
+    release: async (commit = true) => {
+      if (commit) {
+        await db.prepare('COMMIT').run();
+      } else {
+        await db.prepare('ROLLBACK').run();
+      }
+    },
+    transaction: db
+  };
+}
+
+// =============================================================
+// NEW: Check‑in Attempt Tracking (Brute‑Force Prevention)
+// =============================================================
+export async function recordCheckinAttempt(db, bookingId) {
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS checkin_attempts (
+      booking_id TEXT,
+      attempt_time INTEGER,
+      PRIMARY KEY (booking_id, attempt_time)
+    )`
+  ).run();
+  await db.prepare(
+    `INSERT INTO checkin_attempts (booking_id, attempt_time) VALUES (?, ?)`
+  ).bind(bookingId, Date.now()).run();
+}
+
+export async function getRecentCheckinAttempts(db, bookingId, windowMs = 3600000) {
+  const cutoff = Date.now() - windowMs;
+  const result = await db.prepare(
+    `SELECT COUNT(*) as count FROM checkin_attempts
+     WHERE booking_id = ? AND attempt_time > ?`
+  ).bind(bookingId, cutoff).first();
+  return result?.count || 0;
+}
+
+export async function clearCheckinAttempts(db, bookingId) {
+  await db.prepare(
+    `DELETE FROM checkin_attempts WHERE booking_id = ?`
+  ).bind(bookingId).run();
+}
+
+// =============================================================
+// NEW: Invalidate Owner Sessions on Homestay Changes
+// =============================================================
+export async function invalidateOwnerSessions(db, ownerId) {
+  if (!ownerId) return;
+  for (const key of ['kd_approved', 'kd_pending']) {
+    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+    if (!r?.data) continue;
+    let records = JSON.parse(r.data);
+    let changed = false;
+    records = records.map(record => {
+      if (String(record.id) === String(ownerId)) {
+        changed = true;
+        record.ownerSessionVersion = (record.ownerSessionVersion || 0) + 1;
+      }
+      return record;
+    });
+    if (changed) {
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind(key, JSON.stringify(records)).run();
+    }
+  }
 }
