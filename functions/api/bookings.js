@@ -1,4 +1,4 @@
-// /api/bookings.js – FULLY PATCHED with race condition fix, admin rate limiting, and session invalidation
+// /api/bookings.js – FULLY PATCHED with all fixes + cancellation prevention
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely, acquireHomestayLock, checkRateLimit, recordRateLimit, invalidateOwnerSessions } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -191,13 +191,11 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ============================================================
-    // 🔒 NEW: Acquire a row‑level lock for this homestay
-    // This prevents race conditions (double booking)
+    // 🔒 Lock to prevent race condition (double booking)
     // ============================================================
     const lock = await acquireHomestayLock(db, homestayId);
     let committed = false;
     try {
-      // ===== Availability checks (now inside the transaction) =====
       const bookings = await getData('kd_bookings');
       const guests = await getData('kd_guests');
       const guest = guests.find(g => String(g.id) === String(auth.session.userId));
@@ -297,13 +295,11 @@ export async function onRequestPost({ request, env }) {
         roomImages: selectedRoom ? (selectedRoom.images || []) : []
       };
 
-      // Save booking (still within the transaction)
       bookings.push(booking);
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_bookings', JSON.stringify(bookings))
         .run();
 
-      // Commit the transaction
       await lock.release(true);
       committed = true;
 
@@ -328,12 +324,12 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
-  // ========== PUBLIC UPDATE STATUS (PATCHED) ==========
+  // ========== PUBLIC UPDATE STATUS (PATCHED + CANCELLATION PREVENTION) ==========
   if (action === "publicUpdateStatus" && body.id) {
     const auth = await requireGuest(request, env, body);
     if (auth.error) return auth.error;
 
-    // ✅ PATCH: Removed 'Paid - Awaiting Check-in' – guests cannot mark themselves as paid
+    // ✅ Guests may only cancel or mark as failed (paid status is not allowed)
     const allowedStatuses = ['Cancelled by Guest', 'Payment Failed'];
     if (!allowedStatuses.includes(body.status)) {
       return jsonResponse({ error: 'Guests may only cancel or mark as failed.' }, 403, request);
@@ -348,7 +344,24 @@ export async function onRequestPost({ request, env }) {
       if(idx<0)return jsonResponse({error:'Booking not found'},404,request);
       const b=bookings[idx];
       if(String(b.guestId)!==String(auth.session.userId))return jsonResponse({error:'Unauthorized'},403,request);
-      
+
+      // ============================================================
+      // 🔒 NEW: Prevent guest from cancelling a paid booking
+      // ============================================================
+      if (body.status === 'Cancelled by Guest') {
+        const paidStatuses = ['Paid - Awaiting Check-in', 'Completed'];
+        if (paidStatuses.includes(b.status)) {
+          return jsonResponse({ error: 'You cannot cancel a booking that has already been paid. Please contact support.' }, 403, request);
+        }
+        // Also prevent cancellation if check‑in date is today or in the past
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const checkinDate = new Date(b.checkin + 'T00:00:00');
+        if (checkinDate <= today) {
+          return jsonResponse({ error: 'You cannot cancel a booking on or after the check‑in date.' }, 403, request);
+        }
+      }
+
       bookings[idx]={...b,status:body.status,statusUpdated:new Date().toISOString()};
       
       await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
@@ -380,9 +393,7 @@ export async function onRequestPost({ request, env }) {
     return new Response(JSON.stringify({ error: "DB not configured" }), { status: 500, headers: corsHeaders(request) });
   }
 
-  // ============================================================
-  // 🔒 NEW: Rate limiting for all admin actions (per IP)
-  // ============================================================
+  // Rate limiting for admin actions
   const adminIP = getClientIP(request);
   const rateOk = await checkRateLimit(db, adminIP, 'admin_action', 100, 60);
   if (!rateOk) {
@@ -496,9 +507,7 @@ export async function onRequestPost({ request, env }) {
           .bind("kd_approved", JSON.stringify(approved));
         await db.batch([stmt1, stmt2]);
         
-        // ============================================================
-        // 🔒 NEW: Invalidate owner sessions after approval
-        // ============================================================
+        // Invalidate owner sessions
         await invalidateOwnerSessions(db, safeHomestay.id);
         
         await logAction({
@@ -533,9 +542,7 @@ export async function onRequestPost({ request, env }) {
         .bind("kd_pending", JSON.stringify(pending))
         .run();
       
-      // ============================================================
-      // 🔒 NEW: Invalidate owner sessions after rejection
-      // ============================================================
+      // Invalidate owner sessions
       await invalidateOwnerSessions(db, homestay.id);
       
       await logAction({
@@ -592,9 +599,7 @@ export async function onRequestPost({ request, env }) {
           .bind("kd_approved", JSON.stringify(approved))
           .run();
         
-        // ============================================================
-        // 🔒 NEW: Invalidate owner sessions after removal
-        // ============================================================
+        // Invalidate owner sessions
         await invalidateOwnerSessions(db, removed.id);
         
         await logAction({
