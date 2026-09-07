@@ -897,7 +897,6 @@
       const data = await res.json();
       return data;
     } catch (e) {
-      console.error('Check error:', e);
       return { success: false, error: e.message };
     }
   }
@@ -931,7 +930,7 @@
           }
         }
       } catch (e) {
-        console.error(`Auto-check error for ${b.id}:`, e);
+        // ignore
       }
       await new Promise(r => setTimeout(r, 500));
     }
@@ -1005,7 +1004,6 @@
       }
     })
     .catch(function(err) {
-      console.warn('API error:', err);
       try {
         var cached = localStorage.getItem('kd_guest_bookings_' + currentGuest.id);
         if (cached) {
@@ -1028,7 +1026,6 @@
           renderBookings();
         }
       } catch(e2) {
-        console.error('Cache error:', e2);
         myBookings = [];
         renderBookings();
       }
@@ -1170,7 +1167,6 @@
         await showAlert('Error', result.error || 'Could not check payment status.');
       }
     } catch (e) {
-      console.error('Check error:', e);
       await showAlert('Error', 'Could not connect to the server.');
     }
   }
@@ -1179,8 +1175,6 @@
   // RETRY PAYMENT – with CSRF refresh
   // =============================================================
 async function retryPayment(bookingId) {
-  console.log('🔁 retryPayment called for booking:', bookingId);
-  
   let token = localStorage.getItem('kd_csrf_token');
   if (!token) {
     try {
@@ -1193,7 +1187,6 @@ async function retryPayment(bookingId) {
         throw new Error('No token received');
       }
     } catch (e) {
-      console.warn('Could not fetch CSRF token:', e);
       showModal('Session Expired', 
         'Your security token is missing. Please log in again to continue.',
         [
@@ -1243,7 +1236,6 @@ async function retryPayment(bookingId) {
     }
 
   } catch (e) {
-    console.error('Retry error:', e);
     showAlert('Network Error', 'Could not connect to the server. Please try again.');
   }
 }
@@ -1287,7 +1279,6 @@ window.retryPaymentFromBookings = retryPaymentFromBookings;
       }
     } catch(e) {
       showAlert('Error', 'Network error. Please try again.');
-      console.error('Resend error:', e);
     }
   }
 
