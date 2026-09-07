@@ -23,6 +23,37 @@ function getChipBankCode(bankName) {
   return 'MBBEMYKL'; // Default to Maybank
 }
 
+// ===== HMAC SHA-512 helper =====
+async function hmacSha512(message, secret) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-512' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ===== Helper to save bank account ID =====
+async function saveBankAccountId(db, homestayId, bankAccountId) {
+  if (!homestayId) return;
+  for (const store of ['kd_approved', 'kd_homestays']) {
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
+    let list = [];
+    try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
+    const idx = list.findIndex(h => String(h.id) === String(homestayId));
+    if (idx !== -1) {
+      list[idx].chip_bank_account_id = bankAccountId;
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind(store, JSON.stringify(list))
+        .run();
+      break;
+    }
+  }
+}
+
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -146,19 +177,24 @@ export async function onRequestPost({ request, env }) {
         // Create or fetch bank account ID
         let bankAccountId = homestay?.chip_bank_account_id || null;
         if (!bankAccountId) {
+          // --- FIX: Compute epoch and checksum for bank account creation ---
+          const epoch = Math.floor(Date.now() / 1000);
+          const bankBody = JSON.stringify({
+            bank_code: chipBankCode,
+            account_number: ownerAcc.replace(/[^0-9]/g, ''),
+            account_name: ownerName
+          });
+          const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
+
           const createRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
               'epoch': String(epoch),
               'checksum': checksum
             },
-            body: JSON.stringify({
-              bank_code: chipBankCode,  // ✅ CHIP BIC code
-              account_number: ownerAcc.replace(/[^0-9]/g, ''),
-              account_name: ownerName
-            })
+            body: bankBody
           });
           const bankData = await createRes.json();
           if (!createRes.ok || !bankData.id) {
@@ -298,37 +334,6 @@ export async function onRequestPost({ request, env }) {
     console.error('Owner check‑in error:', e.message);
     return jsonResponse({ error: 'Check‑in failed. Please try again later.' }, 500, request);
   }
-}
-
-// ===== Helper to save bank account ID =====
-async function saveBankAccountId(db, homestayId, bankAccountId) {
-  if (!homestayId) return;
-  for (const store of ['kd_approved', 'kd_homestays']) {
-    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
-    let list = [];
-    try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
-    const idx = list.findIndex(h => String(h.id) === String(homestayId));
-    if (idx !== -1) {
-      list[idx].chip_bank_account_id = bankAccountId;
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind(store, JSON.stringify(list))
-        .run();
-      break;
-    }
-  }
-}
-
-// ===== HMAC SHA-512 helper =====
-async function hmacSha512(message, secret) {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-512' },
-    false,
-    ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
-  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 export async function onRequestOptions({ request }) {
