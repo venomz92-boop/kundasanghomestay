@@ -565,7 +565,8 @@
     © 2026 Kundasang Homestay. All rights reserved.
   </div>
 </footer>
-<script src="animations.js"></script>
+
+ <script src="animations.js"></script>
 <script>
   function safeHTML(html) {
       if (!html) return '';
@@ -722,19 +723,14 @@ async function handleLogin(e) {
     });
 
     var text = await res.text();
-    console.log('Raw response:', text);
-    
     var data;
     try {
       data = JSON.parse(text);
     } catch (parseErr) {
-      console.error('Failed to parse JSON:', text);
       errorEl.textContent = 'Server error. Please try again later.';
       errorEl.classList.remove('hidden');
       return;
     }
-
-    console.log('Parsed data:', data);
 
     if (data.success) {
       // ✅ Replace alert with branded modal
@@ -755,7 +751,6 @@ async function handleLogin(e) {
       errorEl.classList.remove('hidden');
     }
   } catch(e) {
-    console.error('Login error:', e);
     errorEl.textContent = 'Network error: ' + (e.message || 'Please check your connection.');
     errorEl.classList.remove('hidden');
   }
@@ -785,7 +780,6 @@ document.addEventListener('click', function(e) {
 // =============================================================
 document.addEventListener('DOMContentLoaded', function() {
   renderGuestNav();
-  console.log('✅ Login page loaded with modern styling');
 
   // Check for verification success parameter
   var urlParams = new URLSearchParams(window.location.search);
