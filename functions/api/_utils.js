@@ -258,7 +258,6 @@ export function corsHeaders(request) {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'X-Frame-Options': 'DENY',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    // NEW: Content-Security-Policy
     'Content-Security-Policy': "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com; connect-src 'self' https://api.chip-in.asia; frame-src 'self';"
   };
   if (allowed.has(origin)) {
@@ -444,7 +443,7 @@ export async function incrementOwnerSessionVersion(db, ownerId) {
 }
 
 // =============================================================
-// NEW VALIDATION HELPERS (added)
+// VALIDATION HELPERS
 // =============================================================
 
 export function sanitizeString(str, maxLen = 200) {
