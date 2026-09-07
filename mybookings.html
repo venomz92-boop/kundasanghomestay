@@ -457,7 +457,6 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    /* 🔁 ADDED: badge for refunded status */
     .badge-refunded {
       background: #dbeafe;
       color: #1e40af;
@@ -683,7 +682,7 @@
 <script src="animations.js"></script>
 <script>
   // =============================================================
-  // SAFE HTML – ALLOW ONCLICK (patched)
+  // SAFE HTML – ALLOW DATA-ATTR (no onclick)
   // =============================================================
   function safeHTML(html) {
   if (!html) return '';
@@ -1045,7 +1044,7 @@
   }
 
   // =============================================================
-  // RENDER BOOKINGS – with refunded status
+  // RENDER BOOKINGS – with event delegation (no inline onclick)
   // =============================================================
   function renderBookings() {
     var listDiv = document.getElementById('bookingsList');
@@ -1096,7 +1095,6 @@
       var isPending = statusLower.includes('pending');
       var isCancelled = statusLower.includes('cancel');
       var isFailed = statusLower.includes('fail');
-      // 🔁 ADDED: detect refunded status
       var isRefunded = statusLower.includes('refunded');
       
       var badgeClass = 'badge-pending', badgeLabel = 'Pending';
@@ -1106,21 +1104,21 @@
       else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
       else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
       
-      // Build buttons array
-      var buttons = [];
+      // Build buttons array with data-* attributes (no onclick)
+      var buttonsHtml = '';
       
       // Resend Code – only for Paid or Completed
       if (isPaid || isCompleted) {
-        buttons.push('<button onclick="resendCode(\'' + id + '\')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition">📧 Resend Code</button>');
+        buttonsHtml += `<button class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition action-btn" data-action="resendCode" data-id="${id}">📧 Resend Code</button>`;
       }
       
       if (isPending) {
-        buttons.push('<button onclick="manualCheckPayment(\'' + id + '\')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Payment</button>');
-        buttons.push('<button onclick="retryPaymentFromBookings(\'' + id + '\')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#3FD0D4;">🔄 Retry Payment</button>');
+        buttonsHtml += `<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="${id}">🔍 Check Payment</button>`;
+        buttonsHtml += `<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#3FD0D4;" data-action="retryPayment" data-id="${id}">🔄 Retry Payment</button>`;
       }
       if (isFailed) {
-        buttons.push('<button onclick="manualCheckPayment(\'' + id + '\')" class="btn-accent" style="padding:6px 14px; font-size:10px;">🔍 Check Status</button>');
-        buttons.push('<button onclick="retryPaymentFromBookings(\'' + id + '\')" class="btn-primary" style="padding:6px 14px; font-size:10px; background:#dc2626;">🔄 Retry Payment</button>');
+        buttonsHtml += `<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="${id}">🔍 Check Status</button>`;
+        buttonsHtml += `<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#dc2626;" data-action="retryPayment" data-id="${id}">🔄 Retry Payment</button>`;
       }
       
       var pendingNote = '';
@@ -1143,7 +1141,7 @@
                 '</div>' +
                 pendingNote +
                 '<div class="mt-1 flex flex-wrap gap-2">' +
-                  buttons.join('') +
+                  buttonsHtml +
                 '</div>' +
               '</div>' +
             '</div>' +
@@ -1155,6 +1153,36 @@
       '';
     });
     listDiv.innerHTML = safeHTML(html);
+    
+    // Attach event listener for action buttons (delegation)
+    listDiv.removeEventListener('click', bookingActionHandler);
+    listDiv.addEventListener('click', bookingActionHandler);
+  }
+
+  // =============================================================
+  // EVENT DELEGATION FOR BOOKING ACTIONS
+  // =============================================================
+  function bookingActionHandler(e) {
+    var btn = e.target.closest('.action-btn');
+    if (!btn) return;
+    var action = btn.dataset.action;
+    var id = btn.dataset.id;
+    if (!action || !id) return;
+    e.preventDefault();
+
+    switch (action) {
+      case 'checkStatus':
+        manualCheckPayment(id);
+        break;
+      case 'retryPayment':
+        retryPaymentFromBookings(id);
+        break;
+      case 'resendCode':
+        resendCode(id);
+        break;
+      default:
+        console.warn('Unknown action:', action);
+    }
   }
 
   // =============================================================
@@ -1189,80 +1217,80 @@
   // =============================================================
   // RETRY PAYMENT – with CSRF refresh
   // =============================================================
-async function retryPayment(bookingId) {
-  let token = localStorage.getItem('kd_csrf_token');
-  if (!token) {
-    try {
-      const res = await fetch('/api/csrf-token', { method: 'GET' });
-      const data = await res.json();
-      if (data.token) {
-        localStorage.setItem('kd_csrf_token', data.token);
-        token = data.token;
-      } else {
-        throw new Error('No token received');
+  async function retryPayment(bookingId) {
+    let token = localStorage.getItem('kd_csrf_token');
+    if (!token) {
+      try {
+        const res = await fetch('/api/csrf-token', { method: 'GET' });
+        const data = await res.json();
+        if (data.token) {
+          localStorage.setItem('kd_csrf_token', data.token);
+          token = data.token;
+        } else {
+          throw new Error('No token received');
+        }
+      } catch (e) {
+        showModal('Session Expired', 
+          'Your security token is missing. Please log in again to continue.',
+          [
+            { label: 'Login', class: 'btn-primary', value: 'login' }
+          ]
+        ).then(function(result) {
+          if (result === 'login') window.location.href = '/login.html';
+        });
+        return;
       }
+    }
+
+    try {
+      const res = await fetch('/api/chip-create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': token
+        },
+        body: JSON.stringify({ bookingId })
+      });
+
+      const data = await res.json();
+
+      if (res.status === 403 && data.error && data.error.includes('token')) {
+        localStorage.removeItem('kd_csrf_token');
+        showModal('Security Error', 
+          'Your session token is invalid. Please log in again to retry payment.',
+          [
+            { label: 'Login', class: 'btn-primary', value: 'login' }
+          ]
+        ).then(function(result) {
+          if (result === 'login') window.location.href = '/login.html';
+        });
+        return;
+      }
+
+      if (!res.ok || !data.success) {
+        showAlert('Error', data.error || 'Could not create payment. Please try again.');
+        return;
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        showAlert('Error', 'Payment URL missing.');
+      }
+
     } catch (e) {
-      showModal('Session Expired', 
-        'Your security token is missing. Please log in again to continue.',
-        [
-          { label: 'Login', class: 'btn-primary', value: 'login' }
-        ]
-      ).then(function(result) {
-        if (result === 'login') window.location.href = '/login.html';
-      });
-      return;
+      showAlert('Network Error', 'Could not connect to the server. Please try again.');
     }
   }
 
-  try {
-    const res = await fetch('/api/chip-create', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': token
-      },
-      body: JSON.stringify({ bookingId })
-    });
-
-    const data = await res.json();
-
-    if (res.status === 403 && data.error && data.error.includes('token')) {
-      localStorage.removeItem('kd_csrf_token');
-      showModal('Security Error', 
-        'Your session token is invalid. Please log in again to retry payment.',
-        [
-          { label: 'Login', class: 'btn-primary', value: 'login' }
-        ]
-      ).then(function(result) {
-        if (result === 'login') window.location.href = '/login.html';
-      });
-      return;
-    }
-
-    if (!res.ok || !data.success) {
-      showAlert('Error', data.error || 'Could not create payment. Please try again.');
-      return;
-    }
-
-    if (data.url) {
-      window.location.href = data.url;
-    } else {
-      showAlert('Error', 'Payment URL missing.');
-    }
-
-  } catch (e) {
-    showAlert('Network Error', 'Could not connect to the server. Please try again.');
+  // ✅ WRAPPER FOR ONCLICK (must be globally accessible)
+  async function retryPaymentFromBookings(bookingId) {
+    await retryPayment(bookingId);
   }
-}
 
-// ✅ WRAPPER FOR ONCLICK (must be globally accessible)
-async function retryPaymentFromBookings(bookingId) {
-  await retryPayment(bookingId);
-}
-
-// ✅ Ensure globals (in case of module scripts)
-window.retryPayment = retryPayment;
-window.retryPaymentFromBookings = retryPaymentFromBookings;
+  // ✅ Ensure globals (in case of module scripts)
+  window.retryPayment = retryPayment;
+  window.retryPaymentFromBookings = retryPaymentFromBookings;
 
   // =============================================================
   // RESEND CHECK‑IN CODE
