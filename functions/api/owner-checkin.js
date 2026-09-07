@@ -1,5 +1,5 @@
-// /api/owner-checkin.js – Auto check‑in + CHIP Send payout
-import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
+// /api/owner-checkin.js – Auto check‑in + CHIP Send payout + brute‑force protection
+import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse, recordCheckinAttempt, getRecentCheckinAttempts, clearCheckinAttempts } from './_utils.js';
 
 // ===== CHIP Bank code mapping (BIC/SWIFT codes) =====
 function getChipBankCode(bankName) {
@@ -44,7 +44,6 @@ function getChipBankCode(bankName) {
   for (const [key, code] of Object.entries(map)) {
     if (clean.includes(key) || key.includes(clean)) return code;
   }
-  // Fallback to Maybank if no match found
   return 'MBBEMYKL';
 }
 
@@ -133,6 +132,19 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Booking is not paid yet' }, 400, request);
     }
 
+    // ============================================================
+    // 🔒 NEW: Rate limiting for check‑in attempts (brute‑force prevention)
+    // ============================================================
+    const maxAttempts = 5;
+    const windowMs = 60 * 60 * 1000; // 1 hour
+    const attempts = await getRecentCheckinAttempts(db, bookingId, windowMs);
+    if (attempts >= maxAttempts) {
+      return jsonResponse({
+        error: `Too many failed check‑in attempts. Please wait 1 hour before retrying.`,
+        retryAfter: 3600
+      }, 429, request);
+    }
+
     // ===== 5. CHECK‑IN CODE VERIFICATION – MANDATORY =====
     if (!booking.checkinCode) {
       return jsonResponse({
@@ -140,10 +152,15 @@ export async function onRequestPost({ request, env }) {
       }, 400, request);
     }
     if (booking.checkinCode !== checkinCode) {
+      // Record failed attempt
+      await recordCheckinAttempt(db, bookingId);
       return jsonResponse({
         error: 'Invalid check‑in code. Please ask the guest for the 6‑digit code sent to their email/WhatsApp.'
       }, 400, request);
     }
+
+    // Code is correct – clear attempts for this booking
+    await clearCheckinAttempts(db, bookingId);
 
     // 6. Find homestay (fallback chain)
     let homestay = null;
@@ -160,7 +177,6 @@ export async function onRequestPost({ request, env }) {
     const ownerAcc = homestay?.ownerBankAccount || '';
     const ownerName = homestay?.bankHolder || homestay?.ownerName || '';
     
-    // ✅ Get CHIP BIC code directly (no ToyyibPay conversion)
     const bankCodeInput = homestay?.bankCode || homestay?.ownerBank || '';
     const chipBankCode = getChipBankCode(bankCodeInput);
 
@@ -173,7 +189,6 @@ export async function onRequestPost({ request, env }) {
     const isLive = !!(env.CHIP_API_KEY && env.CHIP_API_SECRET);
     const forceSimulation = env.PAYOUT_SIMULATION === 'true' || env.PAYOUT_SIMULATION === '1' || env.PAYOUT_SIMULATION === 'yes';
 
-    // If simulation is forced OR live keys are missing → simulate
     if (forceSimulation || !isLive) {
       payoutSuccess = true;
       payoutData = { simulation: true };
@@ -191,7 +206,6 @@ export async function onRequestPost({ request, env }) {
           throw new Error('CHIP_API_KEY or CHIP_API_SECRET missing');
         }
 
-        // Validate bank account
         if (!ownerAcc || ownerAcc.replace(/[^0-9]/g, '').length < 10) {
           throw new Error('Owner bank account is missing or invalid (must be at least 10 digits)');
         }
@@ -199,10 +213,8 @@ export async function onRequestPost({ request, env }) {
           throw new Error('Owner bank account holder name is missing');
         }
 
-        // Create or fetch bank account ID
         let bankAccountId = homestay?.chip_bank_account_id || null;
         if (!bankAccountId) {
-          // Compute epoch and checksum for bank account creation
           const epoch = Math.floor(Date.now() / 1000);
           const bankBody = JSON.stringify({
             bank_code: chipBankCode,
@@ -226,13 +238,11 @@ export async function onRequestPost({ request, env }) {
             throw new Error(`Failed to create bank account: ${bankData.error || 'unknown'}`);
           }
           bankAccountId = bankData.id;
-          // Save for future use
           if (homestay) {
             await saveBankAccountId(db, booking.homestayId, bankAccountId);
           }
         }
 
-        // Execute payout
         const amountCents = Math.round(ownerAmount * 100);
         const reference = `KDH-${bookingId}`;
         const payoutPayload = {
@@ -288,7 +298,7 @@ export async function onRequestPost({ request, env }) {
         bookings[idx].checkedInAt = new Date().toISOString();
         bookings[idx].checkedInBy = 'owner';
         bookings[idx].homestaySource = homestaySource;
-        bookings[idx].chip_bank_code = chipBankCode; // Store the BIC code used
+        bookings[idx].chip_bank_code = chipBankCode;
       } else {
         bookings[idx].status = 'Completed - Payout Pending';
         bookings[idx].checkedInAt = new Date().toISOString();
@@ -343,7 +353,6 @@ export async function onRequestPost({ request, env }) {
       } catch (_) {}
     }
 
-    // 11. Return final response
     return jsonResponse({
       success: true,
       message: payoutMessage,
