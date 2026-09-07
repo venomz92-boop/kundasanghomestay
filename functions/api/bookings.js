@@ -1,4 +1,5 @@
 // /api/bookings.js – FULLY PATCHED with D1 transaction lock
+// /api/bookings.js – Full patched version with D1-compatible lock
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely, withLock, checkRateLimit, recordRateLimit, invalidateOwnerSessions } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -144,7 +145,6 @@ export async function onRequestPost({ request, env }) {
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
 
-    // Ensure store table exists
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
     // ===== SERVER‑SIDE VALIDATION =====
@@ -154,7 +154,6 @@ export async function onRequestPost({ request, env }) {
     const checkout = String(incoming.checkout || '');
     const roomId = incoming.roomId ? String(incoming.roomId) : null;
 
-    // Validate dates
     if (!/^\d{4}-\d{2}-\d{2}$/.test(checkin) || !/^\d{4}-\d{2}-\d{2}$/.test(checkout)) {
       return jsonResponse({ error: 'Invalid date format' }, 400, request);
     }
@@ -169,14 +168,12 @@ export async function onRequestPost({ request, env }) {
     const today = new Date(); today.setHours(0,0,0,0);
     if (d1 < today) return jsonResponse({ error: 'Cannot book past dates' }, 400, request);
 
-    // Validate homestay exists and is approved
     const approvedRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_approved').first();
     let approved = [];
     try { if (approvedRes?.data) approved = JSON.parse(approvedRes.data); } catch(_) {}
     const homestay = approved.find(h => String(h.id) === homestayId && h.approved === true);
     if (!homestay) return jsonResponse({ error: 'Homestay not found or not approved' }, 404, request);
 
-    // Validate room if provided
     let selectedRoom = null;
     const rooms = homestay.rooms || [];
     if (roomId) {
@@ -189,18 +186,18 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ============================================================
-    // 🔒 Use D1 transaction with lock to prevent race conditions
+    // 🔒 Acquire lock using the new D1‑compatible withLock
     // ============================================================
     try {
-      const result = await withLock(db, homestayId, async (txnDb) => {
-        // All operations inside this callback are atomic
+      const result = await withLock(db, homestayId, async (db) => {
+        // All operations here are protected by the lock
 
         // 1. Fetch bookings and guests
-        const bookingsRes = await txnDb.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+        const bookingsRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
         let allBookings = [];
         try { if (bookingsRes?.data) allBookings = JSON.parse(bookingsRes.data); } catch(_) {}
 
-        const guestsRes = await txnDb.prepare('SELECT data FROM store WHERE key=?').bind('kd_guests').first();
+        const guestsRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_guests').first();
         let guests = [];
         try { if (guestsRes?.data) guests = JSON.parse(guestsRes.data); } catch(_) {}
 
@@ -294,14 +291,13 @@ export async function onRequestPost({ request, env }) {
         allBookings.push(booking);
 
         // 7. Save
-        await txnDb.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+        await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
           .bind('kd_bookings', JSON.stringify(allBookings))
           .run();
 
         return { booking };
       });
 
-      // Handle result from the transaction
       if (result.alreadyExists) {
         return jsonResponse({
           success: true,
