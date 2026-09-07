@@ -4,23 +4,48 @@ import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jso
 // ===== CHIP Bank code mapping (BIC/SWIFT codes) =====
 function getChipBankCode(bankName) {
   const map = {
-    'MAYBANK': 'MBBEMYKL',
-    'CIMB': 'CIBBMYKL',
+    'AEON BANK': 'ACDBMYK2',
+    'AFFIN BANK': 'PHBMMYKL',
+    'AGROBANK': 'AGOBMYKL',
+    'AL-RAJHI': 'RJHIMYKL',
     'ALLIANCE BANK': 'MFBBMYKL',
-    'PUBLIC BANK': 'PBBEMYKL',
-    'RHB': 'RHBMYKL',
-    'HONG LEONG': 'HLBBMYKL',
+    'AMBANK': 'ARBKMYKL',
     'BANK ISLAM': 'BIMBMYKL',
     'BANK RAKYAT': 'BKRMMYKL',
+    'BANK MUAMALAT': 'BMMBMYKL',
+    'BANK OF AMERICA': 'BOFAMY2X',
+    'BANK OF CHINA': 'BKCHMYKL',
+    'BANK OF TOKYO-MITSUBISHI': 'BOTKMYKX',
     'BSN': 'BSNAMYK1',
-    'HSBC': 'HSBCMYKL',
-    'STANDARD CHARTERED': 'SCBLMYKX'
+    'BNP PARIBAS': 'BNPAMYKL',
+    'CHINA CONSTRUCTION BANK': 'PCBCMYKL',
+    'CIMB': 'CIBBMYKL',
+    'DEUTSCHE BANK': 'DEUTMYKL',
+    'FINEXUS': 'FNXSMYNB',
+    'GX BANK': 'GXSPMYKL',
+    'HONG LEONG': 'HLBBMYKL',
+    'HSBC': 'HBMBMYKL',
+    'ICBC': 'ICBKMYKL',
+    'JP MORGAN': 'CHASMYKX',
+    'KUWAIT FINANCE HOUSE': 'KFHOMYKL',
+    'MAYBANK': 'MBBEMYKL',
+    'MBSB': 'AFBQMYKL',
+    'MIZUHO': 'MHCBMYKA',
+    'OCBC': 'OCBCMYKL',
+    'PUBLIC BANK': 'PBBEMYKL',
+    'RHB': 'RHBBMYKL',
+    'STANDARD CHARTERED': 'SCBLMYKX',
+    'SUMITOMO MITSUI': 'SMBCMYKL',
+    'TOUCH N GO': 'TNGDMYNB',
+    'UOB': 'UOVBMYKL'
   };
+
   const clean = (bankName || '').toUpperCase().trim();
   for (const [key, code] of Object.entries(map)) {
     if (clean.includes(key) || key.includes(clean)) return code;
   }
-  return 'MBBEMYKL'; // Default to Maybank
+  // Fallback to Maybank if no match found
+  return 'MBBEMYKL';
 }
 
 // ===== HMAC SHA-512 helper =====
