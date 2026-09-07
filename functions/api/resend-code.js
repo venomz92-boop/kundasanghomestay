@@ -1,5 +1,5 @@
-// /api/resend-code.js
-import { corsHeaders, jsonResponse, getGuestSession, logAction, enforceHttps, getClientIP } from './_utils.js';
+// /api/resend-code.js – With rate limiting
+import { corsHeaders, jsonResponse, getGuestSession, logAction, enforceHttps, getClientIP, checkRateLimit, recordRateLimit } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
@@ -23,6 +23,17 @@ export async function onRequestPost({ request, env }) {
     
     const booking = bookings[idx];
     
+    // ============================================================
+    // 🔒 NEW: Rate limiting per booking (3 attempts per hour)
+    // ============================================================
+    const clientIP = getClientIP(request);
+    const actionKey = `resend_${bookingId}`;
+    const rateOk = await checkRateLimit(db, clientIP, actionKey, 3, 3600);
+    if (!rateOk) {
+      return jsonResponse({ error: 'Too many resend attempts. Please wait an hour.' }, 429, request);
+    }
+    await recordRateLimit(db, clientIP, actionKey);
+
     // Ensure checkinCode exists
     if (!booking.checkinCode) {
       booking.checkinCode = String(Math.floor(100000 + Math.random() * 900000));
@@ -104,7 +115,6 @@ export async function onRequestPost({ request, env }) {
       userId: session.userId 
     });
     
-    // ✅ FIX: Never return the code in the response
     return jsonResponse({
       success: true,
       emailSent: emailSent,
