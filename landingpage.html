@@ -348,36 +348,6 @@
             color: var(--text-muted);
         }
 
-        /* ── Testimonial ── */
-        .testimonial-card {
-            background: #FFFFFF;
-            border-radius: var(--radius-md);
-            padding: 32px 28px;
-            border: 1px solid rgba(15, 30, 22, 0.04);
-            box-shadow: var(--shadow-soft);
-            transition: all 0.3s ease;
-            position: relative;
-        }
-        .testimonial-card::before {
-            content: '"';
-            position: absolute;
-            top: 8px;
-            right: 24px;
-            font-family: "DM Serif Display", serif;
-            font-size: 72px;
-            color: rgba(212, 163, 115, 0.15);
-            line-height: 1;
-        }
-        .testimonial-card:hover {
-            box-shadow: var(--shadow-elevated);
-            transform: translateY(-4px);
-        }
-        .testimonial-card .stars {
-            color: var(--gold);
-            letter-spacing: 2px;
-            font-size: 14px;
-        }
-
         /* ── FAQ ── */
         .faq-item {
             border-bottom: 1px solid rgba(15, 30, 22, 0.04);
@@ -566,9 +536,7 @@
         <header class="h-[72px] md:h-[80px] bg-[#0F1E16]/95 backdrop-blur-lg sticky top-0 z-50 border-b border-white/6 transition-shadow duration-300" :class="{ 'shadow-sm': scrolled }">
             <div class="max-w-[1300px] mx-auto h-full px-4 lg:px-8 flex items-center justify-between">
                 <a href="/" class="flex items-center gap-3 group">
-                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-[#D4A373]/10 flex items-center justify-center text-[#D4A373] font-serif font-bold text-xl border border-[#D4A373]/20 transition-transform group-hover:scale-105">
-                        KH
-                    </div>
+                    <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
                     <div class="leading-none">
                         <div class="font-serif font-bold text-[18px] md:text-[22px] tracking-[-0.5px] text-white">
                             KUNDASANG<span class="font-400 text-white/40 text-[14px] md:text-[18px]"> • Homestay.my</span>
@@ -937,33 +905,6 @@
             </div>
         </section>
 
-        <!-- ── TESTIMONIALS ── -->
-        <section class="max-w-[1100px] mx-auto px-4 py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
-            <div class="text-center mb-16">
-                <div class="inline-flex items-center gap-2 bg-[#D4A373]/10 text-[#1E3328] px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border border-[#D4A373]/20">
-                    <span class="w-2 h-2 bg-[#D4A373] rounded-full"></span>
-                    Testimoni
-                </div>
-                <h2 class="font-serif font-bold text-[30px] md:text-[40px] text-[#1E3328] tracking-[-0.5px] mt-3">Apa Kata Pengusaha Lain?</h2>
-                <p class="text-[15px] text-[#5A6B60] mt-2 max-w-2xl mx-auto">Dengarkan pengalaman sebenar dari pengusaha homestay yang telah menyertai platform kami.</p>
-            </div>
-            <div class="grid md:grid-cols-3 gap-6">
-                <template x-for="(t, idx) in testimonials" :key="idx">
-                    <div class="testimonial-card">
-                        <div class="stars" x-text="'★'.repeat(5)"></div>
-                        <p class="text-[14px] text-[#1E3328]/80 mt-3 leading-relaxed italic" x-text="t.text"></p>
-                        <div class="flex items-center gap-3 mt-4 pt-4 border-t border-[#1E3328]/8">
-                            <div class="w-10 h-10 rounded-full bg-[#D4A373]/10 flex items-center justify-center text-[#1E3328] font-serif font-bold text-sm" x-text="t.name.charAt(0)"></div>
-                            <div>
-                                <div class="font-semibold text-[14px] text-[#1E3328]" x-text="t.name"></div>
-                                <div class="text-[12px] text-[#5A6B60]" x-text="t.role"></div>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-            </div>
-        </section>
-
         <!-- ── PROSES PENDAFTARAN ── -->
         <section class="bg-[#F8F5F0] py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
@@ -1083,7 +1024,7 @@
             <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
                 <div>
                     <div class="flex items-center gap-3">
-                        <div class="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-[#D4A373]/10 flex items-center justify-center text-[#D4A373] font-serif font-bold text-xl border border-[#D4A373]/20">KH</div>
+                        <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
                         <div class="font-serif font-bold text-[18px] text-white">KUNDASANG<span class="font-400 text-white/40"> • Homestay.my</span></div>
                     </div>
                     <p class="text-[13px] leading-[1.6] mt-4 text-white/40 max-w-[260px]">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
@@ -1166,12 +1107,6 @@
                     { number: '24-48', label: 'Jam kelulusan' },
                     { number: '10K+', label: 'Perniagaan percaya CHIP' },
                     { number: '100%', label: 'Bayaran penuh ke bank anda' }
-                ],
-
-                testimonials: [
-                    { name: 'Azlan bin Bakar', role: 'Pengusaha Homestay, Kundasang', text: 'Saya suka platform ini kerana tiada potongan daripada harga penginapan saya. Tetamu bayar yuran, saya dapat full! Sangat membantu.' },
-                    { name: 'Siti Aishah', role: 'Tuan Rumah, Pekan Kundasang', text: 'Proses pendaftaran sangat mudah dan cepat. Dalam masa 2 hari homestay saya dah dipaparkan. Terima kasih Kundasang Homestay!' },
-                    { name: 'Mohd Ridzuan', role: 'Pengusaha Homestay, Mesilau', text: 'CHIP memang terbaik. Saya rasa selamat kerana wang tetamu disimpan dalam akaun amanah. Baru 3 bulan, dah 15 tempahan!' }
                 ],
 
                 faqData: [
