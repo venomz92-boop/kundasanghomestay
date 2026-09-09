@@ -58,24 +58,22 @@
         </div>
       </div>
     </nav>
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" aria-label="Toggle Navigation">
-      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-    </button>
-  </div>
-</header>
+ <button id="mobileMenuBtn" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" aria-label="Toggle Navigation">
+  <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+</button>
 
 <!-- ===== MOBILE MENU ===== -->
 <div id="mobileNav">
   <div class="p-4 space-y-1">
-    <a href="/" onclick="toggleMobileMenu(); window.location.href='/'; return false;" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
-    <a href="/list.html" onclick="toggleMobileMenu(); window.location.href='/list.html'; return false;" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
-    <a href="/about.html" onclick="toggleMobileMenu(); window.location.href='/about.html'; return false;" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
-    <a href="/owner.html" onclick="toggleMobileMenu(); window.location.href='/owner.html'; return false;" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+    <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+    <a href="/list.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
+    <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
+    <a href="/owner.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
 
     <div class="pt-3 space-y-3">
       <div id="mGuestNav">
-        <a href="/login.html" onclick="toggleMobileMenu(); window.location.href='/login.html'; return false;" class="guest-btn block text-center">Login</a>
-        <a href="/register.html" onclick="toggleMobileMenu(); window.location.href='/register.html'; return false;" class="guest-btn guest-btn-primary block text-center">Register</a>
+        <a href="/login.html" class="guest-btn block text-center">Login</a>
+        <a href="/register.html" class="guest-btn guest-btn-primary block text-center">Register</a>
       </div>
       <div id="mGuestProfileNav" class="hidden space-y-2">
         <div class="profile-card">
@@ -86,11 +84,57 @@
           </div>
           <button onclick="logoutGuest()" class="logout-btn">Logout</button>
         </div>
-        <a href="/mybookings.html" onclick="toggleMobileMenu(); window.location.href='/mybookings.html'; return false;" class="my-bookings-btn">📅 My Bookings</a>
+        <a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
       </div>
     </div>
   </div>
 </div>
+
+<!-- ===== ROBUST MOBILE NAV SCRIPT ===== -->
+<script>
+  (function() {
+    // Ensure the DOM is ready
+    const menuBtn = document.getElementById('mobileMenuBtn');
+    const mobileNav = document.getElementById('mobileNav');
+
+    if (!menuBtn || !mobileNav) {
+      console.warn('Mobile nav elements not found');
+      return;
+    }
+
+    function toggleMobileMenu(e) {
+      e && e.preventDefault();
+      mobileNav.classList.toggle('open');
+      // Prevent body scroll when menu is open
+      document.body.style.overflow = mobileNav.classList.contains('open') ? 'hidden' : '';
+    }
+
+    // Attach click listener (removing any inline onclick)
+    menuBtn.removeAttribute('onclick');
+    menuBtn.addEventListener('click', toggleMobileMenu);
+
+    // Close menu on outside click
+    document.addEventListener('click', function(e) {
+      if (mobileNav.classList.contains('open') &&
+          !mobileNav.contains(e.target) &&
+          !menuBtn.contains(e.target)) {
+        mobileNav.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && mobileNav.classList.contains('open')) {
+        mobileNav.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    });
+
+    // Expose function globally (for any legacy inline calls)
+    window.toggleMobileMenu = toggleMobileMenu;
+  })();
+</script>
 
 <!-- ===== HERO ===== -->
 <section id="hero" class="relative w-full overflow-visible pb-4 md:pb-0">
