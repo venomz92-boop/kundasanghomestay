@@ -146,7 +146,7 @@ export async function onRequestPost({ request, env }) {
 
   } catch (error) {
     console.error('Check status error:', error.message);
-    return jsonResponse({ error: 'Failed to check status: ' + error.message }, 500, request);
+    return jsonResponse({ error: 'Failed to check status. Please try again later.' }, 500, request);
   }
 }
 
