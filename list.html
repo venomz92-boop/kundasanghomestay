@@ -31,11 +31,10 @@
 
 <!-- ===== EARLY FUNCTION DEFINITION ===== -->
 <script>
-  // Define toggle function globally and prevent rapid double toggles
   let lastToggleTime = 0;
   window.toggleMobileMenu = function() {
     const now = Date.now();
-    if (now - lastToggleTime < 300) return; // debounce
+    if (now - lastToggleTime < 300) return;
     lastToggleTime = now;
     const nav = document.getElementById('mobileNav');
     if (nav) {
@@ -77,12 +76,12 @@
       </div>
     </nav>
 
-    <!-- MOBILE MENU BUTTON (with onclick) -->
+    <!-- MOBILE MENU BUTTON -->
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
 
-    <!-- FALLBACK LISTENER (if onclick is ignored by Chrome) -->
+    <!-- FALLBACK LISTENER -->
     <script>
       (function() {
         var btn = document.getElementById('mobileMenuBtn');
