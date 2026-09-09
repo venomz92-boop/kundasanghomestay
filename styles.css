@@ -3,11 +3,6 @@
    Merged from all HTML files – Nothing Changed
    ============================================================ */
 
-/* ============================================================
-   FROM: index.html, list.html, login.html, register.html,
-   mybookings.html, owner.html, admin.html, about.html
-   ============================================================ */
-
 /* ----- ROOT (merged from all pages) ----- */
 :root {
   --primary: #0F382E;
@@ -31,7 +26,7 @@
   --transition: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-/* ----- RESET & BASE (from all pages) ----- */
+/* ----- RESET & BASE ----- */
 * {
   -webkit-tap-highlight-color: transparent;
   box-sizing: border-box;
@@ -58,18 +53,13 @@ body {
 .rounded-full { border-radius: 999px !important; }
 .sharp { border-radius: 2px !important; }
 
-/* ----- POLICY CONTENT (from policy pages) ----- */
+/* ----- POLICY CONTENT ----- */
 .policy-content {
   opacity: 1 !important;
   transform: none !important;
 }
 
-/* ============================================================
-   FROM: index.html, list.html, login.html, register.html
-   GLASS, CARDS, BUTTONS, FORMS
-   ============================================================ */
-
-/* ----- GLASS (from index, list, login, register) ----- */
+/* ----- GLASS ----- */
 .glass {
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(16px);
@@ -77,7 +67,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-/* ----- CARD (from index, list, login, register, mybookings, owner) ----- */
+/* ----- CARD ----- */
 .card {
   background: var(--card);
   border-radius: var(--radius);
@@ -90,13 +80,12 @@ body {
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
-/* From mybookings, owner (slightly different radius) */
 .card.p-5,
 .card.p-6 {
   border-radius: 16px;
 }
 
-/* ----- BUTTONS (from index, list, login, register, mybookings, owner, admin) ----- */
+/* ----- BUTTONS ----- */
 .btn-primary {
   background: var(--primary);
   color: white;
@@ -131,9 +120,7 @@ body {
   box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3);
 }
 .btn-primary:hover::after { opacity: 1; }
-.btn-primary.w-full {
-  width: 100%;
-}
+.btn-primary.w-full { width: 100%; }
 
 .btn-accent {
   background: var(--accent);
@@ -215,9 +202,7 @@ body {
   cursor: pointer;
   font-family: "Poppins", sans-serif;
 }
-.btn-success:hover {
-  background: #15803d;
-}
+.btn-success:hover { background: #15803d; }
 
 .btn-warning {
   background: #f59e0b;
@@ -232,9 +217,7 @@ body {
   cursor: pointer;
   font-family: "Poppins", sans-serif;
 }
-.btn-warning:hover {
-  background: #d97706;
-}
+.btn-warning:hover { background: #d97706; }
 
 .btn-danger {
   background: #dc2626;
@@ -248,9 +231,7 @@ body {
   cursor: pointer;
   font-family: "Poppins", sans-serif;
 }
-.btn-danger:hover {
-  background: #b91c1c;
-}
+.btn-danger:hover { background: #b91c1c; }
 
 .refresh-btn {
   background: var(--accent);
@@ -269,11 +250,9 @@ body {
   transition: all 0.2s;
   font-family: "Poppins", sans-serif;
 }
-.refresh-btn:hover {
-  background: var(--accent-hover);
-}
+.refresh-btn:hover { background: var(--accent-hover); }
 
-/* ----- FORM ELEMENTS (from index, list, login, register, owner) ----- */
+/* ----- FORM ELEMENTS ----- */
 .form-input {
   width: 100%;
   border: 2px solid #e2e8f0;
@@ -295,9 +274,7 @@ body {
   box-shadow: 0 0 0 4px var(--accent-glow);
   transform: translateY(-1px);
 }
-.form-input::placeholder {
-  color: #94a3b8;
-}
+.form-input::placeholder { color: #94a3b8; }
 .form-input[type="date"] {
   position: relative;
   z-index: 55;
@@ -320,23 +297,11 @@ body {
   border-color: var(--accent);
   box-shadow: 0 0 0 4px var(--accent-glow);
 }
-.form-input[type="date"]::-webkit-datetime-edit {
-  color: #212121;
-}
-.form-input[type="date"]::-webkit-datetime-edit-fields-wrapper {
-  color: #212121;
-}
-.form-input[type="date"]::-webkit-calendar-picker-indicator {
-  opacity: 0.7;
-  padding: 4px;
-  cursor: pointer;
-}
-.form-input[type="date"]:invalid {
-  color: #94a3b8;
-}
-textarea.form-input {
-  resize: none;
-}
+.form-input[type="date"]::-webkit-datetime-edit { color: #212121; }
+.form-input[type="date"]::-webkit-datetime-edit-fields-wrapper { color: #212121; }
+.form-input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.7; padding: 4px; cursor: pointer; }
+.form-input[type="date"]:invalid { color: #94a3b8; }
+textarea.form-input { resize: none; }
 
 .form-select {
   width: 100%;
@@ -362,7 +327,7 @@ textarea.form-input {
   padding-right: 48px;
 }
 
-/* ----- DROP ZONE (from list.html) ----- */
+/* ----- DROP ZONE ----- */
 .drop-zone {
   border: 2px dashed #cbd5e1;
   background: #fff;
@@ -377,7 +342,7 @@ textarea.form-input {
   background: #fdfdfd;
 }
 
-/* ----- BLOCKED DATE CHIP (from list.html) ----- */
+/* ----- BLOCKED DATE CHIP ----- */
 .blocked-date-chip {
   display: inline-flex;
   align-items: center;
@@ -390,7 +355,7 @@ textarea.form-input {
   font-size: 12px;
 }
 
-/* ----- HOMESTAY SELECTOR (from owner.html) ----- */
+/* ----- HOMESTAY SELECTOR ----- */
 .homestay-selector {
   border: 1px solid #cbd5e1;
   border-radius: 999px;
@@ -406,11 +371,10 @@ textarea.form-input {
 }
 
 /* ============================================================
-   FROM: index.html, list.html, login.html, register.html
    NAVIGATION
    ============================================================ */
 
-/* ----- NAV LINKS (from index, list, login, register) ----- */
+/* ----- NAV LINKS ----- */
 .setsail-nav-link {
   position: relative;
   font-family: "Poppins", sans-serif;
@@ -438,40 +402,26 @@ textarea.form-input {
   transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 .setsail-nav-link:hover::after,
-.setsail-nav-link.active::after {
-  width: 100%;
-}
-.setsail-nav-link:hover {
-  color: var(--primary);
-}
+.setsail-nav-link.active::after { width: 100%; }
+.setsail-nav-link:hover { color: var(--primary); }
 .setsail-nav-link.agent {
   color: #7c3aed;
   border: 1px solid #7c3aed;
   padding: 6px 16px;
   border-radius: 999px;
 }
-.setsail-nav-link.agent::after {
-  display: none;
-}
-.setsail-nav-link.agent:hover {
-  background: #7c3aed;
-  color: white;
-}
+.setsail-nav-link.agent::after { display: none; }
+.setsail-nav-link.agent:hover { background: #7c3aed; color: white; }
 .setsail-nav-link.owner {
   color: #7c3aed;
   border: 1px solid #7c3aed;
   padding: 6px 16px;
   border-radius: 999px;
 }
-.setsail-nav-link.owner::after {
-  display: none;
-}
-.setsail-nav-link.owner:hover {
-  background: #7c3aed;
-  color: white;
-}
+.setsail-nav-link.owner::after { display: none; }
+.setsail-nav-link.owner:hover { background: #7c3aed; color: white; }
 
-/* ----- MOBILE NAV (from index, list, login, register) ----- */
+/* ----- MOBILE NAV ----- */
 #mobileNav {
   position: fixed;
   top: 80px;
@@ -526,10 +476,7 @@ textarea.form-input {
   width: auto !important;
   display: inline-block !important;
 }
-#mobileNav .mobile-agent-link:hover {
-  background: #7c3aed !important;
-  color: white !important;
-}
+#mobileNav .mobile-agent-link:hover { background: #7c3aed !important; color: white !important; }
 #mobileNav .mobile-owner-link {
   color: #7c3aed !important;
   border: 1px solid #7c3aed !important;
@@ -539,10 +486,7 @@ textarea.form-input {
   width: auto !important;
   display: inline-block !important;
 }
-#mobileNav .mobile-owner-link:hover {
-  background: #7c3aed !important;
-  color: white !important;
-}
+#mobileNav .mobile-owner-link:hover { background: #7c3aed !important; color: white !important; }
 #mobileNav .guest-btn {
   border: 1px solid var(--accent);
   color: var(--accent);
@@ -561,13 +505,8 @@ textarea.form-input {
   color: white;
   border: none;
 }
-#mobileNav .guest-btn:hover {
-  background: var(--accent);
-  color: white;
-}
-#mobileNav .guest-btn-primary:hover {
-  background: var(--accent-hover);
-}
+#mobileNav .guest-btn:hover { background: var(--accent); color: white; }
+#mobileNav .guest-btn-primary:hover { background: var(--accent-hover); }
 #mobileNav .profile-card {
   display: flex;
   align-items: center;
@@ -591,11 +530,7 @@ textarea.form-input {
   color: white;
   flex-shrink: 0;
 }
-#mobileNav .profile-card .info {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-}
+#mobileNav .profile-card .info { flex: 1; min-width: 0; overflow: hidden; }
 #mobileNav .profile-card .name {
   font-weight: 700;
   font-size: 14px;
@@ -623,9 +558,7 @@ textarea.form-input {
   letter-spacing: 0.5px;
   transition: background 0.2s;
 }
-#mobileNav .profile-card .logout-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
+#mobileNav .profile-card .logout-btn:hover { background: rgba(255, 255, 255, 0.25); }
 #mobileNav .my-bookings-btn {
   display: block;
   width: 100%;
@@ -640,18 +573,12 @@ textarea.form-input {
   border-radius: 12px;
   transition: background 0.2s;
 }
-#mobileNav .my-bookings-btn:hover {
-  background: #333;
-}
+#mobileNav .my-bookings-btn:hover { background: #333; }
 
-#mobileNav {
-  z-index: 99999 !important;
-}
-#mobileNav.open {
-  z-index: 99999 !important;
-}
+#mobileNav { z-index: 99999 !important; }
+#mobileNav.open { z-index: 99999 !important; }
 
-/* ----- GUEST AVATAR (from index, list, login, register) ----- */
+/* ----- GUEST AVATAR ----- */
 .guest-avatar {
   width: 32px;
   height: 32px;
@@ -666,11 +593,10 @@ textarea.form-input {
 }
 
 /* ============================================================
-   FROM: index.html
    BADGES, CALENDAR, MODAL, DATE PICKER, FLOATING WA
    ============================================================ */
 
-/* ----- BADGES (from index.html) ----- */
+/* ----- BADGES ----- */
 .badge-verified {
   background: #dcfce7;
   color: #166534;
@@ -716,7 +642,7 @@ textarea.form-input {
   letter-spacing: 0.05em;
 }
 
-/* ----- CALENDAR (from index.html) ----- */
+/* ----- CALENDAR ----- */
 .calendar-mini {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -773,9 +699,7 @@ textarea.form-input {
   justify-content: center;
   transition: background 0.2s;
 }
-.calendar-nav-btn:hover {
-  background: var(--primary-light);
-}
+.calendar-nav-btn:hover { background: var(--primary-light); }
 .calendar-month-label {
   font-weight: 600;
   font-size: 13px;
@@ -789,11 +713,7 @@ textarea.form-input {
   color: #6b7280;
   margin-top: 6px;
 }
-.calendar-legend span {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
+.calendar-legend span { display: flex; align-items: center; gap: 4px; }
 .calendar-legend .dot {
   width: 10px;
   height: 10px;
@@ -815,7 +735,7 @@ textarea.form-input {
   height: 10px;
 }
 
-/* ----- MODAL (from index, list, login, register, mybookings, owner) ----- */
+/* ----- MODAL ----- */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -829,9 +749,7 @@ textarea.form-input {
   padding: 20px;
   overflow-y: auto;
 }
-.modal-overlay.active {
-  display: flex;
-}
+.modal-overlay.active { display: flex; }
 .modal-box {
   background: white;
   max-width: 480px;
@@ -842,14 +760,8 @@ textarea.form-input {
   animation: modalIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 @keyframes modalIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+  from { opacity: 0; transform: scale(0.95) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 .modal-header {
   padding: 20px 24px 0 24px;
@@ -880,10 +792,7 @@ textarea.form-input {
   align-items: center;
   justify-content: center;
 }
-.modal-close:hover {
-  color: #212121;
-  background: #f1f5f9;
-}
+.modal-close:hover { color: #212121; background: #f1f5f9; }
 .modal-body {
   padding: 16px 24px 20px 24px;
   font-size: 14px;
@@ -923,36 +832,16 @@ textarea.form-input {
   transition: all 0.2s;
   font-family: "Poppins", sans-serif;
 }
-.modal-footer .btn-primary {
-  background: var(--primary);
-  color: white;
-}
-.modal-footer .btn-primary:hover {
-  background: var(--primary-light);
-}
-.modal-footer .btn-secondary {
-  background: #f1f5f9;
-  color: #475569;
-}
-.modal-footer .btn-secondary:hover {
-  background: #e2e8f0;
-}
-.modal-footer .btn-danger {
-  background: #dc2626;
-  color: white;
-}
-.modal-footer .btn-danger:hover {
-  background: #b91c1c;
-}
-.modal-footer .btn-success {
-  background: #16a34a;
-  color: white;
-}
-.modal-footer .btn-success:hover {
-  background: #15803d;
-}
+.modal-footer .btn-primary { background: var(--primary); color: white; }
+.modal-footer .btn-primary:hover { background: var(--primary-light); }
+.modal-footer .btn-secondary { background: #f1f5f9; color: #475569; }
+.modal-footer .btn-secondary:hover { background: #e2e8f0; }
+.modal-footer .btn-danger { background: #dc2626; color: white; }
+.modal-footer .btn-danger:hover { background: #b91c1c; }
+.modal-footer .btn-success { background: #16a34a; color: white; }
+.modal-footer .btn-success:hover { background: #15803d; }
 
-/* ----- FLOATING WHATSAPP (from index.html) ----- */
+/* ----- FLOATING WHATSAPP ----- */
 .floating-wa-btn {
   position: fixed;
   bottom: 24px;
@@ -978,27 +867,18 @@ textarea.form-input {
   box-shadow: 0 14px 30px rgba(37, 211, 102, 0.5);
 }
 
-/* ----- DATE PICKER FIX (from index.html) ----- */
+/* ----- DATE PICKER FIX ----- */
 #hero {
   overflow: visible !important;
   position: relative;
   z-index: 1;
 }
-#hero .relative.z-10 {
-  overflow: visible !important;
-}
-.date-picker-wrapper {
-  position: relative;
-  z-index: 50;
-}
+#hero .relative.z-10 { overflow: visible !important; }
+.date-picker-wrapper { position: relative; z-index: 50; }
 
 /* ============================================================
-   FROM: mybookings.html
-   BADGES (paid, completed, cancelled, failed, refunded)
-   METRIC CARDS
+   BADGES (mybookings)
    ============================================================ */
-
-/* ----- BADGES (from mybookings.html) ----- */
 .badge-paid {
   background: #dcfce7;
   color: #166534;
@@ -1055,7 +935,7 @@ textarea.form-input {
   letter-spacing: 0.05em;
 }
 
-/* ----- METRIC CARDS (from mybookings.html) ----- */
+/* ----- METRIC CARDS ----- */
 .metric-card {
   background: white;
   border-radius: 16px;
@@ -1064,10 +944,7 @@ textarea.form-input {
   border: 1px solid rgba(0, 0, 0, 0.04);
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
-.metric-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-sm);
-}
+.metric-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-sm); }
 .metric-card .number {
   font-size: 28px;
   font-weight: 800;
@@ -1083,10 +960,8 @@ textarea.form-input {
 }
 
 /* ============================================================
-   FROM: admin.html
-   ADMIN-SPECIFIC STYLES
+   ADMIN & ABOUT
    ============================================================ */
-
 .kd-withdraw-btn {
   display: inline-flex;
   align-items: center;
@@ -1103,10 +978,7 @@ textarea.form-input {
   cursor: pointer;
   transition: all 0.2s;
 }
-.kd-withdraw-btn:hover {
-  background: var(--primary-light);
-  transform: translateY(-2px);
-}
+.kd-withdraw-btn:hover { background: var(--primary-light); transform: translateY(-2px); }
 .kd-w-overlay {
   position: fixed;
   inset: 0;
@@ -1120,10 +992,7 @@ textarea.form-input {
   pointer-events: none;
   transition: 0.25s;
 }
-.kd-w-overlay.open {
-  opacity: 1;
-  pointer-events: auto;
-}
+.kd-w-overlay.open { opacity: 1; pointer-events: auto; }
 .kd-w-modal {
   background: #fff;
   width: 100%;
@@ -1134,7 +1003,6 @@ textarea.form-input {
   padding: 24px;
 }
 
-/* ----- VERIFICATION BADGES (from admin.html) ----- */
 .verification-badge {
   display: inline-flex;
   align-items: center;
@@ -1144,23 +1012,10 @@ textarea.form-input {
   font-size: 11px;
   font-weight: 600;
 }
-.verification-badge.pass {
-  background: #dcfce7;
-  color: #166534;
-  border: 1px solid #bbf7d0;
-}
-.verification-badge.fail {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
-}
-.verification-badge.warn {
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fde68a;
-}
+.verification-badge.pass { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.verification-badge.fail { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.verification-badge.warn { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
 
-/* ----- DETAIL MODAL IMAGE (from admin.html) ----- */
 .detail-modal-img {
   max-width: 100%;
   max-height: 70vh;
@@ -1170,7 +1025,6 @@ textarea.form-input {
   background: #fff;
 }
 
-/* ----- IMAGE LIGHTBOX (from admin.html) ----- */
 #imageLightbox {
   position: fixed;
   inset: 0;
@@ -1200,14 +1054,7 @@ textarea.form-input {
   transition: 0.2s;
   z-index: 10;
 }
-#imageLightbox .close-btn:hover {
-  opacity: 1;
-}
-
-/* ============================================================
-   FROM: about.html
-   STAT CARDS, TRUST ITEMS, STEP NUMBERS, QUOTE BLOCK
-   ============================================================ */
+#imageLightbox .close-btn:hover { opacity: 1; }
 
 .stat-card {
   text-align: center;
@@ -1218,10 +1065,7 @@ textarea.form-input {
   transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   box-shadow: var(--shadow-sm);
 }
-.stat-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-}
+.stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 
 .trust-item {
   display: flex;
@@ -1234,10 +1078,7 @@ textarea.form-input {
   box-shadow: var(--shadow-sm);
   transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
-.trust-item:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
+.trust-item:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
 .trust-icon {
   width: 44px;
   height: 44px;
@@ -1263,9 +1104,7 @@ textarea.form-input {
   font-weight: 700;
   margin: 0 auto 12px auto;
 }
-.step-number.accent {
-  background: var(--accent);
-}
+.step-number.accent { background: var(--accent); }
 
 .quote-block {
   background: rgba(63, 208, 212, 0.06);
@@ -1287,11 +1126,8 @@ textarea.form-input {
 }
 
 /* ============================================================
-   FROM: policy pages (terms, privacy, booking-policy, etc.)
-   POLICY SECTIONS, COMPARE TABLE
+   POLICY SECTIONS
    ============================================================ */
-
-/* ----- POLICY SECTIONS (unified for all policy pages) ----- */
 .policy-section,
 .privacy-section,
 .terms-section {
@@ -1300,9 +1136,7 @@ textarea.form-input {
 }
 .policy-section:last-child,
 .privacy-section:last-child,
-.terms-section:last-child {
-  border-bottom: none;
-}
+.terms-section:last-child { border-bottom: none; }
 .policy-section ul,
 .privacy-section ul,
 .terms-section ul {
@@ -1311,11 +1145,8 @@ textarea.form-input {
 }
 .policy-section ul li,
 .privacy-section ul li,
-.terms-section ul li {
-  margin-bottom: 0.5rem;
-}
+.terms-section ul li { margin-bottom: 0.5rem; }
 
-/* ----- COMPARE TABLE (from landingpage, terms) ----- */
 .compare-table {
   width: 100%;
   border-collapse: collapse;
@@ -1335,22 +1166,10 @@ textarea.form-input {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
-.compare-table tr:last-child td {
-  border-bottom: none;
-}
-.compare-table .highlight {
-  background: rgba(212, 163, 115, 0.04);
-}
-.compare-table .check {
-  color: #2A7A5A;
-  font-weight: 700;
-  font-size: 16px;
-}
-.compare-table .cross {
-  color: #B14A4A;
-  font-weight: 700;
-  font-size: 16px;
-}
+.compare-table tr:last-child td { border-bottom: none; }
+.compare-table .highlight { background: rgba(212, 163, 115, 0.04); }
+.compare-table .check { color: #2A7A5A; font-weight: 700; font-size: 16px; }
+.compare-table .cross { color: #B14A4A; font-weight: 700; font-size: 16px; }
 .compare-table .pill {
   display: inline-block;
   background: var(--accent);
@@ -1362,16 +1181,11 @@ textarea.form-input {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.compare-table .pill-dark {
-  background: rgba(15, 30, 22, 0.08);
-  color: var(--gray);
-}
+.compare-table .pill-dark { background: rgba(15, 30, 22, 0.08); color: var(--gray); }
 
 /* ============================================================
-   FROM: index.html
    ACCORDION GALLERY
    ============================================================ */
-
 .accordion-gallery {
   display: flex;
   flex-direction: row;
@@ -1402,12 +1216,8 @@ textarea.form-input {
               box-shadow 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   will-change: flex-grow, transform;
 }
-.accordion-gallery .ag-item:first-child {
-  border-radius: 0 0 0 0;
-}
-.accordion-gallery .ag-item:last-child {
-  border-radius: 0 0 0 0;
-}
+.accordion-gallery .ag-item:first-child { border-radius: 0 0 0 0; }
+.accordion-gallery .ag-item:last-child { border-radius: 0 0 0 0; }
 .accordion-gallery .ag-item:focus-visible {
   box-shadow: 0 0 0 2px #3FD0D4, 0 10px 30px -18px rgba(0,0,0,0.8);
 }
@@ -1457,9 +1267,7 @@ textarea.form-input {
   transition: --ag-dim 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 1;
 }
-.accordion-gallery .ag-item.active .ag-overlay {
-  --ag-dim: 0;
-}
+.accordion-gallery .ag-item.active .ag-overlay { --ag-dim: 0; }
 .accordion-gallery .ag-item .ag-label-wrap {
   position: absolute;
   bottom: 20px;
@@ -1517,11 +1325,8 @@ textarea.form-input {
   font-variant-numeric: tabular-nums;
   transition: color 0.35s ease;
 }
-.accordion-gallery .ag-item.active .ag-number {
-  color: rgba(255,255,255,0.6);
-}
+.accordion-gallery .ag-item.active .ag-number { color: rgba(255,255,255,0.6); }
 
-/* Desktop: first and last items have rounded corners on outer edges */
 @media (min-width: 769px) {
   .accordion-gallery .ag-item:first-child {
     border-radius: var(--radius, 16px) 0 0 var(--radius, 16px);
@@ -1529,16 +1334,10 @@ textarea.form-input {
   .accordion-gallery .ag-item:last-child {
     border-radius: 0 var(--radius, 16px) var(--radius, 16px) 0;
   }
-  .accordion-gallery .ag-item:first-child:last-child {
-    border-radius: var(--radius, 16px);
-  }
-  .accordion-gallery .ag-item .ag-media {
-    width: 100%;
-    height: 100%;
-  }
+  .accordion-gallery .ag-item:first-child:last-child { border-radius: var(--radius, 16px); }
+  .accordion-gallery .ag-item .ag-media { width: 100%; height: 100%; }
 }
 
-/* Mobile: vertical stacking */
 @media (max-width: 768px) {
   .accordion-gallery {
     flex-direction: column !important;
@@ -1560,12 +1359,8 @@ textarea.form-input {
                 box-shadow 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
                 min-height 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
   }
-  .accordion-gallery .ag-item:first-child {
-    border-radius: 14px 14px 0 0 !important;
-  }
-  .accordion-gallery .ag-item:last-child {
-    border-radius: 0 0 14px 14px !important;
-  }
+  .accordion-gallery .ag-item:first-child { border-radius: 14px 14px 0 0 !important; }
+  .accordion-gallery .ag-item:last-child { border-radius: 0 0 14px 14px !important; }
   .accordion-gallery .ag-item .ag-media {
     width: 100%;
     height: 100%;
@@ -1588,33 +1383,20 @@ textarea.form-input {
   .accordion-gallery .ag-item[data-tilt="down"]:not(.active) {
     transform: rotateX(-3deg) translateY(-2px) scale(0.99) !important;
   }
-  .accordion-gallery .ag-item:not(.active):active {
-    transform: scale(0.99) !important;
-  }
-  .accordion-gallery .ag-item .ag-media {
-    width: 100% !important;
-    height: 100% !important;
-  }
-  .accordion-gallery .ag-item .ag-media img {
-    object-fit: cover !important;
-    width: 100% !important;
-    height: 100% !important;
-  }
+  .accordion-gallery .ag-item:not(.active):active { transform: scale(0.99) !important; }
+  .accordion-gallery .ag-item .ag-media { width: 100% !important; height: 100% !important; }
+  .accordion-gallery .ag-item .ag-media img { object-fit: cover !important; width: 100% !important; height: 100% !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   .accordion-gallery .ag-item,
   .accordion-gallery .ag-item .ag-media,
   .accordion-gallery .ag-item .ag-bar,
-  .accordion-gallery .ag-item .ag-label {
-    transition: none !important;
-  }
+  .accordion-gallery .ag-item .ag-label { transition: none !important; }
 }
 
 /* ============================================================
-   FROM: index.html
    RESPONSIVE – MOBILE SEARCH BAR
    ============================================================ */
-
 @media (max-width: 768px) {
   body.date-picker-open {
     overflow: hidden !important;
@@ -1628,29 +1410,21 @@ textarea.form-input {
   .floating-wa-btn { padding: 12px 16px; font-size: 11px; }
   .floating-wa-btn span { display: none; }
 }
-
 @media (max-width: 480px) {
   .btn-primary { padding: 12px 20px; font-size: 11px; }
   .btn-accent { padding: 8px 16px; font-size: 10px; }
 }
 
 /* ============================================================
-   FROM: animations.css (included for completeness)
+   ANIMATIONS
    ============================================================ */
-
 .page-content {
   opacity: 0;
   animation: fadeInUp 0.7s ease forwards;
 }
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .animate-on-scroll {
   opacity: 0;
@@ -1699,7 +1473,6 @@ header.nav-scrolled {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* ----- SKELETON LOADER (from animations.js) ----- */
 .skeleton {
   background: #e2e8f0;
   background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
@@ -1711,19 +1484,9 @@ header.nav-scrolled {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
-.skeleton-card {
-  height: 320px;
-  width: 100%;
-}
-.skeleton-text {
-  height: 12px;
-  width: 100%;
-  margin: 8px 0;
-}
-.skeleton-text-sm {
-  height: 8px;
-  width: 60%;
-}
+.skeleton-card { height: 320px; width: 100%; }
+.skeleton-text { height: 12px; width: 100%; margin: 8px 0; }
+.skeleton-text-sm { height: 8px; width: 60%; }
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -1735,26 +1498,19 @@ header.nav-scrolled {
   }
 }
 
-/* Ensure header and button are above everything */
 /* ===== FIX: Mobile nav z-index overrides ===== */
 header {
   z-index: 999999 !important;
   position: relative;
 }
-
 #mobileMenuBtn {
   position: relative;
   z-index: 9999999 !important;
   touch-action: manipulation;
   cursor: pointer;
 }
-
-#mobileNav {
-  z-index: 99999 !important;
-}
-#mobileNav.open {
-  z-index: 99999 !important;
-}
+#mobileNav { z-index: 99999 !important; }
+#mobileNav.open { z-index: 99999 !important; }
 
 /* ==== Chrome Mobile Fix: Ensure button receives clicks ==== */
 #mobileMenuBtn {
@@ -1766,22 +1522,19 @@ header {
   user-select: none !important;
   cursor: pointer !important;
 }
-
 /* Ensure the nav doesn't block the button when closed */
-#mobileNav {
-  pointer-events: none !important;
-}
-#mobileNav.open {
-  pointer-events: auto !important;
-}
+#mobileNav { pointer-events: none !important; }
+#mobileNav.open { pointer-events: auto !important; }
 
-/* ===== FORCE FIX: Hide desktop nav on mobile for ALL pages ===== */
+/* ============================================================
+   FORCE HIDE DESKTOP NAV ON MOBILE (FIX FOR list/about/owner)
+   ============================================================ */
 @media (max-width: 768px) {
+  header #desktopNav,
+  header nav#desktopNav,
   #desktopNav {
     display: none !important;
   }
-
-  /* Also ensure the login buttons inside desktop nav are hidden */
   #desktopNav .guest-btn,
   #desktopNav .btn-accent,
   #desktopNav .btn-primary,
@@ -1789,36 +1542,7 @@ header {
   #desktopNav #guestProfileNav {
     display: none !important;
   }
-
-  /* Ensure the mobile menu button is visible */
   #mobileMenuBtn {
     display: flex !important;
   }
-}
-
-/* Ensure the mobile menu nav is hidden by default and shown when open */
-#mobileNav {
-  display: none !important;
-  position: fixed !important;
-  top: 80px !important;
-  left: 0 !important;
-  right: 0 !important;
-  z-index: 99999 !important;
-  background: rgba(255, 255, 255, 0.95) !important;
-  backdrop-filter: blur(20px) !important;
-  padding: 16px 0 !important;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.15) !important;
-  max-height: 0 !important;
-  opacity: 0 !important;
-  overflow: hidden !important;
-  pointer-events: none !important;
-  transition: max-height 0.4s ease, opacity 0.3s ease !important;
-}
-
-#mobileNav.open {
-  display: block !important;
-  max-height: 80vh !important;
-  opacity: 1 !important;
-  overflow-y: auto !important;
-  pointer-events: auto !important;
 }
