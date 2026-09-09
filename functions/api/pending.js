@@ -214,7 +214,7 @@ export async function onRequestPost({ request, env }) {
 
   } catch (e) {
     console.error('Pending registration error:', e.message);
-    return jsonResponse({ error: 'Could not submit listing' }, 500, request);
+    return jsonResponse({ error: 'Could not submit listing. Please try again later.' }, 500, request);
   }
 }
 
