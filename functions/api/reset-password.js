@@ -1,4 +1,5 @@
-import { corsHeaders, hashPassword, jsonResponse, incrementSessionVersion, incrementOwnerSessionVersion } from './_utils.js';
+// /api/reset-password.js
+import { corsHeaders, hashPassword, jsonResponse } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   try {
