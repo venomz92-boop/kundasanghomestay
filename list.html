@@ -10,439 +10,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
-  <style>
-    /* ===== ROOT ===== */
-    :root {
-      --primary: #0F382E;
-      --primary-light: #1a4d3e;
-      --accent: #3FD0D4;
-      --accent-hover: #2bbfc4;
-      --accent-glow: rgba(63, 208, 212, 0.25);
-      --bg: #F8F5F0;
-      --card: #ffffff;
-      --dark: #212121;
-      --glass: rgba(255, 255, 255, 0.72);
-      --shadow-sm: 0 2px 20px rgba(0, 0, 0, 0.05);
-      --shadow-md: 0 8px 40px rgba(0, 0, 0, 0.08);
-      --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.12);
-      --shadow-glow: 0 8px 30px rgba(63, 208, 212, 0.25);
-    }
-    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-    html { scroll-behavior: smooth; overflow-x: hidden; }
-    body {
-      font-family: "Poppins", sans-serif;
-      background: var(--bg);
-      overflow-x: hidden;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    .font-poppins { font-family: "Poppins", sans-serif; }
-    .font-satisfy { font-family: "Satisfy", cursive; }
-    .rounded-xl { border-radius: 16px !important; }
-    .rounded-2xl { border-radius: 24px !important; }
-    .rounded-full { border-radius: 999px !important; }
-    .glass {
-      background: rgba(255, 255, 255, 0.72);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-    }
-    .card {
-      background: var(--card);
-      border-radius: 24px;
-      box-shadow: var(--shadow-sm);
-      border: 1px solid rgba(0, 0, 0, 0.04);
-      transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      padding: 24px;
-    }
-    .card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-      border-radius: 999px;
-      padding: 14px 28px;
-      font-weight: 700;
-      font-family: "Poppins", sans-serif;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 12px;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      border: none;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      position: relative;
-      overflow: hidden;
-    }
-    .btn-primary::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(15, 56, 46, 0.3); }
-    .btn-primary:hover::after { opacity: 1; }
-    .btn-accent {
-      background: var(--accent);
-      color: white;
-      border-radius: 999px;
-      padding: 10px 24px;
-      font-weight: 700;
-      font-family: "Poppins", sans-serif;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 11px;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      border: none;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .btn-accent:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: var(--shadow-glow); }
-    .btn-outline {
-      background: transparent;
-      border: 1.5px solid var(--accent);
-      color: var(--accent);
-      border-radius: 999px;
-      padding: 10px 24px;
-      font-weight: 700;
-      font-family: "Poppins", sans-serif;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 11px;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      cursor: pointer;
-    }
-    .btn-outline:hover { background: var(--accent); color: white; transform: translateY(-2px); }
-    .form-input {
-      width: 100%;
-      border: 2px solid #e2e8f0;
-      border-radius: 999px;
-      padding: 14px 20px;
-      font-size: 14px;
-      font-family: "Poppins", sans-serif;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      background: white;
-    }
-    .form-input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 4px var(--accent-glow);
-      transform: translateY(-1px);
-    }
-    .form-input::placeholder { color: #94a3b8; }
-    .form-select {
-      width: 100%;
-      border: 2px solid #e2e8f0;
-      border-radius: 999px;
-      padding: 14px 20px;
-      font-size: 14px;
-      font-family: "Poppins", sans-serif;
-      background: white;
-      appearance: none;
-      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    }
-    .form-select:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 4px var(--accent-glow);
-    }
-    .guest-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 999px;
-      background: var(--accent);
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 14px;
-    }
-    .setsail-nav-link {
-      position: relative;
-      font-family: "Poppins", sans-serif;
-      font-weight: 600;
-      font-size: 13px;
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
-      color: #212121;
-      padding: 8px 0;
-      cursor: pointer;
-      background: none;
-      border: none;
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-    .setsail-nav-link::after {
-      content: '';
-      position: absolute;
-      left: 0;
-      bottom: -2px;
-      width: 0;
-      height: 2.5px;
-      background: var(--accent);
-      border-radius: 999px;
-      transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    }
-    .setsail-nav-link:hover::after, .setsail-nav-link.active::after { width: 100%; }
-    .setsail-nav-link:hover { color: var(--primary); }
-    .setsail-nav-link.agent {
-      color: #7c3aed;
-      border: 1px solid #7c3aed;
-      padding: 6px 16px;
-      border-radius: 999px;
-    }
-    .setsail-nav-link.agent::after { display: none; }
-    .setsail-nav-link.agent:hover { background: #7c3aed; color: white; }
-    #mobileNav {
-      position: fixed;
-      top: 80px;
-      left: 0;
-      right: 0;
-      z-index: 9999;
-      background: var(--glass);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-top: 1px solid rgba(0, 0, 0, 0.06);
-      box-shadow: var(--shadow-lg);
-      max-height: 0;
-      opacity: 0;
-      overflow: hidden;
-      pointer-events: none;
-      transform: translateY(-10px);
-      transition: max-height 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                  opacity 0.4s ease,
-                  transform 0.4s ease;
-    }
-    #mobileNav.open {
-      max-height: 80vh;
-      opacity: 1;
-      overflow-y: auto;
-      pointer-events: auto;
-      transform: translateY(0);
-    }
-    #mobileNav a, #mobileNav button {
-      display: block;
-      width: 100%;
-      text-align: left;
-      padding: 14px 24px;
-      font-size: 14px;
-      font-weight: 600;
-      color: #212121;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-      transition: background 0.2s, color 0.2s;
-      background: transparent;
-    }
-    #mobileNav a:hover, #mobileNav button:hover { background: #f8f5f0; color: var(--accent); }
-    #mobileNav .mobile-agent-link {
-      color: #7c3aed !important;
-      border: 1px solid #7c3aed !important;
-      margin: 8px 16px;
-      padding: 10px 16px !important;
-      border-radius: 999px !important;
-      width: auto !important;
-      display: inline-block !important;
-    }
-    #mobileNav .mobile-agent-link:hover { background: #7c3aed !important; color: white !important; }
-    #mobileNav .guest-btn {
-      border: 1px solid var(--accent);
-      color: var(--accent);
-      background: transparent;
-      text-align: center;
-      border-radius: 999px;
-      padding: 12px 24px;
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      width: 100%;
-    }
-    #mobileNav .guest-btn-primary { background: var(--accent); color: white; border: none; }
-    #mobileNav .guest-btn:hover { background: var(--accent); color: white; }
-    #mobileNav .guest-btn-primary:hover { background: var(--accent-hover); }
-    #mobileNav .profile-card {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: var(--primary);
-      color: white;
-      padding: 12px 16px;
-      border-radius: 12px;
-      margin-bottom: 8px;
-    }
-    #mobileNav .profile-card .avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 999px;
-      background: var(--accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 14px;
-      color: white;
-      flex-shrink: 0;
-    }
-    #mobileNav .profile-card .info { flex: 1; min-width: 0; overflow: hidden; }
-    #mobileNav .profile-card .name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #mobileNav .profile-card .sub { font-size: 10px; color: rgba(255,255,255,0.6); }
-    #mobileNav .profile-card .logout-btn {
-      width: auto !important;
-      display: inline-block !important;
-      flex-shrink: 0;
-      font-size: 10px;
-      background: rgba(255,255,255,0.15);
-      padding: 6px 14px;
-      border-radius: 999px;
-      cursor: pointer;
-      border: none;
-      color: white;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      transition: background 0.2s;
-    }
-    #mobileNav .profile-card .logout-btn:hover { background: rgba(255,255,255,0.25); }
-    #mobileNav .my-bookings-btn {
-      display: block;
-      width: 100%;
-      text-align: center;
-      background: #212121;
-      color: white;
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      padding: 10px 16px;
-      border-radius: 12px;
-      transition: background 0.2s;
-    }
-    #mobileNav .my-bookings-btn:hover { background: #333; }
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 99999;
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      overflow-y: auto;
-    }
-    .modal-overlay.active { display: flex; }
-    .modal-box {
-      background: white;
-      max-width: 480px;
-      width: 100%;
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      overflow: hidden;
-      animation: modalIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    }
-    @keyframes modalIn {
-      from { opacity: 0; transform: scale(0.95) translateY(20px); }
-      to { opacity: 1; transform: scale(1) translateY(0); }
-    }
-    .modal-header {
-      padding: 20px 24px 0 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .modal-header h3 { font-family: "Poppins", sans-serif; font-weight: 700; font-size: 20px; color: #212121; margin: 0; }
-    .modal-close {
-      background: none;
-      border: none;
-      font-size: 24px;
-      color: #9ca3af;
-      cursor: pointer;
-      padding: 4px;
-      line-height: 1;
-      transition: color 0.2s;
-      width: 40px;
-      height: 40px;
-      border-radius: 999px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .modal-close:hover { color: #212121; background: #f1f5f9; }
-    .modal-body { padding: 16px 24px 20px 24px; font-size: 14px; line-height: 1.7; color: #4b5563; }
-    .modal-body input {
-      width: 100%;
-      margin-top: 10px;
-      padding: 10px 14px;
-      border: 2px solid #e2e8f0;
-      border-radius: 999px;
-      font-size: 14px;
-      font-family: "Poppins", sans-serif;
-    }
-    .modal-body input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 4px var(--accent-glow);
-    }
-    .modal-footer {
-      padding: 12px 24px 20px 24px;
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-      border-top: 1px solid #f1f5f9;
-    }
-    .modal-footer .btn {
-      padding: 10px 24px;
-      border-radius: 999px;
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      border: none;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: "Poppins", sans-serif;
-    }
-    .modal-footer .btn-primary { background: var(--primary); color: white; }
-    .modal-footer .btn-primary:hover { background: var(--primary-light); }
-    .modal-footer .btn-secondary { background: #f1f5f9; color: #475569; }
-    .modal-footer .btn-secondary:hover { background: #e2e8f0; }
-    .drop-zone {
-      border: 2px dashed #cbd5e1;
-      background: #fff;
-      padding: 24px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      border-radius: 16px;
-    }
-    .drop-zone:hover { border-color: var(--accent); background: #fdfdfd; }
-    .blocked-date-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: #fee2e2;
-      color: #991b1b;
-      border: 1px solid #fecaca;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-    }
-    @media (max-width: 768px) {
-      #desktopNav { display: none !important; }
-      #mobileMenuBtn { display: flex !important; }
-    }
-    @media (max-width: 480px) {
-      .btn-primary { padding: 12px 20px; font-size: 11px; }
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css" />
+  
 </head>
 <body>
 
@@ -610,8 +179,8 @@
           </div>
         </div>
         <div>
-          <label class="text-xs font-semibold text-[#212121]">Property Description *</label>
-          <textarea id="listDescription" rows="4" placeholder="Mention view of Mt Kinabalu, steamboat facilities, water heaters, balcony, or 4x4 road access conditions..." class="form-input mt-1 resize-none"></textarea>
+          <label class="text-xs font-semibold text-[#212121]">Property Deion *</label>
+          <textarea id="listDeion" rows="4" placeholder="Mention view of Mt Kinabalu, steamboat facilities, water heaters, balcony, or 4x4 road access conditions..." class="form-input mt-1 resize-none"></textarea>
         </div>
       </section>
 
@@ -1065,12 +634,12 @@ const BANK_CODES = {
 };
 
 // =============================================================
-// IMAGE COMPRESSION
+// IMAGE COMPRESSION (FIXED with error handling)
 // =============================================================
 function compressImage(file, maxWidth = 800, quality = 0.7) {
   return new Promise((resolve, reject) => {
     if (!file || !file.type.startsWith('image/')) {
-      resolve(null);
+      reject(new Error('Not an image file'));
       return;
     }
     const reader = new FileReader();
@@ -1092,7 +661,7 @@ function compressImage(file, maxWidth = 800, quality = 0.7) {
         ctx.drawImage(img, 0, 0, width, height);
         resolve(canvas.toDataURL('image/jpeg', quality));
       };
-      img.onerror = () => reject(new Error('Failed to load image'));
+      img.onerror = () => reject(new Error('Failed to decode image'));
       img.src = e.target.result;
     };
     reader.onerror = () => reject(new Error('Failed to read file'));
@@ -1100,9 +669,14 @@ function compressImage(file, maxWidth = 800, quality = 0.7) {
   });
 }
 
-// ===== Compress to Blob (for upload) =====
+// ---- Compress to Blob (with fixed error handling) ----
 function compressImageToBlob(file, maxWidth, quality) {
   return new Promise((resolve) => {
+    // if not an image, resolve null immediately
+    if (!file || !file.type.startsWith('image/')) {
+      resolve(null);
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
@@ -1113,10 +687,14 @@ function compressImageToBlob(file, maxWidth, quality) {
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
-        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, 'image/jpeg', quality);
       };
+      img.onerror = () => resolve(null); // resolve null on error
       img.src = e.target.result;
     };
+    reader.onerror = () => resolve(null);
     reader.readAsDataURL(file);
   });
 }
@@ -1131,7 +709,7 @@ let tempIcOriginalName = "";
 let tempBankQRWatermarked = "";
 let tempBankQROriginalName = "";
 
-// ===== ROOMS MANAGEMENT with Cloudinary upload =====
+// ===== ROOMS MANAGEMENT with Cloudinary upload (FIXED) =====
 let tempRooms = [];
 
 function addRoom(name = '', price = '', guests = '', desc = '', images = []) {
@@ -1206,7 +784,7 @@ function updateRoomField(roomId, field, value) {
   }
 }
 
-// ===== HANDLE ROOM IMAGES – Upload to Cloudinary =====
+// ===== HANDLE ROOM IMAGES – FIXED with robust error handling =====
 async function handleRoomImages(roomId, input) {
   const files = input.files;
   if (!files.length) return;
@@ -1219,31 +797,51 @@ async function handleRoomImages(roomId, input) {
 
   for (const file of files) {
     try {
-      // Compress to reduce upload size
-      const compressedBlob = await compressImageToBlob(file, 800, 0.7);
-      if (!compressedBlob) continue;
+      // 1. Validate file type
+      if (!file.type.startsWith('image/')) {
+        console.warn('Skipping non-image file:', file.name);
+        continue;
+      }
 
-      // Upload to Cloudinary via server endpoint
+      // 2. Compress the image
+      const compressedBlob = await compressImageToBlob(file, 800, 0.7);
+      if (!compressedBlob) {
+        console.error('Compression failed for:', file.name);
+        await showAlert('Upload Failed', `Could not compress ${file.name}. Skipping.`);
+        continue;
+      }
+
+      // 3. Prepare FormData
       const formData = new FormData();
       formData.append('image', compressedBlob, file.name);
 
+      // 4. Upload to server
       const res = await fetch('/api/upload-image', {
         method: 'POST',
         body: formData
       });
+
+      // 5. Parse response
       const data = await res.json();
 
-      if (data.url) {
+      if (res.ok && data.url) {
+        // Success: add URL to room images
         if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
         tempRooms[roomIndex].images.push(data.url);
+        // Re-render the rooms list to show the new thumbnail
+        renderRooms();
       } else {
-        await showAlert('Upload Failed', data.error || 'Could not upload image.');
+        // Show error from server or generic
+        const errorMsg = data.error || 'Unknown server error';
+        console.error('Upload error:', errorMsg);
+        await showAlert('Upload Failed', errorMsg);
       }
-    } catch (e) {
-      await showAlert('Upload Failed', 'Could not upload room image. Please try again.');
+    } catch (err) {
+      console.error('Upload exception:', err);
+      await showAlert('Upload Failed', 'Network error or server unavailable. Please try again.');
     }
   }
-  renderRooms();
+  // Clear the input so user can select again
   input.value = '';
 }
 
