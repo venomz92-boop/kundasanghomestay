@@ -60,26 +60,23 @@
       </div>
     </nav>
 
-    <!-- MOBILE MENU BUTTON (NO onclick) -->
-    <button id="mobileMenuBtn" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
+    <!-- MOBILE MENU BUTTON (with onclick) -->
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
 
-    <!-- IMMEDIATE FALLBACK SCRIPT -->
+    <!-- INLINE FALLBACK SCRIPT (ensures toggleMobileMenu exists) -->
     <script>
-      (function() {
-        var btn = document.getElementById('mobileMenuBtn');
-        var nav = document.getElementById('mobileNav');
-        if (btn && nav) {
-          function toggle() {
+      // Fallback – ensures toggleMobileMenu is defined even if animations.js fails
+      if (typeof toggleMobileMenu !== 'function') {
+        window.toggleMobileMenu = function() {
+          const nav = document.getElementById('mobileNav');
+          if (nav) {
             nav.classList.toggle('open');
             document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
           }
-          btn.addEventListener('click', toggle);
-          btn.addEventListener('touchstart', toggle, { passive: false });
-          window.toggleMobileMenu = toggle;
-        }
-      })();
+        };
+      }
     </script>
   </div>
 </header>
