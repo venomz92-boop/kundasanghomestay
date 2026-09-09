@@ -3,11 +3,12 @@
 // =============================================================
 
 // ---- 1. Define toggle function GLOBALLY ----
+// This function is kept for backwards compatibility, but the dedicated
+// script at the bottom of index.html now handles the actual toggling.
 function toggleMobileMenu() {
     const nav = document.getElementById('mobileNav');
     if (nav) {
         nav.classList.toggle('open');
-        // Prevent body scroll when menu is open
         document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
     }
 }
@@ -15,12 +16,6 @@ window.toggleMobileMenu = toggleMobileMenu;
 
 // ---- 2. DOM Ready ----
 document.addEventListener('DOMContentLoaded', function() {
-
-    // ---- Attach click listener to the menu button ----
-    const menuBtn = document.getElementById('mobileMenuBtn');
-    if (menuBtn) {
-        menuBtn.addEventListener('click', toggleMobileMenu);
-    }
 
     // ---- Navbar scroll effect ----
     const header = document.querySelector('header');
@@ -60,7 +55,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 200);
 
-    // ---- Close menu on outside click ----
+    // ---- Close menu on outside click (fallback) ----
+    // This is also handled by the dedicated script, but kept as a safety net.
     document.addEventListener('click', function(e) {
         const nav = document.getElementById('mobileNav');
         const btn = document.getElementById('mobileMenuBtn');
