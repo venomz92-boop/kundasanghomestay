@@ -1,5 +1,5 @@
-// /api/resend-code.js – With rate limiting
-import { corsHeaders, jsonResponse, getGuestSession, logAction, enforceHttps, getClientIP, checkRateLimit, recordRateLimit } from './_utils.js';
+// /api/resend-code.js – With CSRF + rate limiting
+import { corsHeaders, jsonResponse, getGuestSession, logAction, enforceHttps, getClientIP, checkRateLimit, recordRateLimit, validateCSRFToken, getCSRFToken } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
@@ -8,7 +8,13 @@ export async function onRequestPost({ request, env }) {
   try {
     const session = await getGuestSession(request, env);
     if (!session) return jsonResponse({ error: 'Unauthorized' }, 401, request);
-    
+
+    // ===== CSRF PROTECTION =====
+    const csrf = getCSRFToken(request);
+    if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) {
+      return jsonResponse({ error: 'Invalid security token' }, 403, request);
+    }
+
     const { bookingId } = await request.json();
     if (!bookingId) return jsonResponse({ error: 'Missing bookingId' }, 400, request);
     
@@ -23,9 +29,7 @@ export async function onRequestPost({ request, env }) {
     
     const booking = bookings[idx];
     
-    // ============================================================
-    // 🔒 NEW: Rate limiting per booking (3 attempts per hour)
-    // ============================================================
+    // Rate limiting per booking (3 attempts per hour)
     const clientIP = getClientIP(request);
     const actionKey = `resend_${bookingId}`;
     const rateOk = await checkRateLimit(db, clientIP, actionKey, 3, 3600);
