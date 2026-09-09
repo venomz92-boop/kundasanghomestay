@@ -58,10 +58,23 @@
         </div>
       </div>
     </nav>
- <button id="mobileMenuBtn" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" aria-label="Toggle Navigation">
+ <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" aria-label="Toggle Navigation">
   <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
 </button>
 
+  <script>
+  // Fallback to ensure toggleMobileMenu exists
+  if (typeof toggleMobileMenu !== 'function') {
+    window.toggleMobileMenu = function() {
+      const nav = document.getElementById('mobileNav');
+      if (nav) {
+        nav.classList.toggle('open');
+        document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+      }
+    };
+  }
+</script>
+    
 <!-- ===== MOBILE MENU ===== -->
 <div id="mobileNav">
   <div class="p-4 space-y-1">
@@ -89,7 +102,10 @@
     </div>
   </div>
 </div>
-
+  </div>
+</header>
+</body>
+  
 <!-- ===== HERO ===== -->
 <section id="hero" class="relative w-full overflow-visible pb-4 md:pb-0">
   <!-- Background Image -->
