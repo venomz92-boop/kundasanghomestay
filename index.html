@@ -2,22 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- ===== SECURITY HEADERS ===== -->
-  <meta http-equiv="Content-Security-Policy" 
+  <!-- ===== SECURITY HEADERS (via <meta>) ===== -->
+  <!-- CSP must include ALL domains your site uses -->
+  <meta http-equiv="Content-Security-Policy-Report-Only" 
         content="default-src 'self'; 
-                 script-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://gate.chip-in.asia 'unsafe-inline' 'unsafe-eval'; 
-                 style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; 
+                 script-src 'self' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://gate.chip-in.asia https://static.cloudflareinsights.com 'unsafe-inline' 'unsafe-eval'; 
+                 style-src 'self' https://fonts.googleapis.com https://cdn.tailwindcss.com 'unsafe-inline'; 
                  font-src 'self' https://fonts.gstatic.com; 
                  img-src 'self' data: https://images.unsplash.com https://upload.wikimedia.org https://blogger.googleusercontent.com https://i.ibb.co https://*.cloudinary.com https://*.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com https://www.clladventureborneo.com; 
                  connect-src 'self' https://*.chip-in.asia; 
                  frame-src 'self' https://gate.chip-in.asia; 
-                 frame-ancestors 'self'; 
                  form-action 'self'; 
                  base-uri 'self';" />
   
-  <meta http-equiv="X-Frame-Options" content="SAMEORIGIN" />
+  <!-- Referrer Policy -->
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   
   <!-- Primary Meta Tags -->
