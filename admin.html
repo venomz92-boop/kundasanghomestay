@@ -865,8 +865,8 @@ async function doAdminLogin() {
       body: JSON.stringify({ password: pass })
     });
     const data = await res.json();
-    if (data.success) {
-      ADMIN_TOKEN = data.token || "my-secure-admin-token";
+    if (data.success && data.token) {
+      ADMIN_TOKEN = data.token;
       sessionStorage.setItem("kd_admin_token", ADMIN_TOKEN);
       document.getElementById("adminLogin").classList.add("hidden");
       document.getElementById("adminDashboard").classList.remove("hidden");
@@ -874,7 +874,7 @@ async function doAdminLogin() {
       renderAdmin();
       await fetchEarnings();
     } else {
-      errorEl.textContent = data.error || "Wrong password";
+      errorEl.textContent = data.error || "Login failed – no token received.";
       errorEl.classList.remove("hidden");
     }
   } catch(e) {
