@@ -707,7 +707,7 @@ let tempPbtLicense = "";
 let tempRooms = [];
 
 // =============================================================
-// CLOUDINARY CONFIGURATION – SIMPLE DIRECT UPLOAD
+// CLOUDINARY CONFIGURATION
 // =============================================================
 const CLOUDINARY_CLOUD_NAME = 'lk3qg08g';
 const CLOUDINARY_UPLOAD_PRESET = 'kundasang_rooms';
@@ -785,17 +785,24 @@ function updateRoomField(roomId, field, value) {
 }
 
 // =============================================================
-// SIMPLE ROOM IMAGE UPLOAD – DIRECT TO CLOUDINARY
+// ROOM IMAGE UPLOAD – DIRECT TO CLOUDINARY WITH DEBUG LOGS
 // =============================================================
 async function handleRoomImages(roomId, input) {
+  console.log('🟢 handleRoomImages called for room:', roomId);
   const files = input.files;
-  if (!files.length) return;
+  if (!files.length) {
+    console.warn('⚠️ No files selected');
+    return;
+  }
 
   const roomIndex = tempRooms.findIndex(r => r.id === roomId);
   if (roomIndex === -1) {
+    console.error('❌ Room not found');
     await showAlert('Upload Failed', 'Room not found.');
     return;
   }
+
+  console.log(`📤 Uploading ${files.length} file(s)`);
 
   // Show uploading status
   const label = input.parentElement;
@@ -807,37 +814,46 @@ async function handleRoomImages(roomId, input) {
 
   for (const file of files) {
     try {
+      console.log(`🔄 Compressing file: ${file.name} (${file.size} bytes)`);
+      
       // Compress image
       const compressedBlob = await compressImageToBlob(file, 800, 0.7);
       if (!compressedBlob) {
+        console.error('❌ Compression returned null');
         failed++;
         continue;
       }
+      console.log(`✅ Compressed size: ${compressedBlob.size} bytes`);
 
       // Direct upload to Cloudinary
       const formData = new FormData();
       formData.append('file', compressedBlob, file.name);
       formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
+      console.log(`📤 Uploading to Cloudinary: ${CLOUDINARY_CLOUD_NAME}, preset: ${CLOUDINARY_UPLOAD_PRESET}`);
+      
       const res = await fetch(
         `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
         { method: 'POST', body: formData }
       );
       
+      console.log(`📥 Cloudinary response status: ${res.status}`);
+      
       const data = await res.json();
+      console.log('📦 Cloudinary response data:', data);
       
       if (data.secure_url) {
         if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
         tempRooms[roomIndex].images.push(data.secure_url);
         uploaded++;
-        console.log('✅ Uploaded:', data.secure_url);
+        console.log(`✅ Uploaded: ${data.secure_url}`);
       } else {
         failed++;
-        console.error('Upload error:', data);
+        console.error('❌ Upload failed, Cloudinary error:', data.error);
       }
     } catch (e) {
       failed++;
-      console.error('Upload error:', e);
+      console.error('❌ Upload error:', e);
     }
   }
 
@@ -849,11 +865,14 @@ async function handleRoomImages(roomId, input) {
   
   // Show result
   if (uploaded > 0 && failed === 0) {
+    console.log('✅ All images uploaded successfully');
     await showAlert('✅ Upload Complete', `${uploaded} image(s) uploaded successfully to Cloudinary.`);
   } else if (uploaded > 0 && failed > 0) {
+    console.warn(`⚠️ Partial upload: ${uploaded} success, ${failed} failed`);
     await showAlert('⚠️ Partial Upload', `${uploaded} uploaded, ${failed} failed.`);
   } else {
-    await showAlert('❌ Upload Failed', 'All images failed to upload. Check your Cloudinary preset.');
+    console.error('❌ All images failed to upload');
+    await showAlert('❌ Upload Failed', 'All images failed to upload. Check Cloudinary preset.');
   }
 }
 
