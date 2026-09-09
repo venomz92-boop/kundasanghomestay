@@ -257,7 +257,7 @@ export async function onRequestPost({ request, env }) {
 
   } catch (e) {
     console.error('verify-payment error:', e.message);
-    return jsonResponse({ error: 'Internal server error' }, 500, request);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500, request);
   }
 }
 
