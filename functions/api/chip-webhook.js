@@ -48,7 +48,6 @@ async function verifyChipSignature(request, env) {
   }
 }
 
-// ===== EMAIL FUNCTION (EXACT COPY from resend-code.js) =====
 async function sendCheckinEmail(booking, env) {
   const emailHtml = `
     <h2>Hello ${booking.guestName || 'Guest'},</h2>
@@ -68,7 +67,6 @@ async function sendCheckinEmail(booking, env) {
   let emailSent = false;
   let emailError = null;
 
-  // Try Resend
   if (env.RESEND_API_KEY) {
     try {
       const res = await fetch('https://api.resend.com/emails', {
@@ -86,9 +84,7 @@ async function sendCheckinEmail(booking, env) {
     } catch (e) {
       emailError = e.message;
     }
-  } 
-  // Try SendGrid
-  else if (env.SENDGRID_API_KEY) {
+  } else if (env.SENDGRID_API_KEY) {
     try {
       const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
@@ -112,7 +108,6 @@ async function sendCheckinEmail(booking, env) {
   return { emailSent, emailError };
 }
 
-// ===== NEW: Refund email notification to guest =====
 async function sendRefundEmail(booking, env) {
   const refundAmount = booking.refund_amount || booking.total || 0;
   const refundId = booking.chip_refund_id || 'N/A';
@@ -258,9 +253,8 @@ export async function onRequestPost({ request, env }) {
       console.log(`⚠️ Booking ${booking.id} marked as FAILED`);
     }
 
-    // ===== NEW: PURCHASE REFUNDED =====
+    // ===== PURCHASE REFUNDED =====
     else if (event === 'purchase.refunded' || status === 'refunded') {
-      // Calculate refund amount from webhook payload if available
       const refundedAmount = payload.data?.refunded_amount 
         ? Number(payload.data.refunded_amount) / 100 
         : booking.total || 0;
@@ -278,7 +272,6 @@ export async function onRequestPost({ request, env }) {
         .bind('kd_bookings', JSON.stringify(bookings))
         .run();
 
-      // Send refund confirmation email
       const result = await sendRefundEmail(bookings[idx], env);
       if (result.emailSent) {
         console.log(`✅ Refund email sent to ${booking.guestEmail}`);
@@ -303,7 +296,7 @@ export async function onRequestPost({ request, env }) {
 
   } catch (e) {
     console.error('❌ Webhook error:', e.message);
-    return new Response('Error: ' + e.message, { status: 500, headers: corsHeaders(request) });
+    return new Response('Internal server error', { status: 500, headers: corsHeaders(request) });
   }
 }
 
