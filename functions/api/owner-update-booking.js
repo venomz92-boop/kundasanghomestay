@@ -223,13 +223,14 @@ export async function onRequestPost({ request, env }) {
     if (res && res.data) { try { bookings = JSON.parse(res.data); } catch(e) {} }
 
     const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-    if (idx === -1) return jsonResponse({ error: "Booking not found" }, 404, request);
+    // ---- FIX: Generic error for not found ----
+    if (idx === -1) return jsonResponse({ error: "Invalid request." }, 400, request);
 
     const booking = bookings[idx];
 
     // SECURITY: Verify this owner owns this homestay
     if (!(ownerData.homestayIds || [ownerData.ownerId]).map(String).includes(String(booking.homestayId))) {
-      console.warn(`⚠️ Owner ${ownerData.whatsapp} tried to modify booking for homestay ${booking.homestayId} but owns ${ownerData.ownerId}`);
+      // console.warn(`⚠️ Owner ${ownerData.whatsapp} tried to modify booking for homestay ${booking.homestayId} but owns ${ownerData.ownerId}`);
       return jsonResponse({ error: "Unauthorized: You do not own this homestay" }, 403, request);
     }
 
@@ -347,7 +348,7 @@ export async function onRequestPost({ request, env }) {
           refundSuccess = true;
         } catch (err) {
           refundError = err.message;
-          console.error('❌ Host cancellation refund failed:', err);
+          // console.error('❌ Host cancellation refund failed:', err);
         }
       }
 
@@ -401,7 +402,7 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ error: "Invalid action" }, 400, request);
 
   } catch (e) {
-    console.error("❌ Owner update booking error:", e.message);
+    // console.error("❌ Owner update booking error:", e.message);
     // SECURITY: Generic error
     return jsonResponse({ error: "An error occurred while processing your request." }, 500, request);
   }
