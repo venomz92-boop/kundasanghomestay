@@ -32,6 +32,7 @@
 <!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
+    <!-- Logo & Brand -->
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
       <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
       <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
@@ -39,17 +40,19 @@
         <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Stay • Connect • Belong</div>
       </div>
     </div>
+
+    <!-- Desktop Nav -->
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
-      <a href="/" id="navHome" class="setsail-nav-link">Home</a>
-      <a href="/list.html" id="navList" class="setsail-nav-link active">Host Registration</a>
-      <a href="/about.html" id="navAbout" class="setsail-nav-link">About</a>
-      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
+      <a href="/" id="navHome" class="setsail-nav-link" onclick="window.location.href='/'; return false;">Home</a>
+      <a href="/list.html" id="navList" class="setsail-nav-link" onclick="window.location.href='/list.html'; return false;">Host Registration</a>
+      <a href="/about.html" id="navAbout" class="setsail-nav-link" onclick="window.location.href='/about.html'; return false;">About</a>
+      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;" onclick="window.location.href='/owner.html'; return false;">🔑 Host Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
-        <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;">Guest Login</a>
-        <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;">Register</a>
+        <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/login.html'; return false;">Guest Login</a>
+        <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/register.html'; return false;">Register</a>
       </div>
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
-        <a href="/mybookings.html" class="setsail-nav-link" style="font-size:12px;">My Bookings</a>
+        <a href="/mybookings.html" class="setsail-nav-link" style="font-size:12px;" onclick="window.location.href='/mybookings.html'; return false;">My Bookings</a>
         <div class="flex items-center gap-2 bg-[#0F382E] text-white px-4 h-[38px] rounded-full">
           <div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div>
           <span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span>
@@ -57,6 +60,8 @@
         </div>
       </div>
     </nav>
+
+    <!-- Mobile Menu Button (with onclick) -->
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
@@ -64,16 +69,17 @@
 </header>
 
 <!-- ===== MOBILE MENU ===== -->
-<div id="mobileNav" class="lg:hidden">
+<div id="mobileNav">
   <div class="p-4 space-y-1">
-    <a href="/" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
-    <a href="/list.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-[#3FD0D4]">➕ List Your Homestay</a>
-    <a href="/about.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
-    <a href="/owner.html" onclick="toggleMobileMenu()" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+    <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+    <a href="/list.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
+    <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
+    <a href="/owner.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+
     <div class="pt-3 space-y-3">
       <div id="mGuestNav">
-        <a href="/login.html" onclick="toggleMobileMenu()" class="guest-btn block text-center">Login</a>
-        <a href="/register.html" onclick="toggleMobileMenu()" class="guest-btn guest-btn-primary block text-center">Register</a>
+        <a href="/login.html" class="guest-btn block text-center">Login</a>
+        <a href="/register.html" class="guest-btn guest-btn-primary block text-center">Register</a>
       </div>
       <div id="mGuestProfileNav" class="hidden space-y-2">
         <div class="profile-card">
@@ -84,7 +90,7 @@
           </div>
           <button onclick="logoutGuest()" class="logout-btn">Logout</button>
         </div>
-        <a href="/mybookings.html" onclick="toggleMobileMenu()" class="my-bookings-btn">📅 My Bookings</a>
+        <a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
       </div>
     </div>
   </div>
