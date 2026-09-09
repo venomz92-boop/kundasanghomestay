@@ -34,7 +34,7 @@ async function hmacSign(value, secret) {
     new TextEncoder().encode(secret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
-    ['sign', 'verify']
+    ['sign']
   );
   const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(value));
   return b64urlEncode(new Uint8Array(sig));
@@ -258,7 +258,9 @@ export function corsHeaders(request) {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'X-Frame-Options': 'DENY',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com; connect-src 'self' https://api.chip-in.asia; frame-src 'self';"
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com; connect-src 'self' https://api.chip-in.asia; frame-src 'self';",
+    // ---- ADD HSTS ----
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
   };
   if (allowed.has(origin)) {
     headers['Access-Control-Allow-Origin'] = origin;
@@ -291,7 +293,7 @@ export async function logAction({ db, action, admin, details, ip, userId, homest
         homestayId || null, details || '', ip || 'unknown').run();
     return true;
   } catch (e) {
-    console.error('Audit log failed:', e.message);
+    // console.error('Audit log failed:', e.message);
     return false;
   }
 }
@@ -324,7 +326,7 @@ export function jsonResponse(body, status, request, extra = {}) {
 }
 
 export function errorResponse(message, status, request, logDetails = null) {
-  if (logDetails) console.error('Error details:', logDetails);
+  if (logDetails) // console.error('Error details:', logDetails);
   return jsonResponse({ error: message || 'An unexpected error occurred. Please try again later.' }, status, request);
 }
 
@@ -370,7 +372,7 @@ export async function checkRateLimit(db, ip, action, maxAttempts, windowSeconds 
     const count = res?.count || 0;
     return count < maxAttempts;
   } catch (e) {
-    console.error('Rate limit check error:', e);
+    // console.error('Rate limit check error:', e);
     return true;
   }
 }
@@ -388,7 +390,7 @@ export async function recordRateLimit(db, ip, action) {
       `DELETE FROM rate_limits WHERE timestamp < ?`
     ).bind(cutoff).run();
   } catch (e) {
-    console.error('Rate limit record error:', e);
+    // console.error('Rate limit record error:', e);
   }
 }
 
