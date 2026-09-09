@@ -181,8 +181,10 @@ export async function onRequestPost({ request, env }) {
     const apiKey = env.CHIP_API_KEY;
     const apiSecret = env.CHIP_API_SECRET;
 
-    if (!apiKey) return jsonResponse({ error: 'CHIP_API_KEY not configured' }, 500, request);
-    if (!apiSecret) return jsonResponse({ error: 'CHIP_API_SECRET not configured' }, 500, request);
+    // ---- FIX: Generic error for missing keys ----
+    if (!apiKey || !apiSecret) {
+      return jsonResponse({ error: 'Payment gateway configuration missing. Please contact support.' }, 500, request);
+    }
 
     // Create bank account if not exists
     if (!bankAccountId) {
@@ -206,7 +208,7 @@ export async function onRequestPost({ request, env }) {
       });
       const bankData = await createRes.json();
       if (!createRes.ok || !bankData.id) {
-        console.error('CHIP bank account creation failed:', bankData);
+        // console.error('CHIP bank account creation failed:', bankData);
         return jsonResponse({ error: 'Failed to create owner bank account' }, 500, request);
       }
       bankAccountId = bankData.id;
@@ -241,7 +243,7 @@ export async function onRequestPost({ request, env }) {
     const payoutData = await payoutRes.json();
 
     if (!payoutRes.ok || !payoutData.id) {
-      console.error('CHIP Send failed:', payoutData);
+      // console.error('CHIP Send failed:', payoutData);
       return jsonResponse({ error: 'Owner payout failed. Please try again.' }, 502, request);
     }
 
@@ -281,7 +283,9 @@ export async function onRequestPost({ request, env }) {
             .run();
         }
       }
-    } catch (e) { console.warn('Fee recording error:', e.message); }
+    } catch (e) {
+      // console.warn('Fee recording error:', e.message);
+    }
 
     await logAction({
       db,
@@ -301,7 +305,7 @@ export async function onRequestPost({ request, env }) {
     }, 200, request);
 
   } catch (e) {
-    console.error('Payout error:', e.message);
+    // console.error('Payout error:', e.message);
     return jsonResponse({ error: 'Payout failed. Please try again later.' }, 500, request);
   }
 }
