@@ -778,7 +778,9 @@ function updateRoomField(roomId, field, value) {
   }
 }
 
-// ===== HANDLE ROOM IMAGES =====
+// =============================================================
+// HANDLE ROOM IMAGES – USES YOUR BACKEND /api/upload-image
+// =============================================================
 async function handleRoomImages(roomId, input) {
   const files = input.files;
   if (!files.length) return;
@@ -791,9 +793,11 @@ async function handleRoomImages(roomId, input) {
 
   for (const file of files) {
     try {
+      // 1. Compress first
       const compressedBlob = await compressImageToBlob(file, 800, 0.7);
       if (!compressedBlob) continue;
 
+      // 2. Upload to your backend endpoint
       const formData = new FormData();
       formData.append('image', compressedBlob, file.name);
 
@@ -801,16 +805,51 @@ async function handleRoomImages(roomId, input) {
         method: 'POST',
         body: formData
       });
+
       const data = await res.json();
 
-      if (data.url) {
+      if (data.success && data.url) {
         if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
         tempRooms[roomIndex].images.push(data.url);
+        console.log('✅ Uploaded:', data.url);
       } else {
+        // Backend returned error – show it
         await showAlert('Upload Failed', data.error || 'Could not upload image.');
+        return; // Stop trying more files if one fails
       }
     } catch (e) {
-      await showAlert('Upload Failed', 'Could not upload room image. Please try again.');
+      console.error('Upload error:', e);
+      
+      // Fallback: try direct Cloudinary upload with your preset
+      try {
+        const compressedBlob = await compressImageToBlob(file, 800, 0.7);
+        if (!compressedBlob) continue;
+
+        const cloudName = 'your-cloud-name'; // ← EDIT THIS
+        const preset = 'kundasang_rooms';
+
+        const fallbackForm = new FormData();
+        fallbackForm.append('file', compressedBlob, file.name);
+        fallbackForm.append('upload_preset', preset);
+
+        const fallbackRes = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          { method: 'POST', body: fallbackForm }
+        );
+        const fallbackData = await fallbackRes.json();
+
+        if (fallbackData.secure_url) {
+          if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
+          tempRooms[roomIndex].images.push(fallbackData.secure_url);
+          console.log('✅ Fallback upload success:', fallbackData.secure_url);
+        } else {
+          await showAlert('Upload Failed', 'Could not upload image. Please try again.');
+          return;
+        }
+      } catch (fallbackError) {
+        await showAlert('Upload Failed', 'Network error. Please try again.');
+        return;
+      }
     }
   }
   renderRooms();
@@ -858,7 +897,7 @@ async function handlePhotos(input) {
   }
 }
 
-// ===== IC with compression and watermark (FIXED: added async) =====
+// ===== IC with compression and watermark =====
 async function handleIcFile(input) {
   const file = input.files[0];
   if (!file) return;
