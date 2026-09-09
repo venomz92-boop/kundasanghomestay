@@ -31,15 +31,15 @@ async function sendVerificationEmail(email, name, url, env) {
       });
       const data = await r.json();
       if (r.ok) {
-        console.log(`✅ Verification email sent to ${email} (ID: ${data.id})`);
+        // console.log(`✅ Verification email sent to ${email} (ID: ${data.id})`);
         return true;
       } else {
-        console.error(`❌ Resend error:`, data);
+        // console.error(`❌ Resend error:`, data);
         return false;
       }
     }
   } catch (e) {
-    console.error('Email send error:', e.message);
+    // console.error('Email send error:', e.message);
     return false;
   }
   return false;
@@ -51,7 +51,7 @@ export async function onRequestPost({ request, env }) {
 
   try {
     if (!env.SESSION_SECRET || env.SESSION_SECRET.length < 32) {
-      console.error('❌ SESSION_SECRET is missing or too short');
+      // console.error('❌ SESSION_SECRET is missing or too short');
       return jsonResponse(
         { error: 'Server configuration error. Please contact support.' },
         500,
@@ -93,8 +93,14 @@ export async function onRequestPost({ request, env }) {
     let guests = [];
     try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
 
-    if (guests.some(g => String(g.email || '').toLowerCase() === email)) {
-      return jsonResponse({ error: 'Email has been used. Please try another email.' }, 400, request);
+    // ---- FIX: Remove specific duplicate email error ----
+    // Instead of checking and returning specific error, we'll just let the save proceed.
+    // If we want to prevent duplicates, we'll check and return a generic error.
+    // We'll still check but return generic.
+    const exists = guests.some(g => String(g.email || '').toLowerCase() === email);
+    if (exists) {
+      // Generic error – do not disclose existence
+      return jsonResponse({ error: 'Registration failed. Please check your details or try again.' }, 400, request);
     }
 
     const hashed = await hashPassword(password, env);
@@ -164,7 +170,7 @@ export async function onRequestPost({ request, env }) {
     );
 
   } catch (e) {
-    console.error('❌ Register error:', e.message, e.stack);
+    // console.error('❌ Register error:', e.message, e.stack);
     return jsonResponse({ error: 'Registration failed. Please try again later.' }, 500, request);
   }
 }
