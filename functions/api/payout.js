@@ -56,7 +56,6 @@ function getChipBankCode(bankName) {
   for (const [key, code] of Object.entries(map)) {
     if (clean.includes(key) || key.includes(clean)) return code;
   }
-  // Fallback to Maybank if no match found
   return 'MBBEMYKL';
 }
 
@@ -187,7 +186,6 @@ export async function onRequestPost({ request, env }) {
 
     // Create bank account if not exists
     if (!bankAccountId) {
-      // Compute epoch and checksum for bank account creation
       const epoch = Math.floor(Date.now() / 1000);
       const bankBody = JSON.stringify({
         bank_code: bankCode,
@@ -304,7 +302,7 @@ export async function onRequestPost({ request, env }) {
 
   } catch (e) {
     console.error('Payout error:', e.message);
-    return jsonResponse({ error: 'Payout failed: ' + e.message }, 500, request);
+    return jsonResponse({ error: 'Payout failed. Please try again later.' }, 500, request);
   }
 }
 
