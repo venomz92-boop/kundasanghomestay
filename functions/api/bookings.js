@@ -1,5 +1,4 @@
 // /api/bookings.js – FULLY PATCHED with D1 transaction lock
-// /api/bookings.js – Full patched version with D1-compatible lock
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely, withLock, checkRateLimit, recordRateLimit, invalidateOwnerSessions } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -143,12 +142,20 @@ export async function onRequestPost({ request, env }) {
     if (auth.error) return auth.error;
     const incoming = body.booking;
     const db = env.DB;
-    if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
+    if (!db) return jsonResponse({ error: 'Server configuration error' }, 500, request);
+
+    // ===== SECURITY: Rate limiting per IP and per guest =====
+    const guestId = String(auth.session.userId);
+    const rateKey = `createBooking_${guestId}`;
+    const rateOk = await checkRateLimit(db, clientIP, rateKey, 5, 15 * 60);
+    if (!rateOk) {
+      return jsonResponse({ error: 'Too many booking attempts. Please wait 15 minutes.' }, 429, request);
+    }
+    await recordRateLimit(db, clientIP, rateKey);
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
     // ===== SERVER‑SIDE VALIDATION =====
-    const guestId = String(auth.session.userId);
     const homestayId = String(incoming.homestayId || '');
     const checkin = String(incoming.checkin || '');
     const checkout = String(incoming.checkout || '');
@@ -323,7 +330,8 @@ export async function onRequestPost({ request, env }) {
 
     } catch (err) {
       console.error('Create booking error:', err.message);
-      return jsonResponse({ error: err.message || 'Could not create booking' }, 500, request);
+      // SECURITY: Generic error message
+      return jsonResponse({ error: 'Unable to create booking. Please try again later.' }, 500, request);
     }
   }
 
@@ -520,7 +528,8 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ success: true, homestay: safeHomestay }, 200, request);
       } catch (approveErr) {
         console.error("Approve homestay error:", approveErr.message, approveErr.stack);
-        return jsonResponse({ error: "Approval failed: " + approveErr.message }, 500, request);
+        // SECURITY: Generic error
+        return jsonResponse({ error: "Approval failed. Please try again later." }, 500, request);
       }
     }
 
@@ -610,7 +619,7 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ success: true, removed: removed }, 200, request);
       } catch (removeErr) {
         console.error("Remove homestay error:", removeErr.message, removeErr.stack);
-        return jsonResponse({ error: "Remove failed: " + removeErr.message }, 500, request);
+        return jsonResponse({ error: "Remove failed. Please try again later." }, 500, request);
       }
     }
 
@@ -705,7 +714,7 @@ export async function onRequestPost({ request, env }) {
 
   } catch (err) {
     console.error('Bookings POST admin action error:', err.message, err.stack);
-    return jsonResponse({ error: 'An internal error occurred: ' + err.message }, 500, request);
+    return jsonResponse({ error: 'An internal error occurred. Please try again later.' }, 500, request);
   }
 }
 
