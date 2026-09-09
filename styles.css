@@ -1755,3 +1755,22 @@ header {
 #mobileNav.open {
   z-index: 99999 !important;
 }
+
+/* ==== Chrome Mobile Fix: Ensure button receives clicks ==== */
+#mobileMenuBtn {
+  position: relative !important;
+  z-index: 9999999 !important;
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: transparent !important;
+  user-select: none !important;
+  cursor: pointer !important;
+}
+
+/* Ensure the nav doesn't block the button when closed */
+#mobileNav {
+  pointer-events: none !important;
+}
+#mobileNav.open {
+  pointer-events: auto !important;
+}
