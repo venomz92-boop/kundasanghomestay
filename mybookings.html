@@ -505,25 +505,23 @@
   </div>
 </div>
 
-<!-- ===== PAYMENT FAILED MODAL (friendly version) ===== -->
+<!-- ===== PAYMENT FAILED MODAL ===== -->
 <div id="paymentFailedModal" class="modal-overlay thankyou-modal">
   <div class="modal-box max-w-[500px]">
     <div class="modal-body text-center p-6 md:p-8">
       <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">😞</div>
       <div class="font-poppins font-800 text-[22px] text-red-700">Payment Not Completed</div>
       <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
-        Your payment didn’t go through this time. No worries — you can try again in <strong>5 minutes</strong>.
+        Your payment didn't go through this time. No worries — you can try again in <strong>5 minutes</strong>.
       </p>
       <p class="text-sm text-zinc-600 mt-1 leading-relaxed">
         Simply go to your <strong>My Bookings</strong> page and click the <strong>Retry Payment</strong> button next to this booking.
       </p>
-      
       <div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
         <div class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Booking ID:</span><span id="failedBookingId" class="font-bold text-red-600 text-sm font-mono">-</span></div>
         <div id="failedDatesRow" class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Dates:</span><span id="failedDates" class="font-semibold text-zinc-800">-</span></div>
         <div id="failedTotalRow" class="flex justify-between"><span class="text-zinc-500">Total:</span><span id="failedTotal" class="font-bold text-red-800 text-base">-</span></div>
       </div>
-
       <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
         💡 <strong>Why wait 5 minutes?</strong> CHIP requires a cooldown period before you can create a new bill for the same booking. This prevents duplicate charges.
       </div>
@@ -614,6 +612,7 @@
       <div>
         <h1 class="font-poppins font-700 text-[28px] md:text-[32px] text-[#212121]">My Bookings</h1>
         <p class="text-sm text-zinc-500 mt-0.5">Logged in as <span id="guestNameDisplay" class="font-semibold text-[#0F382E]"></span></p>
+        <div id="sessionStatus" class="text-xs text-zinc-400 mt-0.5"></div>
       </div>
       <button onclick="loadMyBookings()" class="btn-outline flex items-center gap-2">🔄 Refresh</button>
     </div>
@@ -681,10 +680,25 @@
 
 <script src="animations.js"></script>
 <script>
-  // =============================================================
-  // SAFE HTML – ALLOW DATA-ATTR (no onclick)
-  // =============================================================
-  function safeHTML(html) {
+// =============================================================
+// ===== SECURE AUTH SYSTEM (Centralized) =====
+// =============================================================
+
+// --- Configuration ---
+const API_BASE = "/api";
+const SESSION_CHECK_INTERVAL = 60000; // Check every 60 seconds
+const TOKEN_EXPIRY_BUFFER = 300; // 5 minutes buffer before expiry
+
+// --- Session Keys ---
+const SESSION_KEYS = {
+  GUEST_TOKEN: 'kd_guest_token',
+  GUEST_PROFILE: 'kd_guest',
+  CSRF_TOKEN: 'kd_csrf_token',
+  GUEST_BOOKINGS: 'kd_guest_bookings_'
+};
+
+// --- Safe HTML Helper ---
+function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
@@ -708,654 +722,864 @@
   });
 }
 
-  // =============================================================
-  // CSRF HELPER
-  // =============================================================
-  function getCsrfHeader() {
-    var token = localStorage.getItem('kd_csrf_token');
-    return token ? { 'X-CSRF-Token': token } : {};
+// --- JWT Decoder (for expiry check) ---
+function decodeJWT(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    return payload;
+  } catch {
+    return null;
   }
+}
 
-  // =============================================================
-  // MODAL SYSTEM
-  // =============================================================
-  function showModal(title, message, buttons) {
-    return new Promise(function(resolve) {
-      var overlay = document.getElementById('customModal');
-      var titleEl = document.getElementById('modalTitle');
-      var bodyEl = document.getElementById('modalBody');
-      var footerEl = document.getElementById('modalFooter');
-      titleEl.textContent = title || 'Notice';
-      bodyEl.innerHTML = typeof message === 'string' ? message : '';
-      footerEl.innerHTML = '';
-      buttons.forEach(function(btn) {
-        var el = document.createElement('button');
-        el.textContent = btn.label;
-        el.className = 'btn ' + (btn.class || 'btn-primary');
-        el.onclick = function() {
-          overlay.classList.remove('active');
-          document.body.style.overflow = '';
-          if (btn.value !== undefined) resolve(btn.value);
-          else resolve(true);
-        };
-        footerEl.appendChild(el);
-      });
-      overlay.classList.add('active');
-      document.body.style.overflow = 'hidden';
+// --- Get Token Expiry ---
+function getTokenExpiry(token) {
+  const payload = decodeJWT(token);
+  if (!payload || !payload.exp) return null;
+  return payload.exp * 1000; // Convert to milliseconds
+}
+
+// --- Check if Token is Expired ---
+function isTokenExpired(token) {
+  const expiry = getTokenExpiry(token);
+  if (!expiry) return true;
+  const now = Date.now();
+  // Add buffer to trigger early refresh/redirect
+  return now > (expiry - TOKEN_EXPIRY_BUFFER * 1000);
+}
+
+// --- Get Guest Token ---
+function getGuestToken() {
+  return localStorage.getItem(SESSION_KEYS.GUEST_TOKEN);
+}
+
+// --- Get Guest Profile ---
+function getGuestProfile() {
+  try {
+    const data = localStorage.getItem(SESSION_KEYS.GUEST_PROFILE);
+    if (!data) return null;
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+}
+
+// --- Get CSRF Token ---
+function getCsrfToken() {
+  return localStorage.getItem(SESSION_KEYS.CSRF_TOKEN);
+}
+
+// --- Get Auth Headers ---
+function getAuthHeaders() {
+  const token = getGuestToken();
+  const csrf = getCsrfToken();
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  if (token) {
+    headers['Authorization'] = 'Bearer ' + token;
+  }
+  if (csrf) {
+    headers['X-CSRF-Token'] = csrf;
+  }
+  return headers;
+}
+
+// --- ===== AUTHENTICATED FETCH (with 401 handling) ===== ---
+async function authenticatedFetch(url, options = {}) {
+  const headers = { ...getAuthHeaders(), ...options.headers };
+  const response = await fetch(url, {
+    ...options,
+    headers: headers,
+    credentials: 'include'
+  });
+
+  // Handle 401 Unauthorized
+  if (response.status === 401) {
+    // Clear all session data
+    clearGuestSession();
+    
+    // Show modal and redirect
+    await showModal('Session Expired', 
+      'Your session has expired. Please log in again to continue.',
+      [
+        { label: 'Login Now →', class: 'btn-primary', value: 'login' }
+      ]
+    ).then((result) => {
+      if (result === 'login' || result === true) {
+        window.location.href = '/login.html?return_to=' + encodeURIComponent(window.location.pathname);
+      }
     });
+    throw new Error('Unauthorized');
   }
 
-  function closeModal() {
+  // Handle 403 Forbidden (CSRF or permissions)
+  if (response.status === 403) {
+    // Try to refresh CSRF token
+    try {
+      const csrfRes = await fetch('/api/csrf-token', { method: 'GET' });
+      const csrfData = await csrfRes.json();
+      if (csrfData.token) {
+        localStorage.setItem(SESSION_KEYS.CSRF_TOKEN, csrfData.token);
+        // Retry the request with new CSRF token
+        const newHeaders = { ...headers, 'X-CSRF-Token': csrfData.token };
+        const retryResponse = await fetch(url, {
+          ...options,
+          headers: newHeaders,
+          credentials: 'include'
+        });
+        if (retryResponse.status === 403) {
+          // Still forbidden – session may be invalid
+          clearGuestSession();
+          await showAlert('Security Error', 'Your session is invalid. Please log in again.');
+          window.location.href = '/login.html';
+          throw new Error('Forbidden');
+        }
+        return retryResponse;
+      }
+    } catch (e) {
+      // Failed to refresh CSRF
+      clearGuestSession();
+      await showAlert('Security Error', 'Unable to verify your session. Please log in again.');
+      window.location.href = '/login.html';
+      throw new Error('CSRF Error');
+    }
+  }
+
+  return response;
+}
+
+// --- Clear Guest Session ---
+function clearGuestSession() {
+  localStorage.removeItem(SESSION_KEYS.GUEST_TOKEN);
+  localStorage.removeItem(SESSION_KEYS.GUEST_PROFILE);
+  // Don't clear CSRF token – it can be reused
+  // Don't clear bookings cache – it's harmless
+  currentGuest = null;
+  renderGuestNav();
+}
+
+// --- Logout Guest ---
+async function logoutGuest() {
+  const confirmed = await showConfirm('Logout', 'Are you sure you want to logout?');
+  if (!confirmed) return;
+  clearGuestSession();
+  window.location.href = '/';
+}
+
+// --- Session Status Display ---
+function updateSessionStatus() {
+  const token = getGuestToken();
+  const statusEl = document.getElementById('sessionStatus');
+  if (!statusEl) return;
+  
+  if (!token) {
+    statusEl.textContent = '🔴 Not logged in';
+    statusEl.className = 'text-xs text-red-500 mt-0.5';
+    return;
+  }
+  
+  const expiry = getTokenExpiry(token);
+  if (!expiry) {
+    statusEl.textContent = '⚠️ Invalid session';
+    statusEl.className = 'text-xs text-amber-500 mt-0.5';
+    return;
+  }
+  
+  const now = Date.now();
+  const remaining = Math.max(0, (expiry - now) / 1000);
+  const minutes = Math.floor(remaining / 60);
+  const seconds = Math.floor(remaining % 60);
+  
+  if (remaining < 0) {
+    statusEl.textContent = '🔴 Session expired';
+    statusEl.className = 'text-xs text-red-500 mt-0.5';
+    // Trigger a check – this will redirect if expired
+    checkSessionAndRefresh();
+  } else if (remaining < 60) {
+    statusEl.textContent = `🟡 Session expires in ${seconds}s`;
+    statusEl.className = 'text-xs text-amber-500 mt-0.5';
+  } else if (remaining < 300) {
+    statusEl.textContent = `🟡 Session expires in ${minutes}m ${seconds}s`;
+    statusEl.className = 'text-xs text-amber-500 mt-0.5';
+  } else {
+    statusEl.textContent = `🟢 Session valid (${minutes}m remaining)`;
+    statusEl.className = 'text-xs text-emerald-500 mt-0.5';
+  }
+}
+
+// --- Check Session and Refresh if Expired ---
+async function checkSessionAndRefresh() {
+  const token = getGuestToken();
+  if (!token) return;
+  
+  if (isTokenExpired(token)) {
+    clearGuestSession();
+    await showAlert('Session Expired', 'Your session has expired. Please log in again.');
+    window.location.href = '/login.html?return_to=' + encodeURIComponent(window.location.pathname);
+  }
+}
+
+// --- Session Monitoring (periodic check) ---
+let sessionMonitorInterval = null;
+
+function startSessionMonitoring() {
+  if (sessionMonitorInterval) return;
+  sessionMonitorInterval = setInterval(() => {
+    updateSessionStatus();
+    checkSessionAndRefresh();
+  }, SESSION_CHECK_INTERVAL);
+}
+
+function stopSessionMonitoring() {
+  if (sessionMonitorInterval) {
+    clearInterval(sessionMonitorInterval);
+    sessionMonitorInterval = null;
+  }
+}
+
+
+// =============================================================
+// ===== MODAL SYSTEM =====
+// =============================================================
+
+function showModal(title, message, buttons) {
+  return new Promise(function(resolve) {
     var overlay = document.getElementById('customModal');
-    if (overlay) overlay.classList.remove('active');
-    document.body.style.overflow = '';
-  }
-
-  function modalConfirm() {
-    closeModal();
-  }
-
-  function showAlert(title, message) {
-    return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
-  }
-
-  function showConfirm(title, message) {
-    return showModal(title, message, [
-      { label: 'Cancel', class: 'btn-secondary', value: false },
-      { label: 'Confirm', class: 'btn-primary', value: true }
-    ]);
-  }
-
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      var overlay = document.getElementById('customModal');
-      if (overlay && overlay.classList.contains('active')) {
+    var titleEl = document.getElementById('modalTitle');
+    var bodyEl = document.getElementById('modalBody');
+    var footerEl = document.getElementById('modalFooter');
+    titleEl.textContent = title || 'Notice';
+    bodyEl.innerHTML = typeof message === 'string' ? message : '';
+    footerEl.innerHTML = '';
+    buttons.forEach(function(btn) {
+      var el = document.createElement('button');
+      el.textContent = btn.label;
+      el.className = 'btn ' + (btn.class || 'btn-primary');
+      el.onclick = function() {
         overlay.classList.remove('active');
         document.body.style.overflow = '';
-      }
-      var fModal = document.getElementById('paymentFailedModal');
-      if (fModal && fModal.classList.contains('active')) {
-        fModal.classList.remove('active');
-        document.body.style.overflow = '';
-      }
-    }
-  });
-
-  // =============================================================
-  // PAYMENT FAILED MODAL CONTROLS
-  // =============================================================
-  function showPaymentFailedModal(bookingId, bookingData) {
-    var overlay = document.getElementById('paymentFailedModal');
-    var idEl = document.getElementById('failedBookingId');
-    var datesEl = document.getElementById('failedDates');
-    var totalEl = document.getElementById('failedTotal');
-
-    if (idEl) idEl.textContent = bookingId || 'N/A';
-    if (datesEl) datesEl.textContent = (bookingData?.checkin || '') + ' → ' + (bookingData?.checkout || '') + ' (' + (bookingData?.nights || 1) + 'N)';
-    if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(bookingData?.total) || 0).toFixed(2);
-
-    window._failedBookingId = bookingId;
-    window._failedBookingData = bookingData;
-
-    if (overlay) overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closePaymentFailedModal() {
-    var overlay = document.getElementById('paymentFailedModal');
-    if (overlay) overlay.classList.remove('active');
-    document.body.style.overflow = '';
-  }
-
-  // =============================================================
-  // GUEST SYSTEM
-  // =============================================================
-  var API_BASE = "/api";
-  var currentGuest = null;
-  try {
-    var saved = localStorage.getItem('kd_guest');
-    if (saved) {
-      var parsed = JSON.parse(saved);
-      if (parsed && parsed.id) currentGuest = parsed;
-    }
-  } catch(e) { currentGuest = null; }
-
-  function renderGuestNav() {
-    var loginNav = document.getElementById("guestNav");
-    var profileNav = document.getElementById("guestProfileNav");
-    var mLoginNav = document.getElementById("mGuestNav");
-    var mProfileNav = document.getElementById("mGuestProfileNav");
-    var mAvatar = document.getElementById("mGuestAvatar");
-    var mNameNav = document.getElementById("mGuestNameNav");
-
-    if (currentGuest) {
-      if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
-      if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
-
-      var avatar = document.getElementById("guestAvatar");
-      var nameNav = document.getElementById("guestNameNav");
-
-      if (avatar) {
-        if (currentGuest.verified === true) {
-          avatar.innerText = "✓";
-          avatar.className = "guest-avatar w-7 h-7 text-xs bg-emerald-600 text-white flex items-center justify-center rounded-full font-bold";
-        } else {
-          avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-          avatar.className = "guest-avatar w-7 h-7 text-xs bg-[#3FD0D4] text-white flex items-center justify-center rounded-full font-bold";
-        }
-      }
-      if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
-
-      if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
-      if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
-      if (mAvatar) {
-        if (currentGuest.verified === true) {
-          mAvatar.innerText = "✓";
-          mAvatar.className = "avatar bg-emerald-600 text-white";
-        } else {
-          mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-          mAvatar.className = "avatar bg-[#3FD0D4] text-white";
-        }
-      }
-      if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
-
-    } else {
-      if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
-      if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-      if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
-      if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
-    }
-  }
-
-  function logoutGuest() {
-    showConfirm("Logout", "Are you sure you want to logout?").then(function(confirmed) {
-      if (!confirmed) return;
-      currentGuest = null;
-      localStorage.removeItem('kd_guest');
-      renderGuestNav();
-      window.location.href = '/';
+        if (btn.value !== undefined) resolve(btn.value);
+        else resolve(true);
+      };
+      footerEl.appendChild(el);
     });
-  }
-
-  // =============================================================
-  // MOBILE NAV
-  // =============================================================
-  function toggleMobileMenu() {
-    var nav = document.getElementById('mobileNav');
-    if (nav) nav.classList.toggle('open');
-  }
-  document.addEventListener('click', function(e) {
-    var nav = document.getElementById('mobileNav');
-    var btn = document.getElementById('mobileMenuBtn');
-    if (!nav || !btn) return;
-    if (nav.classList.contains('open') &&
-        !nav.contains(e.target) &&
-        !btn.contains(e.target)) {
-      nav.classList.remove('open');
-    }
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
   });
+}
 
-  // =============================================================
-  // PAYMENT STATUS CHECK
-  // =============================================================
-  async function checkPaymentStatus(bookingId) {
-    try {
-      const res = await fetch(API_BASE + '/verify-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId })
-      });
-      const data = await res.json();
-      return data;
-    } catch (e) {
-      return { success: false, error: e.message };
+function closeModal() {
+  var overlay = document.getElementById('customModal');
+  if (overlay) overlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+function modalConfirm() {
+  closeModal();
+}
+
+function showAlert(title, message) {
+  return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
+}
+
+function showConfirm(title, message) {
+  return showModal(title, message, [
+    { label: 'Cancel', class: 'btn-secondary', value: false },
+    { label: 'Confirm', class: 'btn-primary', value: true }
+  ]);
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var overlay = document.getElementById('customModal');
+    if (overlay && overlay.classList.contains('active')) {
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+    var fModal = document.getElementById('paymentFailedModal');
+    if (fModal && fModal.classList.contains('active')) {
+      fModal.classList.remove('active');
+      document.body.style.overflow = '';
     }
   }
+});
 
-  // =============================================================
-  // AUTO CHECK WITH POLLING (every 8 seconds)
-  // =============================================================
-  let pendingCheckInterval = null;
 
-  async function autoCheckPendingBookings() {
-    if (!currentGuest || !currentGuest.id) return;
+// =============================================================
+// ===== PAYMENT FAILED MODAL =====
+// =============================================================
+
+function showPaymentFailedModal(bookingId, bookingData) {
+  var overlay = document.getElementById('paymentFailedModal');
+  var idEl = document.getElementById('failedBookingId');
+  var datesEl = document.getElementById('failedDates');
+  var totalEl = document.getElementById('failedTotal');
+
+  if (idEl) idEl.textContent = bookingId || 'N/A';
+  if (datesEl) datesEl.textContent = (bookingData?.checkin || '') + ' → ' + (bookingData?.checkout || '') + ' (' + (bookingData?.nights || 1) + 'N)';
+  if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(bookingData?.total) || 0).toFixed(2);
+
+  window._failedBookingId = bookingId;
+  window._failedBookingData = bookingData;
+
+  if (overlay) overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePaymentFailedModal() {
+  var overlay = document.getElementById('paymentFailedModal');
+  if (overlay) overlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+
+// =============================================================
+// ===== GUEST SYSTEM =====
+// =============================================================
+
+var currentGuest = null;
+
+function loadGuest() {
+  var profile = getGuestProfile();
+  if (profile && profile.id) {
+    currentGuest = profile;
+    // Check if token exists and is valid
+    var token = getGuestToken();
+    if (!token || isTokenExpired(token)) {
+      // Token missing or expired – clear session
+      clearGuestSession();
+      currentGuest = null;
+    }
+  }
+  return currentGuest;
+}
+
+function renderGuestNav() {
+  var loginNav = document.getElementById("guestNav");
+  var profileNav = document.getElementById("guestProfileNav");
+  var mLoginNav = document.getElementById("mGuestNav");
+  var mProfileNav = document.getElementById("mGuestProfileNav");
+  var mAvatar = document.getElementById("mGuestAvatar");
+  var mNameNav = document.getElementById("mGuestNameNav");
+
+  if (currentGuest && currentGuest.id) {
+    if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
+    if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
+
+    var avatar = document.getElementById("guestAvatar");
+    var nameNav = document.getElementById("guestNameNav");
+    if (avatar) {
+      if (currentGuest.verified === true) {
+        avatar.innerText = "✓";
+        avatar.className = "guest-avatar w-7 h-7 text-xs bg-emerald-600 text-white flex items-center justify-center rounded-full font-bold";
+      } else {
+        avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+        avatar.className = "guest-avatar w-7 h-7 text-xs bg-[#3FD0D4] text-white flex items-center justify-center rounded-full font-bold";
+      }
+    }
+    if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
+
+    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
+    if (mAvatar) {
+      if (currentGuest.verified === true) {
+        mAvatar.innerText = "✓";
+        mAvatar.className = "avatar bg-emerald-600 text-white";
+      } else {
+        mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+        mAvatar.className = "avatar bg-[#3FD0D4] text-white";
+      }
+    }
+    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+
+    // Update session status
+    updateSessionStatus();
+
+  } else {
+    if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
+    if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
+    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
+    
+    var statusEl = document.getElementById('sessionStatus');
+    if (statusEl) {
+      statusEl.textContent = '🔴 Not logged in';
+      statusEl.className = 'text-xs text-red-500 mt-0.5';
+    }
+  }
+}
+
+
+// =============================================================
+// ===== BOOKINGS DATA & RENDER =====
+// =============================================================
+
+var myBookings = [];
+var pendingCheckInterval = null;
+
+// --- Check Payment Status ---
+async function checkPaymentStatus(bookingId) {
+  try {
+    const response = await authenticatedFetch(API_BASE + '/verify-payment', {
+      method: 'POST',
+      body: JSON.stringify({ bookingId })
+    });
+    const data = await response.json();
+    return data;
+  } catch (e) {
+    if (e.message === 'Unauthorized') {
+      // Already handled by authenticatedFetch
+      return null;
+    }
+    return { success: false, error: e.message };
+  }
+}
+
+// --- Auto Check Pending Bookings ---
+async function autoCheckPendingBookings() {
+  if (!currentGuest || !currentGuest.id) return;
+  const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
+  if (pending.length === 0) {
+    if (pendingCheckInterval) {
+      clearInterval(pendingCheckInterval);
+      pendingCheckInterval = null;
+    }
+    return;
+  }
+
+  let anyUpdated = false;
+  for (const b of pending) {
+    try {
+      const result = await checkPaymentStatus(b.id);
+      if (result && result.success && result.booking) {
+        const status = result.booking.status || '';
+        if (status.toLowerCase().includes('paid') || status.toLowerCase().includes('fail')) {
+          anyUpdated = true;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    await new Promise(r => setTimeout(r, 500));
+  }
+  
+  if (anyUpdated) {
+    loadMyBookings();
+  }
+}
+
+function startPendingCheckInterval() {
+  if (pendingCheckInterval) clearInterval(pendingCheckInterval);
+  autoCheckPendingBookings();
+  pendingCheckInterval = setInterval(autoCheckPendingBookings, 8000);
+}
+
+// --- Load Bookings (with auth) ---
+async function loadMyBookings() {
+  var listDiv = document.getElementById('bookingsList');
+  if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10">Loading your bookings...</div>';
+  
+  if (!currentGuest || !currentGuest.id) {
+    if (listDiv) listDiv.innerHTML = '<div class="text-sm text-red-500 text-center py-10">Please log in to view your bookings.</div>';
+    return;
+  }
+
+  try {
+    const response = await authenticatedFetch(API_BASE + '/bookings?t=' + Date.now(), {
+      method: 'GET',
+      cache: 'no-store'
+    });
+    
+    const data = await response.json();
+    var allBookings = data.bookings || [];
+    var filtered = allBookings.filter(function(b) {
+      if (!currentGuest) return false;
+      var matchById = b.guestId && String(b.guestId) === String(currentGuest.id);
+      var matchByEmail = b.guestEmail && b.guestEmail.toLowerCase() === (currentGuest.email || '').toLowerCase();
+      var guestPhoneClean = String(currentGuest.phone || '').replace(/[^0-9]/g, '');
+      var bookingPhoneClean = String(b.guestPhone || '').replace(/[^0-9]/g, '');
+      var matchByPhone = guestPhoneClean && bookingPhoneClean && bookingPhoneClean === guestPhoneClean;
+      var matchByName = b.guestName && currentGuest.name && 
+        b.guestName.toLowerCase().includes(currentGuest.name.toLowerCase());
+      return matchById || matchByEmail || matchByPhone || matchByName;
+    });
+    myBookings = filtered;
+    if (currentGuest && currentGuest.id) {
+      localStorage.setItem(SESSION_KEYS.GUEST_BOOKINGS + currentGuest.id, JSON.stringify(myBookings));
+    }
+    renderBookings();
+    
     const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
-    if (pending.length === 0) {
+    if (pending.length > 0) {
+      startPendingCheckInterval();
+    } else {
       if (pendingCheckInterval) {
         clearInterval(pendingCheckInterval);
         pendingCheckInterval = null;
       }
+    }
+  } catch (e) {
+    if (e.message === 'Unauthorized') {
+      // Already handled by authenticatedFetch
       return;
     }
-
-    let anyUpdated = false;
-    for (const b of pending) {
-      try {
-        const result = await checkPaymentStatus(b.id);
-        if (result.success && result.booking) {
-          const status = result.booking.status || '';
-          if (status.toLowerCase().includes('paid')) {
-            anyUpdated = true;
-          } else if (status.toLowerCase().includes('fail')) {
-            anyUpdated = true;
-          }
+    // Fallback to cached data
+    try {
+      var cached = localStorage.getItem(SESSION_KEYS.GUEST_BOOKINGS + (currentGuest ? currentGuest.id : ''));
+      if (cached) {
+        myBookings = JSON.parse(cached);
+        renderBookings();
+        var notice = document.createElement('div');
+        notice.className = 'text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center mb-4';
+        notice.innerHTML = '📡 Showing cached bookings. Connect to internet for latest updates.';
+        var listDiv2 = document.getElementById('bookingsList');
+        if (listDiv2 && listDiv2.parentNode) {
+          listDiv2.parentNode.insertBefore(notice, listDiv2);
         }
-      } catch (e) {
-        // ignore
-      }
-      await new Promise(r => setTimeout(r, 500));
-    }
-    
-    if (anyUpdated) {
-      loadMyBookings();
-    }
-  }
-
-  function startPendingCheckInterval() {
-    if (pendingCheckInterval) clearInterval(pendingCheckInterval);
-    autoCheckPendingBookings();
-    pendingCheckInterval = setInterval(autoCheckPendingBookings, 8000);
-  }
-
-  // =============================================================
-  // LOAD BOOKINGS – with cache‑buster
-  // =============================================================
-  var myBookings = [];
-
-  function loadMyBookings() {
-    var listDiv = document.getElementById('bookingsList');
-    if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10">Loading your bookings...</div>';
-    
-    if (!currentGuest || !currentGuest.id) {
-      if (listDiv) listDiv.innerHTML = '<div class="text-sm text-red-500 text-center py-10">Please log in to view your bookings.</div>';
-      return;
-    }
-
-    const token = localStorage.getItem('kd_guest_token');
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-
-    fetch(API_BASE + '/bookings?t=' + Date.now(), {
-      method: 'GET',
-      headers: headers,
-      cache: 'no-store',
-      credentials: 'include'
-    })
-    .then(function(res) {
-      if (!res.ok) throw new Error('Server error: ' + res.status);
-      return res.json();
-    })
-    .then(function(data) {
-      var allBookings = data.bookings || [];
-      var filtered = allBookings.filter(function(b) {
-        if (!currentGuest) return false;
-        var matchById = b.guestId && String(b.guestId) === String(currentGuest.id);
-        var matchByEmail = b.guestEmail && b.guestEmail.toLowerCase() === (currentGuest.email || '').toLowerCase();
-        var guestPhoneClean = String(currentGuest.phone || '').replace(/[^0-9]/g, '');
-        var bookingPhoneClean = String(b.guestPhone || '').replace(/[^0-9]/g, '');
-        var matchByPhone = guestPhoneClean && bookingPhoneClean && bookingPhoneClean === guestPhoneClean;
-        var matchByName = b.guestName && currentGuest.name && 
-          b.guestName.toLowerCase().includes(currentGuest.name.toLowerCase());
-        return matchById || matchByEmail || matchByPhone || matchByName;
-      });
-      myBookings = filtered;
-      if (currentGuest && currentGuest.id) {
-        localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings));
-      }
-      renderBookings();
-      // Start polling if there are pending bookings
-      const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
-      if (pending.length > 0) {
-        startPendingCheckInterval();
+        const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
+        if (pending.length > 0) {
+          startPendingCheckInterval();
+        }
       } else {
-        if (pendingCheckInterval) {
-          clearInterval(pendingCheckInterval);
-          pendingCheckInterval = null;
-        }
-      }
-    })
-    .catch(function(err) {
-      try {
-        var cached = localStorage.getItem('kd_guest_bookings_' + currentGuest.id);
-        if (cached) {
-          myBookings = JSON.parse(cached);
-          renderBookings();
-          var notice = document.createElement('div');
-          notice.className = 'text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center mb-4';
-          notice.innerHTML = '📡 Showing cached bookings. Connect to internet for latest updates.';
-          var listDiv2 = document.getElementById('bookingsList');
-          if (listDiv2 && listDiv2.parentNode) {
-            listDiv2.parentNode.insertBefore(notice, listDiv2);
-          }
-          // Still try to start polling even with cached data
-          const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
-          if (pending.length > 0) {
-            startPendingCheckInterval();
-          }
-        } else {
-          myBookings = [];
-          renderBookings();
-        }
-      } catch(e2) {
         myBookings = [];
         renderBookings();
       }
-    });
+    } catch(e2) {
+      myBookings = [];
+      renderBookings();
+    }
   }
+}
 
-  // =============================================================
-  // RENDER BOOKINGS – with event delegation (no inline onclick)
-  // =============================================================
-  function renderBookings() {
-    var listDiv = document.getElementById('bookingsList');
-    if (!listDiv) return;
-    
-    var countPaid = 0, countCompleted = 0, countPending = 0;
-    myBookings.forEach(function(b) {
-      var s = (b.status || '').toLowerCase();
-      if (s.includes('completed') || b.payoutDate) countCompleted++;
-      else if (s.includes('paid')) countPaid++;
-      else if (s.includes('pending')) countPending++;
-    });
-    
-    document.getElementById('metricTotal').textContent = myBookings.length;
-    document.getElementById('metricPaid').textContent = countPaid;
-    document.getElementById('metricCompleted').textContent = countCompleted;
-    document.getElementById('metricPending').textContent = countPending;
+// --- Render Bookings ---
+function renderBookings() {
+  var listDiv = document.getElementById('bookingsList');
+  if (!listDiv) return;
+  
+  var countPaid = 0, countCompleted = 0, countPending = 0;
+  myBookings.forEach(function(b) {
+    var s = (b.status || '').toLowerCase();
+    if (s.includes('completed') || b.payoutDate) countCompleted++;
+    else if (s.includes('paid')) countPaid++;
+    else if (s.includes('pending')) countPending++;
+  });
+  
+  document.getElementById('metricTotal').textContent = myBookings.length;
+  document.getElementById('metricPaid').textContent = countPaid;
+  document.getElementById('metricCompleted').textContent = countCompleted;
+  document.getElementById('metricPending').textContent = countPending;
 
-    if (myBookings.length === 0) {
-      listDiv.innerHTML = safeHTML('' +
-        '<div class="text-center py-16 space-y-4">' +
-          '<div class="text-6xl">🏔️</div>' +
-          '<h3 class="font-poppins font-700 text-[20px] text-[#212121]">No Bookings Yet</h3>' +
-          '<p class="text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed">You have not made any bookings yet. Explore our verified Kundasang homestays!</p>' +
-          '<a href="/" class="btn-primary inline-block mt-2">Browse Homestays</a>' +
-        '</div>' +
-      '');
-      return;
+  if (myBookings.length === 0) {
+    listDiv.innerHTML = safeHTML('' +
+      '<div class="text-center py-16 space-y-4">' +
+        '<div class="text-6xl">🏔️</div>' +
+        '<h3 class="font-poppins font-700 text-[20px] text-[#212121]">No Bookings Yet</h3>' +
+        '<p class="text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed">You have not made any bookings yet. Explore our verified Kundasang homestays!</p>' +
+        '<a href="/" class="btn-primary inline-block mt-2">Browse Homestays</a>' +
+      '</div>' +
+    '');
+    return;
+  }
+  
+  var sorted = myBookings.slice().sort(function(a, b) {
+    return new Date(b.date || 0) - new Date(a.date || 0);
+  });
+  
+  var html = '';
+  sorted.forEach(function(b) {
+    var id = b.id || 'N/A';
+    var homestay = b.homestay || 'Kundasang Homestay';
+    var checkin = b.checkin || 'N/A';
+    var checkout = b.checkout || 'N/A';
+    var nights = b.nights || 1;
+    var total = parseFloat(b.total) || 0;
+    var base = parseFloat(b.base) || 0;
+    var statusRaw = b.status || 'Unknown';
+    var statusLower = statusRaw.toLowerCase();
+    var isCompleted = b.payoutDate || statusLower.includes('completed');
+    var isPaid = statusLower.includes('paid') && !isCompleted;
+    var isPending = statusLower.includes('pending');
+    var isCancelled = statusLower.includes('cancel');
+    var isFailed = statusLower.includes('fail');
+    var isRefunded = statusLower.includes('refunded');
+    
+    var badgeClass = 'badge-pending', badgeLabel = 'Pending';
+    if (isRefunded) { badgeClass = 'badge-refunded'; badgeLabel = '🔁 Refunded'; }
+    else if (isCompleted) { badgeClass = 'badge-completed'; badgeLabel = '✓ Completed'; }
+    else if (isPaid) { badgeClass = 'badge-paid'; badgeLabel = '✓ Paid — Awaiting Check‑in Upon Arrival'; }
+    else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
+    else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
+    
+    var buttonsHtml = '';
+    if (isPaid || isCompleted) {
+      buttonsHtml += `<button class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition action-btn" data-action="resendCode" data-id="${id}">📧 Resend Code</button>`;
+    }
+    if (isPending) {
+      buttonsHtml += `<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="${id}">🔍 Check Payment</button>`;
+      buttonsHtml += `<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#3FD0D4;" data-action="retryPayment" data-id="${id}">🔄 Retry Payment</button>`;
+    }
+    if (isFailed) {
+      buttonsHtml += `<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="${id}">🔍 Check Status</button>`;
+      buttonsHtml += `<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#dc2626;" data-action="retryPayment" data-id="${id}">🔄 Retry Payment</button>`;
     }
     
-    var sorted = myBookings.slice().sort(function(a, b) {
-      return new Date(b.date || 0) - new Date(a.date || 0);
-    });
-    
-    var html = '';
-    sorted.forEach(function(b) {
-      var id = b.id || 'N/A';
-      var homestay = b.homestay || 'Kundasang Homestay';
-      var checkin = b.checkin || 'N/A';
-      var checkout = b.checkout || 'N/A';
-      var nights = b.nights || 1;
-      var total = parseFloat(b.total) || 0;
-      var base = parseFloat(b.base) || 0;
-      var statusRaw = b.status || 'Unknown';
-      var statusLower = statusRaw.toLowerCase();
-      var isCompleted = b.payoutDate || statusLower.includes('completed');
-      var isPaid = statusLower.includes('paid') && !isCompleted;
-      var isPending = statusLower.includes('pending');
-      var isCancelled = statusLower.includes('cancel');
-      var isFailed = statusLower.includes('fail');
-      var isRefunded = statusLower.includes('refunded');
-      
-      var badgeClass = 'badge-pending', badgeLabel = 'Pending';
-      if (isRefunded) { badgeClass = 'badge-refunded'; badgeLabel = '🔁 Refunded'; }
-      else if (isCompleted) { badgeClass = 'badge-completed'; badgeLabel = '✓ Completed'; }
-      else if (isPaid) { badgeClass = 'badge-paid'; badgeLabel = '✓ Paid — Awaiting Check‑in Upon Arrival'; }
-      else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
-      else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
-      
-      // Build buttons array with data-* attributes (no onclick)
-      var buttonsHtml = '';
-      
-      // Resend Code – only for Paid or Completed
-      if (isPaid || isCompleted) {
-        buttonsHtml += `<button class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition action-btn" data-action="resendCode" data-id="${id}">📧 Resend Code</button>`;
-      }
-      
-      if (isPending) {
-        buttonsHtml += `<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="${id}">🔍 Check Payment</button>`;
-        buttonsHtml += `<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#3FD0D4;" data-action="retryPayment" data-id="${id}">🔄 Retry Payment</button>`;
-      }
-      if (isFailed) {
-        buttonsHtml += `<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="${id}">🔍 Check Status</button>`;
-        buttonsHtml += `<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#dc2626;" data-action="retryPayment" data-id="${id}">🔄 Retry Payment</button>`;
-      }
-      
-      var pendingNote = '';
-      if (isPending) {
-        pendingNote = '<div class="text-xs text-amber-600 mt-1">⏳ If your payment is pending for more than 10 minutes, you can retry.</div>';
-      }
+    var pendingNote = '';
+    if (isPending) {
+      pendingNote = '<div class="text-xs text-amber-600 mt-1">⏳ If your payment is pending for more than 10 minutes, you can retry.</div>';
+    }
 
-      html += '' +
-        '<div class="card hover:shadow-md transition-all duration-300" data-id="' + id + '">' +
-          '<div class="flex flex-col md:flex-row justify-between gap-4">' +
-            '<div class="flex-1 min-w-0 space-y-2">' +
-              '<div class="flex items-start justify-between gap-2 flex-wrap">' +
-                '<h3 class="font-poppins font-700 text-[18px] text-[#212121] leading-tight">' + homestay + '</h3>' +
-              '</div>' +
-              '<div class="text-sm text-zinc-600 space-y-1">' +
-                '<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
-                '<div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span> <span class="text-zinc-400 text-[10px]"></span></div>' +
-                '<div class="inline-block text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">' +
-                  'Booking ID: <span class="font-mono">' + id + '</span>' +
-                '</div>' +
-                pendingNote +
-                '<div class="mt-1 flex flex-wrap gap-2">' +
-                  buttonsHtml +
-                '</div>' +
-              '</div>' +
+    html += '' +
+      '<div class="card hover:shadow-md transition-all duration-300" data-id="' + id + '">' +
+        '<div class="flex flex-col md:flex-row justify-between gap-4">' +
+          '<div class="flex-1 min-w-0 space-y-2">' +
+            '<div class="flex items-start justify-between gap-2 flex-wrap">' +
+              '<h3 class="font-poppins font-700 text-[18px] text-[#212121] leading-tight">' + homestay + '</h3>' +
             '</div>' +
-            '<div class="flex flex-col items-end gap-2 shrink-0">' +
-              '<span class="' + badgeClass + '">' + badgeLabel + '</span>' +
+            '<div class="text-sm text-zinc-600 space-y-1">' +
+              '<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
+              '<div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span> <span class="text-zinc-400 text-[10px]"></span></div>' +
+              '<div class="inline-block text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">' +
+                'Booking ID: <span class="font-mono">' + id + '</span>' +
+              '</div>' +
+              pendingNote +
+              '<div class="mt-1 flex flex-wrap gap-2">' +
+                buttonsHtml +
+              '</div>' +
             '</div>' +
           '</div>' +
+          '<div class="flex flex-col items-end gap-2 shrink-0">' +
+            '<span class="' + badgeClass + '">' + badgeLabel + '</span>' +
+          '</div>' +
         '</div>' +
-      '';
-    });
-    listDiv.innerHTML = safeHTML(html);
-    
-    // Attach event listener for action buttons (delegation)
-    listDiv.removeEventListener('click', bookingActionHandler);
-    listDiv.addEventListener('click', bookingActionHandler);
+      '</div>' +
+    '';
+  });
+  listDiv.innerHTML = safeHTML(html);
+  
+  // Attach event listener for action buttons (delegation)
+  listDiv.removeEventListener('click', bookingActionHandler);
+  listDiv.addEventListener('click', bookingActionHandler);
+}
+
+// --- Booking Action Handler ---
+function bookingActionHandler(e) {
+  var btn = e.target.closest('.action-btn');
+  if (!btn) return;
+  var action = btn.dataset.action;
+  var id = btn.dataset.id;
+  if (!action || !id) return;
+  e.preventDefault();
+
+  switch (action) {
+    case 'checkStatus':
+      manualCheckPayment(id);
+      break;
+    case 'retryPayment':
+      retryPaymentFromBookings(id);
+      break;
+    case 'resendCode':
+      resendCode(id);
+      break;
+    default:
+      console.warn('Unknown action:', action);
   }
+}
 
-  // =============================================================
-  // EVENT DELEGATION FOR BOOKING ACTIONS
-  // =============================================================
-  function bookingActionHandler(e) {
-    var btn = e.target.closest('.action-btn');
-    if (!btn) return;
-    var action = btn.dataset.action;
-    var id = btn.dataset.id;
-    if (!action || !id) return;
-    e.preventDefault();
-
-    switch (action) {
-      case 'checkStatus':
-        manualCheckPayment(id);
-        break;
-      case 'retryPayment':
-        retryPaymentFromBookings(id);
-        break;
-      case 'resendCode':
-        resendCode(id);
-        break;
-      default:
-        console.warn('Unknown action:', action);
+// --- Manual Check Payment ---
+async function manualCheckPayment(bookingId) {
+  try {
+    const result = await checkPaymentStatus(bookingId);
+    if (!result) {
+      await showAlert('Error', 'Could not check payment status. Please try again.');
+      return;
     }
-  }
-
-  // =============================================================
-  // MANUAL CHECK
-  // =============================================================
-  async function manualCheckPayment(bookingId) {
-    try {
-      const result = await checkPaymentStatus(bookingId);
-      if (result.success && result.booking) {
-        const status = result.booking.status || '';
-        if (status.toLowerCase().includes('paid')) {
-          await showAlert('✅ Payment confirmed!', 'Your booking is now active.');
-          loadMyBookings();
-          return;
-        } else if (status.toLowerCase().includes('fail')) {
-          showPaymentFailedModal(bookingId, result.booking);
-          return;
-        } else {
-          await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
-          return;
-        }
-      } else if (result.retry) {
-        await showAlert('Still Processing', result.message || 'The payment is still being processed. Please try again in a few seconds.');
+    if (result.success && result.booking) {
+      const status = result.booking.status || '';
+      if (status.toLowerCase().includes('paid')) {
+        await showAlert('✅ Payment confirmed!', 'Your booking is now active.');
+        loadMyBookings();
+        return;
+      } else if (status.toLowerCase().includes('fail')) {
+        showPaymentFailedModal(bookingId, result.booking);
+        return;
       } else {
-        await showAlert('Error', result.error || 'Could not check payment status.');
+        await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
+        return;
       }
-    } catch (e) {
+    } else if (result.retry) {
+      await showAlert('Still Processing', result.message || 'The payment is still being processed. Please try again in a few seconds.');
+    } else {
+      await showAlert('Error', result.error || 'Could not check payment status.');
+    }
+  } catch (e) {
+    if (e.message !== 'Unauthorized') {
       await showAlert('Error', 'Could not connect to the server.');
     }
   }
+}
 
-  // =============================================================
-  // RETRY PAYMENT – with CSRF refresh
-  // =============================================================
-  async function retryPayment(bookingId) {
-    let token = localStorage.getItem('kd_csrf_token');
-    if (!token) {
-      try {
-        const res = await fetch('/api/csrf-token', { method: 'GET' });
-        const data = await res.json();
-        if (data.token) {
-          localStorage.setItem('kd_csrf_token', data.token);
-          token = data.token;
-        } else {
-          throw new Error('No token received');
-        }
-      } catch (e) {
-        showModal('Session Expired', 
-          'Your security token is missing. Please log in again to continue.',
-          [
-            { label: 'Login', class: 'btn-primary', value: 'login' }
-          ]
-        ).then(function(result) {
-          if (result === 'login') window.location.href = '/login.html';
-        });
-        return;
+// --- Retry Payment ---
+async function retryPayment(bookingId) {
+  let token = localStorage.getItem(SESSION_KEYS.CSRF_TOKEN);
+  if (!token) {
+    try {
+      const res = await fetch('/api/csrf-token', { method: 'GET' });
+      const data = await res.json();
+      if (data.token) {
+        localStorage.setItem(SESSION_KEYS.CSRF_TOKEN, data.token);
+        token = data.token;
+      } else {
+        throw new Error('No token received');
       }
+    } catch (e) {
+      showModal('Session Expired', 
+        'Your security token is missing. Please log in again to continue.',
+        [
+          { label: 'Login', class: 'btn-primary', value: 'login' }
+        ]
+      ).then(function(result) {
+        if (result === 'login') window.location.href = '/login.html';
+      });
+      return;
+    }
+  }
+
+  try {
+    const res = await authenticatedFetch('/api/chip-create', {
+      method: 'POST',
+      body: JSON.stringify({ bookingId })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      showAlert('Error', data.error || 'Could not create payment. Please try again.');
+      return;
     }
 
-    try {
-      const res = await fetch('/api/chip-create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': token
-        },
-        body: JSON.stringify({ bookingId })
-      });
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      showAlert('Error', 'Payment URL missing.');
+    }
 
-      const data = await res.json();
-
-      if (res.status === 403 && data.error && data.error.includes('token')) {
-        localStorage.removeItem('kd_csrf_token');
-        showModal('Security Error', 
-          'Your session token is invalid. Please log in again to retry payment.',
-          [
-            { label: 'Login', class: 'btn-primary', value: 'login' }
-          ]
-        ).then(function(result) {
-          if (result === 'login') window.location.href = '/login.html';
-        });
-        return;
-      }
-
-      if (!res.ok || !data.success) {
-        showAlert('Error', data.error || 'Could not create payment. Please try again.');
-        return;
-      }
-
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        showAlert('Error', 'Payment URL missing.');
-      }
-
-    } catch (e) {
+  } catch (e) {
+    if (e.message !== 'Unauthorized') {
       showAlert('Network Error', 'Could not connect to the server. Please try again.');
     }
   }
+}
 
-  // ✅ WRAPPER FOR ONCLICK (must be globally accessible)
-  async function retryPaymentFromBookings(bookingId) {
-    await retryPayment(bookingId);
+// --- Wrapper for onclick (globally accessible) ---
+async function retryPaymentFromBookings(bookingId) {
+  await retryPayment(bookingId);
+}
+window.retryPayment = retryPayment;
+window.retryPaymentFromBookings = retryPaymentFromBookings;
+
+// --- Resend Check-in Code ---
+async function resendCode(bookingId) {
+  const booking = myBookings.find(b => String(b.id) === String(bookingId));
+  if (!booking) {
+    showAlert('Error', 'Booking not found.');
+    return;
   }
-
-  // ✅ Ensure globals (in case of module scripts)
-  window.retryPayment = retryPayment;
-  window.retryPaymentFromBookings = retryPaymentFromBookings;
-
-  // =============================================================
-  // RESEND CHECK‑IN CODE
-  // =============================================================
-  async function resendCode(bookingId) {
-    const booking = myBookings.find(b => String(b.id) === String(bookingId));
-    if (!booking) {
-      showAlert('Error', 'Booking not found.');
-      return;
-    }
-    try {
-      const res = await fetch(API_BASE + '/resend-code', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getCsrfHeader()
-        },
-        body: JSON.stringify({ bookingId })
-      });
-      const data = await res.json();
-      if (data.success) {
-        if (data.emailSent) {
-          showAlert('Code Sent', data.message);
-        } else {
-          showAlert('Your Check‑in Code', data.message + '\n\nPlease save this code for check‑in.');
-        }
+  try {
+    const res = await authenticatedFetch(API_BASE + '/resend-code', {
+      method: 'POST',
+      body: JSON.stringify({ bookingId })
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (data.emailSent) {
+        showAlert('Code Sent', data.message);
       } else {
-        showAlert('Error', data.error || 'Failed to resend.');
+        showAlert('Your Check‑in Code', data.message + '\n\nPlease save this code for check‑in.');
       }
-    } catch(e) {
+    } else {
+      showAlert('Error', data.error || 'Failed to resend.');
+    }
+  } catch(e) {
+    if (e.message !== 'Unauthorized') {
       showAlert('Error', 'Network error. Please try again.');
     }
   }
+}
 
-  // =============================================================
-  // INIT
-  // =============================================================
-  (function init() {
-    renderGuestNav();
-    var notLoggedIn = document.getElementById('notLoggedIn');
-    var bookingsView = document.getElementById('bookingsView');
-    var nameDisplay = document.getElementById('guestNameDisplay');
+// --- Toggle Mobile Menu ---
+function toggleMobileMenu() {
+  var nav = document.getElementById('mobileNav');
+  if (nav) nav.classList.toggle('open');
+}
+
+document.addEventListener('click', function(e) {
+  var nav = document.getElementById('mobileNav');
+  var btn = document.getElementById('mobileMenuBtn');
+  if (!nav || !btn) return;
+  if (nav.classList.contains('open') &&
+      !nav.contains(e.target) &&
+      !btn.contains(e.target)) {
+    nav.classList.remove('open');
+  }
+});
+
+
+// =============================================================
+// ===== INITIALIZATION =====
+// =============================================================
+
+(function init() {
+  // Load guest from localStorage (validates token)
+  loadGuest();
+  renderGuestNav();
+  
+  var notLoggedIn = document.getElementById('notLoggedIn');
+  var bookingsView = document.getElementById('bookingsView');
+  var nameDisplay = document.getElementById('guestNameDisplay');
+  
+  if (currentGuest && currentGuest.id && !isTokenExpired(getGuestToken())) {
+    if (notLoggedIn) notLoggedIn.classList.add('hidden');
+    if (bookingsView) bookingsView.classList.remove('hidden');
+    if (nameDisplay) nameDisplay.textContent = currentGuest.name || currentGuest.email || 'Guest';
     
-    if (currentGuest && currentGuest.id) {
-      if (notLoggedIn) notLoggedIn.classList.add('hidden');
-      if (bookingsView) bookingsView.classList.remove('hidden');
-      if (nameDisplay) nameDisplay.textContent = currentGuest.name || currentGuest.email || 'Guest';
-      setTimeout(function() {
-        loadMyBookings();
-      }, 100);
-    } else {
-      if (notLoggedIn) notLoggedIn.classList.remove('hidden');
-      if (bookingsView) bookingsView.classList.add('hidden');
+    // Start session monitoring
+    startSessionMonitoring();
+    
+    // Load bookings
+    setTimeout(function() {
+      loadMyBookings();
+    }, 100);
+  } else {
+    // No valid session
+    if (notLoggedIn) notLoggedIn.classList.remove('hidden');
+    if (bookingsView) bookingsView.classList.add('hidden');
+    // Clear invalid session
+    if (getGuestToken() && isTokenExpired(getGuestToken())) {
+      clearGuestSession();
     }
+  }
 
-    // If returning from payment, force check the booking
-    const urlParams = new URLSearchParams(window.location.search);
-    const bookingParam = urlParams.get('booking');
-    const paymentReturn = urlParams.get('payment_return');
-    if (bookingParam && paymentReturn === '1' && currentGuest && currentGuest.id) {
-      setTimeout(function() {
-        manualCheckPayment(bookingParam);
-      }, 3000);
-    }
-  })();
+  // If returning from payment, force check the booking
+  const urlParams = new URLSearchParams(window.location.search);
+  const bookingParam = urlParams.get('booking');
+  const paymentReturn = urlParams.get('payment_return');
+  if (bookingParam && paymentReturn === '1' && currentGuest && currentGuest.id) {
+    setTimeout(function() {
+      manualCheckPayment(bookingParam);
+    }, 3000);
+  }
+
+  // Update session status periodically
+  updateSessionStatus();
+
+  // Handle beforeunload to clean up
+  window.addEventListener('beforeunload', function() {
+    stopSessionMonitoring();
+  });
+})();
 </script>
 </body>
 </html>
