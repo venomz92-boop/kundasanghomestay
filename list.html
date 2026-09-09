@@ -95,6 +95,26 @@
   </div>
 </header>
 
+  <script>
+  (function() {
+    function removeDesktopNavOnMobile() {
+      var nav = document.getElementById('desktopNav');
+      if (!nav) return;
+      var isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        nav.remove();
+      }
+    }
+    removeDesktopNavOnMobile();
+    window.addEventListener('resize', removeDesktopNavOnMobile);
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', removeDesktopNavOnMobile);
+    }
+    setTimeout(removeDesktopNavOnMobile, 100);
+    setTimeout(removeDesktopNavOnMobile, 500);
+  })();
+</script>
+  
 <!-- ===== MOBILE MENU (outside header) ===== -->
 <div id="mobileNav">
   <div class="p-4 space-y-1">
