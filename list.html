@@ -92,36 +92,6 @@
         }
       })();
     </script>
-
-    <!-- ===== NUCLEAR FIX: REMOVE DESKTOP NAV ON MOBILE ===== -->
-    <script>
-      (function() {
-        function removeDesktopNavOnMobile() {
-          var nav = document.getElementById('desktopNav');
-          if (!nav) return;
-          var isMobile = window.innerWidth < 768;
-          if (isMobile) {
-            // Remove the entire desktop nav from the DOM
-            nav.remove();
-          }
-        }
-
-        // Run immediately
-        removeDesktopNavOnMobile();
-
-        // Also run on DOM ready
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', removeDesktopNavOnMobile);
-        }
-
-        // Run on resize (to remove it again if user rotates to mobile)
-        window.addEventListener('resize', removeDesktopNavOnMobile);
-
-        // Extra safety
-        setTimeout(removeDesktopNavOnMobile, 100);
-        setTimeout(removeDesktopNavOnMobile, 500);
-      })();
-    </script>
   </div>
 </header>
 
