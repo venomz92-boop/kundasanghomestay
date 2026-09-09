@@ -106,8 +106,8 @@ export async function onRequestPost({ request, env }) {
   } catch (e) {
     console.error('❌ Upload error:', e.message);
     return new Response(
-      JSON.stringify({ error: 'Upload failed. Please try again later.' }),
-      { status: 500, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: e.message || 'Internal server error' }),
+      { status: 500 }
     );
   }
 }
