@@ -90,8 +90,8 @@
       </div>
     </nav>
 
-    <!-- Mobile Menu Button (onclick works because function is global) -->
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="touch-action: manipulation; cursor: pointer;" aria-label="Toggle Navigation">
+    <!-- Mobile Menu Button (no onclick) -->
+    <button id="mobileMenuBtn" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
   </div>
@@ -496,13 +496,6 @@ function logoutGuest() {
     renderGuestNav();
     window.location.href = '/';
   });
-}
-
-// =============================================================
-// MOBILE NAV
-// =============================================================
-function toggleMobileMenu() {
-  document.getElementById('mobileNav')?.classList.toggle('open');
 }
 
 document.addEventListener('click', function(e) {
