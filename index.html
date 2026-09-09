@@ -90,52 +90,6 @@
   </div>
 </div>
 
-<!-- ===== ROBUST MOBILE NAV SCRIPT ===== -->
-<script>
-  (function() {
-    // Ensure the DOM is ready
-    const menuBtn = document.getElementById('mobileMenuBtn');
-    const mobileNav = document.getElementById('mobileNav');
-
-    if (!menuBtn || !mobileNav) {
-      console.warn('Mobile nav elements not found');
-      return;
-    }
-
-    function toggleMobileMenu(e) {
-      e && e.preventDefault();
-      mobileNav.classList.toggle('open');
-      // Prevent body scroll when menu is open
-      document.body.style.overflow = mobileNav.classList.contains('open') ? 'hidden' : '';
-    }
-
-    // Attach click listener (removing any inline onclick)
-    menuBtn.removeAttribute('onclick');
-    menuBtn.addEventListener('click', toggleMobileMenu);
-
-    // Close menu on outside click
-    document.addEventListener('click', function(e) {
-      if (mobileNav.classList.contains('open') &&
-          !mobileNav.contains(e.target) &&
-          !menuBtn.contains(e.target)) {
-        mobileNav.classList.remove('open');
-        document.body.style.overflow = '';
-      }
-    });
-
-    // Close on Escape key
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && mobileNav.classList.contains('open')) {
-        mobileNav.classList.remove('open');
-        document.body.style.overflow = '';
-      }
-    });
-
-    // Expose function globally (for any legacy inline calls)
-    window.toggleMobileMenu = toggleMobileMenu;
-  })();
-</script>
-
 <!-- ===== HERO ===== -->
 <section id="hero" class="relative w-full overflow-visible pb-4 md:pb-0">
   <!-- Background Image -->
