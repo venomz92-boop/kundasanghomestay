@@ -1,5 +1,5 @@
-// /api/chip-create.js – Smart retry: avoid duplicate charges
-import { corsHeaders, enforceHttps, getClientIP, getGuestSession, logAction, getCSRFToken, validateCSRFToken, jsonResponse } from './_utils.js';
+// /api/chip-create.js – Smart retry + rate limiting
+import { corsHeaders, enforceHttps, getClientIP, getGuestSession, logAction, getCSRFToken, validateCSRFToken, jsonResponse, checkRateLimit, recordRateLimit } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
@@ -22,6 +22,15 @@ export async function onRequestPost({ request, env }) {
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+
+    // ===== SECURITY: Rate limiting per guest and booking =====
+    const clientIP = getClientIP(request);
+    const rateKey = `chip_create_${bookingId}`;
+    const rateOk = await checkRateLimit(db, clientIP, rateKey, 3, 5 * 60);
+    if (!rateOk) {
+      return jsonResponse({ error: 'Too many payment attempts. Please wait 5 minutes.' }, 429, request);
+    }
+    await recordRateLimit(db, clientIP, rateKey);
 
     // Load bookings
     const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
@@ -211,7 +220,7 @@ export async function onRequestPost({ request, env }) {
 
   } catch (error) {
     console.error('CHIP create error:', error.message, error.stack);
-    return jsonResponse({ error: 'Payment setup failed.' }, 500, request);
+    return jsonResponse({ error: 'Payment setup failed. Please try again later.' }, 500, request);
   }
 }
 
