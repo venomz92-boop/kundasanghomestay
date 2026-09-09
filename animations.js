@@ -47,6 +47,27 @@ function staggerReveal(container, className = '.card') {
   });
 }
 
+// ----- Back to Top Button (auto-created) -----
+(function createBackToTop() {
+  const btn = document.createElement('button');
+  btn.id = 'backToTop';
+  btn.innerHTML = '↑';
+  btn.className = 'fixed bottom-24 right-4 z-50 bg-[#0F382E] text-white p-3 rounded-full shadow-lg hover:bg-[#1a4d3e] transition-opacity opacity-0 pointer-events-none text-xl';
+  document.body.appendChild(btn);
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 300) {
+      btn.classList.remove('opacity-0', 'pointer-events-none');
+      btn.classList.add('opacity-100', 'pointer-events-auto');
+    } else {
+      btn.classList.add('opacity-0', 'pointer-events-none');
+      btn.classList.remove('opacity-100', 'pointer-events-auto');
+    }
+  });
+  btn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+
 // ----- Export for usage -----
 window.showSkeleton = showSkeleton;
 window.hideSkeleton = hideSkeleton;
