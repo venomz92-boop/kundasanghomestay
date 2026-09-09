@@ -685,41 +685,6 @@
 
 <!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
-
-<!-- ===== TOGGLE SCRIPT – RELIABLE FOR MOBILE ===== -->
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    var btn = document.getElementById('mobileMenuBtn');
-    var nav = document.getElementById('mobileNav');
-    if (!btn || !nav) return;
-
-    function toggleMenu(e) {
-      e.preventDefault();
-      nav.classList.toggle('open');
-      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
-    }
-
-    btn.addEventListener('click', toggleMenu);
-    btn.addEventListener('touchstart', toggleMenu, { passive: false });
-
-    // Close on outside click
-    document.addEventListener('click', function(e) {
-      if (nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
-        nav.classList.remove('open');
-        document.body.style.overflow = '';
-      }
-    });
-
-    // Close on Escape key
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && nav.classList.contains('open')) {
-        nav.classList.remove('open');
-        document.body.style.overflow = '';
-      }
-    });
-  });
-</script>
-
 <!-- ========== YOUR EXISTING INLINE SCRIPT (safeHTML, modals, booking logic, etc.) ========== -->
 <!-- This is where your huge inline script begins. I've truncated it here for brevity, but you should copy the exact content from your original file. -->
 <script>
