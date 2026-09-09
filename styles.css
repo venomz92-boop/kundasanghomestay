@@ -1736,6 +1736,7 @@ header.nav-scrolled {
 }
 
 /* Ensure header and button are above everything */
+/* ===== FIX: Mobile nav z-index overrides ===== */
 header {
   z-index: 999999 !important;
   position: relative;
@@ -1744,11 +1745,13 @@ header {
 #mobileMenuBtn {
   position: relative;
   z-index: 9999999 !important;
-  touch-action: manipulation; /* improves touch responsiveness */
+  touch-action: manipulation;
   cursor: pointer;
 }
 
-/* Also ensure the nav stays on top when open */
+#mobileNav {
+  z-index: 99999 !important;
+}
 #mobileNav.open {
   z-index: 99999 !important;
 }
