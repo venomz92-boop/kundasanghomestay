@@ -42,8 +42,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
 
 </head>
-<body>
 
+<body>
 <!-- ===== MODAL ===== -->
 <div id="customModal" class="modal-overlay">
   <div class="modal-box">
@@ -57,6 +57,18 @@
     </div>
   </div>
 </div>
+
+<!-- ===== EARLY FUNCTION DEFINITION ===== -->
+<script>
+  function toggleMobileMenu() {
+    const nav = document.getElementById('mobileNav');
+    if (nav) {
+      nav.classList.toggle('open');
+      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+    }
+  }
+  window.toggleMobileMenu = toggleMobileMenu;
+</script>
 
 <!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
@@ -90,28 +102,10 @@
       </div>
     </nav>
 
-    <!-- MOBILE MENU BUTTON (NO onclick) -->
-    <button id="mobileMenuBtn" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
+    <!-- MOBILE MENU BUTTON (with onclick) -->
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
-
-    <!-- IMMEDIATE EVENT LISTENER (works in all browsers) -->
-    <script>
-      (function() {
-        var btn = document.getElementById('mobileMenuBtn');
-        var nav = document.getElementById('mobileNav');
-        if (btn && nav) {
-          function toggle() {
-            nav.classList.toggle('open');
-            document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
-          }
-          btn.addEventListener('click', toggle);
-          btn.addEventListener('touchstart', toggle, { passive: false });
-          // Global fallback
-          window.toggleMobileMenu = toggle;
-        }
-      })();
-    </script>
   </div>
 </header>
 
