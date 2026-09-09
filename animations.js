@@ -1,15 +1,18 @@
 // =============================================================
-// animations.js – COMPLETE (Chrome iOS compatible)
+// animations.js – COMPLETE (Chrome iOS compatible) – Robust
 // =============================================================
 
-// ---- 1. Define toggle function GLOBALLY ----
-function toggleMobileMenu() {
-    const nav = document.getElementById('mobileNav');
-    if (nav) {
-        nav.classList.toggle('open');
-    }
+// ---- 1. Define toggle function GLOBALLY (only if not already defined) ----
+if (typeof window.toggleMobileMenu !== 'function') {
+    window.toggleMobileMenu = function() {
+        const nav = document.getElementById('mobileNav');
+        if (nav) {
+            nav.classList.toggle('open');
+            // Prevent body scroll
+            document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+        }
+    };
 }
-window.toggleMobileMenu = toggleMobileMenu;
 
 // ---- 2. DOM Ready ----
 document.addEventListener('DOMContentLoaded', function() {
@@ -52,7 +55,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 200);
 
-    // ---- Close menu on outside click ----
+    // ---- Close mobile nav on outside click (fallback) ----
+    // This is also handled in the inline script, but we keep it here as a backup.
     document.addEventListener('click', function(e) {
         const nav = document.getElementById('mobileNav');
         const btn = document.getElementById('mobileMenuBtn');
@@ -61,6 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
             !nav.contains(e.target) && 
             !btn.contains(e.target)) {
             nav.classList.remove('open');
+            document.body.style.overflow = '';
         }
     });
 
