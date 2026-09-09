@@ -111,8 +111,9 @@ export async function onRequestPost({ request, env }) {
     let bookings = [];
     try { if (storeRes?.data) bookings = JSON.parse(storeRes.data); } catch (_) {}
     const booking = bookings.find(b => String(b.id) === String(bookingId));
+    // ---- FIX: Generic error for not found ----
     if (!booking) {
-      return jsonResponse({ error: 'Booking not found' }, 404, request);
+      return jsonResponse({ error: 'Invalid request.' }, 400, request);
     }
 
     // 3. Authorization
@@ -196,7 +197,7 @@ export async function onRequestPost({ request, env }) {
         ? `Check‑in confirmed! ⚠️ SIMULATED payout of RM${ownerAmount} completed (forced via PAYOUT_SIMULATION).`
         : `Check‑in confirmed! ⚠️ SIMULATED payout of RM${ownerAmount} completed (live payout keys not configured).`;
       isSimulation = true;
-      console.log(`🔵 SIMULATION: Check‑in ${bookingId} – owner gets RM${ownerAmount} (simulated)`);
+      // console.log(`🔵 SIMULATION: Check‑in ${bookingId} – owner gets RM${ownerAmount} (simulated)`);
     } else {
       // Real payout using CHIP Send
       try {
@@ -276,9 +277,9 @@ export async function onRequestPost({ request, env }) {
         payoutData = payoutDataRaw;
         payoutMessage = `Check‑in confirmed! Payout of RM${ownerAmount} sent to owner via CHIP Send.`;
         isSimulation = false;
-        console.log(`✅ Real payout ${payoutDataRaw.id} for booking ${bookingId}`);
+        // console.log(`✅ Real payout ${payoutDataRaw.id} for booking ${bookingId}`);
       } catch (err) {
-        console.error('Real payout failed:', err.message);
+        // console.error('Real payout failed:', err.message);
         payoutSuccess = false;
         payoutMessage = `Real payout failed: ${err.message}. Please check CHIP Send credentials and bank details.`;
       }
@@ -365,7 +366,7 @@ export async function onRequestPost({ request, env }) {
     }, 200, request);
 
   } catch (e) {
-    console.error('Owner check‑in error:', e.message);
+    // console.error('Owner check‑in error:', e.message);
     return jsonResponse({ error: 'Check‑in failed. Please try again later.' }, 500, request);
   }
 }
