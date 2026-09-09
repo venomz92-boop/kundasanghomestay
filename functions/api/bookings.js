@@ -1,4 +1,4 @@
-// /api/bookings.js – FULLY PATCHED with D1 transaction lock
+// /api/bookings.js – FULLY PATCHED with generic errors for guest endpoints
 import { corsHeaders, getClientIP, logAction, enforceHttps, validateCSRFToken, getCSRFToken, getGuestSession, getAdminToken, jsonResponse, parseJSONSafely, withLock, checkRateLimit, recordRateLimit, invalidateOwnerSessions } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -118,7 +118,7 @@ export async function onRequestGet({ request, env }) {
     });
 
   } catch (e) {
-    console.error('Bookings GET error:', e.message, e.stack);
+    // console.error('Bookings GET error:', e.message, e.stack);
     return jsonResponse({ error: 'Failed to load bookings', details: e.message }, 500, request);
   }
 }
@@ -329,7 +329,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, booking: booking }, 200, request);
 
     } catch (err) {
-      console.error('Create booking error:', err.message);
+      // console.error('Create booking error:', err.message);
       // SECURITY: Generic error message
       return jsonResponse({ error: 'Unable to create booking. Please try again later.' }, 500, request);
     }
@@ -351,9 +351,10 @@ export async function onRequestPost({ request, env }) {
       const r=await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
       let bookings=[]; try{if(r?.data)bookings=JSON.parse(r.data)}catch(_){}
       const idx=bookings.findIndex(b=>String(b.id)===String(body.id));
-      if(idx<0)return jsonResponse({error:'Booking not found'},404,request);
+      // ---- FIX: Generic error for not found ----
+      if(idx<0) return jsonResponse({ error: 'Invalid request.' }, 400, request);
       const b=bookings[idx];
-      if(String(b.guestId)!==String(auth.session.userId))return jsonResponse({error:'Unauthorized'},403,request);
+      if(String(b.guestId)!==String(auth.session.userId)) return jsonResponse({ error: 'Unauthorized' }, 403, request);
 
       if (body.status === 'Cancelled by Guest') {
         const paidStatuses = ['Paid - Awaiting Check-in', 'Completed'];
@@ -385,7 +386,7 @@ export async function onRequestPost({ request, env }) {
       
       return jsonResponse({success:true,booking:bookings[idx]},200,request);
     } catch(e) {
-      console.error('Guest status update error:', e.message);
+      // console.error('Guest status update error:', e.message);
       return jsonResponse({ error: 'Could not update booking' }, 500, request);
     }
   }
@@ -482,7 +483,7 @@ export async function onRequestPost({ request, env }) {
         let pending = [];
         if (pendingRes && pendingRes.data) { 
           try { pending = JSON.parse(pendingRes.data); } catch(e) { 
-            console.error("Failed to parse kd_pending:", e);
+            // console.error("Failed to parse kd_pending:", e);
             return jsonResponse({ error: "Corrupt pending data" }, 500, request);
           }
         }
@@ -501,7 +502,7 @@ export async function onRequestPost({ request, env }) {
         let approved = [];
         if (approvedRes && approvedRes.data) { 
           try { approved = JSON.parse(approvedRes.data); } catch(e) {
-            console.error("Failed to parse kd_approved:", e);
+            // console.error("Failed to parse kd_approved:", e);
             return jsonResponse({ error: "Corrupt approved data" }, 500, request);
           }
         }
@@ -527,7 +528,7 @@ export async function onRequestPost({ request, env }) {
         
         return jsonResponse({ success: true, homestay: safeHomestay }, 200, request);
       } catch (approveErr) {
-        console.error("Approve homestay error:", approveErr.message, approveErr.stack);
+        // console.error("Approve homestay error:", approveErr.message, approveErr.stack);
         // SECURITY: Generic error
         return jsonResponse({ error: "Approval failed. Please try again later." }, 500, request);
       }
@@ -572,7 +573,7 @@ export async function onRequestPost({ request, env }) {
         let approved = [];
         if (approvedRes && approvedRes.data) {
           try { approved = JSON.parse(approvedRes.data); } catch(e) {
-            console.error("Failed to parse kd_approved:", e);
+            // console.error("Failed to parse kd_approved:", e);
             return jsonResponse({ error: "Corrupt approved data" }, 500, request);
           }
         }
@@ -618,7 +619,7 @@ export async function onRequestPost({ request, env }) {
         
         return jsonResponse({ success: true, removed: removed }, 200, request);
       } catch (removeErr) {
-        console.error("Remove homestay error:", removeErr.message, removeErr.stack);
+        // console.error("Remove homestay error:", removeErr.message, removeErr.stack);
         return jsonResponse({ error: "Remove failed. Please try again later." }, 500, request);
       }
     }
@@ -713,7 +714,7 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ success: true, message: "Synced" }, 200, request);
 
   } catch (err) {
-    console.error('Bookings POST admin action error:', err.message, err.stack);
+    // console.error('Bookings POST admin action error:', err.message, err.stack);
     return jsonResponse({ error: 'An internal error occurred. Please try again later.' }, 500, request);
   }
 }
