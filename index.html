@@ -61,76 +61,6 @@
         </div>
       </div>
     </nav>
-
-  <!-- MOBILE MENU BUTTON (no onclick, just ID) -->
-<button id="mobileMenuBtn" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
-  <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-</button>
-
-<!-- IMMEDIATE SCRIPT: toggles display and logs -->
-<script>
-  (function() {
-    var btn = document.getElementById('mobileMenuBtn');
-    var nav = document.getElementById('mobileNav');
-
-    if (!btn) { alert('Button not found!'); return; }
-    if (!nav) { alert('Nav not found!'); return; }
-
-    function toggleMenu(e) {
-      e.preventDefault();
-      // Toggle display
-      if (nav.style.display === 'none' || nav.style.display === '') {
-        nav.style.display = 'block';
-        document.body.style.overflow = 'hidden';
-        alert('Menu opened!'); // <-- test alert
-      } else {
-        nav.style.display = 'none';
-        document.body.style.overflow = '';
-        alert('Menu closed!'); // <-- test alert
-      }
-    }
-
-    // Remove any existing listeners to avoid duplicates
-    btn.removeEventListener('click', toggleMenu);
-    btn.removeEventListener('touchstart', toggleMenu);
-
-    // Attach events
-    btn.addEventListener('click', toggleMenu);
-    btn.addEventListener('touchstart', toggleMenu, { passive: false });
-
-    // Ensure nav is hidden initially
-    nav.style.display = 'none';
-  })();
-</script>
-
-    <!-- Mobile Menu -->
-    <div id="mobileNav">
-      <div class="p-4 space-y-1">
-        <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
-        <a href="/list.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
-        <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
-        <a href="/owner.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
-
-        <div class="pt-3 space-y-3">
-          <div id="mGuestNav">
-            <a href="/login.html" class="guest-btn block text-center">Login</a>
-            <a href="/register.html" class="guest-btn guest-btn-primary block text-center">Register</a>
-          </div>
-          <div id="mGuestProfileNav" class="hidden space-y-2">
-            <div class="profile-card">
-              <div id="mGuestAvatar" class="avatar">G</div>
-              <div class="info">
-                <div id="mGuestNameNav" class="name">Guest</div>
-                <div class="sub">Verified guest</div>
-              </div>
-              <button onclick="logoutGuest()" class="logout-btn">Logout</button>
-            </div>
-            <a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
 </header>
   
 <!-- ===== HERO ===== -->
@@ -1794,6 +1724,23 @@ window.handlePaymentReturn = handlePaymentReturn;
       handlePaymentReturn();
     })();
 
-  </script>
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('mobileMenuBtn');
+    var nav = document.getElementById('mobileNav');
+
+    if (!btn) { console.warn('Button not found'); return; }
+    if (!nav) { console.warn('Nav not found'); return; }
+
+    function toggleMenu(e) {
+      e.preventDefault();
+      nav.classList.toggle('open');
+      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+    }
+
+    btn.addEventListener('click', toggleMenu);
+    btn.addEventListener('touchstart', toggleMenu, { passive: false });
+  });
+</script>
 </body>
 </html>
