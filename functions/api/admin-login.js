@@ -9,7 +9,7 @@ export async function onRequestPost({ request, env }) {
     const clientIP = getClientIP(request);
     const db = env.DB;
     if (!db) {
-      return jsonResponse({ error: 'Database not configured' }, 500, request);
+      return jsonResponse({ error: 'Server configuration error' }, 500, request);
     }
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
@@ -32,7 +32,6 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (password === adminPass) {
-      // ✅ Use the static ADMIN_TOKEN from environment
       const token = env.ADMIN_TOKEN;
       if (!token) {
         console.error("❌ ADMIN_TOKEN environment variable is not set!");
