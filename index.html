@@ -35,7 +35,7 @@
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <!-- Logo & Brand -->
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
-       <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+      <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
       <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
         KUNDASANG<span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay.my</span>
         <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Stay • Connect • Belong</div>
@@ -62,14 +62,28 @@
       </div>
     </nav>
 
-    <!-- Mobile Menu Button (no onclick) -->
-   <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
-  <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-</button>
+    <!-- MOBILE MENU BUTTON (with onclick) -->
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
+      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+
+    <!-- INLINE FALLBACK SCRIPT (ensures toggleMobileMenu exists) -->
+    <script>
+      // Fallback – ensures toggleMobileMenu is defined even if animations.js fails
+      if (typeof toggleMobileMenu !== 'function') {
+        window.toggleMobileMenu = function() {
+          const nav = document.getElementById('mobileNav');
+          if (nav) {
+            nav.classList.toggle('open');
+            document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+          }
+        };
+      }
+    </script>
   </div>
 </header>
 
-<!-- ===== MOBILE MENU ===== -->
+<!-- ===== MOBILE MENU (outside header) ===== -->
 <div id="mobileNav">
   <div class="p-4 space-y-1">
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
