@@ -151,6 +151,64 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, message, room }, 200, request);
     }
 
+    // ===== NEW ACTION: Update homestay price =====
+    if (action === "updateHomestayPrice") {
+      const { homestayId, newPrice } = body;
+      if (!homestayId || newPrice === undefined || newPrice === null) {
+        return jsonResponse({ error: 'Missing homestayId or newPrice' }, 400, request);
+      }
+
+      const ownerHomestayIds = (ownerData.homestayIds || []).map(String);
+      if (!ownerHomestayIds.includes(String(homestayId))) {
+        return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
+      }
+
+      const priceNum = Number(newPrice);
+      if (isNaN(priceNum) || priceNum < 0) {
+        return jsonResponse({ error: 'Invalid price (must be a positive number)' }, 400, request);
+      }
+
+      const db = env.DB;
+      if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
+      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+
+      let updated = false;
+      for (const key of ['kd_approved', 'kd_pending']) {
+        const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
+        let arr = [];
+        if (res && res.data) { try { arr = JSON.parse(res.data); } catch(e) {} }
+        const index = arr.findIndex(h => String(h.id) === String(homestayId));
+        if (index !== -1) {
+          // Update ownerPrice
+          arr[index].ownerPrice = priceNum;
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+            .bind(key, JSON.stringify(arr))
+            .run();
+          updated = true;
+        }
+      }
+
+      if (!updated) {
+        return jsonResponse({ error: 'Homestay not found in any store' }, 404, request);
+      }
+
+      await logAction({
+        db,
+        action: 'homestay_price_update',
+        admin: 'owner',
+        details: `Price updated for homestay ${homestayId} to RM ${priceNum}`,
+        ip: clientIP,
+        userId: ownerData.ownerId,
+        homestayId: homestayId
+      });
+
+      return jsonResponse({
+        success: true,
+        message: `Price updated to RM ${priceNum}`,
+        newPrice: priceNum
+      }, 200, request);
+    }
+
     // ===== Existing actions (changeDates, cancelBooking) – with security fixes =====
     if (!bookingId) {
       return jsonResponse({ error: "Missing bookingId" }, 400, request);
