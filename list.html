@@ -706,13 +706,6 @@ let tempBankQROriginalName = "";
 let tempPbtLicense = "";
 let tempRooms = [];
 
-// =============================================================
-// CLOUDINARY CONFIGURATION – EDIT THESE!
-// =============================================================
-const CLOUDINARY_CLOUD_NAME = 'lk3qg08g';  // e.g. 'myapp'
-const CLOUDINARY_UPLOAD_PRESET = 'homestay_uploads'; // Your unsigned preset
-const CLOUDINARY_FOLDER = 'kundasang-homestay/rooms'; // Optional folder name
-
 // ===== ROOMS MANAGEMENT =====
 function addRoom(name = '', price = '', guests = '', desc = '', images = []) {
   const id = 'room-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
@@ -785,7 +778,9 @@ function updateRoomField(roomId, field, value) {
   }
 }
 
-// ===== HANDLE ROOM IMAGES – DIRECT CLOUDINARY UPLOAD =====
+// =============================================================
+// HANDLE ROOM IMAGES – USES YOUR BACKEND /api/upload-image
+// =============================================================
 async function handleRoomImages(roomId, input) {
   const files = input.files;
   if (!files.length) return;
@@ -798,36 +793,63 @@ async function handleRoomImages(roomId, input) {
 
   for (const file of files) {
     try {
-      // Compress
+      // 1. Compress first
       const compressedBlob = await compressImageToBlob(file, 800, 0.7);
       if (!compressedBlob) continue;
 
-      // Upload directly to Cloudinary
+      // 2. Upload to your backend endpoint
       const formData = new FormData();
-      formData.append('file', compressedBlob, file.name);
-      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-      if (CLOUDINARY_FOLDER) {
-        formData.append('folder', CLOUDINARY_FOLDER);
-      }
+      formData.append('image', compressedBlob, file.name);
 
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: 'POST', body: formData }
-      );
-      
+      const res = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData
+      });
+
       const data = await res.json();
-      
-      if (data.secure_url) {
+
+      if (data.success && data.url) {
         if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
-        tempRooms[roomIndex].images.push(data.secure_url);
-        // Show success feedback (optional)
-        console.log('✅ Uploaded:', data.secure_url);
+        tempRooms[roomIndex].images.push(data.url);
+        console.log('✅ Uploaded:', data.url);
       } else {
-        await showAlert('Upload Failed', data.error?.message || 'Could not upload image.');
+        // Backend returned error – show it
+        await showAlert('Upload Failed', data.error || 'Could not upload image.');
+        return; // Stop trying more files if one fails
       }
     } catch (e) {
       console.error('Upload error:', e);
-      await showAlert('Upload Failed', 'Could not upload room image. Please try again.');
+      
+      // Fallback: try direct Cloudinary upload with your preset
+      try {
+        const compressedBlob = await compressImageToBlob(file, 800, 0.7);
+        if (!compressedBlob) continue;
+
+        const cloudName = 'lk3qg08g';
+        const preset = 'homestay_uploads';
+
+        const fallbackForm = new FormData();
+        fallbackForm.append('file', compressedBlob, file.name);
+        fallbackForm.append('upload_preset', preset);
+
+        const fallbackRes = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          { method: 'POST', body: fallbackForm }
+        );
+        const fallbackData = await fallbackRes.json();
+
+        if (fallbackData.secure_url) {
+          if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
+          tempRooms[roomIndex].images.push(fallbackData.secure_url);
+          console.log('✅ Fallback upload success:', fallbackData.secure_url);
+        } else {
+          await showAlert('Upload Failed', 'Could not upload image. Please try again.');
+          return;
+        }
+      } catch (fallbackError) {
+        await showAlert('Upload Failed', 'Network error. Please try again.');
+        return;
+      }
     }
   }
   renderRooms();
