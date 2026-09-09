@@ -1,9 +1,8 @@
 // =============================================================
-// animations.js – COMPLETE (Chrome iOS compatible)
+// animations.js – Chrome & Safari compatible
 // =============================================================
 
-// ---- 1. Define toggle function GLOBALLY ----
-// This is called by the onclick attribute on the mobile menu button.
+// ---- Define toggle function GLOBALLY ----
 function toggleMobileMenu() {
     const nav = document.getElementById('mobileNav');
     if (nav) {
@@ -14,7 +13,7 @@ function toggleMobileMenu() {
 }
 window.toggleMobileMenu = toggleMobileMenu;
 
-// ---- 2. DOM Ready ----
+// ---- DOM Ready ----
 document.addEventListener('DOMContentLoaded', function() {
 
     // ---- Navbar scroll effect ----
@@ -54,6 +53,14 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }, 200);
+
+    // ---- Attach click listener to the menu button (no touchstart) ----
+    const menuBtn = document.getElementById('mobileMenuBtn');
+    if (menuBtn) {
+        // Remove any existing listeners (just in case)
+        menuBtn.removeEventListener('click', toggleMobileMenu);
+        menuBtn.addEventListener('click', toggleMobileMenu);
+    }
 
     // ---- Close menu on outside click ----
     document.addEventListener('click', function(e) {
