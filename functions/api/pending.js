@@ -139,7 +139,7 @@ export async function onRequestPost({ request, env }) {
     }
     await recordRateLimit(db, clientIP, 'pending_submit');
 
-    // Check duplicates
+    // Check duplicates – but return generic error
     const pending = await read(db, 'kd_pending');
     const approved = await read(db, 'kd_approved');
     const duplicate = [...pending, ...approved].some(x =>
@@ -147,7 +147,8 @@ export async function onRequestPost({ request, env }) {
       String(x.name || '').toLowerCase() === name.toLowerCase()
     );
     if (duplicate) {
-      return jsonResponse({ error: 'A listing with this owner email and property name already exists.' }, 409, request);
+      // ---- FIX: Generic error ----
+      return jsonResponse({ error: 'Unable to submit listing. Please check your details or contact support.' }, 400, request);
     }
 
     // Hash password
@@ -213,7 +214,7 @@ export async function onRequestPost({ request, env }) {
     }, 201, request);
 
   } catch (e) {
-    console.error('Pending registration error:', e.message);
+    // console.error('Pending registration error:', e.message);
     return jsonResponse({ error: 'Could not submit listing. Please try again later.' }, 500, request);
   }
 }
