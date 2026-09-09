@@ -707,10 +707,10 @@ let tempPbtLicense = "";
 let tempRooms = [];
 
 // =============================================================
-// CLOUDINARY CONFIGURATION – EDIT THESE!
+// CLOUDINARY CONFIGURATION – SIMPLE DIRECT UPLOAD
 // =============================================================
-const CLOUDINARY_CLOUD_NAME = 'lk3qg08g'; // Your cloud name
-const CLOUDINARY_UPLOAD_PRESET = 'kundasang_rooms'; // Your unsigned preset
+const CLOUDINARY_CLOUD_NAME = 'lk3qg08g';
+const CLOUDINARY_UPLOAD_PRESET = 'kundasang_rooms';
 
 // ===== ROOMS MANAGEMENT =====
 function addRoom(name = '', price = '', guests = '', desc = '', images = []) {
@@ -785,7 +785,7 @@ function updateRoomField(roomId, field, value) {
 }
 
 // =============================================================
-// HANDLE ROOM IMAGES – FIXED: DIRECT CLOUDINARY UPLOAD
+// SIMPLE ROOM IMAGE UPLOAD – DIRECT TO CLOUDINARY
 // =============================================================
 async function handleRoomImages(roomId, input) {
   const files = input.files;
@@ -793,22 +793,28 @@ async function handleRoomImages(roomId, input) {
 
   const roomIndex = tempRooms.findIndex(r => r.id === roomId);
   if (roomIndex === -1) {
-    await showAlert('Upload Failed', 'Room not found. Please try again.');
+    await showAlert('Upload Failed', 'Room not found.');
     return;
   }
 
-  // Show uploading indicator (optional)
+  // Show uploading status
   const label = input.parentElement;
   const originalText = label.textContent;
   label.textContent = '⏳ Uploading...';
 
+  let uploaded = 0;
+  let failed = 0;
+
   for (const file of files) {
     try {
-      // 1. Compress first
+      // Compress image
       const compressedBlob = await compressImageToBlob(file, 800, 0.7);
-      if (!compressedBlob) continue;
+      if (!compressedBlob) {
+        failed++;
+        continue;
+      }
 
-      // 2. Upload directly to Cloudinary via unsigned preset
+      // Direct upload to Cloudinary
       const formData = new FormData();
       formData.append('file', compressedBlob, file.name);
       formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
@@ -823,31 +829,32 @@ async function handleRoomImages(roomId, input) {
       if (data.secure_url) {
         if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
         tempRooms[roomIndex].images.push(data.secure_url);
+        uploaded++;
         console.log('✅ Uploaded:', data.secure_url);
       } else {
-        // Cloudinary returned error
-        const errorMsg = data.error?.message || 'Upload failed. Check your preset.';
-        await showAlert('Upload Failed', errorMsg);
-        // Reset label
-        label.textContent = originalText;
-        return;
+        failed++;
+        console.error('Upload error:', data);
       }
     } catch (e) {
+      failed++;
       console.error('Upload error:', e);
-      await showAlert('Upload Failed', 'Network error. Please try again.');
-      label.textContent = originalText;
-      return;
     }
   }
-  
+
   // Reset label
   label.textContent = originalText;
   
   renderRooms();
   input.value = '';
   
-  // Show success
-  await showAlert('Upload Complete', `${files.length} image(s) uploaded successfully!`);
+  // Show result
+  if (uploaded > 0 && failed === 0) {
+    await showAlert('✅ Upload Complete', `${uploaded} image(s) uploaded successfully to Cloudinary.`);
+  } else if (uploaded > 0 && failed > 0) {
+    await showAlert('⚠️ Partial Upload', `${uploaded} uploaded, ${failed} failed.`);
+  } else {
+    await showAlert('❌ Upload Failed', 'All images failed to upload. Check your Cloudinary preset.');
+  }
 }
 
 function removeRoomImage(roomId, imageIndex) {
