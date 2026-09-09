@@ -1,8 +1,9 @@
 // =============================================================
-// animations.js – Universal Fix (Chrome/Safari/Firefox)
+// animations.js – Universal (Safari + Chrome + all devices)
 // =============================================================
 
 // ---- Define toggle function GLOBALLY ----
+// This is called by the onclick attribute on the button.
 function toggleMobileMenu() {
     const nav = document.getElementById('mobileNav');
     if (nav) {
@@ -53,42 +54,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 200);
 
-    // ---- EVENT DELEGATION: Catch clicks on the menu button (works on Chrome) ----
+    // ---- Close menu on outside click ----
     document.addEventListener('click', function(e) {
-        const btn = document.getElementById('mobileMenuBtn');
         const nav = document.getElementById('mobileNav');
-
-        // If the click is on the button or its children, toggle the menu
-        if (btn && btn.contains(e.target)) {
-            e.preventDefault();
-            if (nav) {
-                nav.classList.toggle('open');
-                document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
-            }
-            return;
-        }
-
-        // If the click is outside the menu and the menu is open, close it
-        if (nav && nav.classList.contains('open') && !nav.contains(e.target)) {
+        const btn = document.getElementById('mobileMenuBtn');
+        if (!nav || !btn) return;
+        // If the menu is open and the click is outside both the nav and the button, close it.
+        if (nav.classList.contains('open') && 
+            !nav.contains(e.target) && 
+            !btn.contains(e.target)) {
             nav.classList.remove('open');
             document.body.style.overflow = '';
         }
     });
-
-    // ---- Touchstart event for Chrome (mobile) ----
-    document.addEventListener('touchstart', function(e) {
-        const btn = document.getElementById('mobileMenuBtn');
-        const nav = document.getElementById('mobileNav');
-
-        // Only act if the touch is on the button
-        if (btn && btn.contains(e.target)) {
-            e.preventDefault(); // Prevent default touch behavior
-            if (nav) {
-                nav.classList.toggle('open');
-                document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
-            }
-        }
-    }, { passive: false });
 
     // ---- Close menu on Escape key ----
     document.addEventListener('keydown', function(e) {
