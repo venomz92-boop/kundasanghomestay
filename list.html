@@ -92,6 +92,50 @@
         }
       })();
     </script>
+
+    <!-- ===== FORCE HIDE DESKTOP NAV ON MOBILE ===== -->
+    <script>
+      (function() {
+        var nav = document.getElementById('desktopNav');
+        var isMobile = window.innerWidth < 768;
+
+        if (nav && isMobile) {
+          // Completely hide the nav and all its children
+          nav.style.display = 'none';
+          nav.style.setProperty('display', 'none', 'important');
+
+          // Also hide all children to be safe
+          var children = nav.querySelectorAll('*');
+          for (var i = 0; i < children.length; i++) {
+            children[i].style.display = 'none';
+            children[i].style.setProperty('display', 'none', 'important');
+          }
+
+          // If the nav is hidden, hide the parent container too
+          var parent = nav.parentNode;
+          if (parent) {
+            parent.style.display = 'flex';
+            parent.style.setProperty('display', 'flex', 'important');
+            parent.style.justifyContent = 'space-between';
+          }
+        }
+
+        // Also hide any stray login buttons
+        var allBtns = document.querySelectorAll('.btn-accent, .btn-primary');
+        for (var i = 0; i < allBtns.length; i++) {
+          var btn = allBtns[i];
+          var text = btn.textContent.trim();
+          if ((text === 'Login' || text === 'Register') && window.innerWidth < 768) {
+            // Check if the button is inside the mobile nav
+            var parentNav = btn.closest('#mobileNav');
+            if (!parentNav) {
+              btn.style.display = 'none';
+              btn.style.setProperty('display', 'none', 'important');
+            }
+          }
+        }
+      })();
+    </script>
   </div>
 </header>
 
