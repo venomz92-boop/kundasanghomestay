@@ -53,6 +53,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 200);
 
+    // ---- MOBILE MENU: Attach both click and touchstart events ----
+    const btn = document.getElementById('mobileMenuBtn');
+    const nav = document.getElementById('mobileNav');
+
+    if (btn && nav) {
+        // Remove any existing listeners to avoid duplicates
+        btn.removeEventListener('click', toggleMobileMenu);
+        btn.removeEventListener('touchstart', toggleMobileMenu);
+
+        // Attach both events (click for desktop, touchstart for mobile Chrome)
+        btn.addEventListener('click', toggleMobileMenu);
+        btn.addEventListener('touchstart', toggleMobileMenu, { passive: false });
+    }
+
     // ---- Close menu on outside click ----
     document.addEventListener('click', function(e) {
         const nav = document.getElementById('mobileNav');
