@@ -478,6 +478,53 @@
 
 <!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
+
+  <script>
+  (function() {
+    function hideLoginButtonsOnMobile() {
+      var isMobile = window.innerWidth < 768;
+      if (!isMobile) return;
+
+      // Find all Login and Register buttons on the page
+      var allBtns = document.querySelectorAll('.btn-accent, .btn-primary, .guest-btn, .guest-btn-primary');
+      allBtns.forEach(function(btn) {
+        var text = btn.textContent.trim();
+        if (text === 'Login' || text === 'Register' || text === 'Guest Login' || text === 'Register') {
+          // Check if the button is inside the mobile menu
+          var parentNav = btn.closest('#mobileNav');
+          if (!parentNav) {
+            // Hide the button and its parent container
+            btn.style.display = 'none';
+            btn.style.setProperty('display', 'none', 'important');
+            // Also hide the parent if it's a flex container with only these buttons
+            var parent = btn.parentNode;
+            if (parent && parent.classList && parent.classList.contains('flex')) {
+              parent.style.display = 'none';
+              parent.style.setProperty('display', 'none', 'important');
+            }
+          }
+        }
+      });
+
+      // Also hide the entire desktop nav if it exists
+      var desktopNav = document.getElementById('desktopNav');
+      if (desktopNav) {
+        desktopNav.style.display = 'none';
+        desktopNav.style.setProperty('display', 'none', 'important');
+      }
+    }
+
+    // Run immediately and on resize
+    hideLoginButtonsOnMobile();
+    window.addEventListener('resize', hideLoginButtonsOnMobile);
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', hideLoginButtonsOnMobile);
+    }
+    setTimeout(hideLoginButtonsOnMobile, 100);
+    setTimeout(hideLoginButtonsOnMobile, 500);
+  })();
+</script>
+  
 <script>
 // =============================================================
 // SECURE HELPER
