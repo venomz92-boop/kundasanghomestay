@@ -622,6 +622,21 @@
       <span id="selectedHomestayName" class="text-xs text-zinc-500 font-medium italic"></span>
     </div>
 
+    <!-- ===== NEW: Manage Pricing Section ===== -->
+    <div class="card p-6 animate-on-scroll">
+      <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2">
+        <span>💰 Manage Pricing</span>
+      </h3>
+      <div class="flex flex-wrap items-end gap-4">
+        <div>
+          <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-500 mb-1">Current Price per Night (RM)</label>
+          <input type="number" id="homestayPriceInput" step="1" min="0" class="form-input w-48" />
+        </div>
+        <button id="updatePriceBtn" class="btn-primary">Update Price</button>
+      </div>
+      <p class="text-xs text-zinc-500 mt-2">Update the base price for the selected homestay. All future bookings will use this new price.</p>
+    </div>
+
     <div class="card p-6 animate-on-scroll">
       <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2"><span>📅 Reservation Books</span></h3>
       <div id="ownerBookingsList" class="space-y-4">
@@ -675,15 +690,12 @@
         <a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
         <a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
         <a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
-           <a href="https://www.facebook.com/kundasanghomestaymy/" 
-          target="_blank" 
-            rel="noopener noreferrer" 
-           class="hover:text-white block">
+        <a href="https://www.facebook.com/kundasanghomestaymy/" target="_blank" rel="noopener noreferrer" class="hover:text-white block">
           <svg class="inline w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
           </svg>
           Facebook Page
-          </a>
+        </a>
       </div>
     </div>
     <div>
@@ -962,6 +974,7 @@ async function ownerLogin() {
       document.getElementById('welcomeName').innerText = allHomestays[0]?.ownerName || 'Owner';
       loadBookings();
       loadRoomBlocks();
+      loadHomestayPrice(); // <-- NEW: load price for selected homestay
     } else {
       let errorMsg = data.error || "Host authentication sequence failed.";
       if (errorEl) {
@@ -1037,10 +1050,8 @@ async function loadBookings() {
       const isCompleted = payoutDate || status.toLowerCase().includes('completed');
       const isPending = status.toLowerCase().includes('pending');
       const isCancelled = status.toLowerCase().includes('cancelled');
-      // 🔁 ADDED: detect refunded status
       const isRefunded = status.toLowerCase().includes('refunded');
 
-      // ---- ROOM INFO ----
       const roomInfo = b.roomName ? ` • Room: <span class="font-semibold">${b.roomName}</span>` : '';
 
       let roomImagesHtml = '';
@@ -1055,7 +1066,6 @@ async function loadBookings() {
         roomImagesHtml += '</div>';
       }
 
-      // ---- Status Badge ----
       let statusBadge = '';
       if (isRefunded) {
         statusBadge = `<span class="text-[10px] bg-blue-100 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">🔁 Refunded</span>`;
@@ -1077,9 +1087,7 @@ async function loadBookings() {
         statusBadge = `<span class="text-[10px] bg-zinc-100 text-zinc-600 border px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">${status}</span>`;
       }
 
-      // ---- Action Buttons ----
       let actionButtons = '';
-      // Only show action buttons for non-refunded, non-completed, non-cancelled bookings
       if (!isRefunded && !isCompleted && !isCancelled) {
         if (isPaid) {
           actionButtons += `<button class="btn-success action-btn" data-action="confirmCheckIn" data-id="${id}">✓ Confirm Arrival</button>`;
@@ -1120,18 +1128,15 @@ async function loadBookings() {
       `;
     });
     if (listDiv) listDiv.innerHTML = safeHTML(html);
-    // Attach event listeners to the action buttons (they were just added)
     attachBookingActionListeners();
   } catch(e) {
     if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-red-600 text-center py-6 font-semibold">Synchronization failed. Please reload dashboard view.</div>');
   }
 }
 
-// ===== Event delegation for booking action buttons =====
 function attachBookingActionListeners() {
   const container = document.getElementById('ownerBookingsList');
   if (!container) return;
-  // Remove any previous listener to avoid duplicates (we'll use a single listener)
   container.removeEventListener('click', bookingActionHandler);
   container.addEventListener('click', bookingActionHandler);
 }
@@ -1160,7 +1165,7 @@ function bookingActionHandler(e) {
 }
 
 // =============================================================
-// FIXED confirmCheckIn – strict 6‑digit validation
+// confirmCheckIn – strict 6‑digit validation
 // =============================================================
 async function confirmCheckIn(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
@@ -1204,7 +1209,7 @@ async function confirmCheckIn(bookingId) {
 }
 
 // =============================================================
-// OTHER FUNCTIONS (unchanged except they now rely on loadBookings re-render)
+// changeBookingDates
 // =============================================================
 async function changeBookingDates(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
@@ -1243,6 +1248,9 @@ async function changeBookingDates(bookingId) {
   }
 }
 
+// =============================================================
+// cancelBooking
+// =============================================================
 async function cancelBooking(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
   if (!booking) {
@@ -1257,7 +1265,6 @@ async function cancelBooking(bookingId) {
     await showAlert('Already Cancelled', 'This booking is already cancelled.');
     return;
   }
-  // 🔁 PREVENT cancellation if already refunded
   if (booking.status && booking.status.toLowerCase().includes('refunded')) {
     await showAlert('Already Refunded', 'This booking has already been refunded and cannot be cancelled.');
     return;
@@ -1302,7 +1309,7 @@ async function cancelBooking(bookingId) {
 }
 
 // =============================================================
-// ROOM BLOCK MANAGEMENT – with data-* attributes
+// ROOM BLOCK MANAGEMENT
 // =============================================================
 async function loadRoomBlocks() {
   const selector = document.getElementById('blockRoomSelect');
@@ -1321,13 +1328,11 @@ async function loadRoomBlocks() {
   }
   selector.innerHTML = rooms.map(r => `<option value="${r.roomId}" data-homestay="${r.homestayId}" data-blocked='${JSON.stringify(r.blockedDates)}'>${r.homestayName} – ${r.roomName}</option>`).join('');
   renderRoomBlockedList();
-  // Attach remove handler for room block list (delegation)
   const listDiv = document.getElementById('roomBlockedList');
   if (listDiv) {
     listDiv.removeEventListener('click', removeRoomBlockHandler);
     listDiv.addEventListener('click', removeRoomBlockHandler);
   }
-  // Add handler for the "Add Block" button
   const addBtn = document.getElementById('addRoomBlockBtn');
   if (addBtn) {
     addBtn.removeEventListener('click', toggleRoomBlock);
@@ -1437,6 +1442,99 @@ async function removeRoomBlock(date) {
 }
 
 // =============================================================
+// NEW: Manage Pricing Functions
+// =============================================================
+function loadHomestayPrice() {
+  const input = document.getElementById('homestayPriceInput');
+  const btn = document.getElementById('updatePriceBtn');
+  if (!input || !btn) return;
+
+  // If 'all' is selected, disable input and button
+  if (currentHomestayId === 'all') {
+    input.disabled = true;
+    btn.disabled = true;
+    input.value = '';
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    return;
+  }
+
+  // Find the selected homestay
+  const homestay = allHomestays.find(h => String(h.id) === String(currentHomestayId));
+  if (homestay) {
+    input.value = homestay.ownerPrice || 0;
+    input.disabled = false;
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  } else {
+    input.value = '';
+    input.disabled = true;
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+  }
+}
+
+async function updateHomestayPrice() {
+  const input = document.getElementById('homestayPriceInput');
+  const btn = document.getElementById('updatePriceBtn');
+  if (!input || !btn) return;
+
+  if (currentHomestayId === 'all') {
+    await showAlert('Select a Property', 'Please select a specific homestay to update its price.');
+    return;
+  }
+
+  const newPrice = parseFloat(input.value);
+  if (isNaN(newPrice) || newPrice < 0) {
+    await showAlert('Invalid Price', 'Please enter a valid positive number for the price.');
+    return;
+  }
+
+  const homestay = allHomestays.find(h => String(h.id) === String(currentHomestayId));
+  if (!homestay) {
+    await showAlert('Error', 'Selected homestay not found.');
+    return;
+  }
+
+  const confirmed = await showConfirm(
+    'Update Price',
+    `Change price for <strong>${homestay.name}</strong> from RM ${homestay.ownerPrice} to RM ${newPrice}?`
+  );
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(API_BASE + '/owner-update-booking', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Owner-Authorization': 'Bearer ' + ownerToken
+      },
+      body: JSON.stringify({
+        action: 'updateHomestayPrice',
+        homestayId: currentHomestayId,
+        newPrice: newPrice
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      // Update local data
+      homestay.ownerPrice = newPrice;
+      // Also update the price in the selector option text? Not necessary
+      await showAlert('Price Updated', `✓ ${homestay.name} price updated to RM ${newPrice}.`);
+      loadHomestayPrice(); // refresh input
+      // Optionally refresh bookings (though not needed)
+    } else {
+      await showAlert('Update Failed', '❌ ' + (data.error || data.message || 'Unknown error'));
+    }
+  } catch(e) {
+    await showAlert('Network Error', 'Could not update price. Please try again.');
+    console.error('Price update error:', e);
+  }
+}
+
+// =============================================================
 // INIT
 // =============================================================
 (function init() {
@@ -1467,6 +1565,7 @@ async function removeRoomBlock(date) {
         document.getElementById('welcomeName').innerText = data.ownerName || 'Owner';
         loadBookings();
         loadRoomBlocks();
+        loadHomestayPrice(); // NEW
       } else {
         showAlert('Authentication Required', 'Please log in to your host credentials account.').then(() => {
           sessionStorage.removeItem('kd_owner_token');
@@ -1488,7 +1587,13 @@ async function removeRoomBlock(date) {
     selector.addEventListener('change', function() {
       currentHomestayId = this.value;
       loadBookings();
+      loadHomestayPrice(); // NEW: update price input when selector changes
     });
+  }
+  // NEW: attach update price button event
+  const updateBtn = document.getElementById('updatePriceBtn');
+  if (updateBtn) {
+    updateBtn.addEventListener('click', updateHomestayPrice);
   }
 })();
 </script>
