@@ -31,7 +31,7 @@
 <body>
 
 <!-- ===== HEADER ===== -->
-<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
+<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5" style="z-index:999999; position:relative;">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <!-- Logo & Brand -->
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
@@ -61,8 +61,42 @@
         </div>
       </div>
     </nav>
+
+    <!-- ===== MOBILE MENU BUTTON ===== -->
+    <button id="mobileMenuBtn" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
+      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </div>
+
+  <!-- ===== MOBILE NAV ===== -->
+  <div id="mobileNav">
+    <div class="p-4 space-y-1">
+      <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+      <a href="/list.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
+      <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
+      <a href="/owner.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Agent Login</a>
+
+      <div class="pt-3 space-y-3">
+        <div id="mGuestNav">
+          <a href="/login.html" class="guest-btn block text-center">Login</a>
+          <a href="/register.html" class="guest-btn guest-btn-primary block text-center">Register</a>
+        </div>
+        <div id="mGuestProfileNav" class="hidden space-y-2">
+          <div class="profile-card">
+            <div id="mGuestAvatar" class="avatar">G</div>
+            <div class="info">
+              <div id="mGuestNameNav" class="name">Guest</div>
+              <div class="sub">Verified guest</div>
+            </div>
+            <button onclick="logoutGuest()" class="logout-btn">Logout</button>
+          </div>
+          <a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
+        </div>
+      </div>
+    </div>
+  </div>
 </header>
-  
+
 <!-- ===== HERO ===== -->
 <section id="hero" class="relative w-full overflow-visible pb-4 md:pb-0">
   <!-- Background Image -->
@@ -559,6 +593,86 @@
     }
   }
 })();
+</script>
+  
+<!-- ===== FOOTER ===== -->
+<footer class="bg-[#212121] text-white/70 mt-20">
+  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+    <div>
+      <div class="flex items-center gap-3">
+        <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+        <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay.my</span></div>
+      </div>
+      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
+      <div class="mt-4 pt-4 border-t border-white/10">
+        <p class="text-[11px] text-white/40 font-poppins">
+          <strong class="text-white/60">Company:</strong> NICK'S CREATIONS<br>
+          <strong class="text-white/60">Business License:</strong> RNU20183012
+        </p>
+      </div>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
+      <div class="space-y-2 text-[13px] font-poppins">
+        <a href="/" class="hover:text-white block">Browse Homestays</a>
+        <a href="/list.html" class="hover:text-white block">Host Registration</a>
+        <a href="/about.html" class="hover:text-white block">About Us</a>
+        <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
+        <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
+        <a href="/booking-policy.html" class="hover:text-white block">Booking Policy</a>
+        <a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
+        <a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
+        <a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
+        <a href="https://www.facebook.com/kundasanghomestaymy/" 
+          target="_blank" 
+            rel="noopener noreferrer" 
+           class="hover:text-white block">
+          <svg class="inline w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+          </svg>
+          Facebook Page
+          </a>
+      </div>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
+      <div class="space-y-2 text-[13px] font-poppins">
+        <div>✓ Host Physical Verification</div>
+        <div>✓ CHIP FPX Online Protection</div>
+        <div>✓ Anti-Scam Booking Guarantee</div>
+      </div>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
+      <p class="text-[12px] text-white/50 font-poppins">Average temperature: 18°C – 23°C. Remember to bring warm jackets!</p>
+    </div>
+  </div>
+  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
+    © 2026 Kundasang Homestay. All rights reserved.
+  </div>
+</footer>
+
+<!-- ===== SCRIPTS ===== -->
+<script src="animations.js"></script>
+
+<!-- ===== MOBILE NAV TOGGLE – PLACED AFTER ALL ELEMENTS ===== -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('mobileMenuBtn');
+    var nav = document.getElementById('mobileNav');
+
+    if (!btn) { console.warn('Mobile menu button not found'); return; }
+    if (!nav) { console.warn('Mobile nav not found'); return; }
+
+    function toggleMenu(e) {
+      e.preventDefault();
+      nav.classList.toggle('open');
+      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+    }
+
+    btn.addEventListener('click', toggleMenu);
+    btn.addEventListener('touchstart', toggleMenu, { passive: false });
+  });
 </script>
   
 <!-- ===== FOOTER (Updated with all policy links) ===== -->
