@@ -62,28 +62,46 @@
       </div>
     </nav>
 
-    <!-- Mobile Menu Button -->
-    <button id="mobileMenuBtn" 
-        onclick="var n=document.getElementById('mobileNav'); n.classList.toggle('open'); document.body.style.overflow = n.classList.contains('open') ? 'hidden' : '';" 
-        class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" 
-        style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" 
-        aria-label="Toggle Navigation">
+  <!-- MOBILE MENU BUTTON (no onclick, just ID) -->
+<button id="mobileMenuBtn" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
   <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
 </button>
 
-    <!-- ===== FALLBACK SCRIPT ===== -->
-    <script>
-      // Ensure toggleMobileMenu exists
-      if (typeof toggleMobileMenu !== 'function') {
-        window.toggleMobileMenu = function() {
-          const nav = document.getElementById('mobileNav');
-          if (nav) {
-            nav.classList.toggle('open');
-            document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
-          }
-        };
+<!-- IMMEDIATE SCRIPT: toggles display and logs -->
+<script>
+  (function() {
+    var btn = document.getElementById('mobileMenuBtn');
+    var nav = document.getElementById('mobileNav');
+
+    if (!btn) { alert('Button not found!'); return; }
+    if (!nav) { alert('Nav not found!'); return; }
+
+    function toggleMenu(e) {
+      e.preventDefault();
+      // Toggle display
+      if (nav.style.display === 'none' || nav.style.display === '') {
+        nav.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        alert('Menu opened!'); // <-- test alert
+      } else {
+        nav.style.display = 'none';
+        document.body.style.overflow = '';
+        alert('Menu closed!'); // <-- test alert
       }
-    </script>
+    }
+
+    // Remove any existing listeners to avoid duplicates
+    btn.removeEventListener('click', toggleMenu);
+    btn.removeEventListener('touchstart', toggleMenu);
+
+    // Attach events
+    btn.addEventListener('click', toggleMenu);
+    btn.addEventListener('touchstart', toggleMenu, { passive: false });
+
+    // Ensure nav is hidden initially
+    nav.style.display = 'none';
+  })();
+</script>
 
     <!-- Mobile Menu -->
     <div id="mobileNav">
