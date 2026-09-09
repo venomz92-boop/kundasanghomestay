@@ -1,5 +1,5 @@
 // =============================================================
-// animations.js – Chrome & Safari compatible
+// animations.js – Universal Fix (Chrome/Safari/Firefox)
 // =============================================================
 
 // ---- Define toggle function GLOBALLY ----
@@ -7,7 +7,6 @@ function toggleMobileMenu() {
     const nav = document.getElementById('mobileNav');
     if (nav) {
         nav.classList.toggle('open');
-        // Prevent body scroll when menu is open
         document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
     }
 }
@@ -54,26 +53,42 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 200);
 
-    // ---- Attach click listener to the menu button (no touchstart) ----
-    const menuBtn = document.getElementById('mobileMenuBtn');
-    if (menuBtn) {
-        // Remove any existing listeners (just in case)
-        menuBtn.removeEventListener('click', toggleMobileMenu);
-        menuBtn.addEventListener('click', toggleMobileMenu);
-    }
-
-    // ---- Close menu on outside click ----
+    // ---- EVENT DELEGATION: Catch clicks on the menu button (works on Chrome) ----
     document.addEventListener('click', function(e) {
-        const nav = document.getElementById('mobileNav');
         const btn = document.getElementById('mobileMenuBtn');
-        if (!nav || !btn) return;
-        if (nav.classList.contains('open') && 
-            !nav.contains(e.target) && 
-            !btn.contains(e.target)) {
+        const nav = document.getElementById('mobileNav');
+
+        // If the click is on the button or its children, toggle the menu
+        if (btn && btn.contains(e.target)) {
+            e.preventDefault();
+            if (nav) {
+                nav.classList.toggle('open');
+                document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+            }
+            return;
+        }
+
+        // If the click is outside the menu and the menu is open, close it
+        if (nav && nav.classList.contains('open') && !nav.contains(e.target)) {
             nav.classList.remove('open');
             document.body.style.overflow = '';
         }
     });
+
+    // ---- Touchstart event for Chrome (mobile) ----
+    document.addEventListener('touchstart', function(e) {
+        const btn = document.getElementById('mobileMenuBtn');
+        const nav = document.getElementById('mobileNav');
+
+        // Only act if the touch is on the button
+        if (btn && btn.contains(e.target)) {
+            e.preventDefault(); // Prevent default touch behavior
+            if (nav) {
+                nav.classList.toggle('open');
+                document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+            }
+        }
+    }, { passive: false });
 
     // ---- Close menu on Escape key ----
     document.addEventListener('keydown', function(e) {
