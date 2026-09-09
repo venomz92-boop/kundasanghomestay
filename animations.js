@@ -3,12 +3,12 @@
 // =============================================================
 
 // ---- 1. Define toggle function GLOBALLY ----
-// This function is kept for backwards compatibility, but the dedicated
-// script at the bottom of index.html now handles the actual toggling.
+// This is called by the onclick attribute on the mobile menu button.
 function toggleMobileMenu() {
     const nav = document.getElementById('mobileNav');
     if (nav) {
         nav.classList.toggle('open');
+        // Prevent body scroll when menu is open
         document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
     }
 }
@@ -55,8 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 200);
 
-    // ---- Close menu on outside click (fallback) ----
-    // This is also handled by the dedicated script, but kept as a safety net.
+    // ---- Close menu on outside click ----
     document.addEventListener('click', function(e) {
         const nav = document.getElementById('mobileNav');
         const btn = document.getElementById('mobileMenuBtn');
@@ -66,6 +65,17 @@ document.addEventListener('DOMContentLoaded', function() {
             !btn.contains(e.target)) {
             nav.classList.remove('open');
             document.body.style.overflow = '';
+        }
+    });
+
+    // ---- Close menu on Escape key ----
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const nav = document.getElementById('mobileNav');
+            if (nav && nav.classList.contains('open')) {
+                nav.classList.remove('open');
+                document.body.style.overflow = '';
+            }
         }
     });
 
