@@ -30,6 +30,22 @@
 </head>
 <body>
 
+<!-- ===== EARLY FUNCTION DEFINITION ===== -->
+<script>
+  // Define toggle function globally and prevent rapid double toggles
+  let lastToggleTime = 0;
+  window.toggleMobileMenu = function() {
+    const now = Date.now();
+    if (now - lastToggleTime < 300) return; // debounce
+    lastToggleTime = now;
+    const nav = document.getElementById('mobileNav');
+    if (nav) {
+      nav.classList.toggle('open');
+      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+    }
+  };
+</script>
+
 <!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
@@ -62,25 +78,22 @@
       </div>
     </nav>
 
-    <!-- MOBILE MENU BUTTON (NO onclick) -->
-    <button id="mobileMenuBtn" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
+    <!-- MOBILE MENU BUTTON (with onclick + addEventListener fallback) -->
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
 
-    <!-- IMMEDIATE EVENT LISTENER (works in all browsers) -->
+    <!-- FALLBACK LISTENER (if onclick is ignored by Chrome) -->
     <script>
       (function() {
         var btn = document.getElementById('mobileMenuBtn');
-        var nav = document.getElementById('mobileNav');
-        if (btn && nav) {
-          function toggle() {
-            nav.classList.toggle('open');
-            document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
-          }
-          btn.addEventListener('click', toggle);
-          btn.addEventListener('touchstart', toggle, { passive: false });
-          // Global fallback
-          window.toggleMobileMenu = toggle;
+        if (btn) {
+          // Remove any existing listeners to avoid duplicates
+          btn.removeEventListener('click', window.toggleMobileMenu);
+          btn.removeEventListener('touchstart', window.toggleMobileMenu);
+          // Attach both events – they call the same debounced function
+          btn.addEventListener('click', window.toggleMobileMenu);
+          btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
         }
       })();
     </script>
