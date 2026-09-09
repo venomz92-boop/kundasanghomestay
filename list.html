@@ -992,10 +992,8 @@ document.getElementById('customModal').addEventListener('click', function(e) {
 });
 
 // =============================================================
-// SHA256 (PEPPER SECURITY CONSTRAINTS)
+// SHA256 ( SECURITY CONSTRAINTS)
 // =============================================================
-const PEPPER = "kundasang-homestay-2026";
-async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
