@@ -2,6 +2,7 @@
 // animations.js – Universal (Safari + Chrome + all devices)
 // =============================================================
 
+// ---- Define toggle function GLOBALLY ----
 function toggleMobileMenu() {
     const nav = document.getElementById('mobileNav');
     if (nav) {
@@ -11,8 +12,10 @@ function toggleMobileMenu() {
 }
 window.toggleMobileMenu = toggleMobileMenu;
 
+// ---- DOM Ready ----
 document.addEventListener('DOMContentLoaded', function() {
 
+    // ---- Navbar scroll effect ----
     const header = document.querySelector('header');
     if (header) {
         let ticking = false;
@@ -32,6 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, { passive: true });
     }
 
+    // ---- Scroll reveal ----
     setTimeout(function() {
         const revealElements = document.querySelectorAll('.animate-on-scroll');
         if (revealElements.length > 0) {
@@ -49,6 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 200);
 
+    // ---- Close menu on outside click ----
     document.addEventListener('click', function(e) {
         const nav = document.getElementById('mobileNav');
         const btn = document.getElementById('mobileMenuBtn');
@@ -61,6 +66,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // ---- Close menu on Escape key ----
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             const nav = document.getElementById('mobileNav');
