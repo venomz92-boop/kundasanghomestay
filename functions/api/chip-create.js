@@ -1,4 +1,4 @@
-// /api/chip-create.js – Smart retry + rate limiting
+// /api/chip-create.js – Smart retry + rate limiting + generic errors
 import { corsHeaders, enforceHttps, getClientIP, getGuestSession, logAction, getCSRFToken, validateCSRFToken, jsonResponse, checkRateLimit, recordRateLimit } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
@@ -54,7 +54,8 @@ export async function onRequestPost({ request, env }) {
     // Check if we already have a CHIP purchase ID
     const chipSecret = env.CHIP_SECRET_KEY;
     if (!chipSecret) {
-      return jsonResponse({ error: 'Payment gateway not configured. Contact support.' }, 500, request);
+      // ---- FIX: Generic error ----
+      return jsonResponse({ error: 'Payment service unavailable. Please try again later.' }, 500, request);
     }
 
     let existingPurchaseId = booking.chip_purchase_id;
@@ -130,13 +131,13 @@ export async function onRequestPost({ request, env }) {
 
           // If purchase is cancelled, expired, or failed, we can create a new one
           // Otherwise, we'll treat it as failed and create a new one.
-          console.log(`ℹ️ Existing purchase ${existingPurchaseId} status: ${status}. Creating new purchase.`);
+          // console.log(`ℹ️ Existing purchase ${existingPurchaseId} status: ${status}. Creating new purchase.`);
         } else {
-          console.warn(`⚠️ Failed to fetch purchase ${existingPurchaseId}: ${resp.status}`);
+          // console.warn(`⚠️ Failed to fetch purchase ${existingPurchaseId}: ${resp.status}`);
           // If we can't fetch, assume it's invalid and create a new one.
         }
       } catch (e) {
-        console.error('Error checking existing CHIP purchase:', e.message);
+        // console.error('Error checking existing CHIP purchase:', e.message);
         // If error, create a new purchase.
       }
     }
@@ -184,7 +185,7 @@ export async function onRequestPost({ request, env }) {
     const data = await response.json();
 
     if (!response.ok || !data.id) {
-      console.error('CHIP create purchase error:', data);
+      // console.error('CHIP create purchase error:', data);
       return jsonResponse({ error: 'Payment gateway error. Please try again.' }, 502, request);
     }
 
@@ -219,7 +220,7 @@ export async function onRequestPost({ request, env }) {
     }, 200, request);
 
   } catch (error) {
-    console.error('CHIP create error:', error.message, error.stack);
+    // console.error('CHIP create error:', error.message, error.stack);
     return jsonResponse({ error: 'Payment setup failed. Please try again later.' }, 500, request);
   }
 }
