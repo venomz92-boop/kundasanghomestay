@@ -1018,7 +1018,7 @@ function adminActionHandler(e) {
 }
 
 // =============================================================
-// EDIT HOMESTAY
+// EDIT HOMESTAY (FIXED: safeHTML)
 // =============================================================
 let currentEditHomestayId = null;
 
@@ -1061,7 +1061,8 @@ function openEditHomestayModal(id) {
         <input type="${f.type}" id="${f.id}" value="${f.value}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm" /></div>`;
     }
   });
-  form.innerHTML = html;
+  // FIX: Use safeHTML to prevent XSS
+  form.innerHTML = safeHTML(html);
   document.getElementById('editHomestayModal').classList.remove('hidden');
 }
 
