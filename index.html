@@ -1572,7 +1572,7 @@ window.showPaymentFailedModal = showPaymentFailedModal;
 window.handlePaymentReturn = handlePaymentReturn;
 
     // =============================================================
-    // CALENDAR EMBED – SCROLLABLE + MONTH NAVIGATION
+    // CALENDAR EMBED – READ‑ONLY & COMPACT (UX Improved)
     // =============================================================
     function renderAvailabilityCalendar(homestay, containerId) {
       var container = document.getElementById(containerId);
@@ -1588,33 +1588,6 @@ window.handlePaymentReturn = handlePaymentReturn;
         container._currentYear = today.getFullYear();
       }
 
-      function selectDate(isoDate) {
-        if (!isoDate) return;
-        var ciInput = document.getElementById('detailCheckin');
-        var coInput = document.getElementById('detailCheckout');
-        if (!ciInput || !coInput) return;
-
-        var currentCi = ciInput.value;
-        var currentCo = coInput.value;
-
-        if (!currentCi || (isoDate < currentCi && !currentCo) || (currentCi && currentCo && isoDate < currentCi)) {
-          ciInput.value = isoDate;
-          coInput.value = '';
-        } else if (currentCi && isoDate > currentCi) {
-          coInput.value = isoDate;
-        } else {
-          if (isoDate < currentCi) {
-            ciInput.value = isoDate;
-            coInput.value = '';
-          } else {
-            return;
-          }
-        }
-
-        updateDetailPrice();
-        renderAvailabilityCalendar(homestay, containerId);
-      }
-
       function renderMonth() {
         var month = container._currentMonth;
         var year = container._currentYear;
@@ -1627,23 +1600,24 @@ window.handlePaymentReturn = handlePaymentReturn;
         var selectedCi = ciInput ? ciInput.value : '';
         var selectedCo = coInput ? coInput.value : '';
 
+        // Compact, read‑only calendar
         var html = `
-          <div class="flex items-center justify-between mb-2">
-            <button class="calendar-nav-btn" data-dir="-1" style="width:32px;height:32px;font-size:18px;">‹</button>
-            <span class="calendar-month-label" style="font-size:15px;font-weight:700;">${monthLabel}</span>
-            <button class="calendar-nav-btn" data-dir="1" style="width:32px;height:32px;font-size:18px;">›</button>
+          <div class="flex items-center justify-between mb-1">
+            <button class="calendar-nav-btn" data-dir="-1" style="width:28px;height:28px;font-size:16px;background:#0F382E;color:white;border:none;border-radius:999px;cursor:pointer;">‹</button>
+            <span class="calendar-month-label" style="font-size:13px;font-weight:600;color:#212121;">${monthLabel}</span>
+            <button class="calendar-nav-btn" data-dir="1" style="width:28px;height:28px;font-size:16px;background:#0F382E;color:white;border:none;border-radius:999px;cursor:pointer;">›</button>
           </div>
-          <div style="max-height:280px; overflow-y:auto; padding-right:4px;">
-            <div class="calendar-mini mt-1">
+          <div style="max-height:200px; overflow-y:auto; padding-right:2px;">
+            <div class="calendar-mini mt-1" style="grid-template-columns:repeat(7,1fr);gap:2px;">
         `;
 
         var dayNames = ["S", "M", "T", "W", "T", "F", "S"];
         dayNames.forEach(function(d) {
-          html += '<div class="text-[11px] text-center font-bold text-zinc-400 py-1">' + d + '</div>';
+          html += '<div class="text-[9px] text-center font-bold text-zinc-400 py-1">' + d + '</div>';
         });
 
         for (var e = 0; e < startDay; e++) {
-          html += '<div class="calendar-day empty"></div>';
+          html += '<div class="calendar-day empty" style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:999px;font-size:9px;font-weight:500;border:1px solid transparent;"></div>';
         }
 
         for (var day = 1; day <= daysInMonth; day++) {
@@ -1661,33 +1635,29 @@ window.handlePaymentReturn = handlePaymentReturn;
           if (isToday) cls += " today";
           if (iso === selectedCi || iso === selectedCo) cls += " bg-[#0F382E] text-white border-[#0F382E]";
 
-          var cursorStyle = (!isPast && !isBlocked) ? 'cursor:pointer;' : 'cursor:default;';
-          html += `<div class="${cls}" data-date="${iso}" title="${iso}" style="${cursorStyle}">${day}</div>`;
+          // No pointer events and no cursor:pointer
+          html += `<div class="${cls}" style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:999px;font-size:9px;font-weight:500;border:1px solid ${isPast?'#e5e7eb':isBlocked?'#fecaca':'#bbf7d0'};background:${isPast?'#f9fafb':isBlocked?'#fef2f2':'#f0fdf4'};color:${isPast?'#9ca3af':isBlocked?'#991b1b':'#166534'};cursor:default;width:100%;height:100%;">${day}</div>`;
         }
 
         html += '</div></div>';
 
         html += `
-          <div class="calendar-legend mt-1" style="font-size:11px;">
-            <span><span class="dot green"></span> Free</span>
-            <span><span class="dot red"></span> Booked</span>
-            ${today.getMonth() === month && today.getFullYear() === year ? '<span><span class="dot today-dot"></span> Today</span>' : ''}
-            <span style="margin-left:auto;">Click a free date to select</span>
+          <div class="calendar-legend mt-1" style="display:flex;gap:10px;flex-wrap:wrap;font-size:9px;color:#6b7280;">
+            <span><span class="dot green" style="width:8px;height:8px;border-radius:999px;display:inline-block;background:#f0fdf4;border:1px solid #bbf7d0;"></span> Free</span>
+            <span><span class="dot red" style="width:8px;height:8px;border-radius:999px;display:inline-block;background:#fef2f2;border:1px solid #fecaca;"></span> Booked</span>
+            ${today.getMonth() === month && today.getFullYear() === year ? '<span><span class="dot today-dot" style="width:8px;height:8px;border-radius:999px;display:inline-block;border:2px solid #0F382E;background:white;"></span> Today</span>' : ''}
+            <span style="margin-left:auto;font-size:8px;color:#9ca3af;">${blocked.length} booked</span>
           </div>
         `;
 
         container.innerHTML = safeHTML(html);
-        updateDetailPrice();
+        // Remove any click listeners on days – we already removed pointer events and cursor
+        // No further actions needed.
       }
 
+      // Only attach click listener for month navigation, NOT for days
       if (!container._listenerAttached) {
         container.addEventListener('click', function(e) {
-          var dayEl = e.target.closest('.calendar-day.available');
-          if (dayEl && dayEl.dataset.date) {
-            selectDate(dayEl.dataset.date);
-            return;
-          }
-
           var navEl = e.target.closest('.calendar-nav-btn');
           if (navEl && navEl.dataset.dir !== undefined) {
             var dir = parseInt(navEl.dataset.dir, 10);
