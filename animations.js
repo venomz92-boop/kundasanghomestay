@@ -1,20 +1,7 @@
 // =============================================================
-// animations.js – Universal (no button listener, only global)
+// animations.js – Only scroll & outside‑click handlers
 // =============================================================
 
-// ---- Ensure toggleMobileMenu exists (fallback) ----
-// The button itself already has a listener, but we keep this for safety.
-if (typeof toggleMobileMenu !== 'function') {
-  window.toggleMobileMenu = function() {
-    const nav = document.getElementById('mobileNav');
-    if (nav) {
-      nav.classList.toggle('open');
-      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
-    }
-  };
-}
-
-// ---- DOM Ready ----
 document.addEventListener('DOMContentLoaded', function() {
 
   // ---- Navbar scroll effect ----
