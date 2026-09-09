@@ -11,19 +11,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet"> 
-  <style>
-  /* Force hide desktop nav on mobile – overrides Tailwind */
-  @media (max-width: 768px) {
-    #desktopNav,
-    #desktopNav * {
-      display: none !important;
-    }
-    /* Ensure mobile menu button is visible */
-    #mobileMenuBtn {
-      display: flex !important;
-    }
-  }
-</style>
 </head>
 <body>
   
@@ -1254,6 +1241,49 @@ async function submitHomestay() {
   renderGuestNav();
   renderBlockedDatesList();
 })();
+
+  
+  <script>
+  (function() {
+    function hideLoginButtonsOnMobile() {
+      var isMobile = window.innerWidth < 768;
+      var guestNav = document.getElementById('guestNav');
+      var guestProfileNav = document.getElementById('guestProfileNav');
+
+      if (isMobile) {
+        // Hide the guest nav containers in the desktop header
+        if (guestNav && guestNav.closest('#desktopNav')) {
+          guestNav.style.display = 'none';
+          guestNav.style.setProperty('display', 'none', 'important');
+        }
+        if (guestProfileNav && guestProfileNav.closest('#desktopNav')) {
+          guestProfileNav.style.display = 'none';
+          guestProfileNav.style.setProperty('display', 'none', 'important');
+        }
+      } else {
+        // Restore on desktop
+        if (guestNav) {
+          guestNav.style.display = '';
+          guestNav.style.removeProperty('display');
+        }
+        if (guestProfileNav) {
+          guestProfileNav.style.display = '';
+          guestProfileNav.style.removeProperty('display');
+        }
+      }
+    }
+
+    // Run on load and resize
+    hideLoginButtonsOnMobile();
+    window.addEventListener('resize', hideLoginButtonsOnMobile);
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', hideLoginButtonsOnMobile);
+    }
+    setTimeout(hideLoginButtonsOnMobile, 100);
+    setTimeout(hideLoginButtonsOnMobile, 500);
+  })();
+</script>
+  
 </script>
 </body>
 </html>
