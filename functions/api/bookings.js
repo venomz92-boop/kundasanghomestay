@@ -1,4 +1,4 @@
-// /api/bookings.js – FULLY PATCHED with unified fee + clearAll + approve cleanup
+// /api/bookings.js – FULLY PATCHED with unified fee + clearAll + approve cleanup + public data sanitization
 import {
   corsHeaders,
   getClientIP,
@@ -52,6 +52,29 @@ async function requireGuest(request, env, body) {
   const csrf = getCSRFToken(request);
   if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) return { error: jsonResponse({ error: 'Invalid security token' }, 403, request) };
   return { session };
+}
+
+// ===== NEW: sanitize homestay for public consumption =====
+function sanitizePublicHomestay(h) {
+  if (!h) return null;
+  const {
+    id, name, location, description, image, images, rooms,
+    ownerPrice, guests, bedrooms, rating, reviews, verified, approved, blockedDates
+  } = h;
+  return {
+    id, name, location, description, image, images,
+    rooms: Array.isArray(rooms) ? rooms.map(r => ({
+      id: r.id,
+      name: r.name,
+      price: r.price,
+      guests: r.guests,
+      desc: r.desc,
+      images: r.images || [],
+      blockedDates: r.blockedDates || []
+    })) : [],
+    ownerPrice, guests, bedrooms, rating, reviews, verified, approved,
+    blockedDates: Array.isArray(blockedDates) ? blockedDates : []
+  };
 }
 
 export async function onRequestGet({ request, env }) {
@@ -121,6 +144,9 @@ export async function onRequestGet({ request, env }) {
       }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
+    // ===== PUBLIC BRANCH – SANITIZED =====
+    const sanitizedApproved = approved.map(sanitizePublicHomestay).filter(Boolean);
+
     const availability = {};
     for (const h of approved) {
       const homestayId = String(h.id);
@@ -129,7 +155,7 @@ export async function onRequestGet({ request, env }) {
         .flatMap(b => getDatesInRange(b.checkin, b.checkout));
     }
 
-    return jsonResponse({ approved, availability }, 200, request, {
+    return jsonResponse({ approved: sanitizedApproved, availability }, 200, request, {
       'Cache-Control': 'public, max-age=60, stale-while-revalidate=120'
     });
 
@@ -490,7 +516,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
     }
 
-    // ---- Admin approveHomestay (also strips sensitive fields from kd_homestays) ----
+    // ---- Admin approveHomestay ----
     if (action === "approveHomestay" && body.id) {
       try {
         const pendingRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
@@ -523,7 +549,6 @@ export async function onRequestPost({ request, env }) {
         }
         approved.push(safeHomestay);
 
-        // Also clean the kd_homestays entry (remove sensitive fields)
         const homestaysRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_homestays").first();
         let allHomes = [];
         if (homestaysRes && homestaysRes.data) {
