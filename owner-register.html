@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Host Account Registration - Kundasang Homestay</title>
+  <meta name="robots" content="index, follow" />
+  <meta name="description" content="Create your host account and start listing your Kundasang homestay." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="animations.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="/guest-session.js"></script>
+</head>
+
+<body>
+<div id="customModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modalTitle">Notice</h3>
+      <button onclick="closeModal()" class="modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">Message</div>
+    <div class="modal-footer" id="modalFooter">
+      <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let lastToggleTime = 0;
+  window.toggleMobileMenu = function() {
+    const now = Date.now();
+    if (now - lastToggleTime < 300) return;
+    lastToggleTime = now;
+    const nav = document.getElementById('mobileNav');
+    if (nav) {
+      nav.classList.toggle('open');
+      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+    }
+  };
+</script>
+
+<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
+  <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
+    <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
+      <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+      <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
+        KUNDASANG<span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay.my</span>
+        <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Stay • Connect • Belong</div>
+      </div>
+    </div>
+
+    <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
+      <a href="/" id="navHome" class="setsail-nav-link" onclick="window.location.href='/'; return false;">Home</a>
+      <a href="/list.html" id="navList" class="setsail-nav-link" onclick="window.location.href='/list.html'; return false;">Host Registration</a>
+      <a href="/about.html" id="navAbout" class="setsail-nav-link" onclick="window.location.href='/about.html'; return false;">About</a>
+      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;" onclick="window.location.href='/owner.html'; return false;">🔑 Host Login</a>
+      <div id="guestNav" class="ml-4 flex items-center gap-3">
+        <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/login.html'; return false;">Guest Login</a>
+        <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/register.html'; return false;">Register</a>
+      </div>
+      <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
+        <a href="/mybookings.html" class="setsail-nav-link" style="font-size:12px;" onclick="window.location.href='/mybookings.html'; return false;">My Bookings</a>
+        <div class="flex items-center gap-2 bg-[#0F382E] text-white px-4 h-[38px] rounded-full">
+          <div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#D4A373]">G</div>
+          <span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span>
+          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider hover:bg-white/30 transition-colors">Logout</button>
+        </div>
+      </div>
+    </nav>
+
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
+      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+
+    <script>
+      (function() {
+        var btn = document.getElementById('mobileMenuBtn');
+        if (btn) {
+          btn.removeEventListener('click', window.toggleMobileMenu);
+          btn.removeEventListener('touchstart', window.toggleMobileMenu);
+          btn.addEventListener('click', window.toggleMobileMenu);
+          btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
+        }
+      })();
+    </script>
+  </div>
+</header>
+
+<div id="mobileNav">
+  <div class="p-4 space-y-1">
+    <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+    <a href="/list.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
+    <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
+    <a href="/owner.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Host Login</a>
+
+    <div class="pt-3 space-y-3">
+      <div id="mGuestNav" class="space-y-2">
+        <a href="/login.html" class="guest-btn guest-btn-primary block text-center">Login</a>
+        <a href="/register.html" class="guest-btn guest-btn-primary block text-center">Register</a>
+      </div>
+      <div id="mGuestProfileNav" class="hidden space-y-2">
+        <div class="profile-card">
+          <div id="mGuestAvatar" class="avatar">G</div>
+          <div class="info">
+            <div id="mGuestNameNav" class="name">Guest</div>
+            <div class="sub">Verified guest</div>
+          </div>
+          <button onclick="logoutGuest()" class="logout-btn">Logout</button>
+        </div>
+        <a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="flex-1 flex items-center justify-center px-4 py-12 md:py-16">
+  <div class="w-full max-w-[480px] animate-on-scroll">
+    <div class="text-center mb-8">
+      <div class="font-satisfy text-[#D4A373] text-[30px] leading-none">Become a Host</div>
+      <h1 class="font-poppins font-700 text-[32px] md:text-[38px] text-[#212121] tracking-[-0.5px] mt-1">Create Host Account</h1>
+      <div class="w-[40px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
+      <p class="text-[13px] text-[#212121]/60 mt-3 max-w-[380px] mx-auto leading-[1.6]">Register your details first. After email verification, you'll continue to the property listing form.</p>
+    </div>
+
+    <div class="card p-8 md:p-10">
+      <div class="flex items-center justify-center gap-3 mb-6 text-[10px] uppercase font-700 tracking-wider">
+        <span class="bg-[#0F382E] text-white px-3 py-1.5 rounded-full">1. Account</span>
+        <span class="text-zinc-300">→</span>
+        <span class="bg-zinc-100 text-zinc-500 px-3 py-1.5 rounded-full">2. Verify Email</span>
+        <span class="text-zinc-300">→</span>
+        <span class="bg-zinc-100 text-zinc-500 px-3 py-1.5 rounded-full">3. Property Form</span>
+      </div>
+
+      <div id="registerError" class="hidden p-4 rounded-xl text-xs bg-red-50 text-red-700 border border-red-200 mb-5"></div>
+
+      <form id="ownerRegisterForm" onsubmit="handleOwnerRegister(event)" class="space-y-4">
+        <div>
+          <label class="text-xs font-semibold text-[#212121] block mb-1.5">Full Name (as in IC) *</label>
+          <input id="regName" type="text" placeholder="e.g. Mohd Ibrahim Bin Ahmad" class="form-input" required />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-[#212121] block mb-1.5">Email Address *</label>
+          <input id="regEmail" type="email" placeholder="you@email.com" class="form-input" required />
+          <p class="text-[10px] text-[#212121]/40 mt-1.5">We'll send a verification link here.</p>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-[#212121] block mb-1.5">WhatsApp Number *</label>
+          <input id="regPhone" type="tel" placeholder="e.g. 0123456789" class="form-input" required />
+          <p class="text-[10px] text-[#212121]/40 mt-1.5">You'll use this to log into your host dashboard.</p>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-[#212121] block mb-1.5">Password *</label>
+          <input id="regPassword" type="password" placeholder="Minimum 8 characters" class="form-input" required minlength="8" />
+          <p class="text-[10px] text-[#212121]/40 mt-1.5">Minimum 8 characters</p>
+        </div>
+        <button type="submit" class="btn-primary w-full py-4 mt-3 text-sm tracking-widest">Create Host Account</button>
+      </form>
+
+      <div class="mt-6 text-center">
+        <p class="text-[13px] text-[#212121]/60">Already have a host account? <a href="/owner.html" class="text-[#D4A373] font-semibold hover:underline transition-colors">Host Login</a></p>
+      </div>
+
+      <div class="mt-6 pt-6 border-t border-black/5 text-center">
+        <p class="text-[11px] text-[#212121]/40 flex items-center justify-center gap-1.5">🔒 Your data is encrypted and secure</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="bg-[#212121] text-white/70 mt-20">
+  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+    <div>
+      <div class="flex items-center gap-3">
+        <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+        <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay</span></div>
+      </div>
+      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
+      <div class="mt-4 pt-4 border-t border-white/10">
+        <p class="text-[11px] text-white/40 font-poppins">
+          <strong class="text-white/60">Company:</strong> NICK'S CREATIONS<br>
+          <strong class="text-white/60">Business License:</strong> RNU20183012
+        </p>
+      </div>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
+      <div class="space-y-2 text-[13px] font-poppins">
+        <a href="/" class="hover:text-white block">Browse Homestays</a>
+        <a href="/list.html" class="hover:text-white block">Host Registration</a>
+        <a href="/about.html" class="hover:text-white block">About Us</a>
+        <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
+        <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
+        <a href="/booking-policy.html" class="hover:text-white block">Booking Policy</a>
+        <a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
+        <a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
+        <a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
+      </div>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
+      <div class="space-y-2 text-[13px] font-poppins">
+        <div>✓ Host Physical Verification</div>
+        <div>✓ CHIP FPX Online Protection</div>
+        <div>✓ Anti-Scam Booking Guarantee</div>
+      </div>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
+      <div id="kdWeatherWidget" class="kd-weather-widget">
+        <div class="kd-weather-loading">Loading live weather…</div>
+      </div>
+    </div>
+  </div>
+  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
+    © 2026 Kundasang Homestay. All rights reserved.
+  </div>
+</footer>
+
+<script src="animations.js"></script>
+<script src="/footer-weather.js"></script>
+<script>
+function showModal(title, message, buttons) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('customModal');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const footerEl = document.getElementById('modalFooter');
+    titleEl.textContent = title || 'Notice';
+    bodyEl.innerHTML = typeof message === 'string' ? message : '';
+    footerEl.innerHTML = '';
+    buttons.forEach(btn => {
+      const el = document.createElement('button');
+      el.textContent = btn.label;
+      el.className = `btn ${btn.class || 'btn-primary'}`;
+      el.onclick = () => {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+        if (btn.value !== undefined) resolve(btn.value);
+        else resolve(true);
+      };
+      footerEl.appendChild(el);
+    });
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  });
+}
+function closeModal() {
+  const overlay = document.getElementById('customModal');
+  overlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+function modalConfirm() { closeModal(); }
+function showAlert(title, message) {
+  return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('customModal');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+});
+document.getElementById('customModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    this.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+});
+
+const API_BASE = "/api";
+let currentGuest = null;
+try {
+  const saved = localStorage.getItem('kd_guest');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (parsed && parsed.id) currentGuest = parsed;
+  }
+} catch(e) { currentGuest = null; }
+
+function renderGuestNav() {
+  const loginNav = document.getElementById("guestNav");
+  const profileNav = document.getElementById("guestProfileNav");
+  const mLoginNav = document.getElementById("mGuestNav");
+  const mProfileNav = document.getElementById("mGuestProfileNav");
+  const mAvatar = document.getElementById("mGuestAvatar");
+  const mNameNav = document.getElementById("mGuestNameNav");
+  if (currentGuest) {
+    if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
+    if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
+    const avatar = document.getElementById("guestAvatar");
+    const nameNav = document.getElementById("guestNameNav");
+    if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
+    if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
+    if (mAvatar) mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
+    if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+  } else {
+    if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
+    if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
+    if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
+    if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
+  }
+}
+function logoutGuest() {
+  if (!confirm("Logout?")) return;
+  currentGuest = null;
+  localStorage.removeItem('kd_guest');
+  renderGuestNav();
+  window.location.href = '/';
+}
+
+async function handleOwnerRegister(e) {
+  e.preventDefault();
+  const name = document.getElementById('regName').value.trim();
+  const email = document.getElementById('regEmail').value.trim().toLowerCase();
+  const phone = document.getElementById('regPhone').value.trim();
+  const password = document.getElementById('regPassword').value.trim();
+  const errorEl = document.getElementById('registerError');
+
+  if (!name || !email || !phone || !password) {
+    errorEl.textContent = 'Please fill in all fields.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  if (password.length < 8) {
+    errorEl.textContent = 'Password must be at least 8 characters.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  errorEl.classList.add('hidden');
+
+  try {
+    const res = await fetch(API_BASE + '/owner-register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, phone, password })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      renderGuestNav();
+      await showAlert('Host Account Created', data.message);
+      window.location.href = '/login.html?host_registered=1';
+    } else {
+      errorEl.textContent = data.error || 'Registration failed. Please try again.';
+      errorEl.classList.remove('hidden');
+    }
+  } catch (e) {
+    errorEl.textContent = 'Network error: ' + e.message;
+    errorEl.classList.remove('hidden');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  renderGuestNav();
+});
+</script>
+</body>
+</html>
