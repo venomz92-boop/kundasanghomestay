@@ -493,12 +493,18 @@ async function ownerLogin() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ whatsapp, password })
     });
+    
     const data = await res.json();
     if (data.success) {
       ownerToken = data.token;
       sessionStorage.setItem('kd_owner_token', ownerToken);
       allHomestays = data.homestays || [];
       ownerHomestayIds = allHomestays.map(h => h.id);
+      try {
+        sessionStorage.setItem('kd_owner_homestays', JSON.stringify(allHomestays));
+        sessionStorage.setItem('kd_owner_name', allHomestays[0]?.ownerName || 'Owner');
+      } catch (e) {}
+      
       const selector = document.getElementById('homestaySelector');
       if (selector) {
         selector.innerHTML = safeHTML('<option value="all">📍 All Linked Homestays</option>');
@@ -1079,39 +1085,46 @@ async function updateHomestayPrice() {
   const token = sessionStorage.getItem('kd_owner_token');
   const loginSection = document.getElementById('loginSection');
   const dashboardSection = document.getElementById('dashboardSection');
+  const selector = document.getElementById('homestaySelector');
+
   if (token) {
+    let storedHomestays = null;
+    let storedName = 'Owner';
     try {
-      const data = JSON.parse(atob(token));
-      if (data.homestays && data.homestays.length > 0) {
-        allHomestays = data.homestays;
-        ownerHomestayIds = allHomestays.map(h => h.id);
-        const selector = document.getElementById('homestaySelector');
-        if (selector) {
-          selector.innerHTML = safeHTML('<option value="all">📍 All Linked Homestays</option>');
-          allHomestays.forEach(h => {
-            const opt = document.createElement('option');
-            opt.value = h.id;
-            opt.textContent = h.name;
-            selector.appendChild(opt);
-          });
-          currentHomestayId = 'all';
-          selector.value = 'all';
-        }
-        if (loginSection) loginSection.classList.add('hidden');
-        if (dashboardSection) dashboardSection.classList.remove('hidden');
-        document.getElementById('welcomeName').innerText = data.ownerName || 'Owner';
-        loadBookings();
-        loadRoomBlocks();
-        loadHomestayPrice();
-      } else {
-        showAlert('Authentication Required', 'Please log in to your host credentials account.').then(() => {
-          sessionStorage.removeItem('kd_owner_token');
-          if (loginSection) loginSection.classList.remove('hidden');
-          if (dashboardSection) dashboardSection.classList.add('hidden');
+      const raw = sessionStorage.getItem('kd_owner_homestays');
+      if (raw) storedHomestays = JSON.parse(raw);
+      const n = sessionStorage.getItem('kd_owner_name');
+      if (n) storedName = n;
+    } catch (e) {}
+
+    if (storedHomestays && storedHomestays.length > 0) {
+      ownerToken = token;
+      allHomestays = storedHomestays;
+      ownerHomestayIds = allHomestays.map(h => h.id);
+
+      if (selector) {
+        selector.innerHTML = safeHTML('<option value="all">📍 All Linked Homestays</option>');
+        allHomestays.forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h.id;
+          opt.textContent = h.name;
+          selector.appendChild(opt);
         });
+        currentHomestayId = 'all';
+        selector.value = 'all';
       }
-    } catch(e) {
+      if (loginSection) loginSection.classList.add('hidden');
+      if (dashboardSection) dashboardSection.classList.remove('hidden');
+      const welcomeEl = document.getElementById('welcomeName');
+      if (welcomeEl) welcomeEl.innerText = storedName;
+      loadBookings();
+      loadRoomBlocks();
+      loadHomestayPrice();
+    } else {
+      // No cached homestay data — force re-login
       sessionStorage.removeItem('kd_owner_token');
+      sessionStorage.removeItem('kd_owner_homestays');
+      sessionStorage.removeItem('kd_owner_name');
       if (loginSection) loginSection.classList.remove('hidden');
       if (dashboardSection) dashboardSection.classList.add('hidden');
     }
@@ -1119,7 +1132,7 @@ async function updateHomestayPrice() {
     if (loginSection) loginSection.classList.remove('hidden');
     if (dashboardSection) dashboardSection.classList.add('hidden');
   }
-  const selector = document.getElementById('homestaySelector');
+
   if (selector) {
     selector.addEventListener('change', function() {
       currentHomestayId = this.value;
