@@ -1390,6 +1390,36 @@ async function submitHomestay() {
       }
     })
     .catch(() => { /* silent */ });
+
+// =============================================================
+// VERIFICATION WELCOME BANNER
+// Shown when the owner arrives from the email verification link
+// =============================================================
+(function showVerifiedWelcome() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('verified') !== '1') return;
+
+  // Strip the query string so refresh doesn't retrigger
+  if (window.history && window.history.replaceState) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  // Small floating toast
+  const toast = document.createElement('div');
+  toast.style.cssText =
+    'position:fixed;top:96px;left:50%;transform:translateX(-50%);z-index:99999;' +
+    'background:#0F382E;color:#fff;padding:14px 24px;border-radius:999px;' +
+    'font-family:Poppins,sans-serif;font-size:13px;font-weight:600;' +
+    'box-shadow:0 12px 30px rgba(15,56,46,0.35);display:flex;align-items:center;gap:10px;';
+  toast.innerHTML = '<span style="font-size:18px;">✅</span> Email verified — let\'s list your homestay!';
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(-10px)';
+    setTimeout(() => toast.remove(), 400);
+  }, 5000);
 })();
 </script>
 </body>
