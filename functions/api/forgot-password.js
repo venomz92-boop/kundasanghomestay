@@ -97,7 +97,7 @@ export async function onRequestPost({ request, env }) {
     ).bind(token, userId, userType, cleanEmail, expiresAt).run();
 
     const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
-    const resetUrl = `${domain}/reset-password.html?token=${encodeURIComponent(token)}&type=${userType}`;
+    const resetUrl = `${domain}/forgot-password.html?token=${encodeURIComponent(token)}&type=${userType}`;
 
     const sent = await sendResetEmail(cleanEmail, userData?.name, resetUrl, env);
     if (!sent) {
