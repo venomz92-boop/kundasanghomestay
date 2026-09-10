@@ -62,6 +62,7 @@
       <a href="/list.html" id="navList" class="setsail-nav-link" onclick="window.location.href='/list.html'; return false;">Host Registration</a>
       <a href="/about.html" id="navAbout" class="setsail-nav-link" onclick="window.location.href='/about.html'; return false;">About</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;" onclick="window.location.href='/owner.html'; return false;">🔑 Host Login</a>
+      <button onclick="logoutOwner()" class="btn-outline" style="margin-left:12px; padding:6px 18px; font-size:11px;">Logout</button>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
         <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/login.html'; return false;">Guest Login</a>
         <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/register.html'; return false;">Register</a>
@@ -80,6 +81,7 @@
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
+    <button onclick="logoutOwner()" class="btn-danger lg:hidden ml-2" style="padding:6px 14px; font-size:10px;">Logout</button>
 
     <!-- FALLBACK LISTENER -->
     <script>
@@ -440,7 +442,7 @@ function logoutGuest() {
 // =============================================================
 // HOST LOGIN & DASHBOARD
 // =============================================================
-let ownerToken = sessionStorage.getItem('kd_owner_token') || '';
+let ownerToken = 'cookie';
 let ownerHomestayIds = [];
 let allHomestays = [];
 let bookings = [];
@@ -490,21 +492,20 @@ async function ownerLogin() {
   try {
     const res = await fetch(API_BASE + '/owner-login', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ whatsapp, password })
     });
-    
+
     const data = await res.json();
     if (data.success) {
-      ownerToken = data.token;
-      sessionStorage.setItem('kd_owner_token', ownerToken);
       allHomestays = data.homestays || [];
       ownerHomestayIds = allHomestays.map(h => h.id);
       try {
         sessionStorage.setItem('kd_owner_homestays', JSON.stringify(allHomestays));
         sessionStorage.setItem('kd_owner_name', allHomestays[0]?.ownerName || 'Owner');
       } catch (e) {}
-      
+
       const selector = document.getElementById('homestaySelector');
       if (selector) {
         selector.innerHTML = safeHTML('<option value="all">📍 All Linked Homestays</option>');
@@ -535,6 +536,26 @@ async function ownerLogin() {
     await showAlert('Handshake Exception', 'Network operations failed: ' + e.message);
   }
 }
+
+async function logoutOwner() {
+  const ok = await showConfirm('Logout', 'Logout from your Host Dashboard?');
+  if (!ok) return;
+  try {
+    await fetch('/api/owner-logout', { method: 'POST', credentials: 'include' });
+  } catch (e) { /* still reset UI */ }
+  try {
+    sessionStorage.removeItem('kd_owner_token');
+    sessionStorage.removeItem('kd_owner_homestays');
+    sessionStorage.removeItem('kd_owner_name');
+  } catch (e) {}
+  ownerToken = '';
+  allHomestays = [];
+  ownerHomestayIds = [];
+  bookings = [];
+  currentHomestayId = 'all';
+  window.location.href = '/owner.html';
+}
+window.logoutOwner = logoutOwner;
 
 // =============================================================
 // LOAD BOOKINGS – with data-* attributes (no inline onclick)
@@ -1080,55 +1101,64 @@ async function updateHomestayPrice() {
 // =============================================================
 // INIT
 // =============================================================
-(function init() {
+(async function init() {
   renderGuestNav();
-  const token = sessionStorage.getItem('kd_owner_token');
+
   const loginSection = document.getElementById('loginSection');
   const dashboardSection = document.getElementById('dashboardSection');
   const selector = document.getElementById('homestaySelector');
 
-  if (token) {
-    let storedHomestays = null;
-    let storedName = 'Owner';
+  // Try to restore dashboard by calling /api/owner-bookings (cookie-based).
+  // If we get 401, show login. If we get 200, we're authenticated.
+  let authed = false;
+  let storedHomestays = null;
+  let storedName = 'Owner';
+  try {
+    const raw = sessionStorage.getItem('kd_owner_homestays');
+    if (raw) storedHomestays = JSON.parse(raw);
+    const n = sessionStorage.getItem('kd_owner_name');
+    if (n) storedName = n;
+  } catch (e) {}
+
+  // Probe auth: try owner-bookings with cookies
+  try {
+    const probe = await fetch(API_BASE + '/owner-bookings', {
+      credentials: 'include',
+      cache: 'no-store'
+    });
+    authed = probe.ok;
+  } catch (e) { authed = false; }
+
+  if (authed && storedHomestays && storedHomestays.length > 0) {
+    ownerToken = 'cookie';
+    allHomestays = storedHomestays;
+    ownerHomestayIds = allHomestays.map(h => h.id);
+
+    if (selector) {
+      selector.innerHTML = safeHTML('<option value="all">📍 All Linked Homestays</option>');
+      allHomestays.forEach(h => {
+        const opt = document.createElement('option');
+        opt.value = h.id;
+        opt.textContent = h.name;
+        selector.appendChild(opt);
+      });
+      currentHomestayId = 'all';
+      selector.value = 'all';
+    }
+    if (loginSection) loginSection.classList.add('hidden');
+    if (dashboardSection) dashboardSection.classList.remove('hidden');
+    const welcomeEl = document.getElementById('welcomeName');
+    if (welcomeEl) welcomeEl.innerText = storedName;
+    loadBookings();
+    loadRoomBlocks();
+    loadHomestayPrice();
+  } else {
+    // Not authed or no cached homestay list — force login
     try {
-      const raw = sessionStorage.getItem('kd_owner_homestays');
-      if (raw) storedHomestays = JSON.parse(raw);
-      const n = sessionStorage.getItem('kd_owner_name');
-      if (n) storedName = n;
-    } catch (e) {}
-
-    if (storedHomestays && storedHomestays.length > 0) {
-      ownerToken = token;
-      allHomestays = storedHomestays;
-      ownerHomestayIds = allHomestays.map(h => h.id);
-
-      if (selector) {
-        selector.innerHTML = safeHTML('<option value="all">📍 All Linked Homestays</option>');
-        allHomestays.forEach(h => {
-          const opt = document.createElement('option');
-          opt.value = h.id;
-          opt.textContent = h.name;
-          selector.appendChild(opt);
-        });
-        currentHomestayId = 'all';
-        selector.value = 'all';
-      }
-      if (loginSection) loginSection.classList.add('hidden');
-      if (dashboardSection) dashboardSection.classList.remove('hidden');
-      const welcomeEl = document.getElementById('welcomeName');
-      if (welcomeEl) welcomeEl.innerText = storedName;
-      loadBookings();
-      loadRoomBlocks();
-      loadHomestayPrice();
-    } else {
-      // No cached homestay data — force re-login
       sessionStorage.removeItem('kd_owner_token');
       sessionStorage.removeItem('kd_owner_homestays');
       sessionStorage.removeItem('kd_owner_name');
-      if (loginSection) loginSection.classList.remove('hidden');
-      if (dashboardSection) dashboardSection.classList.add('hidden');
-    }
-  } else {
+    } catch (e) {}
     if (loginSection) loginSection.classList.remove('hidden');
     if (dashboardSection) dashboardSection.classList.add('hidden');
   }
