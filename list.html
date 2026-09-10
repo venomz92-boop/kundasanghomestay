@@ -93,7 +93,7 @@
 <div id="mobileNav">
   <div class="p-4 space-y-1">
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
-    <a href="/list.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
+    <a href="/owner-register.html" class="setsail-nav-link" style="text-decoration:none;">🏡 Become a Host</a>
     <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
     <a href="/owner.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Host Login</a>
     <div class="pt-3 space-y-3">
@@ -468,6 +468,7 @@
 </footer>
 
 <script src="animations.js"></script>
+<script src="/footer-weather.js"></script>
 <script>
 // =============================================================
 // SECURE HELPERS
@@ -1237,7 +1238,11 @@ async function submitHomestay() {
     if (!icName) { await showAlert("Required Field", "Legal registration name matching IC is required."); return; }
     if (!bankConfirm) { await showAlert("Escrow Agreement", "Please consent to Host bank verification checkbox."); return; }
     if (tempPhotos.length === 0) { await showAlert("Required Field", "Add at least 1 cover photo of your homestay."); return; }
-    if (ownerPassword.length < 8) { await showAlert("Required Field", "Password must be at least 8 characters."); return; }
+    const isAuthenticatedOwner = window._ownerAuth && window._ownerAuth.ownerId;
+    if (!isAuthenticatedOwner && ownerPassword.length < 8) {
+    await showAlert("Required Field", "Password must be at least 8 characters.");
+    return;
+    }
     if (!tempIcWatermarked) { await showAlert("Required Field", "Identity document front upload is mandatory."); return; }
 
     const newHome = {
@@ -1278,11 +1283,21 @@ async function submitHomestay() {
       statusEl.textContent = '⏳ Initializing client-to-cloud security handshake...';
     }
 
+    const payload = { homestay: newHome };
+    if (isAuthenticatedOwner) {
+    // Owner is authenticated — server will look up the account and skip password
+    payload.ownerId = window._ownerAuth.ownerId;
+    } else {
+    payload.ownerPassword = ownerPassword;
+    }
+
     const syncRes = await fetch("/api/pending", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ homestay: newHome, ownerPassword: ownerPassword })
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: 'include',
+    body: JSON.stringify(payload)
     });
+    
     const syncData = await syncRes.json();
 
     if (!syncRes.ok) {
@@ -1321,42 +1336,61 @@ async function submitHomestay() {
   renderBlockedDatesList();
 })();
 
-(function() {
-  function hideLoginButtonsOnMobile() {
-    var isMobile = window.innerWidth < 768;
-    var guestNav = document.getElementById('guestNav');
-    var guestProfileNav = document.getElementById('guestProfileNav');
+// =============================================================
+// OWNER-ACCOUNT AWARENESS
+// If the visitor is an authenticated owner, pre-fill their details
+// and hide the password section (they already have one from register).
+// =============================================================
+(function initOwnerAwareness() {
+  const API_BASE = "/api";
 
-    if (isMobile) {
-      if (guestNav && guestNav.closest('#desktopNav')) {
-        guestNav.style.display = 'none';
-        guestNav.style.setProperty('display', 'none', 'important');
-      }
-      if (guestProfileNav && guestProfileNav.closest('#desktopNav')) {
-        guestProfileNav.style.display = 'none';
-        guestProfileNav.style.setProperty('display', 'none', 'important');
-      }
-    } else {
-      if (guestNav) {
-        guestNav.style.display = '';
-        guestNav.style.removeProperty('display');
-      }
-      if (guestProfileNav) {
-        guestProfileNav.style.display = '';
-        guestProfileNav.style.removeProperty('display');
-      }
-    }
-  }
+  fetch(API_BASE + '/owner-session', { credentials: 'include', cache: 'no-store' })
+    .then(r => r.json().catch(() => ({})))
+    .then(data => {
+      if (!data || data.authenticated !== true) return;
 
-  hideLoginButtonsOnMobile();
-  window.addEventListener('resize', hideLoginButtonsOnMobile);
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', hideLoginButtonsOnMobile);
-  }
-  setTimeout(hideLoginButtonsOnMobile, 100);
-  setTimeout(hideLoginButtonsOnMobile, 500);
+      // Store owner context globally for the submit function
+      window._ownerAuth = {
+        ownerId: data.ownerId,
+        whatsapp: data.whatsapp,
+        ownerName: data.ownerName,
+        ownerEmail: data.ownerEmail
+      };
+
+      // Pre-fill known fields
+      const nameEl = document.getElementById('listOwnerName');
+      const waEl = document.getElementById('listWhatsapp');
+      const emailEl = document.getElementById('listOwnerEmail');
+      const icNameEl = document.getElementById('listIcName');
+
+      if (nameEl && data.ownerName) nameEl.value = data.ownerName;
+      if (waEl && data.whatsapp) waEl.value = data.whatsapp;
+      if (emailEl && data.ownerEmail) emailEl.value = data.ownerEmail;
+      if (icNameEl && data.ownerName) icNameEl.value = data.ownerName;
+
+      // Hide the password configuration section (already has password)
+      const pwdSection = document.getElementById('listOwnerPassword')?.closest('section');
+      if (pwdSection) {
+        pwdSection.style.display = 'none';
+      }
+
+      // Add a small info banner at the top of the form
+      const formCard = document.querySelector('main .card');
+      if (formCard && !document.getElementById('ownerAuthBanner')) {
+        const banner = document.createElement('div');
+        banner.id = 'ownerAuthBanner';
+        banner.className = 'mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-3';
+        banner.innerHTML =
+          '<div class="text-xl">✅</div>' +
+          '<div>' +
+            '<div class="font-bold mb-0.5">Signed in as host: ' + (data.ownerName || data.whatsapp || 'Host') + '</div>' +
+            '<div>Fill in your property details below. Your account password is already set.</div>' +
+          '</div>';
+        formCard.insertBefore(banner, formCard.firstChild);
+      }
+    })
+    .catch(() => { /* silent */ });
 })();
 </script>
-<script src="/footer-weather.js"></script>
 </body>
 </html>
