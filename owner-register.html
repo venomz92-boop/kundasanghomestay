@@ -54,7 +54,7 @@
 
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
       <a href="/" id="navHome" class="setsail-nav-link" onclick="window.location.href='/'; return false;">Home</a>
-      <a href="/owner-register.html" class="setsail-nav-link" style="text-decoration:none;">Become a Host</a>
+      <a href="/list.html" id="navList" class="setsail-nav-link" onclick="window.location.href='/list.html'; return false;">Host Registration</a>
       <a href="/about.html" id="navAbout" class="setsail-nav-link" onclick="window.location.href='/about.html'; return false;">About</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;" onclick="window.location.href='/owner.html'; return false;">🔑 Host Login</a>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
@@ -92,7 +92,7 @@
 <div id="mobileNav">
   <div class="p-4 space-y-1">
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
-    <a href="/owner-register.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏡 Become a Host</a>
+    <a href="/list.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
     <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
     <a href="/owner.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Host Login</a>
 
@@ -118,55 +118,97 @@
 
 <main class="flex-1 flex items-center justify-center px-4 py-12 md:py-16">
   <div class="w-full max-w-[480px] animate-on-scroll">
-    <div class="text-center mb-8">
-      <div class="font-satisfy text-[#D4A373] text-[30px] leading-none">Become a Host</div>
-      <h1 class="font-poppins font-700 text-[32px] md:text-[38px] text-[#212121] tracking-[-0.5px] mt-1">Create Host Account</h1>
-      <div class="w-[40px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
-      <p class="text-[13px] text-[#212121]/60 mt-3 max-w-[380px] mx-auto leading-[1.6]">Register your details first. After email verification, you'll continue to the property listing form.</p>
+
+    <!-- ========== FORM STATE ========== -->
+    <div id="formState">
+      <div class="text-center mb-8">
+        <div class="font-satisfy text-[#D4A373] text-[30px] leading-none">Become a Host</div>
+        <h1 class="font-poppins font-700 text-[32px] md:text-[38px] text-[#212121] tracking-[-0.5px] mt-1">Create Host Account</h1>
+        <div class="w-[40px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
+        <p class="text-[13px] text-[#212121]/60 mt-3 max-w-[380px] mx-auto leading-[1.6]">Register your details first. After email verification, you'll continue to the property listing form.</p>
+      </div>
+
+      <div class="card p-8 md:p-10">
+        <div class="flex items-center justify-center gap-3 mb-6 text-[10px] uppercase font-700 tracking-wider">
+          <span class="bg-[#0F382E] text-white px-3 py-1.5 rounded-full">1. Account</span>
+          <span class="text-zinc-300">→</span>
+          <span class="bg-zinc-100 text-zinc-500 px-3 py-1.5 rounded-full">2. Verify Email</span>
+          <span class="text-zinc-300">→</span>
+          <span class="bg-zinc-100 text-zinc-500 px-3 py-1.5 rounded-full">3. Property Form</span>
+        </div>
+
+        <div id="registerError" class="hidden p-4 rounded-xl text-xs bg-red-50 text-red-700 border border-red-200 mb-5"></div>
+
+        <form id="ownerRegisterForm" onsubmit="handleOwnerRegister(event)" class="space-y-4">
+          <div>
+            <label class="text-xs font-semibold text-[#212121] block mb-1.5">Full Name (as in IC) *</label>
+            <input id="regName" type="text" placeholder="e.g. Mohd Ibrahim Bin Ahmad" class="form-input" required />
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-[#212121] block mb-1.5">Email Address *</label>
+            <input id="regEmail" type="email" placeholder="you@email.com" class="form-input" required />
+            <p class="text-[10px] text-[#212121]/40 mt-1.5">We'll send a verification link here.</p>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-[#212121] block mb-1.5">WhatsApp Number *</label>
+            <input id="regPhone" type="tel" placeholder="e.g. 0123456789" class="form-input" required />
+            <p class="text-[10px] text-[#212121]/40 mt-1.5">You'll use this to log into your host dashboard.</p>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-[#212121] block mb-1.5">Password *</label>
+            <input id="regPassword" type="password" placeholder="Minimum 8 characters" class="form-input" required minlength="8" />
+            <p class="text-[10px] text-[#212121]/40 mt-1.5">Minimum 8 characters</p>
+          </div>
+          <button type="submit" class="btn-primary w-full py-4 mt-3 text-sm tracking-widest">Create Host Account</button>
+        </form>
+
+        <div class="mt-6 text-center">
+          <p class="text-[13px] text-[#212121]/60">Already have a host account? <a href="/owner.html" class="text-[#D4A373] font-semibold hover:underline transition-colors">Host Login</a></p>
+        </div>
+
+        <div class="mt-6 pt-6 border-t border-black/5 text-center">
+          <p class="text-[11px] text-[#212121]/40 flex items-center justify-center gap-1.5">🔒 Your data is encrypted and secure</p>
+        </div>
+      </div>
     </div>
 
-    <div class="card p-8 md:p-10">
-      <div class="flex items-center justify-center gap-3 mb-6 text-[10px] uppercase font-700 tracking-wider">
-        <span class="bg-[#0F382E] text-white px-3 py-1.5 rounded-full">1. Account</span>
-        <span class="text-zinc-300">→</span>
-        <span class="bg-zinc-100 text-zinc-500 px-3 py-1.5 rounded-full">2. Verify Email</span>
-        <span class="text-zinc-300">→</span>
-        <span class="bg-zinc-100 text-zinc-500 px-3 py-1.5 rounded-full">3. Property Form</span>
+    <!-- ========== SUCCESS STATE (shown after registration) ========== -->
+    <div id="successState" class="hidden">
+      <div class="text-center mb-8">
+        <div class="font-satisfy text-[#D4A373] text-[30px] leading-none">One More Step</div>
+        <h1 class="font-poppins font-700 text-[32px] md:text-[38px] text-[#212121] tracking-[-0.5px] mt-1">Check Your Email</h1>
+        <div class="w-[40px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
       </div>
 
-      <div id="registerError" class="hidden p-4 rounded-xl text-xs bg-red-50 text-red-700 border border-red-200 mb-5"></div>
+      <div class="card p-8 md:p-10 text-center">
+        <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl">📧</div>
 
-      <form id="ownerRegisterForm" onsubmit="handleOwnerRegister(event)" class="space-y-4">
-        <div>
-          <label class="text-xs font-semibold text-[#212121] block mb-1.5">Full Name (as in IC) *</label>
-          <input id="regName" type="text" placeholder="e.g. Mohd Ibrahim Bin Ahmad" class="form-input" required />
-        </div>
-        <div>
-          <label class="text-xs font-semibold text-[#212121] block mb-1.5">Email Address *</label>
-          <input id="regEmail" type="email" placeholder="you@email.com" class="form-input" required />
-          <p class="text-[10px] text-[#212121]/40 mt-1.5">We'll send a verification link here.</p>
-        </div>
-        <div>
-          <label class="text-xs font-semibold text-[#212121] block mb-1.5">WhatsApp Number *</label>
-          <input id="regPhone" type="tel" placeholder="e.g. 0123456789" class="form-input" required />
-          <p class="text-[10px] text-[#212121]/40 mt-1.5">You'll use this to log into your host dashboard.</p>
-        </div>
-        <div>
-          <label class="text-xs font-semibold text-[#212121] block mb-1.5">Password *</label>
-          <input id="regPassword" type="password" placeholder="Minimum 8 characters" class="form-input" required minlength="8" />
-          <p class="text-[10px] text-[#212121]/40 mt-1.5">Minimum 8 characters</p>
-        </div>
-        <button type="submit" class="btn-primary w-full py-4 mt-3 text-sm tracking-widest">Create Host Account</button>
-      </form>
+        <h2 class="font-poppins font-700 text-[20px] text-[#212121]">Verification Email Sent</h2>
+        <p class="text-sm text-zinc-500 mt-2 leading-relaxed">
+          We've sent a verification link to<br>
+          <strong id="successEmail" class="text-[#0F382E]">your email</strong>.
+        </p>
+        <p class="text-xs text-zinc-500 mt-3 leading-relaxed">
+          Click the link in that email to verify your account and continue to the <strong>property listing form</strong>.
+        </p>
 
-      <div class="mt-6 text-center">
-        <p class="text-[13px] text-[#212121]/60">Already have a host account? <a href="/owner.html" class="text-[#D4A373] font-semibold hover:underline transition-colors">Host Login</a></p>
-      </div>
+        <div class="mt-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 text-left leading-relaxed">
+          <strong>📌 Can't find the email?</strong><br>
+          • Check your <strong>Spam</strong> or <strong>Promotions</strong> folder<br>
+          • Make sure you entered the correct email address<br>
+          • The verification link expires in 24 hours
+        </div>
 
-      <div class="mt-6 pt-6 border-t border-black/5 text-center">
-        <p class="text-[11px] text-[#212121]/40 flex items-center justify-center gap-1.5">🔒 Your data is encrypted and secure</p>
+        <div class="mt-6 flex flex-col gap-3">
+          <a href="/" class="btn-outline w-full py-3">← Back to Home</a>
+        </div>
+
+        <div class="mt-6 pt-6 border-t border-black/5 text-xs text-zinc-400 leading-relaxed">
+          Didn't get the email? Registration was successful — just check your inbox within a few minutes.
+        </div>
       </div>
     </div>
+
   </div>
 </main>
 
@@ -189,11 +231,11 @@
       <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
       <div class="space-y-2 text-[13px] font-poppins">
         <a href="/" class="hover:text-white block">Browse Homestays</a>
-        <a href="/owner-register.html" class="hover:text-white block">Host Registration</a>
+        <a href="/list.html" class="hover:text-white block">Host Registration</a>
         <a href="/about.html" class="hover:text-white block">About Us</a>
         <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
         <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
-        <a href="/booking-policy.html" class="hover:text-white block">Booking Policy</a>
+        <a href="/booking-policy.html" hover:text-white block">Booking Policy</a>
         <a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
         <a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
         <a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
@@ -333,6 +375,13 @@ async function handleOwnerRegister(e) {
   }
   errorEl.classList.add('hidden');
 
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn ? submitBtn.textContent : '';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating account...';
+  }
+
   try {
     const res = await fetch(API_BASE + '/owner-register', {
       method: 'POST',
@@ -342,16 +391,26 @@ async function handleOwnerRegister(e) {
     const data = await res.json();
 
     if (data.success) {
-      renderGuestNav();
-      await showAlert('Host Account Created', data.message);
-      window.location.href = '/login.html?host_registered=1';
+      // ✅ Show inline success state — DO NOT redirect.
+      // The user must click the verification link in their email,
+      // which will redirect them to /list.html?verified=1
+      const emailEl = document.getElementById('successEmail');
+      if (emailEl) emailEl.textContent = email;
+      document.getElementById('formState').classList.add('hidden');
+      document.getElementById('successState').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       errorEl.textContent = data.error || 'Registration failed. Please try again.';
       errorEl.classList.remove('hidden');
     }
-  } catch (e) {
-    errorEl.textContent = 'Network error: ' + e.message;
+  } catch (err) {
+    errorEl.textContent = 'Network error: ' + err.message;
     errorEl.classList.remove('hidden');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText || 'Create Host Account';
+    }
   }
 }
 
