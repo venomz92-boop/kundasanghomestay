@@ -93,11 +93,24 @@ export async function onRequestPost({ request, env }) {
       ownerSessionVersion: ownerSessionVersion
     }, env);
 
-    const safeHomes = ownerHomes.map(({ ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm, ownerPasswordVersion, ownerSessionVersion, ...rest }) => rest);
-    return new Response(JSON.stringify({ success: true, token, homestays: safeHomes, message: 'Login successful' }), {
-      status: 200,
-      headers: { ...corsHeaders(request), 'Set-Cookie': cookieHeader('owner_token', token) }
-    });
+     const safeHomes = ownerHomes.map(({
+        ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm,
+        ownerPasswordVersion, ownerSessionVersion, ...rest
+      }) => rest);
+
+      return new Response(JSON.stringify({
+        success: true,
+        homestays: safeHomes,
+        message: 'Login successful'
+        // no token field
+      }), {
+        status: 200,
+        headers: {
+          ...corsHeaders(request),
+          'Set-Cookie': cookieHeader('owner_token', token, 86400)
+        }
+      });
+    
   } catch (e) {
     console.error('Owner login error:', e.message, e.stack);
     return jsonResponse({ error: 'Server error. Please try again later.' }, 500, request);
