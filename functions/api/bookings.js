@@ -1,4 +1,4 @@
-// /api/bookings.js – FULLY PATCHED with unified fee + clearAll + approve cleanup + public data sanitization + deleteOwner + Cloudinary cleanup + status emails + failed-payment cooldown
+// /api/bookings.js – FULLY PATCHED with unified fee + clearAll + approve cleanup + public data sanitization + deleteOwner + Cloudinary cleanup + status emails + failed-payment cooldown (measured from statusUpdated)
 import {
   corsHeaders,
   getClientIP,
@@ -19,7 +19,18 @@ import {
 const MAX_NIGHTS = 60;
 const DEFAULT_PAGE_SIZE = 50;
 const GATEWAY_FEE = 1.00;
-const FAILED_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
+const FAILED_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes from last status change
+
+// ============================================================
+// Helper: latest status change timestamp for a booking
+// Uses statusUpdated when present, falls back to date for legacy records
+// ============================================================
+function getLastStatusChangeTime(b) {
+  const d = b.date ? Date.parse(b.date) : 0;
+  const s = b.statusUpdated ? Date.parse(b.statusUpdated) : 0;
+  const max = Math.max(d || 0, s || 0);
+  return Number.isFinite(max) ? max : 0;
+}
 
 function getDatesInRange(checkin, checkout) {
   if (!checkin || !checkout) return [];
@@ -61,13 +72,8 @@ async function deleteCloudinaryImages(urls, env) {
     return { deleted: [], failed: [] };
   }
 
-  const publicIds = urls
-    .map(extractPublicIdFromUrl)
-    .filter(Boolean);
-
-  if (publicIds.length === 0) {
-    return { deleted: [], failed: [] };
-  }
+  const publicIds = urls.map(extractPublicIdFromUrl).filter(Boolean);
+  if (publicIds.length === 0) return { deleted: [], failed: [] };
 
   const auth = btoa(`${apiKey}:${apiSecret}`);
   const deleted = [];
@@ -135,9 +141,7 @@ async function sendStatusEmail({ to, subject, html, env, logContext }) {
         },
         body: JSON.stringify({
           from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
-          to,
-          subject,
-          html
+          to, subject, html
         })
       });
       if (r.ok) {
@@ -514,7 +518,7 @@ export async function onRequestPost({ request, env }) {
           throw new Error('Guest not found');
         }
 
-        // ===== Reusable failed-payment cooldown window =====
+        // ===== existingPending: same guest, same dates =====
         const existingPending = allBookings.find(b => {
           if (String(b.guestId) !== String(guest.id)) return false;
           if (String(b.homestayId) !== String(homestay.id)) return false;
@@ -522,9 +526,9 @@ export async function onRequestPost({ request, env }) {
 
           if (b.status === 'Pending Payment') return true;
 
-          if (b.status === 'Payment Failed' && b.date) {
-            const age = Date.now() - Date.parse(b.date);
-            if (age < FAILED_COOLDOWN_MS) return true;
+          if (b.status === 'Payment Failed') {
+            const lastChange = getLastStatusChangeTime(b);
+            if (lastChange && (Date.now() - lastChange < FAILED_COOLDOWN_MS)) return true;
           }
           return false;
         });
@@ -560,11 +564,14 @@ export async function onRequestPost({ request, env }) {
         }
 
         const overlaps = allBookings.some(b => {
+          const lastChange = getLastStatusChangeTime(b);
+          const ageMs = lastChange ? (Date.now() - lastChange) : Number.MAX_SAFE_INTEGER;
+
           const pendingExpired = String(b.status||'') === 'Pending Payment'
-            && b.date && Date.now() - Date.parse(b.date) > 15*60*1000;
+            && ageMs > FAILED_COOLDOWN_MS;
 
           const failedActive = String(b.status||'') === 'Payment Failed'
-            && b.date && (Date.now() - Date.parse(b.date) < FAILED_COOLDOWN_MS);
+            && ageMs < FAILED_COOLDOWN_MS;
 
           const isTerminal = /cancelled|expired/i.test(String(b.status||'')) && !failedActive;
 
@@ -595,6 +602,7 @@ export async function onRequestPost({ request, env }) {
           bookingId = `KDH-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
         }
         const checkinCode = String(Math.floor(100000 + Math.random() * 900000));
+        const nowIso = new Date().toISOString();
 
         const booking = {
           id: bookingId,
@@ -613,7 +621,8 @@ export async function onRequestPost({ request, env }) {
           gatewayFee: gatewayFee,
           total: total,
           status: 'Pending Payment',
-          date: new Date().toISOString(),
+          date: nowIso,
+          statusUpdated: nowIso,
           checkinCode: checkinCode,
           roomId: selectedRoom ? selectedRoom.id : null,
           roomName: selectedRoom ? selectedRoom.name : null,
@@ -691,7 +700,16 @@ export async function onRequestPost({ request, env }) {
         }
       }
 
-      bookings[idx]={...b,status:body.status,statusUpdated:new Date().toISOString()};
+      // ===== IMPORTANT: refresh statusUpdated so the cooldown window starts now =====
+      const nowIso = new Date().toISOString();
+      bookings[idx] = {
+        ...b,
+        status: body.status,
+        statusUpdated: nowIso,
+        // For Payment Failed, also refresh date so downstream tools that
+        // read only `date` still see a fresh timestamp.
+        date: body.status === 'Payment Failed' ? nowIso : b.date
+      };
 
       await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
         .bind('kd_bookings',JSON.stringify(bookings)).run();
@@ -756,8 +774,9 @@ export async function onRequestPost({ request, env }) {
       if (idx === -1) {
         return jsonResponse({ error: "Booking not found" }, 404, request);
       }
+      const nowIso = new Date().toISOString();
       bookings[idx].status = body.status;
-      bookings[idx].statusUpdated = new Date().toISOString();
+      bookings[idx].statusUpdated = nowIso;
       if (body.booking) {
         bookings[idx] = { ...bookings[idx], ...body.booking };
       }
@@ -905,8 +924,7 @@ export async function onRequestPost({ request, env }) {
           emailResult = await sendStatusEmail({
             to: safeHomestay.ownerEmail,
             subject: `✅ Your listing "${safeHomestay.name}" is now live on Kundasang Homestay`,
-            html,
-            env,
+            html, env,
             logContext: `approveHomestay:${safeHomestay.id}`
           });
         }
@@ -960,14 +978,12 @@ export async function onRequestPost({ request, env }) {
         const html = rejectedEmailHtml({
           ownerName: homestay.ownerName || homestay.icName,
           homestayName: homestay.name,
-          reason,
-          env
+          reason, env
         });
         emailResult = await sendStatusEmail({
           to: homestay.ownerEmail,
           subject: `Update on your listing "${homestay.name}" — Kundasang Homestay`,
-          html,
-          env,
+          html, env,
           logContext: `rejectHomestay:${homestay.id}`
         });
       }
@@ -1044,8 +1060,7 @@ export async function onRequestPost({ request, env }) {
           emailResult = await sendStatusEmail({
             to: removed.ownerEmail,
             subject: `⚠️ Your listing "${removed.name}" has been removed — Kundasang Homestay`,
-            html,
-            env,
+            html, env,
             logContext: `removeApprovedHomestay:${removed.id}`
           });
         }
