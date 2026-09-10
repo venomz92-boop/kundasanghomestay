@@ -1,10 +1,21 @@
-// /api/resend-code.js – With CSRF + rate limiting
-import { corsHeaders, jsonResponse, getGuestSession, logAction, enforceHttps, getClientIP, checkRateLimit, recordRateLimit, validateCSRFToken, getCSRFToken } from './_utils.js';
+// /api/resend-code.js – With CSRF + rate limiting + paid-only guard
+import {
+  corsHeaders,
+  jsonResponse,
+  getGuestSession,
+  logAction,
+  enforceHttps,
+  getClientIP,
+  checkRateLimit,
+  recordRateLimit,
+  validateCSRFToken,
+  getCSRFToken
+} from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
-  
+
   try {
     const session = await getGuestSession(request, env);
     if (!session) return jsonResponse({ error: 'Unauthorized' }, 401, request);
@@ -17,18 +28,31 @@ export async function onRequestPost({ request, env }) {
 
     const { bookingId } = await request.json();
     if (!bookingId) return jsonResponse({ error: 'Missing bookingId' }, 400, request);
-    
+
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
-    
+
     const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
     let bookings = [];
     try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
     const idx = bookings.findIndex(b => String(b.id) === String(bookingId) && String(b.guestId) === String(session.userId));
     if (idx === -1) return jsonResponse({ error: 'Booking not found' }, 404, request);
-    
+
     const booking = bookings[idx];
-    
+
+    // ===== PAID-ONLY GUARD =====
+    // Only paid bookings are allowed to request a check-in code.
+    // Unpaid bookings have no code yet, and we must not generate one
+    // before payment succeeds (otherwise guests could get the code for free).
+    const status = String(booking.status || '');
+    const isPaid = status === 'Paid - Awaiting Check-in' ||
+                   status.startsWith('Completed');
+    if (!isPaid) {
+      return jsonResponse({
+        error: 'You can only request a check-in code for paid bookings. Please complete payment first.'
+      }, 403, request);
+    }
+
     // Rate limiting per booking (3 attempts per hour)
     const clientIP = getClientIP(request);
     const actionKey = `resend_${bookingId}`;
@@ -38,18 +62,17 @@ export async function onRequestPost({ request, env }) {
     }
     await recordRateLimit(db, clientIP, actionKey);
 
-    // Ensure checkinCode exists
+    // At this point booking is paid, so checkinCode MUST exist.
+    // If it somehow doesn't, flag a bug rather than silently generating one.
     if (!booking.checkinCode) {
-      booking.checkinCode = String(Math.floor(100000 + Math.random() * 900000));
-      bookings[idx] = booking;
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind('kd_bookings', JSON.stringify(bookings))
-        .run();
+      console.error(`Paid booking ${bookingId} has no checkinCode – this indicates a finalization bug`);
+      return jsonResponse({
+        error: 'Your check-in code is not available yet. Please contact support.'
+      }, 500, request);
     }
-    
+
     const code = booking.checkinCode;
-    
-    // Build email HTML
+
     const emailHtml = `
       <h2>Hello ${booking.guestName || 'Guest'},</h2>
       <p>Your booking at <strong>${booking.homestay}</strong> is confirmed!</p>
@@ -64,11 +87,10 @@ export async function onRequestPost({ request, env }) {
       <p><strong>Please keep this code safe.</strong> You will need to share it with the host when you arrive. Do not share it with anyone else.</p>
       <p>— Kundasang Homestay Team</p>
     `;
-    
+
     let emailSent = false;
     let emailError = null;
-    
-    // Try Resend
+
     if (env.RESEND_API_KEY) {
       try {
         const res = await fetch('https://api.resend.com/emails', {
@@ -86,9 +108,7 @@ export async function onRequestPost({ request, env }) {
       } catch (e) {
         emailError = e.message;
       }
-    } 
-    // Try SendGrid
-    else if (env.SENDGRID_API_KEY) {
+    } else if (env.SENDGRID_API_KEY) {
       try {
         const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
           method: 'POST',
@@ -108,27 +128,30 @@ export async function onRequestPost({ request, env }) {
     } else {
       emailError = 'No email API key configured';
     }
-    
-    // Log the attempt
-    await logAction({ 
-      db, 
-      action: 'code_resent', 
-      admin: 'guest', 
-      details: `Resent code for ${bookingId} (email sent: ${emailSent})`, 
-      ip: getClientIP(request), 
-      userId: session.userId 
+
+    await logAction({
+      db,
+      action: 'code_resent',
+      admin: 'guest',
+      details: `Resent code for ${bookingId} (email sent: ${emailSent})`,
+      ip: getClientIP(request),
+      userId: session.userId
     });
-    
+
     return jsonResponse({
       success: true,
       emailSent: emailSent,
-      message: emailSent 
-        ? 'Check‑in code resent to your email.' 
+      message: emailSent
+        ? 'Check‑in code resent to your email.'
         : `Failed to send email: ${emailError || 'unknown error'}. Please contact support.`
     }, 200, request);
-    
-  } catch(e) {
+
+  } catch (e) {
     console.error('Resend code error:', e);
     return jsonResponse({ error: 'Failed to resend: ' + e.message }, 500, request);
   }
+}
+
+export async function onRequestOptions({ request }) {
+  return new Response(null, { headers: corsHeaders(request) });
 }
