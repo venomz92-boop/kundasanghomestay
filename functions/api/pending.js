@@ -1,4 +1,4 @@
-// /api/pending.js – With server‑side validation + admin update mode + rate limiting
+// /api/pending.js – With server‑side validation + admin update mode + rate limiting + owner-account link
 import {
   corsHeaders,
   getClientIP,
@@ -6,6 +6,7 @@ import {
   enforceHttps,
   hashPassword,
   getAdminToken,
+  getOwnerSession,
   jsonResponse,
   checkRateLimit,
   recordRateLimit
@@ -44,6 +45,7 @@ async function syncHomestayToHomestays(db, homestay) {
     ownerName: homestay.ownerName,
     ownerEmail: homestay.ownerEmail,
     whatsapp: homestay.whatsapp,
+    ownerId: homestay.ownerId || null,
     ownerBank: homestay.ownerBank || '',
     ownerBankAccount: homestay.ownerBankAccount || '',
     bankCode: homestay.bankCode || '',
@@ -97,7 +99,6 @@ export async function onRequestPost({ request, env }) {
 
     // ============================================================
     // ADMIN UPDATE MODE — used by admin.html Force Sync
-    // Accepts { pending: [...] } to overwrite kd_pending wholesale.
     // ============================================================
     if (Object.prototype.hasOwnProperty.call(body, 'pending') && body.pending !== undefined) {
       const adminToken = await getAdminToken(request);
@@ -124,13 +125,48 @@ export async function onRequestPost({ request, env }) {
     // PUBLIC SUBMIT MODE
     // ============================================================
     const h = body.homestay || body.listing;
+    if (!h) {
+      return jsonResponse({ error: 'Homestay data is required' }, 400, request);
+    }
+
+    // ===== Attempt to use an authenticated owner =====
+    const ownerSession = await getOwnerSession(request, env);
+    const clientIP = getClientIP(request);
+
+    let ownerId = null;
+    let ownerName = null;
+    let ownerEmail = null;
+    let ownerWhatsapp = null;
+    let authenticatedOwnerAccount = null;
+
+    if (ownerSession && ownerSession.type === 'owner') {
+      const cleanWa = String(ownerSession.whatsapp || ownerSession.ownerId || '').replace(/[^0-9]/g, '');
+      if (cleanWa) {
+        // Look up the owner account so we can use trusted values
+        const ownersRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
+        let owners = [];
+        try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch(_) {}
+        const acc = owners.find(o => String(o.whatsapp || '').replace(/[^0-9]/g, '') === cleanWa);
+        if (acc && acc.verified === true) {
+          authenticatedOwnerAccount = acc;
+          ownerId = acc.id;
+          ownerName = acc.ownerName;
+          ownerEmail = acc.ownerEmail;
+          ownerWhatsapp = cleanWa;
+        }
+      }
+    }
+
     const ownerPassword = String(body.ownerPassword || '');
 
-    if (!h || !ownerPassword) {
-      return jsonResponse({ error: 'Homestay and ownerPassword are required' }, 400, request);
-    }
-    if (ownerPassword.length < 8) {
-      return jsonResponse({ error: 'Owner password must be at least 8 characters' }, 400, request);
+    // Password is required only when the owner is NOT authenticated
+    if (!authenticatedOwnerAccount) {
+      if (!ownerPassword) {
+        return jsonResponse({ error: 'Homestay and ownerPassword are required' }, 400, request);
+      }
+      if (ownerPassword.length < 8) {
+        return jsonResponse({ error: 'Owner password must be at least 8 characters' }, 400, request);
+      }
     }
 
     const required = ['name', 'location', 'ownerPrice', 'ownerName', 'whatsapp', 'ownerEmail', 'ownerBankAccount', 'bankHolder'];
@@ -142,9 +178,9 @@ export async function onRequestPost({ request, env }) {
 
     const name = sanitizeString(h.name, 100);
     const location = sanitizeString(h.location, 50);
-    const ownerName = sanitizeString(h.ownerName, 100);
-    const ownerEmail = String(h.ownerEmail || '').toLowerCase().trim();
-    const whatsapp = String(h.whatsapp || '').replace(/[^0-9]/g, '');
+    const finalOwnerName = authenticatedOwnerAccount ? ownerName : sanitizeString(h.ownerName, 100);
+    const finalOwnerEmail = authenticatedOwnerAccount ? ownerEmail : String(h.ownerEmail || '').toLowerCase().trim();
+    const finalWhatsapp = authenticatedOwnerAccount ? ownerWhatsapp : String(h.whatsapp || '').replace(/[^0-9]/g, '');
     const ownerBankAccount = String(h.ownerBankAccount || '').replace(/[^0-9]/g, '');
     const bankHolder = sanitizeString(h.bankHolder, 100);
     const description = sanitizeDescription(h.description || '');
@@ -156,10 +192,10 @@ export async function onRequestPost({ request, env }) {
     const guests = Math.max(1, Math.min(20, Number(h.guests) || 1));
     const bedrooms = Math.max(1, Math.min(10, Number(h.bedrooms) || 1));
 
-    if (!isValidEmail(ownerEmail)) {
+    if (!isValidEmail(finalOwnerEmail)) {
       return jsonResponse({ error: 'Invalid email address' }, 400, request);
     }
-    if (!isValidPhone(whatsapp)) {
+    if (!isValidPhone(finalWhatsapp)) {
       return jsonResponse({ error: 'Invalid WhatsApp number' }, 400, request);
     }
     if (!isValidPrice(price)) {
@@ -172,7 +208,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'IC name is required' }, 400, request);
     }
 
-    const clientIP = getClientIP(request);
     const rateOk = await checkRateLimit(db, clientIP, 'pending_submit', 3, 60 * 60);
     if (!rateOk) {
       return jsonResponse({ error: 'Too many submissions. Please wait an hour.' }, 429, request);
@@ -182,14 +217,31 @@ export async function onRequestPost({ request, env }) {
     const pending = await read(db, 'kd_pending');
     const approved = await read(db, 'kd_approved');
     const duplicate = [...pending, ...approved].some(x =>
-      String(x.ownerEmail || '').toLowerCase() === ownerEmail &&
+      String(x.ownerEmail || '').toLowerCase() === finalOwnerEmail &&
       String(x.name || '').toLowerCase() === name.toLowerCase()
     );
     if (duplicate) {
       return jsonResponse({ error: 'Unable to submit listing. Please check your details or contact support.' }, 400, request);
     }
 
-    const hashed = await hashPassword(ownerPassword, env);
+    // For authenticated owners: reuse their stored password hash
+    let passwordFields = {};
+    if (authenticatedOwnerAccount) {
+      passwordFields = {
+        ownerPasswordHash: authenticatedOwnerAccount.ownerPasswordHash,
+        ownerSalt: authenticatedOwnerAccount.ownerSalt,
+        ownerPasswordAlgorithm: authenticatedOwnerAccount.ownerPasswordAlgorithm,
+        ownerPasswordVersion: authenticatedOwnerAccount.ownerPasswordVersion || 1
+      };
+    } else {
+      const hashed = await hashPassword(ownerPassword, env);
+      passwordFields = {
+        ownerPasswordHash: hashed.hash,
+        ownerSalt: hashed.salt,
+        ownerPasswordAlgorithm: hashed.algorithm,
+        ownerPasswordVersion: 1
+      };
+    }
 
     const clean = {
       ...h,
@@ -197,9 +249,10 @@ export async function onRequestPost({ request, env }) {
       name,
       location,
       description,
-      ownerName,
-      ownerEmail,
-      whatsapp,
+      ownerName: finalOwnerName,
+      ownerEmail: finalOwnerEmail,
+      whatsapp: finalWhatsapp,
+      ownerId: ownerId, // null in legacy flow, kd_owners.id in new flow
       ownerBank: bankName,
       ownerBankAccount,
       bankCode,
@@ -214,10 +267,7 @@ export async function onRequestPost({ request, env }) {
       blockedDates: Array.isArray(h.blockedDates) ? h.blockedDates.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 365) : [],
       approved: false,
       verified: false,
-      ownerPasswordHash: hashed.hash,
-      ownerSalt: hashed.salt,
-      ownerPasswordAlgorithm: hashed.algorithm,
-      ownerPasswordVersion: 1,
+      ...passwordFields,
       createdAt: new Date().toISOString()
     };
     delete clean.password;
@@ -233,7 +283,7 @@ export async function onRequestPost({ request, env }) {
       db,
       action: 'homestay_submitted',
       admin: 'public',
-      details: `Homestay ${clean.id} submitted and synced`,
+      details: `Homestay ${clean.id} submitted and synced${ownerId ? ' (owner account: ' + ownerId + ')' : ''}`,
       ip: clientIP,
       userId: clean.ownerEmail,
       homestayId: clean.id
