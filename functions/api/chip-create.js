@@ -9,7 +9,9 @@ import {
   validateCSRFToken,
   jsonResponse,
   checkRateLimit,
-  recordRateLimit
+  recordRateLimit,
+  withLock,
+  finalizePaidBooking
 } from './_utils.js';
 
 // ============================================================
@@ -134,32 +136,38 @@ export async function onRequestPost({ request, env }) {
           // send email if we just generated the code.
           // ============================================================
           if (status === 'paid' || status === 'completed') {
-            const codeWasMissing = !booking.checkinCode;
-            const code = booking.checkinCode || Math.floor(100000 + Math.random() * 900000).toString();
+            let finalizeResult;
+            try {
+              finalizeResult = await withLock(db, `paid-${booking.id}`, async (db) => {
+                return await finalizePaidBooking(db, booking.id);
+              }, 10000);
+            } catch (lockErr) {
+              if (lockErr.message && lockErr.message.includes('in progress')) {
+                await new Promise(r => setTimeout(r, 800));
+                const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+                let bb = [];
+                try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
+                const cur = bb.find(b => String(b.id) === String(booking.id));
+                if (cur && (cur.status === 'Paid - Awaiting Check-in' || String(cur.status).startsWith('Completed'))) {
+                  finalizeResult = { alreadyFinalized: true, booking: cur };
+                } else {
+                  throw lockErr;
+                }
+              } else {
+                throw lockErr;
+              }
+            }
 
-            bookings[idx] = {
-              ...booking,
-              status: 'Paid - Awaiting Check-in',
-              paid_at: booking.paid_at || new Date().toISOString(),
-              chip_status: 'paid',
-              checkinCode: code
-            };
-            await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-              .bind('kd_bookings', JSON.stringify(bookings))
-              .run();
-
-            // Only send email if we just generated the code (avoid duplicates
-            // with webhook / verify-payment paths)
-            if (codeWasMissing) {
+            if (finalizeResult.finalized && finalizeResult.codeWasMissing) {
               try {
                 await sendCheckinCodeEmail(
-                  booking.guestEmail,
-                  booking.guestName || 'Guest',
-                  booking.id,
-                  code,
-                  booking.homestay || 'Kundasang Homestay',
-                  booking.checkin,
-                  booking.checkout,
+                  finalizeResult.booking.guestEmail,
+                  finalizeResult.booking.guestName || 'Guest',
+                  finalizeResult.booking.id,
+                  finalizeResult.checkinCode,
+                  finalizeResult.booking.homestay || 'Kundasang Homestay',
+                  finalizeResult.booking.checkin,
+                  finalizeResult.booking.checkout,
                   env
                 );
               } catch (mailErr) {
@@ -171,7 +179,7 @@ export async function onRequestPost({ request, env }) {
               db,
               action: 'chip_payment_already_paid',
               admin: 'guest',
-              details: `Booking ${booking.id} found paid in CHIP via chip-create; status updated${codeWasMissing ? ' (code generated + email sent)' : ''}`,
+              details: `Booking ${booking.id} found paid in CHIP via chip-create; ${finalizeResult.finalized ? 'finalized' : 'already finalized'}`,
               ip: clientIP,
               userId: session.userId,
               homestayId: booking.homestayId
