@@ -601,7 +601,6 @@ export async function onRequestPost({ request, env }) {
         if (!/^KDH-[A-Za-z0-9_-]{4,40}$/.test(bookingId) || allBookings.some(b=>String(b.id)===bookingId)) {
           bookingId = `KDH-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
         }
-        const checkinCode = String(Math.floor(100000 + Math.random() * 900000));
         const nowIso = new Date().toISOString();
 
         const booking = {
@@ -623,7 +622,6 @@ export async function onRequestPost({ request, env }) {
           status: 'Pending Payment',
           date: nowIso,
           statusUpdated: nowIso,
-          checkinCode: checkinCode,
           roomId: selectedRoom ? selectedRoom.id : null,
           roomName: selectedRoom ? selectedRoom.name : null,
           roomImages: selectedRoom ? (selectedRoom.images || []) : []
