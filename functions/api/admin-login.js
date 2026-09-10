@@ -4,7 +4,7 @@ import { corsHeaders, getClientIP, enforceHttps, cookieHeader, jsonResponse, che
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
-  
+
   try {
     const clientIP = getClientIP(request);
     const db = env.DB;
@@ -39,11 +39,11 @@ export async function onRequestPost({ request, env }) {
       }
 
       console.log(`✅ Admin login successful (IP: ${clientIP})`);
-      
-      return new Response(JSON.stringify({ 
-        success: true, 
-        token: token,
+
+      return new Response(JSON.stringify({
+        success: true,
         message: "Login successful"
+        // ⛔ NO token returned to client
       }), {
         status: 200,
         headers: {
@@ -56,7 +56,7 @@ export async function onRequestPost({ request, env }) {
       await recordRateLimit(db, clientIP, 'admin_login');
       return jsonResponse({ error: "Invalid credentials" }, 401, request);
     }
-    
+
   } catch (e) {
     console.error("❌ Admin login error:", e.message);
     return jsonResponse({ error: "Login failed. Please try again later." }, 500, request);
