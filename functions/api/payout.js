@@ -1,4 +1,4 @@
-// /api/payout.js – CHIP Send with correct credentials
+// /api/payout.js – CHIP Send (admin emergency override)
 import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, getOwnerSession, checkRateLimit, recordRateLimit, parseJSONSafely, jsonResponse } from './_utils.js';
 
 async function hmacSha512(message, secret) {
@@ -13,7 +13,6 @@ async function hmacSha512(message, secret) {
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ===== CHIP Bank code mapping (BIC/SWIFT codes) =====
 function getChipBankCode(bankName) {
   const map = {
     'AEON BANK': 'ACDBMYK2',
@@ -25,36 +24,24 @@ function getChipBankCode(bankName) {
     'BANK ISLAM': 'BIMBMYKL',
     'BANK RAKYAT': 'BKRMMYKL',
     'BANK MUAMALAT': 'BMMBMYKL',
-    'BANK OF AMERICA': 'BOFAMY2X',
-    'BANK OF CHINA': 'BKCHMYKL',
-    'BANK OF TOKYO-MITSUBISHI': 'BOTKMYKX',
     'BSN': 'BSNAMYK1',
-    'BNP PARIBAS': 'BNPAMYKL',
-    'CHINA CONSTRUCTION BANK': 'PCBCMYKL',
     'CIMB': 'CIBBMYKL',
-    'DEUTSCHE BANK': 'DEUTMYKL',
-    'FINEXUS': 'FNXSMYNB',
-    'GX BANK': 'GXSPMYKL',
     'HONG LEONG': 'HLBBMYKL',
     'HSBC': 'HBMBMYKL',
-    'ICBC': 'ICBKMYKL',
-    'JP MORGAN': 'CHASMYKX',
-    'KUWAIT FINANCE HOUSE': 'KFHOMYKL',
     'MAYBANK': 'MBBEMYKL',
     'MBSB': 'AFBQMYKL',
-    'MIZUHO': 'MHCBMYKA',
     'OCBC': 'OCBCMYKL',
     'PUBLIC BANK': 'PBBEMYKL',
     'RHB': 'RHBBMYKL',
     'STANDARD CHARTERED': 'SCBLMYKX',
-    'SUMITOMO MITSUI': 'SMBCMYKL',
     'TOUCH N GO': 'TNGDMYNB',
     'UOB': 'UOVBMYKL'
   };
-
   const clean = (bankName || '').toUpperCase().trim();
-  for (const [key, code] of Object.entries(map)) {
-    if (clean.includes(key) || key.includes(clean)) return code;
+  if (!clean) return 'MBBEMYKL';
+  const entries = Object.entries(map).sort((a, b) => b[0].length - a[0].length);
+  for (const [key, code] of entries) {
+    if (clean.includes(key)) return code;
   }
   return 'MBBEMYKL';
 }
@@ -141,11 +128,11 @@ export async function onRequestPost({ request, env }) {
     let bookings = [];
     try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
     const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-    if (idx !== -1 && bookings[idx].payoutDate) {
+    if (idx !== -1 && (bookings[idx].payoutDate || bookings[idx].payoutSuccessDate || bookings[idx].ownerPayoutId)) {
       return jsonResponse({
         success: true,
         warning: true,
-        message: `Booking ${bookingId} already paid on ${bookings[idx].payoutDate}`,
+        message: `Booking ${bookingId} already paid.`,
         alreadyPaid: true
       }, 200, request);
     }
@@ -162,7 +149,7 @@ export async function onRequestPost({ request, env }) {
     if (!homestayId && booking) {
       const homestay = await getHomestay(db, booking.homestayId);
       if (homestay) {
-        bankCode = getChipBankCode(homestay.ownerBank || homestay.ownerBankCode || bankCode);
+        bankCode = getChipBankCode(homestay.ownerBank || homestay.bankCode || bankCode);
         accountName = homestay.bankHolder || homestay.ownerName || ownerName;
         accountNumber = homestay.ownerBankAccount?.replace(/[^0-9]/g, '') || cleanOwnerAcc;
         bankAccountId = homestay.chip_bank_account_id || null;
@@ -170,23 +157,20 @@ export async function onRequestPost({ request, env }) {
     } else if (homestayId) {
       const homestay = await getHomestay(db, homestayId);
       if (homestay) {
-        bankCode = getChipBankCode(homestay.ownerBank || homestay.ownerBankCode || bankCode);
+        bankCode = getChipBankCode(homestay.ownerBank || homestay.bankCode || bankCode);
         accountName = homestay.bankHolder || homestay.ownerName || ownerName;
         accountNumber = homestay.ownerBankAccount?.replace(/[^0-9]/g, '') || cleanOwnerAcc;
         bankAccountId = homestay.chip_bank_account_id || null;
       }
     }
 
-    // ===== CHIP Send credentials =====
     const apiKey = env.CHIP_API_KEY;
     const apiSecret = env.CHIP_API_SECRET;
 
-    // ---- FIX: Generic error for missing keys ----
     if (!apiKey || !apiSecret) {
       return jsonResponse({ error: 'Payment gateway configuration missing. Please contact support.' }, 500, request);
     }
 
-    // Create bank account if not exists
     if (!bankAccountId) {
       const epoch = Math.floor(Date.now() / 1000);
       const bankBody = JSON.stringify({
@@ -208,14 +192,12 @@ export async function onRequestPost({ request, env }) {
       });
       const bankData = await createRes.json();
       if (!createRes.ok || !bankData.id) {
-        // console.error('CHIP bank account creation failed:', bankData);
         return jsonResponse({ error: 'Failed to create owner bank account' }, 500, request);
       }
       bankAccountId = bankData.id;
       if (booking) await saveBankAccountId(db, booking.homestayId, bankAccountId);
     }
 
-    // Execute payout
     const amountCents = Math.round(payoutAmount * 100);
     const reference = `KDH-${bookingId}`;
     const payoutPayload = {
@@ -243,16 +225,17 @@ export async function onRequestPost({ request, env }) {
     const payoutData = await payoutRes.json();
 
     if (!payoutRes.ok || !payoutData.id) {
-      // console.error('CHIP Send failed:', payoutData);
       return jsonResponse({ error: 'Owner payout failed. Please try again.' }, 502, request);
     }
 
-    // Update booking
     if (idx !== -1) {
       bookings[idx].status = 'Completed - Payout Success';
       bookings[idx].chip_payout_id = payoutData.id;
+      bookings[idx].ownerPayoutId = payoutData.id;
       bookings[idx].payoutAmount = payoutAmount;
       bookings[idx].payoutDate = new Date().toISOString();
+      bookings[idx].payoutSuccessDate = new Date().toISOString();
+      bookings[idx].payoutSuccess = true;
       bookings[idx].checkedInAt = new Date().toISOString();
       bookings[idx].checkedInBy = auth.role === 'admin' ? 'admin' : 'owner';
       bookings[idx].chip_bank_code = bankCode;
@@ -261,7 +244,6 @@ export async function onRequestPost({ request, env }) {
         .run();
     }
 
-    // Record fee earnings
     try {
       const feeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_fee_earnings').first();
       let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
@@ -283,9 +265,7 @@ export async function onRequestPost({ request, env }) {
             .run();
         }
       }
-    } catch (e) {
-      // console.warn('Fee recording error:', e.message);
-    }
+    } catch (e) {}
 
     await logAction({
       db,
@@ -305,7 +285,6 @@ export async function onRequestPost({ request, env }) {
     }, 200, request);
 
   } catch (e) {
-    // console.error('Payout error:', e.message);
     return jsonResponse({ error: 'Payout failed. Please try again later.' }, 500, request);
   }
 }
