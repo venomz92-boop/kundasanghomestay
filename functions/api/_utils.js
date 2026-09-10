@@ -108,12 +108,29 @@ async function getUserRecord(type, userId, db) {
     try { if (r?.data) guests = JSON.parse(r.data); } catch(_) {}
     return guests.find(g => String(g.id) === String(userId)) || null;
   } else if (type === 'owner') {
+    const key = String(userId || '');
+    const cleanWa = key.replace(/[^0-9]/g, '');
+
+    // 1) Check kd_owners first (new host-account flow)
+    const ownersRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_owners').first();
+    let owners = [];
+    try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch(_) {}
+    const ownerAccount = owners.find(o =>
+      String(o.id) === key ||
+      (cleanWa && String(o.whatsapp || '').replace(/[^0-9]/g, '') === cleanWa)
+    );
+    if (ownerAccount) return ownerAccount;
+
+    // 2) Fall back to legacy homestay-based owner lookup
     const approved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
     const pending = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
     let homes = [];
     try { if (approved?.data) homes = homes.concat(JSON.parse(approved.data)); } catch(_) {}
     try { if (pending?.data) homes = homes.concat(JSON.parse(pending.data)); } catch(_) {}
-    return homes.find(h => String(h.id) === String(userId)) || null;
+    return homes.find(h =>
+      String(h.id) === key ||
+      (cleanWa && String(h.whatsapp || '').replace(/[^0-9]/g, '') === cleanWa)
+    ) || null;
   }
   return null;
 }
@@ -430,27 +447,55 @@ export async function incrementOwnerSessionVersion(db, ownerIdOrWhatsapp) {
   const input = String(ownerIdOrWhatsapp || '').trim();
   if (!input) return false;
 
-  // Step 1: try to find the homestay by ID to learn its WhatsApp
+  // Resolve to a whatsapp number
   let whatsapp = null;
-  for (const key of ['kd_approved', 'kd_pending']) {
-    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
-    if (!r?.data) continue;
-    let records = [];
-    try { records = JSON.parse(r.data); } catch (_) { continue; }
-    const found = records.find(x => String(x.id) === input);
-    if (found && found.whatsapp) {
-      whatsapp = String(found.whatsapp).replace(/[^0-9]/g, '');
-      break;
+
+  // Try kd_owners first
+  const ownersRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_owners').first();
+  let owners = [];
+  try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch (_) {}
+  const ownerAccount = owners.find(o => String(o.id) === input);
+  if (ownerAccount && ownerAccount.whatsapp) {
+    whatsapp = String(ownerAccount.whatsapp).replace(/[^0-9]/g, '');
+  }
+
+  // Try homestay lookup
+  if (!whatsapp) {
+    for (const key of ['kd_approved', 'kd_pending']) {
+      const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+      if (!r?.data) continue;
+      let records = [];
+      try { records = JSON.parse(r.data); } catch (_) { continue; }
+      const found = records.find(x => String(x.id) === input);
+      if (found && found.whatsapp) {
+        whatsapp = String(found.whatsapp).replace(/[^0-9]/g, '');
+        break;
+      }
     }
   }
-  // If no homestay matched, treat the input as a WhatsApp number directly
-  if (!whatsapp) {
-    whatsapp = input.replace(/[^0-9]/g, '');
-  }
+  // Last resort: treat input as whatsapp
+  if (!whatsapp) whatsapp = input.replace(/[^0-9]/g, '');
   if (!whatsapp) return false;
 
-  // Step 2: bump session version for every homestay sharing this WhatsApp
   let changed = false;
+
+  // 1) Bump kd_owners record
+  let ownersChanged = false;
+  owners = owners.map(o => {
+    const oWa = String(o.whatsapp || '').replace(/[^0-9]/g, '');
+    if (oWa === whatsapp) {
+      ownersChanged = true;
+      changed = true;
+      o.ownerSessionVersion = (o.ownerSessionVersion || 0) + 1;
+    }
+    return o;
+  });
+  if (ownersChanged) {
+    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+      .bind('kd_owners', JSON.stringify(owners)).run();
+  }
+
+  // 2) Bump all homestays sharing this whatsapp
   for (const key of ['kd_approved', 'kd_pending']) {
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
     if (!r?.data) continue;
