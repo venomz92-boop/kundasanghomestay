@@ -1,4 +1,4 @@
-// /api/owner-session.js — always 200, tells client if owner is logged in
+// /api/owner-session.js — always 200, returns auth status + homestays
 import {
   corsHeaders,
   enforceHttps,
@@ -15,10 +15,40 @@ export async function onRequestGet({ request, env }) {
     if (!owner || owner.type !== 'owner') {
       return jsonResponse({ authenticated: false }, 200, request, { 'Cache-Control': 'no-store' });
     }
+
+    const db = env.DB;
+    if (!db) {
+      return jsonResponse({ authenticated: false }, 200, request, { 'Cache-Control': 'no-store' });
+    }
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+
+    // Load owner's homestays and strip sensitive fields
+    const ids = (owner.homestayIds || [owner.ownerId]).map(String);
+    let homes = [];
+    for (const key of ['kd_approved', 'kd_pending']) {
+      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
+      if (!r?.data) continue;
+      try {
+        const arr = JSON.parse(r.data);
+        homes = homes.concat(arr.filter(h => ids.includes(String(h.id))));
+      } catch (_) {}
+    }
+
+    const safeHomes = homes.map(h => {
+      const {
+        ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm,
+        ownerPasswordVersion, ownerSessionVersion,
+        icImage, icOriginalName, bankQRImage, bankQROriginalName, pbtLicense,
+        ...rest
+      } = h;
+      return rest;
+    });
+
     return jsonResponse({
       authenticated: true,
       ownerId: owner.ownerId,
-      ownerName: owner.ownerName || null
+      ownerName: owner.ownerName || null,
+      homestays: safeHomes
     }, 200, request, { 'Cache-Control': 'no-store' });
   } catch (e) {
     return jsonResponse({ authenticated: false }, 200, request, { 'Cache-Control': 'no-store' });
