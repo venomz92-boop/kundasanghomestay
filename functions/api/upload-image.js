@@ -1,9 +1,12 @@
-// /api/upload-image.js – Secure & robust with file type validation + IP rate limit
+// /api/upload-image.js – Secure with auth + file type validation + IP rate limit
 import {
   corsHeaders,
   getClientIP,
   checkRateLimit,
-  recordRateLimit
+  recordRateLimit,
+  enforceHttps,
+  getGuestSession,
+  getOwnerSession
 } from './_utils.js';
 
 async function sha256(message) {
@@ -15,13 +18,23 @@ async function sha256(message) {
 }
 
 export async function onRequestPost({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+
   try {
+    // ===== 1. AUTH: allow only signed-in guests OR owners =====
+    const guest = await getGuestSession(request, env);
+    const owner = await getOwnerSession(request, env);
+    if (!guest && !owner) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ===== 2. Rate limit per IP =====
     const clientIP = getClientIP(request);
     const db = env.DB;
-
-    // ============================================================
-    // IP-based rate limit: 20 uploads per hour
-    // ============================================================
     if (db) {
       const rateOk = await checkRateLimit(db, clientIP, 'upload_image', 20, 60 * 60);
       if (!rateOk) {
@@ -136,10 +149,7 @@ export async function onRequestPost({ request, env }) {
 export async function onRequestGet({ request }) {
   return new Response(
     JSON.stringify({ error: 'Method not allowed. Use POST.' }),
-    {
-      status: 405,
-      headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-    }
+    { status: 405, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
   );
 }
 
