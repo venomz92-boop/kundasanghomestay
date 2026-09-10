@@ -1057,14 +1057,16 @@ function adminActionHandler(e) {
   if (!action) return;
   e.preventDefault();
 
-  const actionMap = {
+ const actionMap = {
     viewPendingDetails: (id) => viewPendingDetails(Number(id)),
     approveHomestay: (id) => approveHomestay(Number(id)),
     rejectHomestay: (id) => rejectHomestay(Number(id)),
     openOwnerAvailabilityManager: (id) => openOwnerAvailabilityManager(Number(id)),
     editApprovedHomestay: (id) => editApprovedHomestay(Number(id)),
     removeApprovedHomestay: (id) => removeApprovedHomestay(Number(id)),
+    deleteGuest: (id) => deleteGuest(id),
   };
+  
   if (actionMap[action]) {
     actionMap[action](id);
   }
