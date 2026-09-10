@@ -349,7 +349,7 @@ body {
   <div id="adminDashboard" class="hidden">
     <h2 class="text-3xl font-bold animate-on-scroll">Admin — CHIP Auto Payout</h2>
     <div class="text-[11px] text-zinc-500 mt-1 animate-on-scroll">Malaysia Time: <span id="myTimeNow"></span> • Timezone: Asia/Kuala_Lumpur (UTC+8)</div>
-    
+
     <!-- Force Sync & Cache Status -->
     <div class="flex items-center gap-3 flex-wrap mt-2 animate-on-scroll">
       <button onclick="forceSync()" class="btn-accent" style="padding:8px 18px; font-size:11px;">🔄 Force Sync (Cloud)</button>
@@ -513,7 +513,8 @@ function showConfirm(title, message) {
   ]);
 }
 function showPrompt(title, message, defaultValue) {
-  const input = `<input type="text" id="modalInput" value="${defaultValue || ''}" placeholder="Enter value..." />`;
+  const safeVal = String(defaultValue || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const input = `<input type="text" id="modalInput" value="${safeVal}" placeholder="Enter value..." />`;
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
     const titleEl = document.getElementById('modalTitle');
@@ -571,7 +572,13 @@ document.addEventListener('click', function(e) {
   }
 });
 
-let ADMIN_TOKEN = '';
+// =============================================================
+// AUTH STATE (cookie-based)
+// =============================================================
+// Admin auth is now carried by HttpOnly cookie 'admin_token' set by /api/admin-login.
+// The client never sees or stores the token.
+let ADMIN_LOGGED_IN = false;
+
 var CLOUD_ENABLED = true;
 var API_BASE = "/api";
 
@@ -588,10 +595,11 @@ let currentBookingFilter = 'all';
 let bookingsPage = 1;
 const BOOKINGS_PER_PAGE = 5;
 
+// ===== FIXED: no Authorization header – cookie is sent automatically =====
 async function fetchWithAuth(url, options = {}) {
-  const headers = options.headers || {};
-  if (ADMIN_TOKEN) headers['Authorization'] = 'Bearer ' + ADMIN_TOKEN;
-  return fetch(url, { ...options, headers });
+  const opts = { ...options, credentials: 'include' };
+  opts.headers = opts.headers || {};
+  return fetch(url, opts);
 }
 
 const MY_TZ = "Asia/Kuala_Lumpur";
@@ -705,23 +713,37 @@ function renderAvailabilityCalendar(h, containerId) {
   renderMonth.call(container);
 }
 
+// ===== FIXED: treats 401 as "not logged in" instead of throwing =====
 async function fetchCloudData(){
   if(!CLOUD_ENABLED) return false;
   try{
     const res = await fetchWithAuth(API_BASE + "/bookings", {cache:"no-store"});
+
+    if (res.status === 401) {
+      // Not authenticated – show login panel, hide dashboard
+      ADMIN_LOGGED_IN = false;
+      const loginEl = document.getElementById("adminLogin");
+      const dashEl = document.getElementById("adminDashboard");
+      if (loginEl) loginEl.classList.remove("hidden");
+      if (dashEl) dashEl.classList.add("hidden");
+      return false;
+    }
+
     if(!res.ok) {
-      if (res.status === 401) {
-        await showAlert("Session Expired", "Your admin session has expired. Please login again.");
-        sessionStorage.removeItem('kd_admin_token');
-        ADMIN_TOKEN = '';
-        location.reload();
-      }
       const cacheStatus = document.getElementById('cacheStatus');
       const cacheTs = document.getElementById('cacheTimestamp');
       if (cacheStatus) cacheStatus.classList.remove('hidden');
       if (cacheTs) cacheTs.textContent = new Date().toLocaleString();
       return false;
     }
+
+    // ===== Auth OK – reveal dashboard =====
+    ADMIN_LOGGED_IN = true;
+    const loginEl = document.getElementById("adminLogin");
+    const dashEl = document.getElementById("adminDashboard");
+    if (loginEl) loginEl.classList.add("hidden");
+    if (dashEl) dashEl.classList.remove("hidden");
+
     const data=await res.json();
     if(data.bookings && Array.isArray(data.bookings)){
       const map=new Map();
@@ -815,6 +837,7 @@ function saveDemoBlocked(){
   pushHomestaysToCloud();
 }
 
+// ===== FIXED: no token in response; cookie is set by server =====
 async function doAdminLogin() {
   const pass = document.getElementById("adminPass").value;
   const errorEl = document.getElementById("loginError");
@@ -823,19 +846,23 @@ async function doAdminLogin() {
     const res = await fetch(API_BASE + "/admin-login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ password: pass })
     });
     const data = await res.json();
-    if (data.success && data.token) {
-      ADMIN_TOKEN = data.token;
-      sessionStorage.setItem("kd_admin_token", ADMIN_TOKEN);
-      document.getElementById("adminLogin").classList.add("hidden");
-      document.getElementById("adminDashboard").classList.remove("hidden");
-      await fetchCloudData();
+    if (data.success) {
+      // Cookie is now set by the server. Fetch data to reveal dashboard.
+      const ok = await fetchCloudData();
+      if (!ok) {
+        errorEl.textContent = "Login succeeded but could not load dashboard data.";
+        errorEl.classList.remove("hidden");
+        return;
+      }
       renderAdmin();
       await fetchEarnings();
+      document.getElementById("adminPass").value = "";
     } else {
-      errorEl.textContent = data.error || "Login failed – no token received.";
+      errorEl.textContent = data.error || "Login failed.";
       errorEl.classList.remove("hidden");
     }
   } catch(e) {
@@ -844,11 +871,16 @@ async function doAdminLogin() {
   }
 }
 
+// ===== FIXED: clears server cookie via /api/admin-logout =====
 async function logoutAdmin() {
   const confirmed = await showConfirm("Logout", "Logout from admin panel?");
   if (!confirmed) return;
-  sessionStorage.removeItem('kd_admin_token');
-  ADMIN_TOKEN = '';
+  try {
+    await fetch('/api/admin-logout', { method: 'POST', credentials: 'include' });
+  } catch (e) { /* still proceed */ }
+  ADMIN_LOGGED_IN = false;
+  // Clear any legacy token storage
+  try { sessionStorage.removeItem('kd_admin_token'); } catch (e) {}
   document.getElementById('adminDashboard').classList.add('hidden');
   document.getElementById('adminLogin').classList.remove('hidden');
   document.getElementById('adminPass').value = '';
@@ -875,7 +907,6 @@ function renderAdmin(){
 
   const pc=document.getElementById("adminPendingCount"); if(pc) pc.innerText=pendingHomestays.length;
 
-  // FIX: CHIP status is now hardcoded to "CHIP Send" since server always uses CHIP
   const bs=document.getElementById("chipStatus");
   if(bs) bs.innerText = "CHIP Send (auto)";
 
@@ -1010,12 +1041,13 @@ function openEditHomestayModal(id) {
 
   let html = '';
   fields.forEach(f => {
+    const safeVal = String(f.value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     if (f.type === 'textarea') {
       html += `<div><label class="block text-xs font-bold text-zinc-600">${f.label}</label>
-        <textarea id="${f.id}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm">${f.value}</textarea></div>`;
+        <textarea id="${f.id}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm">${safeVal}</textarea></div>`;
     } else {
       html += `<div><label class="block text-xs font-bold text-zinc-600">${f.label}</label>
-        <input type="${f.type}" id="${f.id}" value="${f.value}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm" /></div>`;
+        <input type="${f.type}" id="${f.id}" value="${safeVal}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm" /></div>`;
     }
   });
   form.innerHTML = safeHTML(html);
@@ -1774,19 +1806,18 @@ document.addEventListener('click', async (e)=>{
   }
 });
 
-(async ()=>{
-  if(sessionStorage.getItem("kd_admin_token")){
-    ADMIN_TOKEN = sessionStorage.getItem("kd_admin_token");
-    try{
-      await fetchCloudData();
-      document.getElementById("adminLogin").classList.add("hidden");
-      document.getElementById("adminDashboard").classList.remove("hidden");
-      renderAdmin();
-      await fetchEarnings();
-    }catch(e){
-      sessionStorage.removeItem('kd_admin_token');
-      ADMIN_TOKEN = '';
-    }
+// =============================================================
+// INIT — cookie-based auth: just try fetching cloud data.
+// If 401, login panel is shown. If 200, dashboard is revealed.
+// =============================================================
+(async () => {
+  // Clear any legacy token from prior versions
+  try { sessionStorage.removeItem('kd_admin_token'); } catch (e) {}
+
+  await fetchCloudData();
+  if (ADMIN_LOGGED_IN) {
+    renderAdmin();
+    await fetchEarnings();
   }
 })();
 </script>
