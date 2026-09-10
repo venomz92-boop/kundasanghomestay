@@ -1,5 +1,5 @@
 // /api/chip-webhook.js – RSASSA-PKCS1-v1_5 + SHA-256 + Refund + Idempotency
-import { corsHeaders, getClientIP, logAction } from './_utils.js';
+import { corsHeaders, getClientIP, logAction, withLock, finalizePaidBooking } from './_utils.js';
 
 function pemToArrayBuffer(pem) {
   const b64 = pem
@@ -213,30 +213,44 @@ export async function onRequestPost({ request, env }) {
 
     // ===== PURCHASE PAID =====
     if (event === 'purchase.paid' || status === 'completed') {
-      if (booking.status === 'Paid - Awaiting Check-in' || booking.status === 'Completed - Payout Success') {
-        console.log(`Booking ${booking.id} already paid. Marking event as processed.`);
-      } else {
-        if (!booking.checkinCode) {
-          booking.checkinCode = Math.floor(100000 + Math.random() * 900000).toString();
-        }
-
-        bookings[idx] = {
-          ...booking,
-          status: 'Paid - Awaiting Check-in',
-          paid_at: new Date().toISOString(),
-          chip_status: 'paid',
-          chip_paid_at: new Date().toISOString()
-        };
-
-        await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-          .bind('kd_bookings', JSON.stringify(bookings))
-          .run();
-
-        const result = await sendCheckinEmail(bookings[idx], env);
-        if (result.emailSent) {
-          console.log(`Check-in code email sent to ${booking.guestEmail}`);
+      let finalizeResult;
+      try {
+        finalizeResult = await withLock(db, `paid-${booking.id}`, async (db) => {
+          return await finalizePaidBooking(db, booking.id);
+        }, 10000);
+      } catch (lockErr) {
+        // Another confirmation path is finalizing. Give it a moment and re-check.
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          await new Promise(r => setTimeout(r, 800));
+          const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+          let bb = [];
+          try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
+          const cur = bb.find(b => String(b.id) === String(booking.id));
+          if (cur && (cur.status === 'Paid - Awaiting Check-in' || String(cur.status).startsWith('Completed'))) {
+            finalizeResult = { alreadyFinalized: true, booking: cur, checkinCode: cur.checkinCode };
+          } else {
+            throw lockErr;
+          }
         } else {
-          console.warn(`Email failed: ${result.emailError}`);
+          throw lockErr;
+        }
+      }
+
+      if (finalizeResult.error) {
+        console.warn(`Finalize error: ${finalizeResult.error}`);
+      } else if (finalizeResult.alreadyFinalized) {
+        console.log(`Booking ${booking.id} already finalized by another path. Skipping email.`);
+      } else if (finalizeResult.finalized) {
+        // Only send email if we generated the code (avoid duplicates)
+        if (finalizeResult.codeWasMissing) {
+          const result = await sendCheckinEmail(finalizeResult.booking, env);
+          if (result.emailSent) {
+            console.log(`Check-in code email sent to ${booking.guestEmail}`);
+          } else {
+            console.warn(`Email failed: ${result.emailError}`);
+          }
+        } else {
+          console.log(`Booking ${booking.id} finalized but code already existed — no email sent.`);
         }
 
         await logAction({
@@ -248,8 +262,6 @@ export async function onRequestPost({ request, env }) {
           userId: booking.guestId,
           homestayId: booking.homestayId
         });
-
-        console.log(`Booking ${booking.id} marked as PAID`);
       }
     }
 
