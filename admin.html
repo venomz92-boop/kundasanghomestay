@@ -289,6 +289,127 @@ body {
 .calendar-legend .dot.red { background: #fef2f2; border: 1px solid #fecaca; }
 .calendar-legend .dot.today-dot { border: 2px solid var(--primary); background: white; width: 10px; height: 10px; }
 
+/* ============================================================
+  ADMIN ACTION BUTTONS
+   ============================================================ */
+.admin-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.admin-action-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+}
+
+.admin-action-btn:active {
+  transform: translateY(0);
+}
+
+/* ---------- Neutral (View / Edit / Manage) ---------- */
+.admin-action-btn[data-action="viewPendingDetails"],
+.admin-action-btn[data-action="editApprovedHomestay"],
+.admin-action-btn[data-action="openOwnerAvailabilityManager"],
+.admin-action-btn[data-action="changeBookingDates"] {
+  background: #0F382E;
+  border-color: #0F382E;
+  color: #ffffff;
+}
+.admin-action-btn[data-action="viewPendingDetails"]:hover,
+.admin-action-btn[data-action="editApprovedHomestay"]:hover,
+.admin-action-btn[data-action="openOwnerAvailabilityManager"]:hover,
+.admin-action-btn[data-action="changeBookingDates"]:hover {
+  background: #1a4d3e;
+  border-color: #1a4d3e;
+}
+
+/* ---------- Approve / Complete (green) ---------- */
+.admin-action-btn[data-action="approveHomestay"],
+.admin-action-btn[data-action="updateBookingStatus"] {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
+}
+.admin-action-btn[data-action="approveHomestay"]:hover,
+.admin-action-btn[data-action="updateBookingStatus"]:hover {
+  background: #15803d;
+  border-color: #15803d;
+}
+
+/* ---------- Reject / Delete (red) ---------- */
+.admin-action-btn[data-action="rejectHomestay"],
+.admin-action-btn[data-action="removeApprovedHomestay"],
+.admin-action-btn[data-action="deleteBooking"],
+.admin-action-btn[data-action="deleteGuest"],
+.admin-action-btn[data-action="deleteOwner"] {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+.admin-action-btn[data-action="rejectHomestay"]:hover,
+.admin-action-btn[data-action="removeApprovedHomestay"]:hover,
+.admin-action-btn[data-action="deleteBooking"]:hover,
+.admin-action-btn[data-action="deleteGuest"]:hover,
+.admin-action-btn[data-action="deleteOwner"]:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+/* ---------- Retry Payout (amber) ---------- */
+.admin-action-btn[data-action="retryPayout"] {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #ffffff;
+}
+.admin-action-btn[data-action="retryPayout"]:hover {
+  background: #d97706;
+  border-color: #d97706;
+}
+
+/* ---------- WhatsApp / Copy (subtle outline) ---------- */
+.admin-action-btn[data-action="whatsappGuest"] {
+  background: #25D366;
+  border-color: #25D366;
+  color: #ffffff;
+}
+.admin-action-btn[data-action="whatsappGuest"]:hover {
+  background: #1ebe5d;
+  border-color: #1ebe5d;
+}
+.admin-action-btn[data-action="copyBookingId"] {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+.admin-action-btn[data-action="copyBookingId"]:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+/* ---------- Mobile: slightly tighter ---------- */
+@media (max-width: 480px) {
+  .admin-action-btn {
+    padding: 7px 12px;
+    font-size: 10px;
+  }
+}
+
 @media (max-width: 768px) {
   #desktopNav { display: none !important; }
   #mobileMenuBtn { display: flex !important; }
