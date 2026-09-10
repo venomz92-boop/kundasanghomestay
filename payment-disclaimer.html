@@ -12,6 +12,21 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
   
+<!-- ===== EARLY FUNCTION DEFINITION ===== -->
+<script>
+  let lastToggleTime = 0;
+  window.toggleMobileMenu = function() {
+    const now = Date.now();
+    if (now - lastToggleTime < 300) return;
+    lastToggleTime = now;
+    const nav = document.getElementById('mobileNav');
+    if (nav) {
+      nav.classList.toggle('open');
+      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+    }
+  };
+</script>
+
 <!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
