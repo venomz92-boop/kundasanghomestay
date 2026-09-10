@@ -714,13 +714,14 @@ function renderAvailabilityCalendar(h, containerId) {
 }
 
 // ===== FIXED: treats 401 as "not logged in" instead of throwing =====
+// ===== FIXED: distinguishes admin vs public/guest response =====
 async function fetchCloudData(){
   if(!CLOUD_ENABLED) return false;
   try{
     const res = await fetchWithAuth(API_BASE + "/bookings", {cache:"no-store"});
 
+    // ---------- 401 → definitely not admin ----------
     if (res.status === 401) {
-      // Not authenticated – show login panel, hide dashboard
       ADMIN_LOGGED_IN = false;
       const loginEl = document.getElementById("adminLogin");
       const dashEl = document.getElementById("adminDashboard");
@@ -737,14 +738,33 @@ async function fetchCloudData(){
       return false;
     }
 
-    // ===== Auth OK – reveal dashboard =====
+    const data = await res.json();
+
+    // ---------- Detect PUBLIC / GUEST response ----------
+    // Admin responses ALWAYS include `pending`, `guests`, `demoOverrides`.
+    // Public responses only have `approved` + `availability`.
+    // Guest responses only have `bookings` + pagination fields.
+    const isAdminResponse =
+      data.pending !== undefined &&
+      data.guests !== undefined &&
+      data.demoOverrides !== undefined;
+
+    if (!isAdminResponse) {
+      ADMIN_LOGGED_IN = false;
+      const loginEl = document.getElementById("adminLogin");
+      const dashEl = document.getElementById("adminDashboard");
+      if (loginEl) loginEl.classList.remove("hidden");
+      if (dashEl) dashEl.classList.add("hidden");
+      return false;
+    }
+
+    // ---------- Real admin → reveal dashboard ----------
     ADMIN_LOGGED_IN = true;
     const loginEl = document.getElementById("adminLogin");
     const dashEl = document.getElementById("adminDashboard");
     if (loginEl) loginEl.classList.add("hidden");
     if (dashEl) dashEl.classList.remove("hidden");
 
-    const data=await res.json();
     if(data.bookings && Array.isArray(data.bookings)){
       const map=new Map();
       data.bookings.forEach(b=>{ if(b && b.id) map.set(String(b.id), b); });
@@ -789,7 +809,6 @@ async function fetchCloudData(){
     return false;
   }
 }
-
 async function forceSync() {
   const status = document.getElementById('cacheStatus');
   const ts = document.getElementById('cacheTimestamp');
