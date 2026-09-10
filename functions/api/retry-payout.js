@@ -1,5 +1,13 @@
-// /api/retry-payout.js — Admin retries failed CHIP Send payouts
-import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, jsonResponse, parseJSONSafely } from './_utils.js';
+// /api/retry-payout.js — Admin retries failed CHIP Send payouts + records platform fee
+import {
+  corsHeaders,
+  getClientIP,
+  logAction,
+  enforceHttps,
+  getAdminToken,
+  jsonResponse,
+  parseJSONSafely
+} from './_utils.js';
 
 function getChipBankCode(bankName) {
   const map = {
@@ -41,6 +49,8 @@ async function hmacSha512(message, secret) {
   const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
+const GATEWAY_FEE = 1.00;
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
@@ -86,7 +96,9 @@ export async function onRequestPost({ request, env }) {
     }
     if (!homestay) return jsonResponse({ error: 'Homestay not found' }, 404, request);
 
-    const ownerAmount = booking.base || 0;
+    const ownerAmount = Number(booking.base) || 0;
+    if (ownerAmount <= 0) return jsonResponse({ error: 'Invalid booking base amount' }, 400, request);
+
     const ownerAcc = (homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
     const ownerName = homestay.bankHolder || homestay.ownerName || '';
     if (!ownerAcc || ownerAcc.length < 10) return jsonResponse({ error: 'Invalid bank account' }, 400, request);
@@ -96,7 +108,7 @@ export async function onRequestPost({ request, env }) {
     const apiSecret = env.CHIP_API_SECRET;
     if (!apiKey || !apiSecret) return jsonResponse({ error: 'CHIP Send not configured' }, 500, request);
 
-    const chipBankCode = getChipBankCode(homestay.ownerBank || homestay.bankCode || homestay.bankCode);
+    const chipBankCode = getChipBankCode(homestay.ownerBank || homestay.bankCode || '');
 
     let bankAccountId = homestay.chip_bank_account_id || null;
     if (!bankAccountId) {
@@ -122,7 +134,8 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Failed to create bank account: ' + (bankData.error || 'unknown') }, 502, request);
       }
       bankAccountId = bankData.id;
-      // Save back
+
+      // Persist bank_account_id back
       for (const store of ['kd_approved', 'kd_homestays']) {
         const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
         let list = [];
@@ -177,11 +190,37 @@ export async function onRequestPost({ request, env }) {
     await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
       .bind('kd_bookings', JSON.stringify(bookings)).run();
 
+    // ===== RECORD PLATFORM FEE (idempotent) =====
+    try {
+      const feeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_fee_earnings').first();
+      let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
+      feeEarnings.history = feeEarnings.history || [];
+      const alreadyRecorded = feeEarnings.history.some(h => h.bookingId === bookingId && h.type === 'earning');
+      if (!alreadyRecorded) {
+        const feeToRecord = (Number(booking.fee) || 0) + (Number(booking.gatewayFee) || GATEWAY_FEE);
+        if (feeToRecord > 0) {
+          feeEarnings.total = (feeEarnings.total || 0) + feeToRecord;
+          feeEarnings.available = (feeEarnings.available || 0) + feeToRecord;
+          feeEarnings.history.push({
+            bookingId,
+            fee: feeToRecord,
+            date: new Date().toISOString(),
+            type: 'earning',
+            payoutToOwner: ownerAmount,
+            method: 'chip_send_retry',
+            ip: getClientIP(request)
+          });
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_fee_earnings', JSON.stringify(feeEarnings)).run();
+        }
+      }
+    } catch (e) { /* best-effort */ }
+
     await logAction({
       db,
       action: 'payout_retried',
       admin: 'admin',
-      details: `Retried payout for ${bookingId}: ${payoutData.id}`,
+      details: `Retried payout for ${bookingId}: ${payoutData.id} (RM${ownerAmount})`,
       ip: getClientIP(request),
       homestayId: booking.homestayId
     });
@@ -194,6 +233,7 @@ export async function onRequestPost({ request, env }) {
     }, 200, request);
 
   } catch (e) {
+    console.error('Retry payout error:', e.message);
     return jsonResponse({ error: 'Retry payout failed. Please try again later.' }, 500, request);
   }
 }
