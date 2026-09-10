@@ -913,11 +913,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     const bookingParam = urlParams.get('booking');
     const paymentReturn = urlParams.get('payment_return');
-    if (bookingParam && paymentReturn === '1' && currentGuest && currentGuest.id) {
-      setTimeout(function() {
-        manualCheckPayment(bookingParam);
-      }, 3000);
-    }
+  
   })();
 </script>
 </body>
