@@ -22,15 +22,28 @@ export async function onRequestGet({ request, env }) {
     }
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // Load owner's homestays and strip sensitive fields
-    const ids = (owner.homestayIds || [owner.ownerId]).map(String);
+    const cleanWa = String(owner.whatsapp || owner.ownerId || '').replace(/[^0-9]/g, '');
+
+    // Load homestays owned by this whatsapp
     let homes = [];
     for (const key of ['kd_approved', 'kd_pending']) {
       const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
       if (!r?.data) continue;
       try {
         const arr = JSON.parse(r.data);
-        homes = homes.concat(arr.filter(h => ids.includes(String(h.id))));
+        homes = homes.concat(arr.filter(h =>
+          String(h.whatsapp || '').replace(/[^0-9]/g, '') === cleanWa
+        ));
+      } catch (_) {}
+    }
+
+    // Load owner account for pre-fill info
+    let ownerAccount = null;
+    const ownersRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
+    if (ownersRes?.data) {
+      try {
+        const owners = JSON.parse(ownersRes.data);
+        ownerAccount = owners.find(o => String(o.whatsapp || '').replace(/[^0-9]/g, '') === cleanWa) || null;
       } catch (_) {}
     }
 
@@ -46,8 +59,11 @@ export async function onRequestGet({ request, env }) {
 
     return jsonResponse({
       authenticated: true,
-      ownerId: owner.ownerId,
-      ownerName: owner.ownerName || null,
+      ownerId: cleanWa,
+      ownerName: ownerAccount?.ownerName || owner.ownerName || null,
+      ownerEmail: ownerAccount?.ownerEmail || null,
+      whatsapp: cleanWa,
+      hasOwnerAccount: !!ownerAccount,
       homestays: safeHomes
     }, 200, request, { 'Cache-Control': 'no-store' });
   } catch (e) {
