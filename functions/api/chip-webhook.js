@@ -1,4 +1,4 @@
-// /api/chip-webhook.js – RSASSA-PKCS1-v1_5 + SHA-256 + Refund handling
+// /api/chip-webhook.js – RSASSA-PKCS1-v1_5 + SHA-256 + Refund + Idempotency
 import { corsHeaders, getClientIP, logAction } from './_utils.js';
 
 function pemToArrayBuffer(pem) {
@@ -12,13 +12,13 @@ function pemToArrayBuffer(pem) {
 async function verifyChipSignature(request, env) {
   const publicKeyPem = env.CHIP_PUBLIC_KEY;
   if (!publicKeyPem) {
-    console.error('❌ CHIP_PUBLIC_KEY missing – webhook signature cannot be verified');
+    console.error('CHIP_PUBLIC_KEY missing – webhook signature cannot be verified');
     return false;
   }
 
   const signature = request.headers.get('X-Signature');
   if (!signature) {
-    console.warn('⚠️ Missing X-Signature header');
+    console.warn('Missing X-Signature header');
     return false;
   }
 
@@ -40,7 +40,7 @@ async function verifyChipSignature(request, env) {
       sigBuffer,
       new TextEncoder().encode(body)
     );
-    if (!valid) console.warn('⚠️ Signature verification failed');
+    if (!valid) console.warn('Signature verification failed');
     return valid;
   } catch (e) {
     console.error('Signature verification error:', e.message);
@@ -53,12 +53,12 @@ async function sendCheckinEmail(booking, env) {
     <h2>Hello ${booking.guestName || 'Guest'},</h2>
     <p>Your booking at <strong>${booking.homestay}</strong> is confirmed!</p>
     <p><strong>Booking ID:</strong> ${booking.id}</p>
-    <p><strong>Check‑in:</strong> ${booking.checkin}</p>
-    <p><strong>Check‑out:</strong> ${booking.checkout}</p>
+    <p><strong>Check-in:</strong> ${booking.checkin}</p>
+    <p><strong>Check-out:</strong> ${booking.checkout}</p>
     <p><strong>Nights:</strong> ${booking.nights}</p>
     <p><strong>Total Paid:</strong> RM ${Number(booking.total).toFixed(2)}</p>
     <p style="font-size:20px; font-weight:bold; background:#f0fdf4; padding:10px; border-radius:8px; border:1px solid #bbf7d0; display:inline-block;">
-      🏔️ Your 6‑digit check‑in code: <span style="color:#0F382E;">${booking.checkinCode}</span>
+      Your 6-digit check-in code: <span style="color:#0F382E;">${booking.checkinCode}</span>
     </p>
     <p><strong>Please keep this code safe.</strong> You will need to share it with the host when you arrive. Do not share it with anyone else.</p>
     <p>— Kundasang Homestay Team</p>
@@ -75,7 +75,7 @@ async function sendCheckinEmail(booking, env) {
         body: JSON.stringify({
           from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
           to: booking.guestEmail,
-          subject: 'Your Check‑in Code',
+          subject: 'Your Check-in Code',
           html: emailHtml
         })
       });
@@ -92,7 +92,7 @@ async function sendCheckinEmail(booking, env) {
         body: JSON.stringify({
           personalizations: [{ to: [{ email: booking.guestEmail }] }],
           from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
-          subject: 'Your Check‑in Code',
+          subject: 'Your Check-in Code',
           content: [{ type: 'text/html', value: emailHtml }]
         })
       });
@@ -168,12 +168,12 @@ export async function onRequestPost({ request, env }) {
   try {
     const isValid = await verifyChipSignature(request, env);
     if (!isValid) {
-      console.warn('❌ Invalid CHIP webhook signature');
+      console.warn('Invalid CHIP webhook signature');
       return new Response('Invalid signature', { status: 401, headers: corsHeaders(request) });
     }
 
     const payload = await request.json();
-    console.log('✅ CHIP webhook received:', payload);
+    console.log('CHIP webhook received:', payload);
 
     const event = payload.event;
     const purchaseId = payload.data?.id;
@@ -185,13 +185,27 @@ export async function onRequestPost({ request, env }) {
 
     const db = env.DB;
     if (!db) return new Response('DB error', { status: 500, headers: corsHeaders(request) });
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+
+    // ============================================================
+    // IDEMPOTENCY: dedupe events by event + purchaseId
+    // ============================================================
+    const eventKey = `${event}:${purchaseId}`;
+    const eventsRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_webhook_events').first();
+    let processedEvents = [];
+    try { if (eventsRes?.data) processedEvents = JSON.parse(eventsRes.data); } catch (_) {}
+
+    if (processedEvents.includes(eventKey)) {
+      console.log(`Webhook event ${eventKey} already processed. Skipping.`);
+      return new Response('OK', { status: 200, headers: corsHeaders(request) });
+    }
 
     const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
     let bookings = [];
     try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
     const idx = bookings.findIndex(b => b.chip_purchase_id === purchaseId);
     if (idx === -1) {
-      console.warn(`⚠️ No booking found for purchase_id: ${purchaseId}`);
+      console.warn(`No booking found for purchase_id: ${purchaseId}`);
       return new Response('Booking not found', { status: 404, headers: corsHeaders(request) });
     }
 
@@ -199,45 +213,44 @@ export async function onRequestPost({ request, env }) {
 
     // ===== PURCHASE PAID =====
     if (event === 'purchase.paid' || status === 'completed') {
-      if (booking.status === 'Paid - Awaiting Check-in') {
-        console.log(`ℹ️ Booking ${booking.id} already paid. Skipping.`);
-        return new Response('OK', { status: 200, headers: corsHeaders(request) });
-      }
-
-      if (!booking.checkinCode) {
-        booking.checkinCode = Math.floor(100000 + Math.random() * 900000).toString();
-      }
-
-      bookings[idx] = {
-        ...booking,
-        status: 'Paid - Awaiting Check-in',
-        paid_at: new Date().toISOString(),
-        chip_status: 'paid',
-        chip_paid_at: new Date().toISOString()
-      };
-
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind('kd_bookings', JSON.stringify(bookings))
-        .run();
-
-      const result = await sendCheckinEmail(bookings[idx], env);
-      if (result.emailSent) {
-        console.log(`✅ Check‑in code email sent to ${booking.guestEmail}`);
+      if (booking.status === 'Paid - Awaiting Check-in' || booking.status === 'Completed - Payout Success') {
+        console.log(`Booking ${booking.id} already paid. Marking event as processed.`);
       } else {
-        console.warn(`⚠️ Email failed: ${result.emailError}`);
+        if (!booking.checkinCode) {
+          booking.checkinCode = Math.floor(100000 + Math.random() * 900000).toString();
+        }
+
+        bookings[idx] = {
+          ...booking,
+          status: 'Paid - Awaiting Check-in',
+          paid_at: new Date().toISOString(),
+          chip_status: 'paid',
+          chip_paid_at: new Date().toISOString()
+        };
+
+        await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+          .bind('kd_bookings', JSON.stringify(bookings))
+          .run();
+
+        const result = await sendCheckinEmail(bookings[idx], env);
+        if (result.emailSent) {
+          console.log(`Check-in code email sent to ${booking.guestEmail}`);
+        } else {
+          console.warn(`Email failed: ${result.emailError}`);
+        }
+
+        await logAction({
+          db,
+          action: 'chip_payment_success',
+          admin: 'webhook',
+          details: `Booking ${booking.id} paid via CHIP`,
+          ip: getClientIP(request),
+          userId: booking.guestId,
+          homestayId: booking.homestayId
+        });
+
+        console.log(`Booking ${booking.id} marked as PAID`);
       }
-
-      await logAction({
-        db,
-        action: 'chip_payment_success',
-        admin: 'webhook',
-        details: `Booking ${booking.id} paid via CHIP`,
-        ip: getClientIP(request),
-        userId: booking.guestId,
-        homestayId: booking.homestayId
-      });
-
-      console.log(`✅ Booking ${booking.id} marked as PAID`);
     }
 
     // ===== PURCHASE FAILED =====
@@ -250,7 +263,7 @@ export async function onRequestPost({ request, env }) {
       await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
         .bind('kd_bookings', JSON.stringify(bookings))
         .run();
-      console.log(`⚠️ Booking ${booking.id} marked as FAILED`);
+      console.log(`Booking ${booking.id} marked as FAILED`);
     }
 
     // ===== PURCHASE REFUNDED =====
@@ -274,9 +287,9 @@ export async function onRequestPost({ request, env }) {
 
       const result = await sendRefundEmail(bookings[idx], env);
       if (result.emailSent) {
-        console.log(`✅ Refund email sent to ${booking.guestEmail}`);
+        console.log(`Refund email sent to ${booking.guestEmail}`);
       } else {
-        console.warn(`⚠️ Refund email failed: ${result.emailError}`);
+        console.warn(`Refund email failed: ${result.emailError}`);
       }
 
       await logAction({
@@ -289,13 +302,24 @@ export async function onRequestPost({ request, env }) {
         homestayId: booking.homestayId
       });
 
-      console.log(`✅ Booking ${booking.id} marked as REFUNDED (RM${refundedAmount.toFixed(2)})`);
+      console.log(`Booking ${booking.id} marked as REFUNDED (RM${refundedAmount.toFixed(2)})`);
     }
+
+    // ============================================================
+    // Record event as processed (only after successful handling)
+    // ============================================================
+    processedEvents.push(eventKey);
+    if (processedEvents.length > 1000) {
+      processedEvents = processedEvents.slice(-1000);
+    }
+    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+      .bind('kd_webhook_events', JSON.stringify(processedEvents))
+      .run();
 
     return new Response('OK', { status: 200, headers: corsHeaders(request) });
 
   } catch (e) {
-    console.error('❌ Webhook error:', e.message);
+    console.error('Webhook error:', e.message);
     return new Response('Internal server error', { status: 500, headers: corsHeaders(request) });
   }
 }
