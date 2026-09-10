@@ -1102,6 +1102,8 @@ async function updateHomestayPrice() {
   let authed = false;
   let storedHomestays = null;
   let storedName = 'Owner';
+
+  // Prefer cached homestays (fast) but fall back to server on empty storage
   try {
     const raw = sessionStorage.getItem('kd_owner_homestays');
     if (raw) storedHomestays = JSON.parse(raw);
@@ -1109,13 +1111,23 @@ async function updateHomestayPrice() {
     if (n) storedName = n;
   } catch (e) {}
 
-   try {
+  try {
     const probe = await fetch(API_BASE + '/owner-session', {
       credentials: 'include',
       cache: 'no-store'
     });
     const probeData = await probe.json().catch(() => ({}));
     authed = probeData.authenticated === true;
+
+    // Server is source of truth — use its homestays if present
+    if (authed && Array.isArray(probeData.homestays) && probeData.homestays.length > 0) {
+      storedHomestays = probeData.homestays;
+      if (probeData.ownerName) storedName = probeData.ownerName;
+      try {
+        sessionStorage.setItem('kd_owner_homestays', JSON.stringify(storedHomestays));
+        sessionStorage.setItem('kd_owner_name', storedName);
+      } catch (e) {}
+    }
   } catch (e) {
     authed = false;
   }
@@ -1153,6 +1165,8 @@ async function updateHomestayPrice() {
     if (dashboardSection) dashboardSection.classList.add('hidden');
   }
 
+
+  
   if (selector) {
     selector.addEventListener('change', function() {
       currentHomestayId = this.value;
