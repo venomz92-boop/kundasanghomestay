@@ -169,7 +169,6 @@ export function getCookie(request, name) {
  * Build a Set-Cookie header string.
  * Default SameSite=Lax because payment gateways (CHIP) redirect the user cross-site
  * back to our domain and Strict would drop the cookie.
- * Callers may override by passing 'Strict' as the 4th arg.
  */
 export function cookieHeader(name, value, maxAge = 86400, sameSite = 'Lax') {
   return `${name}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=${sameSite}; Max-Age=${maxAge}; Path=/`;
@@ -422,16 +421,44 @@ export async function incrementSessionVersion(db, userId, type) {
   return false;
 }
 
-export async function incrementOwnerSessionVersion(db, ownerId) {
-  const keys = ['kd_approved', 'kd_pending'];
-  let changed = false;
-  for (const key of keys) {
+// =============================================================
+// FIXED: incrementOwnerSessionVersion now matches by WhatsApp identity.
+// Input may be a homestay ID OR a WhatsApp number. We resolve to a WhatsApp
+// and bump ownerSessionVersion for EVERY homestay owned by that WhatsApp.
+// =============================================================
+export async function incrementOwnerSessionVersion(db, ownerIdOrWhatsapp) {
+  const input = String(ownerIdOrWhatsapp || '').trim();
+  if (!input) return false;
+
+  // Step 1: try to find the homestay by ID to learn its WhatsApp
+  let whatsapp = null;
+  for (const key of ['kd_approved', 'kd_pending']) {
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+    if (!r?.data) continue;
     let records = [];
-    if (r?.data) { try { records = JSON.parse(r.data); } catch(_) {} }
+    try { records = JSON.parse(r.data); } catch (_) { continue; }
+    const found = records.find(x => String(x.id) === input);
+    if (found && found.whatsapp) {
+      whatsapp = String(found.whatsapp).replace(/[^0-9]/g, '');
+      break;
+    }
+  }
+  // If no homestay matched, treat the input as a WhatsApp number directly
+  if (!whatsapp) {
+    whatsapp = input.replace(/[^0-9]/g, '');
+  }
+  if (!whatsapp) return false;
+
+  // Step 2: bump session version for every homestay sharing this WhatsApp
+  let changed = false;
+  for (const key of ['kd_approved', 'kd_pending']) {
+    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+    if (!r?.data) continue;
+    let records = JSON.parse(r.data);
     let updated = false;
     records = records.map(record => {
-      if (String(record.id) === String(ownerId)) {
+      const recWa = String(record.whatsapp || '').replace(/[^0-9]/g, '');
+      if (recWa === whatsapp) {
         updated = true;
         changed = true;
         record.ownerSessionVersion = (record.ownerSessionVersion || 0) + 1;
@@ -527,93 +554,13 @@ export async function clearCheckinAttempts(db, bookingId) {
 }
 
 // =============================================================
-// Invalidate owner sessions on homestay changes
-// =============================================================
-// =============================================================
-// Invalidate owner sessions on homestay changes
-// (matches by WhatsApp, which is the owner's shared identity)
+// FIXED: Invalidate owner sessions on homestay changes.
+// Input is a homestay ID; we resolve it to the owning WhatsApp and bump
+// every sibling homestay so the owner is logged out everywhere.
 // =============================================================
 export async function invalidateOwnerSessions(db, homestayId) {
   if (!homestayId) return;
-
-  // Step 1: find the homestay to learn its owner's WhatsApp
-  let whatsapp = null;
-  for (const key of ['kd_approved', 'kd_pending']) {
-    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
-    if (!r?.data) continue;
-    let records = [];
-    try { records = JSON.parse(r.data); } catch (_) { continue; }
-    const found = records.find(x => String(x.id) === String(homestayId));
-    if (found && found.whatsapp) {
-      whatsapp = String(found.whatsapp).replace(/[^0-9]/g, '');
-      break;
-    }
-  }
-  if (!whatsapp) return;
-
-  // Step 2: bump session version for EVERY homestay owned by that WhatsApp
-  for (const key of ['kd_approved', 'kd_pending']) {
-    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
-    if (!r?.data) continue;
-    let records = JSON.parse(r.data);
-    let changed = false;
-    records = records.map(record => {
-      const recWa = String(record.whatsapp || '').replace(/[^0-9]/g, '');
-      if (recWa === whatsapp) {
-        changed = true;
-        record.ownerSessionVersion = (record.ownerSessionVersion || 0) + 1;
-      }
-      return record;
-    });
-    if (changed) {
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind(key, JSON.stringify(records)).run();
-    }
-  }
-}
-
-export async function incrementOwnerSessionVersion(db, ownerIdOrWhatsapp) {
-  // ownerIdOrWhatsapp may be a homestay ID or a WhatsApp number.
-  // Try homestay first, then treat as WhatsApp.
-  const clean = String(ownerIdOrWhatsapp || '').replace(/[^0-9]/g, '');
-  if (!clean) return false;
-
-  // Look it up as a homestay ID first
-  let whatsapp = null;
-  for (const key of ['kd_approved', 'kd_pending']) {
-    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
-    if (!r?.data) continue;
-    let records = [];
-    try { records = JSON.parse(r.data); } catch (_) { continue; }
-    const byId = records.find(x => String(x.id) === String(ownerIdOrWhatsapp));
-    if (byId && byId.whatsapp) {
-      whatsapp = String(byId.whatsapp).replace(/[^0-9]/g, '');
-      break;
-    }
-  }
-  if (!whatsapp) whatsapp = clean; // assume caller passed WhatsApp
-
-  let changed = false;
-  for (const key of ['kd_approved', 'kd_pending']) {
-    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
-    if (!r?.data) continue;
-    let records = JSON.parse(r.data);
-    let updated = false;
-    records = records.map(record => {
-      const recWa = String(record.whatsapp || '').replace(/[^0-9]/g, '');
-      if (recWa === whatsapp) {
-        updated = true;
-        changed = true;
-        record.ownerSessionVersion = (record.ownerSessionVersion || 0) + 1;
-      }
-      return record;
-    });
-    if (updated) {
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind(key, JSON.stringify(records)).run();
-    }
-  }
-  return changed;
+  return await incrementOwnerSessionVersion(db, homestayId);
 }
 
 // =============================================================
@@ -666,16 +613,6 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
 // =============================================================
 // Payment finalization (idempotent, lock-protected by caller)
 // =============================================================
-/**
- * Marks a booking as paid and generates check-in code ONLY if not already done.
- * MUST be called inside withLock(db, `paid-${bookingId}`, ...) to avoid races
- * between webhook / verify-payment / chip-create.
- *
- * Returns:
- *   { error } if booking not found
- *   { alreadyFinalized: true, booking, checkinCode } if another path won the race
- *   { finalized: true, codeWasMissing, booking, checkinCode } if we finalized it
- */
 export async function finalizePaidBooking(db, bookingId) {
   const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
   let bookings = [];
