@@ -1259,12 +1259,6 @@
       const p = calculatePrice(pricePerNight, nights);
       const avail = isHomestayAvailableForRange(selectedHomestay, ci, co, selectedRoom ? selectedRoom.id : null);
 
-      const statusEl = document.getElementById("detailAvailabilityStatus");
-      if (statusEl) {
-        statusEl.className = avail.available ? "text-emerald-700" : "text-red-600";
-        statusEl.textContent = avail.available ? '✓ Selected dates are available (' + nights + ' Nights)' : '✕ Selected dates are fully booked';
-      }
-
       const box = document.getElementById("detailPriceBox");
       if (box) {
         const roomName = selectedRoom ? selectedRoom.name : 'Unit';
