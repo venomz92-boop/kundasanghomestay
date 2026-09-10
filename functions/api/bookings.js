@@ -1,4 +1,4 @@
-// /api/bookings.js – FULLY PATCHED with unified fee + clearAll + approve cleanup + public data sanitization
+// /api/bookings.js – FULLY PATCHED with unified fee + clearAll + approve cleanup + public data sanitization + deleteOwner
 import {
   corsHeaders,
   getClientIP,
@@ -54,7 +54,7 @@ async function requireGuest(request, env, body) {
   return { session };
 }
 
-// ===== NEW: sanitize homestay for public consumption =====
+// ===== Sanitize homestay for public consumption =====
 function sanitizePublicHomestay(h) {
   if (!h) return null;
   const {
@@ -117,6 +117,14 @@ export async function onRequestGet({ request, env }) {
 
     if (isAdmin) {
       const paginated = bookings.slice(offset, offset + limit);
+
+      // Load owners list (kd_owners)
+      let ownersList = [];
+      try {
+        const ownersRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_owners').first();
+        if (ownersRes?.data) ownersList = JSON.parse(ownersRes.data);
+      } catch (_) {}
+
       return jsonResponse({
         bookings: paginated,
         total: bookings.length,
@@ -128,6 +136,13 @@ export async function onRequestGet({ request, env }) {
         demoBlocked,
         deletedDemo,
         pending,
+        owners: ownersList.map(o => {
+          const {
+            ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm,
+            ownerPasswordVersion, ownerSessionVersion, ...safe
+          } = o;
+          return safe;
+        }),
         guests: guests.map(g => { const { password, salt, ...safe } = g; return safe; })
       }, 200, request, { 'Cache-Control': 'no-store' });
     }
@@ -733,6 +748,82 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({
         success: true,
         deleted: { id: deletedId, email: deletedEmail }
+      }, 200, request);
+    }
+
+    // ---- Admin deleteOwner ----
+    if (action === "deleteOwner") {
+      const ownerId = body.ownerId ? String(body.ownerId) : '';
+      const email = body.email ? String(body.email).toLowerCase().trim() : '';
+      const whatsapp = body.whatsapp ? String(body.whatsapp).replace(/[^0-9]/g, '') : '';
+
+      if (!ownerId && !email && !whatsapp) {
+        return jsonResponse({ error: 'Owner ID, email, or WhatsApp is required' }, 400, request);
+      }
+
+      const ownerRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_owners").first();
+      let owners = [];
+      if (ownerRes?.data) { try { owners = JSON.parse(ownerRes.data); } catch (_) {} }
+
+      const deleted = owners.find(o =>
+        (ownerId && String(o.id) === ownerId) ||
+        (email && String(o.ownerEmail || '').toLowerCase().trim() === email) ||
+        (whatsapp && String(o.whatsapp || '').replace(/[^0-9]/g, '') === whatsapp)
+      );
+
+      if (!deleted) {
+        return jsonResponse({ error: 'Owner not found' }, 404, request);
+      }
+
+      const deletedId = String(deleted.id || '');
+      const deletedEmail = String(deleted.ownerEmail || '').toLowerCase().trim();
+      const deletedWa = String(deleted.whatsapp || '').replace(/[^0-9]/g, '');
+
+      // 1. Remove from kd_owners
+      const remainingOwners = owners.filter(o => {
+        const sameId = deletedId && String(o.id || '') === deletedId;
+        const sameEmail = deletedEmail && String(o.ownerEmail || '').toLowerCase().trim() === deletedEmail;
+        const sameWa = deletedWa && String(o.whatsapp || '').replace(/[^0-9]/g, '') === deletedWa;
+        return !sameId && !sameEmail && !sameWa;
+      });
+
+      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+        .bind("kd_owners", JSON.stringify(remainingOwners)).run();
+
+      // 2. Remove their homestays from kd_pending + kd_approved + kd_homestays
+      const removedHomes = { pending: 0, approved: 0, mirror: 0 };
+      for (const key of ['kd_pending', 'kd_approved', 'kd_homestays']) {
+        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
+        if (!r?.data) continue;
+        let arr = [];
+        try { arr = JSON.parse(r.data); } catch (_) { continue; }
+        const before = arr.length;
+        const filtered = arr.filter(h =>
+          String(h.whatsapp || '').replace(/[^0-9]/g, '') !== deletedWa
+        );
+        const removedCount = before - filtered.length;
+        if (key === 'kd_pending') removedHomes.pending = removedCount;
+        else if (key === 'kd_approved') removedHomes.approved = removedCount;
+        else removedHomes.mirror = removedCount;
+        if (filtered.length !== before) {
+          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+            .bind(key, JSON.stringify(filtered)).run();
+        }
+      }
+
+      await logAction({
+        db,
+        action: 'owner_deleted',
+        admin: 'admin',
+        details: `Deleted owner ${deletedEmail || deletedId} (WhatsApp ${deletedWa}); removed ${removedHomes.pending} pending, ${removedHomes.approved} approved`,
+        ip: clientIP,
+        userId: deletedId
+      });
+
+      return jsonResponse({
+        success: true,
+        deleted: { id: deletedId, email: deletedEmail, whatsapp: deletedWa },
+        removedHomes
       }, 200, request);
     }
 
