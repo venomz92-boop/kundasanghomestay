@@ -43,23 +43,117 @@
     .policy-content { opacity: 1 !important; transform: none !important; }
   </style>
 </head>
-<body>
-  <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
-    <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
-      <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
-         <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
-      <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
-        KUNDASANG<span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay.my</span>
+<!-- ===== HEADER ===== -->
+<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
+  <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
+
+    <!-- Logo & Brand -->
+    <a href="/" class="flex items-center gap-3 shrink-0 group">
+      <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+      <div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
+        KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px] md:text-[17px]"> • Homestay.my</span>
         <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Stay • Connect • Belong</div>
       </div>
+    </a>
+
+    <!-- Desktop Primary Nav -->
+    <nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
+      <a href="/" class="setsail-nav-link" data-nav="home">Home</a>
+      <a href="/about.html" class="setsail-nav-link" data-nav="about">About</a>
+      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
+    </nav>
+
+    <!-- Desktop Actions -->
+    <div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
+
+      <!-- Guest state: logged out -->
+      <div id="guestNav" class="flex items-center gap-2">
+        <a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
+        <a href="/register.html" class="header-pill header-pill-accent">Register</a>
       </div>
-      <nav class="hidden lg:flex items-center gap-8">
-        <a href="/" class="text-[13px] font-600 text-[#212121]/60 hover:text-[#212121] transition">Home</a>
-        <a href="/owner-register.html" class="text-[13px] font-600 text-[#212121]/60 hover:text-[#212121] transition">Host Registration</a>
-        <a href="/about.html" class="text-[13px] font-600 text-[#212121]/60 hover:text-[#212121] transition">About</a>
-      </nav>
+
+      <!-- Guest state: logged in -->
+      <div id="guestProfileNav" class="hidden items-center gap-3">
+        <a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
+        <div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
+          <div id="guestAvatar" class="w-8 h-8 rounded-full bg-[#D4A373] text-[#0F382E] flex items-center justify-center text-xs font-bold">G</div>
+          <span id="guestNameNav" class="text-xs font-600 max-w-[90px] truncate">Guest</span>
+          <button onclick="logoutGuest()" class="ml-1 text-[10px] opacity-70 hover:opacity-100 uppercase tracking-wider transition-opacity">Logout</button>
+        </div>
+      </div>
+
+      <!-- Primary CTA — always visible -->
+      <a href="/owner-register.html" class="btn-primary" style="padding:11px 22px; font-size:11px;">List Your Homestay</a>
+
     </div>
-  </header>
+
+    <!-- Mobile Menu Button -->
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
+      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+
+    <script>
+      (function() {
+        var btn = document.getElementById('mobileMenuBtn');
+        if (btn) {
+          btn.removeEventListener('click', window.toggleMobileMenu);
+          btn.removeEventListener('touchstart', window.toggleMobileMenu);
+          btn.addEventListener('click', window.toggleMobileMenu);
+          btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
+        }
+      })();
+    </script>
+  </div>
+</header>
+
+<!-- ===== MOBILE NAV ===== -->
+<div id="mobileNav">
+  <div class="p-4">
+
+    <!-- DISCOVER -->
+    <div class="text-[10px] tracking-[0.18em] uppercase text-[#212121]/40 font-700 px-3 pt-2 pb-2">Discover</div>
+    <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+    <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
+
+    <!-- FOR HOSTS -->
+    <div class="text-[10px] tracking-[0.18em] uppercase text-[#212121]/40 font-700 px-3 pt-5 pb-2">For Hosts</div>
+
+    <a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
+      <div style="display:flex; align-items:center; gap:12px; padding:14px 14px; border-radius:14px; background:#F8F5F0; border:1px solid rgba(212,163,115,0.35); transition: background 0.2s;">
+        <div style="width:40px; height:40px; border-radius:999px; background:#0F382E; color:#ffffff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px;">🏡</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:Poppins, sans-serif; font-weight:700; font-size:13px; color:#212121; line-height:1.2;">List Your Homestay</div>
+          <div style="font-family:Poppins, sans-serif; font-weight:500; font-size:10.5px; color:rgba(33,33,33,0.55); margin-top:2px;">Earn from your property</div>
+        </div>
+        <svg width="16" height="16" fill="none" stroke="rgba(33,33,33,0.35)" stroke-width="2.2" viewBox="0 0 24 24" style="flex-shrink:0;">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+        </svg>
+      </div>
+    </a>
+
+    <a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a>
+
+    <!-- ACCOUNT -->
+    <div class="text-[10px] tracking-[0.18em] uppercase text-[#212121]/40 font-700 px-3 pt-5 pb-2">Account</div>
+
+    <div id="mGuestNav" class="space-y-2.5 px-1">
+      <a href="/login.html" class="guest-btn guest-btn-primary block text-center">Sign In</a>
+      <a href="/register.html" class="guest-btn block text-center">Create Account</a>
+    </div>
+
+    <div id="mGuestProfileNav" class="hidden space-y-2 px-1">
+      <div class="profile-card">
+        <div id="mGuestAvatar" class="avatar">G</div>
+        <div class="info">
+          <div id="mGuestNameNav" class="name">Guest</div>
+          <div class="sub">Verified guest</div>
+        </div>
+        <button onclick="logoutGuest()" class="logout-btn">Logout</button>
+      </div>
+      <a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
+    </div>
+  </div>
+</div>
 
   <main class="flex-1 max-w-[1000px] mx-auto px-6 lg:px-8 py-12 md:py-20 w-full policy-content">
     <div class="text-center mb-12">
