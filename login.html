@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="animations.css" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/theme.css" />
   <script src="/guest-session.js"></script>
 </head>
 
@@ -42,16 +43,19 @@
   };
 </script>
 
-<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
+<!-- ===== HEADER ===== -->
+<header class="kd-header h-[80px] sticky top-0 z-50">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
+    <!-- Logo & Brand -->
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
       <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
-      <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
-        KUNDASANG<span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay.my</span>
-        <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Stay • Connect • Belong</div>
+      <div class="font-serif font-bold text-[20px] md:text-[22px] tracking-[-0.5px] text-white leading-none">
+        KUNDASANG<span class="font-500 text-white/40 text-[16px] md:text-[18px]"> • Homestay.my</span>
+        <div class="font-500 text-[10px] tracking-[2px] uppercase text-white/30 mt-1">Stay • Connect • Belong</div>
       </div>
     </div>
 
+    <!-- Desktop Nav -->
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
       <a href="/" id="navHome" class="setsail-nav-link" onclick="window.location.href='/'; return false;">Home</a>
       <a href="/list.html" id="navList" class="setsail-nav-link" onclick="window.location.href='/list.html'; return false;">Host Registration</a>
@@ -63,24 +67,28 @@
       </div>
       <div id="guestProfileNav" class="hidden ml-4 items-center gap-3">
         <a href="/mybookings.html" class="setsail-nav-link" style="font-size:12px;" onclick="window.location.href='/mybookings.html'; return false;">My Bookings</a>
-        <div class="flex items-center gap-2 bg-[#0F382E] text-white px-4 h-[38px] rounded-full">
-          <div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#3FD0D4]">G</div>
+        <div class="flex items-center gap-2 bg-[#D4A373] text-[#0F1E16] px-4 h-[38px] rounded-full">
+          <div id="guestAvatar" class="guest-avatar w-7 h-7 text-xs bg-[#0F1E16] text-white">G</div>
           <span id="guestNameNav" class="text-xs font-600 max-w-[80px] truncate">Guest</span>
-          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider hover:bg-white/30 transition-colors">Logout</button>
+          <button onclick="logoutGuest()" class="ml-2 text-[10px] bg-black/15 px-3 py-1 rounded-full uppercase tracking-wider hover:bg-black/25 transition-colors">Logout</button>
         </div>
       </div>
     </nav>
 
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
+    <!-- MOBILE MENU BUTTON (with onclick + addEventListener fallback) -->
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-white/10 text-white items-center justify-center hover:bg-white/20 transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
 
+    <!-- FALLBACK LISTENER (if onclick is ignored by Chrome) -->
     <script>
       (function() {
         var btn = document.getElementById('mobileMenuBtn');
         if (btn) {
+          // Remove any existing listeners to avoid duplicates
           btn.removeEventListener('click', window.toggleMobileMenu);
           btn.removeEventListener('touchstart', window.toggleMobileMenu);
+          // Attach both events – they call the same debounced function
           btn.addEventListener('click', window.toggleMobileMenu);
           btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
         }
