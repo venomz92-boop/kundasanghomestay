@@ -91,23 +91,30 @@
     var mAvatar    = document.getElementById('mGuestAvatar');
     var mNameNav   = document.getElementById('mGuestNameNav');
 
-    if (guest) {
-      if (loginNav) { loginNav.classList.add('hidden'); loginNav.classList.remove('flex'); }
-      if (profileNav) { profileNav.classList.remove('hidden'); profileNav.classList.add('flex'); }
-      if (avatar) avatar.innerText = (guest.name || 'G').charAt(0).toUpperCase();
-      if (nameNav) nameNav.innerText = guest.name || guest.email || 'Guest';
+  if (guest) {
+  if (loginNav) { loginNav.classList.add('hidden'); loginNav.classList.remove('flex'); }
+  if (profileNav) { profileNav.classList.remove('hidden'); profileNav.classList.add('flex'); }
 
-      if (mLoginNav) { mLoginNav.classList.add('hidden'); mLoginNav.classList.remove('space-y-2', 'space-y-3'); }
-      if (mProfileNav) { mProfileNav.classList.remove('hidden'); }
-      if (mAvatar) mAvatar.innerText = (guest.name || 'G').charAt(0).toUpperCase();
-      if (mNameNav) mNameNav.innerText = guest.name || guest.email || 'Guest';
-    } else {
-      if (loginNav) { loginNav.classList.remove('hidden'); loginNav.classList.add('flex'); }
-      if (profileNav) { profileNav.classList.add('hidden'); profileNav.classList.remove('flex'); }
-      if (mLoginNav) { mLoginNav.classList.remove('hidden'); }
-      if (mProfileNav) { mProfileNav.classList.add('hidden'); }
-    }
+  var initial = (guest.name || 'G').charAt(0).toUpperCase();
+  var isVerified = guest.verified === true;
+  var avatarText = isVerified ? '✓' : initial;
+
+  if (avatar) {
+    avatar.innerText = avatarText;
+    avatar.className = 'guest-avatar w-7 h-7 text-xs flex items-center justify-center rounded-full font-bold ' +
+      (isVerified ? 'bg-emerald-600 text-white' : 'bg-[#D4A373] text-[#0F382E]');
   }
+  if (nameNav) nameNav.innerText = guest.name || guest.email || 'Guest';
+
+  if (mLoginNav) { mLoginNav.classList.add('hidden'); mLoginNav.classList.remove('space-y-2', 'space-y-3'); }
+  if (mProfileNav) { mProfileNav.classList.remove('hidden'); }
+
+  if (mAvatar) {
+    mAvatar.innerText = avatarText;
+    mAvatar.className = 'avatar ' + (isVerified ? 'bg-emerald-600 text-white' : 'bg-[#D4A373] text-[#0F382E]');
+  }
+  if (mNameNav) mNameNav.innerText = guest.name || guest.email || 'Guest';
+}
 
   /* ============================================================
    * LOGOUT — clears server cookie AND local storage
