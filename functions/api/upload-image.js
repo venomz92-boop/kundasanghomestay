@@ -1,5 +1,10 @@
-// /api/upload-image.js – Secure & robust with file type validation
-import { corsHeaders } from './_utils.js';
+// /api/upload-image.js – Secure & robust with file type validation + IP rate limit
+import {
+  corsHeaders,
+  getClientIP,
+  checkRateLimit,
+  recordRateLimit
+} from './_utils.js';
 
 async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
@@ -11,59 +16,78 @@ async function sha256(message) {
 
 export async function onRequestPost({ request, env }) {
   try {
+    const clientIP = getClientIP(request);
+    const db = env.DB;
+
+    // ============================================================
+    // IP-based rate limit: 20 uploads per hour
+    // ============================================================
+    if (db) {
+      const rateOk = await checkRateLimit(db, clientIP, 'upload_image', 20, 60 * 60);
+      if (!rateOk) {
+        return new Response(
+          JSON.stringify({ error: 'Too many uploads. Please wait an hour.' }),
+          { status: 429, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+        );
+      }
+      await recordRateLimit(db, clientIP, 'upload_image');
+    }
+
     const formData = await request.formData();
     const file = formData.get('image');
 
     if (!file) {
-      return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400 });
+      return new Response(JSON.stringify({ error: 'No file provided' }), {
+        status: 400,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
     }
 
-    // ============================================================
-    // 🔒 NEW: Validate file type
-    // ============================================================
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!allowedTypes.includes(file.type)) {
-      return new Response(JSON.stringify({ error: 'Invalid file type. Only JPEG, PNG, WEBP, and GIF are allowed.' }), { status: 400 });
+      return new Response(
+        JSON.stringify({ error: 'Invalid file type. Only JPEG, PNG, WEBP, and GIF are allowed.' }),
+        { status: 400, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Optional: file size limit (e.g., 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      return new Response(JSON.stringify({ error: 'File too large. Maximum size is 5MB.' }), { status: 400 });
+      return new Response(
+        JSON.stringify({ error: 'File too large. Maximum size is 5MB.' }),
+        { status: 400, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+      );
     }
 
-    // 1. Read credentials from environment
     const cloudName = env.CLOUDINARY_CLOUD_NAME;
     const apiKey = env.CLOUDINARY_API_KEY;
     const apiSecret = env.CLOUDINARY_API_SECRET;
 
     if (!cloudName || !apiKey || !apiSecret) {
-      console.error('❌ Cloudinary credentials missing');
+      console.error('Cloudinary credentials missing');
       return new Response(
         JSON.stringify({ error: 'Server configuration error – missing credentials' }),
-        { status: 500 }
+        { status: 500, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
       );
     }
 
-    // 2. Get binary data
     let buffer;
     try {
       buffer = await new Response(file).arrayBuffer();
     } catch (e) {
-      console.error('Failed to read file:', e.message);
-      return new Response(JSON.stringify({ error: 'Invalid file data: ' + e.message }), { status: 400 });
+      return new Response(
+        JSON.stringify({ error: 'Invalid file data' }),
+        { status: 400, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+      );
     }
 
-    // 3. Convert to base64
     const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
 
     const timestamp = Math.floor(Date.now() / 1000);
     const folder = 'kundasang-homestay/rooms';
 
-    // 4. Generate SHA‑256 signature
     const signatureString = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
     const signature = await sha256(signatureString);
 
-    // 5. Build Cloudinary upload payload
     const uploadData = new URLSearchParams({
       file: `data:image/jpeg;base64,${base64}`,
       folder: folder,
@@ -73,7 +97,6 @@ export async function onRequestPost({ request, env }) {
       signature_algorithm: 'sha256'
     });
 
-    // 6. Upload to Cloudinary
     const response = await fetch(
       `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
       {
@@ -86,10 +109,10 @@ export async function onRequestPost({ request, env }) {
     const data = await response.json();
 
     if (!response.ok || !data.secure_url) {
-      console.error('❌ Cloudinary upload error:', data);
+      console.error('Cloudinary upload error:', data);
       return new Response(
         JSON.stringify({ error: data.error?.message || 'Upload failed' }),
-        { status: 500 }
+        { status: 500, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -99,15 +122,13 @@ export async function onRequestPost({ request, env }) {
         url: data.secure_url,
         publicId: data.public_id
       }),
-      {
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
-      }
+      { headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
     );
   } catch (e) {
-    console.error('❌ Upload error:', e.message);
+    console.error('Upload error:', e.message);
     return new Response(
       JSON.stringify({ error: e.message || 'Internal server error' }),
-      { status: 500 }
+      { status: 500, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
     );
   }
 }
