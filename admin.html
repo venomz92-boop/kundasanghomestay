@@ -1313,7 +1313,10 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
     let badgeText = isCancelled ? '❌ Cancelled' : isAwaiting ? '🟡 Awaiting Check-in' : isCompleted ? '✅ Completed' : '💳 Paid';
     let btns = "";
     if (isAwaiting) {
-      btns += `<button class="booking-action-btn px-3 py-1.5 bg-[#0F382E] text-white rounded-full text-[11px] uppercase font-700" data-action="confirmCheckIn" data-id="${b.id}">✓ CHECK IN</button>`;
+      btns += `<span class="text-[11px] text-zinc-500 italic px-2">Awaiting host check-in</span>`;
+    }
+    if (b.payoutFailedAttempt && !b.payoutSuccessDate) {
+      btns += `<button class="booking-action-btn px-3 py-1.5 bg-yellow-500 text-white rounded-full text-[11px] uppercase font-700" data-action="retryPayout" data-id="${b.id}">🔁 RETRY PAYOUT</button>`;
     }
     if (!isCompleted && !isCancelled) {
       btns += `<button class="booking-action-btn px-3 py-1.5 bg-green-600 text-white rounded-full text-[11px] uppercase font-600" data-action="updateBookingStatus" data-id="${b.id}" data-status="Completed">COMPLETE</button>`;
@@ -1350,8 +1353,8 @@ function bookingActionHandler(e) {
   e.preventDefault();
 
   switch (action) {
-    case 'confirmCheckIn':
-      confirmCheckIn(id);
+    case 'retryPayout':
+      retryPayout(id);
       break;
     case 'updateBookingStatus':
       const status = btn.dataset.status || 'Completed';
@@ -1403,6 +1406,28 @@ function bookingFilterChangeHandler() {
   }
 }
 
+async function retryPayout(bookingId) {
+  const confirmed = await showConfirm("Retry Payout", "Retry CHIP Send for booking " + bookingId + "?");
+  if (!confirmed) return;
+  try {
+    const res = await fetchWithAuth(API_BASE + "/retry-payout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await showAlert("Success", `Payout sent: RM${data.amount} (ID: ${data.payoutId})`);
+      await fetchCloudData();
+      renderAdmin();
+    } else {
+      await showAlert("Error", data.error || "Retry failed");
+    }
+  } catch (e) {
+    await showAlert("Error", "Network error: " + e.message);
+  }
+}
+  
 // =============================================================
 // CHECK-IN (Admin) – Updated to use /api/payout (which now uses CHIP Send)
 // =============================================================
