@@ -1077,15 +1077,27 @@
       list = list.filter(function(h) { return isHomestayAvailableForRange(h, checkinVal, checkoutVal).available; });
     }
 
-    if (list.length === 0) {
-      grid.innerHTML = safeHTML('' +
-        '<div class="col-span-3 text-center py-16">' +
-          '<div class="text-zinc-500 font-poppins">No homestays available yet. Check back soon or <a href="/list.html" class="text-[#8B6239] font-semibold underline">list your property</a>.</div>' +
-          '<button onclick="document.getElementById(\'checkin\').value=\'\'; document.getElementById(\'checkout\').value=\'\'; document.getElementById(\'filterLocation\').value=\'all\'; renderGrid();" class="mt-4 btn-outline">Reset Filters</button>' +
-        '</div>' +
-      '');
-      return;
-    }
+if (list.length === 0) {
+  grid.innerHTML = safeHTML('' +
+    '<div class="col-span-3 text-center py-16">' +
+      '<div class="text-zinc-500 font-poppins">No homestays available yet. Check back soon or <a href="/list.html" class="text-[#8B6239] font-semibold underline">list your property</a>.</div>' +
+      '<button id="resetFiltersBtn" class="mt-4 btn-outline">Reset Filters</button>' +
+    '</div>' +
+  '');
+  var resetBtn = document.getElementById('resetFiltersBtn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', function () {
+      var ci = document.getElementById('checkin');
+      var co = document.getElementById('checkout');
+      var fl = document.getElementById('filterLocation');
+      if (ci) ci.value = '';
+      if (co) co.value = '';
+      if (fl) fl.value = 'all';
+      renderGrid();
+    });
+  }
+  return;
+}
 
     grid.innerHTML = safeHTML(list.map(function(h) {
       var blocked = getAllBlockedDatesForHomestay(h);
