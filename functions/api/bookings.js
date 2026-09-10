@@ -514,14 +514,32 @@ export async function onRequestPost({ request, env }) {
           throw new Error('Guest not found');
         }
 
-        const existingPending = allBookings.find(b =>
-          String(b.guestId) === String(guest.id) &&
-          String(b.homestayId) === String(homestay.id) &&
-          b.checkin === checkin &&
-          b.checkout === checkout &&
-          b.status === 'Pending Payment'
-        );
+        const FAILED_COOLDOWN_MS = 15 * 60 * 1000;
+        const existingPending = allBookings.find(b => {
+          if (String(b.guestId) !== String(guest.id)) return false;
+          if (String(b.homestayId) !== String(homestay.id)) return false;
+          if (b.checkin !== checkin || b.checkout !== checkout) return false;
+
+          if (b.status === 'Pending Payment') return true;
+
+          // Allow retry of recent failed bookings (within cooldown)
+          if (b.status === 'Payment Failed' && b.date) {
+            const age = Date.now() - Date.parse(b.date);
+            if (age < FAILED_COOLDOWN_MS) return true;
+          }
+          return false;
+        });
+
         if (existingPending) {
+          if (existingPending.status === 'Payment Failed') {
+            existingPending.status = 'Pending Payment';
+            existingPending.date = new Date().toISOString();
+            existingPending.statusUpdated = new Date().toISOString();
+
+            await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_bookings', JSON.stringify(allBookings))
+              .run();
+          }
           return { alreadyExists: true, booking: existingPending };
         }
 
@@ -542,13 +560,29 @@ export async function onRequestPost({ request, env }) {
           }
         }
 
+        const FAILED_COOLDOWN_MS = 15 * 60 * 1000;
         const overlaps = allBookings.some(b => {
-          const pendingExpired = String(b.status||'') === 'Pending Payment' && b.date && Date.now() - Date.parse(b.date) > 15*60*1000;
-          const isOwnPending = String(b.guestId) === String(guest.id) && b.status === 'Pending Payment';
-          const roomMatch = selectedRoom ? String(b.roomId) === String(selectedRoom.id) : String(b.homestayId) === String(homestay.id);
+          // Is this a stale pending that should be ignored?
+          const pendingExpired = String(b.status||'') === 'Pending Payment'
+            && b.date && Date.now() - Date.parse(b.date) > 15*60*1000;
+
+          // Is this a failed payment still inside the cooldown window?
+          const failedActive = String(b.status||'') === 'Payment Failed'
+            && b.date && (Date.now() - Date.parse(b.date) < FAILED_COOLDOWN_MS);
+
+          // Terminal states that never block
+          const isTerminal = /cancelled|expired/i.test(String(b.status||'')) && !failedActive;
+
+          const isOwnPending = String(b.guestId) === String(guest.id) &&
+            (b.status === 'Pending Payment' || b.status === 'Payment Failed');
+
+          const roomMatch = selectedRoom
+            ? String(b.roomId) === String(selectedRoom.id)
+            : String(b.homestayId) === String(homestay.id);
+
           return roomMatch &&
                  !pendingExpired &&
-                 !/cancelled|failed|expired/i.test(String(b.status||'')) &&
+                 !isTerminal &&
                  !isOwnPending &&
                  checkin < String(b.checkout||'') &&
                  checkout > String(b.checkin||'');
