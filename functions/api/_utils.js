@@ -596,3 +596,61 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
     await db.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(lockKey).run();
   }
 }
+
+// =============================================================
+// Payment finalization (idempotent, lock-protected by caller)
+// =============================================================
+/**
+ * Marks a booking as paid and generates check-in code ONLY if not already done.
+ * MUST be called inside withLock(db, `paid-${bookingId}`, ...) to avoid races
+ * between webhook / verify-payment / chip-create.
+ *
+ * Returns:
+ *   { error } if booking not found
+ *   { alreadyFinalized: true, booking, checkinCode } if another path won the race
+ *   { finalized: true, codeWasMissing, booking, checkinCode } if we finalized it
+ */
+export async function finalizePaidBooking(db, bookingId) {
+  const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+  let bookings = [];
+  try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+  const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
+  if (idx === -1) return { error: 'Booking not found' };
+
+  const booking = bookings[idx];
+
+  // Another confirmation path already finalized this booking.
+  const s = String(booking.status || '');
+  if (s === 'Paid - Awaiting Check-in' || s === 'Completed' || s.startsWith('Completed')) {
+    return {
+      alreadyFinalized: true,
+      booking,
+      checkinCode: booking.checkinCode
+    };
+  }
+
+  const codeWasMissing = !booking.checkinCode;
+  const code = booking.checkinCode || Math.floor(100000 + Math.random() * 900000).toString();
+
+  const updated = {
+    ...booking,
+    status: 'Paid - Awaiting Check-in',
+    checkinCode: code,
+    paid_at: booking.paid_at || new Date().toISOString(),
+    chip_status: 'paid',
+    chip_paid_at: booking.chip_paid_at || new Date().toISOString()
+  };
+
+  bookings[idx] = updated;
+
+  await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+    .bind('kd_bookings', JSON.stringify(bookings))
+    .run();
+
+  return {
+    finalized: true,
+    codeWasMissing,
+    checkinCode: code,
+    booking: updated
+  };
+}
