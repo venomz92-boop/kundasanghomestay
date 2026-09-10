@@ -93,7 +93,7 @@ export async function onRequestPost({ request, env }) {
       ownerSessionVersion: ownerSessionVersion
     }, env);
 
-     const safeHomes = ownerHomes.map(({
+      const safeHomes = ownerHomes.map(({
         ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm,
         ownerPasswordVersion, ownerSessionVersion, ...rest
       }) => rest);
@@ -102,7 +102,6 @@ export async function onRequestPost({ request, env }) {
         success: true,
         homestays: safeHomes,
         message: 'Login successful'
-        // no token field
       }), {
         status: 200,
         headers: {
