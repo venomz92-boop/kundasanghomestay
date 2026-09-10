@@ -663,7 +663,7 @@ export async function onRequestPost({ request, env }) {
 
     } catch (err) {
       console.error('Create booking error:', err.message);
-      return jsonResponse({ error: 'Unable to create booking. Please try again later.' }, 500, request);
+      return jsonResponse({ error: 'This date is already booked.' }, 500, request);
     }
   }
 
