@@ -1,4 +1,4 @@
-// /api/bookings.js – FULLY PATCHED with unified fee + clearAll + approve cleanup + public data sanitization + deleteOwner + Cloudinary cleanup
+// /api/bookings.js – FULLY PATCHED with unified fee + clearAll + approve cleanup + public data sanitization + deleteOwner + Cloudinary cleanup + status emails
 import {
   corsHeaders,
   getClientIP,
@@ -115,6 +115,183 @@ async function purgeSensitiveImages(homestay, env, logContext) {
   return result;
 }
 
+// ============================================================
+// Email notification helper – Resend + SendGrid fallback
+// ============================================================
+async function sendStatusEmail({ to, subject, html, env, logContext }) {
+  if (!to) {
+    console.warn(`[${logContext}] No recipient email – skipping notification`);
+    return { sent: false, error: 'no recipient' };
+  }
+
+  try {
+    if (env.RESEND_API_KEY) {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.RESEND_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
+          to,
+          subject,
+          html
+        })
+      });
+      if (r.ok) {
+        console.log(`[${logContext}] Email sent via Resend to ${to}`);
+        return { sent: true };
+      }
+      const errBody = await r.text().catch(() => '');
+      console.warn(`[${logContext}] Resend error ${r.status}: ${errBody.slice(0, 200)}`);
+      // fall through to try SendGrid if it's configured too
+    }
+
+    if (env.SENDGRID_API_KEY) {
+      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.SENDGRID_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: to }] }],
+          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
+          subject,
+          content: [{ type: 'text/html', value: html }]
+        })
+      });
+      if (r.ok) {
+        console.log(`[${logContext}] Email sent via SendGrid to ${to}`);
+        return { sent: true };
+      }
+      console.warn(`[${logContext}] SendGrid error ${r.status}`);
+      return { sent: false, error: `SendGrid ${r.status}` };
+    }
+
+    console.warn(`[${logContext}] No email provider configured`);
+    return { sent: false, error: 'no email provider configured' };
+  } catch (e) {
+    console.warn(`[${logContext}] Email threw: ${e.message}`);
+    return { sent: false, error: e.message };
+  }
+}
+
+function approvedEmailHtml({ ownerName, homestayName, location, price, id, env }) {
+  const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
+  const year = new Date().getFullYear();
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f5f0; padding: 20px; border-radius: 16px;">
+      <div style="background: #ffffff; padding: 32px; border-radius: 16px; border: 1px solid #e5e7eb;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <div style="display: inline-block; width: 64px; height: 64px; background: #dcfce7; border-radius: 999px; line-height: 64px; font-size: 32px;">✅</div>
+        </div>
+        <h1 style="text-align: center; font-size: 22px; color: #0F382E; margin: 0 0 6px 0; font-weight: 700;">Your listing is live!</h1>
+        <p style="text-align: center; color: #6b7280; font-size: 13px; margin: 0 0 24px 0;">Approved and now visible to guests</p>
+
+        <p style="font-size: 14px; line-height: 1.6; color: #374151; margin: 0 0 12px 0;">Hi <strong>${ownerName || 'Host'}</strong>,</p>
+        <p style="font-size: 14px; line-height: 1.6; color: #374151; margin: 0 0 20px 0;">Great news! Your property has been verified and approved. Guests browsing Kundasang Homestay can now find and book it.</p>
+
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 16px; margin: 20px 0;">
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #166534; font-weight: 700; margin-bottom: 10px;">Listing Details</div>
+          <div style="font-size: 13px; color: #374151; line-height: 1.8;">
+            <div><strong>Property:</strong> ${homestayName}</div>
+            <div><strong>Location:</strong> ${location}</div>
+            <div><strong>Nightly Rate:</strong> RM ${price}</div>
+            <div><strong>Listing ID:</strong> <span style="font-family: monospace;">${id}</span></div>
+          </div>
+        </div>
+
+        <p style="font-size: 14px; line-height: 1.6; color: #374151;">You can now log in to your dashboard to manage dates, pricing, and reservations.</p>
+
+        <div style="text-align: center; margin: 28px 0 8px;">
+          <a href="${domain}/owner.html" style="display: inline-block; padding: 14px 28px; background: #0F382E; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 700; font-size: 13px; letter-spacing: 0.05em;">Open Host Dashboard →</a>
+        </div>
+
+        <div style="border-top: 1px solid #e5e7eb; margin-top: 24px; padding-top: 16px; text-align: center; font-size: 11px; color: #9ca3af; line-height: 1.6;">
+          Kundasang Homestay • Verified Stays with Kinabalu Views<br>
+          © ${year} Nick's Creations • Business License RNU20183012
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function rejectedEmailHtml({ ownerName, homestayName, reason, env }) {
+  const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
+  const year = new Date().getFullYear();
+  const reasonBlock = reason
+    ? `
+      <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 12px; padding: 16px; margin: 20px 0;">
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #92400e; font-weight: 700; margin-bottom: 8px;">Reason from our team</div>
+        <div style="font-size: 13px; color: #374151; line-height: 1.6;">${reason}</div>
+      </div>
+    `
+    : '';
+
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f5f0; padding: 20px; border-radius: 16px;">
+      <div style="background: #ffffff; padding: 32px; border-radius: 16px; border: 1px solid #e5e7eb;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <div style="display: inline-block; width: 64px; height: 64px; background: #fee2e2; border-radius: 999px; line-height: 64px; font-size: 32px;">📋</div>
+        </div>
+        <h1 style="text-align: center; font-size: 22px; color: #991b1b; margin: 0 0 6px 0; font-weight: 700;">Update on your listing</h1>
+        <p style="text-align: center; color: #6b7280; font-size: 13px; margin: 0 0 24px 0;">We couldn't approve it this time</p>
+
+        <p style="font-size: 14px; line-height: 1.6; color: #374151; margin: 0 0 12px 0;">Hi <strong>${ownerName || 'Host'}</strong>,</p>
+        <p style="font-size: 14px; line-height: 1.6; color: #374151; margin: 0 0 20px 0;">Thank you for submitting your property <strong>${homestayName}</strong>. After reviewing your submission, we're unable to approve it at this time.</p>
+
+        ${reasonBlock}
+
+        <div style="font-size: 13px; color: #374151; line-height: 1.8; margin: 20px 0;">
+          <div style="font-weight: 700; margin-bottom: 6px;">What you can do:</div>
+          <ul style="margin: 0; padding-left: 20px;">
+            <li>Reply to this email if you'd like clarification</li>
+            <li>Correct any issues and submit again via our host registration form</li>
+            <li>Contact our support team for assistance</li>
+          </ul>
+        </div>
+
+        <div style="text-align: center; margin: 28px 0 8px;">
+          <a href="${domain}/list.html" style="display: inline-block; padding: 14px 28px; background: #0F382E; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 700; font-size: 13px; letter-spacing: 0.05em;">Resubmit Listing →</a>
+        </div>
+
+        <div style="border-top: 1px solid #e5e7eb; margin-top: 24px; padding-top: 16px; text-align: center; font-size: 11px; color: #9ca3af; line-height: 1.6;">
+          Kundasang Homestay • Verified Stays with Kinabalu Views<br>
+          © ${year} Nick's Creations • Business License RNU20183012
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function removedEmailHtml({ ownerName, homestayName, env }) {
+  const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
+  const year = new Date().getFullYear();
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f5f0; padding: 20px; border-radius: 16px;">
+      <div style="background: #ffffff; padding: 32px; border-radius: 16px; border: 1px solid #e5e7eb;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <div style="display: inline-block; width: 64px; height: 64px; background: #fef3c7; border-radius: 999px; line-height: 64px; font-size: 32px;">⚠️</div>
+        </div>
+        <h1 style="text-align: center; font-size: 22px; color: #92400e; margin: 0 0 6px 0; font-weight: 700;">Your listing was removed</h1>
+        <p style="text-align: center; color: #6b7280; font-size: 13px; margin: 0 0 24px 0;">It's no longer visible to guests</p>
+
+        <p style="font-size: 14px; line-height: 1.6; color: #374151; margin: 0 0 12px 0;">Hi <strong>${ownerName || 'Host'}</strong>,</p>
+        <p style="font-size: 14px; line-height: 1.6; color: #374151; margin: 0 0 20px 0;">Your listing <strong>${homestayName}</strong> has been removed from Kundasang Homestay by our administrative team. It is no longer shown to guests.</p>
+
+        <p style="font-size: 14px; line-height: 1.6; color: #374151;">If you believe this was done in error, or you'd like to discuss the removal, please reply to this email.</p>
+
+        <div style="border-top: 1px solid #e5e7eb; margin-top: 24px; padding-top: 16px; text-align: center; font-size: 11px; color: #9ca3af; line-height: 1.6;">
+          Kundasang Homestay • Verified Stays with Kinabalu Views<br>
+          © ${year} Nick's Creations • Business License RNU20183012
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 async function verifyAdmin(request, env) {
   const auth = await getAdminToken(request);
   if (!env.ADMIN_TOKEN) return new Response(JSON.stringify({ error: "Server misconfigured" }), { status: 500, headers: corsHeaders(request) });
@@ -132,7 +309,6 @@ async function requireGuest(request, env, body) {
   return { session };
 }
 
-// ===== Sanitize homestay for public consumption =====
 function sanitizePublicHomestay(h) {
   if (!h) return null;
   const {
@@ -236,7 +412,6 @@ export async function onRequestGet({ request, env }) {
       }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
-    // ===== PUBLIC BRANCH – SANITIZED =====
     const sanitizedApproved = approved.map(sanitizePublicHomestay).filter(Boolean);
 
     const availability = {};
@@ -624,10 +799,10 @@ export async function onRequestPost({ request, env }) {
         }
         const homestay = pending[idx];
 
-        // ===== Purge sensitive images (IC + QR + PBT) from Cloudinary =====
+        // ===== Purge sensitive images from Cloudinary =====
         await purgeSensitiveImages(homestay, env, `approveHomestay:${homestay.id}`);
 
-        // ===== Strip sensitive fields before persisting to kd_approved =====
+        // ===== Strip sensitive fields before persisting =====
         const {
           icImage, icOriginalName, bankQRImage, bankQROriginalName, pbtLicense,
           icNumber, icUploadDate,
@@ -690,7 +865,32 @@ export async function onRequestPost({ request, env }) {
           homestayId: safeHomestay.id
         });
 
-        return jsonResponse({ success: true, homestay: safeHomestay }, 200, request);
+        // ===== Send approval email to host =====
+        let emailResult = { sent: false };
+        if (safeHomestay.ownerEmail) {
+          const html = approvedEmailHtml({
+            ownerName: safeHomestay.ownerName || safeHomestay.icName,
+            homestayName: safeHomestay.name,
+            location: safeHomestay.location,
+            price: safeHomestay.ownerPrice,
+            id: safeHomestay.id,
+            env
+          });
+          emailResult = await sendStatusEmail({
+            to: safeHomestay.ownerEmail,
+            subject: `✅ Your listing "${safeHomestay.name}" is now live on Kundasang Homestay`,
+            html,
+            env,
+            logContext: `approveHomestay:${safeHomestay.id}`
+          });
+        }
+
+        return jsonResponse({
+          success: true,
+          homestay: safeHomestay,
+          emailSent: emailResult.sent === true,
+          emailError: emailResult.sent === true ? undefined : emailResult.error
+        }, 200, request);
       } catch (approveErr) {
         console.error("Approve homestay error:", approveErr.message);
         return jsonResponse({ error: "Approval failed. Please try again later." }, 500, request);
@@ -699,6 +899,8 @@ export async function onRequestPost({ request, env }) {
 
     // ---- Admin rejectHomestay ----
     if (action === "rejectHomestay" && body.id) {
+      const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 500) : '';
+
       const pendingRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
       let pending = [];
       if (pendingRes && pendingRes.data) { try { pending = JSON.parse(pendingRes.data); } catch(e) {} }
@@ -708,7 +910,7 @@ export async function onRequestPost({ request, env }) {
       }
       const homestay = pending[idx];
 
-      // ===== Purge sensitive images (IC + QR + PBT) from Cloudinary =====
+      // ===== Purge sensitive images from Cloudinary =====
       await purgeSensitiveImages(homestay, env, `rejectHomestay:${homestay.id}`);
 
       pending.splice(idx, 1);
@@ -722,13 +924,35 @@ export async function onRequestPost({ request, env }) {
         db,
         action: 'homestay_rejected',
         admin: 'admin',
-        details: `Rejected homestay "${homestay.name}" (ID: ${homestay.id})`,
+        details: `Rejected homestay "${homestay.name}" (ID: ${homestay.id})${reason ? ' — reason: ' + reason : ''}`,
         ip: clientIP,
         userId: homestay.ownerEmail,
         homestayId: homestay.id
       });
 
-      return jsonResponse({ success: true }, 200, request);
+      // ===== Send rejection email to host =====
+      let emailResult = { sent: false };
+      if (homestay.ownerEmail) {
+        const html = rejectedEmailHtml({
+          ownerName: homestay.ownerName || homestay.icName,
+          homestayName: homestay.name,
+          reason,
+          env
+        });
+        emailResult = await sendStatusEmail({
+          to: homestay.ownerEmail,
+          subject: `Update on your listing "${homestay.name}" — Kundasang Homestay`,
+          html,
+          env,
+          logContext: `rejectHomestay:${homestay.id}`
+        });
+      }
+
+      return jsonResponse({
+        success: true,
+        emailSent: emailResult.sent === true,
+        emailError: emailResult.sent === true ? undefined : emailResult.error
+      }, 200, request);
     }
 
     // ---- Admin removeApprovedHomestay ----
@@ -787,7 +1011,29 @@ export async function onRequestPost({ request, env }) {
           homestayId: removed.id
         });
 
-        return jsonResponse({ success: true, removed: removed }, 200, request);
+        // ===== Send removal email to host =====
+        let emailResult = { sent: false };
+        if (removed.ownerEmail) {
+          const html = removedEmailHtml({
+            ownerName: removed.ownerName || removed.icName,
+            homestayName: removed.name,
+            env
+          });
+          emailResult = await sendStatusEmail({
+            to: removed.ownerEmail,
+            subject: `⚠️ Your listing "${removed.name}" has been removed — Kundasang Homestay`,
+            html,
+            env,
+            logContext: `removeApprovedHomestay:${removed.id}`
+          });
+        }
+
+        return jsonResponse({
+          success: true,
+          removed: removed,
+          emailSent: emailResult.sent === true,
+          emailError: emailResult.sent === true ? undefined : emailResult.error
+        }, 200, request);
       } catch (removeErr) {
         console.error("Remove homestay error:", removeErr.message);
         return jsonResponse({ error: "Remove failed. Please try again later." }, 500, request);
@@ -891,7 +1137,6 @@ export async function onRequestPost({ request, env }) {
         console.log(`[deleteOwner:${deletedId}] Purged ${result.deleted.length}/${sensitiveOwned.length} sensitive images`);
       }
 
-      // Remove from kd_owners
       const remainingOwners = owners.filter(o => {
         const sameId = deletedId && String(o.id || '') === deletedId;
         const sameEmail = deletedEmail && String(o.ownerEmail || '').toLowerCase().trim() === deletedEmail;
@@ -902,7 +1147,6 @@ export async function onRequestPost({ request, env }) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_owners", JSON.stringify(remainingOwners)).run();
 
-      // Remove their homestays
       const removedHomes = { pending: 0, approved: 0, mirror: 0 };
       for (const key of ['kd_pending', 'kd_approved', 'kd_homestays']) {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
