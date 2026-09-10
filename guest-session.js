@@ -113,8 +113,14 @@
     mAvatar.innerText = avatarText;
     mAvatar.className = 'avatar ' + (isVerified ? 'bg-emerald-600 text-white' : 'bg-[#D4A373] text-[#0F382E]');
   }
-  if (mNameNav) mNameNav.innerText = guest.name || guest.email || 'Guest';
-}
+    if (mNameNav) mNameNav.innerText = guest.name || guest.email || 'Guest';
+    } else {
+      if (loginNav) { loginNav.classList.remove('hidden'); loginNav.classList.add('flex'); }
+      if (profileNav) { profileNav.classList.add('hidden'); profileNav.classList.remove('flex'); }
+      if (mLoginNav) { mLoginNav.classList.remove('hidden'); }
+      if (mProfileNav) { mProfileNav.classList.add('hidden'); }
+    }
+  }
 
   /* ============================================================
    * LOGOUT — clears server cookie AND local storage
