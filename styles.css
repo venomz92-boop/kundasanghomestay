@@ -1568,3 +1568,88 @@ footer div {
   position: relative;
   z-index: 1;
 }
+
+/* ============================================================
+   FOOTER — Compact professional refinement
+   Shrinks overall height, tightens typography, cleaner spacing
+   ============================================================ */
+
+/* Reduce top margin (was Tailwind mt-20 = 80px) */
+footer {
+  margin-top: 56px !important;
+}
+
+/* Main grid container — was py-14 (56px) + gap-10 (40px) */
+footer > div:first-child {
+  padding-top: 36px !important;
+  padding-bottom: 36px !important;
+  gap: 28px !important;
+}
+
+/* Brand logo — was 48-64px */
+footer img[alt*="Kundasang"] {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+/* Brand name — was 18px */
+footer .font-800 {
+  font-size: 15px !important;
+}
+
+/* Column headings: "Quick Links" / "Trust & Safety" / "Weather" */
+footer .uppercase.tracking-widest {
+  font-size: 10px !important;
+  letter-spacing: 0.16em !important;
+  margin-bottom: 12px !important;
+}
+
+/* All body/list/link text (was 13px) */
+footer .text-\[13px\] {
+  font-size: 12px !important;
+  line-height: 1.55 !important;
+}
+
+/* Weather paragraph (was 12px) */
+footer .text-\[12px\] {
+  font-size: 11px !important;
+  line-height: 1.5 !important;
+}
+
+/* Company / license block (was 11px) */
+footer .text-\[11px\] {
+  font-size: 10px !important;
+  line-height: 1.5 !important;
+}
+
+/* Brand description paragraph — tighter spacing */
+footer > div:first-child > div:first-child p {
+  margin-top: 10px !important;
+}
+
+/* Company block — tighter separation (was mt-4 pt-4 = 16px/16px) */
+footer .mt-4.pt-4 {
+  margin-top: 14px !important;
+  padding-top: 14px !important;
+}
+
+/* Bottom copyright bar — was py-6 (24px) */
+footer > div:last-child {
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+  font-size: 10px !important;
+  letter-spacing: 0.14em !important;
+}
+
+/* ============================================================
+   FOOTER — 3-column layout on desktop (hide weather column)
+   Cleaner, more professional look
+   ============================================================ */
+@media (min-width: 768px) {
+  footer > div:first-child > div:nth-child(4) {
+    display: none !important;
+  }
+  footer > div:first-child {
+    grid-template-columns: 1.3fr 1fr 1fr !important;
+  }
+}
