@@ -41,13 +41,27 @@ async function sendResetEmail(email, name, url, env) {
   return false;
 }
 
+const hasEmailProvider = !!(env.RESEND_API_KEY || env.SENDGRID_API_KEY);
+if (!hasEmailProvider) {
+  console.error('❌ CRITICAL: No email provider configured. Password resets will not send.');
+  return jsonResponse(
+    { error: 'Email service is temporarily unavailable. Please contact support@kundasanghomestay.my' },
+    503,
+    request
+  );
+}
 export async function onRequestPost({ request, env }) {
   try {
-    const { email, userType } = await request.json();
-    const cleanEmail = String(email || '').toLowerCase().trim();
-    if (!cleanEmail || !['guest', 'owner'].includes(userType)) {
-      return jsonResponse({ error: 'Invalid request' }, 400, request);
+    if (!env.RESEND_API_KEY && !env.SENDGRID_API_KEY) {
+      console.error('❌ CRITICAL: No email provider configured. Password resets will not send.');
+      return jsonResponse(
+        { error: 'Email service is temporarily unavailable. Please contact support@kundasanghomestay.my' },
+        503,
+        request
+      );
     }
+
+    const { email, userType } = await request.json();
 
     const ip = getClientIP(request);
     const db = env.DB;
@@ -58,6 +72,20 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Too many reset attempts. Please wait 15 minutes.' }, 429, request);
     }
     await recordRateLimit(db, ip, 'forgot_password');
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+    await db.prepare(
+      `CREATE TABLE IF NOT EXISTS password_resets (
+        token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        user_type TEXT NOT NULL,
+        email TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        used INTEGER DEFAULT 0
+      )`
+    ).run();
+    await db.prepare(
+      `DELETE FROM password_resets WHERE expires_at < datetime('now', '-24 hours')`
+    ).run();
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
