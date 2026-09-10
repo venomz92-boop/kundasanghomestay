@@ -1,5 +1,10 @@
-// /api/check-payment-status.js – with email on payment confirmation
-import { corsHeaders, enforceHttps, getGuestSession, jsonResponse } from './_utils.js';
+// /api/check-payment-status.js – CHIP-only payment status check + email on confirmation
+import {
+  corsHeaders,
+  enforceHttps,
+  getGuestSession,
+  jsonResponse
+} from './_utils.js';
 
 async function sendCheckinCodeEmail(to, guestName, bookingId, checkinCode, homestayName, checkin, checkout, env) {
   const html = `
@@ -66,81 +71,99 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Server error' }, 500, request);
     }
 
-    // 1. Get booking
+    // 1. Load booking
     const result = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
     let bookings = [];
     try { if (result?.data) bookings = JSON.parse(result.data); } catch(_) {}
-    const idx = bookings.findIndex(b => String(b.id) === bookingId);
+    const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
     if (idx < 0) {
       return jsonResponse({ error: 'Booking not found' }, 404, request);
     }
     const booking = bookings[idx];
 
-    // 2. If already paid, return immediately
+    // Ownership check
+    if (String(booking.guestId) !== String(session.userId)) {
+      return jsonResponse({ error: 'Unauthorized' }, 403, request);
+    }
+
+    // 2. Already paid — return immediately
     if (booking.status === 'Paid - Awaiting Check-in' || booking.status === 'Completed') {
       return jsonResponse({ success: true, status: booking.status, paid: true }, 200, request);
     }
 
-    // 3. Get billcode
-    const billcode = booking.toyyibpay_billcode;
-    if (!billcode) {
-      return jsonResponse({ error: 'No billcode found. Please try to pay again.' }, 404, request);
+    // 3. CHIP purchase id required
+    const purchaseId = booking.chip_purchase_id;
+    if (!purchaseId) {
+      return jsonResponse({ error: 'No CHIP purchase found. Please try to pay again.' }, 404, request);
     }
 
-    const secret = env.TOYYIBPAY_SECRET_KEY;
-    if (!secret) {
-      return jsonResponse({ error: 'Secret not configured' }, 500, request);
+    const chipSecret = env.CHIP_SECRET_KEY;
+    if (!chipSecret) {
+      return jsonResponse({ error: 'Payment gateway not configured' }, 500, request);
     }
 
-    const apiBase = env.TOYYIBPAY_ENV === 'production' ? 'https://toyyibpay.com' : 'https://dev.toyyibpay.com';
-    const url = `${apiBase}/index.php/api/getBillTransactions`;
-    const form = new FormData();
-    form.append('userSecretKey', secret);
-    form.append('billCode', billcode);
-
-    const response = await fetch(url, { method: 'POST', body: form });
-    const data = await response.json().catch(() => null);
-
-    if (!Array.isArray(data) || data.length === 0) {
-      return jsonResponse({ error: 'No transactions found for this bill' }, 404, request);
+    // 4. Query CHIP purchase
+    let purchase = null;
+    try {
+      const resp = await fetch(`https://gate.chip-in.asia/api/v1/purchases/${purchaseId}/`, {
+        headers: { 'Authorization': `Bearer ${chipSecret}` }
+      });
+      if (!resp.ok) {
+        return jsonResponse({ error: 'Could not fetch purchase status' }, 502, request);
+      }
+      purchase = await resp.json();
+    } catch (e) {
+      return jsonResponse({ error: 'Payment gateway unreachable' }, 502, request);
     }
 
-    // Find the latest successful transaction (status=1)
-    const paidTransaction = data.find(t => String(t.billpaymentStatus) === '1');
-    if (!paidTransaction) {
-      return jsonResponse({ success: true, status: 'Pending Payment', paid: false }, 200, request);
+    const chipStatus = purchase?.status;
+
+    // 5. Not paid yet
+    if (chipStatus !== 'paid' && chipStatus !== 'completed') {
+      const isFailed = ['cancelled', 'expired', 'failed'].includes(chipStatus);
+      return jsonResponse({
+        success: true,
+        status: isFailed ? 'Payment Failed' : 'Pending Payment',
+        paid: false,
+        chipStatus: chipStatus || 'unknown'
+      }, 200, request);
     }
 
-    // 4. Ensure checkinCode exists
-    if (!booking.checkinCode) {
+    // 6. Paid — generate code if needed
+    const codeWasMissing = !booking.checkinCode;
+    if (codeWasMissing) {
       booking.checkinCode = Math.floor(100000 + Math.random() * 900000).toString();
     }
 
-    // 5. Update booking to paid
+    // 7. Update booking
     bookings[idx] = {
       ...booking,
       status: 'Paid - Awaiting Check-in',
-      paid_at: paidTransaction.billpaymentTransactionTime || new Date().toISOString(),
-      toyyibpay_refno: paidTransaction.billpaymentRefNo || '',
-      toyyibpay_status: '1',
-      toyyibpay_amount: paidTransaction.billpaymentAmount || ''
+      paid_at: booking.paid_at || new Date().toISOString(),
+      chip_status: 'paid'
     };
 
     await db.prepare('INSERT OR REPLACE INTO store(key, data) VALUES(?, ?)')
       .bind('kd_bookings', JSON.stringify(bookings))
       .run();
 
-    // 6. Send email with check‑in code
-    await sendCheckinCodeEmail(
-      booking.guestEmail,
-      booking.guestName || 'Guest',
-      booking.id,
-      booking.checkinCode,
-      booking.homestay || 'Kundasang Homestay',
-      booking.checkin,
-      booking.checkout,
-      env
-    );
+    // 8. Send email only if we just generated the code
+    if (codeWasMissing) {
+      try {
+        await sendCheckinCodeEmail(
+          booking.guestEmail,
+          booking.guestName || 'Guest',
+          booking.id,
+          booking.checkinCode,
+          booking.homestay || 'Kundasang Homestay',
+          booking.checkin,
+          booking.checkout,
+          env
+        );
+      } catch (mailErr) {
+        console.error('Check-in email failed:', mailErr.message);
+      }
+    }
 
     return jsonResponse({ success: true, status: 'Paid - Awaiting Check-in', paid: true }, 200, request);
 
