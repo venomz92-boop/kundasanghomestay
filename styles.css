@@ -1653,3 +1653,177 @@ footer > div:last-child {
     grid-template-columns: 1.3fr 1fr 1fr !important;
   }
 }
+
+/* ============================================================
+   FOOTER — Live weather widget styling
+   ============================================================ */
+
+.kd-weather-widget {
+  color: rgba(255, 255, 255, 0.85);
+  font-family: "Poppins", sans-serif;
+  font-size: 12px;
+  min-height: 68px;
+}
+
+.kd-weather-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.kd-weather-icon {
+  font-size: 30px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+  flex-shrink: 0;
+}
+
+.kd-weather-main {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.kd-weather-temp {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.kd-weather-desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.kd-weather-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 2px;
+}
+
+.kd-weather-updated {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
+}
+
+.kd-weather-loading {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+}
+
+/* ---------- Desktop: 4 balanced columns, weather visible ---------- */
+@media (min-width: 768px) {
+  footer > div:first-child {
+    display: grid !important;
+    grid-template-columns: 1.2fr 1fr 1fr 1fr !important;
+    gap: 24px !important;
+  }
+  /* Override any earlier rule that hid the weather column */
+  footer > div:first-child > div:nth-child(4) {
+    display: block !important;
+  }
+}
+
+/* ---------- Mobile: compact 2x2 grid ---------- */
+@media (max-width: 767px) {
+  footer {
+    margin-top: 28px !important;
+  }
+
+  footer > div:first-child {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-areas:
+      "brand brand"
+      "links links"
+      "trust weather";
+    padding: 20px 16px !important;
+    gap: 18px 14px !important;
+  }
+
+  footer > div:first-child > div:nth-child(1) { grid-area: brand; }
+  footer > div:first-child > div:nth-child(2) { grid-area: links; }
+  footer > div:first-child > div:nth-child(3) { grid-area: trust; }
+  footer > div:first-child > div:nth-child(4) { grid-area: weather; }
+
+  /* Brand row: logo + name inline, description hidden */
+  footer > div:first-child > div:nth-child(1) > .flex {
+    gap: 10px;
+  }
+
+  footer > div:first-child > div:nth-child(1) > p {
+    display: none !important;
+  }
+
+  footer img[alt*="Kundasang"] {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  footer .font-800 {
+    font-size: 13px !important;
+  }
+
+  footer .mt-4.pt-4 {
+    margin-top: 8px !important;
+    padding-top: 8px !important;
+  }
+
+  /* Quick links: 2-column internal grid */
+  footer > div:first-child > div:nth-child(2) .space-y-2 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 12px !important;
+  }
+
+  footer > div:first-child > div:nth-child(2) .space-y-2 > a {
+    font-size: 11px !important;
+    padding: 1px 0 !important;
+  }
+
+  /* Facebook link spans full width */
+  footer > div:first-child > div:nth-child(2) .space-y-2 > a:last-child {
+    grid-column: 1 / -1;
+  }
+
+  /* Section headings */
+  footer .uppercase.tracking-widest {
+    font-size: 9px !important;
+    letter-spacing: 0.14em !important;
+    margin-bottom: 8px !important;
+  }
+
+  /* Body text */
+  footer .text-\[13px\] {
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+  }
+
+  footer .text-\[12px\] {
+    font-size: 10px !important;
+    line-height: 1.4 !important;
+  }
+
+  footer .text-\[11px\] {
+    font-size: 9px !important;
+    line-height: 1.35 !important;
+  }
+
+  /* Weather widget mobile sizing */
+  .kd-weather-icon { font-size: 24px; }
+  .kd-weather-temp { font-size: 15px; }
+  .kd-weather-desc { font-size: 9.5px; }
+  .kd-weather-meta { font-size: 9.5px; }
+  .kd-weather-updated { display: none; }
+
+  /* Copyright bar */
+  footer > div:last-child {
+    padding: 10px 16px !important;
+    font-size: 9px !important;
+    letter-spacing: 0.1em !important;
+  }
+}
