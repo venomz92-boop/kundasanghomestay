@@ -424,8 +424,8 @@
       showAlert('Email Verified', 'Your email has been verified successfully! You can now log in.');
     } else if (urlParams.get('verified') === 'already') {
       showAlert('Already Verified', 'Your email was already verified. Please log in.');
-    } else if (urlParams.get('expired') === '1') {
-      showAlert('Session Expired', 'Your previous session has expired. Please log in again.');
+    } else if (urlParams.get('expired') === '1') showAlert('Session Expired', 'Your previous session has expired. Please log in again.');
+      else if (urlParams.get('reset') === '1') showAlert('Password Reset', 'Your password has been reset successfully. Please log in with your new password.');
     }
 
     if (window.GuestSession) {
