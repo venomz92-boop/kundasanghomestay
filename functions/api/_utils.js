@@ -529,15 +529,37 @@ export async function clearCheckinAttempts(db, bookingId) {
 // =============================================================
 // Invalidate owner sessions on homestay changes
 // =============================================================
-export async function invalidateOwnerSessions(db, ownerId) {
-  if (!ownerId) return;
+// =============================================================
+// Invalidate owner sessions on homestay changes
+// (matches by WhatsApp, which is the owner's shared identity)
+// =============================================================
+export async function invalidateOwnerSessions(db, homestayId) {
+  if (!homestayId) return;
+
+  // Step 1: find the homestay to learn its owner's WhatsApp
+  let whatsapp = null;
+  for (const key of ['kd_approved', 'kd_pending']) {
+    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+    if (!r?.data) continue;
+    let records = [];
+    try { records = JSON.parse(r.data); } catch (_) { continue; }
+    const found = records.find(x => String(x.id) === String(homestayId));
+    if (found && found.whatsapp) {
+      whatsapp = String(found.whatsapp).replace(/[^0-9]/g, '');
+      break;
+    }
+  }
+  if (!whatsapp) return;
+
+  // Step 2: bump session version for EVERY homestay owned by that WhatsApp
   for (const key of ['kd_approved', 'kd_pending']) {
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
     if (!r?.data) continue;
     let records = JSON.parse(r.data);
     let changed = false;
     records = records.map(record => {
-      if (String(record.id) === String(ownerId)) {
+      const recWa = String(record.whatsapp || '').replace(/[^0-9]/g, '');
+      if (recWa === whatsapp) {
         changed = true;
         record.ownerSessionVersion = (record.ownerSessionVersion || 0) + 1;
       }
@@ -548,6 +570,50 @@ export async function invalidateOwnerSessions(db, ownerId) {
         .bind(key, JSON.stringify(records)).run();
     }
   }
+}
+
+export async function incrementOwnerSessionVersion(db, ownerIdOrWhatsapp) {
+  // ownerIdOrWhatsapp may be a homestay ID or a WhatsApp number.
+  // Try homestay first, then treat as WhatsApp.
+  const clean = String(ownerIdOrWhatsapp || '').replace(/[^0-9]/g, '');
+  if (!clean) return false;
+
+  // Look it up as a homestay ID first
+  let whatsapp = null;
+  for (const key of ['kd_approved', 'kd_pending']) {
+    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+    if (!r?.data) continue;
+    let records = [];
+    try { records = JSON.parse(r.data); } catch (_) { continue; }
+    const byId = records.find(x => String(x.id) === String(ownerIdOrWhatsapp));
+    if (byId && byId.whatsapp) {
+      whatsapp = String(byId.whatsapp).replace(/[^0-9]/g, '');
+      break;
+    }
+  }
+  if (!whatsapp) whatsapp = clean; // assume caller passed WhatsApp
+
+  let changed = false;
+  for (const key of ['kd_approved', 'kd_pending']) {
+    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+    if (!r?.data) continue;
+    let records = JSON.parse(r.data);
+    let updated = false;
+    records = records.map(record => {
+      const recWa = String(record.whatsapp || '').replace(/[^0-9]/g, '');
+      if (recWa === whatsapp) {
+        updated = true;
+        changed = true;
+        record.ownerSessionVersion = (record.ownerSessionVersion || 0) + 1;
+      }
+      return record;
+    });
+    if (updated) {
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind(key, JSON.stringify(records)).run();
+    }
+  }
+  return changed;
 }
 
 // =============================================================
