@@ -894,14 +894,6 @@
   var CLOUD_ENABLED = true;
   var API_BASE = "/api";
 
-  function fetchWithAuth(url, options) {
-    options = options || {};
-    var token = sessionStorage.getItem('kd_admin_token') || '';
-    var headers = options.headers || {};
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-    return fetch(url, { ...options, headers });
-  }
-
   // =============================================================
   // DATA STORE
   // =============================================================
