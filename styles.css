@@ -494,27 +494,61 @@ textarea.form-input { resize: none; }
   display: inline-block !important;
 }
 #mobileNav .mobile-owner-link:hover { background: #7c3aed !important; color: white !important; }
-#mobileNav .guest-btn {
-  border: 1px solid var(--accent);
-  color: var(--accent-text);
-  background: transparent;
-  text-align: center;
-  border-radius: 999px;
-  padding: 12px 24px;
-  font-weight: 600;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+
+/* ============================================================
+   MOBILE MENU — Guest buttons (Sign In / Create Account)
+   High-contrast version. Applies to every page automatically.
+   Matched by href, not class, so no HTML edits needed.
+   ============================================================ */
+
+/* Base pill for both buttons */
+#mGuestNav .guest-btn,
+#mGuestNav a[href="/login.html"],
+#mGuestNav a[href="/register.html"] {
+  display: block;
   width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  padding: 14px 24px;
+  min-height: 48px;
+  border-radius: 999px;
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
-#mobileNav .guest-btn-primary {
-  background: var(--accent);
+
+/* ---------- Sign In — solid dark green ---------- */
+#mGuestNav a[href="/login.html"] {
+  background: var(--primary);
+  color: #ffffff;
+  border: 2px solid var(--primary);
+}
+#mGuestNav a[href="/login.html"]:hover,
+#mGuestNav a[href="/login.html"]:active {
+  background: var(--primary-light);
+  border-color: var(--primary-light);
+  color: #ffffff;
+}
+
+/* ---------- Register — outline style, same brand color ---------- */
+#mGuestNav a[href="/register.html"] {
+  background: #ffffff;
   color: var(--primary);
-  border: none;
+  border: 2px solid var(--primary);
 }
-/* FIXED: dark green on gold */
-#mobileNav .guest-btn:hover { background: var(--accent); color: var(--primary); }
-#mobileNav .guest-btn-primary:hover { background: var(--accent-hover); }
+#mGuestNav a[href="/register.html"]:hover,
+#mGuestNav a[href="/register.html"]:active {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
 #mobileNav .profile-card {
   display: flex;
   align-items: center;
