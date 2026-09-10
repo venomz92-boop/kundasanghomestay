@@ -1,5 +1,15 @@
-// /api/payout.js – CHIP Send (admin emergency override)
-import { corsHeaders, getClientIP, logAction, enforceHttps, getAdminToken, getOwnerSession, checkRateLimit, recordRateLimit, parseJSONSafely, jsonResponse } from './_utils.js';
+// /api/payout.js – ADMIN-ONLY CHIP Send emergency payout override
+import {
+  corsHeaders,
+  getClientIP,
+  logAction,
+  enforceHttps,
+  getAdminToken,
+  checkRateLimit,
+  recordRateLimit,
+  parseJSONSafely,
+  jsonResponse
+} from './_utils.js';
 
 async function hmacSha512(message, secret) {
   const key = await crypto.subtle.importKey(
@@ -46,26 +56,6 @@ function getChipBankCode(bankName) {
   return 'MBBEMYKL';
 }
 
-async function verifyPayoutAuth(request, env, bookingId) {
-  const adminToken = await getAdminToken(request);
-  if (adminToken && adminToken === env.ADMIN_TOKEN) return { authorized: true, role: 'admin' };
-  const ownerData = await getOwnerSession(request, env);
-  if (ownerData && ownerData.type === 'owner') {
-    const db = env.DB;
-    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
-    let bookings = [];
-    try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
-    const booking = bookings.find(b => String(b.id) === String(bookingId));
-    if (!booking) return { authorized: false, error: 'Booking not found' };
-    const ownerHomestayIds = (ownerData.homestayIds || [ownerData.ownerId]).map(String);
-    if (!ownerHomestayIds.includes(String(booking.homestayId))) {
-      return { authorized: false, error: 'You do not own this homestay' };
-    }
-    return { authorized: true, role: 'owner', booking };
-  }
-  return { authorized: false, error: 'Unauthorized' };
-}
-
 async function getHomestay(db, homestayId) {
   if (!homestayId) return null;
   for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
@@ -101,12 +91,15 @@ export async function onRequestPost({ request, env }) {
 
   try {
     const body = await parseJSONSafely(request);
-    const { bookingId, amount, fee, ownerBankCode, ownerAcc, ownerName, homestayId } = body;
+    const { bookingId, fee } = body;
 
     if (!bookingId) return jsonResponse({ error: 'Missing bookingId' }, 400, request);
 
-    const auth = await verifyPayoutAuth(request, env, bookingId);
-    if (!auth.authorized) return jsonResponse({ error: auth.error || 'Unauthorized' }, 401, request);
+    // ===== ADMIN-ONLY AUTH =====
+    const adminToken = await getAdminToken(request);
+    if (!adminToken || !env.ADMIN_TOKEN || adminToken !== env.ADMIN_TOKEN) {
+      return jsonResponse({ error: 'Unauthorized – admin access only' }, 401, request);
+    }
 
     const clientIP = getClientIP(request);
     const db = env.DB;
@@ -116,19 +109,17 @@ export async function onRequestPost({ request, env }) {
     const rateOk = await checkRateLimit(db, clientIP, 'payout', 5, 5 * 60);
     if (!rateOk) return jsonResponse({ error: 'Too many attempts. Wait 5 minutes.' }, 429, request);
 
-    const payoutAmount = Number(amount);
-    if (!payoutAmount || payoutAmount <= 0) return jsonResponse({ error: 'Invalid amount' }, 400, request);
-    const cleanOwnerAcc = String(ownerAcc || '').replace(/[^0-9]/g, '');
-    if (!cleanOwnerAcc || cleanOwnerAcc.length < 10) {
-      return jsonResponse({ error: 'Invalid bank account (must be at least 10 digits)' }, 400, request);
-    }
-    if (!ownerName) return jsonResponse({ error: 'Missing owner name' }, 400, request);
-
+    // Load booking
     const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
     let bookings = [];
     try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
     const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-    if (idx !== -1 && (bookings[idx].payoutDate || bookings[idx].payoutSuccessDate || bookings[idx].ownerPayoutId)) {
+    if (idx === -1) return jsonResponse({ error: 'Booking not found' }, 404, request);
+
+    const booking = bookings[idx];
+
+    // Idempotency
+    if (booking.payoutDate || booking.payoutSuccessDate || booking.ownerPayoutId) {
       return jsonResponse({
         success: true,
         warning: true,
@@ -137,38 +128,34 @@ export async function onRequestPost({ request, env }) {
       }, 200, request);
     }
 
+    // ===== SERVER-SIDE AMOUNT (owner payout = booking.base) =====
+    const payoutAmount = Number(booking.base);
+    if (!Number.isFinite(payoutAmount) || payoutAmount <= 0) {
+      return jsonResponse({ error: 'Invalid booking base amount' }, 400, request);
+    }
+
     await recordRateLimit(db, clientIP, 'payout');
 
-    let bankCode = ownerBankCode || 'MBBEMYKL';
-    let accountName = ownerName;
-    let accountNumber = cleanOwnerAcc;
-    let bankAccountId = null;
-    let booking = null;
-    if (idx !== -1) booking = bookings[idx];
+    // Fetch homestay details for bank info
+    const homestay = await getHomestay(db, booking.homestayId);
+    if (!homestay) return jsonResponse({ error: 'Homestay not found' }, 404, request);
 
-    if (!homestayId && booking) {
-      const homestay = await getHomestay(db, booking.homestayId);
-      if (homestay) {
-        bankCode = getChipBankCode(homestay.ownerBank || homestay.bankCode || bankCode);
-        accountName = homestay.bankHolder || homestay.ownerName || ownerName;
-        accountNumber = homestay.ownerBankAccount?.replace(/[^0-9]/g, '') || cleanOwnerAcc;
-        bankAccountId = homestay.chip_bank_account_id || null;
-      }
-    } else if (homestayId) {
-      const homestay = await getHomestay(db, homestayId);
-      if (homestay) {
-        bankCode = getChipBankCode(homestay.ownerBank || homestay.bankCode || bankCode);
-        accountName = homestay.bankHolder || homestay.ownerName || ownerName;
-        accountNumber = homestay.ownerBankAccount?.replace(/[^0-9]/g, '') || cleanOwnerAcc;
-        bankAccountId = homestay.chip_bank_account_id || null;
-      }
+    const bankCode = getChipBankCode(homestay.ownerBank || homestay.bankCode || '');
+    const accountName = homestay.bankHolder || homestay.ownerName || '';
+    const accountNumber = (homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
+    let bankAccountId = homestay.chip_bank_account_id || null;
+
+    if (!accountNumber || accountNumber.length < 10) {
+      return jsonResponse({ error: 'Owner bank account invalid or missing' }, 400, request);
+    }
+    if (!accountName) {
+      return jsonResponse({ error: 'Owner bank holder name missing' }, 400, request);
     }
 
     const apiKey = env.CHIP_API_KEY;
     const apiSecret = env.CHIP_API_SECRET;
-
     if (!apiKey || !apiSecret) {
-      return jsonResponse({ error: 'Payment gateway configuration missing. Please contact support.' }, 500, request);
+      return jsonResponse({ error: 'Payment gateway configuration missing' }, 500, request);
     }
 
     if (!bankAccountId) {
@@ -195,7 +182,7 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Failed to create owner bank account' }, 500, request);
       }
       bankAccountId = bankData.id;
-      if (booking) await saveBankAccountId(db, booking.homestayId, bankAccountId);
+      await saveBankAccountId(db, booking.homestayId, bankAccountId);
     }
 
     const amountCents = Math.round(payoutAmount * 100);
@@ -208,7 +195,6 @@ export async function onRequestPost({ request, env }) {
     };
 
     const epoch = Math.floor(Date.now() / 1000);
-    const bodyString = JSON.stringify(payoutPayload);
     const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
 
     const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
@@ -219,7 +205,7 @@ export async function onRequestPost({ request, env }) {
         'epoch': String(epoch),
         'checksum': checksum
       },
-      body: bodyString
+      body: JSON.stringify(payoutPayload)
     });
 
     const payoutData = await payoutRes.json();
@@ -228,53 +214,58 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Owner payout failed. Please try again.' }, 502, request);
     }
 
-    if (idx !== -1) {
-      bookings[idx].status = 'Completed - Payout Success';
-      bookings[idx].chip_payout_id = payoutData.id;
-      bookings[idx].ownerPayoutId = payoutData.id;
-      bookings[idx].payoutAmount = payoutAmount;
-      bookings[idx].payoutDate = new Date().toISOString();
-      bookings[idx].payoutSuccessDate = new Date().toISOString();
-      bookings[idx].payoutSuccess = true;
-      bookings[idx].checkedInAt = new Date().toISOString();
-      bookings[idx].checkedInBy = auth.role === 'admin' ? 'admin' : 'owner';
-      bookings[idx].chip_bank_code = bankCode;
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind('kd_bookings', JSON.stringify(bookings))
-        .run();
-    }
+    // Update booking
+    bookings[idx].status = 'Completed - Payout Success';
+    bookings[idx].chip_payout_id = payoutData.id;
+    bookings[idx].ownerPayoutId = payoutData.id;
+    bookings[idx].payoutAmount = payoutAmount;
+    bookings[idx].payoutDate = new Date().toISOString();
+    bookings[idx].payoutSuccessDate = new Date().toISOString();
+    bookings[idx].payoutSuccess = true;
+    bookings[idx].checkedInAt = bookings[idx].checkedInAt || new Date().toISOString();
+    bookings[idx].checkedInBy = 'admin';
+    bookings[idx].chip_bank_code = bankCode;
+    bookings[idx].payoutMethod = 'CHIP Send (admin override)';
+    bookings[idx].payoutFailedAttempt = false;
+    delete bookings[idx].lastPayoutError;
 
+    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+      .bind('kd_bookings', JSON.stringify(bookings))
+      .run();
+
+    // Record platform fee earnings (idempotent)
     try {
       const feeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_fee_earnings').first();
       let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
-      if (!feeEarnings.history?.some(h => h.bookingId === bookingId)) {
-        const yourFee = (Number(fee) || 0) + 1.00;
+      feeEarnings.history = feeEarnings.history || [];
+      if (!feeEarnings.history.some(h => h.bookingId === bookingId && h.type === 'earning')) {
+        const yourFee = (Number(fee) || Number(booking.fee) || 0) + (Number(booking.gatewayFee) || 1.00);
         if (yourFee > 0) {
-          feeEarnings.total += yourFee;
-          feeEarnings.available += yourFee;
+          feeEarnings.total = (feeEarnings.total || 0) + yourFee;
+          feeEarnings.available = (feeEarnings.available || 0) + yourFee;
           feeEarnings.history.push({
             bookingId,
             fee: yourFee,
             date: new Date().toISOString(),
             type: 'earning',
             payoutToOwner: payoutAmount,
-            method: 'chip_send'
+            method: 'chip_send_admin_override'
           });
           await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
             .bind('kd_fee_earnings', JSON.stringify(feeEarnings))
             .run();
         }
       }
-    } catch (e) {}
+    } catch (e) { /* best-effort */ }
 
     await logAction({
       db,
-      action: 'payout_chip_send',
-      admin: auth.role,
-      details: `CHIP payout ${payoutData.id} for ${bookingId}`,
+      action: 'payout_chip_send_admin',
+      admin: 'admin',
+      details: `CHIP payout ${payoutData.id} for ${bookingId} (RM${payoutAmount})`,
       ip: clientIP,
-      userId: bookings[idx]?.guestEmail,
-      homestayId: bookings[idx]?.homestayId
+      userId: booking.guestEmail,
+      homestayId: booking.homestayId
     });
 
     return jsonResponse({
@@ -285,12 +276,16 @@ export async function onRequestPost({ request, env }) {
     }, 200, request);
 
   } catch (e) {
+    console.error('Payout error:', e.message);
     return jsonResponse({ error: 'Payout failed. Please try again later.' }, 500, request);
   }
 }
 
-export async function onRequestGet({ request, env }) {
-  return new Response(JSON.stringify({ message: 'CHIP Send Payout API ready' }), { status: 200, headers: corsHeaders(request) });
+export async function onRequestGet({ request }) {
+  return new Response(JSON.stringify({ message: 'CHIP Send Payout API ready (admin-only)' }), {
+    status: 200,
+    headers: corsHeaders(request)
+  });
 }
 
 export async function onRequestOptions({ request }) {
