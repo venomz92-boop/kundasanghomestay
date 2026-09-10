@@ -1,7 +1,15 @@
 // /api/owner-update-booking.js - With automatic refund on host cancellation + security fixes
-import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
+import {
+  corsHeaders,
+  getClientIP,
+  logAction,
+  enforceHttps,
+  getOwnerSession,
+  jsonResponse
+} from './_utils.js';
 
 const MAX_NIGHTS = 60;
+const GATEWAY_FEE = 1.00;
 
 async function verifyOwner(request, env) { return getOwnerSession(request, env); }
 
@@ -16,7 +24,7 @@ function calculateNights(checkin, checkout) {
 function calculatePrice(ownerPrice, nights = 1) {
   const base = ownerPrice * nights;
   const fee = Math.round((base * 11) / 100);
-  const gatewayFee = 1.00;
+  const gatewayFee = GATEWAY_FEE;
   const total = base + fee + gatewayFee;
   return { nights, base, fee, gatewayFee, total, youReceive: fee - gatewayFee };
 }
@@ -39,13 +47,11 @@ function getDatesInRange(checkin, checkout) {
 }
 
 // ============================================================
-// NEW: Refund helper using CHIP API
+// Refund helper using CHIP API
 // ============================================================
 async function processChipRefund(purchaseId, amount, env) {
   const chipSecret = env.CHIP_SECRET_KEY;
-  if (!chipSecret) {
-    throw new Error('CHIP_SECRET_KEY not configured – cannot process refund');
-  }
+  if (!chipSecret) throw new Error('CHIP_SECRET_KEY not configured – cannot process refund');
   const amountCents = Math.round(amount * 100);
   const payload = { amount: amountCents };
 
@@ -63,6 +69,32 @@ async function processChipRefund(purchaseId, amount, env) {
     throw new Error(`CHIP refund failed: ${data.error || 'unknown'}`);
   }
   return data;
+}
+
+/**
+ * Determine whether a booking has already been paid out to the owner.
+ * We must never cancel or refund such bookings.
+ */
+function isOwnerPaidOut(booking) {
+  if (!booking) return false;
+  if (booking.payoutSuccessDate) return true;
+  if (booking.ownerPayoutId) return true;
+  if (booking.payoutSuccess === true && booking.payoutAmount > 0) return true;
+  const s = String(booking.status || '').toLowerCase();
+  if (s.startsWith('completed')) return true;
+  return false;
+}
+
+/**
+ * Determine if a booking is currently in a paid state where refund is required.
+ */
+function isPaidBooking(booking) {
+  if (!booking) return false;
+  const s = String(booking.status || '');
+  if (s === 'Paid - Awaiting Check-in') return true;
+  if (s === 'Completed - Payout Pending') return true;
+  if (s.startsWith('Completed')) return true;
+  return false;
 }
 
 export async function onRequestPost({ request, env }) {
@@ -151,7 +183,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, message, room }, 200, request);
     }
 
-    // ===== NEW ACTION: Update homestay price =====
+    // ===== ACTION: Update homestay price =====
     if (action === "updateHomestayPrice") {
       const { homestayId, newPrice } = body;
       if (!homestayId || newPrice === undefined || newPrice === null) {
@@ -179,7 +211,6 @@ export async function onRequestPost({ request, env }) {
         if (res && res.data) { try { arr = JSON.parse(res.data); } catch(e) {} }
         const index = arr.findIndex(h => String(h.id) === String(homestayId));
         if (index !== -1) {
-          // Update ownerPrice
           arr[index].ownerPrice = priceNum;
           await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
             .bind(key, JSON.stringify(arr))
@@ -209,7 +240,7 @@ export async function onRequestPost({ request, env }) {
       }, 200, request);
     }
 
-    // ===== Existing actions (changeDates, cancelBooking) – with security fixes =====
+    // ===== Other actions need bookingId =====
     if (!bookingId) {
       return jsonResponse({ error: "Missing bookingId" }, 400, request);
     }
@@ -223,19 +254,24 @@ export async function onRequestPost({ request, env }) {
     if (res && res.data) { try { bookings = JSON.parse(res.data); } catch(e) {} }
 
     const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-    // ---- FIX: Generic error for not found ----
     if (idx === -1) return jsonResponse({ error: "Invalid request." }, 400, request);
 
     const booking = bookings[idx];
 
-    // SECURITY: Verify this owner owns this homestay
+    // Verify ownership of the homestay
     if (!(ownerData.homestayIds || [ownerData.ownerId]).map(String).includes(String(booking.homestayId))) {
-      // console.warn(`⚠️ Owner ${ownerData.whatsapp} tried to modify booking for homestay ${booking.homestayId} but owns ${ownerData.ownerId}`);
       return jsonResponse({ error: "Unauthorized: You do not own this homestay" }, 403, request);
     }
 
     // ========== ACTION: CHANGE DATES ==========
     if (action === "changeDates") {
+      // Block date changes for paid/completed bookings
+      if (isPaidBooking(booking) || isOwnerPaidOut(booking)) {
+        return jsonResponse({
+          error: 'Cannot change dates for a paid or completed booking. Please cancel and rebook, or contact support.'
+        }, 400, request);
+      }
+
       if (!checkin || !checkout) {
         return jsonResponse({ error: "Missing checkin or checkout" }, 400, request);
       }
@@ -245,13 +281,11 @@ export async function onRequestPost({ request, env }) {
       if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
         return jsonResponse({ error: "Invalid dates" }, 400, request);
       }
-      // SECURITY: Enforce max nights
       const nights = calculateNights(checkin, checkout);
       if (nights > MAX_NIGHTS) {
         return jsonResponse({ error: `Maximum booking length is ${MAX_NIGHTS} nights.` }, 400, request);
       }
 
-      // ... rest of date change logic (unchanged) ...
       const rApproved = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
       let homestays = [];
       if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch(e) {} }
@@ -262,22 +296,35 @@ export async function onRequestPost({ request, env }) {
       if (!homestay) return jsonResponse({ error: "Homestay not found" }, 404, request);
 
       const oldDates = getDatesInRange(booking.checkin, booking.checkout);
-      
+
       const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
       let availabilityMap = {};
       if (availRes && availRes.data) { try { availabilityMap = JSON.parse(availRes.data); } catch(e) {} }
-      
+
       const allBlocked = [];
       if (homestay.blockedDates) allBlocked.push(...homestay.blockedDates);
       if (availabilityMap[homestay.id]) allBlocked.push(...availabilityMap[homestay.id]);
-      
+
+      // Room-level blocked dates
+      let roomBlocked = [];
+      if (booking.roomId && homestay.rooms) {
+        const room = homestay.rooms.find(r => String(r.id) === String(booking.roomId));
+        if (room && Array.isArray(room.blockedDates)) {
+          roomBlocked = room.blockedDates.slice();
+        }
+      }
+
       const blockedWithoutThis = allBlocked.filter(d => !oldDates.includes(d));
+      const roomBlockedWithoutThis = roomBlocked.filter(d => !oldDates.includes(d));
       const newDates = getDatesInRange(checkin, checkout);
-      const overlap = newDates.filter(d => blockedWithoutThis.includes(d));
-      if (overlap.length > 0) {
-        return jsonResponse({ 
-          error: `Dates overlap with existing bookings: ${overlap.join(', ')}` 
-        }, 400, request);
+
+      const homestayOverlap = newDates.filter(d => blockedWithoutThis.includes(d));
+      if (homestayOverlap.length > 0) {
+        return jsonResponse({ error: `Dates overlap with existing bookings: ${homestayOverlap.join(', ')}` }, 400, request);
+      }
+      const roomOverlap = newDates.filter(d => roomBlockedWithoutThis.includes(d));
+      if (roomOverlap.length > 0) {
+        return jsonResponse({ error: `Selected room is blocked on: ${roomOverlap.join(', ')}` }, 400, request);
       }
 
       const price = calculatePrice(homestay.ownerPrice, nights);
@@ -315,47 +362,43 @@ export async function onRequestPost({ request, env }) {
 
     // ========== ACTION: CANCEL BOOKING ==========
     if (action === "cancelBooking") {
-      // Check if already completed or cancelled
-      if (booking.payoutDate) {
+      // Block if owner already paid out
+      if (isOwnerPaidOut(booking)) {
         return jsonResponse({
           success: false,
-          message: `Booking ${bookingId} already completed and paid out on ${booking.payoutDate}. Cannot cancel.`
+          message: `Booking ${bookingId} has already been completed and paid out. Cannot cancel.`
         }, 400, request);
       }
+
+      // Block if already cancelled
       if (booking.status && booking.status.toLowerCase().includes('cancelled')) {
         return jsonResponse({
           success: false,
           message: `Booking ${bookingId} is already cancelled.`
         }, 400, request);
       }
-      // SECURITY: Prevent double refund
+      // Block duplicate refund
       if (booking.chip_refund_id) {
         return jsonResponse({ success: false, message: 'This booking has already been refunded.' }, 400, request);
       }
 
-      // ============================================================
-      // 🔄 NEW: If booking is paid, automatically process refund
-      // ============================================================
-      const isPaid = booking.status === 'Paid - Awaiting Check-in';
+      const isPaid = isPaidBooking(booking);
       let refundSuccess = false;
       let refundData = null;
       let refundError = null;
 
       if (isPaid && booking.chip_purchase_id) {
         try {
-          // Refund full amount (total)
           refundData = await processChipRefund(booking.chip_purchase_id, booking.total, env);
           refundSuccess = true;
         } catch (err) {
           refundError = err.message;
-          // console.error('❌ Host cancellation refund failed:', err);
         }
       }
 
-      // Update booking status
       if (isPaid && refundSuccess) {
         bookings[idx].status = 'Refunded';
-        bookings[idx].chip_refund_id = refundData.id; // store refund id for idempotency
+        bookings[idx].chip_refund_id = refundData.id;
         bookings[idx].refunded_at = new Date().toISOString();
         bookings[idx].refund_amount = booking.total;
         bookings[idx].cancelled_by = 'host';
@@ -366,7 +409,6 @@ export async function onRequestPost({ request, env }) {
         bookings[idx].cancelled_by = 'host';
         bookings[idx].statusUpdated = new Date().toISOString();
       } else {
-        // Unpaid booking – just cancel
         bookings[idx].status = "Cancelled by Host";
         bookings[idx].cancelled_by = 'host';
         bookings[idx].statusUpdated = new Date().toISOString();
@@ -388,8 +430,8 @@ export async function onRequestPost({ request, env }) {
 
       return jsonResponse({
         success: true,
-        message: isPaid 
-          ? (refundSuccess 
+        message: isPaid
+          ? (refundSuccess
               ? `Booking ${bookingId} cancelled and full refund of RM${booking.total.toFixed(2)} processed.`
               : `Booking ${bookingId} cancelled but refund failed. Status set to 'Refund Pending'. Please contact support.`)
           : `Booking ${bookingId} cancelled (unpaid).`,
@@ -402,8 +444,7 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ error: "Invalid action" }, 400, request);
 
   } catch (e) {
-    // console.error("❌ Owner update booking error:", e.message);
-    // SECURITY: Generic error
+    console.error("Owner update booking error:", e.message);
     return jsonResponse({ error: "An error occurred while processing your request." }, 500, request);
   }
 }
