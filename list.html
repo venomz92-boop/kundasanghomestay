@@ -479,6 +479,7 @@ function escapeHTML(s) {
     .replace(/'/g, '&#39;');
 }
 
+// HARDENED: no onclick / onchange / oninput / onerror in ALLOWED_ATTR
 function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
@@ -758,7 +759,7 @@ function renderRooms() {
         imagesHtml += `
           <div class="relative">
             <img src="${escapeHTML(img)}" class="w-12 h-12 object-cover rounded border border-zinc-200" />
-            <button type="button" onclick="removeRoomImage('${escapeHTML(room.id)}', ${imgIdx})" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-600">✕</button>
+            <button type="button" data-room-action="remove-img" data-room-id="${escapeHTML(room.id)}" data-img-index="${imgIdx}" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-600">✕</button>
           </div>
         `;
       });
@@ -768,22 +769,22 @@ function renderRooms() {
     html += `
       <div class="flex flex-wrap items-start gap-3 p-3 bg-white rounded-xl border border-zinc-200">
         <div class="flex-1 min-w-[200px] space-y-2">
-          <input class="form-input text-sm" placeholder="Room name (e.g. Hibiscus)" value="${escapeHTML(room.name)}" onchange="updateRoomField('${escapeHTML(room.id)}', 'name', this.value)" />
+          <input class="form-input text-sm" placeholder="Room name (e.g. Hibiscus)" value="${escapeHTML(room.name)}" data-room-id="${escapeHTML(room.id)}" data-room-field="name" />
           <div class="flex flex-wrap gap-2">
-            <input class="form-input flex-1 min-w-[120px] text-sm" placeholder="RM price" type="number" value="${escapeHTML(room.price)}" onchange="updateRoomField('${escapeHTML(room.id)}', 'price', this.value)" />
-            <input class="form-input flex-1 min-w-[100px] text-sm" placeholder="Guests" type="number" value="${escapeHTML(room.guests)}" onchange="updateRoomField('${escapeHTML(room.id)}', 'guests', this.value)" />
+            <input class="form-input flex-1 min-w-[120px] text-sm" placeholder="RM price" type="number" value="${escapeHTML(room.price)}" data-room-id="${escapeHTML(room.id)}" data-room-field="price" />
+            <input class="form-input flex-1 min-w-[100px] text-sm" placeholder="Guests" type="number" value="${escapeHTML(room.guests)}" data-room-id="${escapeHTML(room.id)}" data-room-field="guests" />
           </div>
-          <input class="form-input text-sm" placeholder="Room description" value="${escapeHTML(room.desc)}" onchange="updateRoomField('${escapeHTML(room.id)}', 'desc', this.value)" />
+          <input class="form-input text-sm" placeholder="Room description" value="${escapeHTML(room.desc)}" data-room-id="${escapeHTML(room.id)}" data-room-field="desc" />
           <div class="flex items-center gap-2">
             <label class="text-xs font-semibold text-zinc-600 cursor-pointer bg-zinc-100 px-3 py-1.5 rounded-full hover:bg-zinc-200 transition">
               📷 Add Photos
-              <input type="file" accept="image/*" multiple class="hidden" onchange="handleRoomImages('${escapeHTML(room.id)}', this)" />
+              <input type="file" accept="image/*" multiple class="hidden" data-room-action="add-img" data-room-id="${escapeHTML(room.id)}" />
             </label>
             <span class="text-[10px] text-zinc-400">${room.images ? room.images.length : 0} images</span>
           </div>
           ${imagesHtml}
         </div>
-        <button type="button" onclick="removeRoom('${escapeHTML(room.id)}')" class="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 bg-red-50 rounded-full">✕</button>
+        <button type="button" data-room-action="remove" data-room-id="${escapeHTML(room.id)}" class="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 bg-red-50 rounded-full">✕</button>
       </div>
     `;
   });
@@ -851,6 +852,43 @@ document.getElementById('listBankName').addEventListener('change', function() {
   const wrap = document.getElementById('manualBankCodeWrap');
   if (this.value === 'Other') wrap.classList.remove('hidden');
   else { wrap.classList.add('hidden'); document.getElementById('listBankCode').value = ''; }
+});
+
+// =============================================================
+// DELEGATED HANDLERS FOR DYNAMIC ROOM UI
+// (Needed because safeHTML strips inline onclick/onchange.)
+// =============================================================
+document.addEventListener('click', function(e) {
+  const removeImgBtn = e.target.closest('#roomsList [data-room-action="remove-img"]');
+  if (removeImgBtn) {
+    e.preventDefault();
+    const roomId = removeImgBtn.dataset.roomId;
+    const idx = parseInt(removeImgBtn.dataset.imgIndex, 10);
+    if (roomId && !isNaN(idx)) removeRoomImage(roomId, idx);
+    return;
+  }
+  const removeRoomBtn = e.target.closest('#roomsList [data-room-action="remove"]');
+  if (removeRoomBtn) {
+    e.preventDefault();
+    const roomId = removeRoomBtn.dataset.roomId;
+    if (roomId) removeRoom(roomId);
+    return;
+  }
+});
+
+document.addEventListener('input', function(e) {
+  const el = e.target.closest('#roomsList [data-room-field]');
+  if (!el) return;
+  const roomId = el.dataset.roomId;
+  const field = el.dataset.roomField;
+  if (roomId && field) updateRoomField(roomId, field, el.value);
+});
+
+document.addEventListener('change', function(e) {
+  const el = e.target.closest('#roomsList input[type="file"][data-room-action="add-img"]');
+  if (!el) return;
+  const roomId = el.dataset.roomId;
+  if (roomId) handleRoomImages(roomId, el);
 });
 
 // =============================================================
@@ -1082,11 +1120,20 @@ function renderBlockedDatesList() {
     listDiv.innerHTML = safeHTML("<span class='text-xs text-zinc-400'>No exclusions marked</span>");
   } else {
     listDiv.innerHTML = safeHTML(tempBlockedDates.map(d =>
-      `<span class="blocked-date-chip font-semibold text-xs">${escapeHTML(d)} <button onclick="removeBlockedDate('${escapeHTML(d)}')" class="ml-1 text-red-600 font-bold hover:text-red-900">✕</button></span>`
+      `<span class="blocked-date-chip font-semibold text-xs">${escapeHTML(d)} <button type="button" data-blocked-action="remove" data-blocked-date="${escapeHTML(d)}" class="ml-1 text-red-600 font-bold hover:text-red-900">✕</button></span>`
     ).join(""));
   }
   if (countDiv) countDiv.innerText = `${tempBlockedDates.length} Dates Blocked`;
 }
+
+// Delegated handler for blocked-date removal (safeHTML strips inline onclick)
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('#blockedDatesList [data-blocked-action="remove"]');
+  if (!btn) return;
+  e.preventDefault();
+  const date = btn.dataset.blockedDate;
+  if (date) removeBlockedDate(date);
+});
 
 // =============================================================
 // PBT License (Cloudinary)
