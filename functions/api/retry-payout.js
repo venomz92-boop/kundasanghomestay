@@ -6,7 +6,8 @@ import {
   enforceHttps,
   getAdminToken,
   jsonResponse,
-  parseJSONSafely
+  parseJSONSafely,
+  withLock
 } from './_utils.js';
 
 function getChipBankCode(bankName) {
@@ -71,166 +72,187 @@ export async function onRequestPost({ request, env }) {
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
-    let bookings = [];
-    try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
-    const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-    if (idx === -1) return jsonResponse({ error: 'Booking not found' }, 404, request);
-
-    const booking = bookings[idx];
-    if (booking.payoutSuccessDate || booking.ownerPayoutId) {
-      return jsonResponse({ success: true, alreadyPaid: true, message: 'Already paid out.' }, 200, request);
-    }
-    if (!booking.checkedInAt) {
-      return jsonResponse({ error: 'Cannot retry payout before check-in.' }, 400, request);
-    }
-
-    // Find homestay
-    let homestay = null;
-    for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
-      const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
-      let list = [];
-      try { if (rr?.data) list = JSON.parse(rr.data); } catch(_) {}
-      const found = list.find(h => String(h.id) === String(booking.homestayId));
-      if (found) { homestay = found; break; }
-    }
-    if (!homestay) return jsonResponse({ error: 'Homestay not found' }, 404, request);
-
-    const ownerAmount = Number(booking.base) || 0;
-    if (ownerAmount <= 0) return jsonResponse({ error: 'Invalid booking base amount' }, 400, request);
-
-    const ownerAcc = (homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
-    const ownerName = homestay.bankHolder || homestay.ownerName || '';
-    if (!ownerAcc || ownerAcc.length < 10) return jsonResponse({ error: 'Invalid bank account' }, 400, request);
-    if (!ownerName) return jsonResponse({ error: 'Missing bank holder name' }, 400, request);
-
-    const apiKey = env.CHIP_API_KEY;
-    const apiSecret = env.CHIP_API_SECRET;
-    if (!apiKey || !apiSecret) return jsonResponse({ error: 'CHIP Send not configured' }, 500, request);
-
-    const chipBankCode = getChipBankCode(homestay.ownerBank || homestay.bankCode || '');
-
-    let bankAccountId = homestay.chip_bank_account_id || null;
-    if (!bankAccountId) {
-      const epoch = Math.floor(Date.now() / 1000);
-      const bankBody = JSON.stringify({
-        bank_code: chipBankCode,
-        account_number: ownerAcc,
-        account_name: ownerName
-      });
-      const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
-      const createRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'epoch': String(epoch),
-          'checksum': checksum
-        },
-        body: bankBody
-      });
-      const bankData = await createRes.json();
-      if (!createRes.ok || !bankData.id) {
-        return jsonResponse({ error: 'Failed to create bank account: ' + (bankData.error || 'unknown') }, 502, request);
-      }
-      bankAccountId = bankData.id;
-
-      // Persist bank_account_id back
-      for (const store of ['kd_approved', 'kd_homestays']) {
-        const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
-        let list = [];
-        try { if (rr?.data) list = JSON.parse(rr.data); } catch(_) {}
-        const hIdx = list.findIndex(h => String(h.id) === String(booking.homestayId));
-        if (hIdx !== -1) {
-          list[hIdx].chip_bank_account_id = bankAccountId;
-          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-            .bind(store, JSON.stringify(list)).run();
-          break;
-        }
-      }
-    }
-
-    const amountCents = Math.round(ownerAmount * 100);
-    const reference = `KDH-${bookingId}`;
-    const payoutPayload = {
-      bank_account_id: bankAccountId,
-      amount: amountCents,
-      reference: reference,
-      description: `Retry payout for ${bookingId}`
-    };
-    const epoch = Math.floor(Date.now() / 1000);
-    const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
-
-    const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'epoch': String(epoch),
-        'checksum': checksum
-      },
-      body: JSON.stringify(payoutPayload)
-    });
-    const payoutData = await payoutRes.json();
-
-    if (!payoutRes.ok || !payoutData.id) {
-      return jsonResponse({ error: 'CHIP Send failed: ' + (payoutData.error || 'unknown') }, 502, request);
-    }
-
-    bookings[idx].status = 'Completed - Payout Success';
-    bookings[idx].payoutSuccess = true;
-    bookings[idx].payoutSuccessDate = new Date().toISOString();
-    bookings[idx].payoutAmount = ownerAmount;
-    bookings[idx].ownerPayoutId = payoutData.id;
-    bookings[idx].payoutMethod = 'CHIP Send (retry)';
-    bookings[idx].retriedAt = new Date().toISOString();
-    bookings[idx].payoutFailedAttempt = false;
-    delete bookings[idx].lastPayoutError;
-
-    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-      .bind('kd_bookings', JSON.stringify(bookings)).run();
-
-    // ===== RECORD PLATFORM FEE (idempotent) =====
+    // ============================================================
+    // Use the SAME lock key as owner-checkin/payout so no two payout
+    // paths can race on the same booking.
+    // ============================================================
+    let result;
     try {
-      const feeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_fee_earnings').first();
-      let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
-      feeEarnings.history = feeEarnings.history || [];
-      const alreadyRecorded = feeEarnings.history.some(h => h.bookingId === bookingId && h.type === 'earning');
-      if (!alreadyRecorded) {
-        const feeToRecord = (Number(booking.fee) || 0) + (Number(booking.gatewayFee) || GATEWAY_FEE);
-        if (feeToRecord > 0) {
-          feeEarnings.total = (feeEarnings.total || 0) + feeToRecord;
-          feeEarnings.available = (feeEarnings.available || 0) + feeToRecord;
-          feeEarnings.history.push({
-            bookingId,
-            fee: feeToRecord,
-            date: new Date().toISOString(),
-            type: 'earning',
-            payoutToOwner: ownerAmount,
-            method: 'chip_send_retry',
-            ip: getClientIP(request)
-          });
-          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-            .bind('kd_fee_earnings', JSON.stringify(feeEarnings)).run();
+      result = await withLock(db, `checkin-${bookingId}`, async (db) => {
+        const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+        let bookings = [];
+        try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+        const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
+        if (idx === -1) return { error: 'Booking not found', status: 404 };
+
+        const booking = bookings[idx];
+        if (booking.payoutSuccessDate || booking.ownerPayoutId) {
+          return { success: true, alreadyPaid: true, message: 'Already paid out.' };
         }
+        if (!booking.checkedInAt) {
+          return { error: 'Cannot retry payout before check-in.', status: 400 };
+        }
+
+        // Find homestay
+        let homestay = null;
+        for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
+          const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
+          let list = [];
+          try { if (rr?.data) list = JSON.parse(rr.data); } catch(_) {}
+          const found = list.find(h => String(h.id) === String(booking.homestayId));
+          if (found) { homestay = found; break; }
+        }
+        if (!homestay) return { error: 'Homestay not found', status: 404 };
+
+        const ownerAmount = Number(booking.base) || 0;
+        if (ownerAmount <= 0) return { error: 'Invalid booking base amount', status: 400 };
+
+        const ownerAcc = (homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
+        const ownerName = homestay.bankHolder || homestay.ownerName || '';
+        if (!ownerAcc || ownerAcc.length < 10) return { error: 'Invalid bank account', status: 400 };
+        if (!ownerName) return { error: 'Missing bank holder name', status: 400 };
+
+        const apiKey = env.CHIP_API_KEY;
+        const apiSecret = env.CHIP_API_SECRET;
+        if (!apiKey || !apiSecret) return { error: 'CHIP Send not configured', status: 500 };
+
+        const chipBankCode = getChipBankCode(homestay.ownerBank || homestay.bankCode || '');
+
+        let bankAccountId = homestay.chip_bank_account_id || null;
+        if (!bankAccountId) {
+          const epoch = Math.floor(Date.now() / 1000);
+          const bankBody = JSON.stringify({
+            bank_code: chipBankCode,
+            account_number: ownerAcc,
+            account_name: ownerName
+          });
+          const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
+          const createRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+              'epoch': String(epoch),
+              'checksum': checksum
+            },
+            body: bankBody
+          });
+          const bankData = await createRes.json();
+          if (!createRes.ok || !bankData.id) {
+            return { error: 'Failed to create bank account: ' + (bankData.error || 'unknown'), status: 502 };
+          }
+          bankAccountId = bankData.id;
+
+          for (const store of ['kd_approved', 'kd_homestays']) {
+            const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
+            let list = [];
+            try { if (rr?.data) list = JSON.parse(rr.data); } catch(_) {}
+            const hIdx = list.findIndex(h => String(h.id) === String(booking.homestayId));
+            if (hIdx !== -1) {
+              list[hIdx].chip_bank_account_id = bankAccountId;
+              await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+                .bind(store, JSON.stringify(list)).run();
+              break;
+            }
+          }
+        }
+
+        const amountCents = Math.round(ownerAmount * 100);
+        const reference = `KDH-${bookingId}`;
+        const payoutPayload = {
+          bank_account_id: bankAccountId,
+          amount: amountCents,
+          reference: reference,
+          description: `Retry payout for ${bookingId}`
+        };
+        const epoch = Math.floor(Date.now() / 1000);
+        const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
+
+        const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'epoch': String(epoch),
+            'checksum': checksum
+          },
+          body: JSON.stringify(payoutPayload)
+        });
+        const payoutData = await payoutRes.json();
+
+        if (!payoutRes.ok || !payoutData.id) {
+          return { error: 'CHIP Send failed: ' + (payoutData.error || 'unknown'), status: 502 };
+        }
+
+        bookings[idx].status = 'Completed - Payout Success';
+        bookings[idx].payoutSuccess = true;
+        bookings[idx].payoutSuccessDate = new Date().toISOString();
+        bookings[idx].payoutAmount = ownerAmount;
+        bookings[idx].ownerPayoutId = payoutData.id;
+        bookings[idx].payoutMethod = 'CHIP Send (retry)';
+        bookings[idx].retriedAt = new Date().toISOString();
+        bookings[idx].payoutFailedAttempt = false;
+        delete bookings[idx].lastPayoutError;
+
+        await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+          .bind('kd_bookings', JSON.stringify(bookings)).run();
+
+        // Record platform fee (idempotent)
+        try {
+          const feeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_fee_earnings').first();
+          let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
+          feeEarnings.history = feeEarnings.history || [];
+          const alreadyRecorded = feeEarnings.history.some(h => h.bookingId === bookingId && h.type === 'earning');
+          if (!alreadyRecorded) {
+            const gatewayFeeVal = (booking.gatewayFee === undefined || booking.gatewayFee === null)
+              ? GATEWAY_FEE
+              : Number(booking.gatewayFee);
+            const feeToRecord = (Number(booking.fee) || 0) + gatewayFeeVal;
+            if (feeToRecord > 0) {
+              feeEarnings.total = (feeEarnings.total || 0) + feeToRecord;
+              feeEarnings.available = (feeEarnings.available || 0) + feeToRecord;
+              feeEarnings.history.push({
+                bookingId,
+                fee: feeToRecord,
+                date: new Date().toISOString(),
+                type: 'earning',
+                payoutToOwner: ownerAmount,
+                method: 'chip_send_retry',
+                ip: getClientIP(request)
+              });
+              await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+                .bind('kd_fee_earnings', JSON.stringify(feeEarnings)).run();
+            }
+          }
+        } catch (e) { /* best-effort */ }
+
+        await logAction({
+          db,
+          action: 'payout_retried',
+          admin: 'admin',
+          details: `Retried payout for ${bookingId}: ${payoutData.id} (RM${ownerAmount})`,
+          ip: getClientIP(request),
+          homestayId: booking.homestayId
+        });
+
+        return {
+          success: true,
+          payoutId: payoutData.id,
+          amount: ownerAmount,
+          bookingId
+        };
+      }, 60000);
+    } catch (lockErr) {
+      if (lockErr.message && lockErr.message.includes('in progress')) {
+        return jsonResponse({ error: 'A payout or check-in is already in progress for this booking. Please wait.' }, 429, request);
       }
-    } catch (e) { /* best-effort */ }
+      throw lockErr;
+    }
 
-    await logAction({
-      db,
-      action: 'payout_retried',
-      admin: 'admin',
-      details: `Retried payout for ${bookingId}: ${payoutData.id} (RM${ownerAmount})`,
-      ip: getClientIP(request),
-      homestayId: booking.homestayId
-    });
-
-    return jsonResponse({
-      success: true,
-      payoutId: payoutData.id,
-      amount: ownerAmount,
-      bookingId
-    }, 200, request);
+    if (result.error) {
+      return jsonResponse({ error: result.error }, result.status || 400, request);
+    }
+    return jsonResponse(result, 200, request);
 
   } catch (e) {
     console.error('Retry payout error:', e.message);
