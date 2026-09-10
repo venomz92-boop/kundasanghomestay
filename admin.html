@@ -1707,20 +1707,41 @@ async function approveHomestay(id){
     await showAlert("Error", "Error: " + e.message);
   }
 }
-async function rejectHomestay(id){
-  const confirmed = await showConfirm("Reject Homestay", "Reject this homestay?");
+
+  async function rejectHomestay(id){
+  const confirmed = await showConfirm(
+    "Reject Homestay",
+    "Reject this homestay? The host will receive a notification email."
+  );
   if (!confirmed) return;
+
+  // Optional reason — captured in the same prompt
+  const reason = await showPrompt(
+    "Rejection Reason (Optional)",
+    "Type a short reason for rejecting this listing. The host will see this in the email. Leave blank to send the rejection without a specific reason.",
+    ""
+  );
+  // If user clicked "Cancel" on the prompt, we still proceed with no reason
+  const cleanReason = (reason || "").trim().slice(0, 500);
+
   try {
     const res = await fetchWithAuth(API_BASE + "/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "rejectHomestay", id: id })
+      body: JSON.stringify({ action: "rejectHomestay", id: id, reason: cleanReason })
     });
     const data = await res.json();
     if (data.success) {
       await fetchCloudData();
       renderAdmin();
-      await showAlert("Success", "✅ Homestay rejected and synced to cloud!");
+
+      let msg = "✅ Homestay rejected and synced to cloud!";
+      if (data.emailSent === true) {
+        msg += "<br><br>📧 Notification email sent to the host.";
+      } else if (data.emailError) {
+        msg += "<br><br>⚠️ Email could not be sent: " + data.emailError;
+      }
+      await showAlert("Rejected", msg);
     } else {
       await showAlert("Error", "❌ Rejection failed: " + (data.error || "Unknown error"));
     }
@@ -1728,6 +1749,7 @@ async function rejectHomestay(id){
     await showAlert("Error", "Error: " + e.message);
   }
 }
+  
 async function forceSyncPending(){
   const confirmed = await showConfirm("Force Sync", "Force sync pending data from localStorage to cloud?");
   if (!confirmed) return;
