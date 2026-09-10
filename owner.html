@@ -62,7 +62,6 @@
       <a href="/list.html" id="navList" class="setsail-nav-link" onclick="window.location.href='/list.html'; return false;">Host Registration</a>
       <a href="/about.html" id="navAbout" class="setsail-nav-link" onclick="window.location.href='/about.html'; return false;">About</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;" onclick="window.location.href='/owner.html'; return false;">🔑 Host Login</a>
-      <button onclick="logoutOwner()" class="btn-outline" style="margin-left:12px; padding:6px 18px; font-size:11px;">Logout</button>
       <div id="guestNav" class="ml-4 flex items-center gap-3">
         <a href="/login.html" class="btn-accent" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/login.html'; return false;">Guest Login</a>
         <a href="/register.html" class="btn-primary" style="padding:8px 24px; font-size:11px;" onclick="window.location.href='/register.html'; return false;">Register</a>
@@ -81,7 +80,6 @@
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
-    <button onclick="logoutOwner()" class="btn-danger lg:hidden ml-2" style="padding:6px 14px; font-size:10px;">Logout</button>
 
     <!-- FALLBACK LISTENER -->
     <script>
@@ -154,7 +152,10 @@
         <h2 class="text-2xl font-bold font-poppins text-[#212121]">Host: <span id="welcomeName" class="text-[#0F382E]">Owner</span></h2>
         <p class="text-xs text-zinc-500 mt-0.5">Physical property audits, reservation modifications & verified check-ins.</p>
       </div>
-      <button onclick="loadBookings()" class="refresh-btn">🔄 Synchronize</button>
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="loadBookings()" class="refresh-btn">🔄 Synchronize</button>
+        <button onclick="logoutOwner()" class="btn-danger">Logout</button>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-on-scroll">
@@ -181,7 +182,7 @@
       <span id="selectedHomestayName" class="text-xs text-zinc-500 font-medium italic"></span>
     </div>
 
-    <!-- ===== Reservation Books (unchanged) ===== -->
+    <!-- ===== Reservation Books ===== -->
     <div class="card p-6 animate-on-scroll">
       <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2"><span>📅 Reservation Books</span></h3>
       <div id="ownerBookingsList" class="space-y-4">
@@ -189,7 +190,7 @@
       </div>
     </div>
 
-    <!-- ===== Manage Room Blocks (unchanged) ===== -->
+    <!-- ===== Manage Room Blocks ===== -->
     <div class="card p-6 animate-on-scroll">
       <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2">
         <span>🚫 Manage Room Blocks</span>
@@ -205,7 +206,7 @@
       </div>
     </div>
 
-    <!-- ===== Manage Pricing – MOVED BELOW Room Blocks ===== -->
+    <!-- ===== Manage Pricing ===== -->
     <div class="card p-6 animate-on-scroll">
       <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2">
         <span>💰 Manage Pricing</span>
@@ -354,7 +355,9 @@ function showConfirm(title, message) {
   ]);
 }
 function showPrompt(title, message, defaultValue) {
-  const input = `<input type="text" id="modalInput" value="${defaultValue || ''}" class="w-full border rounded-full px-4 py-2.5 mt-3 text-sm" placeholder="Enter parameters..." inputmode="numeric" pattern="[0-9]*" />`;
+  const safeVal = String(defaultValue || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const input = `<input type="text" id="modalInput" value="${safeVal}" class="w-full border rounded-full px-4 py-2.5 mt-3 text-sm" placeholder="Enter parameters..." inputmode="numeric" pattern="[0-9]*" />`;
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
     const titleEl = document.getElementById('modalTitle');
@@ -409,6 +412,7 @@ try {
     if (parsed && parsed.id) currentGuest = parsed;
   }
 } catch(e) { currentGuest = null; }
+
 function renderGuestNav() {
   const loginNav = document.getElementById("guestNav");
   const profileNav = document.getElementById("guestProfileNav");
@@ -430,6 +434,7 @@ function renderGuestNav() {
     if (mProfileNav) mProfileNav.classList.add("hidden");
   }
 }
+
 function logoutGuest() {
   if (!confirm("Confirm guest profile logout?")) return;
   currentGuest = null;
@@ -438,15 +443,756 @@ function logoutGuest() {
   window.location.href = '/';
 }
 
+// =============================================================
+// BANK CODES
+// =============================================================
+const BANK_CODES = {
+  'Maybank': 'MBBEMYKL',
+  'CIMB Bank': 'CIBBMYKL',
+  'Public Bank': 'PBBEMYKL',
+  'RHB Bank': 'RHBBMYKL',
+  'Hong Leong Bank': 'HLBBMYKL',
+  'Bank Islam': 'BIMBMYKL',
+  'Bank Rakyat': 'BKRMMYKL',
+  'BSN': 'BSNAMYK1',
+  'Affin Bank': 'PHBMMYKL',
+  'Alliance Bank': 'MFBBMYKL',
+  'Ambank': 'ARBKMYKL',
+  'HSBC': 'HBMBMYKL',
+  'OCBC': 'OCBCMYKL',
+  'UOB': 'UOVBMYKL',
+  'Standard Chartered': 'SCBLMYKX'
+};
+
+// =============================================================
+// IMAGE COMPRESSION
+// =============================================================
+function compressImage(file, maxWidth = 800, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith('image/')) {
+      reject(new Error('Not an image file'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = height * (maxWidth / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => reject(new Error('Failed to decode image'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function compressImageToBlob(file, maxWidth, quality) {
+  return new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/')) {
+      resolve(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = h * (maxWidth / w); w = maxWidth; }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => resolve(null);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+// =============================================================
+// TEMP STORAGE
+// =============================================================
+let tempPhotos = [];
+let tempBlockedDates = [];
+let tempIcWatermarked = "";
+let tempIcOriginalName = "";
+let tempBankQRWatermarked = "";
+let tempBankQROriginalName = "";
+let tempPbtLicense = "";
+let tempRooms = [];
+
+// =============================================================
+// ROOMS MANAGEMENT
+// =============================================================
+function addRoom(name = '', price = '', guests = '', desc = '', images = []) {
+  const id = 'room-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+  tempRooms.push({ id, name, price, guests, desc, images: images || [] });
+  renderRooms();
+}
+
+function removeRoom(roomId) {
+  const index = tempRooms.findIndex(r => r.id === roomId);
+  if (index !== -1) {
+    tempRooms.splice(index, 1);
+    renderRooms();
+  }
+}
+
+function renderRooms() {
+  const list = document.getElementById('roomsList');
+  if (!list) return;
+  if (tempRooms.length === 0) {
+    list.innerHTML = safeHTML('<div class="text-xs text-zinc-400 py-2">No rooms added yet. Click "Add Room" to define your room types.</div>');
+    return;
+  }
+  let html = '';
+  tempRooms.forEach((room) => {
+    let imagesHtml = '';
+    if (room.images && room.images.length > 0) {
+      imagesHtml = '<div class="flex flex-wrap gap-1 mt-1">';
+      room.images.forEach((img, imgIdx) => {
+        imagesHtml += `
+          <div class="relative">
+            <img src="${escapeHTML(img)}" class="w-12 h-12 object-cover rounded border border-zinc-200" />
+            <button type="button" data-room-action="remove-img" data-room-id="${escapeHTML(room.id)}" data-img-index="${imgIdx}" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-600">✕</button>
+          </div>
+        `;
+      });
+      imagesHtml += '</div>';
+    }
+
+    html += `
+      <div class="flex flex-wrap items-start gap-3 p-3 bg-white rounded-xl border border-zinc-200">
+        <div class="flex-1 min-w-[200px] space-y-2">
+          <input class="form-input text-sm" placeholder="Room name (e.g. Hibiscus)" value="${escapeHTML(room.name)}" data-room-id="${escapeHTML(room.id)}" data-room-field="name" />
+          <div class="flex flex-wrap gap-2">
+            <input class="form-input flex-1 min-w-[120px] text-sm" placeholder="RM price" type="number" value="${escapeHTML(room.price)}" data-room-id="${escapeHTML(room.id)}" data-room-field="price" />
+            <input class="form-input flex-1 min-w-[100px] text-sm" placeholder="Guests" type="number" value="${escapeHTML(room.guests)}" data-room-id="${escapeHTML(room.id)}" data-room-field="guests" />
+          </div>
+          <input class="form-input text-sm" placeholder="Room description" value="${escapeHTML(room.desc)}" data-room-id="${escapeHTML(room.id)}" data-room-field="desc" />
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-semibold text-zinc-600 cursor-pointer bg-zinc-100 px-3 py-1.5 rounded-full hover:bg-zinc-200 transition">
+              📷 Add Photos
+              <input type="file" accept="image/*" multiple class="hidden" data-room-action="add-img" data-room-id="${escapeHTML(room.id)}" />
+            </label>
+            <span class="text-[10px] text-zinc-400">${room.images ? room.images.length : 0} images</span>
+          </div>
+          ${imagesHtml}
+        </div>
+        <button type="button" data-room-action="remove" data-room-id="${escapeHTML(room.id)}" class="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 bg-red-50 rounded-full">✕</button>
+      </div>
+    `;
+  });
+  list.innerHTML = safeHTML(html);
+}
+
+function escapeHTML(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function updateRoomField(roomId, field, value) {
+  const room = tempRooms.find(r => r.id === roomId);
+  if (room) {
+    room[field] = value;
+  }
+}
+
+async function handleRoomImages(roomId, input) {
+  const files = input.files;
+  if (!files.length) return;
+
+  const roomIndex = tempRooms.findIndex(r => r.id === roomId);
+  if (roomIndex === -1) {
+    await showAlert('Upload Failed', 'Room not found. Please try again.');
+    return;
+  }
+
+  for (const file of files) {
+    try {
+      if (!file.type.startsWith('image/')) continue;
+
+      const compressedBlob = await compressImageToBlob(file, 800, 0.7);
+      if (!compressedBlob) {
+        await showAlert('Upload Failed', `Could not compress ${file.name}. Skipping.`);
+        continue;
+      }
+
+      const formData = new FormData();
+      formData.append('image', compressedBlob, file.name);
+
+      const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
+      const data = await res.json();
+
+      if (res.ok && data.url) {
+        if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
+        tempRooms[roomIndex].images.push(data.url);
+        renderRooms();
+      } else {
+        await showAlert('Upload Failed', data.error || 'Unknown server error');
+      }
+    } catch (err) {
+      await showAlert('Upload Failed', 'Network error or server unavailable. Please try again.');
+    }
+  }
+  input.value = '';
+}
+
+function removeRoomImage(roomId, imageIndex) {
+  const roomIndex = tempRooms.findIndex(r => r.id === roomId);
+  if (roomIndex !== -1 && tempRooms[roomIndex].images) {
+    tempRooms[roomIndex].images.splice(imageIndex, 1);
+    renderRooms();
+  }
+}
+
+renderRooms();
+
+document.getElementById('listBankName').addEventListener('change', function() {
+  const wrap = document.getElementById('manualBankCodeWrap');
+  if (this.value === 'Other') wrap.classList.remove('hidden');
+  else { wrap.classList.add('hidden'); document.getElementById('listBankCode').value = ''; }
+});
+
+// =============================================================
+// DELEGATED HANDLERS FOR DYNAMIC ROOM UI
+// =============================================================
+document.addEventListener('click', function(e) {
+  const removeImgBtn = e.target.closest('#roomsList [data-room-action="remove-img"]');
+  if (removeImgBtn) {
+    e.preventDefault();
+    const roomId = removeImgBtn.dataset.roomId;
+    const idx = parseInt(removeImgBtn.dataset.imgIndex, 10);
+    if (roomId && !isNaN(idx)) removeRoomImage(roomId, idx);
+    return;
+  }
+  const removeRoomBtn = e.target.closest('#roomsList [data-room-action="remove"]');
+  if (removeRoomBtn) {
+    e.preventDefault();
+    const roomId = removeRoomBtn.dataset.roomId;
+    if (roomId) removeRoom(roomId);
+    return;
+  }
+});
+
+document.addEventListener('input', function(e) {
+  const el = e.target.closest('#roomsList [data-room-field]');
+  if (!el) return;
+  const roomId = el.dataset.roomId;
+  const field = el.dataset.roomField;
+  if (roomId && field) updateRoomField(roomId, field, el.value);
+});
+
+document.addEventListener('change', function(e) {
+  const el = e.target.closest('#roomsList input[type="file"][data-room-action="add-img"]');
+  if (!el) return;
+  const roomId = el.dataset.roomId;
+  if (roomId) handleRoomImages(roomId, el);
+});
+
+// =============================================================
+// PHOTOS
+// =============================================================
+async function handlePhotos(input) {
+  const files = input.files;
+  if (!files.length) return;
+  tempPhotos = [];
+  const preview = document.getElementById('photoPreview');
+  if (preview) preview.innerHTML = '';
+
+  for (const file of files) {
+    try {
+      if (!file.type.startsWith('image/')) continue;
+
+      const compressedBlob = await compressImageToBlob(file, 1000, 0.8);
+      if (!compressedBlob) {
+        await showAlert('Upload Failed', 'Could not compress ' + file.name);
+        continue;
+      }
+
+      const formData = new FormData();
+      formData.append('image', compressedBlob, file.name);
+
+      const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
+      const data = await res.json();
+
+      if (res.ok && data.url) {
+        tempPhotos.push(data.url);
+        const img = document.createElement('img');
+        img.src = data.url;
+        img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
+        if (preview) preview.appendChild(img);
+      } else {
+        await showAlert('Upload Failed', data.error || 'Failed to upload ' + file.name);
+      }
+    } catch (e) {
+      await showAlert('Upload Error', e.message || 'Upload failed');
+    }
+  }
+
+  input.value = '';
+}
+
+// =============================================================
+// IC with watermark
+// =============================================================
+async function handleIcFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    await showAlert("File Exceeded", "IC attachment too heavy (max 5MB limit).");
+    input.value = "";
+    return;
+  }
+  tempIcOriginalName = file.name;
+
+  try {
+    const compressedDataUrl = await compressImage(file, 1200, 0.85);
+    if (!compressedDataUrl) {
+      await showAlert("Error", "Failed to process image.");
+      return;
+    }
+
+    const img = new Image();
+    img.onload = async function() {
+      const canvas = document.getElementById("icCanvas");
+      const maxW = 1200;
+      let w = img.width, h = img.height;
+      if (w > maxW) { h = h * (maxW / w); w = maxW; }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+
+      const ownerName = (document.getElementById("listOwnerName")?.value || document.getElementById("listIcName")?.value || "OWNER").toUpperCase();
+      const dateStr = new Date().toISOString().split('T')[0];
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      ctx.font = "bold " + Math.max(18, w * 0.035) + "px Inter, sans-serif";
+      ctx.fillStyle = "#1e40af";
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate(-0.5);
+      const watermarkText = "KundasangHomestay Verification ONLY";
+      const watermark2 = dateStr + " • " + ownerName;
+      for (let y = -h; y < h; y += 90) {
+        for (let x = -w; x < w; x += 360) {
+          ctx.fillText(watermarkText, x, y);
+          ctx.font = "bold " + Math.max(12, w * 0.02) + "px Inter, sans-serif";
+          ctx.fillText(watermark2, x, y + 22);
+          ctx.font = "bold " + Math.max(18, w * 0.035) + "px Inter, sans-serif";
+        }
+      }
+      ctx.restore();
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = "rgba(15,56,46,0.95)";
+      ctx.fillRect(0, h - 36, w, 36);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "white";
+      ctx.font = "bold 11px Inter, sans-serif";
+      ctx.fillText("VERIFICATION ONLY • " + dateStr + " • " + ownerName + " • KUNDASANGHOMESTAY.MY", 14, h - 14);
+
+      const watermarkedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+      const preview = document.getElementById("icPreview");
+      if (preview) preview.src = watermarkedDataUrl;
+      const infoBox = document.getElementById("icPreviewWrap");
+      if (infoBox) infoBox.classList.remove("hidden");
+      const label = document.getElementById("icWatermarkInfo");
+      if (label) label.innerHTML = safeHTML("Uploading watermarked IC...");
+
+      try {
+        const blob = await (await fetch(watermarkedDataUrl)).blob();
+        const formData = new FormData();
+        formData.append('image', blob, 'ic-' + Date.now() + '.jpg');
+
+        const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
+        const data = await res.json();
+
+        if (res.ok && data.url) {
+          tempIcWatermarked = data.url;
+          if (label) label.innerHTML = safeHTML("✓ Watermarked & uploaded securely<br>✓ Reference ID: " + data.publicId.split('/').pop());
+        } else {
+          tempIcWatermarked = watermarkedDataUrl;
+          if (label) label.innerHTML = safeHTML("⚠️ Cloud upload failed. Using local fallback.");
+        }
+      } catch (err) {
+        tempIcWatermarked = watermarkedDataUrl;
+        if (label) label.innerHTML = safeHTML("⚠️ Upload error. Using local fallback.");
+      }
+    };
+    img.src = compressedDataUrl;
+  } catch (e) {
+    await showAlert("Error", "Failed to process IC image.");
+  }
+}
+
+function removeIc() {
+  tempIcWatermarked = ""; tempIcOriginalName = "";
+  document.getElementById("listIcFront").value = "";
+  document.getElementById("icPreviewWrap").classList.add("hidden");
+  document.getElementById("icPreview").src = "";
+}
+
+// =============================================================
+// Bank QR
+// =============================================================
+async function handleBankQRUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 3 * 1024 * 1024) {
+    await showAlert("File Exceeded", "QR attachment size exceeded (max 3MB).");
+    input.value = "";
+    return;
+  }
+  tempBankQROriginalName = file.name;
+  try {
+    const compressedBlob = await compressImageToBlob(file, 800, 0.8);
+    if (!compressedBlob) {
+      await showAlert('Upload Failed', 'Could not process QR image.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', compressedBlob, 'bank-qr-' + Date.now() + '.jpg');
+
+    const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
+    const data = await res.json();
+
+    if (res.ok && data.url) {
+      tempBankQRWatermarked = data.url;
+      document.getElementById("bankQRImg").src = data.url;
+      document.getElementById("bankQRPreview").classList.remove("hidden");
+    } else {
+      await showAlert('Upload Failed', data.error || 'Could not upload QR image.');
+    }
+  } catch (e) {
+    await showAlert('Upload Error', e.message || 'Upload failed');
+  }
+}
+
+function removeBankQR() {
+  tempBankQRWatermarked = ""; tempBankQROriginalName = "";
+  document.getElementById("listBankQR").value = "";
+  document.getElementById("bankQRPreview").classList.add("hidden");
+  document.getElementById("bankQRImg").src = "";
+}
+
+// =============================================================
+// Blocked dates
+// =============================================================
+async function addBlockedDate() {
+  const input = document.getElementById("listBlockedDateInput");
+  if (!input || !input.value) { await showAlert("Warning", "Select an exclusion date in the calendar input."); return; }
+  const dateStr = input.value;
+  if (tempBlockedDates.includes(dateStr)) return;
+  tempBlockedDates.push(dateStr);
+  tempBlockedDates.sort();
+  renderBlockedDatesList();
+  input.value = "";
+}
+async function addBlockedRange() {
+  const input = document.getElementById("listBlockedDateInput");
+  const start = input ? input.value : "";
+  if (!start) { await showAlert("Warning", "Define start of range using calendar first."); return; }
+  const end = await showPrompt("Define End Date", "Exclude until date (Inclusive) - YYYY-MM-DD:", start);
+  if (!end) return;
+  let current = new Date(start);
+  const endDate = new Date(end);
+  while (current <= endDate) {
+    const d = current.toISOString().split('T')[0];
+    if (!tempBlockedDates.includes(d)) tempBlockedDates.push(d);
+    current.setDate(current.getDate() + 1);
+  }
+  tempBlockedDates.sort();
+  renderBlockedDatesList();
+  input.value = "";
+}
+function removeBlockedDate(dateStr) {
+  tempBlockedDates = tempBlockedDates.filter(d => d !== dateStr);
+  renderBlockedDatesList();
+}
+function renderBlockedDatesList() {
+  const listDiv = document.getElementById("blockedDatesList");
+  const countDiv = document.getElementById("blockedDatesCount");
+  if (!listDiv) return;
+  if (tempBlockedDates.length === 0) {
+    listDiv.innerHTML = safeHTML("<span class='text-xs text-zinc-400'>No exclusions marked</span>");
+  } else {
+    listDiv.innerHTML = safeHTML(tempBlockedDates.map(d =>
+      `<span class="blocked-date-chip font-semibold text-xs">${escapeHTML(d)} <button type="button" data-blocked-action="remove" data-blocked-date="${escapeHTML(d)}" class="ml-1 text-red-600 font-bold hover:text-red-900">✕</button></span>`
+    ).join(""));
+  }
+  if (countDiv) countDiv.innerText = `${tempBlockedDates.length} Dates Blocked`;
+}
+
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('#blockedDatesList [data-blocked-action="remove"]');
+  if (!btn) return;
+  e.preventDefault();
+  const date = btn.dataset.blockedDate;
+  if (date) removeBlockedDate(date);
+});
+
+// =============================================================
+// PBT License
+// =============================================================
+async function handlePbtLicense(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 3 * 1024 * 1024) {
+    await showAlert("File Exceeded", "File size too large (max 3MB).");
+    input.value = "";
+    return;
+  }
+  try {
+    const compressedBlob = await compressImageToBlob(file, 800, 0.7);
+    if (!compressedBlob) {
+      await showAlert('Upload Failed', 'Could not process license image.');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('image', compressedBlob, 'pbt-' + Date.now() + '.jpg');
+    const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
+    const data = await res.json();
+    if (res.ok && data.url) {
+      tempPbtLicense = data.url;
+      document.getElementById("pbtPreview").src = data.url;
+      document.getElementById("pbtPreviewWrap").classList.remove("hidden");
+    } else {
+      await showAlert('Upload Failed', data.error || 'Could not upload license.');
+    }
+  } catch (e) {
+    await showAlert('Upload Error', e.message || 'Upload failed');
+  }
+}
+
+function removePbtLicense() {
+  tempPbtLicense = "";
+  document.getElementById("listPbtLicense").value = "";
+  document.getElementById("pbtPreviewWrap").classList.add("hidden");
+  document.getElementById("pbtPreview").src = "";
+}
+
+// =============================================================
+// SUBMIT
+// =============================================================
+async function submitHomestay() {
+  const statusEl = document.getElementById('submitStatus');
+  const submitBtn = document.getElementById('submitBtn');
+  if (statusEl) statusEl.className = 'hidden';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ Submitting...';
+  }
+
+  try {
+    const ownerName = document.getElementById("listOwnerName").value.trim();
+    const rawWhatsapp = document.getElementById("listWhatsapp").value.trim();
+    const whatsapp = rawWhatsapp.replace(/[^0-9]/g, '');
+    const ownerEmail = document.getElementById("listOwnerEmail").value.trim();
+    const homestayName = document.getElementById("listHomestayName").value.trim();
+    const area = document.getElementById("listArea").value;
+    const price = parseInt(document.getElementById("listPrice").value);
+    const numGuests = parseInt(document.getElementById("listGuests").value) || 4;
+    const bedrooms = parseInt(document.getElementById("listBedrooms").value) || 2;
+    const bankName = document.getElementById("listBankName").value;
+    const bankAccount = document.getElementById("listBankAccount").value.trim();
+    const bankHolder = document.getElementById("listBankHolder").value.trim();
+    const description = document.getElementById("listDescription").value.trim();
+    const bankConfirm = document.getElementById("listBankConfirm").checked;
+    const icName = document.getElementById("listIcName").value.trim();
+    const icNumber = document.getElementById("listIcNumber").value.trim();
+    const ownerPassword = document.getElementById("listOwnerPassword").value.trim();
+    const pbtLicense = tempPbtLicense || "";
+    let bankCode = BANK_CODES[bankName] || '';
+    if (bankName === 'Other') { bankCode = document.getElementById('listBankCode').value.trim().toUpperCase(); }
+    if (!bankCode) bankCode = 'MBBEMYKL';
+
+    const consent = document.getElementById('listConsent').checked;
+    if (!consent) {
+      await showAlert("Consent Required", "Please agree to the data processing consent before submitting.");
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; }
+      return;
+    }
+
+    const hostAgreement = document.getElementById('listHostAgreement').checked;
+    if (!hostAgreement) {
+      await showAlert('Agreement Required', 'You must agree to the Host Agreement before submitting your listing.');
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; }
+      return;
+    }
+
+    if (!ownerName) { await showAlert("Required Field", "Host full legal name is missing."); return; }
+    if (!whatsapp) { await showAlert("Required Field", "WhatsApp contact number is missing."); return; }
+    if (!ownerEmail) { await showAlert("Required Field", "Owner email address is missing."); return; }
+    if (!homestayName) { await showAlert("Required Field", "Please declare property name."); return; }
+    if (!price || isNaN(price) || price <= 0) { await showAlert("Required Field", "Price per night must be a valid positive amount."); return; }
+    if (!bankName) { await showAlert("Required Field", "Choose your receiving bank."); return; }
+    if (!bankAccount) { await showAlert("Required Field", "Receiving bank account number is required."); return; }
+    if (!bankHolder) { await showAlert("Required Field", "Recipient account holder name is required."); return; }
+    if (!icName) { await showAlert("Required Field", "Legal registration name matching IC is required."); return; }
+    if (!bankConfirm) { await showAlert("Escrow Agreement", "Please consent to Host bank verification checkbox."); return; }
+    if (tempPhotos.length === 0) { await showAlert("Required Field", "Add at least 1 cover photo of your homestay."); return; }
+    if (ownerPassword.length < 8) { await showAlert("Required Field", "Password must be at least 8 characters."); return; }
+    if (!tempIcWatermarked) { await showAlert("Required Field", "Identity document front upload is mandatory."); return; }
+
+    const newHome = {
+      id: Date.now(),
+      name: homestayName,
+      location: area,
+      ownerPrice: price,
+      guests: numGuests,
+      bedrooms: bedrooms,
+      image: tempPhotos[0],
+      images: tempPhotos,
+      rooms: tempRooms,
+      ownerName: ownerName,
+      whatsapp: whatsapp,
+      ownerEmail: ownerEmail,
+      ownerBank: bankName,
+      ownerBankAccount: bankAccount,
+      bankCode: bankCode,
+      bankHolder: bankHolder,
+      icName: icName,
+      icNumber: icNumber ? icNumber.substring(0,3)+"****"+icNumber.slice(-4) : "",
+      icImage: tempIcWatermarked,
+      icOriginalName: tempIcOriginalName,
+      icUploadDate: new Date().toISOString(),
+      bankQRImage: tempBankQRWatermarked,
+      bankQROriginalName: tempBankQROriginalName,
+      pbtLicense: pbtLicense,
+      description: description || "Mountain view cottage.",
+      blockedDates: [...tempBlockedDates],
+      approved: false,
+      verified: false,
+      rating: 0,
+      reviews: 0,
+    };
+
+    if (statusEl) {
+      statusEl.className = 'block p-3 text-xs bg-blue-50 text-blue-700 border rounded-xl mt-3 font-semibold';
+      statusEl.textContent = '⏳ Initializing client-to-cloud security handshake...';
+    }
+
+    const syncRes = await fetch("/api/pending", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: 'include',
+      body: JSON.stringify({ homestay: newHome, ownerPassword: ownerPassword })
+    });
+    const syncData = await syncRes.json();
+
+    if (!syncRes.ok) {
+      if (statusEl) {
+        statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
+        statusEl.textContent = '❌ Cloud handshake failed. Saved in locally cached staging.';
+      }
+      throw new Error(syncData.error || 'Server error');
+    }
+
+    if (statusEl) {
+      statusEl.className = 'block p-3 text-xs bg-emerald-50 text-emerald-800 border rounded-xl mt-3 font-semibold';
+      statusEl.textContent = '✓ Secure cloud storage synchronized successfully!';
+    }
+    await showAlert("Listing Staged", `"${homestayName}" has been queued for admin approval.\n\nYou can log in to your dashboard panel at Agent Login once verification has concluded.`);
+    window.location.href = "/";
+
+  } catch(err) {
+    if (statusEl) {
+      statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
+      statusEl.textContent = '⚠️ Operation Interrupted: ' + err.message;
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Homestay Listing for Approval';
+    }
+  }
+}
+
+// =============================================================
+// GUEST INIT
+// =============================================================
+(function init() {
+  renderGuestNav();
+  renderBlockedDatesList();
+})();
+
+(function() {
+  function hideLoginButtonsOnMobile() {
+    var isMobile = window.innerWidth < 768;
+    var guestNav = document.getElementById('guestNav');
+    var guestProfileNav = document.getElementById('guestProfileNav');
+
+    if (isMobile) {
+      if (guestNav && guestNav.closest('#desktopNav')) {
+        guestNav.style.display = 'none';
+        guestNav.style.setProperty('display', 'none', 'important');
+      }
+      if (guestProfileNav && guestProfileNav.closest('#desktopNav')) {
+        guestProfileNav.style.display = 'none';
+        guestProfileNav.style.setProperty('display', 'none', 'important');
+      }
+    } else {
+      if (guestNav) {
+        guestNav.style.display = '';
+        guestNav.style.removeProperty('display');
+      }
+      if (guestProfileNav) {
+        guestProfileNav.style.display = '';
+        guestProfileNav.style.removeProperty('display');
+      }
+    }
+  }
+
+  hideLoginButtonsOnMobile();
+  window.addEventListener('resize', hideLoginButtonsOnMobile);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hideLoginButtonsOnMobile);
+  }
+  setTimeout(hideLoginButtonsOnMobile, 100);
+  setTimeout(hideLoginButtonsOnMobile, 500);
+})();
 
 // =============================================================
 // HOST LOGIN & DASHBOARD
+// Cookie-based auth — no token in JS storage.
 // =============================================================
-let ownerToken = 'cookie';
+let ownerToken = 'cookie'; // sentinel — cookie carries the real auth
 let ownerHomestayIds = [];
 let allHomestays = [];
 let bookings = [];
 let currentHomestayId = 'all';
+
+// Helper: all owner API calls go through this so cookies are always sent
+async function ownerFetch(url, options = {}) {
+  const opts = { ...options, credentials: 'include' };
+  opts.headers = opts.headers || {};
+  return fetch(url, opts);
+}
 
 function openOwnerForgotPassword() {
   showPrompt('Forgot Password', 'Type your registered host email address to receive password adjustments details:').then(email => {
@@ -558,17 +1304,14 @@ async function logoutOwner() {
 window.logoutOwner = logoutOwner;
 
 // =============================================================
-// LOAD BOOKINGS – with data-* attributes (no inline onclick)
+// LOAD BOOKINGS
 // =============================================================
 async function loadBookings() {
   if (!ownerToken) return;
   const listDiv = document.getElementById('ownerBookingsList');
   if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-zinc-400 py-6 text-center">Refreshing dynamic logs...</div>');
   try {
-    const res = await fetch(API_BASE + '/owner-bookings', {
-      headers: { 'Owner-Authorization': 'Bearer ' + ownerToken },
-      cache: 'no-store'
-    });
+    const res = await ownerFetch(API_BASE + '/owner-bookings', { cache: 'no-store' });
     if (!res.ok) throw new Error('Data sync failure');
     bookings = await res.json();
     if (!Array.isArray(bookings)) bookings = [];
@@ -757,12 +1500,9 @@ async function confirmCheckIn(bookingId) {
   if (!confirmed) return;
 
   try {
-    const res = await fetch(API_BASE + '/owner-checkin', {
+    const res = await ownerFetch(API_BASE + '/owner-checkin', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Owner-Authorization': 'Bearer ' + ownerToken
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookingId, checkinCode: trimmedCode })
     });
     const data = await res.json();
@@ -797,12 +1537,9 @@ async function changeBookingDates(bookingId) {
   const confirmed = await showConfirm('Timeline Shift', `Shift dates for booking ${bookingId} to: ${newCheckin} to ${newCheckout}?`);
   if (!confirmed) return;
   try {
-    const res = await fetch(API_BASE + '/owner-update-booking', {
+    const res = await ownerFetch(API_BASE + '/owner-update-booking', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Owner-Authorization': 'Bearer ' + ownerToken
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookingId, action: 'changeDates', checkin: newCheckin, checkout: newCheckout })
     });
     const data = await res.json();
@@ -845,12 +1582,9 @@ async function cancelBooking(bookingId) {
   if (!confirmed) return;
 
   try {
-    const res = await fetch(API_BASE + '/owner-update-booking', {
+    const res = await ownerFetch(API_BASE + '/owner-update-booking', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Owner-Authorization': 'Bearer ' + ownerToken
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookingId, action: 'cancelBooking' })
     });
     const data = await res.json();
@@ -950,12 +1684,9 @@ async function toggleRoomBlock() {
   const roomId = selected.value;
   const homestayId = selected.dataset.homestay;
   try {
-    const res = await fetch(API_BASE + '/owner-update-booking', {
+    const res = await ownerFetch(API_BASE + '/owner-update-booking', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Owner-Authorization': 'Bearer ' + ownerToken
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'updateRoomBlock',
         homestayId: homestayId,
@@ -984,12 +1715,9 @@ async function removeRoomBlock(date) {
   const roomId = selected.value;
   const homestayId = selected.dataset.homestay;
   try {
-    const res = await fetch(API_BASE + '/owner-update-booking', {
+    const res = await ownerFetch(API_BASE + '/owner-update-booking', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Owner-Authorization': 'Bearer ' + ownerToken
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'updateRoomBlock',
         homestayId: homestayId,
@@ -1072,12 +1800,9 @@ async function updateHomestayPrice() {
   if (!confirmed) return;
 
   try {
-    const res = await fetch(API_BASE + '/owner-update-booking', {
+    const res = await ownerFetch(API_BASE + '/owner-update-booking', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Owner-Authorization': 'Bearer ' + ownerToken
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'updateHomestayPrice',
         homestayId: currentHomestayId,
@@ -1099,7 +1824,7 @@ async function updateHomestayPrice() {
 }
 
 // =============================================================
-// INIT
+// OWNER INIT — cookie-based auth probe
 // =============================================================
 (async function init() {
   renderGuestNav();
@@ -1108,8 +1833,8 @@ async function updateHomestayPrice() {
   const dashboardSection = document.getElementById('dashboardSection');
   const selector = document.getElementById('homestaySelector');
 
-  // Try to restore dashboard by calling /api/owner-bookings (cookie-based).
-  // If we get 401, show login. If we get 200, we're authenticated.
+  // Try to restore dashboard by probing /api/owner-bookings with cookies.
+  // If we get 200, we're authenticated. If 401, we show login.
   let authed = false;
   let storedHomestays = null;
   let storedName = 'Owner';
@@ -1120,14 +1845,15 @@ async function updateHomestayPrice() {
     if (n) storedName = n;
   } catch (e) {}
 
-  // Probe auth: try owner-bookings with cookies
   try {
     const probe = await fetch(API_BASE + '/owner-bookings', {
       credentials: 'include',
       cache: 'no-store'
     });
     authed = probe.ok;
-  } catch (e) { authed = false; }
+  } catch (e) {
+    authed = false;
+  }
 
   if (authed && storedHomestays && storedHomestays.length > 0) {
     ownerToken = 'cookie';
@@ -1153,7 +1879,7 @@ async function updateHomestayPrice() {
     loadRoomBlocks();
     loadHomestayPrice();
   } else {
-    // Not authed or no cached homestay list — force login
+    // Not authed, or no cached homestay list — force login
     try {
       sessionStorage.removeItem('kd_owner_token');
       sessionStorage.removeItem('kd_owner_homestays');
