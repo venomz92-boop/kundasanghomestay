@@ -147,6 +147,7 @@
   </div>
 
   <div id="dashboardSection" class="hidden space-y-6">
+    <div id="pendingListingsBanner" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3"></div>
     <div class="flex items-center justify-between flex-wrap gap-4 border-b pb-4 animate-on-scroll">
       <div>
         <h2 class="text-2xl font-bold font-poppins text-[#212121]">Host: <span id="welcomeName" class="text-[#0F382E]">Owner</span></h2>
@@ -1013,6 +1014,10 @@ function loadHomestayPrice() {
   const btn = document.getElementById('updatePriceBtn');
   if (!input || !btn) return;
 
+  // Clear any existing pending hint
+  const existingHint = document.getElementById('pendingPriceHint');
+  if (existingHint) existingHint.remove();
+
   if (currentHomestayId === 'all') {
     input.disabled = true;
     btn.disabled = true;
@@ -1029,6 +1034,18 @@ function loadHomestayPrice() {
     btn.disabled = false;
     btn.style.opacity = '1';
     btn.style.cursor = 'pointer';
+
+    if (homestay.approved !== true && btn.parentNode) {
+      const hint = document.createElement('div');
+      hint.id = 'pendingPriceHint';
+      hint.className = 'mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start gap-2';
+      hint.innerHTML =
+        '<span class="text-base leading-none">⏳</span>' +
+        '<span>This listing is <strong>awaiting admin approval</strong>. ' +
+        'Pricing changes you make now will apply once it goes live. ' +
+        'Guests can\'t see or book it yet.</span>';
+      btn.parentNode.insertAdjacentElement('afterend', hint);
+    }
   } else {
     input.value = '';
     input.disabled = true;
@@ -1134,22 +1151,71 @@ async function updateHomestayPrice() {
     authed = false;
   }
 
-  if (authed && storedHomestays && storedHomestays.length > 0) {
+if (authed && storedHomestays && storedHomestays.length > 0) {
     ownerToken = 'cookie';
     allHomestays = storedHomestays;
     ownerHomestayIds = allHomestays.map(h => h.id);
 
+    // ===== Split into approved vs pending =====
+    const pendingHomes = allHomestays.filter(h => h.approved !== true);
+    const approvedHomes = allHomestays.filter(h => h.approved === true);
+
     if (selector) {
       selector.innerHTML = safeHTML('<option value="all">📍 All Linked Homestays</option>');
-      allHomestays.forEach(h => {
-        const opt = document.createElement('option');
-        opt.value = h.id;
-        opt.textContent = h.name;
-        selector.appendChild(opt);
-      });
+
+      if (approvedHomes.length > 0) {
+        const groupLive = document.createElement('optgroup');
+        groupLive.label = '✓ Live Listings';
+        approvedHomes.forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h.id;
+          opt.textContent = h.name;
+          groupLive.appendChild(opt);
+        });
+        selector.appendChild(groupLive);
+      }
+
+      if (pendingHomes.length > 0) {
+        const groupPending = document.createElement('optgroup');
+        groupPending.label = '⏳ Pending Approval';
+        pendingHomes.forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h.id;
+          opt.textContent = h.name + '  (awaiting admin review)';
+          groupPending.appendChild(opt);
+        });
+        selector.appendChild(groupPending);
+      }
+
       currentHomestayId = 'all';
       selector.value = 'all';
     }
+
+    // ===== Show pending status banner =====
+    const banner = document.getElementById('pendingListingsBanner');
+    if (banner) {
+      if (pendingHomes.length > 0) {
+        const names = pendingHomes.map(h => h.name).join(', ');
+        banner.innerHTML =
+          '<div class="text-2xl leading-none">⏳</div>' +
+          '<div class="flex-1 min-w-0">' +
+            '<div class="font-bold text-sm text-amber-900">' +
+              pendingHomes.length + ' listing' + (pendingHomes.length !== 1 ? 's' : '') + ' awaiting approval' +
+            '</div>' +
+            '<div class="text-xs text-amber-800 mt-1 leading-relaxed">' +
+              '<strong>' + names + '</strong> ' +
+              (pendingHomes.length !== 1 ? 'are' : 'is') + ' under review by our team. ' +
+              'Guest bookings will only be possible once approved — typically within 24 hours. ' +
+              'You can safely prepare your rooms, dates, and pricing in the meantime.' +
+            '</div>' +
+          '</div>';
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+        banner.innerHTML = '';
+      }
+    }
+
     if (loginSection) loginSection.classList.add('hidden');
     if (dashboardSection) dashboardSection.classList.remove('hidden');
     const welcomeEl = document.getElementById('welcomeName');
@@ -1158,6 +1224,7 @@ async function updateHomestayPrice() {
     loadRoomBlocks();
     loadHomestayPrice();
   } else {
+  
     try {
       sessionStorage.removeItem('kd_owner_token');
       sessionStorage.removeItem('kd_owner_homestays');
