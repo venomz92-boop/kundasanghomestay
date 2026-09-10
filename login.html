@@ -294,7 +294,6 @@
   var API_BASE = "/api";
   var currentGuest = null;
 
-  // === TTL-aware guest init ===
   if (window.GuestSession && window.GuestSession.isGuestSessionValid()) {
     try {
       currentGuest = JSON.parse(localStorage.getItem('kd_guest'));
@@ -333,7 +332,6 @@
     }
   }
 
-  // Delegate to shared helper
   window.logoutGuest = function() {
     if (window.GuestSession) {
       window.GuestSession.logoutGuest();
@@ -374,21 +372,9 @@
       if (data.success) {
         currentGuest = data.guest;
         localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
-        if (data.csrfToken) {
-          localStorage.setItem('kd_csrf_token', data.csrfToken);
-        }
-        if (data.token) {
-          localStorage.setItem('kd_guest_token', data.token);
-        }
+        if (data.csrfToken) localStorage.setItem('kd_csrf_token', data.csrfToken);
+        if (data.token) localStorage.setItem('kd_guest_token', data.token);
         renderGuestNav();
-
-        if (window.GuestSession) {
-          window.GuestSession.startExpiryWatcher(function() {
-            if (typeof showAlert === 'function') {
-              showAlert('Session Expired', 'Your session has expired. Please log in again.');
-            }
-          });
-        }
 
         await showAlert('Login Successful', 'You have been logged in successfully. Your session will expire in 2 hours.');
         window.location.href = '/mybookings.html';
@@ -419,19 +405,14 @@
     var urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('registered') === '1') {
       showAlert('Registration Successful', 'Please check your email to verify your account before logging in.');
-    }
-    if (urlParams.get('verified') === '1') {
+    } else if (urlParams.get('verified') === '1') {
       showAlert('Email Verified', 'Your email has been verified successfully! You can now log in.');
     } else if (urlParams.get('verified') === 'already') {
       showAlert('Already Verified', 'Your email was already verified. Please log in.');
-    } else if (urlParams.get('expired') === '1') showAlert('Session Expired', 'Your previous session has expired. Please log in again.');
-      else if (urlParams.get('reset') === '1') showAlert('Password Reset', 'Your password has been reset successfully. Please log in with your new password.');
-    }
-
-    if (window.GuestSession) {
-      window.GuestSession.startExpiryWatcher(function() {
-        showAlert('Session Expired', 'Your session has expired. Please log in again.');
-      });
+    } else if (urlParams.get('expired') === '1') {
+      showAlert('Session Expired', 'Your previous session has expired. Please log in again.');
+    } else if (urlParams.get('reset') === '1') {
+      showAlert('Password Reset', 'Your password has been reset successfully. Please log in with your new password.');
     }
   });
 </script>
