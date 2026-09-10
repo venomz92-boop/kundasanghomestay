@@ -1,12 +1,27 @@
-// /api/login.js – SECURE (after _utils.js update)
-import { 
-  corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword,
-  createSignedToken, generateCSRFToken, cookieHeader, jsonResponse,
-  checkRateLimit, recordRateLimit, parseJSONSafely, logAction,
-  incrementSessionVersion 
+// /api/login.js – SECURE, short guest TTL (2 hours)
+import {
+  corsHeaders,
+  getClientIP,
+  enforceHttps,
+  hashPassword,
+  verifyPassword,
+  createSignedToken,
+  generateCSRFToken,
+  cookieHeader,
+  jsonResponse,
+  checkRateLimit,
+  recordRateLimit,
+  parseJSONSafely,
+  logAction,
+  incrementSessionVersion
 } from './_utils.js';
 
-function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
+const GUEST_TTL_MS = 2 * 60 * 60 * 1000;      // 2 hours
+const GUEST_TTL_SECONDS = GUEST_TTL_MS / 1000; // 7200
+
+function validateEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -17,9 +32,10 @@ export async function onRequestPost({ request, env }) {
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
 
-    // Rate limiting
     const rateOk = await checkRateLimit(db, clientIP, 'login', 5, 15 * 60);
-    if (!rateOk) return jsonResponse({ error: 'Too many attempts. Try again in 15 minutes.' }, 429, request);
+    if (!rateOk) {
+      return jsonResponse({ error: 'Too many attempts. Try again in 15 minutes.' }, 429, request);
+    }
 
     const body = await parseJSONSafely(request);
     const cleanEmail = String(body.email || '').toLowerCase().trim();
@@ -36,16 +52,16 @@ export async function onRequestPost({ request, env }) {
     try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
 
     const user = guests.find(g => String(g.email || '').toLowerCase() === cleanEmail);
-    if (!user) return jsonResponse({ error: 'Invalid email or password' }, 401, request);
+    if (!user) {
+      return jsonResponse({ error: 'Invalid email or password' }, 401, request);
+    }
 
-    // Verify password
     const verified = await verifyPassword(cleanPassword, user, env);
     if (!verified.ok) {
       await recordRateLimit(db, clientIP, 'login');
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     }
 
-    // Legacy migration
     if (verified.legacy) {
       const fresh = await hashPassword(cleanPassword, env);
       user.password = fresh.hash;
@@ -57,7 +73,6 @@ export async function onRequestPost({ request, env }) {
         .run();
     }
 
-    // Email verification required
     if (user.verified !== true) {
       return jsonResponse({ error: 'Please verify your email first.' }, 401, request);
     }
@@ -70,7 +85,7 @@ export async function onRequestPost({ request, env }) {
       email: user.email,
       passwordVersion: user.passwordVersion || 1,
       sessionVersion: (user.sessionVersion || 0) + 1
-    }, env);
+    }, env, GUEST_TTL_MS);
 
     const csrfToken = await generateCSRFToken(user.id, env);
     const { password: _, salt: __, ...safeUser } = user;
@@ -80,12 +95,13 @@ export async function onRequestPost({ request, env }) {
       guest: safeUser,
       token: session,
       csrfToken,
+      expiresIn: GUEST_TTL_SECONDS,
       message: 'Login successful'
     }), {
       status: 200,
       headers: {
         ...corsHeaders(request),
-        'Set-Cookie': cookieHeader('guest_token', session)
+        'Set-Cookie': cookieHeader('guest_token', session, GUEST_TTL_SECONDS)
       }
     });
   } catch (e) {
