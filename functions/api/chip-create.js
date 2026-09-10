@@ -267,8 +267,16 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Payment gateway error. Please try again.' }, 502, request);
     }
 
+    // If the guest is retrying after a failed payment, re-block the dates
+    // by resetting status to Pending Payment and refreshing the timestamp.
+    const isRetry = String(booking.status || '') === 'Payment Failed';
+    const nowIso = new Date().toISOString();
+
     bookings[idx] = {
       ...booking,
+      status: isRetry ? 'Pending Payment' : booking.status,
+      date: isRetry ? nowIso : booking.date,
+      statusUpdated: nowIso,
       chip_purchase_id: data.id,
       chip_checkout_url: data.checkout_url,
       chip_status: data.status || 'pending',
