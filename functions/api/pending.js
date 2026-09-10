@@ -1,6 +1,23 @@
-// /api/pending.js – With server‑side validation + rate limiting
-import { corsHeaders, getClientIP, logAction, enforceHttps, hashPassword, getAdminToken, jsonResponse, checkRateLimit, recordRateLimit } from './_utils.js';
-import { sanitizeString, isValidEmail, isValidPhone, isValidPrice, sanitizeDescription, validateBankCode } from './_utils.js';
+// /api/pending.js – With server‑side validation + admin update mode + rate limiting
+import {
+  corsHeaders,
+  getClientIP,
+  logAction,
+  enforceHttps,
+  hashPassword,
+  getAdminToken,
+  jsonResponse,
+  checkRateLimit,
+  recordRateLimit
+} from './_utils.js';
+import {
+  sanitizeString,
+  isValidEmail,
+  isValidPhone,
+  isValidPrice,
+  sanitizeDescription,
+  validateBankCode
+} from './_utils.js';
 
 async function requireAdmin(request, env) {
   const token = await getAdminToken(request);
@@ -73,10 +90,42 @@ export async function onRequestPost({ request, env }) {
 
   try {
     const body = await request.json();
+
+    const db = env.DB;
+    if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
+    await db.prepare('CREATE TABLE IF NOT EXISTS store(key TEXT PRIMARY KEY, data TEXT)').run();
+
+    // ============================================================
+    // ADMIN UPDATE MODE — used by admin.html Force Sync
+    // Accepts { pending: [...] } to overwrite kd_pending wholesale.
+    // ============================================================
+    if (Object.prototype.hasOwnProperty.call(body, 'pending') && body.pending !== undefined) {
+      const adminToken = await getAdminToken(request);
+      if (!adminToken || !env.ADMIN_TOKEN || adminToken !== env.ADMIN_TOKEN) {
+        return jsonResponse({ error: 'Unauthorized' }, 401, request);
+      }
+      if (!Array.isArray(body.pending)) {
+        return jsonResponse({ error: 'Invalid pending payload' }, 400, request);
+      }
+      await db.prepare('INSERT OR REPLACE INTO store(key, data) VALUES(?, ?)')
+        .bind('kd_pending', JSON.stringify(body.pending))
+        .run();
+      await logAction({
+        db,
+        action: 'pending_synced_admin',
+        admin: 'admin',
+        details: `Pending list force-synced (${body.pending.length} items)`,
+        ip: getClientIP(request)
+      });
+      return jsonResponse({ success: true, pending: body.pending }, 200, request);
+    }
+
+    // ============================================================
+    // PUBLIC SUBMIT MODE
+    // ============================================================
     const h = body.homestay || body.listing;
     const ownerPassword = String(body.ownerPassword || '');
 
-    // --- VALIDATION ---
     if (!h || !ownerPassword) {
       return jsonResponse({ error: 'Homestay and ownerPassword are required' }, 400, request);
     }
@@ -91,7 +140,6 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // --- SANITISE INPUTS ---
     const name = sanitizeString(h.name, 100);
     const location = sanitizeString(h.location, 50);
     const ownerName = sanitizeString(h.ownerName, 100);
@@ -108,7 +156,6 @@ export async function onRequestPost({ request, env }) {
     const guests = Math.max(1, Math.min(20, Number(h.guests) || 1));
     const bedrooms = Math.max(1, Math.min(10, Number(h.bedrooms) || 1));
 
-    // --- VALIDATE ---
     if (!isValidEmail(ownerEmail)) {
       return jsonResponse({ error: 'Invalid email address' }, 400, request);
     }
@@ -125,13 +172,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'IC name is required' }, 400, request);
     }
 
-    const db = env.DB;
-    if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
-    await db.prepare('CREATE TABLE IF NOT EXISTS store(key TEXT PRIMARY KEY, data TEXT)').run();
-
-    // ============================================================
-    // 🔒 NEW: Rate limiting for homestay submissions (3 per hour per IP)
-    // ============================================================
     const clientIP = getClientIP(request);
     const rateOk = await checkRateLimit(db, clientIP, 'pending_submit', 3, 60 * 60);
     if (!rateOk) {
@@ -139,7 +179,6 @@ export async function onRequestPost({ request, env }) {
     }
     await recordRateLimit(db, clientIP, 'pending_submit');
 
-    // Check duplicates – but return generic error
     const pending = await read(db, 'kd_pending');
     const approved = await read(db, 'kd_approved');
     const duplicate = [...pending, ...approved].some(x =>
@@ -147,14 +186,11 @@ export async function onRequestPost({ request, env }) {
       String(x.name || '').toLowerCase() === name.toLowerCase()
     );
     if (duplicate) {
-      // ---- FIX: Generic error ----
       return jsonResponse({ error: 'Unable to submit listing. Please check your details or contact support.' }, 400, request);
     }
 
-    // Hash password
     const hashed = await hashPassword(ownerPassword, env);
 
-    // Build clean homestay object (sanitised)
     const clean = {
       ...h,
       id: h.id || Date.now(),
@@ -198,7 +234,7 @@ export async function onRequestPost({ request, env }) {
       action: 'homestay_submitted',
       admin: 'public',
       details: `Homestay ${clean.id} submitted and synced`,
-      ip: getClientIP(request),
+      ip: clientIP,
       userId: clean.ownerEmail,
       homestayId: clean.id
     });
@@ -214,7 +250,7 @@ export async function onRequestPost({ request, env }) {
     }, 201, request);
 
   } catch (e) {
-    // console.error('Pending registration error:', e.message);
+    console.error('Pending registration error:', e.message);
     return jsonResponse({ error: 'Could not submit listing. Please try again later.' }, 500, request);
   }
 }
