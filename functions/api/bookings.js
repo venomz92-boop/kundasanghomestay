@@ -627,8 +627,10 @@ export async function onRequestPost({ request, env }) {
         // ===== Purge sensitive images (IC + QR + PBT) from Cloudinary =====
         await purgeSensitiveImages(homestay, env, `approveHomestay:${homestay.id}`);
 
+        // ===== Strip sensitive fields before persisting to kd_approved =====
         const {
           icImage, icOriginalName, bankQRImage, bankQROriginalName, pbtLicense,
+          icNumber, icUploadDate,
           ...safeHomestay
         } = homestay;
         safeHomestay.approved = true;
@@ -655,6 +657,7 @@ export async function onRequestPost({ request, env }) {
           delete cleanHome.icImage;
           delete cleanHome.icOriginalName;
           delete cleanHome.icUploadDate;
+          delete cleanHome.icNumber;
           delete cleanHome.bankQRImage;
           delete cleanHome.bankQROriginalName;
           delete cleanHome.pbtLicense;
