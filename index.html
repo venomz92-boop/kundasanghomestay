@@ -238,7 +238,6 @@
         <button onclick="closeBooking()" class="flex-1 btn-outline py-3">Cancel</button>
         <button onclick="processPayment()" class="flex-1 btn-primary py-3">Pay via FPX</button>
       </div>
-      <p id="toyyibpayNote" class="mt-3 text-[11px] text-zinc-500 text-center"></p>
     </div>
     <div id="chipPaymentContainer" style="display:none; margin-top: 16px;"></div>
   </div>
@@ -888,14 +887,8 @@
   // =============================================================
   var CONFIG = {
     platformFeePercent: 11,
-    toyyibpay: {
-      sandbox: true,
-      apiKey: "YOUR_TOYYIBPAY_KEY",
-      collectionId: "YOUR_COLLECTION_ID",
-      xSignature: "YOUR_X_SIGNATURE",
-      gatewayFee: 1,
-      splitEnabled: true,
-    }
+    gatewayFee: 1.00,
+    paymentProvider: 'CHIP'
   };
 
   var CLOUD_ENABLED = true;
@@ -993,11 +986,11 @@
     return diff > 0 ? diff : 1;
   }
 
-  function calculatePrice(ownerPrice, nights) {
+ function calculatePrice(ownerPrice, nights) {
     nights = nights || 1;
     var base = ownerPrice * nights;
     var fee = Math.round((base * CONFIG.platformFeePercent) / 100);
-    var gatewayFee = CONFIG.toyyibpay.enabled ? CONFIG.toyyibpay.gatewayFee : 0;
+    var gatewayFee = CONFIG.gatewayFee;
     var total = base + fee + gatewayFee;
     return { nights: nights, base: base, fee: fee, gatewayFee: gatewayFee, total: total, ownerReceives: base, youReceive: fee - gatewayFee };
   }
