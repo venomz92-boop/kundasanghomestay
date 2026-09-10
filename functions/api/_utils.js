@@ -165,12 +165,18 @@ export function getCookie(request, name) {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-export function cookieHeader(name, value, maxAge = 86400) {
-  return `${name}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}; Path=/`;
+/**
+ * Build a Set-Cookie header string.
+ * Default SameSite=Lax because payment gateways (CHIP) redirect the user cross-site
+ * back to our domain and Strict would drop the cookie.
+ * Callers may override by passing 'Strict' as the 4th arg.
+ */
+export function cookieHeader(name, value, maxAge = 86400, sameSite = 'Lax') {
+  return `${name}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=${sameSite}; Max-Age=${maxAge}; Path=/`;
 }
 
-export function clearCookieHeader(name) {
-  return `${name}=; HttpOnly; Secure; SameSite=Strict; Max-Age=0; Path=/`;
+export function clearCookieHeader(name, sameSite = 'Lax') {
+  return `${name}=; HttpOnly; Secure; SameSite=${sameSite}; Max-Age=0; Path=/`;
 }
 
 // === Password hashing ===
@@ -259,7 +265,6 @@ export function corsHeaders(request) {
     'X-Frame-Options': 'DENY',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     'Content-Security-Policy': "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com; connect-src 'self' https://api.chip-in.asia; frame-src 'self';",
-    // ---- ADD HSTS ----
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
   };
   if (allowed.has(origin)) {
@@ -293,7 +298,6 @@ export async function logAction({ db, action, admin, details, ip, userId, homest
         homestayId || null, details || '', ip || 'unknown').run();
     return true;
   } catch (e) {
-    // console.error('Audit log failed:', e.message);
     return false;
   }
 }
@@ -326,7 +330,6 @@ export function jsonResponse(body, status, request, extra = {}) {
 }
 
 export function errorResponse(message, status, request, logDetails = null) {
-  if (logDetails) // console.error('Error details:', logDetails);
   return jsonResponse({ error: message || 'An unexpected error occurred. Please try again later.' }, status, request);
 }
 
@@ -372,7 +375,6 @@ export async function checkRateLimit(db, ip, action, maxAttempts, windowSeconds 
     const count = res?.count || 0;
     return count < maxAttempts;
   } catch (e) {
-    // console.error('Rate limit check error:', e);
     return true;
   }
 }
@@ -390,7 +392,7 @@ export async function recordRateLimit(db, ip, action) {
       `DELETE FROM rate_limits WHERE timestamp < ?`
     ).bind(cutoff).run();
   } catch (e) {
-    // console.error('Rate limit record error:', e);
+    // silent
   }
 }
 
@@ -488,43 +490,7 @@ export function sanitizeArray(arr, maxItems = 20) {
 }
 
 // =============================================================
-// NEW: Homestay Lock for Preventing Race Conditions
-// =============================================================
-export async function acquireHomestayLock(db, homestayId, timeoutMs = 5000) {
-  // Create lock table if not exists
-  await db.prepare(
-    `CREATE TABLE IF NOT EXISTS homestay_locks (
-      homestay_id TEXT PRIMARY KEY,
-      locked_at INTEGER
-    )`
-  ).run();
-
-  // Use BEGIN IMMEDIATE to start a transaction and lock the row
-  await db.prepare('BEGIN IMMEDIATE').run();
-
-  // Try to insert or update the lock row
-  const now = Date.now();
-  await db.prepare(
-    `INSERT INTO homestay_locks (homestay_id, locked_at)
-     VALUES (?, ?)
-     ON CONFLICT(homestay_id) DO UPDATE SET locked_at = excluded.locked_at`
-  ).bind(homestayId, now).run();
-
-  // The lock is automatically released when the transaction commits or rolls back.
-  return {
-    release: async (commit = true) => {
-      if (commit) {
-        await db.prepare('COMMIT').run();
-      } else {
-        await db.prepare('ROLLBACK').run();
-      }
-    },
-    transaction: db
-  };
-}
-
-// =============================================================
-// Helper: Ensure checkin_attempts table exists
+// Check‑in attempt tracking
 // =============================================================
 async function ensureCheckinAttemptsTable(db) {
   await db.prepare(
@@ -536,9 +502,6 @@ async function ensureCheckinAttemptsTable(db) {
   ).run();
 }
 
-// =============================================================
-// NEW: Check‑in Attempt Tracking (Brute‑Force Prevention)
-// =============================================================
 export async function recordCheckinAttempt(db, bookingId) {
   await ensureCheckinAttemptsTable(db);
   await db.prepare(
@@ -547,7 +510,7 @@ export async function recordCheckinAttempt(db, bookingId) {
 }
 
 export async function getRecentCheckinAttempts(db, bookingId, windowMs = 3600000) {
-  await ensureCheckinAttemptsTable(db); // ✅ ensures table exists
+  await ensureCheckinAttemptsTable(db);
   const cutoff = Date.now() - windowMs;
   const result = await db.prepare(
     `SELECT COUNT(*) as count FROM checkin_attempts
@@ -557,14 +520,14 @@ export async function getRecentCheckinAttempts(db, bookingId, windowMs = 3600000
 }
 
 export async function clearCheckinAttempts(db, bookingId) {
-  await ensureCheckinAttemptsTable(db); // ✅ ensures table exists
+  await ensureCheckinAttemptsTable(db);
   await db.prepare(
     `DELETE FROM checkin_attempts WHERE booking_id = ?`
   ).bind(bookingId).run();
 }
 
 // =============================================================
-// NEW: Invalidate Owner Sessions on Homestay Changes
+// Invalidate owner sessions on homestay changes
 // =============================================================
 export async function invalidateOwnerSessions(db, ownerId) {
   if (!ownerId) return;
@@ -590,8 +553,7 @@ export async function invalidateOwnerSessions(db, ownerId) {
 // =============================================================
 // D1-Compatible Lock using INSERT OR IGNORE (no transactions)
 // =============================================================
-export async function withLock(db, homestayId, callback) {
-  // Ensure lock table exists
+export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS homestay_locks (
       homestay_id TEXT PRIMARY KEY,
@@ -604,34 +566,33 @@ export async function withLock(db, homestayId, callback) {
   // 1. Try to insert the lock
   let insertResult = await db.prepare(
     `INSERT OR IGNORE INTO homestay_locks (homestay_id, locked_at) VALUES (?, ?)`
-  ).bind(homestayId, now).run();
+  ).bind(lockKey, now).run();
 
-  // 2. If insertion failed, the lock already exists – check if stale
+  // 2. If insertion failed, lock exists – check staleness
   if (insertResult.meta.changes === 0) {
     const existing = await db.prepare(
       `SELECT locked_at FROM homestay_locks WHERE homestay_id = ?`
-    ).bind(homestayId).first();
+    ).bind(lockKey).first();
 
-    if (existing && (now - existing.locked_at) > 5000) {
+    if (existing && (now - existing.locked_at) > staleTimeoutMs) {
       // Stale lock – take over
-      await db.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(homestayId).run();
-      // Try inserting again
+      await db.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(lockKey).run();
       insertResult = await db.prepare(
         `INSERT OR IGNORE INTO homestay_locks (homestay_id, locked_at) VALUES (?, ?)`
-      ).bind(homestayId, now).run();
+      ).bind(lockKey, now).run();
       if (insertResult.meta.changes === 0) {
-        throw new Error('Another booking is in progress. Please try again in a moment.');
+        throw new Error('Another operation is in progress. Please try again in a moment.');
       }
     } else {
-      throw new Error('Another booking is in progress. Please try again in a moment.');
+      throw new Error('Another operation is in progress. Please try again in a moment.');
     }
   }
 
-  // 3. Lock acquired – execute the critical section
+  // 3. Lock acquired – execute callback
   try {
     return await callback(db);
   } finally {
-    // 4. Always release the lock
-    await db.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(homestayId).run();
+    // 4. Always release
+    await db.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(lockKey).run();
   }
 }
