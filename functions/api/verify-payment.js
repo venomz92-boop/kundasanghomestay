@@ -1,5 +1,5 @@
 // /api/verify-payment.js – Secured with authentication
-import { corsHeaders, getClientIP, logAction, enforceHttps, getGuestSession, jsonResponse, checkRateLimit, recordRateLimit } from './_utils.js';
+import { corsHeaders, getClientIP, logAction, enforceHttps, getGuestSession, jsonResponse, checkRateLimit, recordRateLimit, withLock, finalizePaidBooking } from './_utils.js';
 
 async function sendCheckinEmail(booking, env) {
   const receiptNo = `RCP-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${booking.id.slice(-6)}`;
@@ -191,26 +191,39 @@ export async function onRequestPost({ request, env }) {
         const purchase = await resp.json();
         const purchaseStatus = purchase.status;
 
-        if (purchaseStatus === 'completed' || purchaseStatus === 'paid') {
-          if (!booking.checkinCode) {
-            booking.checkinCode = Math.floor(100000 + Math.random() * 900000).toString();
+                if (purchaseStatus === 'completed' || purchaseStatus === 'paid') {
+          let finalizeResult;
+          try {
+            finalizeResult = await withLock(db, `paid-${booking.id}`, async (db) => {
+              return await finalizePaidBooking(db, booking.id);
+            }, 10000);
+          } catch (lockErr) {
+            if (lockErr.message && lockErr.message.includes('in progress')) {
+              await new Promise(r => setTimeout(r, 800));
+              const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+              let bb = [];
+              try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
+              const cur = bb.find(b => String(b.id) === String(booking.id));
+              if (cur && (cur.status === 'Paid - Awaiting Check-in' || String(cur.status).startsWith('Completed'))) {
+                const { checkinCode, ...safeBooking } = cur;
+                return jsonResponse({ success: true, booking: safeBooking, paid: true }, 200, request);
+              }
+            }
+            throw lockErr;
           }
-          bookings[idx] = {
-            ...booking,
-            status: 'Paid - Awaiting Check-in',
-            paid_at: new Date().toISOString(),
-            chip_status: 'paid'
-          };
-          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-            .bind('kd_bookings', JSON.stringify(bookings))
-            .run();
 
-          await sendCheckinEmail(bookings[idx], env);
+          if (finalizeResult.error) {
+            return jsonResponse({ error: finalizeResult.error }, 500, request);
+          }
 
-          const { checkinCode, ...safeBooking } = bookings[idx];
+          // If WE finalized it and code was newly generated, send email.
+          if (finalizeResult.finalized && finalizeResult.codeWasMissing) {
+            await sendCheckinEmail(finalizeResult.booking, env);
+          }
+
+          const { checkinCode, ...safeBooking } = finalizeResult.booking;
           return jsonResponse({ success: true, booking: safeBooking, paid: true }, 200, request);
         } else if (purchaseStatus === 'cancelled' || purchaseStatus === 'expired' || purchaseStatus === 'failed') {
-          bookings[idx].status = 'Payment Failed';
           await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
             .bind('kd_bookings', JSON.stringify(bookings))
             .run();
