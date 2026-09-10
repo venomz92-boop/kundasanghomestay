@@ -15,7 +15,6 @@
 </head>
 <body>
 
-<!-- ===== CUSTOM MODAL ===== -->
 <div id="customModal" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-header">
@@ -29,7 +28,6 @@
   </div>
 </div>
 
-<!-- ===== EARLY FUNCTION DEFINITION ===== -->
 <script>
   let lastToggleTime = 0;
   window.toggleMobileMenu = function() {
@@ -44,7 +42,6 @@
   };
 </script>
 
-<!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
@@ -89,7 +86,6 @@
   </div>
 </header>
 
-<!-- ===== MOBILE MENU ===== -->
 <div id="mobileNav">
   <div class="p-4 space-y-1">
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
@@ -116,7 +112,6 @@
   </div>
 </div>
 
-<!-- ===== HERO ===== -->
 <section class="relative w-full h-[320px] md:h-[400px] overflow-hidden">
   <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu backdrop" class="absolute inset-0 w-full h-full object-cover" />
   <div class="absolute inset-0 bg-black/35"></div>
@@ -128,7 +123,6 @@
   </div>
 </section>
 
-<!-- ===== FORM ===== -->
 <main class="page-content max-w-[960px] mx-auto px-5 md:px-8 py-14">
   <div class="text-center mb-12 animate-on-scroll">
     <h2 class="font-poppins font-700 text-[28px] md:text-[34px] text-[#212121] tracking-[-0.5px]">Register Your Homestay</h2>
@@ -417,7 +411,6 @@
   </div>
 </main>
 
-<!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div>
@@ -437,7 +430,7 @@
       <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
       <div class="space-y-2 text-[13px] font-poppins">
         <a href="/" class="hover:text-white block">Browse Homestays</a>
-        <a href="/owner-register.html" class="hover:text-white block">Host Registration</a>
+        <a href="/list.html" class="hover:text-white block">Host Registration</a>
         <a href="/about.html" class="hover:text-white block">About Us</a>
         <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
         <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
@@ -456,11 +449,11 @@
       </div>
     </div>
     <div>
-  <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
-  <div id="kdWeatherWidget" class="kd-weather-widget">
-    <div class="kd-weather-loading">Loading live weather…</div>
-  </div>
-</div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
+      <div id="kdWeatherWidget" class="kd-weather-widget">
+        <div class="kd-weather-loading">Loading live weather…</div>
+      </div>
+    </div>
   </div>
   <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
     © 2026 Kundasang Homestay. All rights reserved.
@@ -482,7 +475,6 @@ function escapeHTML(s) {
     .replace(/'/g, '&#39;');
 }
 
-// HARDENED: no onclick / onchange / oninput / onerror in ALLOWED_ATTR
 function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
@@ -537,7 +529,7 @@ function showModal(title, message, buttons) {
 }
 function closeModal() {
   const overlay = document.getElementById('customModal');
-  overlay.classList.remove('active');
+  if (overlay) overlay.classList.remove('active');
   document.body.style.overflow = '';
 }
 function modalConfirm() { closeModal(); }
@@ -551,7 +543,8 @@ function showConfirm(title, message) {
   ]);
 }
 function showPrompt(title, message, defaultValue) {
-  const input = `<input type="text" id="modalInput" value="${escapeHTML(defaultValue || '')}" placeholder="Enter date here..." />`;
+  const safeVal = String(defaultValue || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const input = `<input type="text" id="modalInput" value="${safeVal}" placeholder="Enter date here..." />`;
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
     const titleEl = document.getElementById('modalTitle');
@@ -603,6 +596,7 @@ try {
   const saved = localStorage.getItem('kd_guest');
   if (saved) currentGuest = JSON.parse(saved);
 } catch (e) { currentGuest = null; }
+
 function renderGuestNav() {
   const loginNav = document.getElementById("guestNav");
   const profileNav = document.getElementById("guestProfileNav");
@@ -824,7 +818,7 @@ async function handleRoomImages(roomId, input) {
       const formData = new FormData();
       formData.append('image', compressedBlob, file.name);
 
-      const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+      const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
       const data = await res.json();
 
       if (res.ok && data.url) {
@@ -859,7 +853,6 @@ document.getElementById('listBankName').addEventListener('change', function() {
 
 // =============================================================
 // DELEGATED HANDLERS FOR DYNAMIC ROOM UI
-// (Needed because safeHTML strips inline onclick/onchange.)
 // =============================================================
 document.addEventListener('click', function(e) {
   const removeImgBtn = e.target.closest('#roomsList [data-room-action="remove-img"]');
@@ -917,7 +910,7 @@ async function handlePhotos(input) {
       const formData = new FormData();
       formData.append('image', compressedBlob, file.name);
 
-      const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+      const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
       const data = await res.json();
 
       if (res.ok && data.url) {
@@ -1009,7 +1002,7 @@ async function handleIcFile(input) {
         const formData = new FormData();
         formData.append('image', blob, 'ic-' + Date.now() + '.jpg');
 
-        const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+        const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
         const data = await res.json();
 
         if (res.ok && data.url) {
@@ -1059,7 +1052,7 @@ async function handleBankQRUpload(input) {
     const formData = new FormData();
     formData.append('image', compressedBlob, 'bank-qr-' + Date.now() + '.jpg');
 
-    const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+    const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
     const data = await res.json();
 
     if (res.ok && data.url) {
@@ -1129,7 +1122,6 @@ function renderBlockedDatesList() {
   if (countDiv) countDiv.innerText = `${tempBlockedDates.length} Dates Blocked`;
 }
 
-// Delegated handler for blocked-date removal (safeHTML strips inline onclick)
 document.addEventListener('click', function(e) {
   const btn = e.target.closest('#blockedDatesList [data-blocked-action="remove"]');
   if (!btn) return;
@@ -1139,7 +1131,7 @@ document.addEventListener('click', function(e) {
 });
 
 // =============================================================
-// PBT License (Cloudinary)
+// PBT License
 // =============================================================
 async function handlePbtLicense(input) {
   const file = input.files[0];
@@ -1157,7 +1149,7 @@ async function handlePbtLicense(input) {
     }
     const formData = new FormData();
     formData.append('image', compressedBlob, 'pbt-' + Date.now() + '.jpg');
-    const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+    const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
     const data = await res.json();
     if (res.ok && data.url) {
       tempPbtLicense = data.url;
@@ -1227,23 +1219,25 @@ async function submitHomestay() {
       return;
     }
 
-    if (!ownerName) { await showAlert("Required Field", "Host full legal name is missing."); return; }
-    if (!whatsapp) { await showAlert("Required Field", "WhatsApp contact number is missing."); return; }
-    if (!ownerEmail) { await showAlert("Required Field", "Owner email address is missing."); return; }
-    if (!homestayName) { await showAlert("Required Field", "Please declare property name."); return; }
-    if (!price || isNaN(price) || price <= 0) { await showAlert("Required Field", "Price per night must be a valid positive amount."); return; }
-    if (!bankName) { await showAlert("Required Field", "Choose your receiving bank."); return; }
-    if (!bankAccount) { await showAlert("Required Field", "Receiving bank account number is required."); return; }
-    if (!bankHolder) { await showAlert("Required Field", "Recipient account holder name is required."); return; }
-    if (!icName) { await showAlert("Required Field", "Legal registration name matching IC is required."); return; }
-    if (!bankConfirm) { await showAlert("Escrow Agreement", "Please consent to Host bank verification checkbox."); return; }
-    if (tempPhotos.length === 0) { await showAlert("Required Field", "Add at least 1 cover photo of your homestay."); return; }
+    if (!ownerName) { await showAlert("Required Field", "Host full legal name is missing."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
+    if (!whatsapp) { await showAlert("Required Field", "WhatsApp contact number is missing."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
+    if (!ownerEmail) { await showAlert("Required Field", "Owner email address is missing."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
+    if (!homestayName) { await showAlert("Required Field", "Please declare property name."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
+    if (!price || isNaN(price) || price <= 0) { await showAlert("Required Field", "Price per night must be a valid positive amount."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
+    if (!bankName) { await showAlert("Required Field", "Choose your receiving bank."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
+    if (!bankAccount) { await showAlert("Required Field", "Receiving bank account number is required."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
+    if (!bankHolder) { await showAlert("Required Field", "Recipient account holder name is required."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
+    if (!icName) { await showAlert("Required Field", "Legal registration name matching IC is required."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
+    if (!bankConfirm) { await showAlert("Escrow Agreement", "Please consent to Host bank verification checkbox."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
+    if (tempPhotos.length === 0) { await showAlert("Required Field", "Add at least 1 cover photo of your homestay."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
+
     const isAuthenticatedOwner = window._ownerAuth && window._ownerAuth.ownerId;
     if (!isAuthenticatedOwner && ownerPassword.length < 8) {
-    await showAlert("Required Field", "Password must be at least 8 characters.");
-    return;
+      await showAlert("Required Field", "Password must be at least 8 characters.");
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; }
+      return;
     }
-    if (!tempIcWatermarked) { await showAlert("Required Field", "Identity document front upload is mandatory."); return; }
+    if (!tempIcWatermarked) { await showAlert("Required Field", "Identity document front upload is mandatory."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
 
     const newHome = {
       id: Date.now(),
@@ -1285,19 +1279,17 @@ async function submitHomestay() {
 
     const payload = { homestay: newHome };
     if (isAuthenticatedOwner) {
-    // Owner is authenticated — server will look up the account and skip password
-    payload.ownerId = window._ownerAuth.ownerId;
+      payload.ownerId = window._ownerAuth.ownerId;
     } else {
-    payload.ownerPassword = ownerPassword;
+      payload.ownerPassword = ownerPassword;
     }
 
     const syncRes = await fetch("/api/pending", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: 'include',
-    body: JSON.stringify(payload)
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: 'include',
+      body: JSON.stringify(payload)
     });
-    
     const syncData = await syncRes.json();
 
     if (!syncRes.ok) {
@@ -1338,18 +1330,15 @@ async function submitHomestay() {
 
 // =============================================================
 // OWNER-ACCOUNT AWARENESS
-// If the visitor is an authenticated owner, pre-fill their details
-// and hide the password section (they already have one from register).
+// If visitor is an authenticated owner, pre-fill their details
+// and hide the password section (they already have a password).
 // =============================================================
 (function initOwnerAwareness() {
-  const API_BASE = "/api";
-
-  fetch(API_BASE + '/owner-session', { credentials: 'include', cache: 'no-store' })
-    .then(r => r.json().catch(() => ({})))
-    .then(data => {
+  fetch('/api/owner-session', { credentials: 'include', cache: 'no-store' })
+    .then(function(r) { return r.json().catch(function() { return {}; }); })
+    .then(function(data) {
       if (!data || data.authenticated !== true) return;
 
-      // Store owner context globally for the submit function
       window._ownerAuth = {
         ownerId: data.ownerId,
         whatsapp: data.whatsapp,
@@ -1357,27 +1346,25 @@ async function submitHomestay() {
         ownerEmail: data.ownerEmail
       };
 
-      // Pre-fill known fields
-      const nameEl = document.getElementById('listOwnerName');
-      const waEl = document.getElementById('listWhatsapp');
-      const emailEl = document.getElementById('listOwnerEmail');
-      const icNameEl = document.getElementById('listIcName');
+      var nameEl = document.getElementById('listOwnerName');
+      var waEl = document.getElementById('listWhatsapp');
+      var emailEl = document.getElementById('listOwnerEmail');
+      var icNameEl = document.getElementById('listIcName');
 
       if (nameEl && data.ownerName) nameEl.value = data.ownerName;
       if (waEl && data.whatsapp) waEl.value = data.whatsapp;
       if (emailEl && data.ownerEmail) emailEl.value = data.ownerEmail;
       if (icNameEl && data.ownerName) icNameEl.value = data.ownerName;
 
-      // Hide the password configuration section (already has password)
-      const pwdSection = document.getElementById('listOwnerPassword')?.closest('section');
-      if (pwdSection) {
-        pwdSection.style.display = 'none';
+      var pwdInput = document.getElementById('listOwnerPassword');
+      if (pwdInput) {
+        var pwdSection = pwdInput.closest('section');
+        if (pwdSection) pwdSection.style.display = 'none';
       }
 
-      // Add a small info banner at the top of the form
-      const formCard = document.querySelector('main .card');
+      var formCard = document.querySelector('main .card');
       if (formCard && !document.getElementById('ownerAuthBanner')) {
-        const banner = document.createElement('div');
+        var banner = document.createElement('div');
         banner.id = 'ownerAuthBanner';
         banner.className = 'mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-3';
         banner.innerHTML =
@@ -1389,37 +1376,75 @@ async function submitHomestay() {
         formCard.insertBefore(banner, formCard.firstChild);
       }
     })
-    .catch(() => { /* silent */ });
+    .catch(function() { /* silent */ });
+})();
 
 // =============================================================
-// VERIFICATION WELCOME BANNER
-// Shown when the owner arrives from the email verification link
+// VERIFICATION WELCOME TOAST
 // =============================================================
 (function showVerifiedWelcome() {
-  const params = new URLSearchParams(window.location.search);
+  var params = new URLSearchParams(window.location.search);
   if (params.get('verified') !== '1') return;
 
-  // Strip the query string so refresh doesn't retrigger
   if (window.history && window.history.replaceState) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  // Small floating toast
-  const toast = document.createElement('div');
+  var toast = document.createElement('div');
   toast.style.cssText =
     'position:fixed;top:96px;left:50%;transform:translateX(-50%);z-index:99999;' +
     'background:#0F382E;color:#fff;padding:14px 24px;border-radius:999px;' +
     'font-family:Poppins,sans-serif;font-size:13px;font-weight:600;' +
-    'box-shadow:0 12px 30px rgba(15,56,46,0.35);display:flex;align-items:center;gap:10px;';
+    'box-shadow:0 12px 30px rgba(15,56,46,0.35);display:flex;align-items:center;gap:10px;' +
+    'max-width:calc(100vw - 32px);';
   toast.innerHTML = '<span style="font-size:18px;">✅</span> Email verified — let\'s list your homestay!';
   document.body.appendChild(toast);
 
-  setTimeout(() => {
+  setTimeout(function() {
     toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
     toast.style.opacity = '0';
     toast.style.transform = 'translateX(-50%) translateY(-10px)';
-    setTimeout(() => toast.remove(), 400);
+    setTimeout(function() { toast.remove(); }, 400);
   }, 5000);
+})();
+
+// =============================================================
+// MOBILE NAV HIDE (guest buttons on mobile desktop nav)
+// =============================================================
+(function() {
+  function hideLoginButtonsOnMobile() {
+    var isMobile = window.innerWidth < 768;
+    var guestNav = document.getElementById('guestNav');
+    var guestProfileNav = document.getElementById('guestProfileNav');
+
+    if (isMobile) {
+      if (guestNav && guestNav.closest('#desktopNav')) {
+        guestNav.style.display = 'none';
+        guestNav.style.setProperty('display', 'none', 'important');
+      }
+      if (guestProfileNav && guestProfileNav.closest('#desktopNav')) {
+        guestProfileNav.style.display = 'none';
+        guestProfileNav.style.setProperty('display', 'none', 'important');
+      }
+    } else {
+      if (guestNav) {
+        guestNav.style.display = '';
+        guestNav.style.removeProperty('display');
+      }
+      if (guestProfileNav) {
+        guestProfileNav.style.display = '';
+        guestProfileNav.style.removeProperty('display');
+      }
+    }
+  }
+
+  hideLoginButtonsOnMobile();
+  window.addEventListener('resize', hideLoginButtonsOnMobile);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hideLoginButtonsOnMobile);
+  }
+  setTimeout(hideLoginButtonsOnMobile, 100);
+  setTimeout(hideLoginButtonsOnMobile, 500);
 })();
 </script>
 </body>
