@@ -908,28 +908,52 @@ async function handlePhotos(input) {
 
   for (const file of files) {
     try {
-      const compressed = await compressImage(file, 800, 0.7);
-      if (compressed) {
-        tempPhotos.push(compressed);
+      if (!file.type.startsWith('image/')) {
+        continue;
+      }
+
+      const compressedBlob = await compressImageToBlob(file, 1000, 0.8);
+      if (!compressedBlob) {
+        await showAlert('Upload Failed', 'Could not compress ' + file.name);
+        continue;
+      }
+
+      const formData = new FormData();
+      formData.append('image', compressedBlob, file.name);
+
+      const res = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.url) {
+        tempPhotos.push(data.url);
+
         const img = document.createElement('img');
-        img.src = compressed;
+        img.src = data.url;
         img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
         if (preview) preview.appendChild(img);
+      } else {
+        await showAlert('Upload Failed', data.error || 'Failed to upload ' + file.name);
       }
     } catch (e) {
-      // ignore
+      await showAlert('Upload Error', e.message || 'Upload failed');
     }
   }
+
+  input.value = '';
 }
 
 // ===== IC with compression and watermark =====
 async function handleIcFile(input) {
   const file = input.files[0];
   if (!file) return;
-  if (file.size > 5 * 1024 * 1024) { 
-    await showAlert("File Exceeded", "IC attachment too heavy (max 5MB limit)."); 
-    input.value=""; 
-    return; 
+  if (file.size > 5 * 1024 * 1024) {
+    await showAlert("File Exceeded", "IC attachment too heavy (max 5MB limit).");
+    input.value = "";
+    return;
   }
   tempIcOriginalName = file.name;
 
@@ -941,11 +965,13 @@ async function handleIcFile(input) {
     }
 
     const img = new Image();
-    img.onload = function() {
+    img.onload = async function() {
       const canvas = document.getElementById("icCanvas");
-      const maxW = 1200; let w = img.width, h = img.height;
+      const maxW = 1200;
+      let w = img.width, h = img.height;
       if (w > maxW) { h = h * (maxW / w); w = maxW; }
-      canvas.width = w; canvas.height = h;
+      canvas.width = w;
+      canvas.height = h;
       const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0, w, h);
 
@@ -953,18 +979,18 @@ async function handleIcFile(input) {
       const dateStr = new Date().toISOString().split('T')[0];
       ctx.save();
       ctx.globalAlpha = 0.22;
-      ctx.font = `bold ${Math.max(18, w * 0.035)}px Inter, sans-serif`;
+      ctx.font = "bold " + Math.max(18, w * 0.035) + "px Inter, sans-serif";
       ctx.fillStyle = "#1e40af";
       ctx.translate(w / 2, h / 2);
       ctx.rotate(-0.5);
       const watermarkText = "KundasangHomestay Verification ONLY";
-      const watermark2 = `${dateStr} • ${ownerName}`;
+      const watermark2 = dateStr + " • " + ownerName;
       for (let y = -h; y < h; y += 90) {
         for (let x = -w; x < w; x += 360) {
           ctx.fillText(watermarkText, x, y);
-          ctx.font = `bold ${Math.max(12, w * 0.02)}px Inter, sans-serif`;
+          ctx.font = "bold " + Math.max(12, w * 0.02) + "px Inter, sans-serif";
           ctx.fillText(watermark2, x, y + 22);
-          ctx.font = `bold ${Math.max(18, w * 0.035)}px Inter, sans-serif`;
+          ctx.font = "bold " + Math.max(18, w * 0.035) + "px Inter, sans-serif";
         }
       }
       ctx.restore();
@@ -974,26 +1000,44 @@ async function handleIcFile(input) {
       ctx.globalAlpha = 1;
       ctx.fillStyle = "white";
       ctx.font = "bold 11px Inter, sans-serif";
-      ctx.fillText(`VERIFICATION ONLY • ${dateStr} • ${ownerName} • KUNDASANGHOMESTAY.MY`, 14, h - 14);
-      tempIcWatermarked = canvas.toDataURL("image/jpeg", 0.85);
+      ctx.fillText("VERIFICATION ONLY • " + dateStr + " • " + ownerName + " • KUNDASANGHOMESTAY.MY", 14, h - 14);
+
+      const watermarkedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
       const preview = document.getElementById("icPreview");
-      if (preview) preview.src = tempIcWatermarked;
+      if (preview) preview.src = watermarkedDataUrl;
       const infoBox = document.getElementById("icPreviewWrap");
       if (infoBox) infoBox.classList.remove("hidden");
       const label = document.getElementById("icWatermarkInfo");
-      if (label) label.innerHTML = safeHTML(`✓ Legal encryption complete!<br>✓ Processed file size: ${(tempIcWatermarked.length/1024).toFixed(0)}KB`);
+      if (label) label.innerHTML = safeHTML("Uploading watermarked IC...");
+
+      try {
+        const blob = await (await fetch(watermarkedDataUrl)).blob();
+        const formData = new FormData();
+        formData.append('image', blob, 'ic-' + Date.now() + '.jpg');
+
+        const res = await fetch('/api/upload-image', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+
+        if (res.ok && data.url) {
+          tempIcWatermarked = data.url;
+          if (label) label.innerHTML = safeHTML("✓ Watermarked & uploaded securely<br>✓ Reference ID: " + data.publicId.split('/').pop());
+        } else {
+          tempIcWatermarked = watermarkedDataUrl;
+          if (label) label.innerHTML = safeHTML("⚠️ Cloud upload failed. Using local fallback.");
+        }
+      } catch (err) {
+        tempIcWatermarked = watermarkedDataUrl;
+        if (label) label.innerHTML = safeHTML("⚠️ Upload error. Using local fallback.");
+      }
     };
     img.src = compressedDataUrl;
   } catch (e) {
     await showAlert("Error", "Failed to process IC image.");
   }
-}
-
-function removeIc() {
-  tempIcWatermarked = ""; tempIcOriginalName = "";
-  document.getElementById("listIcFront").value = "";
-  document.getElementById("icPreviewWrap").classList.add("hidden");
-  document.getElementById("icPreview").src = "";
 }
 
 // ===== Bank QR with compression =====
@@ -1002,26 +1046,36 @@ async function handleBankQRUpload(input) {
   if (!file) return;
   if (file.size > 3 * 1024 * 1024) {
     await showAlert("File Exceeded", "QR attachment size exceeded (max 3MB).");
-    input.value="";
+    input.value = "";
     return;
   }
   tempBankQROriginalName = file.name;
   try {
-    const compressed = await compressImage(file, 600, 0.7);
-    if (compressed) {
-      tempBankQRWatermarked = compressed;
-      document.getElementById("bankQRImg").src = tempBankQRWatermarked;
+    const compressedBlob = await compressImageToBlob(file, 800, 0.8);
+    if (!compressedBlob) {
+      await showAlert('Upload Failed', 'Could not process QR image.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', compressedBlob, 'bank-qr-' + Date.now() + '.jpg');
+
+    const res = await fetch('/api/upload-image', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+
+    if (res.ok && data.url) {
+      tempBankQRWatermarked = data.url;
+      document.getElementById("bankQRImg").src = data.url;
       document.getElementById("bankQRPreview").classList.remove("hidden");
+    } else {
+      await showAlert('Upload Failed', data.error || 'Could not upload QR image.');
     }
   } catch (e) {
-    // ignore
+    await showAlert('Upload Error', e.message || 'Upload failed');
   }
-}
-function removeBankQR() {
-  tempBankQRWatermarked = ""; tempBankQROriginalName = "";
-  document.getElementById("listBankQR").value = "";
-  document.getElementById("bankQRPreview").classList.add("hidden");
-  document.getElementById("bankQRImg").src = "";
 }
 
 // ===== Blocked dates =====
