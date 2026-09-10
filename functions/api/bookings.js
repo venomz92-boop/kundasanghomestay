@@ -1,4 +1,4 @@
-// /api/bookings.js – FULLY PATCHED with unified fee + clearAll + approve cleanup + public data sanitization + deleteOwner + Cloudinary cleanup + status emails
+// /api/bookings.js – FULLY PATCHED with unified fee + clearAll + approve cleanup + public data sanitization + deleteOwner + Cloudinary cleanup + status emails + failed-payment cooldown
 import {
   corsHeaders,
   getClientIP,
@@ -19,6 +19,7 @@ import {
 const MAX_NIGHTS = 60;
 const DEFAULT_PAGE_SIZE = 50;
 const GATEWAY_FEE = 1.00;
+const FAILED_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
 
 function getDatesInRange(checkin, checkout) {
   if (!checkin || !checkout) return [];
@@ -145,7 +146,6 @@ async function sendStatusEmail({ to, subject, html, env, logContext }) {
       }
       const errBody = await r.text().catch(() => '');
       console.warn(`[${logContext}] Resend error ${r.status}: ${errBody.slice(0, 200)}`);
-      // fall through to try SendGrid if it's configured too
     }
 
     if (env.SENDGRID_API_KEY) {
@@ -514,7 +514,7 @@ export async function onRequestPost({ request, env }) {
           throw new Error('Guest not found');
         }
 
-        const FAILED_COOLDOWN_MS = 15 * 60 * 1000;
+        // ===== Reusable failed-payment cooldown window =====
         const existingPending = allBookings.find(b => {
           if (String(b.guestId) !== String(guest.id)) return false;
           if (String(b.homestayId) !== String(homestay.id)) return false;
@@ -522,7 +522,6 @@ export async function onRequestPost({ request, env }) {
 
           if (b.status === 'Pending Payment') return true;
 
-          // Allow retry of recent failed bookings (within cooldown)
           if (b.status === 'Payment Failed' && b.date) {
             const age = Date.now() - Date.parse(b.date);
             if (age < FAILED_COOLDOWN_MS) return true;
@@ -560,17 +559,13 @@ export async function onRequestPost({ request, env }) {
           }
         }
 
-        const FAILED_COOLDOWN_MS = 15 * 60 * 1000;
         const overlaps = allBookings.some(b => {
-          // Is this a stale pending that should be ignored?
           const pendingExpired = String(b.status||'') === 'Pending Payment'
             && b.date && Date.now() - Date.parse(b.date) > 15*60*1000;
 
-          // Is this a failed payment still inside the cooldown window?
           const failedActive = String(b.status||'') === 'Payment Failed'
             && b.date && (Date.now() - Date.parse(b.date) < FAILED_COOLDOWN_MS);
 
-          // Terminal states that never block
           const isTerminal = /cancelled|expired/i.test(String(b.status||'')) && !failedActive;
 
           const isOwnPending = String(b.guestId) === String(guest.id) &&
@@ -833,10 +828,8 @@ export async function onRequestPost({ request, env }) {
         }
         const homestay = pending[idx];
 
-        // ===== Purge sensitive images from Cloudinary =====
         await purgeSensitiveImages(homestay, env, `approveHomestay:${homestay.id}`);
 
-        // ===== Strip sensitive fields before persisting =====
         const {
           icImage, icOriginalName, bankQRImage, bankQROriginalName, pbtLicense,
           icNumber, icUploadDate,
@@ -899,7 +892,6 @@ export async function onRequestPost({ request, env }) {
           homestayId: safeHomestay.id
         });
 
-        // ===== Send approval email to host =====
         let emailResult = { sent: false };
         if (safeHomestay.ownerEmail) {
           const html = approvedEmailHtml({
@@ -944,7 +936,6 @@ export async function onRequestPost({ request, env }) {
       }
       const homestay = pending[idx];
 
-      // ===== Purge sensitive images from Cloudinary =====
       await purgeSensitiveImages(homestay, env, `rejectHomestay:${homestay.id}`);
 
       pending.splice(idx, 1);
@@ -964,7 +955,6 @@ export async function onRequestPost({ request, env }) {
         homestayId: homestay.id
       });
 
-      // ===== Send rejection email to host =====
       let emailResult = { sent: false };
       if (homestay.ownerEmail) {
         const html = rejectedEmailHtml({
@@ -1009,7 +999,6 @@ export async function onRequestPost({ request, env }) {
 
         const removed = approved[idx];
 
-        // ===== Defensive purge in case any sensitive images remain =====
         await purgeSensitiveImages(removed, env, `removeApprovedHomestay:${removed.id}`);
 
         approved.splice(idx, 1);
@@ -1045,7 +1034,6 @@ export async function onRequestPost({ request, env }) {
           homestayId: removed.id
         });
 
-        // ===== Send removal email to host =====
         let emailResult = { sent: false };
         if (removed.ownerEmail) {
           const html = removedEmailHtml({
@@ -1150,7 +1138,6 @@ export async function onRequestPost({ request, env }) {
       const deletedEmail = String(deleted.ownerEmail || '').toLowerCase().trim();
       const deletedWa = String(deleted.whatsapp || '').replace(/[^0-9]/g, '');
 
-      // Purge sensitive images from any remaining homestays owned by this host
       const sensitiveOwned = [];
       for (const key of ['kd_pending', 'kd_approved', 'kd_homestays']) {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
