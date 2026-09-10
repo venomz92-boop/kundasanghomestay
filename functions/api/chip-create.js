@@ -1,4 +1,4 @@
-// /api/chip-create.js – Smart retry + rate limiting + generic errors + paid-discovery email
+// /api/chip-create.js – Smart retry + rate limiting + generic errors + paid-discovery email + payment-failed retry re-block
 import {
   corsHeaders,
   enforceHttps,
@@ -267,8 +267,11 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Payment gateway error. Please try again.' }, 502, request);
     }
 
-    // If the guest is retrying after a failed payment, re-block the dates
-    // by resetting status to Pending Payment and refreshing the timestamp.
+    // ============================================================
+    // Update booking with new CHIP session.
+    // If guest is retrying after a failed payment, reset status to
+    // Pending Payment and refresh timestamp so dates stay blocked.
+    // ============================================================
     const isRetry = String(booking.status || '') === 'Payment Failed';
     const nowIso = new Date().toISOString();
 
@@ -282,6 +285,7 @@ export async function onRequestPost({ request, env }) {
       chip_status: data.status || 'pending',
       paymentProvider: 'CHIP'
     };
+
     await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
       .bind('kd_bookings', JSON.stringify(bookings))
       .run();
@@ -290,7 +294,7 @@ export async function onRequestPost({ request, env }) {
       db,
       action: 'chip_purchase_created',
       admin: 'guest',
-      details: `New purchase ${data.id} created for ${booking.id}`,
+      details: `New purchase ${data.id} created for ${booking.id}${isRetry ? ' (retry after failed payment)' : ''}`,
       ip: clientIP,
       userId: session.userId,
       homestayId: booking.homestayId
