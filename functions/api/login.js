@@ -1,23 +1,12 @@
-// /api/login.js – SECURE, short guest TTL (2 hours)
+// /api/login.js — Guest login with 2-hour session
 import {
-  corsHeaders,
-  getClientIP,
-  enforceHttps,
-  hashPassword,
-  verifyPassword,
-  createSignedToken,
-  generateCSRFToken,
-  cookieHeader,
-  jsonResponse,
-  checkRateLimit,
-  recordRateLimit,
-  parseJSONSafely,
-  logAction,
-  incrementSessionVersion
+  corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword,
+  createSignedToken, generateCSRFToken, cookieHeader, jsonResponse,
+  checkRateLimit, recordRateLimit, parseJSONSafely, incrementSessionVersion
 } from './_utils.js';
 
-const GUEST_TTL_MS = 2 * 60 * 60 * 1000;      // 2 hours
-const GUEST_TTL_SECONDS = GUEST_TTL_MS / 1000; // 7200
+const GUEST_TTL_MS      = 2 * 60 * 60 * 1000;  // 2 hours
+const GUEST_TTL_SECONDS = GUEST_TTL_MS / 1000;
 
 function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -33,9 +22,7 @@ export async function onRequestPost({ request, env }) {
     if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
 
     const rateOk = await checkRateLimit(db, clientIP, 'login', 5, 15 * 60);
-    if (!rateOk) {
-      return jsonResponse({ error: 'Too many attempts. Try again in 15 minutes.' }, 429, request);
-    }
+    if (!rateOk) return jsonResponse({ error: 'Too many attempts. Try again in 15 minutes.' }, 429, request);
 
     const body = await parseJSONSafely(request);
     const cleanEmail = String(body.email || '').toLowerCase().trim();
@@ -52,9 +39,7 @@ export async function onRequestPost({ request, env }) {
     try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
 
     const user = guests.find(g => String(g.email || '').toLowerCase() === cleanEmail);
-    if (!user) {
-      return jsonResponse({ error: 'Invalid email or password' }, 401, request);
-    }
+    if (!user) return jsonResponse({ error: 'Invalid email or password' }, 401, request);
 
     const verified = await verifyPassword(cleanPassword, user, env);
     if (!verified.ok) {
@@ -69,8 +54,7 @@ export async function onRequestPost({ request, env }) {
       user.passwordAlgorithm = fresh.algorithm;
       user.passwordVersion = (user.passwordVersion || 0) + 1;
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_guests', JSON.stringify(guests))
-        .run();
+        .bind('kd_guests', JSON.stringify(guests)).run();
     }
 
     if (user.verified !== true) {
