@@ -11,10 +11,10 @@
   <script src="/guest-session.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet"> 
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
 </head>
 <body>
-  
+
 <!-- ===== CUSTOM MODAL ===== -->
 <div id="customModal" class="modal-overlay">
   <div class="modal-box">
@@ -47,7 +47,6 @@
 <!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
-    <!-- Logo & Brand -->
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
       <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
       <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
@@ -55,8 +54,6 @@
         <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Stay • Connect • Belong</div>
       </div>
     </div>
-
-    <!-- Desktop Nav -->
     <nav id="desktopNav" class="hidden lg:flex items-center gap-8">
       <a href="/" id="navHome" class="setsail-nav-link" onclick="window.location.href='/'; return false;">Home</a>
       <a href="/list.html" id="navList" class="setsail-nav-link" onclick="window.location.href='/list.html'; return false;">Host Registration</a>
@@ -75,13 +72,9 @@
         </div>
       </div>
     </nav>
-
-    <!-- MOBILE MENU BUTTON -->
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
-
-    <!-- FALLBACK LISTENER -->
     <script>
       (function() {
         var btn = document.getElementById('mobileMenuBtn');
@@ -96,14 +89,13 @@
   </div>
 </header>
 
-<!-- ===== MOBILE MENU (outside header) ===== -->
+<!-- ===== MOBILE MENU ===== -->
 <div id="mobileNav">
   <div class="p-4 space-y-1">
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
     <a href="/list.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">➕ List Your Homestay</a>
     <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About</a>
     <a href="/owner.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5 text-purple-600 mobile-agent-link" style="text-decoration:none;">🔑 Host Login</a>
-
     <div class="pt-3 space-y-3">
       <div id="mGuestNav" class="space-y-2">
         <a href="/login.html" class="guest-btn guest-btn-primary block text-center">Login</a>
@@ -123,7 +115,7 @@
     </div>
   </div>
 </div>
-  
+
 <!-- ===== HERO ===== -->
 <section class="relative w-full h-[320px] md:h-[400px] overflow-hidden">
   <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu backdrop" class="absolute inset-0 w-full h-full object-cover" />
@@ -218,7 +210,7 @@
         </div>
       </section>
 
-      <!-- ===== SECTION: ROOMS (Multi‑room) with Cloudinary upload ===== -->
+      <!-- ROOMS -->
       <section class="space-y-4 mt-8 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
@@ -226,14 +218,13 @@
           <span class="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full">Multi‑room support</span>
         </div>
         <p class="text-xs text-zinc-600">Add each room type separately. You can upload photos for each room.</p>
-
         <div id="roomsContainer">
           <div id="roomsList" class="space-y-3"></div>
           <button type="button" onclick="addRoom()" class="btn-accent mt-2">+ Add Room</button>
         </div>
       </section>
 
-      <!-- SECTION 3: BANK DETAILS -->
+      <!-- BANK DETAILS -->
       <section class="space-y-4 border-l-4 border-amber-400 bg-amber-50/50 p-4 rounded-xl">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-amber-800" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -243,18 +234,18 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="text-xs font-semibold text-[#212121]">Receiving Bank *</label>
-         <select id="listBankName" class="form-select mt-1">
-            <option value="">Choose Bank</option>
-            <option value="Maybank">Maybank</option>
-            <option value="CIMB Bank">CIMB Bank</option>
-            <option value="Public Bank">Public Bank</option>
-            <option value="RHB Bank">RHB Bank</option>
-            <option value="Hong Leong Bank">Hong Leong Bank</option>
-            <option value="Bank Islam">Bank Islam</option>
-            <option value="Bank Rakyat">Bank Rakyat</option>
-            <option value="BSN">BSN</option>
-            <option value="Other">Other Bank (Define Below)</option>
-        </select>
+            <select id="listBankName" class="form-select mt-1">
+              <option value="">Choose Bank</option>
+              <option value="Maybank">Maybank</option>
+              <option value="CIMB Bank">CIMB Bank</option>
+              <option value="Public Bank">Public Bank</option>
+              <option value="RHB Bank">RHB Bank</option>
+              <option value="Hong Leong Bank">Hong Leong Bank</option>
+              <option value="Bank Islam">Bank Islam</option>
+              <option value="Bank Rakyat">Bank Rakyat</option>
+              <option value="BSN">BSN</option>
+              <option value="Other">Other Bank (Define Below)</option>
+            </select>
           </div>
           <div id="manualBankCodeWrap" class="hidden">
             <label class="text-xs font-semibold text-[#212121]">Bank Swift Code</label>
@@ -265,7 +256,6 @@
           <div><label class="text-xs font-semibold text-[#212121]">Bank Account Number *</label><input id="listBankAccount" type="text" placeholder="Account Number" class="form-input mt-1" /></div>
           <div><label class="text-xs font-semibold text-[#212121]">Beneficiary Account Name *</label><input id="listBankHolder" type="text" placeholder="As written in bank statements" class="form-input mt-1" /></div>
         </div>
-        <!-- QR upload and confirm checkbox -->
         <div class="mt-4">
           <label class="text-xs font-semibold text-[#212121]">DuitNow / Bank QR Code Template *</label>
           <p class="text-[11px] text-zinc-500 mb-2">Upload your bank QR code image so guests can scan directly on success modals.</p>
@@ -286,7 +276,7 @@
         </label>
       </section>
 
-      <!-- SECTION 4: PHOTOS -->
+      <!-- PHOTOS -->
       <section class="space-y-4">
         <div class="flex items-center gap-2 border-b pb-2">
           <svg class="w-5 h-5 text-[#0F382E]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -301,7 +291,7 @@
         <div id="photoPreview" class="grid grid-cols-3 md:grid-cols-6 gap-3 mt-4"></div>
       </section>
 
-      <!-- SECTION 5: IC VERIFICATION -->
+      <!-- IC VERIFICATION -->
       <section class="space-y-4 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
@@ -330,7 +320,7 @@
         </div>
       </section>
 
-      <!-- ===== PBT TRADING LICENSE ===== -->
+      <!-- PBT TRADING LICENSE -->
       <section class="space-y-4 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
@@ -355,7 +345,7 @@
         </div>
       </section>
 
-      <!-- SECTION 6: PASSWORD -->
+      <!-- PASSWORD -->
       <section class="space-y-4 border-l-4 border-purple-400 bg-purple-50/50 p-4 rounded-xl">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-purple-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m-2 2a2 2 0 002-2m2 0a2 2 0 012 2m3 5a3 3 0 01-3 3H9a3 3 0 01-3-3m9.93 0l-1.977-1.977A1.5 1.5 0 0011.66 11.1l-1.977-1.977M15 7h.01M15 11h.01"/></svg>
@@ -368,7 +358,7 @@
         </div>
       </section>
 
-      <!-- SECTION 7: AVAILABILITY EXCLUSIONS -->
+      <!-- AVAILABILITY EXCLUSIONS -->
       <section class="space-y-4 border-l-4 border-emerald-400 bg-emerald-50/50 p-4 rounded-xl">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-emerald-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -386,7 +376,7 @@
         <div id="blockedDatesCount" class="text-xs text-zinc-500 font-semibold">0 Dates Blocked</div>
       </section>
 
-      <!-- ===== DATA PRIVACY & CONSENT ===== -->
+      <!-- DATA PRIVACY & CONSENT -->
       <section class="space-y-4 border-l-4 border-amber-400 bg-amber-50/50 p-4 rounded-xl mt-6">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-amber-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
@@ -405,8 +395,6 @@
             <span class="text-red-500">*</span>
           </span>
         </label>
-
-        <!-- ===== NEW: Host Agreement Checkbox ===== -->
         <label class="flex gap-2.5 text-xs select-none cursor-pointer items-start mt-3">
           <input id="listHostAgreement" type="checkbox" required class="mt-1" />
           <span class="text-zinc-700">
@@ -429,7 +417,7 @@
   </div>
 </main>
 
-<!-- ===== FOOTER (Updated with all policy links) ===== -->
+<!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div>
@@ -477,13 +465,20 @@
   </div>
 </footer>
 
-<!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
-  
 <script>
 // =============================================================
-// SECURE HELPER
+// SECURE HELPERS
 // =============================================================
+function escapeHTML(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
@@ -501,7 +496,7 @@ function safeHTML(html) {
       'checked','disabled','readonly','required','multiple',
       'min','max','step','pattern','autocomplete','inputmode',
       'viewBox','fill','stroke','stroke-width','d','aria-*','data-*',
-      'onclick', 'onchange', 'oninput', 'onfocus', 'onblur'
+      'onclick', 'onchange'
     ],
     ADD_ATTR: ['target'],
     ALLOW_DATA_ATTR: true,
@@ -553,7 +548,7 @@ function showConfirm(title, message) {
   ]);
 }
 function showPrompt(title, message, defaultValue) {
-  const input = `<input type="text" id="modalInput" value="${defaultValue || ''}" placeholder="Enter date here..." />`;
+  const input = `<input type="text" id="modalInput" value="${escapeHTML(defaultValue || '')}" placeholder="Enter date here..." />`;
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
     const titleEl = document.getElementById('modalTitle');
@@ -597,21 +592,7 @@ document.getElementById('customModal').addEventListener('click', function(e) {
 });
 
 // =============================================================
-// SHA256 (PEPPER SECURITY CONSTRAINTS)
-// =============================================================
-const PEPPER = "kundasang-homestay-2026";
-async function sha256(message) {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-function generateSalt() {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
-}
-
-// =============================================================
-// GUEST ACTIVE SESSION RETRIEVAL
+// GUEST SYSTEM
 // =============================================================
 const API_BASE = "/api";
 let currentGuest = null;
@@ -670,7 +651,7 @@ const BANK_CODES = {
 };
 
 // =============================================================
-// IMAGE COMPRESSION (FIXED with error handling)
+// IMAGE COMPRESSION
 // =============================================================
 function compressImage(file, maxWidth = 800, quality = 0.7) {
   return new Promise((resolve, reject) => {
@@ -705,10 +686,8 @@ function compressImage(file, maxWidth = 800, quality = 0.7) {
   });
 }
 
-// ---- Compress to Blob (with fixed error handling) ----
 function compressImageToBlob(file, maxWidth, quality) {
   return new Promise((resolve) => {
-    // if not an image, resolve null immediately
     if (!file || !file.type.startsWith('image/')) {
       resolve(null);
       return;
@@ -727,7 +706,7 @@ function compressImageToBlob(file, maxWidth, quality) {
           resolve(blob);
         }, 'image/jpeg', quality);
       };
-      img.onerror = () => resolve(null); // resolve null on error
+      img.onerror = () => resolve(null);
       img.src = e.target.result;
     };
     reader.onerror = () => resolve(null);
@@ -736,7 +715,7 @@ function compressImageToBlob(file, maxWidth, quality) {
 }
 
 // =============================================================
-// COMPILATION FORM LOCAL STORAGE
+// TEMP STORAGE
 // =============================================================
 let tempPhotos = [];
 let tempBlockedDates = [];
@@ -744,10 +723,12 @@ let tempIcWatermarked = "";
 let tempIcOriginalName = "";
 let tempBankQRWatermarked = "";
 let tempBankQROriginalName = "";
-
-// ===== ROOMS MANAGEMENT with Cloudinary upload (FIXED) =====
+let tempPbtLicense = "";
 let tempRooms = [];
 
+// =============================================================
+// ROOMS MANAGEMENT
+// =============================================================
 function addRoom(name = '', price = '', guests = '', desc = '', images = []) {
   const id = 'room-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
   tempRooms.push({ id, name, price, guests, desc, images: images || [] });
@@ -777,8 +758,8 @@ function renderRooms() {
       room.images.forEach((img, imgIdx) => {
         imagesHtml += `
           <div class="relative">
-            <img src="${img}" class="w-12 h-12 object-cover rounded border border-zinc-200" />
-            <button type="button" onclick="removeRoomImage('${room.id}', ${imgIdx})" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-600">✕</button>
+            <img src="${escapeHTML(img)}" class="w-12 h-12 object-cover rounded border border-zinc-200" />
+            <button type="button" onclick="removeRoomImage('${escapeHTML(room.id)}', ${imgIdx})" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-600">✕</button>
           </div>
         `;
       });
@@ -788,31 +769,28 @@ function renderRooms() {
     html += `
       <div class="flex flex-wrap items-start gap-3 p-3 bg-white rounded-xl border border-zinc-200">
         <div class="flex-1 min-w-[200px] space-y-2">
-          <input class="form-input text-sm" placeholder="Room name (e.g. Hibiscus)" value="${room.name}" onchange="updateRoomField('${room.id}', 'name', this.value)" />
+          <input class="form-input text-sm" placeholder="Room name (e.g. Hibiscus)" value="${escapeHTML(room.name)}" onchange="updateRoomField('${escapeHTML(room.id)}', 'name', this.value)" />
           <div class="flex flex-wrap gap-2">
-            <input class="form-input flex-1 min-w-[120px] text-sm" placeholder="RM price" type="number" value="${room.price}" onchange="updateRoomField('${room.id}', 'price', this.value)" />
-            <input class="form-input flex-1 min-w-[100px] text-sm" placeholder="Guests" type="number" value="${room.guests}" onchange="updateRoomField('${room.id}', 'guests', this.value)" />
+            <input class="form-input flex-1 min-w-[120px] text-sm" placeholder="RM price" type="number" value="${escapeHTML(room.price)}" onchange="updateRoomField('${escapeHTML(room.id)}', 'price', this.value)" />
+            <input class="form-input flex-1 min-w-[100px] text-sm" placeholder="Guests" type="number" value="${escapeHTML(room.guests)}" onchange="updateRoomField('${escapeHTML(room.id)}', 'guests', this.value)" />
           </div>
-          <input class="form-input text-sm" placeholder="Room description" value="${room.desc}" onchange="updateRoomField('${room.id}', 'desc', this.value)" />
-          
-          <!-- ==== Room Image Upload (Cloudinary) ==== -->
+          <input class="form-input text-sm" placeholder="Room description" value="${escapeHTML(room.desc)}" onchange="updateRoomField('${escapeHTML(room.id)}', 'desc', this.value)" />
           <div class="flex items-center gap-2">
             <label class="text-xs font-semibold text-zinc-600 cursor-pointer bg-zinc-100 px-3 py-1.5 rounded-full hover:bg-zinc-200 transition">
               📷 Add Photos
-              <input type="file" accept="image/*" multiple class="hidden" onchange="handleRoomImages('${room.id}', this)" />
+              <input type="file" accept="image/*" multiple class="hidden" onchange="handleRoomImages('${escapeHTML(room.id)}', this)" />
             </label>
             <span class="text-[10px] text-zinc-400">${room.images ? room.images.length : 0} images</span>
           </div>
           ${imagesHtml}
         </div>
-        <button type="button" onclick="removeRoom('${room.id}')" class="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 bg-red-50 rounded-full">✕</button>
+        <button type="button" onclick="removeRoom('${escapeHTML(room.id)}')" class="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 bg-red-50 rounded-full">✕</button>
       </div>
     `;
   });
   list.innerHTML = safeHTML(html);
 }
 
-// Helper to update room field
 function updateRoomField(roomId, field, value) {
   const room = tempRooms.find(r => r.id === roomId);
   if (room) {
@@ -820,7 +798,6 @@ function updateRoomField(roomId, field, value) {
   }
 }
 
-// ===== HANDLE ROOM IMAGES – FIXED with robust error handling =====
 async function handleRoomImages(roomId, input) {
   const files = input.files;
   if (!files.length) return;
@@ -833,51 +810,31 @@ async function handleRoomImages(roomId, input) {
 
   for (const file of files) {
     try {
-      // 1. Validate file type
-      if (!file.type.startsWith('image/')) {
-        console.warn('Skipping non-image file:', file.name);
-        continue;
-      }
+      if (!file.type.startsWith('image/')) continue;
 
-      // 2. Compress the image
       const compressedBlob = await compressImageToBlob(file, 800, 0.7);
       if (!compressedBlob) {
-        console.error('Compression failed for:', file.name);
         await showAlert('Upload Failed', `Could not compress ${file.name}. Skipping.`);
         continue;
       }
 
-      // 3. Prepare FormData
       const formData = new FormData();
       formData.append('image', compressedBlob, file.name);
 
-      // 4. Upload to server
-      const res = await fetch('/api/upload-image', {
-        method: 'POST',
-        body: formData
-      });
-
-      // 5. Parse response
+      const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
       const data = await res.json();
 
       if (res.ok && data.url) {
-        // Success: add URL to room images
         if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
         tempRooms[roomIndex].images.push(data.url);
-        // Re-render the rooms list to show the new thumbnail
         renderRooms();
       } else {
-        // Show error from server or generic
-        const errorMsg = data.error || 'Unknown server error';
-        console.error('Upload error:', errorMsg);
-        await showAlert('Upload Failed', errorMsg);
+        await showAlert('Upload Failed', data.error || 'Unknown server error');
       }
     } catch (err) {
-      console.error('Upload exception:', err);
       await showAlert('Upload Failed', 'Network error or server unavailable. Please try again.');
     }
   }
-  // Clear the input so user can select again
   input.value = '';
 }
 
@@ -889,7 +846,6 @@ function removeRoomImage(roomId, imageIndex) {
   }
 }
 
-// Call renderRooms initially
 renderRooms();
 
 document.getElementById('listBankName').addEventListener('change', function() {
@@ -898,7 +854,9 @@ document.getElementById('listBankName').addEventListener('change', function() {
   else { wrap.classList.add('hidden'); document.getElementById('listBankCode').value = ''; }
 });
 
-// ===== PHOTOS with compression =====
+// =============================================================
+// PHOTOS
+// =============================================================
 async function handlePhotos(input) {
   const files = input.files;
   if (!files.length) return;
@@ -908,9 +866,7 @@ async function handlePhotos(input) {
 
   for (const file of files) {
     try {
-      if (!file.type.startsWith('image/')) {
-        continue;
-      }
+      if (!file.type.startsWith('image/')) continue;
 
       const compressedBlob = await compressImageToBlob(file, 1000, 0.8);
       if (!compressedBlob) {
@@ -921,16 +877,11 @@ async function handlePhotos(input) {
       const formData = new FormData();
       formData.append('image', compressedBlob, file.name);
 
-      const res = await fetch('/api/upload-image', {
-        method: 'POST',
-        body: formData
-      });
-
+      const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
       const data = await res.json();
 
       if (res.ok && data.url) {
         tempPhotos.push(data.url);
-
         const img = document.createElement('img');
         img.src = data.url;
         img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
@@ -946,7 +897,9 @@ async function handlePhotos(input) {
   input.value = '';
 }
 
-// ===== IC with compression and watermark =====
+// =============================================================
+// IC with watermark
+// =============================================================
 async function handleIcFile(input) {
   const file = input.files[0];
   if (!file) return;
@@ -1016,10 +969,7 @@ async function handleIcFile(input) {
         const formData = new FormData();
         formData.append('image', blob, 'ic-' + Date.now() + '.jpg');
 
-        const res = await fetch('/api/upload-image', {
-          method: 'POST',
-          body: formData
-        });
+        const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
         const data = await res.json();
 
         if (res.ok && data.url) {
@@ -1040,7 +990,16 @@ async function handleIcFile(input) {
   }
 }
 
-// ===== Bank QR with compression =====
+function removeIc() {
+  tempIcWatermarked = ""; tempIcOriginalName = "";
+  document.getElementById("listIcFront").value = "";
+  document.getElementById("icPreviewWrap").classList.add("hidden");
+  document.getElementById("icPreview").src = "";
+}
+
+// =============================================================
+// Bank QR
+// =============================================================
 async function handleBankQRUpload(input) {
   const file = input.files[0];
   if (!file) return;
@@ -1060,10 +1019,7 @@ async function handleBankQRUpload(input) {
     const formData = new FormData();
     formData.append('image', compressedBlob, 'bank-qr-' + Date.now() + '.jpg');
 
-    const res = await fetch('/api/upload-image', {
-      method: 'POST',
-      body: formData
-    });
+    const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
     const data = await res.json();
 
     if (res.ok && data.url) {
@@ -1078,7 +1034,16 @@ async function handleBankQRUpload(input) {
   }
 }
 
-// ===== Blocked dates =====
+function removeBankQR() {
+  tempBankQRWatermarked = ""; tempBankQROriginalName = "";
+  document.getElementById("listBankQR").value = "";
+  document.getElementById("bankQRPreview").classList.add("hidden");
+  document.getElementById("bankQRImg").src = "";
+}
+
+// =============================================================
+// Blocked dates
+// =============================================================
 async function addBlockedDate() {
   const input = document.getElementById("listBlockedDateInput");
   if (!input || !input.value) { await showAlert("Warning", "Select an exclusion date in the calendar input."); return; }
@@ -1097,10 +1062,9 @@ async function addBlockedRange() {
   if (!end) return;
   let current = new Date(start);
   const endDate = new Date(end);
-  let added = 0;
   while (current <= endDate) {
     const d = current.toISOString().split('T')[0];
-    if (!tempBlockedDates.includes(d)) { tempBlockedDates.push(d); added++; }
+    if (!tempBlockedDates.includes(d)) tempBlockedDates.push(d);
     current.setDate(current.getDate() + 1);
   }
   tempBlockedDates.sort();
@@ -1119,30 +1083,43 @@ function renderBlockedDatesList() {
     listDiv.innerHTML = safeHTML("<span class='text-xs text-zinc-400'>No exclusions marked</span>");
   } else {
     listDiv.innerHTML = safeHTML(tempBlockedDates.map(d =>
-      `<span class="blocked-date-chip font-semibold text-xs">${d} <button onclick="removeBlockedDate('${d}')" class="ml-1 text-red-600 font-bold hover:text-red-900">✕</button></span>`
+      `<span class="blocked-date-chip font-semibold text-xs">${escapeHTML(d)} <button onclick="removeBlockedDate('${escapeHTML(d)}')" class="ml-1 text-red-600 font-bold hover:text-red-900">✕</button></span>`
     ).join(""));
   }
   if (countDiv) countDiv.innerText = `${tempBlockedDates.length} Dates Blocked`;
 }
 
-// ===== PBT License handling =====
-let tempPbtLicense = "";
-
-function handlePbtLicense(input) {
+// =============================================================
+// PBT License (Cloudinary)
+// =============================================================
+async function handlePbtLicense(input) {
   const file = input.files[0];
   if (!file) return;
   if (file.size > 3 * 1024 * 1024) {
-    showAlert("File Exceeded", "File size too large (max 3MB).");
+    await showAlert("File Exceeded", "File size too large (max 3MB).");
     input.value = "";
     return;
   }
-  compressImage(file, 800, 0.7).then(dataUrl => {
-    if (dataUrl) {
-      tempPbtLicense = dataUrl;
-      document.getElementById("pbtPreview").src = dataUrl;
-      document.getElementById("pbtPreviewWrap").classList.remove("hidden");
+  try {
+    const compressedBlob = await compressImageToBlob(file, 800, 0.7);
+    if (!compressedBlob) {
+      await showAlert('Upload Failed', 'Could not process license image.');
+      return;
     }
-  }).catch(() => {});
+    const formData = new FormData();
+    formData.append('image', compressedBlob, 'pbt-' + Date.now() + '.jpg');
+    const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (res.ok && data.url) {
+      tempPbtLicense = data.url;
+      document.getElementById("pbtPreview").src = data.url;
+      document.getElementById("pbtPreviewWrap").classList.remove("hidden");
+    } else {
+      await showAlert('Upload Failed', data.error || 'Could not upload license.');
+    }
+  } catch (e) {
+    await showAlert('Upload Error', e.message || 'Upload failed');
+  }
 }
 
 function removePbtLicense() {
@@ -1151,9 +1128,9 @@ function removePbtLicense() {
   document.getElementById("pbtPreviewWrap").classList.add("hidden");
   document.getElementById("pbtPreview").src = "";
 }
-  
+
 // =============================================================
-// SUBMIT HOMESTAY LISTING
+// SUBMIT
 // =============================================================
 async function submitHomestay() {
   const statusEl = document.getElementById('submitStatus');
@@ -1194,7 +1171,6 @@ async function submitHomestay() {
       return;
     }
 
-    // ===== NEW: Host Agreement validation =====
     const hostAgreement = document.getElementById('listHostAgreement').checked;
     if (!hostAgreement) {
       await showAlert('Agreement Required', 'You must agree to the Host Agreement before submitting your listing.');
@@ -1292,51 +1268,46 @@ async function submitHomestay() {
 // =============================================================
 // INIT
 // =============================================================
-(async function init() {
+(function init() {
   renderGuestNav();
   renderBlockedDatesList();
 })();
 
-  (function() {
-    function hideLoginButtonsOnMobile() {
-      var isMobile = window.innerWidth < 768;
-      var guestNav = document.getElementById('guestNav');
-      var guestProfileNav = document.getElementById('guestProfileNav');
+(function() {
+  function hideLoginButtonsOnMobile() {
+    var isMobile = window.innerWidth < 768;
+    var guestNav = document.getElementById('guestNav');
+    var guestProfileNav = document.getElementById('guestProfileNav');
 
-      if (isMobile) {
-        // Hide the guest nav containers in the desktop header
-        if (guestNav && guestNav.closest('#desktopNav')) {
-          guestNav.style.display = 'none';
-          guestNav.style.setProperty('display', 'none', 'important');
-        }
-        if (guestProfileNav && guestProfileNav.closest('#desktopNav')) {
-          guestProfileNav.style.display = 'none';
-          guestProfileNav.style.setProperty('display', 'none', 'important');
-        }
-      } else {
-        // Restore on desktop
-        if (guestNav) {
-          guestNav.style.display = '';
-          guestNav.style.removeProperty('display');
-        }
-        if (guestProfileNav) {
-          guestProfileNav.style.display = '';
-          guestProfileNav.style.removeProperty('display');
-        }
+    if (isMobile) {
+      if (guestNav && guestNav.closest('#desktopNav')) {
+        guestNav.style.display = 'none';
+        guestNav.style.setProperty('display', 'none', 'important');
+      }
+      if (guestProfileNav && guestProfileNav.closest('#desktopNav')) {
+        guestProfileNav.style.display = 'none';
+        guestProfileNav.style.setProperty('display', 'none', 'important');
+      }
+    } else {
+      if (guestNav) {
+        guestNav.style.display = '';
+        guestNav.style.removeProperty('display');
+      }
+      if (guestProfileNav) {
+        guestProfileNav.style.display = '';
+        guestProfileNav.style.removeProperty('display');
       }
     }
+  }
 
-    // Run on load and resize
-    hideLoginButtonsOnMobile();
-    window.addEventListener('resize', hideLoginButtonsOnMobile);
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', hideLoginButtonsOnMobile);
-    }
-    setTimeout(hideLoginButtonsOnMobile, 100);
-    setTimeout(hideLoginButtonsOnMobile, 500);
-  })();
-</script>
-  
+  hideLoginButtonsOnMobile();
+  window.addEventListener('resize', hideLoginButtonsOnMobile);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hideLoginButtonsOnMobile);
+  }
+  setTimeout(hideLoginButtonsOnMobile, 100);
+  setTimeout(hideLoginButtonsOnMobile, 500);
+})();
 </script>
 </body>
 </html>
