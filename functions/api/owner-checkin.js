@@ -1,5 +1,16 @@
-// /api/owner-checkin.js – Auto check-in + CHIP Send payout + brute-force protection + race lock
-import { corsHeaders, getClientIP, logAction, enforceHttps, getOwnerSession, jsonResponse, recordCheckinAttempt, getRecentCheckinAttempts, clearCheckinAttempts, withLock } from './_utils.js';
+// /api/owner-checkin.js – Auto check-in + CHIP Send payout + brute-force protection + long lock
+import {
+  corsHeaders,
+  getClientIP,
+  logAction,
+  enforceHttps,
+  getOwnerSession,
+  jsonResponse,
+  recordCheckinAttempt,
+  getRecentCheckinAttempts,
+  clearCheckinAttempts,
+  withLock
+} from './_utils.js';
 
 // ===== CHIP Bank code mapping (BIC/SWIFT codes) =====
 function getChipBankCode(bankName) {
@@ -39,10 +50,8 @@ function getChipBankCode(bankName) {
     'TOUCH N GO': 'TNGDMYNB',
     'UOB': 'UOVBMYKL'
   };
-
   const clean = (bankName || '').toUpperCase().trim();
   if (!clean) return 'MBBEMYKL';
-  // Sort by key length DESC so longer/more specific names match first
   const entries = Object.entries(map).sort((a, b) => b[0].length - a[0].length);
   for (const [key, code] of entries) {
     if (clean.includes(key)) return code;
@@ -81,12 +90,14 @@ async function saveBankAccountId(db, homestayId, bankAccountId) {
   }
 }
 
+// Fee constants (unified)
+const GATEWAY_FEE = 1.00;
+
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
 
   try {
-    // 1. Authenticate owner
     const ownerData = await getOwnerSession(request, env);
     if (!ownerData || ownerData.type !== 'owner') {
       return jsonResponse({ error: 'Unauthorized' }, 401, request);
@@ -96,51 +107,41 @@ export async function onRequestPost({ request, env }) {
     const bookingId = body.bookingId;
     const checkinCode = body.checkinCode;
 
-    if (!bookingId) {
-      return jsonResponse({ error: 'Missing bookingId' }, 400, request);
-    }
+    if (!bookingId) return jsonResponse({ error: 'Missing bookingId' }, 400, request);
     if (!checkinCode || !/^\d{6}$/.test(checkinCode)) {
       return jsonResponse({ error: 'Check-in code must be exactly 6 digits' }, 400, request);
     }
 
     const db = env.DB;
-    if (!db) {
-      return jsonResponse({ error: 'Database unavailable' }, 500, request);
-    }
+    if (!db) return jsonResponse({ error: 'Database unavailable' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // 2. Fetch booking (for auth check)
+    // Pre-fetch for auth check
     const storeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
     let preBookings = [];
     try { if (storeRes?.data) preBookings = JSON.parse(storeRes.data); } catch (_) {}
     const preBooking = preBookings.find(b => String(b.id) === String(bookingId));
-    if (!preBooking) {
-      return jsonResponse({ error: 'Invalid request.' }, 400, request);
-    }
+    if (!preBooking) return jsonResponse({ error: 'Invalid request.' }, 400, request);
 
-    // 3. Authorize owner on this homestay
     const allowedIds = (ownerData.homestayIds || [ownerData.ownerId]).map(String);
     if (!allowedIds.includes(String(preBooking.homestayId))) {
       return jsonResponse({ error: 'Unauthorized – you do not own this homestay' }, 403, request);
     }
 
     // ============================================================
-    // 4. Acquire lock — all state mutations happen inside
+    // Long lock (60s) – CHIP Send API call can take several seconds
     // ============================================================
     let result;
     try {
       result = await withLock(db, `checkin-${bookingId}`, async (db) => {
-        // Re-fetch booking inside lock for fresh state
         const freshRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
         let bookings = [];
         try { if (freshRes?.data) bookings = JSON.parse(freshRes.data); } catch (_) {}
         const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-        if (idx === -1) {
-          return { error: 'Booking not found', status: 404 };
-        }
+        if (idx === -1) return { error: 'Booking not found', status: 404 };
         const booking = bookings[idx];
 
-        // Idempotency — already paid
+        // Idempotency
         if (booking.payoutSuccessDate || booking.ownerPayoutId) {
           return {
             alreadyPaid: true,
@@ -156,7 +157,7 @@ export async function onRequestPost({ request, env }) {
           return { error: 'Booking is not paid yet', status: 400 };
         }
 
-        // Rate limit check
+        // Rate limit failed attempts
         const maxAttempts = 5;
         const windowMs = 60 * 60 * 1000;
         const attempts = await getRecentCheckinAttempts(db, bookingId, windowMs);
@@ -182,8 +183,6 @@ export async function onRequestPost({ request, env }) {
             status: 400
           };
         }
-
-        // Code correct — clear attempts
         await clearCheckinAttempts(db, bookingId);
 
         // Find homestay
@@ -208,7 +207,6 @@ export async function onRequestPost({ request, env }) {
         let payoutMessage = '';
         let isSimulation = false;
 
-        // Determine payout mode
         const isLive = !!(env.CHIP_API_KEY && env.CHIP_API_SECRET);
         const forceSimulation = env.PAYOUT_SIMULATION === 'true' || env.PAYOUT_SIMULATION === '1' || env.PAYOUT_SIMULATION === 'yes';
 
@@ -256,9 +254,7 @@ export async function onRequestPost({ request, env }) {
                 throw new Error(`Failed to create bank account: ${bankData.error || 'unknown'}`);
               }
               bankAccountId = bankData.id;
-              if (homestay) {
-                await saveBankAccountId(db, booking.homestayId, bankAccountId);
-              }
+              if (homestay) await saveBankAccountId(db, booking.homestayId, bankAccountId);
             }
 
             const amountCents = Math.round(ownerAmount * 100);
@@ -271,7 +267,6 @@ export async function onRequestPost({ request, env }) {
             };
 
             const epoch = Math.floor(Date.now() / 1000);
-            const bodyString = JSON.stringify(payoutPayload);
             const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
 
             const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
@@ -282,7 +277,7 @@ export async function onRequestPost({ request, env }) {
                 'epoch': String(epoch),
                 'checksum': checksum
               },
-              body: bodyString
+              body: JSON.stringify(payoutPayload)
             });
 
             const payoutDataRaw = await payoutRes.json();
@@ -328,7 +323,6 @@ export async function onRequestPost({ request, env }) {
           .bind('kd_bookings', JSON.stringify(bookings))
           .run();
 
-        // Log action
         await logAction({
           db,
           action: payoutSuccess ? (isSimulation ? 'owner_checkin_simulation' : 'owner_checkin_payout_success') : 'owner_checkin_payout_failed',
@@ -339,18 +333,18 @@ export async function onRequestPost({ request, env }) {
           homestayId: booking.homestayId
         });
 
-        // Record fee earnings (only on success)
+        // Record fee earnings (only on success, idempotent)
         if (payoutSuccess) {
           try {
             const feeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
             let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
-            const alreadyRecorded = feeEarnings.history?.some(h => h.bookingId === bookingId && h.type === 'earning');
+            feeEarnings.history = feeEarnings.history || [];
+            const alreadyRecorded = feeEarnings.history.some(h => h.bookingId === bookingId && h.type === 'earning');
             if (!alreadyRecorded) {
-              const feeToRecord = (booking.fee || 0) + (booking.gatewayFee || 0);
+              const feeToRecord = (Number(booking.fee) || 0) + (Number(booking.gatewayFee) || GATEWAY_FEE);
               if (feeToRecord > 0) {
                 feeEarnings.total = (feeEarnings.total || 0) + feeToRecord;
                 feeEarnings.available = (feeEarnings.available || 0) + feeToRecord;
-                feeEarnings.history = feeEarnings.history || [];
                 feeEarnings.history.push({
                   bookingId,
                   fee: feeToRecord,
@@ -378,7 +372,7 @@ export async function onRequestPost({ request, env }) {
           bankCodeUsed: chipBankCode,
           warning: isSimulation ? 'Payout was simulated (no real money transferred).' : undefined
         };
-      });
+      }, 60000); // 60s stale timeout for slow CHIP Send calls
     } catch (lockErr) {
       if (lockErr.message && lockErr.message.includes('in progress')) {
         return jsonResponse({ error: 'Check-in is already in progress for this booking. Please wait a moment.' }, 429, request);
@@ -386,13 +380,13 @@ export async function onRequestPost({ request, env }) {
       throw lockErr;
     }
 
-    // Return the result from inside the lock
     if (result.error) {
       return jsonResponse({ error: result.error, retryAfter: result.retryAfter }, result.status || 400, request);
     }
     return jsonResponse(result, 200, request);
 
   } catch (e) {
+    console.error('Check-in error:', e.message);
     return jsonResponse({ error: 'Check-in failed. Please try again later.' }, 500, request);
   }
 }
