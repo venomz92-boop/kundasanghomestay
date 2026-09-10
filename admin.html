@@ -891,19 +891,62 @@ async function doAdminLogin() {
 }
 
 // ===== FIXED: clears server cookie via /api/admin-logout =====
+// ===== FIXED: clears cookie, resets UI in-place, no reload =====
 async function logoutAdmin() {
   const confirmed = await showConfirm("Logout", "Logout from admin panel?");
   if (!confirmed) return;
+
+  // 1. Tell the server to clear the HttpOnly cookie
   try {
     await fetch('/api/admin-logout', { method: 'POST', credentials: 'include' });
-  } catch (e) { /* still proceed */ }
+  } catch (e) { /* still proceed with local reset */ }
+
+  // 2. Flip local auth flag
   ADMIN_LOGGED_IN = false;
-  // Clear any legacy token storage
+
+  // 3. Clear any legacy token storage
   try { sessionStorage.removeItem('kd_admin_token'); } catch (e) {}
-  document.getElementById('adminDashboard').classList.add('hidden');
-  document.getElementById('adminLogin').classList.remove('hidden');
-  document.getElementById('adminPass').value = '';
-  location.reload();
+
+  // 4. Wipe in-memory state so nothing leaks into the next view
+  bookings = [];
+  pendingHomestays = [];
+  homestays = [];
+  allHomestays = [];
+  storedApproved = [];
+  demoOverrides = {};
+  demoBlockedMap = {};
+  deletedDemoIds = [];
+  currentBookingFilter = 'all';
+  bookingsPage = 1;
+
+  // 5. Optionally clear local cache (keeps things fresh next login)
+  try {
+    localStorage.removeItem('kd_bookings');
+    localStorage.removeItem('kd_approved');
+    localStorage.removeItem('kd_pending');
+    localStorage.removeItem('kd_guests');
+    localStorage.removeItem('kd_demo_overrides');
+    localStorage.removeItem('kd_demo_blocked');
+    localStorage.removeItem('kd_deleted_demo');
+  } catch (e) {}
+
+  // 6. Reset UI: hide dashboard, show login, clear password field
+  const dashEl = document.getElementById('adminDashboard');
+  const loginEl = document.getElementById('adminLogin');
+  if (dashEl) dashEl.classList.add('hidden');
+  if (loginEl) loginEl.classList.remove('hidden');
+  const passEl = document.getElementById('adminPass');
+  if (passEl) passEl.value = '';
+
+  // 7. Reset tab state so next login opens on Pending
+  try {
+    ['adminPending','adminApproved','adminBookings','adminAvailability','adminGuests','adminSettings']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
+    const t = document.getElementById('tabPending');
+    if (t) t.className = 'px-5 py-2.5 rounded-full bg-[#212121] text-white text-[11px] uppercase font-700';
+  } catch (e) {}
+
+  await showAlert('Logged out', 'You have been logged out successfully.');
 }
 
 function showAdminTab(tab){
