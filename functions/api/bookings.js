@@ -1,4 +1,4 @@
-// /api/bookings.js – FULLY PATCHED with unified fee + clearAll + approve cleanup + public data sanitization + deleteOwner
+// /api/bookings.js – FULLY PATCHED with unified fee + clearAll + approve cleanup + public data sanitization + deleteOwner + Cloudinary cleanup
 import {
   corsHeaders,
   getClientIP,
@@ -35,6 +35,84 @@ function getDatesInRange(checkin, checkout) {
     cur.setDate(cur.getDate() + 1);
   }
   return dates;
+}
+
+// ============================================================
+// Cloudinary cleanup helpers
+// ============================================================
+function extractPublicIdFromUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  const marker = '/upload/';
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+  let rest = url.slice(idx + marker.length);
+  rest = rest.replace(/^v\d+\//, '');
+  rest = rest.replace(/\.[a-zA-Z0-9]+$/, '');
+  return rest || null;
+}
+
+async function deleteCloudinaryImages(urls, env) {
+  const cloudName = env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = env.CLOUDINARY_API_KEY;
+  const apiSecret = env.CLOUDINARY_API_SECRET;
+  if (!cloudName || !apiKey || !apiSecret) {
+    console.warn('Cloudinary credentials missing – cannot delete sensitive images');
+    return { deleted: [], failed: [] };
+  }
+
+  const publicIds = urls
+    .map(extractPublicIdFromUrl)
+    .filter(Boolean);
+
+  if (publicIds.length === 0) {
+    return { deleted: [], failed: [] };
+  }
+
+  const auth = btoa(`${apiKey}:${apiSecret}`);
+  const deleted = [];
+  const failed = [];
+
+  for (const publicId of publicIds) {
+    try {
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/resources/image/upload?public_ids=${encodeURIComponent(publicId)}`,
+        {
+          method: 'DELETE',
+          headers: { 'Authorization': `Basic ${auth}` }
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        deleted.push(publicId);
+      } else {
+        failed.push({ publicId, error: data?.error?.message || res.statusText });
+        console.warn(`Cloudinary delete failed for ${publicId}:`, data);
+      }
+    } catch (e) {
+      failed.push({ publicId, error: e.message });
+      console.warn(`Cloudinary delete threw for ${publicId}:`, e.message);
+    }
+  }
+
+  return { deleted, failed };
+}
+
+async function purgeSensitiveImages(homestay, env, logContext) {
+  if (!homestay) return { deleted: [], failed: [] };
+  const urls = [
+    homestay.icImage,
+    homestay.bankQRImage,
+    homestay.pbtLicense
+  ].filter(Boolean);
+
+  if (urls.length === 0) return { deleted: [], failed: [] };
+
+  const result = await deleteCloudinaryImages(urls, env);
+  console.log(
+    `[${logContext}] Purged ${result.deleted.length}/${urls.length} sensitive images` +
+    (result.failed.length ? ` (${result.failed.length} failed)` : '')
+  );
+  return result;
 }
 
 async function verifyAdmin(request, env) {
@@ -118,7 +196,6 @@ export async function onRequestGet({ request, env }) {
     if (isAdmin) {
       const paginated = bookings.slice(offset, offset + limit);
 
-      // Load owners list (kd_owners)
       let ownersList = [];
       try {
         const ownersRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_owners').first();
@@ -547,6 +624,9 @@ export async function onRequestPost({ request, env }) {
         }
         const homestay = pending[idx];
 
+        // ===== Purge sensitive images (IC + QR + PBT) from Cloudinary =====
+        await purgeSensitiveImages(homestay, env, `approveHomestay:${homestay.id}`);
+
         const {
           icImage, icOriginalName, bankQRImage, bankQROriginalName, pbtLicense,
           ...safeHomestay
@@ -624,6 +704,10 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: "Pending homestay not found" }, 404, request);
       }
       const homestay = pending[idx];
+
+      // ===== Purge sensitive images (IC + QR + PBT) from Cloudinary =====
+      await purgeSensitiveImages(homestay, env, `rejectHomestay:${homestay.id}`);
+
       pending.splice(idx, 1);
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_pending", JSON.stringify(pending))
@@ -663,6 +747,10 @@ export async function onRequestPost({ request, env }) {
         }
 
         const removed = approved[idx];
+
+        // ===== Defensive purge in case any sensitive images remain =====
+        await purgeSensitiveImages(removed, env, `removeApprovedHomestay:${removed.id}`);
+
         approved.splice(idx, 1);
 
         if (isDemo) {
@@ -779,7 +867,28 @@ export async function onRequestPost({ request, env }) {
       const deletedEmail = String(deleted.ownerEmail || '').toLowerCase().trim();
       const deletedWa = String(deleted.whatsapp || '').replace(/[^0-9]/g, '');
 
-      // 1. Remove from kd_owners
+      // Purge sensitive images from any remaining homestays owned by this host
+      const sensitiveOwned = [];
+      for (const key of ['kd_pending', 'kd_approved', 'kd_homestays']) {
+        const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
+        if (!r?.data) continue;
+        try {
+          const arr = JSON.parse(r.data);
+          arr.forEach(h => {
+            if (String(h.whatsapp || '').replace(/[^0-9]/g, '') === deletedWa) {
+              if (h.icImage) sensitiveOwned.push(h.icImage);
+              if (h.bankQRImage) sensitiveOwned.push(h.bankQRImage);
+              if (h.pbtLicense) sensitiveOwned.push(h.pbtLicense);
+            }
+          });
+        } catch (_) {}
+      }
+      if (sensitiveOwned.length > 0) {
+        const result = await deleteCloudinaryImages(sensitiveOwned, env);
+        console.log(`[deleteOwner:${deletedId}] Purged ${result.deleted.length}/${sensitiveOwned.length} sensitive images`);
+      }
+
+      // Remove from kd_owners
       const remainingOwners = owners.filter(o => {
         const sameId = deletedId && String(o.id || '') === deletedId;
         const sameEmail = deletedEmail && String(o.ownerEmail || '').toLowerCase().trim() === deletedEmail;
@@ -790,7 +899,7 @@ export async function onRequestPost({ request, env }) {
       await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
         .bind("kd_owners", JSON.stringify(remainingOwners)).run();
 
-      // 2. Remove their homestays from kd_pending + kd_approved + kd_homestays
+      // Remove their homestays
       const removedHomes = { pending: 0, approved: 0, mirror: 0 };
       for (const key of ['kd_pending', 'kd_approved', 'kd_homestays']) {
         const r = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
