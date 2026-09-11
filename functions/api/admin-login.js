@@ -1,4 +1,4 @@
-// /api/admin-login.js — Signed, expiring admin token
+// /api/admin-login.js — Signed, expiring admin token (timing-safe compare)
 import {
   corsHeaders,
   getClientIP,
@@ -12,6 +12,18 @@ import {
 } from './_utils.js';
 
 const ADMIN_TTL_SECONDS = 8 * 60 * 60; // 8 hours
+
+// Constant-time string comparison.
+// Both strings must be the same length; we compare by XOR of char codes.
+function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
@@ -44,7 +56,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Server configuration error. Please contact support.' }, 500, request);
     }
 
-    if (password !== adminPass) {
+    if (!timingSafeEqual(password, adminPass)) {
       await recordRateLimit(db, clientIP, 'admin_login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
