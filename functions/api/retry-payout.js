@@ -149,19 +149,17 @@ export async function onRequestPost({ request, env }) {
           }
           bankAccountId = bankData.id;
 
-          for (const store of ['kd_approved', 'kd_homestays']) {
+            for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
             const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
             let list = [];
             try { if (rr?.data) list = JSON.parse(rr.data); } catch(_) {}
+            if (!Array.isArray(list) || list.length === 0) continue;
             const hIdx = list.findIndex(h => String(h.id) === String(booking.homestayId));
-            if (hIdx !== -1) {
-              list[hIdx].chip_bank_account_id = bankAccountId;
-              await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-                .bind(store, JSON.stringify(list)).run();
-              break;
-            }
+            if (hIdx === -1) continue;
+            list[hIdx].chip_bank_account_id = bankAccountId;
+            await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+              .bind(store, JSON.stringify(list)).run();
           }
-        }
 
         const amountCents = Math.round(ownerAmount * 100);
         const reference = `KDH-${bookingId}`;
