@@ -4,7 +4,7 @@ import {
   getClientIP,
   logAction,
   enforceHttps,
-  getAdminToken,
+  verifyAdminAuth,
   checkRateLimit,
   recordRateLimit,
   parseJSONSafely,
@@ -57,13 +57,10 @@ async function hmacSha512(message, secret) {
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ===== Admin auth =====
+// ===== Admin auth (signed token) =====
 async function verifyAdmin(request, env) {
-  const auth = await getAdminToken(request);
-  if (!env.ADMIN_TOKEN) {
-    return jsonResponse({ error: 'Server misconfigured' }, 500, request);
-  }
-  if (auth !== env.ADMIN_TOKEN) {
+  const ok = await verifyAdminAuth(request, env);
+  if (!ok) {
     return jsonResponse({ error: 'Unauthorized' }, 401, request);
   }
   return null;
