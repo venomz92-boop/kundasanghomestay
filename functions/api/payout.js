@@ -62,7 +62,7 @@ async function getHomestay(db, homestayId) {
   for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
     const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
     let list = [];
-    try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
+    try { if (r?.data) list = JSON.parse(r.data); } catch (_) {}
     const found = list.find(h => String(h.id) === String(homestayId));
     if (found) return found;
   }
@@ -74,12 +74,10 @@ async function saveBankAccountId(db, homestayId, bankAccountId) {
   for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
     const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
     let list = [];
-    try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
+    try { if (r?.data) list = JSON.parse(r.data); } catch (_) {}
     if (!Array.isArray(list) || list.length === 0) continue;
-
     const idx = list.findIndex(h => String(h.id) === String(homestayId));
     if (idx === -1) continue;
-
     list[idx].chip_bank_account_id = bankAccountId;
     await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
       .bind(store, JSON.stringify(list))
@@ -99,10 +97,10 @@ export async function onRequestPost({ request, env }) {
 
     if (!bookingId) return jsonResponse({ error: 'Missing bookingId' }, 400, request);
 
-    // ===== ADMIN-ONLY AUTH (signed token) =====
+    // ===== ADMIN-ONLY AUTH =====
     const isAdmin = await verifyAdminAuth(request, env);
     if (!isAdmin) {
-    return jsonResponse({ error: 'Unauthorized – admin access only' }, 401, request);
+      return jsonResponse({ error: 'Unauthorized – admin access only' }, 401, request);
     }
 
     const clientIP = getClientIP(request);
@@ -114,23 +112,18 @@ export async function onRequestPost({ request, env }) {
     if (!rateOk) return jsonResponse({ error: 'Too many attempts. Wait 5 minutes.' }, 429, request);
     await recordRateLimit(db, clientIP, 'payout');
 
-    // ============================================================
-    // Use the SAME lock key as /api/owner-checkin so admin payout
-    // and owner check-in cannot race for the same booking.
-    // 60s stale timeout covers CHIP Send API latency.
-    // ============================================================
     let result;
     try {
       result = await withLock(db, `checkin-${bookingId}`, async (db) => {
         const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
         let bookings = [];
-        try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+        try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
         const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
         if (idx === -1) return { error: 'Booking not found', status: 404 };
 
         const booking = bookings[idx];
 
-        // Idempotency — any of these means owner already paid
+        // Idempotency
         if (booking.payoutSuccessDate || booking.ownerPayoutId ||
             (booking.payoutDate && booking.payoutSuccess === true)) {
           return {
@@ -142,20 +135,24 @@ export async function onRequestPost({ request, env }) {
           };
         }
 
-        // Server-side amount: always booking.base, never from client
+        if (booking.payoutUnknown) {
+          return {
+            error: `Payout state is UNKNOWN (${booking.payoutUnknownAt || 'unknown time'}). Check CHIP dashboard for reference KDH-${bookingId} before retrying.`,
+            status: 409
+          };
+        }
+
         const payoutAmount = Number(booking.base);
         if (!Number.isFinite(payoutAmount) || payoutAmount <= 0) {
           return { error: 'Invalid booking base amount', status: 400 };
         }
 
-        // Fetch homestay details for bank info
         const homestay = await getHomestay(db, booking.homestayId);
         if (!homestay) return { error: 'Homestay not found', status: 404 };
 
         const bankCode = getChipBankCode(homestay.ownerBank || homestay.bankCode || '');
         const accountName = homestay.bankHolder || homestay.ownerName || '';
         const accountNumber = (homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
-        let bankAccountId = homestay.chip_bank_account_id || null;
 
         if (!accountNumber || accountNumber.length < 10) {
           return { error: 'Owner bank account invalid or missing', status: 400 };
@@ -169,30 +166,27 @@ export async function onRequestPost({ request, env }) {
         if (!apiKey || !apiSecret) {
           return { error: 'Payment gateway configuration missing', status: 500 };
         }
-        // Block re-entry if the booking has an unresolved payout attempt
-        if (booking.payoutUnknown) {
-          return {
-            error: `Payout state is UNKNOWN (${booking.payoutUnknownAt || 'unknown time'}). Check CHIP dashboard for reference KDH-${bookingId} before retrying.`,
-            status: 409
-          };
-        }
 
+        // ============================================================
+        // STEP A: Ensure CHIP bank account exists
+        // ============================================================
+        let bankAccountId = homestay.chip_bank_account_id || null;
         if (!bankAccountId) {
-          const epoch = Math.floor(Date.now() / 1000);
+          const bankEpoch = Math.floor(Date.now() / 1000);
           const bankBody = JSON.stringify({
             bank_code: bankCode,
             account_number: accountNumber,
             account_name: accountName
           });
-          const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
+          const bankChecksum = await hmacSha512(`${bankEpoch}${apiKey}`, apiSecret);
 
           const createRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${apiKey}`,
               'Content-Type': 'application/json',
-              'epoch': String(epoch),
-              'checksum': checksum
+              'epoch': String(bankEpoch),
+              'checksum': bankChecksum
             },
             body: bankBody
           });
@@ -204,6 +198,9 @@ export async function onRequestPost({ request, env }) {
           await saveBankAccountId(db, booking.homestayId, bankAccountId);
         }
 
+        // ============================================================
+        // STEP B: Send payout
+        // ============================================================
         const amountCents = Math.round(payoutAmount * 100);
         const reference = `KDH-${bookingId}`;
         const payoutPayload = {
@@ -213,13 +210,12 @@ export async function onRequestPost({ request, env }) {
           description: `Owner payout for ${bookingId}`
         };
 
-        const epoch = Math.floor(Date.now() / 1000);
-        const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
-
-               // Record attempt before API call
         bookings[idx].payoutAttemptedAt = new Date().toISOString();
         bookings[idx].payoutAttemptedReference = reference;
-        bookings[idx].payoutAttemptedAmount = Number(payoutAmount);
+        bookings[idx].payoutAttemptedAmount = payoutAmount;
+
+        const payoutEpoch = Math.floor(Date.now() / 1000);
+        const payoutChecksum = await hmacSha512(`${payoutEpoch}${apiKey}`, apiSecret);
 
         let payoutRes;
         try {
@@ -228,13 +224,12 @@ export async function onRequestPost({ request, env }) {
             headers: {
               'Authorization': `Bearer ${apiKey}`,
               'Content-Type': 'application/json',
-              'epoch': String(epoch),
-              'checksum': checksum
+              'epoch': String(payoutEpoch),
+              'checksum': payoutChecksum
             },
             body: JSON.stringify(payoutPayload)
           });
         } catch (networkErr) {
-          // Network error — CHIP may or may not have processed it
           bookings[idx].payoutUnknown = true;
           bookings[idx].payoutUnknownAt = new Date().toISOString();
           bookings[idx].payoutUnknownError = networkErr.message || 'Network error';
@@ -249,18 +244,15 @@ export async function onRequestPost({ request, env }) {
         }
 
         let payoutData;
-        try {
-          payoutData = await payoutRes.json();
-        } catch (_) {
-          payoutData = {};
-        }
+        try { payoutData = await payoutRes.json(); } catch (_) { payoutData = {}; }
 
         if (!payoutRes.ok || !payoutData.id) {
-          // API error — CHIP explicitly rejected. Safe to retry.
           return { error: `Owner payout failed: ${payoutData.error || 'unknown'}`, status: 502 };
         }
 
-        // Update booking
+        // ============================================================
+        // STEP C: Update booking on success
+        // ============================================================
         bookings[idx].status = 'Completed - Payout Success';
         bookings[idx].chip_payout_id = payoutData.id;
         bookings[idx].ownerPayoutId = payoutData.id;
@@ -305,7 +297,7 @@ export async function onRequestPost({ request, env }) {
                 .run();
             }
           }
-        } catch (e) { /* best-effort */ }
+        } catch (_) { /* best-effort */ }
 
         await logAction({
           db,
