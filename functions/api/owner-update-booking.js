@@ -1,11 +1,12 @@
-// /api/owner-update-booking.js - With automatic refund on host cancellation + security fixes
+// /api/owner-update-booking.js — Lock-protected dates/cancel + auto refund on host cancellation
 import {
   corsHeaders,
   getClientIP,
   logAction,
   enforceHttps,
   getOwnerSession,
-  jsonResponse
+  jsonResponse,
+  withLock
 } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -46,9 +47,6 @@ function getDatesInRange(checkin, checkout) {
   return dates;
 }
 
-// ============================================================
-// Refund helper using CHIP API
-// ============================================================
 async function processChipRefund(purchaseId, amount, env) {
   const chipSecret = env.CHIP_SECRET_KEY;
   if (!chipSecret) throw new Error('CHIP_SECRET_KEY not configured – cannot process refund');
@@ -71,10 +69,6 @@ async function processChipRefund(purchaseId, amount, env) {
   return data;
 }
 
-/**
- * Determine whether a booking has already been paid out to the owner.
- * We must never cancel or refund such bookings.
- */
 function isOwnerPaidOut(booking) {
   if (!booking) return false;
   if (booking.payoutSuccessDate) return true;
@@ -85,9 +79,6 @@ function isOwnerPaidOut(booking) {
   return false;
 }
 
-/**
- * Determine if a booking is currently in a paid state where refund is required.
- */
 function isPaidBooking(booking) {
   if (!booking) return false;
   const s = String(booking.status || '');
@@ -106,14 +97,14 @@ export async function onRequestPost({ request, env }) {
   try {
     const ownerData = await verifyOwner(request, env);
     if (!ownerData || ownerData.type !== 'owner') {
-      return jsonResponse({ error: "Unauthorized" }, 401, request);
+      return jsonResponse({ error: 'Unauthorized' }, 401, request);
     }
 
     const body = await request.json();
     const { bookingId, checkin, checkout, action } = body;
 
-    // ===== ACTION: Update room block =====
-    if (action === "updateRoomBlock") {
+    // ===== ACTION: Update room block (not locked — no race risk) =====
+    if (action === 'updateRoomBlock') {
       const { homestayId, roomId, date } = body;
       if (!homestayId || !roomId || !date) {
         return jsonResponse({ error: 'Missing homestayId, roomId, or date' }, 400, request);
@@ -126,13 +117,13 @@ export async function onRequestPost({ request, env }) {
 
       const db = env.DB;
       if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
-      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+      await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-      const rApproved = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
+      const rApproved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
       let homestays = [];
-      if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch(e) {} }
-      const rPending = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
-      if (rPending && rPending.data) { try { homestays = [...homestays, ...JSON.parse(rPending.data)]; } catch(e) {} }
+      if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch (e) {} }
+      const rPending = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
+      if (rPending && rPending.data) { try { homestays = [...homestays, ...JSON.parse(rPending.data)]; } catch (e) {} }
 
       const homestay = homestays.find(h => String(h.id) === String(homestayId));
       if (!homestay) return jsonResponse({ error: 'Homestay not found' }, 404, request);
@@ -156,13 +147,13 @@ export async function onRequestPost({ request, env }) {
 
       let updated = false;
       for (const key of ['kd_approved', 'kd_pending']) {
-        const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
+        const res = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
         let arr = [];
-        if (res && res.data) { try { arr = JSON.parse(res.data); } catch(e) {} }
+        if (res && res.data) { try { arr = JSON.parse(res.data); } catch (e) {} }
         const index = arr.findIndex(h => String(h.id) === String(homestayId));
         if (index !== -1) {
           arr[index] = homestay;
-          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
             .bind(key, JSON.stringify(arr))
             .run();
           updated = true;
@@ -184,7 +175,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ===== ACTION: Update homestay price =====
-    if (action === "updateHomestayPrice") {
+    if (action === 'updateHomestayPrice') {
       const { homestayId, newPrice } = body;
       if (!homestayId || newPrice === undefined || newPrice === null) {
         return jsonResponse({ error: 'Missing homestayId or newPrice' }, 400, request);
@@ -202,17 +193,17 @@ export async function onRequestPost({ request, env }) {
 
       const db = env.DB;
       if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
-      await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+      await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
       let updated = false;
       for (const key of ['kd_approved', 'kd_pending']) {
-        const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind(key).first();
+        const res = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
         let arr = [];
-        if (res && res.data) { try { arr = JSON.parse(res.data); } catch(e) {} }
+        if (res && res.data) { try { arr = JSON.parse(res.data); } catch (e) {} }
         const index = arr.findIndex(h => String(h.id) === String(homestayId));
         if (index !== -1) {
           arr[index].ownerPrice = priceNum;
-          await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
             .bind(key, JSON.stringify(arr))
             .run();
           updated = true;
@@ -242,210 +233,293 @@ export async function onRequestPost({ request, env }) {
 
     // ===== Other actions need bookingId =====
     if (!bookingId) {
-      return jsonResponse({ error: "Missing bookingId" }, 400, request);
+      return jsonResponse({ error: 'Missing bookingId' }, 400, request);
     }
 
     const db = env.DB;
-    if (!db) return jsonResponse({ error: "Server error" }, 500, request);
-    await db.prepare("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)").run();
+    if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    const res = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_bookings").first();
-    let bookings = [];
-    if (res && res.data) { try { bookings = JSON.parse(res.data); } catch(e) {} }
-
-    const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-    if (idx === -1) return jsonResponse({ error: "Invalid request." }, 400, request);
-
-    const booking = bookings[idx];
-
-    // Verify ownership of the homestay
-    if (!(ownerData.homestayIds || [ownerData.ownerId]).map(String).includes(String(booking.homestayId))) {
-      return jsonResponse({ error: "Unauthorized: You do not own this homestay" }, 403, request);
-    }
-
-    // ========== ACTION: CHANGE DATES ==========
-    if (action === "changeDates") {
-      // Block date changes for paid/completed bookings
-      if (isPaidBooking(booking) || isOwnerPaidOut(booking)) {
-        return jsonResponse({
-          error: 'Cannot change dates for a paid or completed booking. Please cancel and rebook, or contact support.'
-        }, 400, request);
-      }
-
+    // ========== ACTION: CHANGE DATES (LOCK PROTECTED) ==========
+    if (action === 'changeDates') {
       if (!checkin || !checkout) {
-        return jsonResponse({ error: "Missing checkin or checkout" }, 400, request);
+        return jsonResponse({ error: 'Missing checkin or checkout' }, 400, request);
       }
 
       const d1 = new Date(checkin);
       const d2 = new Date(checkout);
       if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
-        return jsonResponse({ error: "Invalid dates" }, 400, request);
+        return jsonResponse({ error: 'Invalid dates' }, 400, request);
       }
+
       const nights = calculateNights(checkin, checkout);
       if (nights > MAX_NIGHTS) {
         return jsonResponse({ error: `Maximum booking length is ${MAX_NIGHTS} nights.` }, 400, request);
       }
 
-      const rApproved = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_approved").first();
-      let homestays = [];
-      if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch(e) {} }
-      const rPending = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_pending").first();
-      if (rPending && rPending.data) { try { homestays = [...homestays, ...JSON.parse(rPending.data)]; } catch(e) {} }
+      // Pre-fetch to determine which homestay to lock
+      const preRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+      let preBookings = [];
+      try { if (preRes?.data) preBookings = JSON.parse(preRes.data); } catch (_) {}
+      const preBooking = preBookings.find(b => String(b.id) === String(bookingId));
+      if (!preBooking) return jsonResponse({ error: 'Invalid request.' }, 400, request);
 
-      const homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
-      if (!homestay) return jsonResponse({ error: "Homestay not found" }, 404, request);
+      const ownerHomestayIds = (ownerData.homestayIds || [ownerData.ownerId]).map(String);
+      if (!ownerHomestayIds.includes(String(preBooking.homestayId))) {
+        return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
+      }
 
-      const oldDates = getDatesInRange(booking.checkin, booking.checkout);
+      if (isPaidBooking(preBooking) || isOwnerPaidOut(preBooking)) {
+        return jsonResponse({
+          error: 'Cannot change dates for a paid or completed booking. Please cancel and rebook, or contact support.'
+        }, 400, request);
+      }
 
-      const availRes = await db.prepare("SELECT data FROM store WHERE key = ?").bind("kd_availability").first();
-      let availabilityMap = {};
-      if (availRes && availRes.data) { try { availabilityMap = JSON.parse(availRes.data); } catch(e) {} }
+      let result;
+      try {
+        // Lock on the homestay ID — same lock as createPublicBooking
+        result = await withLock(db, String(preBooking.homestayId), async (db) => {
+          const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+          let bookings = [];
+          try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
+          const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
+          if (idx === -1) return { error: 'Booking not found', status: 404 };
 
-      const allBlocked = [];
-      if (homestay.blockedDates) allBlocked.push(...homestay.blockedDates);
-      if (availabilityMap[homestay.id]) allBlocked.push(...availabilityMap[homestay.id]);
+          const booking = bookings[idx];
 
-      // Room-level blocked dates
-      let roomBlocked = [];
-      if (booking.roomId && homestay.rooms) {
-        const room = homestay.rooms.find(r => String(r.id) === String(booking.roomId));
-        if (room && Array.isArray(room.blockedDates)) {
-          roomBlocked = room.blockedDates.slice();
+          // Re-check state inside lock
+          if (isPaidBooking(booking) || isOwnerPaidOut(booking)) {
+            return {
+              error: 'Booking was paid or completed while you were editing. Refresh and try again.',
+              status: 409
+            };
+          }
+
+          // Load homestay + availability inside lock
+          const rApproved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
+          let homestays = [];
+          try { if (rApproved?.data) homestays = JSON.parse(rApproved.data); } catch (e) {}
+          const rPending = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
+          if (rPending?.data) { try { homestays = [...homestays, ...JSON.parse(rPending.data)]; } catch (e) {} }
+
+          const homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
+          if (!homestay) return { error: 'Homestay not found', status: 404 };
+
+          const oldDates = getDatesInRange(booking.checkin, booking.checkout);
+          const newDates = getDatesInRange(checkin, checkout);
+
+          // Build a set of blocked dates EXCLUDING this booking's own dates
+          const otherBookingsBlocked = new Set();
+          for (const b of bookings) {
+            if (String(b.id) === String(bookingId)) continue;
+            if (/cancelled|failed|expired/i.test(String(b.status || ''))) continue;
+            // Only consider same room (or same homestay when no room)
+            if (booking.roomId) {
+              if (String(b.roomId) !== String(booking.roomId)) continue;
+            } else {
+              if (String(b.homestayId) !== String(homestay.id)) continue;
+            }
+            for (const d of getDatesInRange(b.checkin, b.checkout)) otherBookingsBlocked.add(d);
+          }
+
+          // Homestay-level blocked dates
+          const homestayBlocked = new Set((homestay.blockedDates || []).map(String));
+          // Room-level blocked dates
+          const roomBlocked = new Set();
+          if (booking.roomId && homestay.rooms) {
+            const room = homestay.rooms.find(r => String(r.id) === String(booking.roomId));
+            if (room && Array.isArray(room.blockedDates)) {
+              for (const d of room.blockedDates) roomBlocked.add(d);
+            }
+          }
+
+          // Check overlap
+          const conflicts = [];
+          for (const d of newDates) {
+            if (otherBookingsBlocked.has(d)) conflicts.push(d);
+            else if (homestayBlocked.has(d)) conflicts.push(d);
+            else if (roomBlocked.has(d)) conflicts.push(d);
+          }
+          if (conflicts.length > 0) {
+            return { error: `Dates overlap with existing bookings: ${conflicts.join(', ')}`, status: 400 };
+          }
+
+          const price = calculatePrice(homestay.ownerPrice, nights);
+          bookings[idx].checkin = checkin;
+          bookings[idx].checkout = checkout;
+          bookings[idx].nights = nights;
+          bookings[idx].base = price.base;
+          bookings[idx].fee = price.fee;
+          bookings[idx].gatewayFee = price.gatewayFee;
+          bookings[idx].total = price.total;
+          bookings[idx].youReceive = price.youReceive;
+          bookings[idx].statusUpdated = new Date().toISOString();
+
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+
+          return { success: true, booking: bookings[idx] };
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({
+            error: 'Another booking operation is in progress for this homestay. Please try again in a moment.'
+          }, 429, request);
         }
+        throw lockErr;
       }
 
-      const blockedWithoutThis = allBlocked.filter(d => !oldDates.includes(d));
-      const roomBlockedWithoutThis = roomBlocked.filter(d => !oldDates.includes(d));
-      const newDates = getDatesInRange(checkin, checkout);
-
-      const homestayOverlap = newDates.filter(d => blockedWithoutThis.includes(d));
-      if (homestayOverlap.length > 0) {
-        return jsonResponse({ error: `Dates overlap with existing bookings: ${homestayOverlap.join(', ')}` }, 400, request);
-      }
-      const roomOverlap = newDates.filter(d => roomBlockedWithoutThis.includes(d));
-      if (roomOverlap.length > 0) {
-        return jsonResponse({ error: `Selected room is blocked on: ${roomOverlap.join(', ')}` }, 400, request);
+      if (result.error) {
+        return jsonResponse({ error: result.error }, result.status || 400, request);
       }
 
-      const price = calculatePrice(homestay.ownerPrice, nights);
-
-      bookings[idx].checkin = checkin;
-      bookings[idx].checkout = checkout;
-      bookings[idx].nights = nights;
-      bookings[idx].base = price.base;
-      bookings[idx].fee = price.fee;
-      bookings[idx].gatewayFee = price.gatewayFee;
-      bookings[idx].total = price.total;
-      bookings[idx].youReceive = price.youReceive;
-      bookings[idx].statusUpdated = new Date().toISOString();
-
-      if (!availabilityMap[homestay.id]) availabilityMap[homestay.id] = [];
-      availabilityMap[homestay.id] = availabilityMap[homestay.id].filter(d => !oldDates.includes(d));
-      newDates.forEach(d => {
-        if (!availabilityMap[homestay.id].includes(d)) availabilityMap[homestay.id].push(d);
+      await logAction({
+        db,
+        action: 'booking_dates_changed_owner',
+        admin: 'owner',
+        details: `Booking ${bookingId} dates → ${checkin} → ${checkout}`,
+        ip: clientIP,
+        userId: ownerData.ownerId,
+        homestayId: preBooking.homestayId
       });
-      availabilityMap[homestay.id].sort();
-
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-        .bind("kd_bookings", JSON.stringify(bookings))
-        .run();
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-        .bind("kd_availability", JSON.stringify(availabilityMap))
-        .run();
 
       return jsonResponse({
         success: true,
         message: `Booking dates updated to ${checkin} → ${checkout}`,
-        booking: bookings[idx]
+        booking: result.booking
       }, 200, request);
     }
 
-    // ========== ACTION: CANCEL BOOKING ==========
-    if (action === "cancelBooking") {
-      // Block if owner already paid out
-      if (isOwnerPaidOut(booking)) {
-        return jsonResponse({
-          success: false,
-          message: `Booking ${bookingId} has already been completed and paid out. Cannot cancel.`
-        }, 400, request);
+    // ========== ACTION: CANCEL BOOKING (LOCK PROTECTED) ==========
+    if (action === 'cancelBooking') {
+      const preRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+      let preBookings = [];
+      try { if (preRes?.data) preBookings = JSON.parse(preRes.data); } catch (_) {}
+      const preBooking = preBookings.find(b => String(b.id) === String(bookingId));
+      if (!preBooking) return jsonResponse({ error: 'Invalid request.' }, 400, request);
+
+      const ownerHomestayIds = (ownerData.homestayIds || [ownerData.ownerId]).map(String);
+      if (!ownerHomestayIds.includes(String(preBooking.homestayId))) {
+        return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
       }
 
-      // Block if already cancelled
-      if (booking.status && booking.status.toLowerCase().includes('cancelled')) {
-        return jsonResponse({
-          success: false,
-          message: `Booking ${bookingId} is already cancelled.`
-        }, 400, request);
-      }
-      // Block duplicate refund
-      if (booking.chip_refund_id) {
-        return jsonResponse({ success: false, message: 'This booking has already been refunded.' }, 400, request);
-      }
+      let result;
+      try {
+        result = await withLock(db, `cancel-${bookingId}`, async (db) => {
+          const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+          let bookings = [];
+          try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
+          const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
+          if (idx === -1) return { error: 'Booking not found', status: 404 };
 
-      const isPaid = isPaidBooking(booking);
-      let refundSuccess = false;
-      let refundData = null;
-      let refundError = null;
+          const booking = bookings[idx];
 
-      if (isPaid && booking.chip_purchase_id) {
-        try {
-          refundData = await processChipRefund(booking.chip_purchase_id, booking.total, env);
-          refundSuccess = true;
-        } catch (err) {
-          refundError = err.message;
+          if (isOwnerPaidOut(booking)) {
+            return {
+              error: `Booking ${bookingId} has already been completed and paid out. Cannot cancel.`,
+              status: 400
+            };
+          }
+          if (booking.status && booking.status.toLowerCase().includes('cancelled')) {
+            return { error: `Booking ${bookingId} is already cancelled.`, status: 400 };
+          }
+          if (booking.chip_refund_id) {
+            return { error: 'This booking has already been refunded.', status: 400 };
+          }
+
+          const isPaid = isPaidBooking(booking);
+          let refundSuccess = false;
+          let refundData = null;
+          let refundError = null;
+
+          if (isPaid && booking.chip_purchase_id) {
+            try {
+              refundData = await processChipRefund(booking.chip_purchase_id, booking.total, env);
+              refundSuccess = true;
+            } catch (err) {
+              refundError = err.message;
+            }
+          }
+
+          if (isPaid && refundSuccess) {
+            bookings[idx].status = 'Refunded';
+            bookings[idx].chip_refund_id = refundData.id;
+            bookings[idx].refunded_at = new Date().toISOString();
+            bookings[idx].refund_amount = booking.total;
+            bookings[idx].cancelled_by = 'host';
+            bookings[idx].statusUpdated = new Date().toISOString();
+          } else if (isPaid && !refundSuccess) {
+            bookings[idx].status = 'Cancelled by Host - Refund Pending';
+            bookings[idx].refund_error = refundError || 'Unknown error';
+            bookings[idx].cancelled_by = 'host';
+            bookings[idx].statusUpdated = new Date().toISOString();
+          } else {
+            bookings[idx].status = 'Cancelled by Host';
+            bookings[idx].cancelled_by = 'host';
+            bookings[idx].statusUpdated = new Date().toISOString();
+          }
+
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+
+          return {
+            success: true,
+            isPaid,
+            refundSuccess,
+            refundData,
+            refundError,
+            booking: bookings[idx]
+          };
+        }, 60000); // 60s — refund API can be slow
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({
+            error: 'A cancellation or refund is already in progress for this booking. Please wait.'
+          }, 429, request);
         }
+        throw lockErr;
       }
 
-      if (isPaid && refundSuccess) {
-        bookings[idx].status = 'Refunded';
-        bookings[idx].chip_refund_id = refundData.id;
-        bookings[idx].refunded_at = new Date().toISOString();
-        bookings[idx].refund_amount = booking.total;
-        bookings[idx].cancelled_by = 'host';
-        bookings[idx].statusUpdated = new Date().toISOString();
-      } else if (isPaid && !refundSuccess) {
-        bookings[idx].status = 'Cancelled by Host - Refund Pending';
-        bookings[idx].refund_error = refundError || 'Unknown error';
-        bookings[idx].cancelled_by = 'host';
-        bookings[idx].statusUpdated = new Date().toISOString();
-      } else {
-        bookings[idx].status = "Cancelled by Host";
-        bookings[idx].cancelled_by = 'host';
-        bookings[idx].statusUpdated = new Date().toISOString();
+      if (result.error) {
+        return jsonResponse({ error: result.error }, result.status || 400, request);
       }
-
-      await db.prepare("INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)")
-        .bind("kd_bookings", JSON.stringify(bookings))
-        .run();
 
       await logAction({
         db,
-        action: isPaid ? (refundSuccess ? 'booking_cancelled_host_refund_success' : 'booking_cancelled_host_refund_failed') : 'booking_cancelled_host',
+        action: result.isPaid
+          ? (result.refundSuccess ? 'booking_cancelled_host_refund_success' : 'booking_cancelled_host_refund_failed')
+          : 'booking_cancelled_host',
         admin: 'owner',
-        details: `Booking ${bookingId} cancelled by host ${ownerData.whatsapp}. ${isPaid ? (refundSuccess ? 'Refund processed: ' + refundData.id : 'Refund failed: ' + refundError) : '(unpaid)'}`,
+        details: `Booking ${bookingId} cancelled by host ${ownerData.whatsapp}. ${
+          result.isPaid
+            ? (result.refundSuccess ? 'Refund processed: ' + result.refundData.id : 'Refund failed: ' + result.refundError)
+            : '(unpaid)'
+        }`,
         ip: clientIP,
-        userId: booking.guestEmail,
-        homestayId: booking.homestayId
+        userId: result.booking.guestEmail,
+        homestayId: result.booking.homestayId
       });
 
       return jsonResponse({
         success: true,
-        message: isPaid
-          ? (refundSuccess
-              ? `Booking ${bookingId} cancelled and full refund of RM${booking.total.toFixed(2)} processed.`
+        message: result.isPaid
+          ? (result.refundSuccess
+              ? `Booking ${bookingId} cancelled and full refund of RM${result.booking.total.toFixed(2)} processed.`
               : `Booking ${bookingId} cancelled but refund failed. Status set to 'Refund Pending'. Please contact support.`)
           : `Booking ${bookingId} cancelled (unpaid).`,
-        booking: bookings[idx],
-        refund: refundData || undefined,
-        refundError: refundError || undefined
+        booking: result.booking,
+        refund: result.refundData || undefined,
+        refundError: result.refundError || undefined
       }, 200, request);
     }
 
-    return jsonResponse({ error: "Invalid action" }, 400, request);
+    return jsonResponse({ error: 'Invalid action' }, 400, request);
 
   } catch (e) {
-    console.error("Owner update booking error:", e.message);
-    return jsonResponse({ error: "An error occurred while processing your request." }, 500, request);
+    console.error('Owner update booking error:', e.message);
+    return jsonResponse({ error: 'An error occurred while processing your request.' }, 500, request);
   }
 }
 
