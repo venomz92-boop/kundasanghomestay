@@ -1,4 +1,4 @@
-// /api/chip-create.js – Smart retry + rate limiting + generic errors + paid-discovery email + payment-failed retry re-block
+// /api/chip-create.js – Smart retry + rate limiting + paid-discovery email + late-payment auto-refund
 import {
   corsHeaders,
   enforceHttps,
@@ -13,6 +13,69 @@ import {
   withLock,
   finalizePaidBooking
 } from './_utils.js';
+
+// ============================================================
+// Helper: refund a cancelled booking whose CHIP payment settled late.
+// Lock-protected so concurrent callers don't double-refund.
+// ============================================================
+async function tryAutoRefundLatePayment(db, bookingId, env) {
+  return withLock(db, `refund-${bookingId}`, async (db) => {
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+    let bookings = [];
+    try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+    const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
+    if (idx === -1) return { error: 'Booking not found' };
+    const b = bookings[idx];
+
+    if (b.chip_refund_id) {
+      return { alreadyRefunded: true, refundId: b.chip_refund_id };
+    }
+    if (!b.chip_purchase_id) {
+      return { error: 'No chip_purchase_id to refund' };
+    }
+
+    const secret = env.CHIP_SECRET_KEY;
+    if (!secret) return { error: 'CHIP_SECRET_KEY missing' };
+
+    const refundAmountCents = Math.round(Number(b.total) * 100);
+
+    try {
+      const res = await fetch(
+        `https://gate.chip-in.asia/api/v1/purchases/${b.chip_purchase_id}/refund/`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${secret}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ amount: refundAmountCents })
+        }
+      );
+      const data = await res.json();
+
+      if (!res.ok || !data.id) {
+        return { error: `CHIP refund failed: ${data.error || 'unknown'}` };
+      }
+
+      const isPending = data.status === 'pending_refund';
+
+      bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded - Late Payment';
+      bookings[idx].chip_refund_id = data.id;
+      bookings[idx].refunded_at = new Date().toISOString();
+      bookings[idx].refund_amount = Number(b.total) || 0;
+      bookings[idx].late_payment_refund = true;
+      if (isPending) bookings[idx].refund_pending = true;
+
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings))
+        .run();
+
+      return { success: true, refundId: data.id, pending: isPending };
+    } catch (e) {
+      return { error: `Refund network error: ${e.message}` };
+    }
+  }, 60000);
+}
 
 // ============================================================
 // Email helper – used when we discover an already-paid purchase
@@ -174,6 +237,29 @@ export async function onRequestPost({ request, env }) {
               } catch (mailErr) {
                 console.error('Check-in email failed:', mailErr.message);
               }
+            }
+
+            // BUG B fix: refuseFinalize means the booking was cancelled
+            // while CHIP processed the payment. Auto-refund.
+            if (finalizeResult.refuseFinalize) {
+              const refundResult = await tryAutoRefundLatePayment(db, booking.id, env);
+              await logAction({
+                db,
+                action: refundResult.success ? 'late_payment_auto_refunded' : 'late_payment_refund_failed',
+                admin: 'system',
+                details: `Refused to finalize ${booking.id}: ${finalizeResult.reason}. Refund: ${refundResult.success ? refundResult.refundId : refundResult.error}`,
+                ip: clientIP,
+                userId: session.userId,
+                homestayId: booking.homestayId
+              });
+              return jsonResponse({
+                success: false,
+                alreadyPaid: false,
+                refunded: refundResult.success === true,
+                message: refundResult.success
+                  ? 'Your booking was cancelled. The payment has been refunded to your account.'
+                  : 'Your booking was cancelled, but the refund could not be processed automatically. Please contact support.'
+              }, 200, request);
             }
 
             await logAction({
