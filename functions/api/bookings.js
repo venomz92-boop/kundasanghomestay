@@ -289,33 +289,6 @@ export async function onRequestGet({ request, env }) {
         .flatMap(b => getDatesInRange(b.checkin, b.checkout));
     }
 
-       // ============================================================
-    // Strip sensitive fields before public release.
-    // kd_approved contains password hashes, IC numbers, bank accounts,
-    // and CHIP account IDs — none of which may leave the server.
-    // ============================================================
-    const PUBLIC_FIELDS = [
-      'id', 'name', 'location', 'description',
-      'ownerName', 'whatsapp',
-      'ownerPrice', 'guests', 'bedrooms',
-      'image', 'images', 'rooms',
-      'blockedDates', 'approved', 'verified',
-      'rating', 'reviews', 'createdAt', 'updatedAt'
-    ];
-    const safeApproved = approved
-      .filter(h => h && h.approved === true)
-      .map(h => {
-        const out = {};
-        for (const k of PUBLIC_FIELDS) {
-          if (h[k] !== undefined) out[k] = h[k];
-        }
-        return out;
-      });
-
-    return jsonResponse({ approved: safeApproved, availability }, 200, request, {
-      'Cache-Control': 'public, max-age=60, stale-while-revalidate=120'
-    });
-
   } catch (e) {
     console.error('Bookings GET error:', e.message);
     return jsonResponse({ error: 'Failed to load bookings' }, 500, request);
