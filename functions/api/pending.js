@@ -216,12 +216,32 @@ export async function onRequestPost({ request, env }) {
 
     const pending = await read(db, 'kd_pending');
     const approved = await read(db, 'kd_approved');
-    const duplicate = [...pending, ...approved].some(x =>
-      String(x.ownerEmail || '').toLowerCase() === finalOwnerEmail &&
-      String(x.name || '').toLowerCase() === name.toLowerCase()
+
+    // Detect same email OR same name+location to catch obvious duplicates
+    const existingPending = pending.find(x =>
+      String(x.ownerEmail || '').toLowerCase() === ownerEmail ||
+      (String(x.name || '').toLowerCase() === name.toLowerCase() &&
+       String(x.location || '').toLowerCase() === location.toLowerCase())
     );
-    if (duplicate) {
-      return jsonResponse({ error: 'Unable to submit listing. Please check your details or contact support.' }, 400, request);
+    const existingApproved = approved.find(x =>
+      String(x.ownerEmail || '').toLowerCase() === ownerEmail
+    );
+
+    if (existingApproved) {
+      return jsonResponse({
+        error: 'You already have an approved listing with this email. Log into your Host Panel to manage it, or use a different email to add another property.',
+        code: 'ALREADY_APPROVED',
+        hint: 'Use the "Host Login" button on the homepage to access your dashboard.'
+      }, 409, request);
+    }
+
+    if (existingPending) {
+      // Same owner, still under review — tell them nicely
+      return jsonResponse({
+        error: 'You already have a listing under review with this email. Please wait for approval, or log into your Host Panel if you have already received your welcome email.',
+        code: 'ALREADY_PENDING',
+        hint: 'Approvals usually take up to 24 hours. Check your inbox for the verification email.'
+      }, 409, request);
     }
 
     // For authenticated owners: reuse their stored password hash
