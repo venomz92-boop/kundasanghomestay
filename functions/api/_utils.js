@@ -111,7 +111,6 @@ async function getUserRecord(type, userId, db) {
     const key = String(userId || '');
     const cleanWa = key.replace(/[^0-9]/g, '');
 
-    // 1) Check kd_owners first (new host-account flow)
     const ownersRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_owners').first();
     let owners = [];
     try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch(_) {}
@@ -121,7 +120,6 @@ async function getUserRecord(type, userId, db) {
     );
     if (ownerAccount) return ownerAccount;
 
-    // 2) Fall back to legacy homestay-based owner lookup
     const approved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
     const pending = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
     let homes = [];
@@ -182,11 +180,6 @@ export function getCookie(request, name) {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-/**
- * Build a Set-Cookie header string.
- * Default SameSite=Lax because payment gateways (CHIP) redirect the user cross-site
- * back to our domain and Strict would drop the cookie.
- */
 export function cookieHeader(name, value, maxAge = 86400, sameSite = 'Lax') {
   return `${name}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=${sameSite}; Max-Age=${maxAge}; Path=/`;
 }
@@ -253,7 +246,6 @@ export async function verifyPassword(password, record, env) {
     return { ok: computed === hash, legacy: false };
   }
 
-  // Legacy SHA-256
   const legacyPepper = env?.LEGACY_PASSWORD_PEPPER || env?.PASSWORD_PEPPER || 'kundasang-homestay-2026';
   const computedLegacy = await sha256(legacyPepper + password + salt);
   return { ok: computedLegacy === hash, legacy: true };
@@ -274,13 +266,13 @@ export function corsHeaders(request) {
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Owner-Authorization, X-CSRF-Token, X-Toyyibpay-Secret',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Owner-Authorization, X-CSRF-Token',
     'Access-Control-Max-Age': '86400',
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'X-Frame-Options': 'DENY',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com; connect-src 'self' https://api.chip-in.asia; frame-src 'self';",
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com; connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia; frame-src 'self' https://gate.chip-in.asia;",
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
   };
   if (allowed.has(origin)) {
@@ -294,7 +286,7 @@ export function enforceHttps(request) {
   const url = new URL(request.url);
   if (url.protocol === 'http:') {
     url.protocol = 'https:';
-    return Response.redirect(url.toString(), 301);
+    return new Response(null, { status: 301, headers: { Location: url.toString() } });
   }
   return null;
 }
@@ -333,12 +325,10 @@ export function getCSRFToken(request) {
 }
 
 // === Admin token retrieval ===
-// Raw extractor (kept for backwards compatibility)
 export async function getAdminToken(request) {
   return getBearerToken(request) || getCookie(request, 'admin_token');
 }
 
-// === Admin session verification (signed, expiring) ===
 export async function getAdminSession(request, env) {
   const token = getBearerToken(request) || getCookie(request, 'admin_token');
   if (!token) return null;
@@ -457,19 +447,12 @@ export async function incrementSessionVersion(db, userId, type) {
   return false;
 }
 
-// =============================================================
-// FIXED: incrementOwnerSessionVersion now matches by WhatsApp identity.
-// Input may be a homestay ID OR a WhatsApp number. We resolve to a WhatsApp
-// and bump ownerSessionVersion for EVERY homestay owned by that WhatsApp.
-// =============================================================
 export async function incrementOwnerSessionVersion(db, ownerIdOrWhatsapp) {
   const input = String(ownerIdOrWhatsapp || '').trim();
   if (!input) return false;
 
-  // Resolve to a whatsapp number
   let whatsapp = null;
 
-  // Try kd_owners first
   const ownersRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_owners').first();
   let owners = [];
   try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch (_) {}
@@ -478,7 +461,6 @@ export async function incrementOwnerSessionVersion(db, ownerIdOrWhatsapp) {
     whatsapp = String(ownerAccount.whatsapp).replace(/[^0-9]/g, '');
   }
 
-  // Try homestay lookup
   if (!whatsapp) {
     for (const key of ['kd_approved', 'kd_pending']) {
       const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
@@ -492,13 +474,11 @@ export async function incrementOwnerSessionVersion(db, ownerIdOrWhatsapp) {
       }
     }
   }
-  // Last resort: treat input as whatsapp
   if (!whatsapp) whatsapp = input.replace(/[^0-9]/g, '');
   if (!whatsapp) return false;
 
   let changed = false;
 
-  // 1) Bump kd_owners record
   let ownersChanged = false;
   owners = owners.map(o => {
     const oWa = String(o.whatsapp || '').replace(/[^0-9]/g, '');
@@ -514,7 +494,6 @@ export async function incrementOwnerSessionVersion(db, ownerIdOrWhatsapp) {
       .bind('kd_owners', JSON.stringify(owners)).run();
   }
 
-  // 2) Bump all homestays sharing this whatsapp
   for (const key of ['kd_approved', 'kd_pending']) {
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
     if (!r?.data) continue;
@@ -618,9 +597,7 @@ export async function clearCheckinAttempts(db, bookingId) {
 }
 
 // =============================================================
-// FIXED: Invalidate owner sessions on homestay changes.
-// Input is a homestay ID; we resolve it to the owning WhatsApp and bump
-// every sibling homestay so the owner is logged out everywhere.
+// Invalidate owner sessions on homestay changes.
 // =============================================================
 export async function invalidateOwnerSessions(db, homestayId) {
   if (!homestayId) return;
@@ -640,19 +617,16 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
 
   const now = Date.now();
 
-  // 1. Try to insert the lock
   let insertResult = await db.prepare(
     `INSERT OR IGNORE INTO homestay_locks (homestay_id, locked_at) VALUES (?, ?)`
   ).bind(lockKey, now).run();
 
-  // 2. If insertion failed, lock exists – check staleness
   if (insertResult.meta.changes === 0) {
     const existing = await db.prepare(
       `SELECT locked_at FROM homestay_locks WHERE homestay_id = ?`
     ).bind(lockKey).first();
 
     if (existing && (now - existing.locked_at) > staleTimeoutMs) {
-      // Stale lock – take over
       await db.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(lockKey).run();
       insertResult = await db.prepare(
         `INSERT OR IGNORE INTO homestay_locks (homestay_id, locked_at) VALUES (?, ?)`
@@ -665,17 +639,20 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
     }
   }
 
-  // 3. Lock acquired – execute callback
   try {
     return await callback(db);
   } finally {
-    // 4. Always release
     await db.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(lockKey).run();
   }
 }
 
 // =============================================================
 // Payment finalization (idempotent, lock-protected by caller)
+//
+// BUG B FIX: If the booking was cancelled (by guest or owner), refunded,
+// or otherwise expired, DO NOT resurrect it to "Paid - Awaiting Check-in".
+// Return { refuseFinalize: true, reason, booking } so the caller knows
+// the payment needs to be refunded instead.
 // =============================================================
 export async function finalizePaidBooking(db, bookingId) {
   const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
@@ -693,6 +670,18 @@ export async function finalizePaidBooking(db, bookingId) {
       alreadyFinalized: true,
       booking,
       checkinCode: booking.checkinCode
+    };
+  }
+
+  // ============================================================
+  // BUG B FIX: Refuse to finalize cancelled/refunded/expired bookings.
+  // The caller must refund the CHIP payment instead.
+  // ============================================================
+  if (/cancelled|refunded|expired/i.test(s)) {
+    return {
+      refuseFinalize: true,
+      reason: `Booking was ${s} before payment settled. CHIP refund required.`,
+      booking
     };
   }
 
