@@ -376,14 +376,24 @@ export async function onRequestGet({ request, env }) {
     const limit = parseInt(url.searchParams.get('limit')) || DEFAULT_PAGE_SIZE;
     const offset = (page - 1) * limit;
 
-    if (isAdmin) {
+      if (isAdmin) {
       const paginated = bookings.slice(offset, offset + limit);
 
-      let ownersList = [];
-      try {
-        const ownersRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_owners').first();
-        if (ownersRes?.data) ownersList = JSON.parse(ownersRes.data);
-      } catch (_) {}
+      // Strip sensitive fields from guest records before sending to admin UI
+      const safeGuests = guests.map(g => {
+        const {
+          password, salt, passwordAlgorithm, passwordVersion,
+          sessionVersion, verifiedAt, ...safe
+        } = g;
+        return safe;
+      });
+
+      // Paginate guests separately so a growing user base doesn't
+      // bloat every admin dashboard load
+      const guestsPage = parseInt(url.searchParams.get('guestsPage')) || 1;
+      const guestsLimit = parseInt(url.searchParams.get('guestsLimit')) || 200;
+      const guestsOffset = (guestsPage - 1) * guestsLimit;
+      const paginatedGuests = safeGuests.slice(guestsOffset, guestsOffset + guestsLimit);
 
       return jsonResponse({
         bookings: paginated,
@@ -396,14 +406,10 @@ export async function onRequestGet({ request, env }) {
         demoBlocked,
         deletedDemo,
         pending,
-        owners: ownersList.map(o => {
-          const {
-            ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm,
-            ownerPasswordVersion, ownerSessionVersion, ...safe
-          } = o;
-          return safe;
-        }),
-        guests: guests.map(g => { const { password, salt, ...safe } = g; return safe; })
+        guests: paginatedGuests,
+        guestsTotal: safeGuests.length,
+        guestsPage,
+        guestsLimit
       }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
