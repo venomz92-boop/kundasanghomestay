@@ -324,7 +324,6 @@
   if (window.__kdCssHookInstalled) return;
   window.__kdCssHookInstalled = true;
 
-  // Dangerous CSS patterns: url() loaders, JS execution, and legacy vectors
   const DANGEROUS_RULE = /(?:\burl\s*\(|expression\s*\(|\bbehavior\s*:|-moz-binding|@import|javascript\s*:)/i;
 
   DOMPurify.addHook('afterSanitizeAttributes', function (node) {
@@ -334,7 +333,6 @@
     const raw = node.getAttribute('style') || '';
     if (!raw) return;
 
-    // If nothing dangerous, leave as-is (keeps performance high)
     if (!DANGEROUS_RULE.test(raw)) return;
 
     const safeRules = raw
@@ -518,13 +516,12 @@ function logoutGuest() {
 // =============================================================
 // HOST LOGIN & DASHBOARD (cookie-based auth)
 // =============================================================
-let ownerToken = 'cookie'; // sentinel — real auth is the HttpOnly owner_token cookie
+let ownerToken = 'cookie';
 let ownerHomestayIds = [];
 let allHomestays = [];
 let bookings = [];
 let currentHomestayId = 'all';
 
-// Helper: every owner API call must send cookies
 async function ownerFetch(url, options = {}) {
   const opts = { ...options, credentials: 'include' };
   opts.headers = opts.headers || {};
@@ -736,18 +733,20 @@ async function loadBookings() {
         statusBadge = `<span class="text-[10px] bg-zinc-100 text-zinc-600 border px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">${status}</span>`;
       }
 
+      // ============================================================
+      // ACTION BUTTONS
+      // Paid bookings: show BOTH "Confirm Arrival" and "Modify Dates".
+      //   Date change is limited to same-length shifts (server-enforced).
+      // Unpaid bookings: only "Modify Dates".
+      // ============================================================
       let actionButtons = '';
       if (!isRefunded && !isCompleted && !isCancelled) {
         if (isPaid) {
-          // Paid booking: check-in only. Server rejects date changes for paid bookings.
           actionButtons += `<button class="btn-success action-btn" data-action="confirmCheckIn" data-id="${id}">✓ Confirm Arrival</button>`;
-        } else {
-          // Unpaid booking: allow dates to be modified.
-          actionButtons += `<button class="btn-warning action-btn" data-action="changeBookingDates" data-id="${id}">📅 Modify Dates</button>`;
         }
+        actionButtons += `<button class="btn-warning action-btn" data-action="changeBookingDates" data-id="${id}">📅 Modify Dates</button>`;
         actionButtons += `<button class="btn-danger action-btn" data-action="cancelBooking" data-id="${id}">✕ Cancel Booking</button>`;
       } else if (isRefunded) {
-        
         actionButtons = `<span class="text-xs text-blue-600 font-bold">🔁 Refunded</span>`;
       } else if (isCompleted) {
         const payoutDisplay = b.payoutSuccess && b.payoutSuccessDate
@@ -860,23 +859,39 @@ async function confirmCheckIn(bookingId) {
 
 // =============================================================
 // changeBookingDates
+// For PAID bookings: only same-length shifts allowed (price preserved).
+// For UNPAID bookings: any length allowed (price recalculated).
 // =============================================================
 async function changeBookingDates(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
   if (!booking) return;
+
   const currentCheckin = booking.checkin || '';
   const currentCheckout = booking.checkout || '';
-  const newCheckin = await showPrompt('Revise Check-in', 'Format date exactly as YYYY-MM-DD:', currentCheckin);
+  const nights = booking.nights || 1;
+
+  const statusLower = (booking.status || '').toLowerCase();
+  const isPaid = statusLower.includes('paid') || statusLower.startsWith('completed');
+
+  // Different help text depending on paid / unpaid
+  const helpNote = isPaid
+    ? `Format date exactly as YYYY-MM-DD:<br><br><span style="color:#b45309;font-weight:600;">⚠️ This booking is already paid.</span><br>You can shift the dates, but the stay length must remain <strong>${nights} night${nights !== 1 ? 's' : ''}</strong>. The paid amount will not change.<br><br>To change the length, cancel and rebook instead (the guest gets refunded automatically).`
+    : `Format date exactly as YYYY-MM-DD:`;
+
+  const newCheckin = await showPrompt('Revise Check-in', helpNote, currentCheckin);
   if (!newCheckin) return;
-  const newCheckout = await showPrompt('Revise Check-out', 'Format date exactly as YYYY-MM-DD:', currentCheckout);
+  const newCheckout = await showPrompt('Revise Check-out', helpNote, currentCheckout);
   if (!newCheckout) return;
+
   const d1 = new Date(newCheckin), d2 = new Date(newCheckout);
   if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
     await showAlert('Invalid Timeline', 'Check-out must be after check-in.');
     return;
   }
+
   const confirmed = await showConfirm('Timeline Shift', `Shift dates for booking ${bookingId} to: ${newCheckin} to ${newCheckout}?`);
   if (!confirmed) return;
+
   try {
     const res = await ownerFetch(API_BASE + '/owner-update-booking', {
       method: 'POST',
@@ -888,7 +903,7 @@ async function changeBookingDates(bookingId) {
       await showAlert('Timelines Adjusted', '✓ ' + data.message);
       loadBookings();
     } else {
-      await showAlert('Adjustment Faulted', '❌ error: ' + (data.error || data.message));
+      await showAlert('Adjustment Faulted', '❌ ' + (data.error || data.message || 'Unknown error'));
     }
   } catch(e) {
     await showAlert('Network exception', 'Network error: ' + e.message);
@@ -917,8 +932,13 @@ async function cancelBooking(bookingId) {
     return;
   }
 
+  const isPaid = (booking.status || '').toLowerCase().includes('paid');
+  const warningExtra = isPaid
+    ? '<br><br><span style="color:#b91c1c;font-weight:600;">⚠️ This booking is already paid. Cancelling will trigger a full CHIP refund to the guest.</span>'
+    : '';
+
   const confirmed = await showConfirm('Cancel Booking',
-    `Are you sure you want to cancel booking <strong>${bookingId}</strong> for <strong>${booking.guestName || 'Guest'}</strong>?\n\nThis will mark the booking as cancelled and free the dates. The guest will be notified via WhatsApp (optional).`
+    `Are you sure you want to cancel booking <strong>${bookingId}</strong> for <strong>${booking.guestName || 'Guest'}</strong>?<br><br>This will mark the booking as cancelled and free the dates. The guest will be notified via WhatsApp (optional).${warningExtra}`
   );
   if (!confirmed) return;
 
@@ -1087,7 +1107,6 @@ function loadHomestayPrice() {
   const btn = document.getElementById('updatePriceBtn');
   if (!input || !btn) return;
 
-  // Clear any existing pending hint
   const existingHint = document.getElementById('pendingPriceHint');
   if (existingHint) existingHint.remove();
 
@@ -1190,12 +1209,10 @@ async function updateHomestayPrice() {
   const dashboardSection = document.getElementById('dashboardSection');
   const selector = document.getElementById('homestaySelector');
 
-  // Try to restore dashboard by probing /api/owner-bookings with cookies.
   let authed = false;
   let storedHomestays = null;
   let storedName = 'Owner';
 
-  // Prefer cached homestays (fast) but fall back to server on empty storage
   try {
     const raw = sessionStorage.getItem('kd_owner_homestays');
     if (raw) storedHomestays = JSON.parse(raw);
@@ -1211,8 +1228,6 @@ async function updateHomestayPrice() {
     const probeData = await probe.json().catch(() => ({}));
     authed = probeData.authenticated === true;
 
-    // Server is source of truth — use its homestays if present
-       // Server is source of truth — use its homestays even if empty
     if (authed && Array.isArray(probeData.homestays)) {
       storedHomestays = probeData.homestays;
       if (probeData.ownerName) storedName = probeData.ownerName;
@@ -1230,7 +1245,6 @@ if (authed) {
     allHomestays = Array.isArray(storedHomestays) ? storedHomestays : [];
     ownerHomestayIds = allHomestays.map(h => h.id);
 
-    // ===== Split into approved vs pending =====
     const pendingHomes = allHomestays.filter(h => h.approved !== true);
     const approvedHomes = allHomestays.filter(h => h.approved === true);
 
@@ -1265,7 +1279,6 @@ if (authed) {
       selector.value = 'all';
     }
 
-    // ===== Show pending status banner =====
     const banner = document.getElementById('pendingListingsBanner');
     if (banner) {
       if (pendingHomes.length > 0) {
@@ -1311,8 +1324,6 @@ if (authed) {
     if (dashboardSection) dashboardSection.classList.add('hidden');
   }
 
-
-  
   if (selector) {
     selector.addEventListener('change', function() {
       currentHomestayId = this.value;
