@@ -57,9 +57,11 @@ export async function onRequestGet({ request, env }) {
     if (guests[idx].verified === true) {
      // console.log(`✅ User ${email} already verified`);
       // Redirect to login with a message
-      const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
-      return Response.redirect(`${domain}/login.html?verified=already`, 302);
-    }
+     const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
+     return new Response(null, {
+     status: 302,
+     headers: { 'Location': `${domain}/login.html?verified=already` }
+     });
 
     // Mark as verified
     guests[idx].verified = true;
@@ -80,8 +82,11 @@ export async function onRequestGet({ request, env }) {
     });
 
     // Redirect to login with success
-    const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
-    return Response.redirect(`${domain}/login.html?verified=1`, 302);
+      const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
+      return new Response(null, {
+      status: 302,
+      headers: { 'Location': `${domain}/login.html?verified=1` }
+    });
 
   } catch (e) {
     console.error('❌ Verification error:', e.message, e.stack);
