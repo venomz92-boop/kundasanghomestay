@@ -482,7 +482,8 @@ body {
         <div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11% + RM1.00 Gateway)</div>
         <div id="totalFees" class="text-3xl font-bold mt-1">RM0.00</div>
         <div class="text-[11px] mt-1">After gateway fee RM1.10 • Owner gets Base via CHIP Send on Check-in</div>
-        <div class="text-[11px] mt-2"><span id="kdAvailInline">Available: RM0.00</span> • <span id="kdWithdrawnInline">Withdrawn: RM0.00</span> <button onclick="resetWithdrawn()" class="ml-2 text-[10px] px-2 py-0.5 bg-red-600 text-white rounded-full">Reset to 0</button></div>
+        <div class="text-[11px] mt-2"><span id="kdAvailInline">Available: RM0.00</span> • <span id="kdWithdrawnInline">Withdrawn: RM0.00</span> 
+          <button onclick="resetWithdrawn()" class="ml-2 text-[10px] px-2 py-0.5 bg-red-600/70 hover:bg-red-700 text-white rounded-full" title="Permanently reset all earnings">⚠ Reset</button>
         <button id="kdWithdrawBtn" class="kd-withdraw-btn">Withdraw Earnings</button>
       </div>
       <div class="card p-5 animate-on-scroll"><div class="text-[11px] uppercase text-zinc-500">Pending</div><div id="adminPendingCount" class="text-3xl font-bold mt-1">0</div></div>
@@ -1803,19 +1804,60 @@ async function fetchEarnings(){
 }
 
 async function resetWithdrawn() {
-  const confirmed = await showConfirm("Reset Withdrawn", "Reset withdrawn and available balance to 0?");
+  // Show current values so admin knows exactly what will be wiped
+  const availEl = document.getElementById("kdAvailInline");
+  const withEl = document.getElementById("kdWithdrawnInline");
+  const currentAvail = availEl ? availEl.textContent : "unknown";
+  const currentWith = withEl ? withEl.textContent : "unknown";
+
+  // Step 1: strong warning
+  const confirmed = await showModal(
+    "⚠️ Danger: Reset All Earnings",
+    `<div style="line-height:1.7;">
+      <p><strong>This will permanently reset:</strong></p>
+      <ul style="margin:8px 0 8px 20px; list-style:disc;">
+        <li>Total Earnings → RM0.00</li>
+        <li>Available Balance → RM0.00</li>
+        <li>Withdrawn Balance → RM0.00</li>
+      </ul>
+      <p style="color:#b91c1c;"><strong>Current values:</strong> ${currentAvail} • ${currentWith}</p>
+      <p style="font-size:11px; color:#6b7280; margin-top:8px;">This cannot be undone. Only do this if you are resetting the platform for a new period.</p>
+    </div>`,
+    [
+      { label: "Cancel", class: "btn-secondary", value: false },
+      { label: "Continue", class: "btn-danger", value: true }
+    ]
+  );
   if (!confirmed) return;
+
+  // Step 2: require typing RESET
+  const typed = await showPrompt(
+    "Type RESET to confirm",
+    "Type the word <strong>RESET</strong> (all caps) to permanently reset all earnings to RM0.00:",
+    ""
+  );
+  if (typed === null) return;
+  if (String(typed).trim() !== "RESET") {
+    await showAlert("Cancelled", "You did not type RESET. No changes were made.");
+    return;
+  }
+
   try {
     const res = await fetchWithAuth(API_BASE + "/withdraw", { method: "DELETE" });
     const data = await res.json();
     if (res.ok) {
-      await showAlert("Success", "Withdrawn reset to RM0.00");
+      await showAlert("Success", "All earnings reset to RM0.00.");
       await fetchCloudData();
       renderAdmin();
       await fetchEarnings();
-    } else { await showAlert("Error", "Reset failed: " + (data.error || "Unknown")); }
-  } catch(e) { await showAlert("Error", "Error: " + e.message); }
+    } else {
+      await showAlert("Error", "Reset failed: " + (data.error || "Unknown"));
+    }
+  } catch(e) {
+    await showAlert("Error", "Error: " + e.message);
+  }
 }
+  
 async function clearAllBookingsCloud() {
   const confirmed1 = await showConfirm("Clear All Bookings", "DELETE ALL bookings from Cloudflare D1? This cannot be undone.");
   if (!confirmed1) return;
