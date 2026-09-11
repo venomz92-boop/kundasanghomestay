@@ -71,18 +71,19 @@ async function getHomestay(db, homestayId) {
 
 async function saveBankAccountId(db, homestayId, bankAccountId) {
   if (!homestayId) return;
-  for (const store of ['kd_approved', 'kd_homestays']) {
+  for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
     const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
     let list = [];
     try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
+    if (!Array.isArray(list) || list.length === 0) continue;
+
     const idx = list.findIndex(h => String(h.id) === String(homestayId));
-    if (idx !== -1) {
-      list[idx].chip_bank_account_id = bankAccountId;
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind(store, JSON.stringify(list))
-        .run();
-      break;
-    }
+    if (idx === -1) continue;
+
+    list[idx].chip_bank_account_id = bankAccountId;
+    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+      .bind(store, JSON.stringify(list))
+      .run();
   }
 }
 
