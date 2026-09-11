@@ -1,4 +1,4 @@
-// /api/owner-checkin.js – Auto check-in + CHIP Send payout + brute-force protection + long lock
+// /api/owner-checkin.js — Auto check-in + CHIP Send payout + brute-force protection + long lock
 import {
   corsHeaders,
   getClientIP,
@@ -12,7 +12,6 @@ import {
   withLock
 } from './_utils.js';
 
-// ===== CHIP Bank code mapping (BIC/SWIFT codes) =====
 function getChipBankCode(bankName) {
   const map = {
     'AEON BANK': 'ACDBMYK2',
@@ -59,7 +58,6 @@ function getChipBankCode(bankName) {
   return 'MBBEMYKL';
 }
 
-// ===== HMAC SHA-512 helper =====
 async function hmacSha512(message, secret) {
   const key = await crypto.subtle.importKey(
     'raw',
@@ -72,7 +70,6 @@ async function hmacSha512(message, secret) {
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ===== Helper to save bank account ID =====
 async function saveBankAccountId(db, homestayId, bankAccountId) {
   if (!homestayId) return;
   for (const store of ['kd_approved', 'kd_homestays']) {
@@ -90,7 +87,6 @@ async function saveBankAccountId(db, homestayId, bankAccountId) {
   }
 }
 
-// Fee constants (unified)
 const GATEWAY_FEE = 1.00;
 
 export async function onRequestPost({ request, env }) {
@@ -128,9 +124,13 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Unauthorized – you do not own this homestay' }, 403, request);
     }
 
-    // ============================================================
-    // Long lock (60s) – CHIP Send API call can take several seconds
-    // ============================================================
+    // Block re-entry if a previous payout ended in unknown network state
+    if (preBooking.payoutUnknown) {
+      return jsonResponse({
+        error: `Payout for this booking is in UNKNOWN state (last attempt: ${preBooking.payoutUnknownAt || 'unknown time'}). Please log into your CHIP dashboard and verify whether a payout with reference KDH-${bookingId} exists before contacting support.`
+      }, 409, request);
+    }
+
     let result;
     try {
       result = await withLock(db, `checkin-${bookingId}`, async (db) => {
@@ -152,7 +152,13 @@ export async function onRequestPost({ request, env }) {
           };
         }
 
-        // Status check
+        if (booking.payoutUnknown) {
+          return {
+            error: `Payout is in UNKNOWN state. Check CHIP dashboard for reference KDH-${bookingId}.`,
+            status: 409
+          };
+        }
+
         if (!booking.status || !booking.status.toLowerCase().includes('paid')) {
           return { error: 'Booking is not paid yet', status: 400 };
         }
@@ -203,6 +209,7 @@ export async function onRequestPost({ request, env }) {
         const chipBankCode = getChipBankCode(bankCodeInput);
 
         let payoutSuccess = false;
+        let payoutUnknown = false;
         let payoutData = null;
         let payoutMessage = '';
         let isSimulation = false;
@@ -223,10 +230,10 @@ export async function onRequestPost({ request, env }) {
             const apiSecret = env.CHIP_API_SECRET;
 
             if (!ownerAcc || ownerAcc.replace(/[^0-9]/g, '').length < 10) {
-              throw new Error('Owner bank account is missing or invalid (must be at least 10 digits)');
+              throw new Error('CHIP Send failed: Owner bank account is missing or invalid (must be at least 10 digits)');
             }
             if (!ownerName) {
-              throw new Error('Owner bank account holder name is missing');
+              throw new Error('CHIP Send failed: Owner bank account holder name is missing');
             }
 
             let bankAccountId = homestay?.chip_bank_account_id || null;
@@ -251,7 +258,7 @@ export async function onRequestPost({ request, env }) {
               });
               const bankData = await createRes.json();
               if (!createRes.ok || !bankData.id) {
-                throw new Error(`Failed to create bank account: ${bankData.error || 'unknown'}`);
+                throw new Error(`CHIP Send failed: Failed to create bank account: ${bankData.error || 'unknown'}`);
               }
               bankAccountId = bankData.id;
               if (homestay) await saveBankAccountId(db, booking.homestayId, bankAccountId);
@@ -265,6 +272,13 @@ export async function onRequestPost({ request, env }) {
               reference: reference,
               description: `Owner payout for ${bookingId}`
             };
+
+            // Record attempt BEFORE the API call. If the call never
+            // completes, we can see from the booking that a payout attempt
+            // was in-flight (used for reconciliation).
+            bookings[idx].payoutAttemptedAt = new Date().toISOString();
+            bookings[idx].payoutAttemptedReference = reference;
+            bookings[idx].payoutAttemptedAmount = Number(ownerAmount);
 
             const epoch = Math.floor(Date.now() / 1000);
             const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
@@ -291,7 +305,17 @@ export async function onRequestPost({ request, env }) {
             isSimulation = false;
           } catch (err) {
             payoutSuccess = false;
-            payoutMessage = `Real payout failed: ${err.message}. Please check CHIP Send credentials and bank details.`;
+            const errMsg = err.message || 'unknown';
+            const isApiError = /^CHIP Send failed:/.test(errMsg);
+
+            if (isApiError) {
+              // CHIP explicitly rejected. Safe to retry.
+              payoutMessage = `Real payout failed: ${errMsg}. Please check CHIP Send credentials and bank details.`;
+            } else {
+              // Network / timeout / unknown — CHIP may or may not have processed it.
+              payoutUnknown = true;
+              payoutMessage = `Check-in confirmed, but payout status is UNKNOWN due to a network error. Reference KDH-${bookingId} may have been sent to CHIP. Log into your CHIP dashboard to verify before retrying.`;
+            }
           }
         }
 
@@ -310,6 +334,14 @@ export async function onRequestPost({ request, env }) {
           bookings[idx].chip_bank_code = chipBankCode;
           bookings[idx].payoutFailedAttempt = false;
           delete bookings[idx].lastPayoutError;
+        } else if (payoutUnknown) {
+          bookings[idx].status = 'Completed - Payout Unknown';
+          bookings[idx].checkedInAt = new Date().toISOString();
+          bookings[idx].checkedInBy = 'owner';
+          bookings[idx].payoutUnknown = true;
+          bookings[idx].payoutUnknownAt = new Date().toISOString();
+          bookings[idx].payoutUnknownError = payoutMessage;
+          bookings[idx].homestaySource = homestaySource;
         } else {
           bookings[idx].status = 'Completed - Payout Pending';
           bookings[idx].checkedInAt = new Date().toISOString();
@@ -325,15 +357,17 @@ export async function onRequestPost({ request, env }) {
 
         await logAction({
           db,
-          action: payoutSuccess ? (isSimulation ? 'owner_checkin_simulation' : 'owner_checkin_payout_success') : 'owner_checkin_payout_failed',
+          action: payoutSuccess
+            ? (isSimulation ? 'owner_checkin_simulation' : 'owner_checkin_payout_success')
+            : (payoutUnknown ? 'owner_checkin_payout_unknown' : 'owner_checkin_payout_failed'),
           admin: 'owner',
-          details: `Check-in ${bookingId}, payout ${payoutSuccess ? (isSimulation ? 'simulated' : 'success') : 'failed'}`,
+          details: `Check-in ${bookingId}, payout ${payoutSuccess ? (isSimulation ? 'simulated' : 'success') : (payoutUnknown ? 'UNKNOWN' : 'failed')}`,
           ip: getClientIP(request),
           userId: booking.guestEmail,
           homestayId: booking.homestayId
         });
 
-        // Record fee earnings (only on success, idempotent)
+        // Record fee earnings only on confirmed success
         if (payoutSuccess) {
           try {
             const feeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
@@ -363,16 +397,19 @@ export async function onRequestPost({ request, env }) {
         }
 
         return {
-          success: true,
+          success: payoutSuccess,
           message: payoutMessage,
           bookingId,
           payoutSuccess,
+          payoutUnknown,
           simulation: isSimulation,
           homestaySource,
           bankCodeUsed: chipBankCode,
-          warning: isSimulation ? 'Payout was simulated (no real money transferred).' : undefined
+          warning: isSimulation
+            ? 'Payout was simulated (no real money transferred).'
+            : (payoutUnknown ? 'Payout state unknown. Check CHIP dashboard before retrying.' : undefined)
         };
-      }, 60000); // 60s stale timeout for slow CHIP Send calls
+      }, 60000);
     } catch (lockErr) {
       if (lockErr.message && lockErr.message.includes('in progress')) {
         return jsonResponse({ error: 'Check-in is already in progress for this booking. Please wait a moment.' }, 429, request);
