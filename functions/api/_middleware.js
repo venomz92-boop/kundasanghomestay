@@ -3,7 +3,6 @@ export function onRequest(context) {
   const { request } = context;
   const url = new URL(request.url);
 
-  // Enforce HTTPS (usually redundant — Cloudflare terminates TLS — but harmless)
   if (url.protocol === 'http:') {
     url.protocol = 'https:';
     return new Response(null, {
@@ -12,6 +11,5 @@ export function onRequest(context) {
     });
   }
 
-  // Continue to the next handler
   return context.next();
 }
