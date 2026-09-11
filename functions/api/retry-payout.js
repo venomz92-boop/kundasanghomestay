@@ -58,10 +58,10 @@ export async function onRequestPost({ request, env }) {
   if (redirect) return redirect;
 
   try {
-   const isAdmin = await verifyAdminAuth(request, env);
-   if (!isAdmin) {
-   return jsonResponse({ error: 'Unauthorized' }, 401, request);
-   }
+    const isAdmin = await verifyAdminAuth(request, env);
+    if (!isAdmin) {
+      return jsonResponse({ error: 'Unauthorized' }, 401, request);
+    }
 
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'DB unavailable' }, 500, request);
@@ -72,16 +72,12 @@ export async function onRequestPost({ request, env }) {
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // ============================================================
-    // Use the SAME lock key as owner-checkin/payout so no two payout
-    // paths can race on the same booking.
-    // ============================================================
     let result;
     try {
       result = await withLock(db, `checkin-${bookingId}`, async (db) => {
         const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
         let bookings = [];
-        try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+        try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
         const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
         if (idx === -1) return { error: 'Booking not found', status: 404 };
 
@@ -104,7 +100,7 @@ export async function onRequestPost({ request, env }) {
         for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
           const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
           let list = [];
-          try { if (rr?.data) list = JSON.parse(rr.data); } catch(_) {}
+          try { if (rr?.data) list = JSON.parse(rr.data); } catch (_) {}
           const found = list.find(h => String(h.id) === String(booking.homestayId));
           if (found) { homestay = found; break; }
         }
@@ -124,35 +120,40 @@ export async function onRequestPost({ request, env }) {
 
         const chipBankCode = getChipBankCode(homestay.ownerBank || homestay.bankCode || '');
 
+        // ============================================================
+        // STEP A: Ensure CHIP bank account exists
+        // ============================================================
         let bankAccountId = homestay.chip_bank_account_id || null;
         if (!bankAccountId) {
-          const epoch = Math.floor(Date.now() / 1000);
+          const bankEpoch = Math.floor(Date.now() / 1000);
           const bankBody = JSON.stringify({
             bank_code: chipBankCode,
             account_number: ownerAcc,
             account_name: ownerName
           });
-          const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
-          const createRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
+          const bankChecksum = await hmacSha512(`${bankEpoch}${apiKey}`, apiSecret);
+
+          const bankRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${apiKey}`,
               'Content-Type': 'application/json',
-              'epoch': String(epoch),
-              'checksum': checksum
+              'epoch': String(bankEpoch),
+              'checksum': bankChecksum
             },
             body: bankBody
           });
-          const bankData = await createRes.json();
-          if (!createRes.ok || !bankData.id) {
+          const bankData = await bankRes.json();
+          if (!bankRes.ok || !bankData.id) {
             return { error: 'Failed to create bank account: ' + (bankData.error || 'unknown'), status: 502 };
           }
           bankAccountId = bankData.id;
 
-            for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
+          // Cache bank account ID back into all stores that carry this homestay
+          for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
             const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
             let list = [];
-            try { if (rr?.data) list = JSON.parse(rr.data); } catch(_) {}
+            try { if (rr?.data) list = JSON.parse(rr.data); } catch (_) {}
             if (!Array.isArray(list) || list.length === 0) continue;
             const hIdx = list.findIndex(h => String(h.id) === String(booking.homestayId));
             if (hIdx === -1) continue;
@@ -160,7 +161,11 @@ export async function onRequestPost({ request, env }) {
             await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
               .bind(store, JSON.stringify(list)).run();
           }
+        }
 
+        // ============================================================
+        // STEP B: Send payout
+        // ============================================================
         const amountCents = Math.round(ownerAmount * 100);
         const reference = `KDH-${bookingId}`;
         const payoutPayload = {
@@ -169,12 +174,13 @@ export async function onRequestPost({ request, env }) {
           reference: reference,
           description: `Retry payout for ${bookingId}`
         };
-        const epoch = Math.floor(Date.now() / 1000);
-        const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
 
-                bookings[idx].payoutAttemptedAt = new Date().toISOString();
+        bookings[idx].payoutAttemptedAt = new Date().toISOString();
         bookings[idx].payoutAttemptedReference = reference;
         bookings[idx].payoutAttemptedAmount = ownerAmount;
+
+        const payoutEpoch = Math.floor(Date.now() / 1000);
+        const payoutChecksum = await hmacSha512(`${payoutEpoch}${apiKey}`, apiSecret);
 
         let payoutRes;
         try {
@@ -183,12 +189,13 @@ export async function onRequestPost({ request, env }) {
             headers: {
               'Authorization': `Bearer ${apiKey}`,
               'Content-Type': 'application/json',
-              'epoch': String(epoch),
-              'checksum': checksum
+              'epoch': String(payoutEpoch),
+              'checksum': payoutChecksum
             },
             body: JSON.stringify(payoutPayload)
           });
         } catch (networkErr) {
+          // Network error — CHIP may or may not have processed it
           bookings[idx].payoutUnknown = true;
           bookings[idx].payoutUnknownAt = new Date().toISOString();
           bookings[idx].payoutUnknownError = networkErr.message || 'Network error';
@@ -203,16 +210,15 @@ export async function onRequestPost({ request, env }) {
         }
 
         let payoutData;
-        try {
-          payoutData = await payoutRes.json();
-        } catch (_) {
-          payoutData = {};
-        }
+        try { payoutData = await payoutRes.json(); } catch (_) { payoutData = {}; }
 
         if (!payoutRes.ok || !payoutData.id) {
           return { error: 'CHIP Send failed: ' + (payoutData.error || 'unknown'), status: 502 };
         }
 
+        // ============================================================
+        // STEP C: Update booking on success
+        // ============================================================
         bookings[idx].status = 'Completed - Payout Success';
         bookings[idx].payoutSuccess = true;
         bookings[idx].payoutSuccessDate = new Date().toISOString();
@@ -253,7 +259,7 @@ export async function onRequestPost({ request, env }) {
                 .bind('kd_fee_earnings', JSON.stringify(feeEarnings)).run();
             }
           }
-        } catch (e) { /* best-effort */ }
+        } catch (_) { /* best-effort */ }
 
         await logAction({
           db,
