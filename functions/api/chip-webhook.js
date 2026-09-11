@@ -1,4 +1,4 @@
-// /api/chip-webhook.js – RSASSA-PKCS1-v1_5 + SHA-256 + Refund + Idempotency
+// /api/chip-webhook.js – RSASSA-PKCS1-v1_5 + SHA-256 + Refund + Idempotency + Late-payment auto-refund
 import { corsHeaders, getClientIP, logAction, withLock, finalizePaidBooking } from './_utils.js';
 
 function pemToArrayBuffer(pem) {
@@ -46,6 +46,69 @@ async function verifyChipSignature(request, env) {
     console.error('Signature verification error:', e.message);
     return false;
   }
+}
+
+// ============================================================
+// Helper: refund a cancelled booking whose CHIP payment settled late.
+// Lock-protected so concurrent callers don't double-refund.
+// ============================================================
+async function tryAutoRefundLatePayment(db, bookingId, env) {
+  return withLock(db, `refund-${bookingId}`, async (db) => {
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+    let bookings = [];
+    try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+    const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
+    if (idx === -1) return { error: 'Booking not found' };
+    const b = bookings[idx];
+
+    if (b.chip_refund_id) {
+      return { alreadyRefunded: true, refundId: b.chip_refund_id };
+    }
+    if (!b.chip_purchase_id) {
+      return { error: 'No chip_purchase_id to refund' };
+    }
+
+    const secret = env.CHIP_SECRET_KEY;
+    if (!secret) return { error: 'CHIP_SECRET_KEY missing' };
+
+    const refundAmountCents = Math.round(Number(b.total) * 100);
+
+    try {
+      const res = await fetch(
+        `https://gate.chip-in.asia/api/v1/purchases/${b.chip_purchase_id}/refund/`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${secret}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ amount: refundAmountCents })
+        }
+      );
+      const data = await res.json();
+
+      if (!res.ok || !data.id) {
+        return { error: `CHIP refund failed: ${data.error || 'unknown'}` };
+      }
+
+      const isPending = data.status === 'pending_refund';
+
+      bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded - Late Payment';
+      bookings[idx].chip_refund_id = data.id;
+      bookings[idx].refunded_at = new Date().toISOString();
+      bookings[idx].refund_amount = Number(b.total) || 0;
+      bookings[idx].late_payment_refund = true;
+      if (isPending) bookings[idx].refund_pending = true;
+
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings))
+        .run();
+
+      return { success: true, refundId: data.id, pending: isPending };
+    } catch (e) {
+      return { error: `Refund network error: ${e.message}` };
+    }
+  }, 60000);
 }
 
 async function sendCheckinEmail(booking, env) {
@@ -240,6 +303,20 @@ export async function onRequestPost({ request, env }) {
         console.warn(`Finalize error: ${finalizeResult.error}`);
       } else if (finalizeResult.alreadyFinalized) {
         console.log(`Booking ${booking.id} already finalized by another path. Skipping email.`);
+      } else if (finalizeResult.refuseFinalize) {
+        // BUG B fix: booking was cancelled while CHIP processed the payment.
+        // Refuse to resurrect; auto-refund instead.
+        const refundResult = await tryAutoRefundLatePayment(db, booking.id, env);
+        await logAction({
+          db,
+          action: refundResult.success ? 'late_payment_auto_refunded' : 'late_payment_refund_failed',
+          admin: 'system',
+          details: `Refused to finalize ${booking.id}: ${finalizeResult.reason}. Refund: ${refundResult.success ? refundResult.refundId : refundResult.error}`,
+          ip: getClientIP(request),
+          userId: booking.guestId,
+          homestayId: booking.homestayId
+        });
+        console.log(`Late-payment auto-refund for ${booking.id}:`, refundResult);
       } else if (finalizeResult.finalized) {
         // Only send email if we generated the code (avoid duplicates)
         if (finalizeResult.codeWasMissing) {
@@ -267,22 +344,34 @@ export async function onRequestPost({ request, env }) {
 
     // ===== PURCHASE FAILED =====
     else if (event === 'purchase.failed' || status === 'failed' || status === 'cancelled') {
-      bookings[idx] = {
-        ...booking,
-        status: 'Payment Failed',
-        chip_status: 'failed'
-      };
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind('kd_bookings', JSON.stringify(bookings))
-        .run();
-      console.log(`Booking ${booking.id} marked as FAILED`);
+      // Never downgrade a booking that's already paid/refunded/cancelled by us.
+      const currentStatus = String(bookings[idx].status || '');
+      const isTerminal = currentStatus === 'Paid - Awaiting Check-in'
+        || currentStatus.startsWith('Completed')
+        || /cancelled|refunded|expired/i.test(currentStatus);
+
+      if (!isTerminal) {
+        bookings[idx] = {
+          ...booking,
+          status: 'Payment Failed',
+          chip_status: 'failed'
+        };
+        await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+          .bind('kd_bookings', JSON.stringify(bookings))
+          .run();
+        console.log(`Booking ${booking.id} marked as FAILED`);
+      } else {
+        console.log(`Booking ${booking.id} already terminal (${currentStatus}) — ignoring failed event.`);
+      }
     }
 
-    // ===== PURCHASE REFUNDED =====
-    else if (event === 'purchase.refunded' || status === 'refunded') {
-      const refundedAmount = payload.data?.refunded_amount 
-        ? Number(payload.data.refunded_amount) / 100 
-        : booking.total || 0;
+    // ===== PURCHASE REFUNDED (completion of a refund) =====
+    // CHIP fires 'payment.refunded' per docs. We also accept 'purchase.refunded'
+    // in case they use that name in the future.
+    else if (event === 'purchase.refunded' || event === 'payment.refunded' || status === 'refunded') {
+      const refundedAmount = payload.data?.refunded_amount
+        ? Number(payload.data.refunded_amount) / 100
+        : (booking.refund_amount || booking.total || 0);
 
       bookings[idx] = {
         ...booking,
@@ -290,7 +379,8 @@ export async function onRequestPost({ request, env }) {
         chip_status: 'refunded',
         refunded_at: new Date().toISOString(),
         refund_amount: refundedAmount,
-        chip_refund_id: payload.data?.refund_id || payload.data?.id || 'webhook_refund'
+        chip_refund_id: payload.data?.refund_id || payload.data?.id || booking.chip_refund_id || 'webhook_refund',
+        refund_pending: false
       };
 
       await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
@@ -315,6 +405,22 @@ export async function onRequestPost({ request, env }) {
       });
 
       console.log(`Booking ${booking.id} marked as REFUNDED (RM${refundedAmount.toFixed(2)})`);
+    }
+
+    // ===== PURCHASE PENDING REFUND (acquirer processing) =====
+    else if (event === 'purchase.pending_refund' || status === 'pending_refund') {
+      bookings[idx] = {
+        ...booking,
+        status: 'Refund Pending - Awaiting CHIP',
+        chip_status: 'pending_refund',
+        chip_refund_id: payload.data?.refund_id || payload.data?.id || booking.chip_refund_id || null,
+        refund_pending: true,
+        refund_pending_at: new Date().toISOString()
+      };
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings))
+        .run();
+      console.log(`Booking ${booking.id} refund PENDING`);
     }
 
     // ============================================================
