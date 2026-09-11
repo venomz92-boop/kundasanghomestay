@@ -103,7 +103,7 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json();
     const { bookingId, checkin, checkout, action } = body;
 
-    // ===== ACTION: Update room block (not locked — no race risk) =====
+    // ===== ACTION: Update room block (LOCK PROTECTED) =====
     if (action === 'updateRoomBlock') {
       const { homestayId, roomId, date } = body;
       if (!homestayId || !roomId || !date) {
@@ -119,62 +119,76 @@ export async function onRequestPost({ request, env }) {
       if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
       await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-      const rApproved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
-      let homestays = [];
-      if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch (e) {} }
-      const rPending = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
-      if (rPending && rPending.data) { try { homestays = [...homestays, ...JSON.parse(rPending.data)]; } catch (e) {} }
+      let result;
+      try {
+        result = await withLock(db, `block-${homestayId}`, async (db) => {
+          const rApproved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
+          let homestays = [];
+          if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch (e) {} }
+          const rPending = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
+          if (rPending && rPending.data) { try { homestays = [...homestays, ...JSON.parse(rPending.data)]; } catch (e) {} }
 
-      const homestay = homestays.find(h => String(h.id) === String(homestayId));
-      if (!homestay) return jsonResponse({ error: 'Homestay not found' }, 404, request);
+          const homestay = homestays.find(h => String(h.id) === String(homestayId));
+          if (!homestay) return { error: 'Homestay not found', status: 404 };
 
-      if (!homestay.rooms) homestay.rooms = [];
-      const room = homestay.rooms.find(r => r.id === roomId);
-      if (!room) return jsonResponse({ error: 'Room not found' }, 404, request);
+          if (!homestay.rooms) homestay.rooms = [];
+          const room = homestay.rooms.find(r => r.id === roomId);
+          if (!room) return { error: 'Room not found', status: 404 };
 
-      if (!room.blockedDates) room.blockedDates = [];
+          if (!room.blockedDates) room.blockedDates = [];
 
-      const idx = room.blockedDates.indexOf(date);
-      let message = '';
-      if (idx !== -1) {
-        room.blockedDates.splice(idx, 1);
-        message = `Unblocked ${date} for ${room.name}`;
-      } else {
-        room.blockedDates.push(date);
-        room.blockedDates.sort();
-        message = `Blocked ${date} for ${room.name}`;
-      }
+          const idx = room.blockedDates.indexOf(date);
+          let message = '';
+          if (idx !== -1) {
+            room.blockedDates.splice(idx, 1);
+            message = `Unblocked ${date} for ${room.name}`;
+          } else {
+            room.blockedDates.push(date);
+            room.blockedDates.sort();
+            message = `Blocked ${date} for ${room.name}`;
+          }
 
-      let updated = false;
-      for (const key of ['kd_approved', 'kd_pending']) {
-        const res = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
-        let arr = [];
-        if (res && res.data) { try { arr = JSON.parse(res.data); } catch (e) {} }
-        const index = arr.findIndex(h => String(h.id) === String(homestayId));
-        if (index !== -1) {
-          arr[index] = homestay;
-          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-            .bind(key, JSON.stringify(arr))
-            .run();
-          updated = true;
+          let updated = false;
+          for (const key of ['kd_approved', 'kd_pending']) {
+            const res = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+            let arr = [];
+            if (res && res.data) { try { arr = JSON.parse(res.data); } catch (e) {} }
+            const index = arr.findIndex(h => String(h.id) === String(homestayId));
+            if (index !== -1) {
+              arr[index] = homestay;
+              await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+                .bind(key, JSON.stringify(arr))
+                .run();
+              updated = true;
+            }
+          }
+          if (!updated) return { error: 'Failed to save update', status: 500 };
+
+          return { success: true, message, room };
+        }, 15000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another availability change is in progress for this homestay. Please try again.' }, 429, request);
         }
+        throw lockErr;
       }
-      if (!updated) return jsonResponse({ error: 'Failed to save update' }, 500, request);
+
+      if (result.error) return jsonResponse({ error: result.error }, result.status || 400, request);
 
       await logAction({
         db,
         action: 'room_block_toggle',
         admin: 'owner',
-        details: `${message} (room: ${room.name})`,
+        details: `${result.message} (room: ${result.room.name})`,
         ip: clientIP,
         userId: ownerData.ownerId,
         homestayId: homestayId
       });
 
-      return jsonResponse({ success: true, message, room }, 200, request);
+      return jsonResponse({ success: true, message: result.message, room: result.room }, 200, request);
     }
 
-    // ===== ACTION: Update homestay price =====
+    // ===== ACTION: Update homestay price (LOCK PROTECTED) =====
     if (action === 'updateHomestayPrice') {
       const { homestayId, newPrice } = body;
       if (!homestayId || newPrice === undefined || newPrice === null) {
@@ -195,24 +209,34 @@ export async function onRequestPost({ request, env }) {
       if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
       await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-      let updated = false;
-      for (const key of ['kd_approved', 'kd_pending']) {
-        const res = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
-        let arr = [];
-        if (res && res.data) { try { arr = JSON.parse(res.data); } catch (e) {} }
-        const index = arr.findIndex(h => String(h.id) === String(homestayId));
-        if (index !== -1) {
-          arr[index].ownerPrice = priceNum;
-          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-            .bind(key, JSON.stringify(arr))
-            .run();
-          updated = true;
+      let result;
+      try {
+        result = await withLock(db, `price-${homestayId}`, async (db) => {
+          let updated = false;
+          for (const key of ['kd_approved', 'kd_pending']) {
+            const res = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+            let arr = [];
+            if (res && res.data) { try { arr = JSON.parse(res.data); } catch (e) {} }
+            const index = arr.findIndex(h => String(h.id) === String(homestayId));
+            if (index !== -1) {
+              arr[index].ownerPrice = priceNum;
+              await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+                .bind(key, JSON.stringify(arr))
+                .run();
+              updated = true;
+            }
+          }
+          if (!updated) return { error: 'Homestay not found in any store', status: 404 };
+          return { success: true };
+        }, 15000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another pricing change is in progress for this homestay. Please try again.' }, 429, request);
         }
+        throw lockErr;
       }
 
-      if (!updated) {
-        return jsonResponse({ error: 'Homestay not found in any store' }, 404, request);
-      }
+      if (result.error) return jsonResponse({ error: result.error }, result.status || 400, request);
 
       await logAction({
         db,
