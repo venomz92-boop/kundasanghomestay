@@ -1,17 +1,16 @@
-// /api/owner-login.js
+// /api/owner-login.js — Host login (timing-safe, multi-device)
 import {
-  corsHeaders,
-  getClientIP,
-  enforceHttps,
-  verifyPassword,
-  hashPassword,
-  createSignedToken,
-  cookieHeader,
-  jsonResponse,
-  checkRateLimit,
-  recordRateLimit,
-  parseJSONSafely
+  corsHeaders, getClientIP, enforceHttps, verifyPassword, hashPassword,
+  createSignedToken, cookieHeader, jsonResponse, checkRateLimit,
+  recordRateLimit, parseJSONSafely
 } from './_utils.js';
+
+// Dummy record for timing equalization on unknown WhatsApp numbers
+const DUMMY_OWNER_RECORD = {
+  ownerPasswordHash: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+  ownerSalt: 'AAAAAAAAAAAAAAAAAAAAAA',
+  ownerPasswordAlgorithm: 'PBKDF2-100000-SHA256'
+};
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
@@ -36,71 +35,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
 
-    // ===== 1) New host-account flow: check kd_owners =====
-    const ownersRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
-    let owners = [];
-    try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch(_) {}
-    const ownerAccount = owners.find(o =>
-      String(o.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp &&
-      o.ownerPasswordHash && o.ownerSalt
-    );
-
-    if (ownerAccount) {
-      const checked = await verifyPassword(cleanPassword, {
-        ownerPasswordHash: ownerAccount.ownerPasswordHash,
-        ownerSalt: ownerAccount.ownerSalt,
-        ownerPasswordAlgorithm: ownerAccount.ownerPasswordAlgorithm
-      }, env);
-
-      if (!checked.ok) {
-        await recordRateLimit(db, clientIP, 'owner_login');
-        return jsonResponse({ error: 'Invalid credentials' }, 401, request);
-      }
-
-      if (ownerAccount.verified !== true) {
-        return jsonResponse({ error: 'Please verify your email first. Check your inbox for the verification link.' }, 401, request);
-      }
-
-      // Migrate legacy password if needed
-      if (checked.legacy) {
-        const fresh = await hashPassword(cleanPassword, env);
-        ownerAccount.ownerPasswordHash = fresh.hash;
-        ownerAccount.ownerSalt = fresh.salt;
-        ownerAccount.ownerPasswordAlgorithm = fresh.algorithm;
-        ownerAccount.ownerPasswordVersion = (ownerAccount.ownerPasswordVersion || 0) + 1;
-        ownerAccount.ownerSessionVersion = (ownerAccount.ownerSessionVersion || 0) + 1;
-        const updatedOwners = owners.map(o => String(o.id) === String(ownerAccount.id) ? ownerAccount : o);
-        await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-          .bind('kd_owners', JSON.stringify(updatedOwners)).run();
-      }
-
-      // Find homestays owned by this whatsapp
-      const safeHomes = await collectOwnerHomestays(db, cleanWhatsapp);
-
-      const token = await createSignedToken({
-        type: 'owner',
-        ownerId: cleanWhatsapp,
-        homestayIds: safeHomes.map(h => String(h.id)),
-        ownerName: ownerAccount.ownerName,
-        whatsapp: cleanWhatsapp,
-        passwordVersion: ownerAccount.ownerPasswordVersion || 1,
-        ownerSessionVersion: ownerAccount.ownerSessionVersion || 1
-      }, env);
-
-      return new Response(JSON.stringify({
-        success: true,
-        homestays: safeHomes,
-        message: 'Login successful'
-      }), {
-        status: 200,
-        headers: {
-          ...corsHeaders(request),
-          'Set-Cookie': cookieHeader('owner_token', token, 86400)
-        }
-      });
-    }
-
-    // ===== 2) Legacy flow: check homestays by whatsapp =====
     const a = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_approved').first();
     const p = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_pending').first();
     let homes = [];
@@ -111,22 +45,27 @@ export async function onRequestPost({ request, env }) {
       String(h.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp &&
       h.ownerPasswordHash && h.ownerSalt
     );
-    if (!ownerHomes.length) {
+
+    // ---- TIMING-SAFE PATH ----
+    // Always run PBKDF2, even when the WhatsApp number is unknown.
+    const recordToCheck = ownerHomes.length > 0
+      ? {
+          ownerPasswordHash: ownerHomes[0].ownerPasswordHash,
+          ownerSalt: ownerHomes[0].ownerSalt,
+          ownerPasswordAlgorithm: ownerHomes[0].ownerPasswordAlgorithm
+        }
+      : DUMMY_OWNER_RECORD;
+
+    const checked = await verifyPassword(cleanPassword, recordToCheck, env);
+
+    if (ownerHomes.length === 0 || !checked.ok) {
       await recordRateLimit(db, clientIP, 'owner_login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
 
     const first = ownerHomes[0];
-    const checked = await verifyPassword(cleanPassword, {
-      ownerPasswordHash: first.ownerPasswordHash,
-      ownerSalt: first.ownerSalt,
-      ownerPasswordAlgorithm: first.ownerPasswordAlgorithm
-    }, env);
-    if (!checked.ok) {
-      await recordRateLimit(db, clientIP, 'owner_login');
-      return jsonResponse({ error: 'Invalid credentials' }, 401, request);
-    }
 
+    // Migrate legacy password
     if (checked.legacy) {
       const fresh = await hashPassword(cleanPassword, env);
       const version = (first.ownerPasswordVersion || 0) + 1;
@@ -135,7 +74,6 @@ export async function onRequestPost({ request, env }) {
         h.ownerSalt = fresh.salt;
         h.ownerPasswordAlgorithm = fresh.algorithm;
         h.ownerPasswordVersion = version;
-        h.ownerSessionVersion = (h.ownerSessionVersion || 0) + 1;
       }
       for (const keyName of ['kd_approved', 'kd_pending']) {
         const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind(keyName).first();
@@ -158,10 +96,15 @@ export async function onRequestPost({ request, env }) {
     }
 
     const homestayIds = ownerHomes.map(h => h.id);
-    const ownerSessionVersion = Math.max(...ownerHomes.map(h => h.ownerSessionVersion || 1));
+
+    // ---- MULTI-DEVICE POLICY ----
+    // Do NOT increment ownerSessionVersion on login. Multiple devices are
+    // allowed. Password reset is the only thing that force-invalidates all.
+    const ownerSessionVersion = Math.max(...ownerHomes.map(h => h.ownerSessionVersion || 0));
+
     const token = await createSignedToken({
       type: 'owner',
-      ownerId: cleanWhatsapp,
+      ownerId: String(first.id),
       homestayIds,
       ownerName: first.ownerName,
       whatsapp: cleanWhatsapp,
@@ -176,42 +119,20 @@ export async function onRequestPost({ request, env }) {
 
     return new Response(JSON.stringify({
       success: true,
+      token,
       homestays: safeHomes,
       message: 'Login successful'
     }), {
       status: 200,
       headers: {
         ...corsHeaders(request),
-        'Set-Cookie': cookieHeader('owner_token', token, 86400)
+        'Set-Cookie': cookieHeader('owner_token', token)
       }
     });
-
   } catch (e) {
     console.error('Owner login error:', e.message, e.stack);
     return jsonResponse({ error: 'Server error. Please try again later.' }, 500, request);
   }
-}
-
-async function collectOwnerHomestays(db, cleanWhatsapp) {
-  let homes = [];
-  for (const key of ['kd_approved', 'kd_pending']) {
-    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
-    if (!r?.data) continue;
-    try {
-      const arr = JSON.parse(r.data);
-      homes = homes.concat(arr.filter(h =>
-        String(h.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp
-      ));
-    } catch (_) {}
-  }
-  const safeHomes = homes.map(h => {
-    const {
-      ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm,
-      ownerPasswordVersion, ownerSessionVersion, ...rest
-    } = h;
-    return rest;
-  });
-  return safeHomes;
 }
 
 export async function onRequestOptions({ request }) {
