@@ -104,7 +104,8 @@ export async function onRequestPost({ request, env }) {
     const booking = bookings[idx];
 
     // Already paid
-    if (booking.status === 'Paid - Awaiting Check-in' || booking.status === 'Completed') {
+    const s = String(booking.status || '');
+    if (s === 'Paid - Awaiting Check-in' || s === 'Completed' || s.startsWith('Completed')) {
       return jsonResponse({
         success: true,
         alreadyPaid: true,
