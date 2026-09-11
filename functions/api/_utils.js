@@ -178,7 +178,7 @@ export function getBearerToken(request, headerName = 'Authorization') {
 
 export function getCookie(request, name) {
   const cookie = request.headers.get('Cookie') || '';
-  const match = cookie.match(new RegExp('(?:^|;\\s*)' + name.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&') + '=([^;]*)'));
+  const match = cookie.match(new RegExp('(?:^|;\\s*)' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
   return match ? decodeURIComponent(match[1]) : null;
 }
 
@@ -274,7 +274,7 @@ export function corsHeaders(request) {
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Owner-Authorization, X-CSRF-Token, X-Toyyibpay-Secret',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Owner-Authorization, X-CSRF-Token',
     'Access-Control-Max-Age': '86400',
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -697,7 +697,11 @@ export async function finalizePaidBooking(db, bookingId) {
   }
 
   const codeWasMissing = !booking.checkinCode;
-  const code = booking.checkinCode || Math.floor(100000 + Math.random() * 900000).toString();
+  const code = booking.checkinCode || (() => {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return String(100000 + (buf[0] % 900000));
+})();
 
   const updated = {
     ...booking,
