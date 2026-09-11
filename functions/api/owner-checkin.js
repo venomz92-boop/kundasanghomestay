@@ -72,18 +72,22 @@ async function hmacSha512(message, secret) {
 
 async function saveBankAccountId(db, homestayId, bankAccountId) {
   if (!homestayId) return;
-  for (const store of ['kd_approved', 'kd_homestays']) {
+  // Write to all stores where this homestay may exist. Do NOT break after
+  // the first match — a homestay can briefly appear in both kd_approved
+  // and kd_homestays after an approval.
+  for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
     const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
     let list = [];
     try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
+    if (!Array.isArray(list) || list.length === 0) continue;
+
     const idx = list.findIndex(h => String(h.id) === String(homestayId));
-    if (idx !== -1) {
-      list[idx].chip_bank_account_id = bankAccountId;
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind(store, JSON.stringify(list))
-        .run();
-      break;
-    }
+    if (idx === -1) continue;
+
+    list[idx].chip_bank_account_id = bankAccountId;
+    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+      .bind(store, JSON.stringify(list))
+      .run();
   }
 }
 
