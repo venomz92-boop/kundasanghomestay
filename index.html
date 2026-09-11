@@ -1621,13 +1621,29 @@ if (list.length === 0) {
   }
 
   // ---- Case 2: user cancelled or payment failed ----
+  // ---- Case 2: user cancelled or payment failed ----
   if (params.get('payment') === 'cancel' || params.get('payment') === 'failed' || statusId === '3') {
+    // Ensure CSRF token exists before sending the status update —
+    // otherwise the request is silently rejected with 403 and the
+    // booking stays stuck in "Pending Payment".
+    let csrf = localStorage.getItem('kd_csrf_token');
+    if (!csrf) {
+      try {
+        const r = await fetch('/api/csrf-token', { credentials: 'include' });
+        const d = await r.json();
+        if (d.token) {
+          localStorage.setItem('kd_csrf_token', d.token);
+          csrf = d.token;
+        }
+      } catch (e) { /* best-effort */ }
+    }
+
     try {
       await fetch('/api/bookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...getCsrfHeader()
+          ...(csrf ? { 'X-CSRF-Token': csrf } : {})
         },
         credentials: 'include',
         body: JSON.stringify({
