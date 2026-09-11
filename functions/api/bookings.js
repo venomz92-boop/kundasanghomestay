@@ -297,9 +297,13 @@ function removedEmailHtml({ ownerName, homestayName, env }) {
 }
 
 async function verifyAdmin(request, env) {
-  const auth = await getAdminToken(request);
-  if (!env.ADMIN_TOKEN) return new Response(JSON.stringify({ error: "Server misconfigured" }), { status: 500, headers: corsHeaders(request) });
-  if (auth !== env.ADMIN_TOKEN) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders(request) });
+  const ok = await verifyAdminAuth(request, env);
+  if (!ok) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: corsHeaders(request)
+    });
+  }
   return null;
 }
 
@@ -345,9 +349,8 @@ export async function onRequestGet({ request, env }) {
   try {
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    const guestSession = await getGuestSession(request, env);
-    const adminToken = await getAdminToken(request);
-    const isAdmin = adminToken && adminToken === env.ADMIN_TOKEN;
+   const guestSession = await getGuestSession(request, env);
+   const isAdmin = await verifyAdminAuth(request, env);
 
     const keys = ['kd_bookings', 'kd_approved', 'kd_pending', 'kd_guests',
                   'kd_demo_overrides', 'kd_demo_blocked', 'kd_deleted_demo'];
