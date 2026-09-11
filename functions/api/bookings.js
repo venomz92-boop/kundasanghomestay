@@ -462,6 +462,11 @@ export async function onRequestPost({ request, env }) {
           bookingId = `KDH-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
         }
 
+        // NOTE: checkinCode is intentionally NOT generated here.
+        // It is generated on payment success by finalizePaidBooking() in _utils.js.
+        // This ensures the code is never sent to the browser before payment,
+        // and that the guest receives the code via email after payment.
+
         const booking = {
           id: bookingId,
           homestay: homestay.name,
@@ -1010,11 +1015,15 @@ export async function onRequestPost({ request, env }) {
       const { approved, demoOverrides, demoBlocked, deletedDemo } = body;
 
       if (!Array.isArray(approved)) {
-     for (const h of approved) {
-    if (!h || typeof h !== 'object' || !h.id || !h.name) {
-    return jsonResponse({ error: 'Invalid homestay entry in approved array' }, 400, request);
-    }
-  }
+        return jsonResponse({ error: 'Invalid approved data' }, 400, request);
+      }
+
+      // Validate each entry has the minimum shape we need.
+      for (const h of approved) {
+        if (!h || typeof h !== 'object' || !h.id || !h.name) {
+          return jsonResponse({ error: 'Invalid homestay entry in approved array' }, 400, request);
+        }
+      }
 
       const stmts = [];
       stmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
