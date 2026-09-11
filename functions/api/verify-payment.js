@@ -223,19 +223,31 @@ export async function onRequestPost({ request, env }) {
 
           const { checkinCode, ...safeBooking } = finalizeResult.booking;
           return jsonResponse({ success: true, booking: safeBooking, paid: true }, 200, request);
-        } else if (purchaseStatus === 'cancelled' || purchaseStatus === 'expired' || purchaseStatus === 'failed') {
-          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-            .bind('kd_bookings', JSON.stringify(bookings))
-            .run();
-          const { checkinCode, ...safeBooking } = bookings[idx];
-          return jsonResponse({
-            success: false,
-            message: 'Payment failed or expired.',
-            retry: true,
-            booking: safeBooking,
-            paymentStatus: 'failed'
-          }, 200, request);
-        } else {
+     } else if (purchaseStatus === 'cancelled' || purchaseStatus === 'expired' || purchaseStatus === 'failed') {
+  // Only downgrade the status if the booking is still awaiting payment.
+  // Never overwrite a Paid/Completed booking due to a stale CHIP response.
+    const currentStatus = String(bookings[idx].status || '');
+    const alreadyPaid = currentStatus === 'Paid - Awaiting Check-in' || currentStatus.startsWith('Completed');
+    if (!alreadyPaid) {
+    bookings[idx].status = 'Payment Failed';
+    bookings[idx].chip_status = purchaseStatus;
+    bookings[idx].statusUpdated = new Date().toISOString();
+    await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+      .bind('kd_bookings', JSON.stringify(bookings))
+      .run();
+      }
+      const { checkinCode, ...safeBooking } = bookings[idx];
+      return jsonResponse({
+      success: false,
+      message: alreadyPaid
+      ? 'Payment already confirmed.'
+      : 'Payment failed or expired.',
+      retry: !alreadyPaid,
+      booking: safeBooking,
+      paymentStatus: alreadyPaid ? 'paid' : 'failed'
+      }, 200, request);
+      }
+         else {
           const { checkinCode, ...safeBooking } = booking;
           return jsonResponse({
             success: false,
