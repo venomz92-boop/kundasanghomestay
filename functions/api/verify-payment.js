@@ -1,5 +1,67 @@
-// /api/verify-payment.js – Secured with authentication
+// /api/verify-payment.js – Secured with authentication + late-payment auto-refund
 import { corsHeaders, getClientIP, logAction, enforceHttps, getGuestSession, jsonResponse, checkRateLimit, recordRateLimit, withLock, finalizePaidBooking } from './_utils.js';
+
+// ============================================================
+// Helper: refund a cancelled booking whose CHIP payment settled late.
+// ============================================================
+async function tryAutoRefundLatePayment(db, bookingId, env) {
+  return withLock(db, `refund-${bookingId}`, async (db) => {
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+    let bookings = [];
+    try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+    const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
+    if (idx === -1) return { error: 'Booking not found' };
+    const b = bookings[idx];
+
+    if (b.chip_refund_id) {
+      return { alreadyRefunded: true, refundId: b.chip_refund_id };
+    }
+    if (!b.chip_purchase_id) {
+      return { error: 'No chip_purchase_id to refund' };
+    }
+
+    const secret = env.CHIP_SECRET_KEY;
+    if (!secret) return { error: 'CHIP_SECRET_KEY missing' };
+
+    const refundAmountCents = Math.round(Number(b.total) * 100);
+
+    try {
+      const res = await fetch(
+        `https://gate.chip-in.asia/api/v1/purchases/${b.chip_purchase_id}/refund/`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${secret}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ amount: refundAmountCents })
+        }
+      );
+      const data = await res.json();
+
+      if (!res.ok || !data.id) {
+        return { error: `CHIP refund failed: ${data.error || 'unknown'}` };
+      }
+
+      const isPending = data.status === 'pending_refund';
+
+      bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded - Late Payment';
+      bookings[idx].chip_refund_id = data.id;
+      bookings[idx].refunded_at = new Date().toISOString();
+      bookings[idx].refund_amount = Number(b.total) || 0;
+      bookings[idx].late_payment_refund = true;
+      if (isPending) bookings[idx].refund_pending = true;
+
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings))
+        .run();
+
+      return { success: true, refundId: data.id, pending: isPending };
+    } catch (e) {
+      return { error: `Refund network error: ${e.message}` };
+    }
+  }, 60000);
+}
 
 async function sendCheckinEmail(booking, env) {
   const receiptNo = `RCP-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${booking.id.slice(-6)}`;
@@ -154,10 +216,22 @@ export async function onRequestPost({ request, env }) {
 
     const status = booking.status || 'Pending Payment';
 
-    // ===== 4. ALREADY PAID =====
-    if (['Paid - Awaiting Check-in', 'Completed'].includes(status)) {
+    // ===== 4. ALREADY PAID (or already terminal) =====
+    if (['Paid - Awaiting Check-in', 'Completed'].includes(status) || status.startsWith('Completed')) {
       const { checkinCode, ...safeBooking } = booking;
       return jsonResponse({ success: true, booking: safeBooking, paid: true }, 200, request);
+    }
+
+    // BUG E fix: cancelled/refunded/expired bookings are terminal — don't touch.
+    if (/cancelled|refunded|expired/i.test(status)) {
+      const { checkinCode, ...safeBooking } = booking;
+      return jsonResponse({
+        success: false,
+        message: `This booking is ${status}.`,
+        retry: false,
+        booking: safeBooking,
+        paymentStatus: 'failed'
+      }, 200, request);
     }
 
     // ===== 5. CHIP CHECK (if purchase ID exists) =====
@@ -191,7 +265,7 @@ export async function onRequestPost({ request, env }) {
         const purchase = await resp.json();
         const purchaseStatus = purchase.status;
 
-                if (purchaseStatus === 'completed' || purchaseStatus === 'paid') {
+        if (purchaseStatus === 'completed' || purchaseStatus === 'paid') {
           let finalizeResult;
           try {
             finalizeResult = await withLock(db, `paid-${booking.id}`, async (db) => {
@@ -216,6 +290,30 @@ export async function onRequestPost({ request, env }) {
             return jsonResponse({ error: finalizeResult.error }, 500, request);
           }
 
+          // BUG B fix: refuseFinalize means booking was cancelled while CHIP
+          // processed the payment. Auto-refund.
+          if (finalizeResult.refuseFinalize) {
+            const refundResult = await tryAutoRefundLatePayment(db, booking.id, env);
+            await logAction({
+              db,
+              action: refundResult.success ? 'late_payment_auto_refunded' : 'late_payment_refund_failed',
+              admin: 'system',
+              details: `Refused to finalize ${booking.id}: ${finalizeResult.reason}. Refund: ${refundResult.success ? refundResult.refundId : refundResult.error}`,
+              ip: clientIP,
+              userId: session.userId,
+              homestayId: booking.homestayId
+            });
+            return jsonResponse({
+              success: false,
+              paid: false,
+              refunded: refundResult.success === true,
+              message: refundResult.success
+                ? 'Your booking was cancelled. The payment has been refunded to your account.'
+                : 'Your booking was cancelled, but the refund could not be processed automatically. Please contact support.',
+              paymentStatus: 'failed'
+            }, 200, request);
+          }
+
           // If WE finalized it and code was newly generated, send email.
           if (finalizeResult.finalized && finalizeResult.codeWasMissing) {
             await sendCheckinEmail(finalizeResult.booking, env);
@@ -223,31 +321,31 @@ export async function onRequestPost({ request, env }) {
 
           const { checkinCode, ...safeBooking } = finalizeResult.booking;
           return jsonResponse({ success: true, booking: safeBooking, paid: true }, 200, request);
-     } else if (purchaseStatus === 'cancelled' || purchaseStatus === 'expired' || purchaseStatus === 'failed') {
-  // Only downgrade the status if the booking is still awaiting payment.
-  // Never overwrite a Paid/Completed booking due to a stale CHIP response.
-    const currentStatus = String(bookings[idx].status || '');
-    const alreadyPaid = currentStatus === 'Paid - Awaiting Check-in' || currentStatus.startsWith('Completed');
-    if (!alreadyPaid) {
-    bookings[idx].status = 'Payment Failed';
-    bookings[idx].chip_status = purchaseStatus;
-    bookings[idx].statusUpdated = new Date().toISOString();
-    await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-      .bind('kd_bookings', JSON.stringify(bookings))
-      .run();
-      }
-      const { checkinCode, ...safeBooking } = bookings[idx];
-      return jsonResponse({
-      success: false,
-      message: alreadyPaid
-      ? 'Payment already confirmed.'
-      : 'Payment failed or expired.',
-      retry: !alreadyPaid,
-      booking: safeBooking,
-      paymentStatus: alreadyPaid ? 'paid' : 'failed'
-      }, 200, request);
-      }
-         else {
+        } else if (purchaseStatus === 'cancelled' || purchaseStatus === 'expired' || purchaseStatus === 'failed') {
+          // Only downgrade the status if the booking is still awaiting payment.
+          const currentStatus = String(bookings[idx].status || '');
+          const isTerminal = currentStatus === 'Paid - Awaiting Check-in'
+            || currentStatus.startsWith('Completed')
+            || /cancelled|refunded|expired/i.test(currentStatus);
+          if (!isTerminal) {
+            bookings[idx].status = 'Payment Failed';
+            bookings[idx].chip_status = purchaseStatus;
+            bookings[idx].statusUpdated = new Date().toISOString();
+            await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_bookings', JSON.stringify(bookings))
+              .run();
+          }
+          const { checkinCode, ...safeBooking } = bookings[idx];
+          return jsonResponse({
+            success: false,
+            message: isTerminal
+              ? 'Payment already confirmed.'
+              : 'Payment failed or expired.',
+            retry: !isTerminal,
+            booking: safeBooking,
+            paymentStatus: isTerminal ? 'paid' : 'failed'
+          }, 200, request);
+        } else {
           const { checkinCode, ...safeBooking } = booking;
           return jsonResponse({
             success: false,
@@ -271,21 +369,4 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ===== 6. FALLBACK =====
-    const { checkinCode, ...safeBooking } = booking;
-    return jsonResponse({
-      success: false,
-      message: 'No payment provider found for this booking.',
-      retry: true,
-      booking: safeBooking,
-      paymentStatus: 'pending'
-    }, 200, request);
-
-  } catch (e) {
-    console.error('verify-payment error:', e.message);
-    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500, request);
-  }
-}
-
-export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
-}
+   
