@@ -1371,12 +1371,18 @@ async function submitHomestay() {
     });
     const syncData = await syncRes.json();
 
-    if (!syncRes.ok) {
+       if (!syncRes.ok) {
+      const errMsg = syncData.error || 'Server error';
+      const hint = syncData.hint ? ' ' + syncData.hint : '';
       if (statusEl) {
         statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
-        statusEl.textContent = '❌ Cloud handshake failed. Saved in locally cached staging.';
+        statusEl.textContent = '❌ ' + errMsg + hint;
       }
-      throw new Error(syncData.error || 'Server error');
+      // For duplicate cases, show an alert with a link to owner login
+      if (syncData.code === 'ALREADY_APPROVED' || syncData.code === 'ALREADY_PENDING') {
+        await showAlert('Listing Already On File', errMsg + hint);
+      }
+      throw new Error(errMsg);
     }
 
     if (statusEl) {
