@@ -264,7 +264,9 @@ export async function onRequestPost({ request, env }) {
     if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // ========== ACTION: CHANGE DATES (LOCK PROTECTED) ==========
+    // ========== ACTION: CHANGE DATES ==========
+    // Unpaid: any length, price recalculated from current homestay.ownerPrice.
+    // Paid: only same-length shifts. Price fields preserved exactly as paid.
     if (action === 'changeDates') {
       if (!checkin || !checkout) {
         return jsonResponse({ error: 'Missing checkin or checkout' }, 400, request);
@@ -281,7 +283,7 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: `Maximum booking length is ${MAX_NIGHTS} nights.` }, 400, request);
       }
 
-      // Pre-fetch to determine which homestay to lock
+      // Pre-fetch to determine ownership + state
       const preRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
       let preBookings = [];
       try { if (preRes?.data) preBookings = JSON.parse(preRes.data); } catch (_) {}
@@ -293,15 +295,16 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
       }
 
-      if (isPaidBooking(preBooking) || isOwnerPaidOut(preBooking)) {
+      // Block ONLY if the booking has already been paid out to the owner.
+      // Paid-but-not-yet-paid-out bookings CAN have dates shifted.
+      if (isOwnerPaidOut(preBooking)) {
         return jsonResponse({
-          error: 'Cannot change dates for a paid or completed booking. Please cancel and rebook, or contact support.'
+          error: 'This booking has already been completed and paid out to you. Dates cannot be changed anymore.'
         }, 400, request);
       }
 
       let result;
       try {
-        // Lock on the homestay ID — same lock as createPublicBooking
         result = await withLock(db, String(preBooking.homestayId), async (db) => {
           const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
           let bookings = [];
@@ -311,15 +314,34 @@ export async function onRequestPost({ request, env }) {
 
           const booking = bookings[idx];
 
-          // Re-check state inside lock
-          if (isPaidBooking(booking) || isOwnerPaidOut(booking)) {
+          // Re-check inside lock (state may have changed)
+          if (isOwnerPaidOut(booking)) {
             return {
-              error: 'Booking was paid or completed while you were editing. Refresh and try again.',
+              error: 'Booking was completed and paid out while you were editing. Refresh and try again.',
               status: 409
             };
           }
 
-          // Load homestay + availability inside lock
+          const isPaid = isPaidBooking(booking);
+
+          // ============================================================
+          // PAID BOOKINGS: same-length shift only.
+          // The guest already paid for N nights. We allow shifting to
+          // different dates but with the SAME N, so the paid amount
+          // remains correct. Changing the length requires cancel + rebook
+          // (which triggers an automatic CHIP refund).
+          // ============================================================
+          if (isPaid) {
+            const originalNights = Number(booking.nights) || 1;
+            if (nights !== originalNights) {
+              return {
+                error: `This booking is already paid for ${originalNights} night${originalNights !== 1 ? 's' : ''}. You can shift the dates but the length must stay the same. To change the length, please cancel the booking (the guest gets an automatic refund) and ask them to rebook.`,
+                status: 400
+              };
+            }
+          }
+
+          // Load homestay + blocked dates inside lock
           const rApproved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
           let homestays = [];
           try { if (rApproved?.data) homestays = JSON.parse(rApproved.data); } catch (e) {}
@@ -329,7 +351,6 @@ export async function onRequestPost({ request, env }) {
           const homestay = homestays.find(h => String(h.id) === String(booking.homestayId));
           if (!homestay) return { error: 'Homestay not found', status: 404 };
 
-          const oldDates = getDatesInRange(booking.checkin, booking.checkout);
           const newDates = getDatesInRange(checkin, checkout);
 
           // Build a set of blocked dates EXCLUDING this booking's own dates
@@ -337,7 +358,6 @@ export async function onRequestPost({ request, env }) {
           for (const b of bookings) {
             if (String(b.id) === String(bookingId)) continue;
             if (/cancelled|failed|expired/i.test(String(b.status || ''))) continue;
-            // Only consider same room (or same homestay when no room)
             if (booking.roomId) {
               if (String(b.roomId) !== String(booking.roomId)) continue;
             } else {
@@ -346,9 +366,7 @@ export async function onRequestPost({ request, env }) {
             for (const d of getDatesInRange(b.checkin, b.checkout)) otherBookingsBlocked.add(d);
           }
 
-          // Homestay-level blocked dates
           const homestayBlocked = new Set((homestay.blockedDates || []).map(String));
-          // Room-level blocked dates
           const roomBlocked = new Set();
           if (booking.roomId && homestay.rooms) {
             const room = homestay.rooms.find(r => String(r.id) === String(booking.roomId));
@@ -357,7 +375,6 @@ export async function onRequestPost({ request, env }) {
             }
           }
 
-          // Check overlap
           const conflicts = [];
           for (const d of newDates) {
             if (otherBookingsBlocked.has(d)) conflicts.push(d);
@@ -368,22 +385,31 @@ export async function onRequestPost({ request, env }) {
             return { error: `Dates overlap with existing bookings: ${conflicts.join(', ')}`, status: 400 };
           }
 
-          const price = calculatePrice(homestay.ownerPrice, nights);
+          // Update dates + nights
           bookings[idx].checkin = checkin;
           bookings[idx].checkout = checkout;
           bookings[idx].nights = nights;
-          bookings[idx].base = price.base;
-          bookings[idx].fee = price.fee;
-          bookings[idx].gatewayFee = price.gatewayFee;
-          bookings[idx].total = price.total;
-          bookings[idx].youReceive = price.youReceive;
           bookings[idx].statusUpdated = new Date().toISOString();
+
+          // Only recalculate price for UNPAID bookings.
+          // Paid bookings keep their original base/fee/gateway/total/youReceive.
+          if (!isPaid) {
+            const price = calculatePrice(homestay.ownerPrice, nights);
+            bookings[idx].base = price.base;
+            bookings[idx].fee = price.fee;
+            bookings[idx].gatewayFee = price.gatewayFee;
+            bookings[idx].total = price.total;
+            bookings[idx].youReceive = price.youReceive;
+          } else {
+            // Mark that a paid booking had its dates shifted (for audit)
+            bookings[idx].paidDateShiftedAt = new Date().toISOString();
+          }
 
           await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
             .bind('kd_bookings', JSON.stringify(bookings))
             .run();
 
-          return { success: true, booking: bookings[idx] };
+          return { success: true, booking: bookings[idx], isPaid };
         }, 30000);
       } catch (lockErr) {
         if (lockErr.message && lockErr.message.includes('in progress')) {
@@ -400,9 +426,9 @@ export async function onRequestPost({ request, env }) {
 
       await logAction({
         db,
-        action: 'booking_dates_changed_owner',
+        action: result.isPaid ? 'booking_dates_shifted_paid_owner' : 'booking_dates_changed_owner',
         admin: 'owner',
-        details: `Booking ${bookingId} dates → ${checkin} → ${checkout}`,
+        details: `Booking ${bookingId} dates → ${checkin} → ${checkout}${result.isPaid ? ' (paid — same-length shift, price unchanged)' : ''}`,
         ip: clientIP,
         userId: ownerData.ownerId,
         homestayId: preBooking.homestayId
@@ -410,7 +436,7 @@ export async function onRequestPost({ request, env }) {
 
       return jsonResponse({
         success: true,
-        message: `Booking dates updated to ${checkin} → ${checkout}`,
+        message: `Booking dates updated to ${checkin} → ${checkout}` + (result.isPaid ? ' (paid amount unchanged).' : ''),
         booking: result.booking
       }, 200, request);
     }
@@ -496,7 +522,7 @@ export async function onRequestPost({ request, env }) {
             refundError,
             booking: bookings[idx]
           };
-        }, 60000); // 60s — refund API can be slow
+        }, 60000);
       } catch (lockErr) {
         if (lockErr.message && lockErr.message.includes('in progress')) {
           return jsonResponse({
