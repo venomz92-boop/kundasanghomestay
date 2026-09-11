@@ -2,13 +2,16 @@
 export function onRequest(context) {
   const { request } = context;
   const url = new URL(request.url);
-  
-  // Enforce HTTPS
+
+  // Enforce HTTPS (usually redundant — Cloudflare terminates TLS — but harmless)
   if (url.protocol === 'http:') {
     url.protocol = 'https:';
-    return Response.redirect(url.toString(), 301);
+    return new Response(null, {
+      status: 301,
+      headers: { Location: url.toString() }
+    });
   }
-  
+
   // Continue to the next handler
   return context.next();
 }
