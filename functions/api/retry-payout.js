@@ -92,6 +92,12 @@ export async function onRequestPost({ request, env }) {
         if (!booking.checkedInAt) {
           return { error: 'Cannot retry payout before check-in.', status: 400 };
         }
+        if (booking.payoutUnknown) {
+          return {
+            error: `Payout state is UNKNOWN (${booking.payoutUnknownAt || 'unknown time'}). Check CHIP dashboard for reference KDH-${bookingId} before retrying.`,
+            status: 409
+          };
+        }
 
         // Find homestay
         let homestay = null;
@@ -168,17 +174,42 @@ export async function onRequestPost({ request, env }) {
         const epoch = Math.floor(Date.now() / 1000);
         const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
 
-        const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'epoch': String(epoch),
-            'checksum': checksum
-          },
-          body: JSON.stringify(payoutPayload)
-        });
-        const payoutData = await payoutRes.json();
+                bookings[idx].payoutAttemptedAt = new Date().toISOString();
+        bookings[idx].payoutAttemptedReference = reference;
+        bookings[idx].payoutAttemptedAmount = ownerAmount;
+
+        let payoutRes;
+        try {
+          payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+              'epoch': String(epoch),
+              'checksum': checksum
+            },
+            body: JSON.stringify(payoutPayload)
+          });
+        } catch (networkErr) {
+          bookings[idx].payoutUnknown = true;
+          bookings[idx].payoutUnknownAt = new Date().toISOString();
+          bookings[idx].payoutUnknownError = networkErr.message || 'Network error';
+          bookings[idx].status = 'Completed - Payout Unknown';
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+          return {
+            error: `Payout status UNKNOWN due to network error. Check CHIP dashboard for reference ${reference}.`,
+            status: 502
+          };
+        }
+
+        let payoutData;
+        try {
+          payoutData = await payoutRes.json();
+        } catch (_) {
+          payoutData = {};
+        }
 
         if (!payoutRes.ok || !payoutData.id) {
           return { error: 'CHIP Send failed: ' + (payoutData.error || 'unknown'), status: 502 };
