@@ -369,4 +369,21 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ===== 6. FALLBACK =====
-   
+    const { checkinCode, ...safeBooking } = booking;
+    return jsonResponse({
+      success: false,
+      message: 'No payment provider found for this booking.',
+      retry: true,
+      booking: safeBooking,
+      paymentStatus: 'pending'
+    }, 200, request);
+
+  } catch (e) {
+    console.error('verify-payment error:', e.message);
+    return jsonResponse({ error: 'Internal server error. Please try again later.' }, 500, request);
+  }
+}
+
+export async function onRequestOptions({ request }) {
+  return new Response(null, { headers: corsHeaders(request) });
+}
