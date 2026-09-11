@@ -12,6 +12,13 @@ import {
 
 const OWNER_TTL_SECONDS = 24 * 60 * 60; // 24h
 
+function redirectTo(url, extraHeaders = {}) {
+  return new Response(null, {
+    status: 302,
+    headers: { 'Location': url, ...extraHeaders }
+  });
+}
+
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -21,13 +28,13 @@ export async function onRequestGet({ request, env }) {
   const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
 
   if (!token) {
-    return Response.redirect(`${domain}/login.html?error=missing_token`, 302);
+    return redirectTo(`${domain}/login.html?error=missing_token`);
   }
 
   try {
     const payload = await verifySignedToken(token, env);
     if (!payload || payload.type !== 'owner_email_verification') {
-      return Response.redirect(`${domain}/login.html?error=invalid_token`, 302);
+      return redirectTo(`${domain}/login.html?error=invalid_token`);
     }
 
     const db = env.DB;
@@ -40,12 +47,12 @@ export async function onRequestGet({ request, env }) {
 
     const idx = owners.findIndex(o => String(o.id) === String(payload.userId));
     if (idx === -1) {
-      return Response.redirect(`${domain}/login.html?error=user_not_found`, 302);
+      return redirectTo(`${domain}/login.html?error=user_not_found`);
     }
 
-    if (owners[idx].verified === true) {
-      // Already verified — issue a session and redirect to list.html
-      const owner = owners[idx];
+    const owner = owners[idx];
+
+    if (owner.verified === true) {
       const session = await createSignedToken({
         type: 'owner',
         ownerId: owner.whatsapp,
@@ -55,13 +62,10 @@ export async function onRequestGet({ request, env }) {
         ownerSessionVersion: owner.ownerSessionVersion || 1
       }, env, OWNER_TTL_SECONDS * 1000);
 
-      return new Response(null, {
-        status: 302,
-        headers: {
-          'Location': `${domain}/list.html?verified=already`,
-          'Set-Cookie': cookieHeader('owner_token', session, OWNER_TTL_SECONDS)
-        }
-      });
+      return redirectTo(
+        `${domain}/list.html?verified=already`,
+        { 'Set-Cookie': cookieHeader('owner_token', session, OWNER_TTL_SECONDS) }
+      );
     }
 
     owners[idx].verified = true;
@@ -69,8 +73,6 @@ export async function onRequestGet({ request, env }) {
     await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
       .bind('kd_owners', JSON.stringify(owners))
       .run();
-
-    const owner = owners[idx];
 
     // Collect any existing homestays already owned by this whatsapp
     let homestayIds = [];
@@ -105,16 +107,13 @@ export async function onRequestGet({ request, env }) {
       userId: owner.id
     });
 
-    return new Response(null, {
-      status: 302,
-      headers: {
-        'Location': `${domain}/list.html?verified=1`,
-        'Set-Cookie': cookieHeader('owner_token', session, OWNER_TTL_SECONDS)
-      }
-    });
+    return redirectTo(
+      `${domain}/list.html?verified=1`,
+      { 'Set-Cookie': cookieHeader('owner_token', session, OWNER_TTL_SECONDS) }
+    );
 
   } catch (e) {
     console.error('Owner verification error:', e.message, e.stack);
-    return Response.redirect(`${domain}/login.html?error=server_error`, 302);
+    return redirectTo(`${domain}/login.html?error=server_error`);
   }
 }
