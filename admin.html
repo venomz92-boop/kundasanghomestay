@@ -1645,8 +1645,28 @@ async function changeBookingDates(id){
   const oldBlocked = getAllBlockedDatesForHomestay(h);
   const oldDates = getDatesInRange(b.checkin, b.checkout);
   const temp = oldBlocked.filter(d => !oldDates.includes(d));
+
+  // Room-level blocked dates (matches server-side check)
+  let roomBlocked = [];
+  if (b.roomId && h && Array.isArray(h.rooms)) {
+    const room = h.rooms.find(r => String(r.id) === String(b.roomId));
+    if (room && Array.isArray(room.blockedDates)) {
+      roomBlocked = room.blockedDates.filter(d => !oldDates.includes(d));
+    }
+  }
+
   const req = getDatesInRange(ci, co);
-  if(req.filter(d => temp.includes(d)).length > 0){ await showAlert("Overlap", "Dates overlap with existing bookings"); return; }
+  const homestayOverlap = req.filter(d => temp.includes(d));
+  const roomOverlap = req.filter(d => roomBlocked.includes(d));
+  if (homestayOverlap.length > 0) {
+    await showAlert("Overlap", "Dates overlap with existing bookings: " + homestayOverlap.join(", "));
+    return;
+  }
+  if (roomOverlap.length > 0) {
+    await showAlert("Room Blocked", "Selected room is blocked on: " + roomOverlap.join(", "));
+    return;
+  }
+
   const nights=calculateNights(ci,co);
   const price=calculatePrice(h.ownerPrice,nights);
   b.checkin=ci; b.checkout=co; b.nights=nights; b.base=price.base; b.fee=price.fee; b.total=price.total; b.youReceive=price.youReceive;
