@@ -333,8 +333,27 @@ export function getCSRFToken(request) {
 }
 
 // === Admin token retrieval ===
+// Raw extractor (kept for backwards compatibility)
 export async function getAdminToken(request) {
   return getBearerToken(request) || getCookie(request, 'admin_token');
+}
+
+// === Admin session verification (signed, expiring) ===
+export async function getAdminSession(request, env) {
+  const token = getBearerToken(request) || getCookie(request, 'admin_token');
+  if (!token) return null;
+  try {
+    const payload = await verifySignedToken(token, env);
+    if (!payload || payload.type !== 'admin') return null;
+    return payload;
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function verifyAdminAuth(request, env) {
+  const session = await getAdminSession(request, env);
+  return !!session;
 }
 
 // === JSON responses ===
