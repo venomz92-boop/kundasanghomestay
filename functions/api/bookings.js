@@ -1010,8 +1010,11 @@ export async function onRequestPost({ request, env }) {
       const { approved, demoOverrides, demoBlocked, deletedDemo } = body;
 
       if (!Array.isArray(approved)) {
-        return jsonResponse({ error: 'Invalid approved data' }, 400, request);
-      }
+     for (const h of approved) {
+    if (!h || typeof h !== 'object' || !h.id || !h.name) {
+    return jsonResponse({ error: 'Invalid homestay entry in approved array' }, 400, request);
+    }
+  }
 
       const stmts = [];
       stmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
