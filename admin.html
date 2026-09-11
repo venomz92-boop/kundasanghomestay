@@ -574,6 +574,41 @@ body {
 // =============================================================
 // DOMPurify Helper
 // =============================================================
+
+// ===== CSS sanitizer hook — strips url()/expression() etc from style attributes =====
+(function() {
+  if (typeof DOMPurify === 'undefined') return;
+  if (window.__kdCssHookInstalled) return;
+  window.__kdCssHookInstalled = true;
+
+  // Dangerous CSS patterns: url() loaders, JS execution, and legacy vectors
+  const DANGEROUS_RULE = /(?:\burl\s*\(|expression\s*\(|\bbehavior\s*:|-moz-binding|@import|javascript\s*:)/i;
+
+  DOMPurify.addHook('afterSanitizeAttributes', function (node) {
+    if (!node.getAttribute || !node.hasAttribute) return;
+    if (!node.hasAttribute('style')) return;
+
+    const raw = node.getAttribute('style') || '';
+    if (!raw) return;
+
+    // If nothing dangerous, leave as-is (keeps performance high)
+    if (!DANGEROUS_RULE.test(raw)) return;
+
+    const safeRules = raw
+      .split(';')
+      .map(r => r.trim())
+      .filter(r => r.length > 0)
+      .filter(r => !DANGEROUS_RULE.test(r))
+      .join('; ');
+
+    if (safeRules.length === 0) {
+      node.removeAttribute('style');
+    } else {
+      node.setAttribute('style', safeRules);
+    }
+  });
+})();
+  
 function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
