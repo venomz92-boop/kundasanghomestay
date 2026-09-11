@@ -265,8 +265,6 @@ export async function onRequestPost({ request, env }) {
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
     // ========== ACTION: CHANGE DATES ==========
-    // Unpaid: any length, price recalculated from current homestay.ownerPrice.
-    // Paid: only same-length shifts. Price fields preserved exactly as paid.
     if (action === 'changeDates') {
       if (!checkin || !checkout) {
         return jsonResponse({ error: 'Missing checkin or checkout' }, 400, request);
@@ -283,7 +281,6 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: `Maximum booking length is ${MAX_NIGHTS} nights.` }, 400, request);
       }
 
-      // Pre-fetch to determine ownership + state
       const preRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
       let preBookings = [];
       try { if (preRes?.data) preBookings = JSON.parse(preRes.data); } catch (_) {}
@@ -295,8 +292,6 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
       }
 
-      // Block ONLY if the booking has already been paid out to the owner.
-      // Paid-but-not-yet-paid-out bookings CAN have dates shifted.
       if (isOwnerPaidOut(preBooking)) {
         return jsonResponse({
           error: 'This booking has already been completed and paid out to you. Dates cannot be changed anymore.'
@@ -314,7 +309,6 @@ export async function onRequestPost({ request, env }) {
 
           const booking = bookings[idx];
 
-          // Re-check inside lock (state may have changed)
           if (isOwnerPaidOut(booking)) {
             return {
               error: 'Booking was completed and paid out while you were editing. Refresh and try again.',
@@ -324,13 +318,7 @@ export async function onRequestPost({ request, env }) {
 
           const isPaid = isPaidBooking(booking);
 
-          // ============================================================
           // PAID BOOKINGS: same-length shift only.
-          // The guest already paid for N nights. We allow shifting to
-          // different dates but with the SAME N, so the paid amount
-          // remains correct. Changing the length requires cancel + rebook
-          // (which triggers an automatic CHIP refund).
-          // ============================================================
           if (isPaid) {
             const originalNights = Number(booking.nights) || 1;
             if (nights !== originalNights) {
@@ -341,7 +329,6 @@ export async function onRequestPost({ request, env }) {
             }
           }
 
-          // Load homestay + blocked dates inside lock
           const rApproved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
           let homestays = [];
           try { if (rApproved?.data) homestays = JSON.parse(rApproved.data); } catch (e) {}
@@ -353,11 +340,10 @@ export async function onRequestPost({ request, env }) {
 
           const newDates = getDatesInRange(checkin, checkout);
 
-          // Build a set of blocked dates EXCLUDING this booking's own dates
           const otherBookingsBlocked = new Set();
           for (const b of bookings) {
             if (String(b.id) === String(bookingId)) continue;
-            if (/cancelled|failed|expired/i.test(String(b.status || ''))) continue;
+            if (/cancelled|failed|expired|refunded/i.test(String(b.status || ''))) continue;
             if (booking.roomId) {
               if (String(b.roomId) !== String(booking.roomId)) continue;
             } else {
@@ -385,14 +371,11 @@ export async function onRequestPost({ request, env }) {
             return { error: `Dates overlap with existing bookings: ${conflicts.join(', ')}`, status: 400 };
           }
 
-          // Update dates + nights
           bookings[idx].checkin = checkin;
           bookings[idx].checkout = checkout;
           bookings[idx].nights = nights;
           bookings[idx].statusUpdated = new Date().toISOString();
 
-          // Only recalculate price for UNPAID bookings.
-          // Paid bookings keep their original base/fee/gateway/total/youReceive.
           if (!isPaid) {
             const price = calculatePrice(homestay.ownerPrice, nights);
             bookings[idx].base = price.base;
@@ -401,7 +384,6 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].total = price.total;
             bookings[idx].youReceive = price.youReceive;
           } else {
-            // Mark that a paid booking had its dates shifted (for audit)
             bookings[idx].paidDateShiftedAt = new Date().toISOString();
           }
 
@@ -493,12 +475,15 @@ export async function onRequestPost({ request, env }) {
           }
 
           if (isPaid && refundSuccess) {
-            bookings[idx].status = 'Refunded';
+            // CHIP may return pending_refund if the acquirer is still processing.
+            const isPending = refundData && refundData.status === 'pending_refund';
+            bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded';
             bookings[idx].chip_refund_id = refundData.id;
             bookings[idx].refunded_at = new Date().toISOString();
             bookings[idx].refund_amount = booking.total;
             bookings[idx].cancelled_by = 'host';
             bookings[idx].statusUpdated = new Date().toISOString();
+            if (isPending) bookings[idx].refund_pending = true;
           } else if (isPaid && !refundSuccess) {
             bookings[idx].status = 'Cancelled by Host - Refund Pending';
             bookings[idx].refund_error = refundError || 'Unknown error';
@@ -520,6 +505,7 @@ export async function onRequestPost({ request, env }) {
             refundSuccess,
             refundData,
             refundError,
+            refundPending: refundData && refundData.status === 'pending_refund',
             booking: bookings[idx]
           };
         }, 60000);
@@ -539,12 +525,18 @@ export async function onRequestPost({ request, env }) {
       await logAction({
         db,
         action: result.isPaid
-          ? (result.refundSuccess ? 'booking_cancelled_host_refund_success' : 'booking_cancelled_host_refund_failed')
+          ? (result.refundSuccess
+              ? (result.refundPending ? 'booking_cancelled_host_refund_pending' : 'booking_cancelled_host_refund_success')
+              : 'booking_cancelled_host_refund_failed')
           : 'booking_cancelled_host',
         admin: 'owner',
         details: `Booking ${bookingId} cancelled by host ${ownerData.whatsapp}. ${
           result.isPaid
-            ? (result.refundSuccess ? 'Refund processed: ' + result.refundData.id : 'Refund failed: ' + result.refundError)
+            ? (result.refundSuccess
+                ? (result.refundPending
+                    ? 'Refund pending (CHIP still processing): ' + result.refundData.id
+                    : 'Refund processed: ' + result.refundData.id)
+                : 'Refund failed: ' + result.refundError)
             : '(unpaid)'
         }`,
         ip: clientIP,
@@ -556,12 +548,15 @@ export async function onRequestPost({ request, env }) {
         success: true,
         message: result.isPaid
           ? (result.refundSuccess
-              ? `Booking ${bookingId} cancelled and full refund of RM${result.booking.total.toFixed(2)} processed.`
+              ? (result.refundPending
+                  ? `Booking ${bookingId} cancelled. CHIP is processing the refund of RM${result.booking.total.toFixed(2)} — this can take a few minutes. The guest will be notified when complete.`
+                  : `Booking ${bookingId} cancelled and full refund of RM${result.booking.total.toFixed(2)} processed.`)
               : `Booking ${bookingId} cancelled but refund failed. Status set to 'Refund Pending'. Please contact support.`)
           : `Booking ${bookingId} cancelled (unpaid).`,
         booking: result.booking,
         refund: result.refundData || undefined,
-        refundError: result.refundError || undefined
+        refundError: result.refundError || undefined,
+        refundPending: result.refundPending || false
       }, 200, request);
     }
 
