@@ -92,14 +92,23 @@ export async function onRequestPost({ request, env }) {
       try { return r?.data ? JSON.parse(r.data) : []; } catch (_) { return []; }
     };
 
-    if (userType === 'guest') {
+        if (userType === 'guest') {
       const users = await read('kd_guests');
       const u = users.find(x => String(x.email || '').toLowerCase() === cleanEmail);
       if (u) { userId = u.id; userData = { name: u.name }; }
     } else {
-      const homes = [...(await read('kd_approved')), ...(await read('kd_pending'))];
-      const h = homes.find(x => String(x.ownerEmail || '').toLowerCase() === cleanEmail);
-      if (h) { userId = h.id; userData = { name: h.ownerName }; }
+      // 1) Check kd_owners first (new host-account flow)
+      const owners = await read('kd_owners');
+      const acc = owners.find(o => String(o.ownerEmail || '').toLowerCase() === cleanEmail);
+      if (acc) {
+        userId = acc.id;
+        userData = { name: acc.ownerName };
+      } else {
+        // 2) Fall back to legacy homestay-based owner lookup
+        const homes = [...(await read('kd_approved')), ...(await read('kd_pending'))];
+        const h = homes.find(x => String(x.ownerEmail || '').toLowerCase() === cleanEmail);
+        if (h) { userId = h.id; userData = { name: h.ownerName }; }
+      }
     }
 
     if (!userId) {
