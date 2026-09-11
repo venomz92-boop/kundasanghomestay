@@ -4,7 +4,7 @@ import {
   getClientIP,
   logAction,
   enforceHttps,
-  getAdminToken,
+  verifyAdminAuth,
   checkRateLimit,
   recordRateLimit,
   parseJSONSafely,
@@ -98,10 +98,10 @@ export async function onRequestPost({ request, env }) {
 
     if (!bookingId) return jsonResponse({ error: 'Missing bookingId' }, 400, request);
 
-    // ===== ADMIN-ONLY AUTH =====
-    const adminToken = await getAdminToken(request);
-    if (!adminToken || !env.ADMIN_TOKEN || adminToken !== env.ADMIN_TOKEN) {
-      return jsonResponse({ error: 'Unauthorized – admin access only' }, 401, request);
+    // ===== ADMIN-ONLY AUTH (signed token) =====
+    const isAdmin = await verifyAdminAuth(request, env);
+    if (!isAdmin) {
+    return jsonResponse({ error: 'Unauthorized – admin access only' }, 401, request);
     }
 
     const clientIP = getClientIP(request);
