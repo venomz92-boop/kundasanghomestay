@@ -704,11 +704,15 @@ async function loadBookings() {
       let actionButtons = '';
       if (!isRefunded && !isCompleted && !isCancelled) {
         if (isPaid) {
+          // Paid booking: check-in only. Server rejects date changes for paid bookings.
           actionButtons += `<button class="btn-success action-btn" data-action="confirmCheckIn" data-id="${id}">✓ Confirm Arrival</button>`;
+        } else {
+          // Unpaid booking: allow dates to be modified.
+          actionButtons += `<button class="btn-warning action-btn" data-action="changeBookingDates" data-id="${id}">📅 Modify Dates</button>`;
         }
-        actionButtons += `<button class="btn-warning action-btn" data-action="changeBookingDates" data-id="${id}">📅 Modify Dates</button>`;
         actionButtons += `<button class="btn-danger action-btn" data-action="cancelBooking" data-id="${id}">✕ Cancel Booking</button>`;
       } else if (isRefunded) {
+        
         actionButtons = `<span class="text-xs text-blue-600 font-bold">🔁 Refunded</span>`;
       } else if (isCompleted) {
         const payoutDisplay = b.payoutSuccess && b.payoutSuccessDate
