@@ -7,7 +7,7 @@ import {
   validateCSRFToken,
   getCSRFToken,
   getGuestSession,
-  getAdminToken,
+  verifyAdminAuth,
   jsonResponse,
   parseJSONSafely,
   withLock,
