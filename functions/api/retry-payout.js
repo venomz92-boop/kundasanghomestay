@@ -4,7 +4,7 @@ import {
   getClientIP,
   logAction,
   enforceHttps,
-  getAdminToken,
+  verifyAdminAuth,
   jsonResponse,
   parseJSONSafely,
   withLock
@@ -58,10 +58,10 @@ export async function onRequestPost({ request, env }) {
   if (redirect) return redirect;
 
   try {
-    const auth = await getAdminToken(request);
-    if (!env.ADMIN_TOKEN || auth !== env.ADMIN_TOKEN) {
-      return jsonResponse({ error: 'Unauthorized' }, 401, request);
-    }
+   const isAdmin = await verifyAdminAuth(request, env);
+   if (!isAdmin) {
+   return jsonResponse({ error: 'Unauthorized' }, 401, request);
+   }
 
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'DB unavailable' }, 500, request);
