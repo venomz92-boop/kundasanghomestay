@@ -6,6 +6,7 @@
 // - Public responses filtered to whitelist fields (no hashes, no bank info)
 // - Admin responses strip password hashes but keep bank/IC info (needed for verification UI)
 // - Stale pending bookings are actively expired when a new booking takes their slot
+// - Guests CANNOT cancel their own bookings (only host/admin can cancel)
 
 import {
   corsHeaders,
@@ -544,14 +545,19 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
-  // ============ PUBLIC: UPDATE STATUS ============
+  // ============ PUBLIC: MARK PAYMENT FAILED ONLY ============
+  // Guests are NOT allowed to cancel their own bookings.
+  // This endpoint only exists so the CHIP failure-return flow can
+  // mark an unpaid booking as failed (which frees the dates).
+  // Cancellations must go through the host (Owner Dashboard) or admin.
   if (action === "publicUpdateStatus" && body.id) {
     const auth = await requireGuest(request, env, body);
     if (auth.error) return auth.error;
 
-    const allowedStatuses = ['Cancelled by Guest', 'Payment Failed'];
-    if (!allowedStatuses.includes(body.status)) {
-      return jsonResponse({ error: 'Guests may only cancel or mark as failed.' }, 403, request);
+    if (body.status !== 'Payment Failed') {
+      return jsonResponse({
+        error: 'Guests cannot cancel bookings directly. Please contact the host if you need to cancel.'
+      }, 403, request);
     }
 
     const db = env.DB;
@@ -568,20 +574,17 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Unauthorized' }, 403, request);
       }
 
-      if (body.status === 'Cancelled by Guest') {
-        const paidStatuses = ['Paid - Awaiting Check-in', 'Completed'];
-        if (paidStatuses.includes(b.status)) {
-          return jsonResponse({ error: 'You cannot cancel a booking that has already been paid. Please contact support.' }, 403, request);
-        }
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        const checkinDate = new Date(b.checkin + 'T00:00:00');
-        if (checkinDate <= today) {
-          return jsonResponse({ error: 'You cannot cancel a booking on or after the check‑in date.' }, 403, request);
-        }
+      // Never downgrade a booking that's already paid/completed/refunded/cancelled/expired.
+      const currentStatus = String(b.status || '');
+      const isTerminal = currentStatus === 'Paid - Awaiting Check-in'
+        || currentStatus.startsWith('Completed')
+        || /cancelled|refunded|expired/i.test(currentStatus);
+
+      if (isTerminal) {
+        return jsonResponse({ success: true, booking: b, message: 'Booking already finalised.' }, 200, request);
       }
 
-      bookings[idx] = { ...b, status: body.status, statusUpdated: new Date().toISOString() };
+      bookings[idx] = { ...b, status: 'Payment Failed', statusUpdated: new Date().toISOString() };
 
       await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
         .bind('kd_bookings', JSON.stringify(bookings)).run();
@@ -590,7 +593,7 @@ export async function onRequestPost({ request, env }) {
         db,
         action: 'public_status_updated',
         admin: 'guest',
-        details: `Booking ${b.id} status updated to ${body.status}`,
+        details: `Booking ${b.id} marked as Payment Failed`,
         ip: clientIP,
         userId: b.guestId,
         homestayId: b.homestayId
