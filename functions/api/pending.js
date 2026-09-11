@@ -5,12 +5,12 @@ import {
   logAction,
   enforceHttps,
   hashPassword,
-  getAdminToken,
-  getOwnerSession,
+  verifyAdminAuth,
   jsonResponse,
   checkRateLimit,
   recordRateLimit
 } from './_utils.js';
+
 import {
   sanitizeString,
   isValidEmail,
@@ -21,8 +21,8 @@ import {
 } from './_utils.js';
 
 async function requireAdmin(request, env) {
-  const token = await getAdminToken(request);
-  if (!token || !env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) {
+  const ok = await verifyAdminAuth(request, env);
+  if (!ok) {
     return jsonResponse({ error: 'Unauthorized' }, 401, request);
   }
   return null;
@@ -101,9 +101,9 @@ export async function onRequestPost({ request, env }) {
     // ADMIN UPDATE MODE — used by admin.html Force Sync
     // ============================================================
     if (Object.prototype.hasOwnProperty.call(body, 'pending') && body.pending !== undefined) {
-      const adminToken = await getAdminToken(request);
-      if (!adminToken || !env.ADMIN_TOKEN || adminToken !== env.ADMIN_TOKEN) {
-        return jsonResponse({ error: 'Unauthorized' }, 401, request);
+      const ok = await verifyAdminAuth(request, env);
+      if (!ok) {
+      return jsonResponse({ error: 'Unauthorized' }, 401, request);
       }
       if (!Array.isArray(body.pending)) {
         return jsonResponse({ error: 'Invalid pending payload' }, 400, request);
