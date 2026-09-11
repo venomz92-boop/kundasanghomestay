@@ -5,6 +5,7 @@
 // - Rejection emails
 // - Public responses filtered to whitelist fields (no hashes, no bank info)
 // - Admin responses strip password hashes but keep bank/IC info (needed for verification UI)
+// - Stale pending bookings are actively expired when a new booking takes their slot
 
 import {
   corsHeaders,
@@ -26,12 +27,12 @@ import {
 const MAX_NIGHTS = 60;
 const DEFAULT_PAGE_SIZE = 50;
 const GATEWAY_FEE = 1.00;
+const PENDING_EXPIRY_MS = 15 * 60 * 1000;
 
 // ============================================================
 // Field whitelists
 // ============================================================
 
-// Fields safe to expose to anonymous / public callers.
 const PUBLIC_HOMESTAY_FIELDS = [
   'id', 'name', 'location', 'description',
   'ownerName', 'whatsapp',
@@ -50,8 +51,6 @@ function pickPublicFields(h) {
   return out;
 }
 
-// Fields we never send to *anyone* over the wire.
-// Password hashes and their metadata never need to leave the server.
 function stripPasswordFields(h) {
   if (!h || typeof h !== 'object') return h;
   const {
@@ -83,6 +82,11 @@ function getDatesInRange(checkin, checkout) {
     cur.setDate(cur.getDate() + 1);
   }
   return dates;
+}
+
+// Booking is "dead" (frees the slot) if cancelled, failed, expired, or refunded
+function isDeadBookingStatus(status) {
+  return /cancelled|failed|expired|refunded/i.test(String(status || ''));
 }
 
 async function verifyAdmin(request, env) {
@@ -219,7 +223,6 @@ export async function onRequestGet({ request, env }) {
     if (isAdmin) {
       const paginated = bookings.slice(offset, offset + limit);
 
-      // Strip sensitive fields from guest records
       const safeGuests = guests.map(g => {
         const {
           password, salt, passwordAlgorithm, passwordVersion,
@@ -233,7 +236,6 @@ export async function onRequestGet({ request, env }) {
       const guestsOffset = (guestsPage - 1) * guestsLimit;
       const paginatedGuests = safeGuests.slice(guestsOffset, guestsOffset + guestsLimit);
 
-      // Derive owners list from approved + pending homestays
       const ownerMap = new Map();
       const addOwner = (h) => {
         if (!h) return;
@@ -263,8 +265,6 @@ export async function onRequestGet({ request, env }) {
       pending.forEach(addOwner);
       const owners = [...ownerMap.values()];
 
-      // Never send password hashes over the wire — even to admin.
-      // (Bank/IC info stays: admin needs it for verification UI.)
       const safeApprovedAdmin = approved.map(stripPasswordFields);
       const safePendingAdmin = pending.map(stripPasswordFields);
 
@@ -301,9 +301,6 @@ export async function onRequestGet({ request, env }) {
     }
 
     // ============ PUBLIC BRANCH ============
-    // Strip every non-public field before returning. kd_approved may
-    // contain owner password hashes + bank account numbers from older
-    // approvals; those must never leave the server.
     const safeApproved = approved
       .filter(h => h && h.approved === true)
       .map(pickPublicFields);
@@ -312,7 +309,7 @@ export async function onRequestGet({ request, env }) {
     for (const h of safeApproved) {
       const homestayId = String(h.id);
       availability[homestayId] = bookings
-        .filter(b => String(b.homestayId) === homestayId && !/cancelled|failed|expired/i.test(String(b.status || '')))
+        .filter(b => String(b.homestayId) === homestayId && !isDeadBookingStatus(b.status))
         .flatMap(b => getDatesInRange(b.checkin, b.checkout));
     }
 
@@ -437,13 +434,34 @@ export async function onRequestPost({ request, env }) {
           }
         }
 
+        // ============================================================
+        // BUG A FIX: identify stale pending bookings that overlap our request,
+        // and mark them 'Expired - Abandoned' so they can never be paid.
+        // Then re-run the overlap check treating only live bookings as blockers.
+        // ============================================================
+        const now = Date.now();
+        let modified = false;
+        allBookings = allBookings.map(b => {
+          const isPending = String(b.status || '') === 'Pending Payment';
+          const isStale = isPending && b.date && (now - Date.parse(b.date)) > PENDING_EXPIRY_MS;
+          if (!isStale) return b;
+          const roomMatch = selectedRoom
+            ? String(b.roomId) === String(selectedRoom.id)
+            : String(b.homestayId) === String(homestay.id);
+          if (!roomMatch) return b;
+          const overlaps = checkin < String(b.checkout || '') && checkout > String(b.checkin || '');
+          if (!overlaps) return b;
+          modified = true;
+          return { ...b, status: 'Expired - Abandoned', statusUpdated: new Date().toISOString() };
+        });
+
         const overlaps = allBookings.some(b => {
-          const pendingExpired = String(b.status||'') === 'Pending Payment' && b.date && Date.now() - Date.parse(b.date) > 15*60*1000;
           const isOwnPending = String(b.guestId) === String(guest.id) && b.status === 'Pending Payment';
-          const roomMatch = selectedRoom ? String(b.roomId) === String(selectedRoom.id) : String(b.homestayId) === String(homestay.id);
+          const roomMatch = selectedRoom
+            ? String(b.roomId) === String(selectedRoom.id)
+            : String(b.homestayId) === String(homestay.id);
           return roomMatch &&
-                 !pendingExpired &&
-                 !/cancelled|failed|expired/i.test(String(b.status||'')) &&
+                 !isDeadBookingStatus(b.status) &&
                  !isOwnPending &&
                  checkin < String(b.checkout||'') &&
                  checkout > String(b.checkin||'');
@@ -464,8 +482,6 @@ export async function onRequestPost({ request, env }) {
 
         // NOTE: checkinCode is intentionally NOT generated here.
         // It is generated on payment success by finalizePaidBooking() in _utils.js.
-        // This ensures the code is never sent to the browser before payment,
-        // and that the guest receives the code via email after payment.
 
         const booking = {
           id: bookingId,
@@ -496,7 +512,7 @@ export async function onRequestPost({ request, env }) {
           .bind('kd_bookings', JSON.stringify(allBookings))
           .run();
 
-        return { booking };
+        return { booking, expiredCount: modified ? 1 : 0 };
       });
 
       if (result.alreadyExists) {
@@ -514,7 +530,7 @@ export async function onRequestPost({ request, env }) {
         db,
         action: 'booking_created',
         admin: 'guest',
-        details: `Booking ${booking.id} created; payment pending`,
+        details: `Booking ${booking.id} created; payment pending${result.expiredCount ? ' (expired stale overlap)' : ''}`,
         ip: clientIP,
         userId: booking.guestId,
         homestayId: booking.homestayId
@@ -524,7 +540,7 @@ export async function onRequestPost({ request, env }) {
 
     } catch (err) {
       console.error('Create booking error:', err.message);
-      return jsonResponse({ error: 'Unable to create booking. Please try again later.' }, 500, request);
+      return jsonResponse({ error: err.message || 'Unable to create booking. Please try again later.' }, 400, request);
     }
   }
 
@@ -704,8 +720,6 @@ export async function onRequestPost({ request, env }) {
         }
         const homestay = pending[idx];
 
-        // Strip one-time verification artifacts AND password fields
-        // before persisting into kd_approved.
         const {
           icImage, icOriginalName, icUploadDate,
           bankQRImage, bankQROriginalName, pbtLicense,
@@ -725,7 +739,6 @@ export async function onRequestPost({ request, env }) {
         }
         approved.push(safeHomestay);
 
-        // Clean the kd_homestays entry too
         const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
         let allHomes = [];
         if (homestaysRes && homestaysRes.data) {
@@ -1018,7 +1031,6 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Invalid approved data' }, 400, request);
       }
 
-      // Validate each entry has the minimum shape we need.
       for (const h of approved) {
         if (!h || typeof h !== 'object' || !h.id || !h.name) {
           return jsonResponse({ error: 'Invalid homestay entry in approved array' }, 400, request);
