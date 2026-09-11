@@ -697,11 +697,9 @@ export async function onRequestPost({ request, env }) {
         }
         const homestay = pending[idx];
 
-        const {
-          // One-time verification artifacts — must not persist on approved records
+         const {
           icImage, icOriginalName, icUploadDate,
           bankQRImage, bankQROriginalName, pbtLicense,
-          // Never propagate these into kd_approved
           ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm, ownerPasswordVersion,
           ...safeHomestay
         } = homestay;
