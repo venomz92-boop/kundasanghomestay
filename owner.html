@@ -429,7 +429,7 @@ function showConfirm(title, message) {
 function showPrompt(title, message, defaultValue) {
   const safeVal = String(defaultValue || '')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const input = `<input type="text" id="modalInput" value="${safeVal}" class="w-full border rounded-full px-4 py-2.5 mt-3 text-sm" placeholder="Enter parameters..." inputmode="numeric" pattern="[0-9]*" />`;
+  const input = `<input type="text" id="modalInput" value="${safeVal}" class="w-full border rounded-full px-4 py-2.5 mt-3 text-sm" placeholder="Enter value..." />`;
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
     const titleEl = document.getElementById('modalTitle');
@@ -1212,7 +1212,8 @@ async function updateHomestayPrice() {
     authed = probeData.authenticated === true;
 
     // Server is source of truth — use its homestays if present
-    if (authed && Array.isArray(probeData.homestays) && probeData.homestays.length > 0) {
+       // Server is source of truth — use its homestays even if empty
+    if (authed && Array.isArray(probeData.homestays)) {
       storedHomestays = probeData.homestays;
       if (probeData.ownerName) storedName = probeData.ownerName;
       try {
@@ -1224,9 +1225,9 @@ async function updateHomestayPrice() {
     authed = false;
   }
 
-if (authed && storedHomestays && storedHomestays.length > 0) {
+if (authed) {
     ownerToken = 'cookie';
-    allHomestays = storedHomestays;
+    allHomestays = Array.isArray(storedHomestays) ? storedHomestays : [];
     ownerHomestayIds = allHomestays.map(h => h.id);
 
     // ===== Split into approved vs pending =====
@@ -1293,9 +1294,12 @@ if (authed && storedHomestays && storedHomestays.length > 0) {
     if (dashboardSection) dashboardSection.classList.remove('hidden');
     const welcomeEl = document.getElementById('welcomeName');
     if (welcomeEl) welcomeEl.innerText = storedName;
-    loadBookings();
-    loadRoomBlocks();
-    loadHomestayPrice();
+
+    if (allHomestays.length > 0) {
+      loadBookings();
+      loadRoomBlocks();
+      loadHomestayPrice();
+    }
   } else {
   
     try {
