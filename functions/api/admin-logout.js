@@ -1,13 +1,15 @@
-// /api/admin-logout.js
-import { corsHeaders, clearCookieHeader } from './_utils.js';
+// /api/admin-logout.js — Clears admin cookie
+import { corsHeaders, clearCookieHeader, enforceHttps } from './_utils.js';
 
 export async function onRequestPost({ request }) {
-  return new Response(JSON.stringify({ success: true }), {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+
+  return new Response(JSON.stringify({ success: true, message: 'Logged out' }), {
     status: 200,
     headers: {
-      'Content-Type': 'application/json',
-      'Set-Cookie': clearCookieHeader('admin_token'),
-      ...corsHeaders(request)
+      ...corsHeaders(request),
+      'Set-Cookie': clearCookieHeader('admin_token')
     }
   });
 }
