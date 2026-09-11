@@ -1,4 +1,4 @@
-// /api/owner-checkin.js — Auto check-in + CHIP Send payout + brute-force protection + long lock
+// /api/owner-checkin.js – Auto check-in + CHIP Send payout + brute-force protection + long lock
 import {
   corsHeaders,
   getClientIP,
@@ -72,18 +72,13 @@ async function hmacSha512(message, secret) {
 
 async function saveBankAccountId(db, homestayId, bankAccountId) {
   if (!homestayId) return;
-  // Write to all stores where this homestay may exist. Do NOT break after
-  // the first match — a homestay can briefly appear in both kd_approved
-  // and kd_homestays after an approval.
   for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
     const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
     let list = [];
-    try { if (r?.data) list = JSON.parse(r.data); } catch(_) {}
+    try { if (r?.data) list = JSON.parse(r.data); } catch (_) {}
     if (!Array.isArray(list) || list.length === 0) continue;
-
     const idx = list.findIndex(h => String(h.id) === String(homestayId));
     if (idx === -1) continue;
-
     list[idx].chip_bank_account_id = bankAccountId;
     await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
       .bind(store, JSON.stringify(list))
@@ -128,7 +123,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Unauthorized – you do not own this homestay' }, 403, request);
     }
 
-    // Block re-entry if a previous payout ended in unknown network state
     if (preBooking.payoutUnknown) {
       return jsonResponse({
         error: `Payout for this booking is in UNKNOWN state (last attempt: ${preBooking.payoutUnknownAt || 'unknown time'}). Please log into your CHIP dashboard and verify whether a payout with reference KDH-${bookingId} exists before contacting support.`
@@ -167,7 +161,6 @@ export async function onRequestPost({ request, env }) {
           return { error: 'Booking is not paid yet', status: 400 };
         }
 
-        // Rate limit failed attempts
         const maxAttempts = 5;
         const windowMs = 60 * 60 * 1000;
         const attempts = await getRecentCheckinAttempts(db, bookingId, windowMs);
@@ -179,7 +172,6 @@ export async function onRequestPost({ request, env }) {
           };
         }
 
-        // Code verification
         if (!booking.checkinCode) {
           return {
             error: 'This booking does not have a check-in code. Please ask the guest to use the "Resend Code" button in their My Bookings page.',
@@ -240,23 +232,26 @@ export async function onRequestPost({ request, env }) {
               throw new Error('CHIP Send failed: Owner bank account holder name is missing');
             }
 
+            // ============================================================
+            // STEP A: Ensure CHIP bank account exists
+            // ============================================================
             let bankAccountId = homestay?.chip_bank_account_id || null;
             if (!bankAccountId) {
-              const epoch = Math.floor(Date.now() / 1000);
+              const bankEpoch = Math.floor(Date.now() / 1000);
               const bankBody = JSON.stringify({
                 bank_code: chipBankCode,
                 account_number: ownerAcc.replace(/[^0-9]/g, ''),
                 account_name: ownerName
               });
-              const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
+              const bankChecksum = await hmacSha512(`${bankEpoch}${apiKey}`, apiSecret);
 
               const createRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
                 method: 'POST',
                 headers: {
                   'Authorization': `Bearer ${apiKey}`,
                   'Content-Type': 'application/json',
-                  'epoch': String(epoch),
-                  'checksum': checksum
+                  'epoch': String(bankEpoch),
+                  'checksum': bankChecksum
                 },
                 body: bankBody
               });
@@ -268,6 +263,9 @@ export async function onRequestPost({ request, env }) {
               if (homestay) await saveBankAccountId(db, booking.homestayId, bankAccountId);
             }
 
+            // ============================================================
+            // STEP B: Send payout
+            // ============================================================
             const amountCents = Math.round(ownerAmount * 100);
             const reference = `KDH-${bookingId}`;
             const payoutPayload = {
@@ -277,48 +275,53 @@ export async function onRequestPost({ request, env }) {
               description: `Owner payout for ${bookingId}`
             };
 
-            // Record attempt BEFORE the API call. If the call never
-            // completes, we can see from the booking that a payout attempt
-            // was in-flight (used for reconciliation).
             bookings[idx].payoutAttemptedAt = new Date().toISOString();
             bookings[idx].payoutAttemptedReference = reference;
             bookings[idx].payoutAttemptedAmount = Number(ownerAmount);
 
-            const epoch = Math.floor(Date.now() / 1000);
-            const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
+            const payoutEpoch = Math.floor(Date.now() / 1000);
+            const payoutChecksum = await hmacSha512(`${payoutEpoch}${apiKey}`, apiSecret);
 
-            const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-                'epoch': String(epoch),
-                'checksum': checksum
-              },
-              body: JSON.stringify(payoutPayload)
-            });
-
-            const payoutDataRaw = await payoutRes.json();
-            if (!payoutRes.ok || !payoutDataRaw.id) {
-              throw new Error(`CHIP Send failed: ${payoutDataRaw.error || 'unknown'}`);
+            let payoutRes;
+            try {
+              payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${apiKey}`,
+                  'Content-Type': 'application/json',
+                  'epoch': String(payoutEpoch),
+                  'checksum': payoutChecksum
+                },
+                body: JSON.stringify(payoutPayload)
+              });
+            } catch (networkErr) {
+              payoutUnknown = true;
+              payoutMessage = `Check-in confirmed, but payout status is UNKNOWN due to a network error. Reference KDH-${bookingId} may have been sent to CHIP. Log into your CHIP dashboard to verify before retrying.`;
             }
 
-            payoutSuccess = true;
-            payoutData = payoutDataRaw;
-            payoutMessage = `Check-in confirmed! Payout of RM${ownerAmount} sent to owner via CHIP Send.`;
-            isSimulation = false;
+            if (!payoutUnknown) {
+              let payoutDataRaw;
+              try { payoutDataRaw = await payoutRes.json(); } catch (_) { payoutDataRaw = {}; }
+
+              if (!payoutRes.ok || !payoutDataRaw.id) {
+                throw new Error(`CHIP Send failed: ${payoutDataRaw.error || 'unknown'}`);
+              }
+
+              payoutSuccess = true;
+              payoutData = payoutDataRaw;
+              payoutMessage = `Check-in confirmed! Payout of RM${ownerAmount} sent to owner via CHIP Send.`;
+              isSimulation = false;
+            }
           } catch (err) {
             payoutSuccess = false;
             const errMsg = err.message || 'unknown';
             const isApiError = /^CHIP Send failed:/.test(errMsg);
 
             if (isApiError) {
-              // CHIP explicitly rejected. Safe to retry.
               payoutMessage = `Real payout failed: ${errMsg}. Please check CHIP Send credentials and bank details.`;
             } else {
-              // Network / timeout / unknown — CHIP may or may not have processed it.
               payoutUnknown = true;
-              payoutMessage = `Check-in confirmed, but payout status is UNKNOWN due to a network error. Reference KDH-${bookingId} may have been sent to CHIP. Log into your CHIP dashboard to verify before retrying.`;
+              payoutMessage = `Check-in confirmed, but payout status is UNKNOWN due to an unexpected error. Reference KDH-${bookingId} may have been sent to CHIP. Log into your CHIP dashboard to verify before retrying.`;
             }
           }
         }
