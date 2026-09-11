@@ -1,12 +1,22 @@
 // /api/login.js — Guest login with 2-hour session
+// Timing-safe: always runs PBKDF2 even for unknown emails.
+// Multi-device: does NOT invalidate other sessions on login.
 import {
   corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword,
   createSignedToken, generateCSRFToken, cookieHeader, jsonResponse,
-  checkRateLimit, recordRateLimit, parseJSONSafely, incrementSessionVersion
+  checkRateLimit, recordRateLimit, parseJSONSafely
 } from './_utils.js';
 
 const GUEST_TTL_MS      = 2 * 60 * 60 * 1000;  // 2 hours
 const GUEST_TTL_SECONDS = GUEST_TTL_MS / 1000;
+
+// Dummy record used to equalize response time when the email is unknown.
+// Must use the SAME algorithm as real records so PBKDF2 burns the same CPU.
+const DUMMY_PASSWORD_RECORD = {
+  password: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+  salt: 'AAAAAAAAAAAAAAAAAAAAAA',
+  passwordAlgorithm: 'PBKDF2-100000-SHA256'
+};
 
 function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -39,14 +49,19 @@ export async function onRequestPost({ request, env }) {
     try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
 
     const user = guests.find(g => String(g.email || '').toLowerCase() === cleanEmail);
-    if (!user) return jsonResponse({ error: 'Invalid email or password' }, 401, request);
 
-    const verified = await verifyPassword(cleanPassword, user, env);
-    if (!verified.ok) {
+    // ---- TIMING-SAFE PATH ----
+    // Always run PBKDF2, even when email is unknown, so response time
+    // does not leak whether the account exists.
+    const recordToCheck = user || DUMMY_PASSWORD_RECORD;
+    const verified = await verifyPassword(cleanPassword, recordToCheck, env);
+
+    if (!user || !verified.ok) {
       await recordRateLimit(db, clientIP, 'login');
       return jsonResponse({ error: 'Invalid email or password' }, 401, request);
     }
 
+    // Transparently migrate legacy SHA-256 hashes to PBKDF2
     if (verified.legacy) {
       const fresh = await hashPassword(cleanPassword, env);
       user.password = fresh.hash;
@@ -61,14 +76,18 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Please verify your email first.' }, 401, request);
     }
 
-    await incrementSessionVersion(db, user.id, 'guest');
+    // ---- MULTI-DEVICE POLICY ----
+    // We do NOT increment sessionVersion on login. Users stay signed in on
+    // multiple devices. To force a global logout, use the password reset flow
+    // (which DOES bump sessionVersion in the DB, invalidating all tokens).
+    const sessionVersion = user.sessionVersion || 0;
 
     const session = await createSignedToken({
       type: 'guest',
       userId: String(user.id),
       email: user.email,
       passwordVersion: user.passwordVersion || 1,
-      sessionVersion: (user.sessionVersion || 0) + 1
+      sessionVersion: sessionVersion
     }, env, GUEST_TTL_MS);
 
     const csrfToken = await generateCSRFToken(user.id, env);
