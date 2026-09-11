@@ -1,5 +1,11 @@
-// /api/bookings.js – Full file with signed admin auth, guest scoping,
-// owner management, and rejection emails.
+// /api/bookings.js – Full file
+// - Signed admin auth
+// - Guest-scoped reads
+// - Owner management (list + delete cascade)
+// - Rejection emails
+// - Public responses filtered to whitelist fields (no hashes, no bank info)
+// - Admin responses strip password hashes but keep bank/IC info (needed for verification UI)
+
 import {
   corsHeaders,
   getClientIP,
@@ -22,11 +28,10 @@ const DEFAULT_PAGE_SIZE = 50;
 const GATEWAY_FEE = 1.00;
 
 // ============================================================
-// Public response whitelist.
-// kd_approved contains password hashes (needed for legacy owner login),
-// bank account numbers, and CHIP account IDs. None of that may ever
-// leave the server in a public/anonymous response.
+// Field whitelists
 // ============================================================
+
+// Fields safe to expose to anonymous / public callers.
 const PUBLIC_HOMESTAY_FIELDS = [
   'id', 'name', 'location', 'description',
   'ownerName', 'whatsapp',
@@ -45,6 +50,23 @@ function pickPublicFields(h) {
   return out;
 }
 
+// Fields we never send to *anyone* over the wire.
+// Password hashes and their metadata never need to leave the server.
+function stripPasswordFields(h) {
+  if (!h || typeof h !== 'object') return h;
+  const {
+    ownerPasswordHash,
+    ownerSalt,
+    ownerPasswordAlgorithm,
+    ownerPasswordVersion,
+    ...safe
+  } = h;
+  return safe;
+}
+
+// ============================================================
+// Helpers
+// ============================================================
 
 function getDatesInRange(checkin, checkout) {
   if (!checkin || !checkout) return [];
@@ -206,13 +228,12 @@ export async function onRequestGet({ request, env }) {
         return safe;
       });
 
-      // Paginate guests separately
       const guestsPage = parseInt(url.searchParams.get('guestsPage')) || 1;
       const guestsLimit = parseInt(url.searchParams.get('guestsLimit')) || 200;
       const guestsOffset = (guestsPage - 1) * guestsLimit;
       const paginatedGuests = safeGuests.slice(guestsOffset, guestsOffset + guestsLimit);
 
-      // ===== Derive owners list from approved + pending homestays =====
+      // Derive owners list from approved + pending homestays
       const ownerMap = new Map();
       const addOwner = (h) => {
         if (!h) return;
@@ -242,17 +263,22 @@ export async function onRequestGet({ request, env }) {
       pending.forEach(addOwner);
       const owners = [...ownerMap.values()];
 
+      // Never send password hashes over the wire — even to admin.
+      // (Bank/IC info stays: admin needs it for verification UI.)
+      const safeApprovedAdmin = approved.map(stripPasswordFields);
+      const safePendingAdmin = pending.map(stripPasswordFields);
+
       return jsonResponse({
         bookings: paginated,
         total: bookings.length,
         page,
         limit,
         totalPages: Math.ceil(bookings.length / limit),
-        approved,
+        approved: safeApprovedAdmin,
         demoOverrides,
         demoBlocked,
         deletedDemo,
-        pending,
+        pending: safePendingAdmin,
         guests: paginatedGuests,
         guestsTotal: safeGuests.length,
         guestsPage,
@@ -275,8 +301,9 @@ export async function onRequestGet({ request, env }) {
     }
 
     // ============ PUBLIC BRANCH ============
-    // Strip every non-public field before returning.
-    // (ownerPasswordHash, ownerBankAccount, icImage, etc.)
+    // Strip every non-public field before returning. kd_approved may
+    // contain owner password hashes + bank account numbers from older
+    // approvals; those must never leave the server.
     const safeApproved = approved
       .filter(h => h && h.approved === true)
       .map(pickPublicFields);
@@ -289,8 +316,12 @@ export async function onRequestGet({ request, env }) {
         .flatMap(b => getDatesInRange(b.checkin, b.checkout));
     }
 
+    return jsonResponse({ approved: safeApproved, availability }, 200, request, {
+      'Cache-Control': 'public, max-age=60, stale-while-revalidate=120'
+    });
+
   } catch (e) {
-    console.error('Bookings GET error:', e.message);
+    console.error('Bookings GET error:', e.message, e.stack);
     return jsonResponse({ error: 'Failed to load bookings' }, 500, request);
   }
 }
@@ -494,7 +525,7 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
-  // ============ PUBLIC: UPDATE STATUS (guest cancel / payment fail) ============
+  // ============ PUBLIC: UPDATE STATUS ============
   if (action === "publicUpdateStatus" && body.id) {
     const auth = await requireGuest(request, env, body);
     if (auth.error) return auth.error;
@@ -670,7 +701,9 @@ export async function onRequestPost({ request, env }) {
         }
         const homestay = pending[idx];
 
-         const {
+        // Strip one-time verification artifacts AND password fields
+        // before persisting into kd_approved.
+        const {
           icImage, icOriginalName, icUploadDate,
           bankQRImage, bankQROriginalName, pbtLicense,
           ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm, ownerPasswordVersion,
@@ -759,7 +792,6 @@ export async function onRequestPost({ request, env }) {
 
       await invalidateOwnerSessions(db, homestay.id);
 
-      // Send email (best effort — rejection still counts if email fails)
       const emailResult = await sendRejectionEmail(homestay, reason, env);
 
       await logAction({
@@ -838,7 +870,7 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // ---- Admin: deleteOwner (NEW) ----
+    // ---- Admin: deleteOwner ----
     if (action === "deleteOwner") {
       const ownerId = body.ownerId ? String(body.ownerId) : '';
       const email = body.email ? String(body.email).toLowerCase().trim() : '';
@@ -856,7 +888,6 @@ export async function onRequestPost({ request, env }) {
       let pending = []; try { if (pendingRes?.data) pending = JSON.parse(pendingRes.data); } catch (_) {}
       let allHomes = []; try { if (homestaysRes?.data) allHomes = JSON.parse(homestaysRes.data); } catch (_) {}
 
-      // Find the initial matching homestay
       const initialMatches = [...approved, ...pending].filter(h => {
         const hId = String(h.id || '');
         const hEmail = String(h.ownerEmail || '').toLowerCase().trim();
@@ -871,7 +902,6 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Owner not found' }, 404, request);
       }
 
-      // Now collect all identifying info so we can remove all their listings
       const targetIds = new Set(initialMatches.map(h => String(h.id)));
       const targetEmails = new Set(
         initialMatches.map(h => String(h.ownerEmail || '').toLowerCase().trim()).filter(Boolean)
@@ -906,7 +936,6 @@ export async function onRequestPost({ request, env }) {
           .bind('kd_homestays', JSON.stringify(allHomes))
       ]);
 
-      // Invalidate owner sessions so any open owner dashboards log out
       for (const h of [...removedApproved, ...removedPending]) {
         try { await invalidateOwnerSessions(db, h.id); } catch (_) {}
       }
