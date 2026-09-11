@@ -21,6 +21,31 @@ const MAX_NIGHTS = 60;
 const DEFAULT_PAGE_SIZE = 50;
 const GATEWAY_FEE = 1.00;
 
+// ============================================================
+// Public response whitelist.
+// kd_approved contains password hashes (needed for legacy owner login),
+// bank account numbers, and CHIP account IDs. None of that may ever
+// leave the server in a public/anonymous response.
+// ============================================================
+const PUBLIC_HOMESTAY_FIELDS = [
+  'id', 'name', 'location', 'description',
+  'ownerName', 'whatsapp',
+  'ownerPrice', 'guests', 'bedrooms',
+  'image', 'images', 'rooms',
+  'blockedDates', 'approved', 'verified',
+  'rating', 'reviews', 'createdAt', 'updatedAt'
+];
+
+function pickPublicFields(h) {
+  if (!h || typeof h !== 'object') return h;
+  const out = {};
+  for (const k of PUBLIC_HOMESTAY_FIELDS) {
+    if (h[k] !== undefined) out[k] = h[k];
+  }
+  return out;
+}
+
+
 function getDatesInRange(checkin, checkout) {
   if (!checkin || !checkout) return [];
   const dates = [];
@@ -250,15 +275,21 @@ export async function onRequestGet({ request, env }) {
     }
 
     // ============ PUBLIC BRANCH ============
+    // Strip every non-public field before returning.
+    // (ownerPasswordHash, ownerBankAccount, icImage, etc.)
+    const safeApproved = approved
+      .filter(h => h && h.approved === true)
+      .map(pickPublicFields);
+
     const availability = {};
-    for (const h of approved) {
+    for (const h of safeApproved) {
       const homestayId = String(h.id);
       availability[homestayId] = bookings
         .filter(b => String(b.homestayId) === homestayId && !/cancelled|failed|expired/i.test(String(b.status || '')))
         .flatMap(b => getDatesInRange(b.checkin, b.checkout));
     }
 
-    return jsonResponse({ approved, availability }, 200, request, {
+    return jsonResponse({ approved: safeApproved, availability }, 200, request, {
       'Cache-Control': 'public, max-age=60, stale-while-revalidate=120'
     });
 
@@ -644,7 +675,11 @@ export async function onRequestPost({ request, env }) {
         const homestay = pending[idx];
 
         const {
-          icImage, icOriginalName, bankQRImage, bankQROriginalName, pbtLicense,
+          // One-time verification artifacts — must not persist on approved records
+          icImage, icOriginalName, icUploadDate,
+          bankQRImage, bankQROriginalName, pbtLicense,
+          // Never propagate these into kd_approved
+          ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm, ownerPasswordVersion,
           ...safeHomestay
         } = homestay;
         safeHomestay.approved = true;
