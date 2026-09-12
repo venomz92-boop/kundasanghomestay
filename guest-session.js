@@ -1,37 +1,17 @@
-/* /guest-session.js — Cookie-based guest session manager.
+/* /guest-session.js — Guest session tracker.
  *
- * Plain English: after the backend security upgrade, the login token is
- * no longer returned to JavaScript — it lives only in an HttpOnly cookie
- * that the browser sends automatically. This script therefore no longer
- * reads or stores any token. It tracks the guest profile + an expiry
- * timestamp in localStorage purely for UI purposes, and it makes every
- * API call with `credentials: 'include'` so the cookie rides along.
- *
- * Add to <head>: <script src="/guest-session.js"></script>
- *
- * Public API (unchanged):
- *   GuestSession.isGuestSessionValid()
- *   GuestSession.clearGuestSession()
- *   GuestSession.logoutGuest()
- *   GuestSession.apiFetch(url, opts)
- *   GuestSession.updateNavDOM()
- *   GuestSession.startExpiryWatcher()
- *
- * New helper for login pages:
- *   GuestSession.setSession(guest, expiresInSeconds)
+ * Plain English: "logged in" now just means "we have your guest record
+ * saved in the browser". That's it. No expiry timestamps, no tokens.
+ * The server is the real judge — if your cookie is expired, the next
+ * API call returns 401 and we automatically log you out and send you
+ * back to the login page. Simple, and it works.
  */
 (function () {
   'use strict';
 
-  var GUEST_KEY   = 'kd_guest';
-  var EXPIRES_KEY = 'kd_guest_expires_at';
-  var CSRF_KEY    = 'kd_csrf_token';
-  var LEGACY_TOKEN_KEY = 'kd_guest_token';   // cleanup only
-  var DEFAULT_TTL_SECONDS = 2 * 60 * 60;
+  var GUEST_KEY = 'kd_guest';
+  var CSRF_KEY  = 'kd_csrf_token';
 
-  /* ============================================================
-   * STORAGE HELPERS
-   * ============================================================ */
   function readGuest() {
     try {
       var raw = localStorage.getItem(GUEST_KEY);
@@ -41,57 +21,35 @@
     } catch (e) { return null; }
   }
 
-  function readExpiresAt() {
-    var v = parseInt(localStorage.getItem(EXPIRES_KEY) || '0', 10);
-    return isNaN(v) ? 0 : v;
+  function isValid() {
+    // If we have a guest record, the user is logged in.
+    // The server will tell us if the cookie is dead.
+    return !!readGuest();
   }
 
-  function setSession(guest, expiresInSeconds) {
+  function setSession(guest) {
     if (!guest || !guest.id) return false;
-    var ttl = Number(expiresInSeconds) > 0 ? Number(expiresInSeconds) : DEFAULT_TTL_SECONDS;
     try {
       localStorage.setItem(GUEST_KEY, JSON.stringify(guest));
-      localStorage.setItem(EXPIRES_KEY, String(Date.now() + ttl * 1000));
-      // Drop any legacy token value left over from the previous version.
-      try { localStorage.removeItem(LEGACY_TOKEN_KEY); } catch (_) {}
+      // Clean up old keys from previous versions so nothing lingers.
+      try { localStorage.removeItem('kd_guest_token'); } catch (e) {}
+      try { localStorage.removeItem('kd_guest_expires_at'); } catch (e) {}
     } catch (e) { return false; }
-    return true;
-  }
-
-  function isValid() {
-    var guest = readGuest();
-    if (!guest) return false;
-    var exp = readExpiresAt();
-    if (!exp || Date.now() >= exp) return false;
     return true;
   }
 
   function clearSession() {
     try {
       localStorage.removeItem(GUEST_KEY);
-      localStorage.removeItem(EXPIRES_KEY);
       localStorage.removeItem(CSRF_KEY);
-      localStorage.removeItem(LEGACY_TOKEN_KEY);
+      localStorage.removeItem('kd_guest_token');
+      localStorage.removeItem('kd_guest_expires_at');
       localStorage.removeItem('kd_guest_pending_payment');
       localStorage.removeItem('kd_pending_booking');
       localStorage.removeItem('kd_failed_booking');
     } catch (e) {}
   }
 
-  /* ============================================================
-   * PRE-CHECK — runs synchronously in <head>, BEFORE page scripts.
-   * Prevents the "logged in briefly then logged out" flicker.
-   * ============================================================ */
-  (function precheck() {
-    // If a guest record exists but its TTL has expired, wipe it now.
-    if (readGuest() && !isValid()) clearSession();
-    // Scrub any old token value even if the guest record is still valid.
-    try { localStorage.removeItem(LEGACY_TOKEN_KEY); } catch (_) {}
-  })();
-
-  /* ============================================================
-   * NAV DOM UPDATE — mirrors the per-page renderGuestNav()
-   * ============================================================ */
   function updateNavDOM() {
     var guest = isValid() ? readGuest() : null;
 
@@ -135,9 +93,6 @@
     }
   }
 
-  /* ============================================================
-   * LOGOUT — server clears cookie, we clear local UI state.
-   * ============================================================ */
   async function logoutGuest(skipConfirm) {
     if (!skipConfirm) {
       if (!window.confirm('Are you sure you want to logout?')) return;
@@ -158,9 +113,6 @@
     window.location.href = '/';
   }
 
-  /* ============================================================
-   * apiFetch — cookie-only; auto-logout on 401.
-   * ============================================================ */
   async function apiFetch(url, opts) {
     opts = opts || {};
     opts.credentials = opts.credentials || 'include';
@@ -177,53 +129,21 @@
     return res;
   }
 
-  /* ============================================================
-   * WATCHER — polls every 60s, kicks user out on expiry.
-   * ============================================================ */
-  var watcherStarted = false;
   function startExpiryWatcher() {
-    if (watcherStarted) return;
-    watcherStarted = true;
-    setInterval(function () {
-      var had = !!readGuest();
-      if (had && !isValid()) {
-        clearSession();
-        updateNavDOM();
-        if (typeof window.showAlert === 'function') {
-          window.showAlert('Session Expired', 'Your session has expired. Please log in again.');
-        } else {
-          alert('Your session has expired. Please log in again.');
-        }
-      }
-    }, 60000);
+    // No polling needed. The server's 401 is the source of truth.
   }
 
-  /* ============================================================
-   * AUTO-INIT — runs after the page's own inline scripts.
-   * Overrides window.logoutGuest so the header button works.
-   * ============================================================ */
   function init() {
-    if (readGuest() && !isValid()) clearSession();
     updateNavDOM();
-    startExpiryWatcher();
     window.logoutGuest = logoutGuest;
   }
 
-  function scheduleInit() {
-    // setTimeout(0) so a page's inline script can define its own
-    // logoutGuest first; we then override with the cookie-based one.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(init, 0); });
+  } else {
     setTimeout(init, 0);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', scheduleInit);
-  } else {
-    scheduleInit();
-  }
-
-  /* ============================================================
-   * PUBLIC API
-   * ============================================================ */
   window.GuestSession = {
     isGuestSessionValid: isValid,
     clearGuestSession:   clearSession,
