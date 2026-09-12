@@ -9,9 +9,16 @@
 //       "deleted" host cannot log back in and submit a new listing.
 //   (4) removeApprovedHomestay now destroys Cloudinary images and cleans
 //       the orphaned kd_homestays row.
-//   (5) updateHomestays now clears chip_bank_account_id when the bank
-//       code, account number, or holder name changes, so the next payout
-//       re-registers the bank account with CHIP using the new details.
+//   (5) updateHomestays clears chip_bank_account_id when the bank code,
+//       account number, or holder name changes.
+//   (6) updateHomestays now MERGES instead of overwriting. Any entry the
+//       browser did not send stays in the database untouched. This fixes
+//       the bug where saving an admin edit from a stale browser tab could
+//       silently delete listings that were approved after the tab loaded.
+//   (7) New admin action `retryRefund`. When a booking is stuck in
+//       "Cancelled by Host - Refund Pending" because CHIP rejected the
+//       original refund call, the admin can now retry it from the booking
+//       row without touching D1 by hand.
 import {
   corsHeaders,
   getClientIP,
@@ -77,10 +84,6 @@ function stripPasswordFields(h) {
 
 // ============================================================
 // Cloudinary destroy helpers
-// Plain English: permanently deletes an image file from Cloudinary.
-// The caller must know the file's `public_id` (which we now store
-// alongside every upload URL). Safe to call with a missing ID —
-// it just returns { skipped: true }.
 // ============================================================
 
 async function destroyCloudinaryImage(publicId, env) {
@@ -95,7 +98,6 @@ async function destroyCloudinaryImage(publicId, env) {
   }
 
   const timestamp = Math.floor(Date.now() / 1000);
-  // Cloudinary signature: sorted params concatenated, then api_secret appended
   const toSign = `public_id=${publicId}&timestamp=${timestamp}`;
   let signature;
   try {
@@ -126,7 +128,6 @@ async function destroyCloudinaryImage(publicId, env) {
     if (!res.ok) {
       return { error: `Cloudinary HTTP ${res.status}` };
     }
-    // Cloudinary returns result: 'ok' on success, 'not found' if already gone.
     const ok = data && (data.result === 'ok' || data.result === 'not found');
     return { success: ok, result: data?.result || 'unknown' };
   } catch (e) {
@@ -134,10 +135,6 @@ async function destroyCloudinaryImage(publicId, env) {
   }
 }
 
-// Best-effort: extract public_id from a Cloudinary URL for legacy
-// records uploaded before we started saving `publicId`. Cloudinary
-// URL format:
-//   https://res.cloudinary.com/<cloud>/image/upload/v1234/<public_id>.<ext>
 function extractPublicIdFromCloudinaryUrl(url) {
   if (!url || typeof url !== 'string') return null;
   try {
@@ -149,8 +146,6 @@ function extractPublicIdFromCloudinaryUrl(url) {
   }
 }
 
-// Collects the verification-only images (IC + bank QR + PBT).
-// Uses stored `*PublicId` when available, falls back to URL extraction.
 function collectVerificationPublicIds(h) {
   const ids = [];
   if (!h) return ids;
@@ -176,9 +171,6 @@ function collectVerificationPublicIds(h) {
   return ids.filter(Boolean);
 }
 
-// Collects ALL image public IDs belonging to a listing:
-// property cover + gallery + every room + verification images.
-// Used only on reject / remove, where the whole listing is being deleted.
 function collectAllImagePublicIds(h) {
   const ids = collectVerificationPublicIds(h);
   if (!h) return ids;
@@ -209,7 +201,6 @@ function collectAllImagePublicIds(h) {
     });
   }
 
-  // Dedupe
   return [...new Set(ids.filter(Boolean))];
 }
 
@@ -572,7 +563,6 @@ export async function onRequestPost({ request, env }) {
         const guest = guests.find(g => String(g.id) === String(auth.session.userId));
         if (!guest) return { error: 'Guest not found', status: 404 };
 
-        // Reuse existing Pending/Failed booking for these exact dates
         const existingOwn = allBookings.find(b =>
           String(b.guestId) === String(guest.id) &&
           String(b.homestayId) === String(homestay.id) &&
@@ -1007,6 +997,131 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, booking: result.booking }, 200, request);
     }
 
+    // ---- Admin: retryRefund ----
+    // When a booking is stuck in "Cancelled by Host - Refund Pending"
+    // (because CHIP rejected the original refund), the admin can retry it
+    // here. Uses the same pre-flight marker pattern as owner cancelBooking.
+    if (action === "retryRefund" && body.id) {
+      const bookingId = String(body.id);
+      let result;
+      try {
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+          let bookings = [];
+          try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+          const idx = bookings.findIndex(b => String(b.id) === bookingId);
+          if (idx === -1) return { error: 'Booking not found', status: 404 };
+          const booking = bookings[idx];
+
+          if (!booking.chip_purchase_id) {
+            return { error: 'This booking has no CHIP purchase on file. Cannot refund.', status: 400 };
+          }
+          if (booking.chip_refund_id) {
+            return { error: 'This booking has already been refunded.', status: 400 };
+          }
+
+          // Only allow retry from a state that represents a failed refund.
+          const status = String(booking.status || '');
+          const isRefundableState =
+            /refund pending|refund_pending|Refund Pending/i.test(status) ||
+            (/cancelled by host/i.test(status) && !booking.chip_refund_id);
+          if (!isRefundableState) {
+            return {
+              error: `Booking status "${status}" is not in a refund-pending state. Retry refund is only available for cancelled bookings whose refund did not go through.`,
+              status: 400
+            };
+          }
+
+          const secret = env.CHIP_SECRET_KEY;
+          if (!secret) {
+            return { error: 'CHIP_SECRET_KEY not configured. Cannot process refund.', status: 500 };
+          }
+
+          // Mark the attempt before the CHIP call.
+          bookings[idx].refund_attempted_at = new Date().toISOString();
+          bookings[idx].refund_attempted_by = 'admin';
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+
+          const refundAmountCents = Math.round(Number(booking.amount_paid || booking.total) * 100);
+          let refundData = null;
+          let refundError = null;
+
+          try {
+            const resp = await fetch(
+              `https://gate.chip-in.asia/api/v1/purchases/${booking.chip_purchase_id}/refund/`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${secret}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ amount: refundAmountCents })
+              }
+            );
+            let data = null;
+            try { data = await resp.json(); } catch (_) { data = null; }
+            if (!resp.ok || !data || !data.id) {
+              refundError = (data && (data.error || data.message)) || `HTTP ${resp.status}`;
+            } else {
+              refundData = data;
+            }
+          } catch (e) {
+            refundError = e.message;
+          }
+
+          if (refundData) {
+            const isPending = refundData.status === 'pending_refund';
+            bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded';
+            bookings[idx].chip_refund_id = refundData.id;
+            bookings[idx].refunded_at = new Date().toISOString();
+            bookings[idx].refund_amount = Number(booking.amount_paid || booking.total) || 0;
+            bookings[idx].refund_pending = isPending;
+            bookings[idx].statusUpdated = new Date().toISOString();
+            delete bookings[idx].refund_error;
+          } else {
+            bookings[idx].status = 'Cancelled by Host - Refund Pending';
+            bookings[idx].refund_error = refundError || 'Unknown error';
+            bookings[idx].statusUpdated = new Date().toISOString();
+          }
+
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+
+          return {
+            success: true,
+            refunded: !!refundData,
+            refundPending: refundData && refundData.status === 'pending_refund',
+            refundId: refundData?.id || null,
+            refundError: refundError || null,
+            booking: bookings[idx]
+          };
+        }, 60000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another operation is in progress. Please try again.' }, 429, request);
+        }
+        throw lockErr;
+      }
+
+      if (result.error) {
+        return jsonResponse({ error: result.error }, result.status || 400, request);
+      }
+
+      await logAction({
+        db,
+        action: result.refunded ? 'admin_refund_retry_success' : 'admin_refund_retry_failed',
+        admin: 'admin',
+        details: `Admin retry refund for ${bookingId}: ${result.refunded ? result.refundId : result.refundError}`,
+        ip: clientIP,
+        homestayId: result.booking.homestayId
+      });
+
+      return jsonResponse(result, 200, request);
+    }
+
     // ---- Admin: approveHomestay ----
     if (action === "approveHomestay" && body.id) {
       try {
@@ -1023,7 +1138,6 @@ export async function onRequestPost({ request, env }) {
         }
         const homestay = pending[idx];
 
-        // Collect verification image public IDs BEFORE we strip them.
         const verificationPublicIds = collectVerificationPublicIds(homestay);
 
         const {
@@ -1080,8 +1194,6 @@ export async function onRequestPost({ request, env }) {
 
         await invalidateOwnerSessionsForHomestay(db, safeHomestay.id);
 
-        // Destroy verification images (IC, bank QR, PBT) from Cloudinary.
-        // Best-effort — a failed destroy does NOT roll back the approval.
         let destroyReport = { attempted: 0, succeeded: 0, failed: 0 };
         if (verificationPublicIds.length > 0) {
           for (const pid of verificationPublicIds) {
@@ -1123,15 +1235,10 @@ export async function onRequestPost({ request, env }) {
       const homestay = pending[idx];
       const reason = String(body.reason || '').slice(0, 500).trim();
 
-      // Collect ALL image public IDs (verification + property + rooms)
-      // because the entire listing is being removed.
       const allPublicIds = collectAllImagePublicIds(homestay);
 
       pending.splice(idx, 1);
 
-      // Also clean the orphaned entry from kd_homestays — this was the
-      // original bug. Previously reject only removed from kd_pending and left
-      // the bank QR URL + any other verification remnants behind forever.
       const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
       let allHomes = [];
       if (homestaysRes && homestaysRes.data) {
@@ -1153,7 +1260,6 @@ export async function onRequestPost({ request, env }) {
 
       const emailResult = await sendRejectionEmail(homestay, reason, env);
 
-      // Destroy every uploaded image for this listing from Cloudinary.
       let destroyReport = { attempted: 0, succeeded: 0, failed: 0 };
       if (allPublicIds.length > 0) {
         for (const pid of allPublicIds) {
@@ -1204,11 +1310,8 @@ export async function onRequestPost({ request, env }) {
         const removed = approved[idx];
         approved.splice(idx, 1);
 
-        // Collect ALL image public IDs (verification + property + rooms)
-        // because the entire listing is being removed.
         const allPublicIds = collectAllImagePublicIds(removed);
 
-        // Remove the orphaned entry from kd_homestays.
         const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
         let allHomes = [];
         if (homestaysRes && homestaysRes.data) {
@@ -1243,7 +1346,6 @@ export async function onRequestPost({ request, env }) {
 
         await invalidateOwnerSessionsForHomestay(db, removed.id);
 
-        // Destroy every uploaded image for this listing from Cloudinary.
         let destroyReport = { attempted: 0, succeeded: 0, failed: 0 };
         if (allPublicIds.length > 0) {
           for (const pid of allPublicIds) {
@@ -1328,9 +1430,6 @@ export async function onRequestPost({ request, env }) {
       pending = pending.filter(h => !matches(h));
       allHomes = allHomes.filter(h => !matches(h));
 
-      // Also remove the owner's login account from kd_owners — this is
-      // the actual account they log in with. Without this, a "deleted"
-      // host can still log in and submit new listings.
       const ownersRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
       let owners = [];
       try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch (_) {}
@@ -1443,44 +1542,61 @@ export async function onRequestPost({ request, env }) {
         }
       }
 
-      // Before overwriting, read the old approved list so we can detect
-      // bank-detail changes and clear the cached chip_bank_account_id.
-      // The cache must be cleared whenever bank details change, otherwise
-      // the next payout reuses the previous bank account at CHIP and
-      // money goes to the wrong place.
+      // Read the current approved list so we can detect bank changes AND
+      // merge instead of overwriting. The merge is the important part:
+      // a stale admin browser tab must not be able to delete listings
+      // that were approved after the tab loaded. Removal goes through
+      // removeApprovedHomestay — never through this path.
       const oldApprovedRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
       let oldApproved = [];
       try { if (oldApprovedRes?.data) oldApproved = JSON.parse(oldApprovedRes.data); } catch (_) {}
 
-      const oldBankById = new Map();
-      for (const h of oldApproved) {
-        oldBankById.set(String(h.id), {
-          bankCode: (h.bankCode || '').toUpperCase().trim(),
-          bankAccount: (h.ownerBankAccount || '').replace(/[^0-9]/g, ''),
-          bankHolder: (h.bankHolder || '').trim().toLowerCase()
-        });
-      }
+      const oldById = new Map();
+      for (const h of oldApproved) oldById.set(String(h.id), h);
 
+      const incomingById = new Map();
+      for (const h of approved) incomingById.set(String(h.id), h);
+
+      // Clear cached chip_bank_account_id when bank details change.
       let cacheClearedCount = 0;
       for (const h of approved) {
-        const old = oldBankById.get(String(h.id));
+        const old = oldById.get(String(h.id));
         if (!old) continue;
+        const oldCode = (old.bankCode || '').toUpperCase().trim();
+        const oldAcct = (old.ownerBankAccount || '').replace(/[^0-9]/g, '');
+        const oldHolder = (old.bankHolder || '').trim().toLowerCase();
         const newCode = (h.bankCode || '').toUpperCase().trim();
         const newAcct = (h.ownerBankAccount || '').replace(/[^0-9]/g, '');
         const newHolder = (h.bankHolder || '').trim().toLowerCase();
-        const changed =
-          old.bankCode !== newCode ||
-          old.bankAccount !== newAcct ||
-          old.bankHolder !== newHolder;
+        const changed = oldCode !== newCode || oldAcct !== newAcct || oldHolder !== newHolder;
         if (changed) {
           delete h.chip_bank_account_id;
           cacheClearedCount++;
         }
       }
 
+      // Merge: start from the DB list. For every DB entry that the
+      // incoming payload also contains, use the incoming version. Every
+      // DB entry the payload does NOT contain is preserved untouched.
+      // Any entry in the payload that is not in the DB is appended
+      // (should never happen through this path, but safe to allow).
+      const merged = [];
+      for (const old of oldApproved) {
+        const idKey = String(old.id);
+        if (incomingById.has(idKey)) {
+          merged.push(incomingById.get(idKey));
+          incomingById.delete(idKey);
+        } else {
+          merged.push(old);
+        }
+      }
+      for (const leftover of incomingById.values()) {
+        merged.push(leftover);
+      }
+
       const stmts = [];
       stmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_approved', JSON.stringify(approved)));
+        .bind('kd_approved', JSON.stringify(merged)));
 
       if (demoOverrides !== undefined) {
         stmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
@@ -1501,12 +1617,12 @@ export async function onRequestPost({ request, env }) {
         db,
         action: 'homestays_updated',
         admin: 'admin',
-        details: `Updated ${approved.length} approved homestays (cleared cached bank account on ${cacheClearedCount} due to bank-detail change)`,
+        details: `Merged ${approved.length} incoming homestays against ${oldApproved.length} existing (final: ${merged.length}; cleared cached bank account on ${cacheClearedCount} due to bank-detail change)`,
         ip: clientIP,
         userId: 'admin'
       });
 
-      return jsonResponse({ success: true, approved }, 200, request);
+      return jsonResponse({ success: true, approved: merged }, 200, request);
     }
 
     return jsonResponse({ success: true, message: 'Synced' }, 200, request);
