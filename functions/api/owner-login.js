@@ -5,6 +5,16 @@
 //     submitted a property can now log in. We look up the phone number in
 //     BOTH kd_owners AND kd_approved/kd_pending. If both exist we prefer
 //     kd_owners (the newer flow). homestayIds may legitimately be empty.
+//
+// [THIS REVISION]
+// (3) The filter that decides which homestays belong to this WhatsApp no
+//     longer requires `ownerPasswordHash` and `ownerSalt`. Those fields
+//     are stripped from a listing when it is approved, so the old filter
+//     excluded every approved listing from the login response's
+//     `homestays` array — the owner would log in and see an empty
+//     dropdown until they refreshed the page.
+//     Auth still uses password fields; the "homestays list" is now
+//     decoupled from the auth path.
 import {
   corsHeaders, getClientIP, enforceHttps, verifyPassword, hashPassword,
   createSignedToken, cookieHeader, jsonResponse, checkRateLimit,
@@ -43,7 +53,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ============================================================
-    // H8: Look up in BOTH kd_owners AND kd_approved/kd_pending.
+    // Look up in BOTH kd_owners AND kd_approved/kd_pending.
     // ============================================================
     const ownersRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
     let owners = [];
@@ -59,14 +69,19 @@ export async function onRequestPost({ request, env }) {
       String(o.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp
     ) || null;
 
+    // All homestays belonging to this WhatsApp — approved or pending.
+    // No password requirement on this list; it's just ownership.
     const ownerHomes = homes.filter(h =>
-      String(h.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp &&
+      String(h.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp
+    );
+
+    // Auth path: only these need to carry password fields.
+    const ownerHomesWithPassword = ownerHomes.filter(h =>
       h.ownerPasswordHash && h.ownerSalt
     );
 
-    // Prefer kd_owners (newer flow) if it has password fields.
     const accountHasPassword = !!(ownerAccount && ownerAccount.ownerPasswordHash && ownerAccount.ownerSalt);
-    const homestayHasPassword = ownerHomes.length > 0;
+    const homestayHasPassword = ownerHomesWithPassword.length > 0;
 
     // If neither source has a password, we cannot authenticate this user.
     if (!accountHasPassword && !homestayHasPassword) {
@@ -83,9 +98,9 @@ export async function onRequestPost({ request, env }) {
           ownerPasswordAlgorithm: ownerAccount.ownerPasswordAlgorithm
         }
       : {
-          ownerPasswordHash: ownerHomes[0].ownerPasswordHash,
-          ownerSalt: ownerHomes[0].ownerSalt,
-          ownerPasswordAlgorithm: ownerHomes[0].ownerPasswordAlgorithm
+          ownerPasswordHash: ownerHomesWithPassword[0].ownerPasswordHash,
+          ownerSalt: ownerHomesWithPassword[0].ownerSalt,
+          ownerPasswordAlgorithm: ownerHomesWithPassword[0].ownerPasswordAlgorithm
         };
 
     const checked = await verifyPassword(cleanPassword, recordToCheck, env);
@@ -99,7 +114,6 @@ export async function onRequestPost({ request, env }) {
       const fresh = await hashPassword(cleanPassword, env);
       const versionBump = (rec) => (Number(rec.ownerPasswordVersion) || 0) + 1;
 
-      // 1) Update kd_owners
       if (accountHasPassword) {
         owners = owners.map(o => {
           const oWa = String(o.whatsapp || '').replace(/[^0-9]/g, '');
@@ -116,7 +130,6 @@ export async function onRequestPost({ request, env }) {
           .bind('kd_owners', JSON.stringify(owners)).run();
       }
 
-      // 2) Update kd_approved + kd_pending
       for (const keyName of ['kd_approved', 'kd_pending']) {
         const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind(keyName).first();
         let arr = [];
@@ -141,10 +154,9 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // ---- homestayIds from any matching homestay records (may be empty) ----
+    // ---- homestayIds now includes approved AND pending listings ----
     const homestayIds = ownerHomes.map(h => h.id);
 
-    // ---- ownerId: prefer kd_owners id, else fall back to first homestay id ----
     const ownerId = ownerAccount
       ? String(ownerAccount.id)
       : (ownerHomes[0] ? String(ownerHomes[0].id) : `O-${cleanWhatsapp}`);
@@ -153,11 +165,6 @@ export async function onRequestPost({ request, env }) {
       ? ownerAccount.ownerName
       : (ownerHomes[0] ? ownerHomes[0].ownerName : null);
 
-    // ---- MULTI-DEVICE POLICY ----
-    // Do NOT increment ownerSessionVersion on login. Multiple devices are
-    // allowed. Password reset is the only thing that force-invalidates all.
-    // Use the MAX ownerSessionVersion across kd_owners AND matching
-    // homestays, to stay consistent with _utils.js getOwnerSession (H5).
     const versionPool = [];
     if (ownerAccount) versionPool.push(Number(ownerAccount.ownerSessionVersion) || 0);
     for (const h of ownerHomes) versionPool.push(Number(h.ownerSessionVersion) || 0);
@@ -170,7 +177,7 @@ export async function onRequestPost({ request, env }) {
       ownerName,
       whatsapp: cleanWhatsapp,
       passwordVersion: (ownerAccount && ownerAccount.ownerPasswordVersion)
-        || (ownerHomes[0] && ownerHomes[0].ownerPasswordVersion)
+        || (ownerHomesWithPassword[0] && ownerHomesWithPassword[0].ownerPasswordVersion)
         || 1,
       ownerSessionVersion
     }, env);
@@ -181,8 +188,6 @@ export async function onRequestPost({ request, env }) {
       ownerPasswordVersion, ownerSessionVersion: _sv, ...rest
     }) => rest);
 
-    // H1: `token` removed from response body. HttpOnly cookie is the only
-    // delivery path. Frontend must rely on `credentials: 'include'`.
     return new Response(JSON.stringify({
       success: true,
       homestays: safeHomes,
