@@ -2,24 +2,16 @@
 //
 // [THIS REVISION]
 //  (1) finalizePaidBooking now stores `amount_paid` — the amount CHIP
-//      actually collected — so a later refund uses the correct figure even
-//      if an admin has recalculated `total` by editing dates on a paid
-//      booking.
+//      actually collected — so a later refund uses the correct figure.
 //  (2) finalizePaidBooking refuses to finalize if the guest account no
-//      longer exists. Previously money could be taken from a guest the
-//      admin had already deleted, leaving an orphaned paid booking.
-//  (3) chipSendPayout now validates the bank code against CHIP Send's
-//      known SWIFT/BIC list and refuses before calling CHIP if the code
-//      is missing or unknown. No silent Maybank default. Also relaxed the
-//      bank account digit requirement from 10 to 8, matching what
-//      pending.js accepts at submission.
-//
-// [EARLIER]
-//  (1) PBKDF2 iterations configurable via env.PBKDF2_ITERATIONS.
-//  (2) parseJSONSafely checks Content-Length BEFORE reading the body.
-//  (3) admin Bearer tokens only accepted when ALLOW_ADMIN_BEARER=true.
-//  (4) owner session version uses the MAX across kd_owners + homestays.
-//  (5) CSP in corsHeaders matches /_headers.
+//      longer exists.
+//  (3) chipSendPayout validates the bank code against CHIP Send's
+//      known SWIFT/BIC list and refuses before calling CHIP.
+//  (4) NEW: getOwnerHomestayIdsFresh(db, owner) resolves an owner's
+//      homestay IDs by matching WhatsApp in kd_approved / kd_pending.
+//      Owner endpoints must use this instead of the JWT's homestayIds
+//      snapshot, which goes stale whenever a new listing is approved
+//      after the session token was minted.
 
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
@@ -27,11 +19,6 @@ const DEFAULT_PBKDF2_ITERATIONS = 100000;
 const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_KEYLEN = 256;
 
-// ============================================================
-// CHIP Send supported bank codes.
-// Source: CHIP Send's "Add a bank account" documentation.
-// Kept in sync with /api/bank-list.js and /api/pending.js.
-// ============================================================
 const VALID_CHIP_SEND_CODES = new Set([
   'ACDBMYK2','PHBMMYKL','AGOBMYKL','RJHIMYKL','MFBBMYKL','ARBKMYKL',
   'BIMBMYKL','BKRMMYKL','BMMBMYKL','BOFAMY2X','BKCHMYKL','BOTKMYKX',
@@ -50,7 +37,6 @@ function getPbkdf2Iterations(env) {
   return DEFAULT_PBKDF2_ITERATIONS;
 }
 
-// === Encoding helpers ===
 function b64urlEncode(input) {
   let bytes;
   if (typeof input === 'string') bytes = new TextEncoder().encode(input);
@@ -110,7 +96,6 @@ function requireSessionSecret(env) {
   return secret;
 }
 
-// === TOKEN CREATION (with TTL) ===
 export async function createSignedToken(payload, env, ttlMs = 24 * 60 * 60 * 1000) {
   const secret = requireSessionSecret(env);
   const body = { ...payload, iat: Date.now(), exp: Date.now() + ttlMs };
@@ -119,7 +104,6 @@ export async function createSignedToken(payload, env, ttlMs = 24 * 60 * 60 * 100
   return `${encoded}.${signature}`;
 }
 
-// === ADMIN TOKEN (shorter TTL) ===
 export async function createAdminToken(payload, env) {
   return createSignedToken(payload, env, 8 * 60 * 60 * 1000);
 }
@@ -143,7 +127,6 @@ export async function verifySignedToken(token, env) {
   }
 }
 
-// === User session helpers ===
 async function getUserRecord(type, userId, db) {
   if (type === 'guest') {
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
@@ -249,7 +232,45 @@ export async function getOwnerSession(request, env) {
   return payload;
 }
 
-// === HTTP helpers ===
+// ============================================================
+// NEW: resolve an owner's homestay IDs FRESH from D1.
+//
+// The session token carries a `homestayIds` snapshot taken at mint time
+// (login or email verification). That snapshot goes stale whenever a new
+// listing is approved after the token was issued. Owner endpoints must
+// call this instead of trusting the snapshot.
+//
+// Accepts either a session payload ({ whatsapp, ownerId }) or a raw
+// WhatsApp / ownerId string.
+// ============================================================
+export async function getOwnerHomestayIdsFresh(db, ownerOrWhatsapp) {
+  if (!db) return [];
+  const rawWa = (typeof ownerOrWhatsapp === 'string')
+    ? ownerOrWhatsapp
+    : (ownerOrWhatsapp?.whatsapp || ownerOrWhatsapp?.ownerId || '');
+  const cleanWa = String(rawWa || '').replace(/[^0-9]/g, '');
+  if (!cleanWa) return [];
+
+  const ids = new Set();
+  for (const key of ['kd_approved', 'kd_pending']) {
+    try {
+      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
+      if (!r?.data) continue;
+      const arr = JSON.parse(r.data);
+      arr.forEach(h => {
+        const hWa = String(h.whatsapp || '').replace(/[^0-9]/g, '');
+        if (hWa && hWa === cleanWa) ids.add(String(h.id));
+      });
+    } catch (_) {}
+  }
+  return [...ids];
+}
+
+// Also export the raw WhatsApp cleaner for callers that need it.
+export function cleanWhatsapp(value) {
+  return String(value || '').replace(/[^0-9]/g, '');
+}
+
 export function getBearerToken(request, headerName = 'Authorization') {
   const auth = request.headers.get(headerName) || '';
   if (!auth.startsWith('Bearer ')) return null;
@@ -270,7 +291,6 @@ export function clearCookieHeader(name, sameSite = 'Lax') {
   return `${name}=; HttpOnly; Secure; SameSite=${sameSite}; Max-Age=0; Path=/`;
 }
 
-// === Password hashing ===
 export function generateSalt() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return b64urlEncode(bytes);
@@ -334,7 +354,6 @@ export async function verifyPassword(password, record, env) {
   return { ok: computedLegacy === hash, legacy: true };
 }
 
-// === IP / CORS / HTTPS ===
 export function getClientIP(request) {
   return request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown';
 }
@@ -384,7 +403,6 @@ export function enforceHttps(request) {
   return null;
 }
 
-// === Audit logging ===
 export async function logAction({ db, action, admin, details, ip, userId, homestayId }) {
   try {
     await db.prepare(`CREATE TABLE IF NOT EXISTS audit_log (
@@ -403,7 +421,6 @@ export async function logAction({ db, action, admin, details, ip, userId, homest
   }
 }
 
-// === CSRF ===
 export async function generateCSRFToken(userId, env) {
   return createSignedToken({ type: 'csrf', userId: String(userId) }, env, 24 * 60 * 60 * 1000);
 }
@@ -417,7 +434,6 @@ export function getCSRFToken(request) {
   return request.headers.get('X-CSRF-Token') || null;
 }
 
-// === Admin token retrieval ===
 export async function getAdminToken(request, env) {
   const cookie = getCookie(request, 'admin_token');
   if (cookie) return cookie;
@@ -447,7 +463,6 @@ export async function verifyAdminAuth(request, env) {
   return !!session;
 }
 
-// === JSON responses ===
 export function jsonResponse(body, status, request, extra = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -459,7 +474,6 @@ export function errorResponse(message, status, request, logDetails = null) {
   return jsonResponse({ error: message || 'An unexpected error occurred. Please try again later.' }, status, request);
 }
 
-// === Size-check BEFORE reading the body ===
 export async function parseJSONSafely(request) {
   const cl = request.headers.get('Content-Length');
   if (cl !== null) {
@@ -479,7 +493,6 @@ export async function parseJSONSafely(request) {
   }
 }
 
-// === RATE LIMITING (Persistent D1) ===
 export async function ensureRateLimitTable(db) {
   if (!db) return;
   await db.prepare(
@@ -529,7 +542,6 @@ export async function recordRateLimit(db, ip, action) {
   }
 }
 
-// === SESSION VERSION MANAGEMENT ===
 export async function incrementSessionVersion(db, userId, type) {
   if (type === 'guest') {
     const key = 'kd_guests';
@@ -624,7 +636,6 @@ export async function incrementOwnerSessionVersion(db, ownerIdOrWhatsapp) {
   return changed;
 }
 
-// === VALIDATION HELPERS ===
 export function sanitizeString(str, maxLen = 200) {
   if (!str) return '';
   return String(str).replace(/[<>]/g, '').trim().slice(0, maxLen);
@@ -664,7 +675,6 @@ export function sanitizeArray(arr, maxItems = 20) {
   return arr.slice(0, maxItems);
 }
 
-// === Check-in attempt tracking ===
 async function ensureCheckinAttemptsTable(db) {
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS checkin_attempts (
@@ -699,7 +709,6 @@ export async function clearCheckinAttempts(db, bookingId) {
   ).bind(bookingId).run();
 }
 
-// === Owner session invalidation ===
 export async function invalidateOwnerSessionsForHomestay(db, homestayId) {
   if (!homestayId) return false;
   return await incrementOwnerSessionVersion(db, homestayId);
@@ -710,13 +719,10 @@ export async function invalidateOwnerSessionsForOwner(db, ownerIdOrWhatsapp) {
   return await incrementOwnerSessionVersion(db, ownerIdOrWhatsapp);
 }
 
-// DEPRECATED: use invalidateOwnerSessionsForHomestay or
-// invalidateOwnerSessionsForOwner. Kept so existing callers keep working.
 export async function invalidateOwnerSessions(db, homestayId) {
   return invalidateOwnerSessionsForHomestay(db, homestayId);
 }
 
-// === D1-Compatible Lock — atomic CAS takeover ===
 export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS homestay_locks (
@@ -761,7 +767,6 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
   }
 }
 
-// === Payment finalization (idempotent, lock-protected by caller) ===
 export async function finalizePaidBooking(db, bookingId) {
   const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
   let bookings = [];
@@ -771,8 +776,6 @@ export async function finalizePaidBooking(db, bookingId) {
 
   const booking = bookings[idx];
 
-  // Refuse to finalize if the guest account has been deleted. Money was
-  // taken from a guest who no longer has an account here.
   if (booking.guestId) {
     const gr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_guests').first();
     let guests = [];
@@ -814,9 +817,6 @@ export async function finalizePaidBooking(db, bookingId) {
     paid_at: booking.paid_at || new Date().toISOString(),
     chip_status: 'paid',
     chip_paid_at: booking.chip_paid_at || new Date().toISOString(),
-    // Store the amount CHIP actually collected. This is what a later
-    // refund must use, because `total` can be recalculated by an admin
-    // editing a paid booking's dates.
     amount_paid: booking.amount_paid || Number(booking.total) || 0
   };
 
@@ -833,23 +833,6 @@ export async function finalizePaidBooking(db, bookingId) {
     booking: updated
   };
 }
-
-// ============================================================
-// CHIP SEND — CORRECT 4-STEP FLOW
-// ============================================================
-//
-// This is the ONLY place that talks to CHIP Send. It replaces the
-// old (broken) calls that used POST /send/payouts/ and skipped the
-// budget allocation step.
-//
-// Steps:
-//   1. GET  /send/accounts               → check convertible balance
-//   2. POST /send/send_limits            → allocate budget (may need approval)
-//   3. POST /send/bank_accounts          → register recipient bank account
-//   4. POST /send/send_instructions      → send the actual payout
-//
-// Returns { success, payoutId, amount, error, unknown }.
-// ============================================================
 
 async function chipHmacSha512(message, secret) {
   const key = await crypto.subtle.importKey(
@@ -889,7 +872,6 @@ export async function chipSendPayout({
     'checksum': ''
   });
 
-  // ---------- STEP 0: Resolve and validate bank details ----------
   const accountName = homestay.bankHolder || homestay.ownerName || '';
   const accountNumber = (homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
   const bankCode = (homestay.bankCode || '').toUpperCase().trim();
@@ -918,7 +900,6 @@ export async function chipSendPayout({
     return { success: false, error: 'Invalid payout amount' };
   }
 
-  // ---------- STEP 1: Check convertible balance ----------
   try {
     const epoch1 = Math.floor(Date.now() / 1000);
     const checksum1 = await chipHmacSha512(`${epoch1}${apiKey}`, apiSecret);
@@ -949,7 +930,6 @@ export async function chipSendPayout({
     return { success: false, error: `CHIP Send balance check network error: ${e.message}` };
   }
 
-  // ---------- STEP 2: Allocate budget (increase send limit) ----------
   try {
     const epoch2 = Math.floor(Date.now() / 1000);
     const checksum2 = await chipHmacSha512(`${epoch2}${apiKey}`, apiSecret);
@@ -966,8 +946,6 @@ export async function chipSendPayout({
 
     if (!limitRes.ok) {
       const txt = await limitRes.text().catch(() => '');
-      // If the balance is already sufficient, CHIP may return an error
-      // saying no conversion is needed — we treat that as success.
       if (txt.includes('no conversion') || txt.includes('already sufficient')) {
         // fall through
       } else {
@@ -975,7 +953,6 @@ export async function chipSendPayout({
       }
     } else {
       const limitData = await limitRes.json();
-      // If CHIP returns an approval-pending state, we must not proceed.
       if (limitData?.status && String(limitData.status).toLowerCase().includes('pending')) {
         return {
           success: false,
@@ -987,7 +964,6 @@ export async function chipSendPayout({
     return { success: false, error: `CHIP Send budget allocation network error: ${e.message}` };
   }
 
-  // ---------- STEP 3: Register bank account (cache in homestay) ----------
   let bankAccountId = homestay.chip_bank_account_id || null;
 
   if (!bankAccountId) {
@@ -1020,9 +996,6 @@ export async function chipSendPayout({
       }
       bankAccountId = bankData.id;
 
-      // Persist the bank account id so the next payout can skip step 3.
-      // NOTE: this cache MUST be cleared whenever bank details change.
-      // bookings.js → updateHomestays handles that.
       if (homestayId && db) {
         for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
           const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
@@ -1042,7 +1015,6 @@ export async function chipSendPayout({
     }
   }
 
-  // ---------- STEP 4: Create send instruction ----------
   try {
     const epoch4 = Math.floor(Date.now() / 1000);
     const checksum4 = await chipHmacSha512(`${epoch4}${apiKey}`, apiSecret);
