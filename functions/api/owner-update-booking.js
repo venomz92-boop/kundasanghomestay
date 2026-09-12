@@ -1,4 +1,10 @@
-// /api/owner-update-booking.js — Lock-protected dates/cancel + auto refund on host cancellation
+// /api/owner-update-booking.js — Plain English: this file handles host
+// actions: block/unblock a room date, change the nightly price, shift a
+// booking's dates, and cancel a booking (with automatic refund). Every
+// action now uses the SAME lock key ("bookings-global") as the rest of
+// the platform, so a host cancelling a booking can never race with an
+// admin changing dates, a guest creating a booking, a check-in payout,
+// or the CHIP webhook. Behavior and messages are otherwise unchanged.
 import {
   corsHeaders,
   getClientIP,
@@ -11,6 +17,10 @@ import {
 
 const MAX_NIGHTS = 60;
 const GATEWAY_FEE = 1.00;
+
+// Canonical lock key. EVERY kd_bookings (and related) write in this file
+// goes through this same key so nothing can interleave.
+const BOOKINGS_LOCK = 'bookings-global';
 
 async function verifyOwner(request, env) { return getOwnerSession(request, env); }
 
@@ -62,9 +72,15 @@ async function processChipRefund(purchaseId, amount, env) {
     body: JSON.stringify(payload)
   });
 
-  const data = await response.json();
-  if (!response.ok || !data.id) {
-    throw new Error(`CHIP refund failed: ${data.error || 'unknown'}`);
+  // If the response is not parseable JSON, treat as "unknown" — the
+  // caller will set the booking to "Refund Pending" so the money can be
+  // verified manually before any retry.
+  let data = null;
+  try { data = await response.json(); } catch (_) { data = null; }
+
+  if (!response.ok || !data || !data.id) {
+    const errMsg = data?.error || data?.message || `HTTP ${response.status}`;
+    throw new Error(`CHIP refund failed: ${errMsg}`);
   }
   return data;
 }
@@ -121,7 +137,7 @@ export async function onRequestPost({ request, env }) {
 
       let result;
       try {
-        result = await withLock(db, `block-${homestayId}`, async (db) => {
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
           const rApproved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
           let homestays = [];
           if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch (e) {} }
@@ -168,7 +184,7 @@ export async function onRequestPost({ request, env }) {
         }, 15000);
       } catch (lockErr) {
         if (lockErr.message && lockErr.message.includes('in progress')) {
-          return jsonResponse({ error: 'Another availability change is in progress for this homestay. Please try again.' }, 429, request);
+          return jsonResponse({ error: 'Another operation is in progress. Please try again in a moment.' }, 429, request);
         }
         throw lockErr;
       }
@@ -211,7 +227,7 @@ export async function onRequestPost({ request, env }) {
 
       let result;
       try {
-        result = await withLock(db, `price-${homestayId}`, async (db) => {
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
           let updated = false;
           for (const key of ['kd_approved', 'kd_pending']) {
             const res = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
@@ -231,7 +247,7 @@ export async function onRequestPost({ request, env }) {
         }, 15000);
       } catch (lockErr) {
         if (lockErr.message && lockErr.message.includes('in progress')) {
-          return jsonResponse({ error: 'Another pricing change is in progress for this homestay. Please try again.' }, 429, request);
+          return jsonResponse({ error: 'Another operation is in progress. Please try again in a moment.' }, 429, request);
         }
         throw lockErr;
       }
@@ -281,6 +297,7 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: `Maximum booking length is ${MAX_NIGHTS} nights.` }, 400, request);
       }
 
+      // Pre-flight auth check (unlocked read).
       const preRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
       let preBookings = [];
       try { if (preRes?.data) preBookings = JSON.parse(preRes.data); } catch (_) {}
@@ -300,7 +317,8 @@ export async function onRequestPost({ request, env }) {
 
       let result;
       try {
-        result = await withLock(db, String(preBooking.homestayId), async (db) => {
+        // C4: canonical lock instead of the old `String(preBooking.homestayId)`.
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
           const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
           let bookings = [];
           try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
@@ -396,7 +414,7 @@ export async function onRequestPost({ request, env }) {
       } catch (lockErr) {
         if (lockErr.message && lockErr.message.includes('in progress')) {
           return jsonResponse({
-            error: 'Another booking operation is in progress for this homestay. Please try again in a moment.'
+            error: 'Another booking operation is in progress. Please try again in a moment.'
           }, 429, request);
         }
         throw lockErr;
@@ -438,7 +456,8 @@ export async function onRequestPost({ request, env }) {
 
       let result;
       try {
-        result = await withLock(db, `cancel-${bookingId}`, async (db) => {
+        // C4: canonical lock instead of the old `cancel-${bookingId}`.
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
           const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
           let bookings = [];
           try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
@@ -512,7 +531,7 @@ export async function onRequestPost({ request, env }) {
       } catch (lockErr) {
         if (lockErr.message && lockErr.message.includes('in progress')) {
           return jsonResponse({
-            error: 'A cancellation or refund is already in progress for this booking. Please wait.'
+            error: 'Another booking operation is in progress. Please wait a moment and try again.'
           }, 429, request);
         }
         throw lockErr;
