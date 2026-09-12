@@ -3,15 +3,21 @@
 // booking's dates, and cancel a booking (with automatic refund).
 //
 // [THIS REVISION]
-// All four ownership checks (updateRoomBlock, updateHomestayPrice,
-// changeDates, cancelBooking) now resolve the owner's homestay IDs FRESH
-// from D1 by calling getOwnerHomestayIdsFresh() in _utils.js. Previously
-// they trusted the session token's `homestayIds` snapshot, which was
-// taken at login / email-verification time and went stale whenever a new
-// listing was approved after that moment. The symptom was:
-//   "Unauthorized: You do not own this homestay"
-// on any host action for a listing that was approved after the session
-// token was minted.
+// Cancellation now distinguishes two cases:
+//
+//   cancelType: 'host_own'      — host cancels for their own reasons
+//                                 (overbooking, maintenance, emergency).
+//                                 Guest receives a FULL refund of everything
+//                                 they paid, including the service fee.
+//
+//   cancelType: 'guest_request' — guest asked to cancel, host approved.
+//                                 Guest receives the BASE amount only.
+//                                 The service fee and gateway fee are
+//                                 retained by the platform, per policy.
+//
+// The refund amount, the booking status, and the cancellation email all
+// reflect which case applies. Missing cancelType defaults to 'host_own'
+// (the safer of the two: refund more, not less).
 import {
   corsHeaders,
   getClientIP,
@@ -107,51 +113,113 @@ function isPaidBooking(booking) {
   return false;
 }
 
+// ============================================================
+// Cancellation email — best-effort, never blocks the cancel.
+//
+// Three payment outcomes × two cancel reasons:
+//   - refund fully processed
+//   - refund pending at CHIP
+//   - refund FAILED (needs manual review)
+//   - no refund needed (unpaid booking)
+//
+// The wording reflects whether this was a host-own cancellation
+// (full refund) or a guest-request cancellation (base refund, fee
+// retained by platform).
+// ============================================================
 async function sendCancellationEmail(booking, refundInfo, env) {
   if (!booking || !booking.guestEmail) {
     return { sent: false, error: 'No guest email on file' };
   }
 
   const safe = (s) => String(s || '').replace(/[<>]/g, '');
-  const totalAmount = Number(booking.total || 0).toFixed(2);
+  const cancelType = String(refundInfo.cancelType || 'host_own');
+  const isGuestRequest = cancelType === 'guest_request';
+
+  const refundAmountNum = Number(
+    refundInfo.refundAmount ||
+    (isGuestRequest ? booking.base : (booking.amount_paid || booking.total)) ||
+    0
+  );
+  const refundAmount = refundAmountNum.toFixed(2);
+  const totalPaidNum = Number(booking.amount_paid || booking.total || 0);
+  const totalPaid = totalPaidNum.toFixed(2);
+  const feeRetainedNum = Math.max(0, totalPaidNum - refundAmountNum);
+  const feeRetained = feeRetainedNum.toFixed(2);
+
+  const initiatedBy = isGuestRequest
+    ? 'at your request and confirmed by the host'
+    : 'by the host';
 
   let subject, headerColor, headerText, bodyHtml;
 
   if (refundInfo.isPaid && refundInfo.refundSuccess && !refundInfo.refundPending) {
-    subject = 'Booking Cancelled by Host - Refund Processed';
+    subject = isGuestRequest
+      ? 'Booking Cancelled at Your Request - Refund Processed'
+      : 'Booking Cancelled by Host - Refund Processed';
     headerColor = '#16a34a';
     headerText = '✓ Booking Cancelled — Refund Processed';
+
+    const refundNote = isGuestRequest
+      ? `
+        <p>Per our cancellation policy, the platform service fee and payment gateway fee are <strong>non-refundable</strong> on guest-requested cancellations.</p>
+        <p>A refund of <strong>RM${refundAmount}</strong> has been processed to your original payment method via CHIP. This represents the base nightly rate.</p>
+        <table style="font-size:13px;margin:12px 0;">
+          <tr>
+            <td style="padding:4px 12px 4px 0;color:#6b7280;">You paid</td>
+            <td style="padding:4px 0;font-weight:600;">RM ${totalPaid}</td>
+          </tr>
+          <tr>
+            <td style="padding:4px 12px 4px 0;color:#6b7280;">Service fee retained</td>
+            <td style="padding:4px 0;font-weight:600;">− RM ${feeRetained}</td>
+          </tr>
+          <tr style="border-top:1px solid #e5e7eb;">
+            <td style="padding:6px 12px 4px 0;color:#0F382E;font-weight:700;">Refunded to you</td>
+            <td style="padding:6px 0;color:#0F382E;font-weight:800;">RM ${refundAmount}</td>
+          </tr>
+        </table>
+      `
+      : `
+        <p>A <strong>full refund of RM${refundAmount}</strong> has been processed to your original payment method via CHIP.</p>
+      `;
+
     bodyHtml = `
-      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled by the host.</p>
-      <p>A <strong>full refund of RM${totalAmount}</strong> has been processed to your original payment method via CHIP.</p>
+      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
+      ${refundNote}
       <p>Refunds typically take <strong>3–7 business days</strong> to appear in your bank account, depending on your bank's processing times.</p>
       <p><strong>Refund ID (CHIP):</strong> ${safe(refundInfo.refundId || 'N/A')}</p>
     `;
   } else if (refundInfo.isPaid && refundInfo.refundSuccess && refundInfo.refundPending) {
-    subject = 'Booking Cancelled by Host - Refund Processing';
+    subject = isGuestRequest
+      ? 'Booking Cancelled at Your Request - Refund Processing'
+      : 'Booking Cancelled by Host - Refund Processing';
     headerColor = '#d97706';
     headerText = '⏳ Booking Cancelled — Refund Processing';
+
+    const pendingNote = isGuestRequest
+      ? `<p>A refund of <strong>RM${refundAmount}</strong> is being processed by CHIP. Per policy, the platform service fee of <strong>RM${feeRetained}</strong> is retained on guest-requested cancellations.</p>`
+      : `<p>A <strong>full refund of RM${refundAmount}</strong> is being processed by CHIP. This usually completes within a few minutes.</p>`;
+
     bodyHtml = `
-      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled by the host.</p>
-      <p>A <strong>full refund of RM${totalAmount}</strong> is being processed by CHIP. This usually completes within a few minutes.</p>
+      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
+      ${pendingNote}
       <p>Once CHIP finishes, the refund may take a further <strong>3–7 business days</strong> to appear in your bank account.</p>
       <p><strong>Refund ID (CHIP):</strong> ${safe(refundInfo.refundId || 'N/A')}</p>
     `;
   } else if (refundInfo.isPaid && !refundInfo.refundSuccess) {
-    subject = 'Booking Cancelled by Host';
+    subject = 'Booking Cancelled';
     headerColor = '#dc2626';
-    headerText = '❌ Booking Cancelled';
+    headerText = '❌ Booking Cancelled — Refund Pending Review';
     bodyHtml = `
-      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled by the host.</p>
-      <p>Your payment of <strong>RM${totalAmount}</strong> was taken. The refund could not be processed automatically and is now under manual review by our team.</p>
+      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
+      <p>Your payment of <strong>RM${totalPaid}</strong> was taken. The refund could not be processed automatically and is now under manual review by our team.</p>
       <p>Please contact <a href="mailto:support@kundasanghomestay.my">support@kundasanghomestay.my</a> if you don't hear from us within 24 hours.</p>
     `;
   } else {
-    subject = 'Booking Cancelled by Host';
+    subject = 'Booking Cancelled';
     headerColor = '#6b7280';
     headerText = '❌ Booking Cancelled';
     bodyHtml = `
-      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled by the host.</p>
+      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
       <p>No payment was taken for this booking, so no refund is needed.</p>
       <p>If you have any questions, please contact the host directly.</p>
     `;
@@ -168,6 +236,7 @@ async function sendCancellationEmail(booking, refundInfo, env) {
         <div><strong>Check-in:</strong> ${safe(booking.checkin)}</div>
         <div><strong>Check-out:</strong> ${safe(booking.checkout)}</div>
         <div><strong>Nights:</strong> ${safe(booking.nights)}</div>
+        <div><strong>Cancellation reason:</strong> ${isGuestRequest ? 'Guest request (approved by host)' : 'Host-initiated'}</div>
       </div>
       <p>— Kundasang Homestay Team</p>
     </div>
@@ -225,9 +294,6 @@ export async function onRequestPost({ request, env }) {
     if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // ===== Resolve owner's homestay IDs FRESH from D1. =====
-    // Never trust the session token's homestayIds snapshot — it can be
-    // stale if a listing was approved after the token was minted.
     const ownerHomestayIds = await getOwnerHomestayIdsFresh(db, ownerData);
 
     // ===== ACTION: Update room block (LOCK PROTECTED) =====
@@ -536,6 +602,11 @@ export async function onRequestPost({ request, env }) {
 
     // ========== ACTION: CANCEL BOOKING (LOCK PROTECTED) ==========
     if (action === 'cancelBooking') {
+      // [NEW] cancelType distinguishes host-own from guest-request.
+      // Missing value defaults to 'host_own' (the safer case: full refund).
+      const cancelTypeRaw = String(body.cancelType || 'host_own').toLowerCase().trim();
+      const cancelType = (cancelTypeRaw === 'guest_request') ? 'guest_request' : 'host_own';
+
       const preRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
       let preBookings = [];
       try { if (preRes?.data) preBookings = JSON.parse(preRes.data); } catch (_) {}
@@ -578,13 +649,26 @@ export async function onRequestPost({ request, env }) {
           }
 
           const isPaid = isPaidBooking(booking);
+
+          // Compute refund amount based on cancel type.
+          //   host_own:      refund the full amount the guest paid
+          //   guest_request: refund only the base (host's nightly rate);
+          //                  the platform service fee + gateway fee are
+          //                  retained by the platform per policy
+          const totalPaidNum = Number(booking.amount_paid || booking.total) || 0;
+          const baseAmountNum = Number(booking.base) || 0;
+          const refundAmountNum = cancelType === 'guest_request'
+            ? baseAmountNum
+            : totalPaidNum;
+
           let refundSuccess = false;
           let refundData = null;
           let refundError = null;
 
-          if (isPaid && booking.chip_purchase_id) {
+          if (isPaid && booking.chip_purchase_id && refundAmountNum > 0) {
             bookings[idx].refund_attempted_at = new Date().toISOString();
             bookings[idx].refund_attempted_by = 'host';
+            bookings[idx].refund_attempted_amount = refundAmountNum;
             await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
               .bind('kd_bookings', JSON.stringify(bookings))
               .run();
@@ -592,7 +676,7 @@ export async function onRequestPost({ request, env }) {
             try {
               refundData = await processChipRefund(
                 booking.chip_purchase_id,
-                booking.amount_paid || booking.total,
+                refundAmountNum,
                 env
               );
               refundSuccess = true;
@@ -601,23 +685,33 @@ export async function onRequestPost({ request, env }) {
             }
           }
 
+          // Status string reflects both the cancel reason and the refund state.
+          const cancelledByLabel = cancelType === 'guest_request'
+            ? 'Cancelled by Guest Request (host approved)'
+            : 'Cancelled by Host';
+
           if (isPaid && refundSuccess) {
             const isPending = refundData && refundData.status === 'pending_refund';
-            bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded';
+            bookings[idx].status = isPending
+              ? 'Refund Pending - Awaiting CHIP'
+              : 'Refunded';
             bookings[idx].chip_refund_id = refundData.id;
             bookings[idx].refunded_at = new Date().toISOString();
-            bookings[idx].refund_amount = booking.amount_paid || booking.total;
+            bookings[idx].refund_amount = refundAmountNum;
             bookings[idx].cancelled_by = 'host';
+            bookings[idx].cancel_type = cancelType;
             bookings[idx].statusUpdated = new Date().toISOString();
             if (isPending) bookings[idx].refund_pending = true;
           } else if (isPaid && !refundSuccess) {
             bookings[idx].status = 'Cancelled by Host - Refund Pending';
             bookings[idx].refund_error = refundError || 'Unknown error';
             bookings[idx].cancelled_by = 'host';
+            bookings[idx].cancel_type = cancelType;
             bookings[idx].statusUpdated = new Date().toISOString();
           } else {
-            bookings[idx].status = 'Cancelled by Host';
+            bookings[idx].status = cancelledByLabel;
             bookings[idx].cancelled_by = 'host';
+            bookings[idx].cancel_type = cancelType;
             bookings[idx].statusUpdated = new Date().toISOString();
           }
 
@@ -628,6 +722,8 @@ export async function onRequestPost({ request, env }) {
           return {
             success: true,
             isPaid,
+            cancelType,
+            refundAmountNum,
             refundSuccess,
             refundData,
             refundError,
@@ -648,10 +744,14 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: result.error }, result.status || 400, request);
       }
 
+      // Send the cancellation email to the guest. Best-effort:
+      // an email failure never rolls back the cancellation or refund.
       let emailReport = { sent: false, error: 'skipped' };
       try {
         emailReport = await sendCancellationEmail(result.booking, {
           isPaid: result.isPaid,
+          cancelType: result.cancelType,
+          refundAmount: result.refundAmountNum,
           refundSuccess: result.refundSuccess,
           refundPending: result.refundPending || false,
           refundId: result.refundData?.id || null
@@ -669,12 +769,12 @@ export async function onRequestPost({ request, env }) {
               : 'booking_cancelled_host_refund_failed')
           : 'booking_cancelled_host',
         admin: 'owner',
-        details: `Booking ${bookingId} cancelled by host ${ownerData.whatsapp}. ${
+        details: `Booking ${bookingId} cancelled by host ${ownerData.whatsapp} — type=${result.cancelType}. ${
           result.isPaid
             ? (result.refundSuccess
                 ? (result.refundPending
-                    ? 'Refund pending (CHIP still processing): ' + result.refundData.id
-                    : 'Refund processed: ' + result.refundData.id)
+                    ? `Refund pending (CHIP still processing): ${result.refundData.id}, RM${result.refundAmountNum.toFixed(2)}`
+                    : `Refund processed: ${result.refundData.id}, RM${result.refundAmountNum.toFixed(2)}`)
                 : 'Refund failed: ' + result.refundError)
             : '(unpaid)'
         }. Cancellation email: ${emailReport.sent ? 'sent' : 'failed — ' + (emailReport.error || 'unknown')}`,
@@ -683,15 +783,29 @@ export async function onRequestPost({ request, env }) {
         homestayId: result.booking.homestayId
       });
 
+      // Response message reflects the two cases.
+      const refundMsg = (() => {
+        if (!result.isPaid) {
+          return `Booking ${bookingId} cancelled (unpaid).`;
+        }
+        if (result.refundSuccess) {
+          const amt = Number(result.refundAmountNum).toFixed(2);
+          if (result.refundPending) {
+            return `Booking ${bookingId} cancelled. CHIP is processing the refund of RM${amt} — this can take a few minutes. The guest will be notified when complete.`;
+          }
+          if (result.cancelType === 'guest_request') {
+            return `Booking ${bookingId} cancelled at guest request. Refund of RM${amt} processed (base amount only; service fee retained).`;
+          }
+          return `Booking ${bookingId} cancelled and full refund of RM${amt} processed.`;
+        }
+        return `Booking ${bookingId} cancelled but refund failed. Status set to 'Refund Pending'. Please contact support.`;
+      })();
+
       return jsonResponse({
         success: true,
-        message: result.isPaid
-          ? (result.refundSuccess
-              ? (result.refundPending
-                  ? `Booking ${bookingId} cancelled. CHIP is processing the refund of RM${Number(result.booking.refund_amount || 0).toFixed(2)} — this can take a few minutes. The guest will be notified when complete.`
-                  : `Booking ${bookingId} cancelled and full refund of RM${Number(result.booking.refund_amount || 0).toFixed(2)} processed.`)
-              : `Booking ${bookingId} cancelled but refund failed. Status set to 'Refund Pending'. Please contact support.`)
-          : `Booking ${bookingId} cancelled (unpaid).`,
+        message: refundMsg,
+        cancelType: result.cancelType,
+        refundAmount: result.refundAmountNum,
         booking: result.booking,
         refund: result.refundData || undefined,
         refundError: result.refundError || undefined,
