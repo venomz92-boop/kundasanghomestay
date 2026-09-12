@@ -10,11 +10,16 @@
 //      IDs by matching WhatsApp in kd_approved / kd_pending.
 //  (5) sendHostPayoutEmail(booking, homestay, payoutInfo, env) sends a
 //      payout receipt to the host after a successful CHIP Send transfer.
-//      [NEW] When payoutInfo.isSimulation is true, the subject line gets
-//      a [TEST] prefix and a bright banner is drawn at the top of the
-//      email body. This lets the admin verify the email in sandbox
-//      without any risk of a host mistaking a simulated receipt for a
-//      real one.
+//      When payoutInfo.isSimulation is true, the subject line gets a
+//      [TEST] prefix and a yellow banner is drawn at the top of the
+//      email body.
+//  (6) Wording change in the Payment Breakdown table of the receipt:
+//      "Guest paid" became "Guest paid in total", "Service fee (11%)"
+//      became "Platform commission (11%)", "Gateway fee" became
+//      "Payment gateway fee", and "You received" became "Your payout".
+//      This removes the misreading where a host might think the platform
+//      took money out of their payout, when in fact those amounts were
+//      charged to the guest on top of the nightly rate.
 
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
@@ -836,9 +841,7 @@ export async function finalizePaidBooking(db, bookingId) {
 //   payoutInfo — { amount, payoutId, reference, paidAt, isSimulation }
 //                When isSimulation is true, the subject gets a [TEST]
 //                prefix and a bright banner is drawn at the top of the
-//                email body. This lets the admin verify delivery in
-//                sandbox without any risk of a host mistaking the
-//                receipt for a real one.
+//                email body.
 //   env        — Cloudflare env
 //
 // Best-effort — a failure never rolls back the payout.
@@ -946,19 +949,19 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
         <div style="font-size:13px;color:#4b5563;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Payment Breakdown</div>
         <table style="width:100%;font-size:13px;border-collapse:collapse;color:#374151;">
           <tr>
-            <td style="padding:7px 0;color:#6b7280;">Guest paid</td>
+            <td style="padding:7px 0;color:#6b7280;">Guest paid in total</td>
             <td style="padding:7px 0;text-align:right;">RM ${total}</td>
           </tr>
           <tr>
-            <td style="padding:7px 0;color:#6b7280;">Service fee (11%)</td>
+            <td style="padding:7px 0;color:#6b7280;">Platform commission (11%)</td>
             <td style="padding:7px 0;text-align:right;color:#b91c1c;">− RM ${fee}</td>
           </tr>
           <tr>
-            <td style="padding:7px 0;color:#6b7280;">Gateway fee</td>
+            <td style="padding:7px 0;color:#6b7280;">Payment gateway fee</td>
             <td style="padding:7px 0;text-align:right;color:#b91c1c;">− RM ${gatewayFee}</td>
           </tr>
           <tr style="border-top:2px solid #0F382E;">
-            <td style="padding:10px 0;font-weight:700;color:#0F382E;">${isSimulation ? 'Simulated payout' : 'You received'}</td>
+            <td style="padding:10px 0;font-weight:700;color:#0F382E;">${isSimulation ? 'Simulated payout' : 'Your payout'}</td>
             <td style="padding:10px 0;text-align:right;font-weight:800;color:#0F382E;font-size:15px;">RM ${payoutAmount}</td>
           </tr>
         </table>
