@@ -4,6 +4,11 @@
 // unparseable/ambiguous CHIP responses as UNKNOWN (manual verification)
 // rather than a definitive failure that would let a duplicate be sent.
 // Platform fee is only recorded on a REAL, confirmed success.
+//
+// [NEW] Payout double-fire protection: the attempt marker is now written
+// to D1 BEFORE calling CHIP Send. If the worker crashes between the CHIP
+// call and the result write, a retry refuses instead of firing a second
+// real payout.
 import {
   corsHeaders,
   getClientIP,
@@ -83,8 +88,6 @@ export async function onRequestPost({ request, env }) {
 
     let result;
     try {
-      // C4: canonical bookings lock. This serializes against booking
-      // creation, check-in, cancellation, admin override, and admin edits.
       result = await withLock(db, BOOKINGS_LOCK, async (db) => {
         const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
         let bookings = [];
@@ -102,6 +105,22 @@ export async function onRequestPost({ request, env }) {
         if (booking.payoutUnknown) {
           return {
             error: `Payout state is UNKNOWN (${booking.payoutUnknownAt || 'unknown time'}). Check CHIP dashboard for reference KDH-${bookingId} before retrying.`,
+            status: 409
+          };
+        }
+
+        // ============================================================
+        // [NEW] UNRESOLVED-ATTEMPT GUARD.
+        // Same as owner-checkin.js and payout.js — refuse if a previous
+        // run wrote the attempt marker but never recorded a result.
+        // ============================================================
+        if (booking.payoutAttemptedAt
+            && !booking.payoutSuccessDate
+            && !booking.payoutUnknown
+            && !booking.payoutFailedAttempt
+            && !booking.ownerPayoutId) {
+          return {
+            error: `A previous payout attempt at ${booking.payoutAttemptedAt} has an unresolved outcome. Log into the CHIP dashboard and check for reference ${booking.payoutAttemptedReference || 'KDH-' + bookingId}. If no payout exists, contact support to clear the marker before retrying.`,
             status: 409
           };
         }
@@ -226,7 +245,6 @@ export async function onRequestPost({ request, env }) {
           }
           bankAccountId = bankData.id;
 
-          // Cache bank account ID back into all stores that carry this homestay
           for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
             const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
             let list = [];
@@ -254,6 +272,20 @@ export async function onRequestPost({ request, env }) {
         bookings[idx].payoutAttemptedReference = reference;
         bookings[idx].payoutAttemptedAmount = ownerAmount;
 
+        // ============================================================
+        // [NEW] PRE-FLIGHT WRITE. See owner-checkin.js for full rationale.
+        // ============================================================
+        try {
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+        } catch (preflightErr) {
+          return {
+            error: `Could not record the payout attempt before contacting CHIP (${preflightErr.message}). No payout was sent.`,
+            status: 500
+          };
+        }
+
         const payoutEpoch = Math.floor(Date.now() / 1000);
         const payoutChecksum = await hmacSha512(`${payoutEpoch}${apiKey}`, apiSecret);
 
@@ -270,7 +302,6 @@ export async function onRequestPost({ request, env }) {
             body: JSON.stringify(payoutPayload)
           });
         } catch (networkErr) {
-          // Network error — CHIP may or may not have processed it
           bookings[idx].payoutUnknown = true;
           bookings[idx].payoutUnknownAt = new Date().toISOString();
           bookings[idx].payoutUnknownError = networkErr.message || 'Network error';
@@ -307,6 +338,11 @@ export async function onRequestPost({ request, env }) {
           const errStr = String(payoutData?.error || payoutData?.message || '').toLowerCase();
           const isStructuredRejection = payoutRes.status >= 400 && payoutRes.status < 500 && errStr.length > 0;
           if (isStructuredRejection) {
+            bookings[idx].payoutFailedAttempt = true;
+            bookings[idx].lastPayoutError = `CHIP rejected: ${payoutData.error || payoutData.message}`;
+            await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+              .bind('kd_bookings', JSON.stringify(bookings))
+              .run();
             return { error: 'CHIP Send rejected the payout: ' + (payoutData.error || payoutData.message), status: 502 };
           }
           bookings[idx].payoutUnknown = true;
