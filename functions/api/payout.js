@@ -3,10 +3,10 @@
 // ALLOW_PAYOUT_SIMULATION=true. Uses the global bookings lock.
 //
 // [THIS REVISION]
-// After a successful live payout, the host now receives a payout receipt
-// email via sendHostPayoutEmail() from _utils.js. Sent only on real
-// success (not on simulation, not on unknown, not on failure). Best-effort:
-// a failed email never rolls back the payout.
+// Payout receipt email is now sent in BOTH the live success branch and the
+// simulation branch. The helper renders a [TEST] subject prefix and a
+// yellow banner when isSimulation is true, so sandbox testing produces a
+// visibly-marked test email and live payouts produce the real receipt.
 import {
   corsHeaders,
   getClientIP,
@@ -126,11 +126,15 @@ export async function onRequestPost({ request, env }) {
         const isSimulation = !isLive && simulationAllowed;
 
         if (isSimulation) {
+          const simPayoutId = 'SIM_' + Date.now();
+          const simPaidAt = new Date().toISOString();
+          const simReference = `KDH-${bookingId}`;
+
           bookings[idx].status = 'Completed - Payout Success';
           bookings[idx].payoutSuccess = true;
-          bookings[idx].payoutSuccessDate = new Date().toISOString();
+          bookings[idx].payoutSuccessDate = simPaidAt;
           bookings[idx].payoutAmount = payoutAmount;
-          bookings[idx].ownerPayoutId = 'SIM_' + Date.now();
+          bookings[idx].ownerPayoutId = simPayoutId;
           bookings[idx].payoutMethod = 'Simulated (admin override)';
           bookings[idx].payoutSimulated = true;
           bookings[idx].payoutFailedAttempt = false;
@@ -140,11 +144,31 @@ export async function onRequestPost({ request, env }) {
             .bind('kd_bookings', JSON.stringify(bookings))
             .run();
 
+          // [NEW] Simulation receipt email.
+          let simEmailReport = { sent: false, error: 'not attempted' };
+          try {
+            simEmailReport = await sendHostPayoutEmail(
+              booking,
+              homestay,
+              {
+                amount: payoutAmount,
+                payoutId: simPayoutId,
+                reference: simReference,
+                paidAt: simPaidAt,
+                isSimulation: true
+              },
+              env
+            );
+          } catch (mailErr) {
+            console.error('Payout email error (simulation):', mailErr.message);
+            simEmailReport = { sent: false, error: mailErr.message };
+          }
+
           await logAction({
             db,
             action: 'payout_simulated_admin',
             admin: 'admin',
-            details: `Simulated payout for ${bookingId} (RM${payoutAmount})`,
+            details: `Simulated payout for ${bookingId} (RM${payoutAmount}). Payout email: ${simEmailReport.sent ? 'sent ([TEST])' : 'failed — ' + (simEmailReport.error || 'unknown')}.`,
             ip: clientIP,
             userId: booking.guestEmail,
             homestayId: booking.homestayId
@@ -153,9 +177,10 @@ export async function onRequestPost({ request, env }) {
           return {
             success: true,
             message: `SIMULATED payout of RM${payoutAmount.toFixed(2)} recorded. No real money was transferred.`,
-            payoutId: bookings[idx].ownerPayoutId,
+            payoutId: simPayoutId,
             bookingId,
-            simulated: true
+            simulated: true,
+            payoutEmailSent: simEmailReport.sent
           };
         }
 
