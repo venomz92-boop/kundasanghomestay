@@ -6,6 +6,11 @@
 // (needs manual verification), never as a definitive failure that would
 // allow a duplicate retry. Platform fee is only recorded on a REAL,
 // confirmed success.
+//
+// [NEW] Payout double-fire protection: the attempt marker is now written
+// to D1 BEFORE calling CHIP Send. If the worker crashes between the CHIP
+// call and the result write, a retry refuses instead of firing a second
+// real payout.
 import {
   corsHeaders,
   getClientIP,
@@ -123,8 +128,6 @@ export async function onRequestPost({ request, env }) {
 
     let result;
     try {
-      // C4: canonical bookings lock so this serializes with every other
-      // kd_bookings writer (creation, check-in, cancellation, admin edit).
       result = await withLock(db, BOOKINGS_LOCK, async (db) => {
         const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
         let bookings = [];
@@ -149,6 +152,23 @@ export async function onRequestPost({ request, env }) {
         if (booking.payoutUnknown) {
           return {
             error: `Payout state is UNKNOWN (${booking.payoutUnknownAt || 'unknown time'}). Check CHIP dashboard for reference KDH-${bookingId} before retrying.`,
+            status: 409
+          };
+        }
+
+        // ============================================================
+        // [NEW] UNRESOLVED-ATTEMPT GUARD.
+        // If a previous run wrote the attempt marker to D1 but never
+        // recorded a result, we MUST refuse. Otherwise a retry would
+        // fire a second real payout.
+        // ============================================================
+        if (booking.payoutAttemptedAt
+            && !booking.payoutSuccessDate
+            && !booking.payoutUnknown
+            && !booking.payoutFailedAttempt
+            && !booking.ownerPayoutId) {
+          return {
+            error: `A previous payout attempt at ${booking.payoutAttemptedAt} has an unresolved outcome. Log into the CHIP dashboard and check for reference ${booking.payoutAttemptedReference || 'KDH-' + bookingId}. If no payout exists, contact support to clear the marker before retrying.`,
             status: 409
           };
         }
@@ -289,6 +309,20 @@ export async function onRequestPost({ request, env }) {
         bookings[idx].payoutAttemptedReference = reference;
         bookings[idx].payoutAttemptedAmount = payoutAmount;
 
+        // ============================================================
+        // [NEW] PRE-FLIGHT WRITE. See owner-checkin.js for full rationale.
+        // ============================================================
+        try {
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+        } catch (preflightErr) {
+          return {
+            error: `Could not record the payout attempt before contacting CHIP (${preflightErr.message}). No payout was sent.`,
+            status: 500
+          };
+        }
+
         const payoutEpoch = Math.floor(Date.now() / 1000);
         const payoutChecksum = await hmacSha512(`${payoutEpoch}${apiKey}`, apiSecret);
 
@@ -341,6 +375,11 @@ export async function onRequestPost({ request, env }) {
           const errStr = String(payoutData?.error || payoutData?.message || '').toLowerCase();
           const isStructuredRejection = payoutRes.status >= 400 && payoutRes.status < 500 && errStr.length > 0;
           if (isStructuredRejection) {
+            bookings[idx].payoutFailedAttempt = true;
+            bookings[idx].lastPayoutError = `CHIP rejected: ${payoutData.error || payoutData.message}`;
+            await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+              .bind('kd_bookings', JSON.stringify(bookings))
+              .run();
             return { error: `Owner payout was rejected by CHIP: ${payoutData.error || payoutData.message}`, status: 502 };
           }
           bookings[idx].payoutUnknown = true;
