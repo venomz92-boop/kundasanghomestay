@@ -4,10 +4,15 @@
 // === 'true'. It also uses the canonical 'bookings-global' lock so it can
 // never race with booking creation, cancellation, or admin edits.
 //
-// [NEW] Payout double-fire protection: we now persist an "attempt marker"
-// to D1 BEFORE calling CHIP Send. If the worker crashes between the CHIP
-// call and the result write, a retry refuses instead of firing a second
-// real payout.
+// Payout double-fire protection (previous fix): the attempt marker is
+// written to D1 BEFORE calling CHIP Send. If the worker crashes between
+// the CHIP call and the result write, a retry refuses instead of firing
+// a second real payout.
+//
+// [NEW] Atomic fee-recording: the booking update and the platform-fee
+// update are now written in a single db.batch(). D1 batches are atomic.
+// If the batch fails, the booking reverts to "attempt marker only" and
+// the double-fire guard refuses retries — no silent fee loss.
 import {
   corsHeaders,
   getClientIP,
@@ -142,8 +147,6 @@ export async function onRequestPost({ request, env }) {
 
     let result;
     try {
-      // C4: use the canonical bookings lock so this serializes with every
-      // other kd_bookings write across the platform.
       result = await withLock(db, BOOKINGS_LOCK, async (db) => {
         const freshRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
         let bookings = [];
@@ -169,13 +172,7 @@ export async function onRequestPost({ request, env }) {
           };
         }
 
-        // ============================================================
-        // [NEW] UNRESOLVED-ATTEMPT GUARD.
-        // If a previous run wrote the attempt marker to D1 but never
-        // recorded a result (success, unknown, or definitive failure),
-        // we MUST refuse. Otherwise a retry would fire a second real
-        // payout to the host.
-        // ============================================================
+        // UNRESOLVED-ATTEMPT GUARD.
         if (booking.payoutAttemptedAt
             && !booking.payoutSuccessDate
             && !booking.payoutUnknown
@@ -244,11 +241,7 @@ export async function onRequestPost({ request, env }) {
         const isProduction = env.ENVIRONMENT === 'production';
         const simulationAllowed = !isProduction && env.ALLOW_PAYOUT_SIMULATION === 'true';
 
-        // ============================================================
         // C1: HARD GATE. Simulation only in non-prod with explicit flag.
-        // In production with missing keys, mark the booking as failed and
-        // return a loud 500. NEVER mark as paid, NEVER record platform fee.
-        // ============================================================
         if (!isLive && isProduction) {
           bookings[idx].status = 'Completed - Payout Pending';
           bookings[idx].checkedInAt = new Date().toISOString();
@@ -280,7 +273,6 @@ export async function onRequestPost({ request, env }) {
           payoutMessage = `Check-in confirmed! SIMULATED payout of RM${ownerAmount} completed (ALLOW_PAYOUT_SIMULATION=true on non-prod).`;
           isSimulation = true;
         } else if (!isLive) {
-          // Non-prod but simulation not enabled → refuse, same as prod.
           bookings[idx].status = 'Completed - Payout Pending';
           bookings[idx].checkedInAt = new Date().toISOString();
           bookings[idx].checkedInBy = 'owner';
@@ -348,16 +340,10 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].payoutAttemptedReference = reference;
             bookings[idx].payoutAttemptedAmount = Number(ownerAmount);
 
-            // ============================================================
-            // [NEW] PRE-FLIGHT WRITE.
-            // Persist the attempt marker to D1 BEFORE calling CHIP Send.
-            // If the worker dies between here and the final result write,
-            // this marker survives — the guard above will refuse a retry
-            // instead of firing a second real payout.
-            //
-            // If this write itself fails, we abort BEFORE calling CHIP
-            // Send, so no money can move without a durable marker in place.
-            // ============================================================
+            // PRE-FLIGHT WRITE. Persist the attempt marker to D1 BEFORE
+            // calling CHIP Send. If the worker dies between here and the
+            // final result write, this marker survives — the guard above
+            // will refuse a retry instead of firing a second real payout.
             try {
               await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
                 .bind('kd_bookings', JSON.stringify(bookings))
@@ -389,7 +375,7 @@ export async function onRequestPost({ request, env }) {
               payoutMessage = `Check-in confirmed, but payout status is UNKNOWN due to a network error. Reference KDH-${bookingId} may have been sent to CHIP. Log into your CHIP dashboard to verify before retrying.`;
             }
 
-            // H3: treat unparseable responses as UNKNOWN, not as definitive failures.
+            // H3: unparseable → UNKNOWN.
             if (!payoutUnknown) {
               let payoutDataRaw = null;
               let parseFailed = false;
@@ -431,7 +417,7 @@ export async function onRequestPost({ request, env }) {
           }
         }
 
-        // Update booking
+        // Update booking object in memory based on outcome
         if (payoutSuccess) {
           bookings[idx].status = 'Completed - Payout Success';
           bookings[idx].payoutSuccess = true;
@@ -464,23 +450,24 @@ export async function onRequestPost({ request, env }) {
           bookings[idx].homestaySource = homestaySource;
         }
 
-        await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_bookings', JSON.stringify(bookings))
-          .run();
-
-        await logAction({
-          db,
-          action: payoutSuccess
-            ? (isSimulation ? 'owner_checkin_simulation' : 'owner_checkin_payout_success')
-            : (payoutUnknown ? 'owner_checkin_payout_unknown' : 'owner_checkin_payout_failed'),
-          admin: 'owner',
-          details: `Check-in ${bookingId}, payout ${payoutSuccess ? (isSimulation ? 'simulated' : 'success') : (payoutUnknown ? 'UNKNOWN' : 'failed')}`,
-          ip: getClientIP(request),
-          userId: booking.guestEmail,
-          homestayId: booking.homestayId
-        });
-
-        // C1: NEVER record platform fee earnings for a simulated payout.
+        // ============================================================
+        // [NEW] ATOMIC WRITE: booking + platform-fee in ONE batch.
+        //
+        // Previously these were two separate writes. If the second one
+        // failed, the platform's 11% commission was silently lost
+        // forever (the booking already showed payoutSuccessDate, so
+        // no retry path would ever record the fee).
+        //
+        // We read fee-earnings first, prepare the modified blob, then
+        // batch both writes. If the batch fails, the booking reverts
+        // to "attempt marker only" and the double-fire guard above
+        // refuses retries — the admin is forced to reconcile manually
+        // against the CHIP dashboard instead of the fee vanishing.
+        //
+        // Simulation NEVER records a fee (isSimulation === true), so
+        // the batch then contains only the booking write.
+        // ============================================================
+        let feeEarningsToWrite = null;
         if (payoutSuccess && !isSimulation) {
           try {
             const feeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
@@ -501,13 +488,50 @@ export async function onRequestPost({ request, env }) {
                   method: 'chip_send',
                   ip: getClientIP(request)
                 });
-                await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-                  .bind('kd_fee_earnings', JSON.stringify(feeEarnings))
-                  .run();
+                feeEarningsToWrite = feeEarnings;
               }
             }
-          } catch (_) {}
+          } catch (feeReadErr) {
+            console.error('Could not read fee earnings before atomic batch:', feeReadErr.message);
+            return {
+              error: `Payout succeeded at CHIP but the platform fee could not be prepared for write (${feeReadErr.message}). Booking left in "attempt marker only" state. Verify reference KDH-${bookingId} in the CHIP dashboard, then contact support to reconcile.`,
+              status: 500
+            };
+          }
         }
+
+        const atomicStmts = [
+          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+        ];
+        if (feeEarningsToWrite) {
+          atomicStmts.push(
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_fee_earnings', JSON.stringify(feeEarningsToWrite))
+          );
+        }
+
+        try {
+          await db.batch(atomicStmts);
+        } catch (batchErr) {
+          console.error('Atomic batch write failed:', batchErr.message);
+          return {
+            error: `Could not persist the payout result (${batchErr.message}). Booking left in "attempt marker only" state. Verify reference KDH-${bookingId} in the CHIP dashboard before retrying.`,
+            status: 500
+          };
+        }
+
+        await logAction({
+          db,
+          action: payoutSuccess
+            ? (isSimulation ? 'owner_checkin_simulation' : 'owner_checkin_payout_success')
+            : (payoutUnknown ? 'owner_checkin_payout_unknown' : 'owner_checkin_payout_failed'),
+          admin: 'owner',
+          details: `Check-in ${bookingId}, payout ${payoutSuccess ? (isSimulation ? 'simulated' : 'success') : (payoutUnknown ? 'UNKNOWN' : 'failed')}`,
+          ip: getClientIP(request),
+          userId: booking.guestEmail,
+          homestayId: booking.homestayId
+        });
 
         return {
           success: payoutSuccess,
