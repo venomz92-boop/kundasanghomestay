@@ -9,15 +9,24 @@
 //                                 (overbooking, maintenance, emergency).
 //                                 Guest receives a FULL refund of everything
 //                                 they paid, including the service fee.
+//                                 Platform retains RM 0.00.
 //
 //   cancelType: 'guest_request' — guest asked to cancel, host approved.
 //                                 Guest receives the BASE amount only.
-//                                 The service fee and gateway fee are
-//                                 retained by the platform, per policy.
+//                                 The service fee + gateway fee are retained
+//                                 by the platform, per policy.
 //
-// The refund amount, the booking status, and the cancellation email all
-// reflect which case applies. Missing cancelType defaults to 'host_own'
-// (the safer of the two: refund more, not less).
+// NEW: when a guest_request cancellation completes successfully, the
+// retained amount (service fee + gateway fee) is now written to the
+// kd_fee_earnings ledger — the same ledger the check-in flow uses.
+// The write happens inside the same lock and the same db.batch as the
+// booking status update, so the two records land together or not at all.
+//
+// The retained-fee history entry uses type: 'cancellation_retained_fee',
+// which is distinct from type: 'earning' (check-in flow). The admin
+// dashboard aggregates both. A guard prevents double-recording if the
+// same booking is cancelled twice (which the code already prevents, but
+// the guard is defensive).
 import {
   corsHeaders,
   getClientIP,
@@ -113,19 +122,6 @@ function isPaidBooking(booking) {
   return false;
 }
 
-// ============================================================
-// Cancellation email — best-effort, never blocks the cancel.
-//
-// Three payment outcomes × two cancel reasons:
-//   - refund fully processed
-//   - refund pending at CHIP
-//   - refund FAILED (needs manual review)
-//   - no refund needed (unpaid booking)
-//
-// The wording reflects whether this was a host-own cancellation
-// (full refund) or a guest-request cancellation (base refund, fee
-// retained by platform).
-// ============================================================
 async function sendCancellationEmail(booking, refundInfo, env) {
   if (!booking || !booking.guestEmail) {
     return { sent: false, error: 'No guest email on file' };
@@ -602,8 +598,6 @@ export async function onRequestPost({ request, env }) {
 
     // ========== ACTION: CANCEL BOOKING (LOCK PROTECTED) ==========
     if (action === 'cancelBooking') {
-      // [NEW] cancelType distinguishes host-own from guest-request.
-      // Missing value defaults to 'host_own' (the safer case: full refund).
       const cancelTypeRaw = String(body.cancelType || 'host_own').toLowerCase().trim();
       const cancelType = (cancelTypeRaw === 'guest_request') ? 'guest_request' : 'host_own';
 
@@ -650,16 +644,12 @@ export async function onRequestPost({ request, env }) {
 
           const isPaid = isPaidBooking(booking);
 
-          // Compute refund amount based on cancel type.
-          //   host_own:      refund the full amount the guest paid
-          //   guest_request: refund only the base (host's nightly rate);
-          //                  the platform service fee + gateway fee are
-          //                  retained by the platform per policy
           const totalPaidNum = Number(booking.amount_paid || booking.total) || 0;
           const baseAmountNum = Number(booking.base) || 0;
           const refundAmountNum = cancelType === 'guest_request'
             ? baseAmountNum
             : totalPaidNum;
+          const feeRetainedNum = Math.max(0, Math.round((totalPaidNum - refundAmountNum) * 100) / 100);
 
           let refundSuccess = false;
           let refundData = null;
@@ -685,7 +675,6 @@ export async function onRequestPost({ request, env }) {
             }
           }
 
-          // Status string reflects both the cancel reason and the refund state.
           const cancelledByLabel = cancelType === 'guest_request'
             ? 'Cancelled by Guest Request (host approved)'
             : 'Cancelled by Host';
@@ -715,15 +704,99 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].statusUpdated = new Date().toISOString();
           }
 
-          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-            .bind('kd_bookings', JSON.stringify(bookings))
-            .run();
+          // -----------------------------------------------------------
+          // RETAINED-FEE LEDGER ENTRY
+          //
+          // Only written when:
+          //   - cancelType is 'guest_request'
+          //   - the booking was paid
+          //   - the refund actually succeeded (either immediate or
+          //     pending at CHIP; both count as "amount fixed")
+          //   - the retained amount is greater than zero
+          //
+          // The retained amount is totalPaid − refundAmount, which for
+          // a guest_request cancellation equals the service fee plus
+          // the gateway fee.
+          //
+          // Guard: skip if a fee entry for this booking already exists
+          // (either a normal 'earning' from a check-in or a previous
+          // 'cancellation_retained_fee' entry).
+          // -----------------------------------------------------------
+          let feeEarningsToWrite = null;
+          let feeRecordedAmount = 0;
+
+          if (
+            cancelType === 'guest_request' &&
+            isPaid &&
+            refundSuccess &&
+            feeRetainedNum > 0
+          ) {
+            try {
+              const feeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
+              let feeEarnings = feeRes && feeRes.data
+                ? JSON.parse(feeRes.data)
+                : { total: 0, available: 0, withdrawn: 0, history: [] };
+              feeEarnings.history = feeEarnings.history || [];
+
+              const alreadyRecorded = feeEarnings.history.some(h =>
+                h.bookingId === bookingId &&
+                (h.type === 'earning' || h.type === 'cancellation_retained_fee')
+              );
+
+              if (!alreadyRecorded) {
+                feeEarnings.total = Math.round(((feeEarnings.total || 0) + feeRetainedNum) * 100) / 100;
+                feeEarnings.available = Math.round(((feeEarnings.available || 0) + feeRetainedNum) * 100) / 100;
+                feeEarnings.history.push({
+                  bookingId,
+                  fee: feeRetainedNum,
+                  date: new Date().toISOString(),
+                  type: 'cancellation_retained_fee',
+                  cancellation_type: 'guest_request',
+                  original_amount_paid: totalPaidNum,
+                  refunded_amount: refundAmountNum,
+                  method: 'chip_collect_partial_refund',
+                  ip: getClientIP(request)
+                });
+                feeEarningsToWrite = feeEarnings;
+                feeRecordedAmount = feeRetainedNum;
+              }
+            } catch (feeReadErr) {
+              console.error('Could not read fee earnings before cancel batch:', feeReadErr.message);
+              // Do NOT fail the cancellation — the refund has already
+              // happened at CHIP. Log the failure so it can be reconciled
+              // manually. The booking status update will still proceed.
+            }
+          }
+
+          // Atomic write: booking (always) + fee earnings (when applicable).
+          const atomicStmts = [
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_bookings', JSON.stringify(bookings))
+          ];
+          if (feeEarningsToWrite) {
+            atomicStmts.push(
+              db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+                .bind('kd_fee_earnings', JSON.stringify(feeEarningsToWrite))
+            );
+          }
+
+          try {
+            await db.batch(atomicStmts);
+          } catch (batchErr) {
+            console.error('Atomic batch write failed during cancel:', batchErr.message);
+            return {
+              error: `Refund succeeded at CHIP but the booking and ledger could not be updated (${batchErr.message}). Booking left in "attempt marker only" state. Verify refund ${refundData?.id || ''} in the CHIP dashboard, then contact support to reconcile.`,
+              status: 500
+            };
+          }
 
           return {
             success: true,
             isPaid,
             cancelType,
             refundAmountNum,
+            feeRetainedNum,
+            feeRecordedAmount,
             refundSuccess,
             refundData,
             refundError,
@@ -744,8 +817,6 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: result.error }, result.status || 400, request);
       }
 
-      // Send the cancellation email to the guest. Best-effort:
-      // an email failure never rolls back the cancellation or refund.
       let emailReport = { sent: false, error: 'skipped' };
       try {
         emailReport = await sendCancellationEmail(result.booking, {
@@ -777,13 +848,12 @@ export async function onRequestPost({ request, env }) {
                     : `Refund processed: ${result.refundData.id}, RM${result.refundAmountNum.toFixed(2)}`)
                 : 'Refund failed: ' + result.refundError)
             : '(unpaid)'
-        }. Cancellation email: ${emailReport.sent ? 'sent' : 'failed — ' + (emailReport.error || 'unknown')}`,
+        }. Retained fee recorded to ledger: RM${(result.feeRecordedAmount || 0).toFixed(2)}. Cancellation email: ${emailReport.sent ? 'sent' : 'failed — ' + (emailReport.error || 'unknown')}`,
         ip: clientIP,
         userId: result.booking.guestEmail,
         homestayId: result.booking.homestayId
       });
 
-      // Response message reflects the two cases.
       const refundMsg = (() => {
         if (!result.isPaid) {
           return `Booking ${bookingId} cancelled (unpaid).`;
@@ -806,6 +876,8 @@ export async function onRequestPost({ request, env }) {
         message: refundMsg,
         cancelType: result.cancelType,
         refundAmount: result.refundAmountNum,
+        feeRetained: result.feeRetainedNum,
+        feeRecorded: result.feeRecordedAmount,
         booking: result.booking,
         refund: result.refundData || undefined,
         refundError: result.refundError || undefined,
