@@ -1,5 +1,10 @@
 // /api/retry-payout.js — Admin-triggered retry of a failed CHIP Send payout.
 // Uses the shared chipSendPayout() helper and the global bookings lock.
+//
+// [THIS REVISION]
+// After a successful live retry, the host now receives a payout receipt
+// email via sendHostPayoutEmail() from _utils.js. Best-effort: a failed
+// email never rolls back the payout.
 import {
   corsHeaders,
   getClientIP,
@@ -9,7 +14,8 @@ import {
   jsonResponse,
   parseJSONSafely,
   withLock,
-  chipSendPayout
+  chipSendPayout,
+  sendHostPayoutEmail
 } from './_utils.js';
 
 const BOOKINGS_LOCK = 'bookings-global';
@@ -167,16 +173,20 @@ export async function onRequestPost({ request, env }) {
 
         let payoutSuccess = false;
         let payoutUnknown = false;
+        let payoutId = null;
+        let paidAtIso = null;
 
         if (payoutResult.success) {
           payoutSuccess = true;
+          payoutId = payoutResult.payoutId;
+          paidAtIso = new Date().toISOString();
           bookings[idx].status = 'Completed - Payout Success';
           bookings[idx].payoutSuccess = true;
-          bookings[idx].payoutSuccessDate = new Date().toISOString();
+          bookings[idx].payoutSuccessDate = paidAtIso;
           bookings[idx].payoutAmount = ownerAmount;
-          bookings[idx].ownerPayoutId = payoutResult.payoutId;
+          bookings[idx].ownerPayoutId = payoutId;
           bookings[idx].payoutMethod = 'CHIP Send (retry)';
-          bookings[idx].retriedAt = new Date().toISOString();
+          bookings[idx].retriedAt = paidAtIso;
           bookings[idx].payoutFailedAttempt = false;
           delete bookings[idx].lastPayoutError;
         } else if (payoutResult.unknown) {
@@ -248,11 +258,27 @@ export async function onRequestPost({ request, env }) {
           };
         }
 
+        // Payout receipt email — only on real success.
+        let emailReport = { sent: false, error: 'not attempted' };
+        if (payoutSuccess) {
+          try {
+            emailReport = await sendHostPayoutEmail(
+              booking,
+              homestay,
+              { amount: ownerAmount, payoutId, reference, paidAt: paidAtIso },
+              env
+            );
+          } catch (mailErr) {
+            console.error('Payout email error:', mailErr.message);
+            emailReport = { sent: false, error: mailErr.message };
+          }
+        }
+
         await logAction({
           db,
           action: 'payout_retried',
           admin: 'admin',
-          details: `Retried payout for ${bookingId}: ${payoutResult.payoutId || 'failed'} (RM${ownerAmount})`,
+          details: `Retried payout for ${bookingId}: ${payoutId || 'failed'} (RM${ownerAmount}). Payout email: ${emailReport.sent ? 'sent' : (payoutSuccess ? 'failed — ' + (emailReport.error || 'unknown') : 'n/a')}.`,
           ip: clientIP,
           homestayId: booking.homestayId
         });
@@ -260,9 +286,10 @@ export async function onRequestPost({ request, env }) {
         return payoutSuccess
           ? {
               success: true,
-              payoutId: payoutResult.payoutId,
+              payoutId,
               amount: ownerAmount,
-              bookingId
+              bookingId,
+              payoutEmailSent: emailReport.sent
             }
           : {
               success: false,
