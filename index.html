@@ -310,7 +310,7 @@
       <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">😞</div>
       <div class="font-poppins font-800 text-[22px] text-red-700">Payment Not Completed</div>
       <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
-        Your payment didn’t go through this time. No worries — you can try again in <strong>5 minutes. Your booking dates will be blocked for awhile.</strong>
+        Your payment didn't go through this time. No worries — you can try again in <strong>5 minutes. Your booking dates will be blocked for awhile.</strong>
       </p>
       <p class="text-sm text-zinc-600 mt-1 leading-relaxed">
         Simply go to your <strong>My Bookings</strong> page and click the <strong>Retry Payment</strong> button next to this booking.
@@ -720,7 +720,6 @@
   if (window.__kdCssHookInstalled) return;
   window.__kdCssHookInstalled = true;
 
-  // Dangerous CSS patterns: url() loaders, JS execution, and legacy vectors
   const DANGEROUS_RULE = /(?:\burl\s*\(|expression\s*\(|\bbehavior\s*:|-moz-binding|@import|javascript\s*:)/i;
 
   DOMPurify.addHook('afterSanitizeAttributes', function (node) {
@@ -730,7 +729,6 @@
     const raw = node.getAttribute('style') || '';
     if (!raw) return;
 
-    // If nothing dangerous, leave as-is (keeps performance high)
     if (!DANGEROUS_RULE.test(raw)) return;
 
     const safeRules = raw
@@ -978,64 +976,44 @@
 
   // =============================================================
   // GUEST SESSION SYSTEM
+  // Cookie-based — no session token ever lives in localStorage.
   // =============================================================
   var currentGuest = null;
-  try {
-    var saved = localStorage.getItem('kd_guest');
-    if (saved) currentGuest = JSON.parse(saved);
-  } catch(e) { currentGuest = null; }
+  if (window.GuestSession && window.GuestSession.isGuestSessionValid()) {
+    currentGuest = window.GuestSession.readGuest();
+  } else {
+    if (window.GuestSession) window.GuestSession.clearGuestSession();
+    currentGuest = null;
+  }
 
   function renderGuestNav() {
+    // Delegate to GuestSession — it owns the nav DOM now.
+    if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+      window.GuestSession.updateNavDOM();
+      return;
+    }
+    // Fallback (only if GuestSession failed to load).
     var loginNav = document.getElementById("guestNav");
     var profileNav = document.getElementById("guestProfileNav");
     var mLoginNav = document.getElementById("mGuestNav");
     var mProfileNav = document.getElementById("mGuestProfileNav");
-    var mAvatar = document.getElementById("mGuestAvatar");
-    var mNameNav = document.getElementById("mGuestNameNav");
-
     if (currentGuest && currentGuest.id) {
       if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
       if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
-
-      var avatar = document.getElementById("guestAvatar");
-      var nameNav = document.getElementById("guestNameNav");
-      if (avatar) {
-        if (currentGuest.verified === true) {
-          avatar.innerText = "✓";
-          avatar.className = "guest-avatar w-7 h-7 text-xs bg-emerald-600 text-white flex items-center justify-center rounded-full font-bold";
-        } else {
-          avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-          avatar.className = "guest-avatar w-7 h-7 text-xs bg-[#D4A373] text-[#0F382E] flex items-center justify-center rounded-full font-bold";
-        }
-      }
-      if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
-
-      if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
-      if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
-      if (mAvatar) {
-        if (currentGuest.verified === true) {
-          mAvatar.innerText = "✓";
-          mAvatar.className = "avatar bg-emerald-600 text-white";
-        } else {
-          mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-          mAvatar.className = "avatar bg-[#D4A373] text-[#0F382E]";
-        }
-      }
-      if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+      if (mLoginNav) mLoginNav.classList.add("hidden");
+      if (mProfileNav) mProfileNav.classList.remove("hidden");
     } else {
       if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
       if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-      if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
-      if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
+      if (mLoginNav) mLoginNav.classList.remove("hidden");
+      if (mProfileNav) mProfileNav.classList.add("hidden");
     }
   }
 
   function logoutGuest() {
-    if (!confirm("Logout from your guest session?")) return;
-    currentGuest = null;
-    localStorage.removeItem('kd_guest');
-    renderGuestNav();
-    window.location.href = '/';
+    if (window.GuestSession) {
+      window.GuestSession.logoutGuest();
+    }
   }
 
   // =============================================================
@@ -1424,11 +1402,18 @@ if (list.length === 0) {
   }
 
   // =============================================================
-  // PROCESS PAYMENT
+  // PROCESS PAYMENT — cookie-only, no Bearer token, all POSTs
+  // carry credentials so the HttpOnly session cookie rides along.
   // =============================================================
   async function processPayment() {
-    if (!currentGuest) {
+    if (!currentGuest || !currentGuest.id) {
       showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
+      return;
+    }
+    // Double-check TTL — GuestSession may have flagged expiry.
+    if (window.GuestSession && !window.GuestSession.isGuestSessionValid()) {
+      showAlert("Session Expired", "Your session has expired. Please log in again.");
+      logoutGuest();
       return;
     }
 
@@ -1437,17 +1422,10 @@ if (list.length === 0) {
       return;
     }
 
-    const guestToken = localStorage.getItem('kd_guest_token');
-    if (!guestToken) {
-      showAlert("Session Expired", "Your session has expired. Please log in again.");
-      logoutGuest();
-      return;
-    }
-
     let csrfToken = localStorage.getItem('kd_csrf_token');
     if (!csrfToken) {
       try {
-        const res = await fetch('/api/csrf-token', { method: 'GET' });
+        const res = await fetch('/api/csrf-token', { method: 'GET', credentials: 'include' });
         const data = await res.json();
         if (data.token) {
           localStorage.setItem('kd_csrf_token', data.token);
@@ -1492,13 +1470,14 @@ if (list.length === 0) {
     try {
       var headers = {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + guestToken,
         'X-CSRF-Token': csrfToken
+        // No Authorization header — the HttpOnly cookie authenticates us.
       };
       
       var createRes = await fetch(API_BASE + '/bookings', {
         method: 'POST',
         headers: headers,
+        credentials: 'include',
         body: JSON.stringify({ action: 'createPublicBooking', booking: draft, guestId: currentGuest.id })
       });
       
@@ -1521,9 +1500,9 @@ if (list.length === 0) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + guestToken,
           'X-CSRF-Token': csrfToken
         },
+        credentials: 'include',
         body: JSON.stringify({ bookingId: booking.id })
       });
       
@@ -1543,6 +1522,8 @@ if (list.length === 0) {
 
   // =============================================================
   // HANDLE PAYMENT RETURN
+  // Recognises the new [H4] paymentStatus values: 'refunded',
+  // 'cancelled', 'expired' (in addition to paid / pending / failed).
   // =============================================================
   async function handlePaymentReturn() {
   const params = new URLSearchParams(window.location.search);
@@ -1559,7 +1540,6 @@ if (list.length === 0) {
 
   // ---- Case 1: user returned from CHIP with success_redirect ----
   if (paymentReturn === '1') {
-    // Show a neutral "checking" state instead of immediate success
     showModal(
       'Verifying Payment…',
       '<div style="text-align:center;padding:20px 0;">' +
@@ -1571,6 +1551,7 @@ if (list.length === 0) {
 
     let verified = false;
     let verifiedBooking = null;
+    let terminalStatus = null;   // 'refunded' | 'cancelled' | 'expired' | 'failed' | null
 
     // Poll up to 5 times, 2s apart (~10s total)
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -1588,8 +1569,10 @@ if (list.length === 0) {
           verifiedBooking = data.booking;
           break;
         }
-        if (data.paymentStatus === 'failed') {
-          // Hard fail — stop polling
+        // [H4] Explicit terminal states — stop polling and record which one.
+        if (data.paymentStatus === 'refunded' || data.paymentStatus === 'cancelled' || data.paymentStatus === 'expired' || data.paymentStatus === 'failed') {
+          terminalStatus = data.paymentStatus;
+          verifiedBooking = data.booking || null;
           break;
         }
       } catch (e) { /* network hiccup – retry */ }
@@ -1602,25 +1585,62 @@ if (list.length === 0) {
 
     if (verified && verifiedBooking) {
       showThankYouModal(bookingId, verifiedBooking);
-    } else {
-      // Payment still pending after 10s, OR failed
-      showModal(
-        'Payment Still Processing',
-        'Your payment is being processed by CHIP.<br><br>' +
-        'Booking ID: <strong>' + bookingId + '</strong><br><br>' +
-        'Please check <strong>My Bookings</strong> in a moment. ' +
-        'If the payment failed, you can retry from there.',
-        [
-          { label: 'My Bookings', class: 'btn-primary', value: 'bookings' }
-        ]
-      ).then(function (result) {
-        if (result === 'bookings') window.location.href = '/mybookings.html';
-      });
+      return;
     }
+
+    // [H4] Friendly messages for the new terminal states
+    if (terminalStatus === 'refunded') {
+      await showModal(
+        'Booking Refunded',
+        'Your booking was cancelled and the payment has already been refunded.<br><br>' +
+        'Booking ID: <strong>' + bookingId + '</strong><br><br>' +
+        'The refund usually appears in your bank account within 3–7 business days.',
+        [{ label: 'My Bookings', class: 'btn-primary', value: 'bookings' }]
+      ).then(function (r) { if (r === 'bookings') window.location.href = '/mybookings.html'; });
+      return;
+    }
+    if (terminalStatus === 'cancelled') {
+      await showModal(
+        'Booking Cancelled',
+        'This booking has been cancelled by the host. If you have already paid, the refund is being processed.<br><br>' +
+        'Booking ID: <strong>' + bookingId + '</strong>',
+        [{ label: 'My Bookings', class: 'btn-primary', value: 'bookings' }]
+      ).then(function (r) { if (r === 'bookings') window.location.href = '/mybookings.html'; });
+      return;
+    }
+    if (terminalStatus === 'expired') {
+      await showModal(
+        'Booking Expired',
+        'This booking expired before the payment completed. The dates have been released.<br><br>' +
+        'Booking ID: <strong>' + bookingId + '</strong><br><br>' +
+        'Please start a new booking if you still want these dates.',
+        [
+          { label: 'Browse Homestays', class: 'btn-primary', value: 'home' }
+        ]
+      ).then(function (r) { if (r === 'home') window.location.href = '/'; });
+      return;
+    }
+    if (terminalStatus === 'failed') {
+      showPaymentFailedModal(bookingId, verifiedBooking || { id: bookingId, total: '---' });
+      return;
+    }
+
+    // Still pending after 10s
+    showModal(
+      'Payment Still Processing',
+      'Your payment is being processed by CHIP.<br><br>' +
+      'Booking ID: <strong>' + bookingId + '</strong><br><br>' +
+      'Please check <strong>My Bookings</strong> in a moment. ' +
+      'If the payment failed, you can retry from there.',
+      [
+        { label: 'My Bookings', class: 'btn-primary', value: 'bookings' }
+      ]
+    ).then(function (result) {
+      if (result === 'bookings') window.location.href = '/mybookings.html';
+    });
     return;
   }
 
-  // ---- Case 2: user cancelled or payment failed ----
   // ---- Case 2: user cancelled or payment failed ----
   if (params.get('payment') === 'cancel' || params.get('payment') === 'failed' || statusId === '3') {
     // Ensure CSRF token exists before sending the status update —
@@ -1663,6 +1683,34 @@ if (list.length === 0) {
         body: JSON.stringify({ bookingId })
       });
       const data = await res.json();
+
+      // [H4] If verify says this is actually refunded/cancelled/expired,
+      // show the truthful message rather than the generic "payment failed" one.
+      if (data.paymentStatus === 'refunded') {
+        await showModal(
+          'Booking Refunded',
+          'This booking was cancelled and the payment has been refunded.<br><br>Booking ID: <strong>' + bookingId + '</strong>',
+          [{ label: 'My Bookings', class: 'btn-primary', value: 'bookings' }]
+        ).then(function (r) { if (r === 'bookings') window.location.href = '/mybookings.html'; });
+        return;
+      }
+      if (data.paymentStatus === 'cancelled') {
+        await showModal(
+          'Booking Cancelled',
+          'This booking has been cancelled.<br><br>Booking ID: <strong>' + bookingId + '</strong>',
+          [{ label: 'My Bookings', class: 'btn-primary', value: 'bookings' }]
+        ).then(function (r) { if (r === 'bookings') window.location.href = '/mybookings.html'; });
+        return;
+      }
+      if (data.paymentStatus === 'expired') {
+        await showModal(
+          'Booking Expired',
+          'This booking expired before the payment completed.<br><br>Booking ID: <strong>' + bookingId + '</strong>',
+          [{ label: 'Browse Homestays', class: 'btn-primary', value: 'home' }]
+        ).then(function (r) { if (r === 'home') window.location.href = '/'; });
+        return;
+      }
+
       showPaymentFailedModal(bookingId, data.booking || { id: bookingId, total: '---' });
     } catch (e) {
       showPaymentFailedModal(bookingId, { id: bookingId, total: '---' });
