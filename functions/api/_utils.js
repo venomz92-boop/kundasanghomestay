@@ -1,17 +1,10 @@
 // SHARED HELPERS — full drop-in replacement.
 //
-// [NEW] withLock fix: the release DELETE now matches BOTH homestay_id
-// AND the exact locked_at value this request inserted. Previously it
-// deleted by homestay_id only, so a slow request whose stale lock had
-// been stolen via CAS would delete the *new* owner's lock — allowing
-// a third request to run concurrently with the second. Money-movement
-// paths (check-in, payout, retry-payout, chip-create, chip-webhook,
-// bookings, owner-update-booking, withdraw) all use the same
-// "bookings-global" key, so this was a real concurrency hazard.
+// [NEW] chipSendPayout() — correct 4-step CHIP Send flow.
+// [NEW] withLock fix: release matches BOTH homestay_id AND locked_at.
 //
 // Every other fix from the previous revisions is preserved:
-//  (1) PBKDF2 iterations configurable via env.PBKDF2_ITERATIONS,
-//      default 100000 (works on Cloudflare Free plan).
+//  (1) PBKDF2 iterations configurable via env.PBKDF2_ITERATIONS.
 //  (2) parseJSONSafely checks Content-Length BEFORE reading the body.
 //  (3) admin Bearer tokens only accepted when ALLOW_ADMIN_BEARER=true.
 //  (4) owner session version uses the MAX across kd_owners + homestays.
@@ -19,23 +12,6 @@
 
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
-// === PBKDF2 constants ===
-// IMPORTANT: PBKDF2 is a pure-CPU operation. Cloudflare Workers on the
-// FREE plan kill a request that uses more than ~10ms of CPU. Rough
-// timing on current Cloudflare hardware:
-//   ~100,000 iterations  ≈  60–100 ms CPU   (works on Free, on the edge)
-//   ~210,000 iterations  ≈ 130–210 ms CPU   (needs Paid)
-//   ~600,000 iterations  ≈ 380–600 ms CPU   (needs Paid)
-// The DEFAULT below is 100,000, which is what this app already used
-// before. If you are on the Workers Paid plan, set the env var
-// PBKDF2_ITERATIONS=600000 in Cloudflare → Pages → Settings → Environment
-// variables (Production + Preview), and password hashing will
-// automatically upgrade on next deploy.
-//
-// The algorithm string is stored on each record as
-//   PBKDF2-<iterations>-SHA256
-// so legacy hashes (which used 100,000) keep verifying after you raise
-// the iteration count. New passwords use whatever value is currently set.
 const DEFAULT_PBKDF2_ITERATIONS = 100000;
 const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_KEYLEN = 256;
@@ -175,8 +151,6 @@ async function getUserRecord(type, userId, db) {
   return null;
 }
 
-// Resolve the MAXIMUM ownerSessionVersion across kd_owners AND every
-// matching homestay row. Prevents a stale row from reviving a dead session.
 async function getOwnerMaxSessionVersion(db, ownerIdOrWhatsapp) {
   const key = String(ownerIdOrWhatsapp || '').trim();
   const cleanWa = key.replace(/[^0-9]/g, '');
@@ -700,7 +674,7 @@ export async function clearCheckinAttempts(db, bookingId) {
   ).bind(bookingId).run();
 }
 
-// === Owner session invalidation (M6 rename) ===
+// === Owner session invalidation ===
 export async function invalidateOwnerSessionsForHomestay(db, homestayId) {
   if (!homestayId) return false;
   return await incrementOwnerSessionVersion(db, homestayId);
@@ -718,22 +692,6 @@ export async function invalidateOwnerSessions(db, homestayId) {
 }
 
 // === D1-Compatible Lock — atomic CAS takeover ===
-//
-// FIX (2026-09-12): the release DELETE now matches BOTH `homestay_id`
-// AND the exact `locked_at` value this request inserted.
-//
-// The original code deleted by `homestay_id` only. That is unsafe under
-// the stale-lock takeover path:
-//
-//   1. Request A inserts (lockKey, now_A) and starts work.
-//   2. A holds the lock for > staleTimeoutMs.
-//   3. Request B sees A is stale, does CAS takeover → (lockKey, now_B).
-//   4. A finally finishes, runs DELETE WHERE homestay_id = lockKey.
-//      → Deletes B's lock.
-//   5. Request C sees no lock, inserts cleanly, runs concurrently with B.
-//
-// With the fix, step 4 is a no-op (A's now_A ≠ B's now_B), so B's lock
-// survives and C is correctly blocked.
 export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS homestay_locks (
@@ -749,13 +707,11 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
   ).bind(lockKey, myLockValue).run();
 
   if (insertResult.meta.changes === 0) {
-    // We did not get the lock. Check whether the existing one is stale.
     const existing = await db.prepare(
       `SELECT locked_at FROM homestay_locks WHERE homestay_id = ?`
     ).bind(lockKey).first();
 
     if (existing && (myLockValue - existing.locked_at) > staleTimeoutMs) {
-      // Atomic CAS takeover. We now own the lock with myLockValue.
       const casResult = await db.prepare(
         `UPDATE homestay_locks SET locked_at = ? WHERE homestay_id = ? AND locked_at = ?`
       ).bind(myLockValue, lockKey, existing.locked_at).run();
@@ -770,17 +726,12 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
   try {
     return await callback(db);
   } finally {
-    // Release ONLY if we are still the owner of this lock row.
-    // If a slow request's lock was stolen by another request, our
-    // locked_at will no longer match — the delete becomes a no-op
-    // and the current owner's lock is preserved.
     try {
       await db.prepare(
         `DELETE FROM homestay_locks WHERE homestay_id = ? AND locked_at = ?`
       ).bind(lockKey, myLockValue).run();
     } catch (_) {
-      // Best-effort release. A stale row will be reclaimed by the CAS
-      // takeover path on the next request.
+      // Best-effort release.
     }
   }
 }
@@ -840,4 +791,265 @@ export async function finalizePaidBooking(db, bookingId) {
     checkinCode: code,
     booking: updated
   };
+}
+
+// ============================================================
+// CHIP SEND — CORRECT 4-STEP FLOW
+// ============================================================
+//
+// This is the ONLY place that talks to CHIP Send. It replaces the
+// old (broken) calls that used POST /send/payouts/ and skipped the
+// budget allocation step.
+//
+// Steps:
+//   1. GET  /send/accounts               → check convertible balance
+//   2. POST /send/send_limits            → allocate budget (may need approval)
+//   3. POST /send/bank_accounts          → register recipient bank account
+//   4. POST /send/send_instructions      → send the actual payout
+//
+// Returns { success, payoutId, amount, error, unknown }.
+// ============================================================
+
+async function chipHmacSha512(message, secret) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-512' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+export async function chipSendPayout({
+  db,
+  homestayId,
+  homestay,
+  amount,
+  reference,
+  description,
+  env,
+  logAction: logFn
+}) {
+  const apiKey = env.CHIP_API_KEY;
+  const apiSecret = env.CHIP_API_SECRET;
+  const isLive = !!(apiKey && apiSecret);
+
+  if (!isLive) {
+    return { success: false, error: 'CHIP Send credentials missing' };
+  }
+
+  const baseUrl = 'https://api.chip-in.asia/api/send';
+  const headers = (epoch) => ({
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+    'epoch': String(epoch),
+    'checksum': ''
+  });
+
+  // ---------- STEP 0: Resolve bank details ----------
+  const accountName = homestay.bankHolder || homestay.ownerName || '';
+  const accountNumber = (homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
+  const bankCode = (homestay.bankCode || homestay.ownerBank || '').toUpperCase();
+
+  if (!accountNumber || accountNumber.length < 10) {
+    return { success: false, error: 'Owner bank account invalid or missing (must be at least 10 digits)' };
+  }
+  if (!accountName) {
+    return { success: false, error: 'Owner bank holder name missing' };
+  }
+
+  const amountCents = Math.round(amount * 100);
+  if (amountCents <= 0) {
+    return { success: false, error: 'Invalid payout amount' };
+  }
+
+  // ---------- STEP 1: Check convertible balance ----------
+  try {
+    const epoch1 = Math.floor(Date.now() / 1000);
+    const checksum1 = await chipHmacSha512(`${epoch1}${apiKey}`, apiSecret);
+    const balanceRes = await fetch(`${baseUrl}/accounts`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'epoch': String(epoch1),
+        'checksum': checksum1
+      }
+    });
+
+    if (!balanceRes.ok) {
+      const txt = await balanceRes.text().catch(() => '');
+      return { success: false, error: `CHIP Send balance check failed (HTTP ${balanceRes.status}): ${txt.slice(0, 200)}` };
+    }
+
+    const balanceData = await balanceRes.json();
+    const convertible = Number(balanceData?.convertible_balance_from_statement || 0);
+    const available = Number(balanceData?.available_balance || 0);
+
+    if (convertible < amountCents && available < amountCents) {
+      return {
+        success: false,
+        error: `Insufficient CHIP Send balance. Convertible: ${(convertible / 100).toFixed(2)}, Available: ${(available / 100).toFixed(2)}, Needed: ${(amountCents / 100).toFixed(2)}. Please top up your CHIP Send balance or wait for the next Collect settlement.`
+      };
+    }
+  } catch (e) {
+    return { success: false, error: `CHIP Send balance check network error: ${e.message}` };
+  }
+
+  // ---------- STEP 2: Allocate budget (increase send limit) ----------
+  try {
+    const epoch2 = Math.floor(Date.now() / 1000);
+    const checksum2 = await chipHmacSha512(`${epoch2}${apiKey}`, apiSecret);
+    const limitRes = await fetch(`${baseUrl}/send_limits`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'epoch': String(epoch2),
+        'checksum': checksum2
+      },
+      body: JSON.stringify({ amount: amountCents })
+    });
+
+    if (!limitRes.ok) {
+      const txt = await limitRes.text().catch(() => '');
+      // If the balance is already sufficient, CHIP may return an error
+      // saying no conversion is needed — we treat that as success.
+      if (txt.includes('no conversion') || txt.includes('already sufficient')) {
+        // fall through
+      } else {
+        return { success: false, error: `CHIP Send budget allocation failed (HTTP ${limitRes.status}): ${txt.slice(0, 200)}` };
+      }
+    } else {
+      const limitData = await limitRes.json();
+      // If CHIP returns an approval-pending state, we must not proceed.
+      if (limitData?.status && String(limitData.status).toLowerCase().includes('pending')) {
+        return {
+          success: false,
+          error: `CHIP Send budget allocation is pending approval. An approver must confirm in the CHIP portal before this payout can proceed. Amount: RM${(amountCents / 100).toFixed(2)}.`
+        };
+      }
+    }
+  } catch (e) {
+    return { success: false, error: `CHIP Send budget allocation network error: ${e.message}` };
+  }
+
+  // ---------- STEP 3: Register bank account (cache in homestay) ----------
+  let bankAccountId = homestay.chip_bank_account_id || null;
+
+  if (!bankAccountId) {
+    try {
+      const epoch3 = Math.floor(Date.now() / 1000);
+      const checksum3 = await chipHmacSha512(`${epoch3}${apiKey}`, apiSecret);
+      const bankRes = await fetch(`${baseUrl}/bank_accounts`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'epoch': String(epoch3),
+          'checksum': checksum3
+        },
+        body: JSON.stringify({
+          bank_code: bankCode || 'MBBEMYKL',
+          account_number: accountNumber,
+          account_name: accountName
+        })
+      });
+
+      if (!bankRes.ok) {
+        const txt = await bankRes.text().catch(() => '');
+        return { success: false, error: `CHIP Send bank account registration failed (HTTP ${bankRes.status}): ${txt.slice(0, 200)}` };
+      }
+
+      const bankData = await bankRes.json();
+      if (!bankData?.id) {
+        return { success: false, error: 'CHIP Send bank account registration returned no ID' };
+      }
+      bankAccountId = bankData.id;
+
+      // Persist the bank account id so the next payout can skip step 3.
+      if (homestayId && db) {
+        for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
+          const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
+          let list = [];
+          try { if (r?.data) list = JSON.parse(r.data); } catch (_) {}
+          if (!Array.isArray(list) || list.length === 0) continue;
+          const idx = list.findIndex(h => String(h.id) === String(homestayId));
+          if (idx === -1) continue;
+          list[idx].chip_bank_account_id = bankAccountId;
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind(store, JSON.stringify(list))
+            .run();
+        }
+      }
+    } catch (e) {
+      return { success: false, error: `CHIP Send bank account registration network error: ${e.message}` };
+    }
+  }
+
+  // ---------- STEP 4: Create send instruction ----------
+  try {
+    const epoch4 = Math.floor(Date.now() / 1000);
+    const checksum4 = await chipHmacSha512(`${epoch4}${apiKey}`, apiSecret);
+    const sendRes = await fetch(`${baseUrl}/send_instructions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'epoch': String(epoch4),
+        'checksum': checksum4
+      },
+      body: JSON.stringify({
+        bank_account_id: bankAccountId,
+        amount: amountCents,
+        reference: reference,
+        description: description,
+        email: homestay.ownerEmail || '',
+        send_recipient_receipt: true
+      })
+    });
+
+    let sendData = null;
+    let parseFailed = false;
+    try { sendData = await sendRes.json(); } catch (_) { parseFailed = true; }
+
+    if (parseFailed) {
+      return {
+        success: false,
+        unknown: true,
+        error: `CHIP Send returned an unparseable response. Payout status is UNKNOWN — verify reference ${reference} in the CHIP dashboard before retrying.`
+      };
+    }
+
+    if (!sendRes.ok || !sendData?.id) {
+      const errStr = String(sendData?.error || sendData?.message || '').toLowerCase();
+      const isStructuredRejection = sendRes.status >= 400 && sendRes.status < 500 && errStr.length > 0;
+
+      if (isStructuredRejection) {
+        return {
+          success: false,
+          error: `CHIP Send rejected the payout: ${sendData.error || sendData.message}`
+        };
+      }
+
+      return {
+        success: false,
+        unknown: true,
+        error: `CHIP Send response ambiguous (HTTP ${sendRes.status}). Payout status is UNKNOWN — verify reference ${reference} in the CHIP dashboard before retrying.`
+      };
+    }
+
+    return {
+      success: true,
+      payoutId: sendData.id,
+      amount: amountCents,
+      raw: sendData
+    };
+  } catch (e) {
+    return {
+      success: false,
+      unknown: true,
+      error: `CHIP Send network error during payout: ${e.message}. Reference ${reference} may have been sent — verify in CHIP dashboard before retrying.`
+    };
+  }
 }
