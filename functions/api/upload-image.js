@@ -1,9 +1,14 @@
-// /api/upload-image.js – Secure & robust with file type validation + IP rate limit + chunked base64
+// /api/upload-image.js — now requires an authenticated session (guest,
+// owner, or admin) before accepting an upload. Keeps the same IP rate
+// limit, 5MB cap, and MIME whitelist. Same response shape on success.
 import {
   corsHeaders,
   getClientIP,
   checkRateLimit,
-  recordRateLimit
+  recordRateLimit,
+  getGuestSession,
+  getOwnerSession,
+  verifyAdminAuth
 } from './_utils.js';
 
 async function sha256(message) {
@@ -14,11 +19,9 @@ async function sha256(message) {
     .join('');
 }
 
-// ===== Safe base64 conversion for large buffers =====
-// Avoids "Maximum call stack size exceeded" from spreading large Uint8Arrays
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000; // 32 KB per chunk
+  const chunkSize = 0x8000;
   let binary = '';
   for (let i = 0; i < bytes.length; i += chunkSize) {
     const chunk = bytes.subarray(i, i + chunkSize);
@@ -29,6 +32,20 @@ function arrayBufferToBase64(buffer) {
 
 export async function onRequestPost({ request, env }) {
   try {
+    // ============================================================
+    // C2: REQUIRE AUTHENTICATION — guest, owner, OR admin
+    // ============================================================
+    const guest = await getGuestSession(request, env);
+    const owner = guest ? null : await getOwnerSession(request, env);
+    const isAdmin = (guest || owner) ? false : await verifyAdminAuth(request, env);
+
+    if (!guest && !owner && !isAdmin) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
     const clientIP = getClientIP(request);
     const db = env.DB;
 
@@ -93,7 +110,6 @@ export async function onRequestPost({ request, env }) {
       );
     }
 
-    // ===== Use chunked converter instead of spread operator =====
     const base64 = arrayBufferToBase64(buffer);
 
     const timestamp = Math.floor(Date.now() / 1000);
