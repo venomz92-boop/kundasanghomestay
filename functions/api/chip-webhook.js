@@ -7,6 +7,15 @@
 // (2) This file now uses the same shared "bookings-global" lock as every
 //     other booking file, so it can never race with the guest payment
 //     check, the host dashboard, or an admin edit.
+//
+// [THIS REVISION]
+// (3) When finalizePaidBooking returns an error, we now return HTTP 500
+//     and roll back the dedup row, so CHIP retries the event. Previously
+//     we logged a warning and returned 200, which told CHIP "handled,
+//     do not retry" and left the booking pending forever.
+// (4) Every refund calculation now uses `amount_paid` (the amount CHIP
+//     actually collected) instead of `total` (which can be recalculated
+//     by an admin editing dates on a paid booking).
 import { corsHeaders, getClientIP, logAction, withLock, finalizePaidBooking } from './_utils.js';
 
 const BOOKINGS_LOCK = 'bookings-global';
@@ -88,7 +97,8 @@ async function tryAutoRefundLatePaymentLocked(db, bookingId, env) {
   const secret = env.CHIP_SECRET_KEY;
   if (!secret) return { error: 'CHIP_SECRET_KEY missing' };
 
-  const refundAmountCents = Math.round(Number(b.total) * 100);
+  // [FIX 1.4] Refund the amount CHIP actually collected.
+  const refundAmountCents = Math.round(Number(b.amount_paid || b.total) * 100);
 
   try {
     const res = await fetch(
@@ -114,7 +124,7 @@ async function tryAutoRefundLatePaymentLocked(db, bookingId, env) {
     bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded - Late Payment';
     bookings[idx].chip_refund_id = data.id;
     bookings[idx].refunded_at = new Date().toISOString();
-    bookings[idx].refund_amount = Number(b.total) || 0;
+    bookings[idx].refund_amount = Number(b.amount_paid || b.total) || 0;
     bookings[idx].late_payment_refund = true;
     if (isPending) bookings[idx].refund_pending = true;
 
@@ -189,7 +199,7 @@ async function sendCheckinEmail(booking, env) {
 }
 
 async function sendRefundEmail(booking, env) {
-  const refundAmount = booking.refund_amount || booking.total || 0;
+  const refundAmount = booking.refund_amount || booking.amount_paid || booking.total || 0;
   const refundId = booking.chip_refund_id || 'N/A';
   const emailHtml = `
     <h2>Hello ${booking.guestName || 'Guest'},</h2>
@@ -349,8 +359,15 @@ export async function onRequestPost({ request, env }) {
 
       const finalizeResult = lockResult.finalizeResult;
 
+      // [FIX 1.6] Finalization failure must return 500 so CHIP retries.
+      // Previously we logged a warning and returned 200 — which told CHIP
+      // "handled, do not retry" and left the booking stuck in pending.
       if (finalizeResult.error) {
-        console.warn(`Finalize error: ${finalizeResult.error}`);
+        console.error(`Finalize error: ${finalizeResult.error}`);
+        try {
+          await db.prepare(`DELETE FROM webhook_events WHERE event_key = ?`).bind(eventKey).run();
+        } catch (_) {}
+        return new Response('Finalize failed', { status: 500, headers: corsHeaders(request) });
       } else if (finalizeResult.alreadyFinalized) {
         console.log(`Booking ${booking.id} already finalized by another path. Skipping email.`);
       } else if (finalizeResult.refuseFinalize) {
@@ -426,7 +443,7 @@ export async function onRequestPost({ request, env }) {
     else if (event === 'purchase.refunded' || event === 'payment.refunded' || status === 'refunded') {
       const refundedAmount = payload.data?.refunded_amount
         ? Number(payload.data.refunded_amount) / 100
-        : (booking.refund_amount || booking.total || 0);
+        : (booking.refund_amount || booking.amount_paid || booking.total || 0);
 
       let emailTarget = null;
       try {
