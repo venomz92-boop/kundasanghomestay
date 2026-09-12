@@ -1,4 +1,8 @@
-// /api/admin-login.js — Signed, expiring admin token (timing-safe compare)
+// /api/admin-login.js — Plain English: this file now hashes BOTH the
+// password you typed and the real admin password with SHA-256 first, then
+// compares the two 32-byte digests in constant time. This hides how long
+// the real password is from anyone trying to guess it. Everything else
+// (cookie, token, rate limiting) is unchanged.
 import {
   corsHeaders,
   getClientIP,
@@ -13,15 +17,19 @@ import {
 
 const ADMIN_TTL_SECONDS = 8 * 60 * 60; // 8 hours
 
-// Constant-time string comparison.
-// Both strings must be the same length; we compare by XOR of char codes.
-function timingSafeEqual(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string') return false;
+// H6: SHA-256 both inputs and constant-time compare the fixed-length
+// digests. This removes the previous length-based early return, which
+// leaked the admin password length via timing.
+async function sha256Bytes(str) {
+  const data = new TextEncoder().encode(str);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return new Uint8Array(digest);
+}
+
+function constantTimeEqualBytes(a, b) {
   if (a.length !== b.length) return false;
   let diff = 0;
-  for (let i = 0; i < a.length; i++) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
   return diff === 0;
 }
 
@@ -56,7 +64,13 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Server configuration error. Please contact support.' }, 500, request);
     }
 
-    if (!timingSafeEqual(password, adminPass)) {
+    // H6: hash-then-compare-in-constant-time.
+    const [inputDigest, expectedDigest] = await Promise.all([
+      sha256Bytes(password),
+      sha256Bytes(adminPass)
+    ]);
+
+    if (!constantTimeEqualBytes(inputDigest, expectedDigest)) {
       await recordRateLimit(db, clientIP, 'admin_login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
