@@ -8,11 +8,13 @@
 //      SWIFT/BIC list and refuses before calling CHIP.
 //  (4) getOwnerHomestayIdsFresh(db, owner) resolves an owner's homestay
 //      IDs by matching WhatsApp in kd_approved / kd_pending.
-//  (5) NEW: sendHostPayoutEmail(booking, homestay, payoutInfo, env)
-//      sends a payout receipt to the host after a successful CHIP Send
-//      transfer. Called from owner-checkin.js, payout.js, and
-//      retry-payout.js. Best-effort — a failed email never rolls back
-//      the payout.
+//  (5) sendHostPayoutEmail(booking, homestay, payoutInfo, env) sends a
+//      payout receipt to the host after a successful CHIP Send transfer.
+//      [NEW] When payoutInfo.isSimulation is true, the subject line gets
+//      a [TEST] prefix and a bright banner is drawn at the top of the
+//      email body. This lets the admin verify the email in sandbox
+//      without any risk of a host mistaking a simulated receipt for a
+//      real one.
 
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
@@ -825,30 +827,33 @@ export async function finalizePaidBooking(db, bookingId) {
 
 // ============================================================
 // Host payout receipt email.
-// Sent after a successful CHIP Send payout to the host, so the host
-// has a record for their book-keeping. Called from owner-checkin.js,
-// payout.js, and retry-payout.js. Best-effort — a failure never rolls
-// back the payout.
+// Sent after a successful CHIP Send payout to the host.
 //
 // Arguments:
-//   booking    — the booking object (id, guestName, checkin, checkout,
-//                nights, total, base, fee, gatewayFee)
+//   booking    — the booking object
 //   homestay   — the homestay object (name, ownerName, ownerEmail,
 //                ownerBank, ownerBankAccount)
-//   payoutInfo — { amount, payoutId, reference, paidAt }
+//   payoutInfo — { amount, payoutId, reference, paidAt, isSimulation }
+//                When isSimulation is true, the subject gets a [TEST]
+//                prefix and a bright banner is drawn at the top of the
+//                email body. This lets the admin verify delivery in
+//                sandbox without any risk of a host mistaking the
+//                receipt for a real one.
 //   env        — Cloudflare env
+//
+// Best-effort — a failure never rolls back the payout.
 // ============================================================
 export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
   if (!homestay || !homestay.ownerEmail) {
     return { sent: false, error: 'No host email on file' };
   }
   const safe = (s) => String(s || '').replace(/[<>]/g, '');
+  const isSimulation = !!payoutInfo.isSimulation;
 
   const ownerName = safe(homestay.ownerName || 'Host');
   const homestayName = safe(homestay.name || 'your property');
   const payoutAmount = Number(payoutInfo.amount || 0).toFixed(2);
   const total = Number(booking.total || 0).toFixed(2);
-  const base = Number(booking.base || 0).toFixed(2);
   const fee = Number(booking.fee || 0).toFixed(2);
   const gatewayFee = Number(booking.gatewayFee || 0).toFixed(2);
   const ref = safe(payoutInfo.reference || `KDH-${booking.id}`);
@@ -868,24 +873,38 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
   const bankMasked = acct.length >= 4 ? '****' + acct.slice(-4) : 'N/A';
   const bankName = safe(homestay.ownerBank || 'Bank');
 
+  const testBanner = isSimulation ? `
+    <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;padding:16px;margin-bottom:20px;text-align:center;">
+      <div style="font-size:13px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:1.5px;">⚠️ Test Email — Simulated Payout</div>
+      <div style="font-size:12px;color:#78350f;margin-top:6px;line-height:1.5;">
+        This receipt was generated in <strong>simulation mode</strong>.<br>
+        No real money was transferred to any bank account.
+      </div>
+    </div>
+  ` : '';
+
+  const headerSubtitle = isSimulation ? 'Payout Receipt — TEST' : 'Payout Receipt';
+
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;background:#f8f5f0;padding:20px;">
       <div style="background:#ffffff;padding:30px;border-radius:16px;border:1px solid #e5e7eb;">
 
+        ${testBanner}
+
         <div style="text-align:center;border-bottom:2px solid #0F382E;padding-bottom:16px;margin-bottom:22px;">
           <div style="font-size:22px;font-weight:800;color:#0F382E;">Kundasang Homestay</div>
-          <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;">Payout Receipt</div>
+          <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;">${headerSubtitle}</div>
         </div>
 
         <h2 style="color:#0F382E;margin-top:0;font-size:18px;">Hello ${ownerName},</h2>
         <p style="color:#4b5563;font-size:14px;line-height:1.6;">
-          A payout for a completed guest stay at <strong>${homestayName}</strong> has been sent to your bank account via CHIP Send.
+          A payout for a completed guest stay at <strong>${homestayName}</strong> has been ${isSimulation ? 'simulated (test)' : 'sent to your bank account via CHIP Send'}.
         </p>
 
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin:22px 0;text-align:center;">
-          <div style="font-size:11px;color:#166534;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Amount Received</div>
+          <div style="font-size:11px;color:#166534;text-transform:uppercase;letter-spacing:1px;font-weight:700;">${isSimulation ? 'Amount (simulated)' : 'Amount Received'}</div>
           <div style="font-size:32px;font-weight:800;color:#0F382E;margin:6px 0;">RM ${payoutAmount}</div>
-          <div style="font-size:12px;color:#166534;">Sent to ${bankName} ${bankMasked}</div>
+          <div style="font-size:12px;color:#166534;">${isSimulation ? 'Simulated payout — no funds moved' : `Sent to ${bankName} ${bankMasked}`}</div>
         </div>
 
         <div style="font-size:13px;color:#4b5563;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Payout Details</div>
@@ -895,11 +914,11 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
             <td style="padding:7px 0;text-align:right;font-family:'Courier New',monospace;font-weight:700;">${ref}</td>
           </tr>
           <tr>
-            <td style="padding:7px 0;color:#6b7280;">CHIP Send ID</td>
+            <td style="padding:7px 0;color:#6b7280;">${isSimulation ? 'Simulation ID' : 'CHIP Send ID'}</td>
             <td style="padding:7px 0;text-align:right;font-family:'Courier New',monospace;">${payoutId}</td>
           </tr>
           <tr>
-            <td style="padding:7px 0;color:#6b7280;">Date Sent</td>
+            <td style="padding:7px 0;color:#6b7280;">Date</td>
             <td style="padding:7px 0;text-align:right;">${paidAt}</td>
           </tr>
         </table>
@@ -939,14 +958,15 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
             <td style="padding:7px 0;text-align:right;color:#b91c1c;">− RM ${gatewayFee}</td>
           </tr>
           <tr style="border-top:2px solid #0F382E;">
-            <td style="padding:10px 0;font-weight:700;color:#0F382E;">You received</td>
+            <td style="padding:10px 0;font-weight:700;color:#0F382E;">${isSimulation ? 'Simulated payout' : 'You received'}</td>
             <td style="padding:10px 0;text-align:right;font-weight:800;color:#0F382E;font-size:15px;">RM ${payoutAmount}</td>
           </tr>
         </table>
 
         <p style="font-size:12px;color:#6b7280;margin-top:22px;line-height:1.6;border-top:1px solid #e5e7eb;padding-top:16px;">
-          Keep this email for your book-keeping. If you have any questions about this payout, reply to this email or contact us at
-          <a href="mailto:support@kundasanghomestay.my" style="color:#0F382E;">support@kundasanghomestay.my</a>.
+          ${isSimulation
+            ? 'This is a test email sent from a sandbox environment. No action is needed.'
+            : 'Keep this email for your book-keeping. If you have any questions about this payout, reply to this email or contact us at <a href="mailto:support@kundasanghomestay.my" style="color:#0F382E;">support@kundasanghomestay.my</a>.'}
         </p>
 
         <p style="font-size:12px;color:#9ca3af;text-align:center;margin-bottom:0;">
@@ -957,7 +977,9 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
     </div>
   `;
 
-  const subject = `Payout Receipt — RM ${payoutAmount} for Booking ${booking.id}`;
+  const subject = isSimulation
+    ? `[TEST] Payout Receipt — RM ${payoutAmount} for Booking ${booking.id}`
+    : `Payout Receipt — RM ${payoutAmount} for Booking ${booking.id}`;
 
   try {
     if (env.RESEND_API_KEY) {
