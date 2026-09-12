@@ -77,7 +77,6 @@
 <!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
-
     <a href="/" class="flex items-center gap-3 shrink-0 group">
       <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
       <div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
@@ -120,7 +119,6 @@
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
     <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
-
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">For Hosts</div>
     <a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
       <div style="display:flex; align-items:center; gap:12px; padding:14px 14px; border-radius:14px; background:#F8F5F0; border:1px solid rgba(212,163,115,0.35);">
@@ -132,7 +130,6 @@
       </div>
     </a>
     <div class="px-1 pt-1"><a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a></div>
-
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
     <div id="mGuestNav" class="space-y-2.5 px-1">
       <a href="/login.html" class="guest-btn guest-btn-primary block text-center">Sign In</a>
@@ -152,7 +149,7 @@
   </div>
 </div>
 
-<!-- ===== MY BOOKINGS PAGE ===== -->
+<!-- ===== PAGE ===== -->
 <main class="flex-1 max-w-[1100px] mx-auto px-4 md:px-6 py-8 md:py-12 w-full">
   <div id="loadingState" class="text-center py-20 animate-on-scroll">
     <div class="text-sm text-zinc-400">Loading your bookings...</div>
@@ -239,7 +236,7 @@
 
 <script src="animations.js"></script>
 <script>
-// ===== CSS sanitizer hook (DOMPurify) =====
+// ===== DOMPurify hook + safeHTML =====
 (function() {
   if (typeof DOMPurify === 'undefined') return;
   if (window.__kdCssHookInstalled) return;
@@ -249,14 +246,11 @@
     if (!node.getAttribute || !node.hasAttribute) return;
     if (!node.hasAttribute('style')) return;
     const raw = node.getAttribute('style') || '';
-    if (!raw) return;
-    if (!DANGEROUS_RULE.test(raw)) return;
+    if (!raw || !DANGEROUS_RULE.test(raw)) return;
     const safeRules = raw.split(';').map(r => r.trim()).filter(r => r.length > 0).filter(r => !DANGEROUS_RULE.test(r)).join('; ');
-    if (safeRules.length === 0) node.removeAttribute('style');
-    else node.setAttribute('style', safeRules);
+    if (safeRules.length === 0) node.removeAttribute('style'); else node.setAttribute('style', safeRules);
   });
 })();
-
 function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
@@ -267,7 +261,6 @@ function safeHTML(html) {
     FORCE_HTTPS: true
   });
 }
-
 function getCsrfHeader() {
   var token = localStorage.getItem('kd_csrf_token');
   return token ? { 'X-CSRF-Token': token } : {};
@@ -277,11 +270,9 @@ function getCsrfHeader() {
 function showModal(title, message, buttons) {
   return new Promise(function(resolve) {
     var overlay = document.getElementById('customModal');
-    var titleEl = document.getElementById('modalTitle');
-    var bodyEl = document.getElementById('modalBody');
+    document.getElementById('modalTitle').textContent = title || 'Notice';
+    document.getElementById('modalBody').innerHTML = typeof message === 'string' ? message : '';
     var footerEl = document.getElementById('modalFooter');
-    titleEl.textContent = title || 'Notice';
-    bodyEl.innerHTML = typeof message === 'string' ? message : '';
     footerEl.innerHTML = '';
     buttons.forEach(function(btn) {
       var el = document.createElement('button');
@@ -299,54 +290,46 @@ function showModal(title, message, buttons) {
   });
 }
 function closeModal() {
-  var overlay = document.getElementById('customModal');
-  if (overlay) overlay.classList.remove('active');
+  var o = document.getElementById('customModal');
+  if (o) o.classList.remove('active');
   document.body.style.overflow = '';
 }
 function modalConfirm() { closeModal(); }
-function showAlert(title, message) { return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]); }
-function showConfirm(title, message) {
-  return showModal(title, message, [
+function showAlert(t, m) { return showModal(t, m, [{ label: 'OK', class: 'btn-primary' }]); }
+function showConfirm(t, m) {
+  return showModal(t, m, [
     { label: 'Cancel', class: 'btn-secondary', value: false },
     { label: 'Confirm', class: 'btn-primary', value: true }
   ]);
 }
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    var overlay = document.getElementById('customModal');
-    if (overlay && overlay.classList.contains('active')) { overlay.classList.remove('active'); document.body.style.overflow = ''; }
-    var fModal = document.getElementById('paymentFailedModal');
-    if (fModal && fModal.classList.contains('active')) { fModal.classList.remove('active'); document.body.style.overflow = ''; }
+    var o = document.getElementById('customModal');
+    if (o && o.classList.contains('active')) { o.classList.remove('active'); document.body.style.overflow = ''; }
+    var f = document.getElementById('paymentFailedModal');
+    if (f && f.classList.contains('active')) { f.classList.remove('active'); document.body.style.overflow = ''; }
   }
 });
-
 function showPaymentFailedModal(bookingId, bookingData) {
   var overlay = document.getElementById('paymentFailedModal');
-  var idEl = document.getElementById('failedBookingId');
-  var datesEl = document.getElementById('failedDates');
-  var totalEl = document.getElementById('failedTotal');
-  if (idEl) idEl.textContent = bookingId || 'N/A';
-  if (datesEl) datesEl.textContent = (bookingData?.checkin || '') + ' → ' + (bookingData?.checkout || '') + ' (' + (bookingData?.nights || 1) + 'N)';
-  if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(bookingData?.total) || 0).toFixed(2);
-  window._failedBookingId = bookingId;
-  window._failedBookingData = bookingData;
+  document.getElementById('failedBookingId').textContent = bookingId || 'N/A';
+  document.getElementById('failedDates').textContent = (bookingData?.checkin || '') + ' → ' + (bookingData?.checkout || '') + ' (' + (bookingData?.nights || 1) + 'N)';
+  document.getElementById('failedTotal').textContent = 'RM ' + (parseFloat(bookingData?.total) || 0).toFixed(2);
   if (overlay) overlay.classList.add('active');
   document.body.style.overflow = 'hidden';
 }
 function closePaymentFailedModal() {
-  var overlay = document.getElementById('paymentFailedModal');
-  if (overlay) overlay.classList.remove('active');
+  var o = document.getElementById('paymentFailedModal');
+  if (o) o.classList.remove('active');
   document.body.style.overflow = '';
 }
 
 // =============================================================
-// GUEST STATE — read local cache OR trust the server.
+// GUEST STATE
 // =============================================================
 var API_BASE = "/api";
 var currentGuest = null;
 
-// Very lenient read — accepts a single object, a list, or a
-// record that only has an email.
 function findLocalGuest() {
   try {
     var raw = localStorage.getItem('kd_guest');
@@ -354,31 +337,16 @@ function findLocalGuest() {
     var g = JSON.parse(raw);
     if (Array.isArray(g)) g = g.length > 0 ? g[g.length - 1] : null;
     if (!g) return null;
-    if (g.id) return g;
-    if (g.email) return g;
+    if (g.id || g.email) return g;
     return null;
   } catch (e) { return null; }
 }
 
-// When a booking is returned, it always carries the guest's name/email.
-// We can use those to display "Logged in as X" even without a local cache.
-function inferGuestFromBookings(bookings) {
-  if (!Array.isArray(bookings) || bookings.length === 0) return null;
-  // Prefer the newest booking's guest fields.
-  var b = bookings[0];
-  if (b.guestId) {
-    return { id: b.guestId, name: b.guestName || '', email: b.guestEmail || '' };
-  }
-  return null;
-}
-
 function renderGuestNav() {
-  // Let GuestSession handle the header if it's loaded.
   if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
     window.GuestSession.updateNavDOM();
     return;
   }
-  // Fallback header logic.
   var loginNav = document.getElementById('guestNav');
   var profileNav = document.getElementById('guestProfileNav');
   var mLoginNav = document.getElementById('mGuestNav');
@@ -429,7 +397,7 @@ function showLoggedInView(guest) {
 }
 
 // =============================================================
-// CHECK PAYMENT STATUS — cookie-only
+// CHECK PAYMENT STATUS
 // =============================================================
 async function checkPaymentStatus(bookingId) {
   try {
@@ -439,11 +407,8 @@ async function checkPaymentStatus(bookingId) {
       credentials: 'include',
       body: JSON.stringify({ bookingId })
     });
-    const data = await res.json();
-    return data;
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
+    return await res.json();
+  } catch (e) { return { success: false, error: e.message }; }
 }
 
 async function autoCheckPendingBookings() {
@@ -461,15 +426,12 @@ async function autoCheckPendingBookings() {
         const status = result.booking.status || '';
         if (status.toLowerCase().includes('paid') || status.toLowerCase().includes('fail')) anyUpdated = true;
       }
-      if (result.paymentStatus === 'refunded' || result.paymentStatus === 'cancelled' || result.paymentStatus === 'expired' || result.paymentStatus === 'failed') {
-        anyUpdated = true;
-      }
-    } catch (e) { /* ignore */ }
+      if (result.paymentStatus === 'refunded' || result.paymentStatus === 'cancelled' || result.paymentStatus === 'expired' || result.paymentStatus === 'failed') anyUpdated = true;
+    } catch (e) {}
     await new Promise(r => setTimeout(r, 500));
   }
   if (anyUpdated) loadMyBookings();
 }
-
 function startPendingCheckInterval() {
   if (pendingCheckInterval) clearInterval(pendingCheckInterval);
   autoCheckPendingBookings();
@@ -477,9 +439,7 @@ function startPendingCheckInterval() {
 }
 
 // =============================================================
-// LOAD BOOKINGS — the ONE source of truth is the server.
-// We call /api/bookings with cookies. The server decides whether
-// the caller is a logged-in guest or the public.
+// LOAD BOOKINGS
 // =============================================================
 function loadMyBookings() {
   var listDiv = document.getElementById('bookingsList');
@@ -496,41 +456,27 @@ function loadMyBookings() {
     return res.json();
   })
   .then(function(data) {
-    // The /api/bookings GET returns:
-    //  - { bookings, total, page, limit, totalPages }   when the caller is a guest
-    //  - { approved, availability }                      when the caller is public
-    //  - { bookings, approved, pending, guests, ... }    when the caller is an admin
-    // So the presence of `bookings` is our signal.
     var serverBookings = Array.isArray(data.bookings) ? data.bookings : null;
-
     if (!serverBookings) {
-      // Server does NOT consider us logged in as a guest.
-      // Clear any stale local guest record and show the login screen.
-      try { localStorage.removeItem('kd_guest'); } catch (e) {}
+      // Server does not consider us a logged-in guest.
       currentGuest = null;
+      try { localStorage.removeItem('kd_guest'); } catch (e) {}
       if (window.GuestSession) window.GuestSession.clearGuestSession();
       renderGuestNav();
       showLoginRequired();
       return;
     }
 
-    // Server considers us logged in as guest.
-    // Make sure the header reflects that — even if the local cache is empty.
-    if (!currentGuest) {
-      currentGuest = findLocalGuest() || inferGuestFromBookings(serverBookings);
-      if (currentGuest && currentGuest.id) {
-        try { localStorage.setItem('kd_guest', JSON.stringify(currentGuest)); } catch (e) {}
-      }
-    }
+    // Ensure header reflects the guest identity we already have from
+    // /api/guest-session (called before this function).
+    var displayGuest = currentGuest || { name: 'Guest', email: '' };
     renderGuestNav();
 
-    // If the server returned 0 bookings and we have no local guest record,
-    // we know the server accepted our cookie but we still can't identify who
-    // we are. That is unusual but possible — fall back to treating this as
-    // "no bookings yet" and show the logged-in view with a generic label.
-    var displayGuest = currentGuest || { id: 'unknown', name: 'Guest', email: '' };
-
     myBookings = serverBookings;
+
+    if (currentGuest && currentGuest.id) {
+      try { localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings)); } catch (e) {}
+    }
 
     showLoggedInView(displayGuest);
     renderBookings();
@@ -541,10 +487,8 @@ function loadMyBookings() {
   })
   .catch(function(err) {
     console.error('loadMyBookings failed:', err);
-    // Network error: try to render from cache so the user still sees something.
     if (currentGuest) {
-      var cachedKey = 'kd_guest_bookings_' + (currentGuest.id || 'unknown');
-      var cached = localStorage.getItem(cachedKey);
+      var cached = localStorage.getItem('kd_guest_bookings_' + (currentGuest.id || 'unknown'));
       if (cached) {
         try {
           myBookings = JSON.parse(cached);
@@ -556,7 +500,7 @@ function loadMyBookings() {
           var listEl = document.getElementById('bookingsList');
           if (listEl && listEl.parentNode) listEl.parentNode.insertBefore(notice, listEl);
           return;
-        } catch (e) { /* fall through */ }
+        } catch (e) {}
       }
     }
     showLoginRequired();
@@ -577,14 +521,13 @@ function renderBookings() {
     else if (s.includes('paid')) countPaid++;
     else if (s.includes('pending')) countPending++;
   });
-
   document.getElementById('metricTotal').textContent = myBookings.length;
   document.getElementById('metricPaid').textContent = countPaid;
   document.getElementById('metricCompleted').textContent = countCompleted;
   document.getElementById('metricPending').textContent = countPending;
 
   if (myBookings.length === 0) {
-    listDiv.innerHTML = safeHTML('' +
+    listDiv.innerHTML = safeHTML(
       '<div class="text-center py-16 space-y-4">' +
         '<div class="text-6xl">🏔️</div>' +
         '<h3 class="font-poppins font-700 text-[20px] text-[#212121]">No Bookings Yet</h3>' +
@@ -627,15 +570,15 @@ function renderBookings() {
 
     var buttonsHtml = '';
     if (isPaid || isCompleted) {
-      buttonsHtml += `<button class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition action-btn" data-action="resendCode" data-id="${id}">📧 Resend Code</button>`;
+      buttonsHtml += '<button class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition action-btn" data-action="resendCode" data-id="' + id + '">📧 Resend Code</button>';
     }
     if (isPending) {
-      buttonsHtml += `<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="${id}">🔍 Check Payment</button>`;
-      buttonsHtml += `<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#D4A373;" data-action="retryPayment" data-id="${id}">🔄 Retry Payment</button>`;
+      buttonsHtml += '<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="' + id + '">🔍 Check Payment</button>';
+      buttonsHtml += '<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#D4A373;" data-action="retryPayment" data-id="' + id + '">🔄 Retry Payment</button>';
     }
     if (isFailed) {
-      buttonsHtml += `<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="${id}">🔍 Check Status</button>`;
-      buttonsHtml += `<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#dc2626;" data-action="retryPayment" data-id="${id}">🔄 Retry Payment</button>`;
+      buttonsHtml += '<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="' + id + '">🔍 Check Status</button>';
+      buttonsHtml += '<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#dc2626;" data-action="retryPayment" data-id="' + id + '">🔄 Retry Payment</button>';
     }
 
     var pendingNote = isPending ? '<div class="text-xs text-amber-600 mt-1">⏳ If your payment is pending for more than 10 minutes, you can retry.</div>' : '';
@@ -644,7 +587,7 @@ function renderBookings() {
     else if (isCancelled) extraNote = '<div class="text-xs text-zinc-600 mt-1">This booking was cancelled by the host.</div>';
     else if (isExpired) extraNote = '<div class="text-xs text-zinc-600 mt-1">This booking expired before payment completed. The dates have been released.</div>';
 
-    html += '' +
+    html +=
       '<div class="card hover:shadow-md transition-all duration-300" data-id="' + id + '">' +
         '<div class="flex flex-col md:flex-row justify-between gap-4">' +
           '<div class="flex-1 min-w-0 space-y-2">' +
@@ -693,9 +636,7 @@ async function manualCheckPayment(bookingId) {
     }
     if (result.retry) { await showAlert('Still Processing', result.message || 'The payment is still being processed. Please try again in a few seconds.'); return; }
     await showAlert('Error', result.error || 'Could not check payment status.');
-  } catch (e) {
-    await showAlert('Error', 'Could not connect to the server.');
-  }
+  } catch (e) { await showAlert('Error', 'Could not connect to the server.'); }
 }
 
 async function retryPayment(bookingId) {
@@ -736,9 +677,7 @@ async function retryPayment(bookingId) {
     if (!res.ok || !data.success) { showAlert('Error', data.error || 'Could not create payment. Please try again.'); return; }
     if (data.url) window.location.href = data.url;
     else showAlert('Error', 'Payment URL missing.');
-  } catch (e) {
-    showAlert('Network Error', 'Could not connect to the server. Please try again.');
-  }
+  } catch (e) { showAlert('Network Error', 'Could not connect to the server. Please try again.'); }
 }
 async function retryPaymentFromBookings(bookingId) { await retryPayment(bookingId); }
 window.retryPayment = retryPayment;
@@ -770,16 +709,42 @@ async function resendCode(bookingId) {
 }
 
 // =============================================================
-// INIT
+// INIT — the ONE source of truth is /api/guest-session.
 // =============================================================
-(function init() {
-  // Try to fill currentGuest from local cache first (so the header
-  // shows the right name while we ask the server).
+(async function init() {
+  // Show whatever the header already knows (from local cache).
   currentGuest = findLocalGuest();
   renderGuestNav();
 
-  // Always ask the server. If the cookie is valid, we're logged in —
-  // regardless of what the local cache says.
+  // Ask the server who we are. This is authoritative.
+  var serverSaysLoggedIn = false;
+  try {
+    const res = await fetch('/api/guest-session', { credentials: 'include', cache: 'no-store' });
+    const data = await res.json();
+    if (data.authenticated && data.guest) {
+      currentGuest = data.guest;
+      try { localStorage.setItem('kd_guest', JSON.stringify(currentGuest)); } catch (e) {}
+      if (window.GuestSession && typeof window.GuestSession.setSession === 'function') {
+        window.GuestSession.setSession(currentGuest);
+      }
+      serverSaysLoggedIn = true;
+      renderGuestNav();
+    }
+  } catch (e) {
+    // Network hiccup — fall back to whatever the local cache had.
+    serverSaysLoggedIn = !!currentGuest;
+  }
+
+  if (!serverSaysLoggedIn) {
+    currentGuest = null;
+    try { localStorage.removeItem('kd_guest'); } catch (e) {}
+    if (window.GuestSession) window.GuestSession.clearGuestSession();
+    renderGuestNav();
+    showLoginRequired();
+    return;
+  }
+
+  // Now that we know who we are, load the bookings.
   loadMyBookings();
 })();
 </script>
