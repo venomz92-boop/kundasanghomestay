@@ -7,6 +7,15 @@
 // If neither applies, we return 401 telling the user to register and
 // verify first. The admin force-sync path and the admin delete path are
 // unchanged.
+//
+// [THIS REVISION]
+// (1) Pending-DELETE now destroys the listing's Cloudinary images and
+//     removes the orphaned entry from kd_homestays, matching the promise
+//     made in the Data Privacy Consent.
+// (2) Submission requires a valid CHIP Send bank code. If the code is
+//     missing or unknown, the request is rejected before anything is
+//     written. This prevents the silent Maybank default that would
+//     otherwise send a host's payout to the wrong bank.
 import {
   corsHeaders,
   getClientIP,
@@ -19,7 +28,8 @@ import {
   jsonResponse,
   checkRateLimit,
   recordRateLimit,
-  parseJSONSafely
+  parseJSONSafely,
+  sha256
 } from './_utils.js';
 
 import {
@@ -30,6 +40,127 @@ import {
   sanitizeDescription,
   validateBankCode
 } from './_utils.js';
+
+// ============================================================
+// CHIP Send supported bank codes. Source: CHIP Send's "Add a
+// bank account" documentation. Kept in sync with /api/bank-list.js.
+// ============================================================
+const VALID_CHIP_SEND_CODES = new Set([
+  'ACDBMYK2','PHBMMYKL','AGOBMYKL','RJHIMYKL','MFBBMYKL','ARBKMYKL',
+  'BIMBMYKL','BKRMMYKL','BMMBMYKL','BOFAMY2X','BKCHMYKL','BOTKMYKX',
+  'BSNAMYK1','BNPAMYKL','PCBCMYKL','CIBBMYKL','DEUTMYKL','FNXSMYNB',
+  'GXSPMYKL','HLBBMYKL','HBMBMYKL','ICBKMYKL','CHASMYKX','KFHOMYKL',
+  'MBBEMYKL','AFBQMYKL','MHCBMYKA','OCBCMYKL','PBBEMYKL','RHBBMYKL',
+  'SCBLMYKX','SMBCMYKL','TNGDMYNB','UOVBMYKL'
+]);
+
+// ============================================================
+// Cloudinary destroy helpers (duplicated from bookings.js so this file
+// has no cross-file dependencies). The caller passes a stored publicId
+// or a Cloudinary URL. Safe to call with a missing ID.
+// ============================================================
+async function destroyCloudinaryImage(publicId, env) {
+  if (!publicId || typeof publicId !== 'string') {
+    return { skipped: true };
+  }
+  const cloudName = env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = env.CLOUDINARY_API_KEY;
+  const apiSecret = env.CLOUDINARY_API_SECRET;
+  if (!cloudName || !apiKey || !apiSecret) {
+    return { error: 'Cloudinary credentials missing' };
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const toSign = `public_id=${publicId}&timestamp=${timestamp}`;
+  let signature;
+  try {
+    signature = await sha256(toSign + apiSecret);
+  } catch (e) {
+    return { error: 'Signature compute failed: ' + e.message };
+  }
+
+  const body = new URLSearchParams({
+    public_id: publicId,
+    api_key: apiKey,
+    timestamp: String(timestamp),
+    signature,
+    signature_algorithm: 'sha256'
+  });
+
+  try {
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+      }
+    );
+    let data = null;
+    try { data = await res.json(); } catch (_) { data = null; }
+    if (!res.ok) {
+      return { error: `Cloudinary HTTP ${res.status}` };
+    }
+    const ok = data && (data.result === 'ok' || data.result === 'not found');
+    return { success: ok, result: data?.result || 'unknown' };
+  } catch (e) {
+    return { error: 'Network error: ' + e.message };
+  }
+}
+
+function extractPublicIdFromCloudinaryUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  try {
+    const m = url.match(/\/upload\/v\d+\/(.+?)(?:\?|$)/);
+    if (!m || !m[1]) return null;
+    return m[1].replace(/\.\w+$/, '');
+  } catch (_) {
+    return null;
+  }
+}
+
+// Collect every image public ID belonging to a listing.
+function collectAllImagePublicIds(h) {
+  const ids = [];
+  if (!h) return ids;
+
+  if (h.icPublicId) ids.push(h.icPublicId);
+  else if (h.icImage) {
+    const pid = extractPublicIdFromCloudinaryUrl(h.icImage);
+    if (pid) ids.push(pid);
+  }
+  if (h.bankQRPublicId) ids.push(h.bankQRPublicId);
+  else if (h.bankQRImage) {
+    const pid = extractPublicIdFromCloudinaryUrl(h.bankQRImage);
+    if (pid) ids.push(pid);
+  }
+  if (h.pbtLicensePublicId) ids.push(h.pbtLicensePublicId);
+  else if (h.pbtLicense) {
+    const pid = extractPublicIdFromCloudinaryUrl(h.pbtLicense);
+    if (pid) ids.push(pid);
+  }
+  if (Array.isArray(h.imagePublicIds)) {
+    h.imagePublicIds.forEach(p => { if (p) ids.push(p); });
+  } else if (Array.isArray(h.images)) {
+    h.images.forEach(url => {
+      const pid = extractPublicIdFromCloudinaryUrl(url);
+      if (pid) ids.push(pid);
+    });
+  }
+  if (Array.isArray(h.rooms)) {
+    h.rooms.forEach(room => {
+      if (Array.isArray(room.imagePublicIds)) {
+        room.imagePublicIds.forEach(p => { if (p) ids.push(p); });
+      } else if (Array.isArray(room.images)) {
+        room.images.forEach(url => {
+          const pid = extractPublicIdFromCloudinaryUrl(url);
+          if (pid) ids.push(pid);
+        });
+      }
+    });
+  }
+  return [...new Set(ids.filter(Boolean))];
+}
 
 async function requireAdmin(request, env) {
   const ok = await verifyAdminAuth(request, env);
@@ -139,7 +270,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ============================================================
-    // PUBLIC SUBMIT MODE — M4: now requires a verified owner account
+    // PUBLIC SUBMIT MODE — requires a verified owner account
     // ============================================================
     const h = body.homestay || body.listing;
     if (!h) {
@@ -216,13 +347,23 @@ export async function onRequestPost({ request, env }) {
     const ownerEmail = String(authenticatedOwnerAccount.ownerEmail || '').toLowerCase().trim();
     const ownerWhatsapp = String(authenticatedOwnerAccount.whatsapp || '').replace(/[^0-9]/g, '');
 
-    // M4: dynamic required fields. Owner identity comes from the account,
-    // so the client doesn't need to re-supply it.
-    const required = ['name', 'location', 'ownerPrice', 'ownerBankAccount', 'bankHolder'];
+    // Required fields. [FIX 2.6] `bankCode` is now required.
+    const required = ['name', 'location', 'ownerPrice', 'ownerBankAccount', 'bankHolder', 'bankCode'];
     for (const key of required) {
       if (h[key] === undefined || h[key] === null || String(h[key]).trim() === '') {
         return jsonResponse({ error: `Missing required field: ${key}` }, 400, request);
       }
+    }
+
+    // [FIX 2.6] Validate the bank code against CHIP Send's known list.
+    // If the code is missing or unknown, refuse — do not silently
+    // default to Maybank at payout time.
+    const incomingBankCode = String(h.bankCode || '').toUpperCase().trim();
+    if (!VALID_CHIP_SEND_CODES.has(incomingBankCode)) {
+      return jsonResponse({
+        error: 'Invalid or unsupported bank code. Please select a bank from the provided list.',
+        code: 'INVALID_BANK_CODE'
+      }, 400, request);
     }
 
     const name = sanitizeString(h.name, 100);
@@ -236,7 +377,7 @@ export async function onRequestPost({ request, env }) {
     const icName = sanitizeString(h.icName || '', 100);
     const icNumber = String(h.icNumber || '').replace(/[^0-9-]/g, '').slice(0, 20);
     const bankName = sanitizeString(h.ownerBank || '', 50);
-    const bankCode = validateBankCode(h.bankCode || '');
+    const bankCode = validateBankCode(incomingBankCode);
     const price = Number(h.ownerPrice);
     const guests = Math.max(1, Math.min(20, Number(h.guests) || 1));
     const bedrooms = Math.max(1, Math.min(10, Number(h.bedrooms) || 1));
@@ -342,7 +483,7 @@ export async function onRequestPost({ request, env }) {
       db,
       action: 'homestay_submitted',
       admin: 'owner',
-      details: `Homestay ${clean.id} submitted by owner account ${ownerId}`,
+      details: `Homestay ${clean.id} submitted by owner account ${ownerId} (bank code: ${bankCode})`,
       ip: clientIP,
       userId: clean.ownerEmail,
       homestayId: clean.id
@@ -364,6 +505,10 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
+// ============================================================
+// DELETE — admin-only. Removes a pending listing, destroys every
+// Cloudinary image it owns, and cleans the orphaned kd_homestays row.
+// ============================================================
 export async function onRequestDelete({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -377,15 +522,44 @@ export async function onRequestDelete({ request, env }) {
   const pending = await read(db, 'kd_pending');
   const deleted = pending.find(h => String(h.id) === String(id));
   const next = pending.filter(h => String(h.id) !== String(id));
-  await db.prepare('INSERT OR REPLACE INTO store(key, data) VALUES(?, ?)')
-    .bind('kd_pending', JSON.stringify(next))
-    .run();
+
+  // Collect Cloudinary public IDs before deleting the entry.
+  const allPublicIds = collectAllImagePublicIds(deleted);
+
+  // Remove the orphaned entry from kd_homestays.
+  const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
+  let allHomes = [];
+  if (homestaysRes && homestaysRes.data) {
+    try { allHomes = JSON.parse(homestaysRes.data); } catch (e) {}
+  }
+  const hIdx = allHomes.findIndex(h => String(h.id) === String(id));
+  if (hIdx !== -1) {
+    allHomes.splice(hIdx, 1);
+  }
+
+  await db.batch([
+    db.prepare('INSERT OR REPLACE INTO store(key, data) VALUES(?, ?)')
+      .bind('kd_pending', JSON.stringify(next)),
+    db.prepare('INSERT OR REPLACE INTO store(key, data) VALUES(?, ?)')
+      .bind('kd_homestays', JSON.stringify(allHomes))
+  ]);
+
+  // Destroy images. Best-effort: a failure does not roll back the delete.
+  let destroyReport = { attempted: 0, succeeded: 0, failed: 0 };
+  if (allPublicIds.length > 0) {
+    for (const pid of allPublicIds) {
+      const r = await destroyCloudinaryImage(pid, env);
+      destroyReport.attempted++;
+      if (r.success) destroyReport.succeeded++;
+      else destroyReport.failed++;
+    }
+  }
 
   await logAction({
     db,
     action: 'homestay_pending_deleted',
     admin: 'admin',
-    details: `Deleted pending homestay ${id}`,
+    details: `Deleted pending homestay ${id}. Cloudinary destroy: ${destroyReport.succeeded}/${destroyReport.attempted} images removed.`,
     ip: getClientIP(request),
     userId: deleted?.ownerEmail,
     homestayId: id
