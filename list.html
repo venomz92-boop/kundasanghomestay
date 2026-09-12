@@ -794,7 +794,7 @@ function compressImageToBlob(file, maxWidth, quality) {
 // TEMP STORAGE
 // =============================================================
 let tempPhotos = [];
-let tempPhotoPublicIds = [];              // parallel to tempPhotos
+let tempPhotoPublicIds = [];
 let tempBlockedDates = [];
 let tempIcWatermarked = "";
 let tempIcPublicId = "";
@@ -804,7 +804,7 @@ let tempBankQRPublicId = "";
 let tempBankQROriginalName = "";
 let tempPbtLicense = "";
 let tempPbtPublicId = "";
-let tempRooms = [];                       // each room: { ..., imagePublicIds: [] }
+let tempRooms = [];
 
 // =============================================================
 // FORM DRAFT (localStorage)
@@ -896,25 +896,21 @@ function restoreDraft() {
   setChk('listConsent', f.listConsent);
   setChk('listHostAgreement', f.listHostAgreement);
 
-  // Show "Other Bank" SWIFT input if needed
   if (f.listBankName === 'Other') {
     const wrap = document.getElementById('manualBankCodeWrap');
     if (wrap) wrap.classList.remove('hidden');
   }
 
-  // Rooms
   if (Array.isArray(draft.tempRooms) && draft.tempRooms.length > 0) {
     tempRooms = draft.tempRooms;
   }
   renderRooms();
 
-  // Blocked dates
   if (Array.isArray(draft.tempBlockedDates)) {
     tempBlockedDates = draft.tempBlockedDates;
   }
   renderBlockedDatesList();
 
-  // Property photos
   if (Array.isArray(draft.tempPhotos)) {
     tempPhotos = draft.tempPhotos;
     tempPhotoPublicIds = Array.isArray(draft.tempPhotoPublicIds) ? draft.tempPhotoPublicIds : [];
@@ -930,7 +926,6 @@ function restoreDraft() {
     }
   }
 
-  // IC watermarked image
   if (draft.tempIcWatermarked) {
     tempIcWatermarked = draft.tempIcWatermarked;
     tempIcPublicId = draft.tempIcPublicId || '';
@@ -943,7 +938,6 @@ function restoreDraft() {
     if (info) info.innerHTML = safeHTML('✓ Restored from saved draft');
   }
 
-  // Bank QR image
   if (draft.tempBankQRWatermarked) {
     tempBankQRWatermarked = draft.tempBankQRWatermarked;
     tempBankQRPublicId = draft.tempBankQRPublicId || '';
@@ -954,7 +948,6 @@ function restoreDraft() {
     if (wrap) wrap.classList.remove('hidden');
   }
 
-  // PBT license image
   if (draft.tempPbtLicense) {
     tempPbtLicense = draft.tempPbtLicense;
     tempPbtPublicId = draft.tempPbtPublicId || '';
@@ -1584,6 +1577,36 @@ async function submitHomestay() {
         // FIX #6: persist entire draft so nothing is lost on redirect
         saveDraft();
 
+        // FIX #7: if the host *had* a session when the page loaded, this is
+        // a session expiry — send them to /owner.html, NOT /owner-register.html.
+        const hadOwnerSession = !!(window._ownerAuth && window._ownerAuth.ownerId);
+
+        if (hadOwnerSession) {
+          if (statusEl) {
+            statusEl.className = 'block p-3 text-xs bg-amber-50 text-amber-900 border border-amber-300 rounded-xl mt-3 font-semibold';
+            statusEl.textContent = '⏰ Your host session expired — please log in again...';
+          }
+          const goLogin = await showModal(
+            'Session Expired',
+            'Your host login has expired (this happens automatically after a while for security).<br><br>' +
+            'Please log back in to your Host Console to continue submitting this listing.<br><br>' +
+            '<div style="font-size:12px;color:#0f382e;background:#ecfdf5;border:1px solid #a7f3d0;padding:8px 10px;border-radius:8px;">✓ <strong>Your form has been saved.</strong> After you log back in and return to this page, everything will be restored automatically.</div>' +
+            (syncData.hint ? '<div style="font-size:12px;color:#6b7280;margin-top:8px;">' + syncData.hint + '</div>' : ''),
+            [
+              { label: 'Not now', class: 'btn-secondary', value: 'cancel' },
+              { label: 'Log In to Host Console →', class: 'btn-primary', value: 'login' }
+            ]
+          );
+          if (goLogin === 'login') {
+            window.location.href = '/owner.html';
+            return;
+          }
+          resetBtn();
+          if (statusEl) statusEl.className = 'hidden';
+          return;
+        }
+
+        // Never logged in as a host — existing FIX #6 behaviour
         if (statusEl) {
           statusEl.className = 'block p-3 text-xs bg-amber-50 text-amber-900 border border-amber-300 rounded-xl mt-3 font-semibold';
           statusEl.textContent = '🔐 Host account required — redirecting you to create one...';
@@ -1636,7 +1659,6 @@ async function submitHomestay() {
       statusEl.textContent = '✓ Secure cloud storage synchronized successfully!';
     }
 
-    // FIX #6: successful submit — clear saved draft so it doesn't leak into future listings
     clearDraft();
 
     await showAlert("Listing Staged", `"${homestayName}" has been queued for admin approval.\n\nYou can log in to your dashboard panel at Host Login once verification has concluded.`);
@@ -1662,7 +1684,6 @@ async function submitHomestay() {
 (function init() {
   renderGuestNav();
 
-  // FIX #6: attempt to restore any previously saved draft first
   let restored = false;
   try { restored = restoreDraft(); } catch (e) { restored = false; }
 
