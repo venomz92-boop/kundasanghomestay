@@ -1,18 +1,14 @@
-// /api/bookings.js — Plain English: this file is the big one. Changes:
-// (1) EVERY write to the bookings list now runs inside a single global
-//     lock, so booking creation, cancellation, admin date edits, and
-//     admin status changes can never interleave and corrupt the file.
-// (2) When an admin changes dates, the server recomputes the money
-//     (base / fee / total / youReceive) itself from the homestay price —
-//     it no longer trusts numbers coming from the browser.
-// (3) When an admin changes a status, only `status` and `statusUpdated`
-//     are allowed through; the browser can no longer overwrite the guest
-//     ID, checkin code, payout flags, or any other sensitive field.
-// (4) The homestay lookups for a new guest booking now happen INSIDE the
-//     lock, so a homestay that got approved/removed a millisecond ago
-//     can't create a booking against stale data.
-// (5) The admin list now paginates approved + pending listings (default
-//     100 per page) so the response can't grow unbounded.
+// /api/bookings.js — Plain English: this file handles all booking reads
+// and writes. Two things changed in THIS revision inside
+// createPublicBooking():
+//   (1) If the SAME guest books the SAME dates at the SAME homestay
+//       again, and they already have a "Pending Payment" or
+//       "Payment Failed" booking for those dates, we REUSE that
+//       existing booking instead of creating a duplicate.
+//   (2) Stale "Payment Failed" bookings now also get expired the same
+//       way stale "Pending Payment" ones do (after 15 minutes).
+// Everything else (locking, admin actions, pagination, CSP, auth) is
+// unchanged from the previous version.
 import {
   corsHeaders,
   getClientIP,
@@ -37,7 +33,6 @@ const DEFAULT_PENDING_PAGE_SIZE = 100;
 const GATEWAY_FEE = 1.00;
 const PENDING_EXPIRY_MS = 15 * 60 * 1000;
 
-// Canonical lock key. Every write to kd_bookings MUST be inside this lock.
 const BOOKINGS_LOCK = 'bookings-global';
 
 // ============================================================
@@ -53,7 +48,6 @@ const PUBLIC_HOMESTAY_FIELDS = [
   'rating', 'reviews', 'createdAt', 'updatedAt'
 ];
 
-// C5: only these fields may be changed by admin through updateStatus.
 const ADMIN_STATUS_FIELD_WHITELIST = ['status', 'statusUpdated'];
 
 function pickPublicFields(h) {
@@ -281,8 +275,6 @@ export async function onRequestGet({ request, env }) {
       const safeApprovedAdmin = approved.map(stripPasswordFields);
       const safePendingAdmin = pending.map(stripPasswordFields);
 
-      // H7: paginate approved + pending so the response cannot grow
-      // unbounded as the platform grows.
       const approvedPage = parseInt(url.searchParams.get('approvedPage')) || 1;
       const approvedLimit = parseInt(url.searchParams.get('approvedLimit')) || DEFAULT_APPROVED_PAGE_SIZE;
       const approvedOffset = (approvedPage - 1) * approvedLimit;
@@ -407,11 +399,6 @@ export async function onRequestPost({ request, env }) {
     const today = new Date(); today.setHours(0,0,0,0);
     if (d1 < today) return jsonResponse({ error: 'Cannot book past dates' }, 400, request);
 
-    // H2 FIX: the homestay/room lookup and price validation now happen
-    // INSIDE the lock. A homestay that just got unapproved or had its
-    // price changed can no longer produce a booking against stale data.
-    // C4 FIX: canonical BOOKINGS_LOCK so this serializes with every
-    // other kd_bookings write across the app.
     let result;
     try {
       result = await withLock(db, BOOKINGS_LOCK, async (db) => {
@@ -443,15 +430,32 @@ export async function onRequestPost({ request, env }) {
         const guest = guests.find(g => String(g.id) === String(auth.session.userId));
         if (!guest) return { error: 'Guest not found', status: 404 };
 
-        const existingPending = allBookings.find(b =>
+        // ============================================================
+        // FIX: If the SAME guest already has a Pending Payment OR
+        // Payment Failed booking for these exact dates at this
+        // homestay, reuse it instead of creating a duplicate.
+        // If it was marked Payment Failed, reopen it as Pending.
+        // ============================================================
+        const existingOwn = allBookings.find(b =>
           String(b.guestId) === String(guest.id) &&
           String(b.homestayId) === String(homestay.id) &&
           b.checkin === checkin &&
           b.checkout === checkout &&
-          b.status === 'Pending Payment'
+          (b.status === 'Pending Payment' || b.status === 'Payment Failed')
         );
-        if (existingPending) {
-          return { alreadyExists: true, booking: existingPending };
+        if (existingOwn) {
+          if (existingOwn.status === 'Payment Failed') {
+            existingOwn.status = 'Pending Payment';
+            existingOwn.date = new Date().toISOString();
+            existingOwn.statusUpdated = new Date().toISOString();
+            existingOwn.reopenedAt = new Date().toISOString();
+            existingOwn.reopenCount = (existingOwn.reopenCount || 0) + 1;
+            delete existingOwn.lastPayoutError;
+            await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_bookings', JSON.stringify(allBookings))
+              .run();
+          }
+          return { alreadyExists: true, booking: existingOwn, reopened: true };
         }
 
         const homestayBlocked = new Set((homestay.blockedDates || []).map(String));
@@ -471,12 +475,20 @@ export async function onRequestPost({ request, env }) {
           }
         }
 
-        // BUG A: expire stale pending bookings that overlap our request.
+        // ============================================================
+        // Expire stale Pending Payment AND stale Payment Failed
+        // bookings that overlap our request. Then re-check overlap.
+        // ============================================================
         const now = Date.now();
         let modified = false;
         allBookings = allBookings.map(b => {
-          const isPending = String(b.status || '') === 'Pending Payment';
-          const isStale = isPending && b.date && (now - Date.parse(b.date)) > PENDING_EXPIRY_MS;
+          const s = String(b.status || '');
+          const isPending = s === 'Pending Payment';
+          const isFailed = s === 'Payment Failed';
+          if (!isPending && !isFailed) return b;
+          const stamp = b.date ? Date.parse(b.date) : 0;
+          if (!stamp) return b;
+          const isStale = (now - stamp) > PENDING_EXPIRY_MS;
           if (!isStale) return b;
           const roomMatch = selectedRoom
             ? String(b.roomId) === String(selectedRoom.id)
@@ -489,7 +501,8 @@ export async function onRequestPost({ request, env }) {
         });
 
         const overlaps = allBookings.some(b => {
-          const isOwnPending = String(b.guestId) === String(guest.id) && b.status === 'Pending Payment';
+          const isOwnPending = String(b.guestId) === String(guest.id) &&
+            (b.status === 'Pending Payment' || b.status === 'Payment Failed');
           const roomMatch = selectedRoom
             ? String(b.roomId) === String(selectedRoom.id)
             : String(b.homestayId) === String(homestay.id);
@@ -512,9 +525,6 @@ export async function onRequestPost({ request, env }) {
         if (!/^KDH-[A-Za-z0-9_-]{4,40}$/.test(bookingId) || allBookings.some(b=>String(b.id)===bookingId)) {
           bookingId = `KDH-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
         }
-
-        // NOTE: checkinCode is intentionally NOT generated here.
-        // It is generated on payment success by finalizePaidBooking().
 
         const booking = {
           id: bookingId,
@@ -563,7 +573,9 @@ export async function onRequestPost({ request, env }) {
         success: true,
         booking: result.booking,
         alreadyExists: true,
-        message: 'You already have a pending booking for these dates. Please complete the payment.'
+        message: result.reopened
+          ? 'Your previous payment attempt failed. We reopened the same booking so you can retry safely.'
+          : 'You already have a pending booking for these dates. Please complete the payment.'
       }, 200, request);
     }
 
@@ -583,9 +595,6 @@ export async function onRequestPost({ request, env }) {
   }
 
   // ============ PUBLIC: MARK PAYMENT FAILED ONLY ============
-  // Guests are NOT allowed to cancel their own bookings.
-  // This endpoint only exists so the CHIP failure-return flow can
-  // mark an unpaid booking as failed (which frees the dates).
   if (action === "publicUpdateStatus" && body.id) {
     const auth = await requireGuest(request, env, body);
     if (auth.error) return auth.error;
@@ -601,7 +610,6 @@ export async function onRequestPost({ request, env }) {
     try {
       await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-      // C4: kd_bookings write must be inside the canonical lock.
       let result;
       try {
         result = await withLock(db, BOOKINGS_LOCK, async (db) => {
@@ -615,7 +623,6 @@ export async function onRequestPost({ request, env }) {
             return { error: 'Unauthorized', status: 403 };
           }
 
-          // Never downgrade a booking that's already paid/completed/refunded/cancelled/expired.
           const currentStatus = String(b.status || '');
           const isTerminal = currentStatus === 'Paid - Awaiting Check-in'
             || currentStatus.startsWith('Completed')
@@ -625,7 +632,12 @@ export async function onRequestPost({ request, env }) {
             return { noop: true, booking: b };
           }
 
-          bookings[idx] = { ...b, status: 'Payment Failed', statusUpdated: new Date().toISOString() };
+          bookings[idx] = {
+            ...b,
+            status: 'Payment Failed',
+            failed_at: new Date().toISOString(),
+            statusUpdated: new Date().toISOString()
+          };
 
           await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
             .bind('kd_bookings', JSON.stringify(bookings)).run();
@@ -710,10 +722,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, bookings: [] }, 200, request);
     }
 
-    // ---- Admin: updateStatus (C4 + C5) ----
-    // C5: whitelist. Only `status` and `statusUpdated` can be changed.
-    // The browser cannot overwrite guestId, chip_purchase_id, payoutSuccess,
-    // checkinCode, base, fee, total, or anything else in the booking object.
+    // ---- Admin: updateStatus ----
     if (action === "updateStatus" && body.id) {
       const newStatus = String(body.status || '');
       if (!newStatus) {
@@ -729,17 +738,12 @@ export async function onRequestPost({ request, env }) {
           const idx = bookings.findIndex(b => String(b.id) === String(body.id));
           if (idx === -1) return { error: 'Booking not found', status: 404 };
 
-          // C5: whitelist fields from body.booking if present. Ignore
-          // anything not on the list. The status field itself is always
-          // taken from body.status (top-level), not body.booking.status.
           const patch = {};
           if (body.booking && typeof body.booking === 'object') {
             for (const key of ADMIN_STATUS_FIELD_WHITELIST) {
               if (body.booking[key] !== undefined) patch[key] = body.booking[key];
             }
           }
-          // Force status from the top-level field and always refresh
-          // statusUpdated server-side (never trust client clock).
           patch.status = newStatus;
           patch.statusUpdated = new Date().toISOString();
 
@@ -775,10 +779,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, booking: result.booking }, 200, request);
     }
 
-    // ---- Admin: updateDates (C4 + C5) ----
-    // C5: server recomputes base/fee/gatewayFee/total/youReceive from the
-    // homestay's current ownerPrice (or room price if roomId). The client
-    // can no longer supply money fields.
+    // ---- Admin: updateDates ----
     if (action === "updateDates" && body.id) {
       const newCheckin = String(body.checkin || '');
       const newCheckout = String(body.checkout || '');
@@ -807,7 +808,6 @@ export async function onRequestPost({ request, env }) {
 
           const booking = bookings[idx];
 
-          // Look up the homestay to get authoritative pricing.
           const approvedRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_approved').first();
           let approved = [];
           try { if (approvedRes?.data) approved = JSON.parse(approvedRes.data); } catch(_) {}
@@ -825,12 +825,11 @@ export async function onRequestPost({ request, env }) {
             return { error: 'Invalid price configuration on homestay', status: 500 };
           }
 
-          // Server-side money math. Matches bookings.js createPublicBooking.
           const base = Math.round(unitPrice * newNights * 100) / 100;
           const fee = Math.round(base * 0.11 * 100) / 100;
           const gatewayFee = GATEWAY_FEE;
           const total = Math.round((base + fee + gatewayFee) * 100) / 100;
-          const youReceive = Math.round((base) * 100) / 100; // host gets base only
+          const youReceive = Math.round((base) * 100) / 100;
 
           bookings[idx] = {
             ...booking,
