@@ -1,13 +1,17 @@
 // SHARED HELPERS — full drop-in replacement.
-// Plain English: this file contains every shared helper your API uses.
-// The most important change in THIS revision: password hashing strength
-// is now configurable and defaults to a value that works on Cloudflare's
-// free plan. If you later upgrade to a paid plan, set the env var
-// PBKDF2_ITERATIONS to 600000 to raise it.
 //
-// All other fixes from the previous revision are preserved:
-//  (1) withLock uses an atomic compare-and-swap so two requests can never
-//      steal each other's lock.
+// [NEW] withLock fix: the release DELETE now matches BOTH homestay_id
+// AND the exact locked_at value this request inserted. Previously it
+// deleted by homestay_id only, so a slow request whose stale lock had
+// been stolen via CAS would delete the *new* owner's lock — allowing
+// a third request to run concurrently with the second. Money-movement
+// paths (check-in, payout, retry-payout, chip-create, chip-webhook,
+// bookings, owner-update-booking, withdraw) all use the same
+// "bookings-global" key, so this was a real concurrency hazard.
+//
+// Every other fix from the previous revisions is preserved:
+//  (1) PBKDF2 iterations configurable via env.PBKDF2_ITERATIONS,
+//      default 100000 (works on Cloudflare Free plan).
 //  (2) parseJSONSafely checks Content-Length BEFORE reading the body.
 //  (3) admin Bearer tokens only accepted when ALLOW_ADMIN_BEARER=true.
 //  (4) owner session version uses the MAX across kd_owners + homestays.
@@ -714,6 +718,22 @@ export async function invalidateOwnerSessions(db, homestayId) {
 }
 
 // === D1-Compatible Lock — atomic CAS takeover ===
+//
+// FIX (2026-09-12): the release DELETE now matches BOTH `homestay_id`
+// AND the exact `locked_at` value this request inserted.
+//
+// The original code deleted by `homestay_id` only. That is unsafe under
+// the stale-lock takeover path:
+//
+//   1. Request A inserts (lockKey, now_A) and starts work.
+//   2. A holds the lock for > staleTimeoutMs.
+//   3. Request B sees A is stale, does CAS takeover → (lockKey, now_B).
+//   4. A finally finishes, runs DELETE WHERE homestay_id = lockKey.
+//      → Deletes B's lock.
+//   5. Request C sees no lock, inserts cleanly, runs concurrently with B.
+//
+// With the fix, step 4 is a no-op (A's now_A ≠ B's now_B), so B's lock
+// survives and C is correctly blocked.
 export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS homestay_locks (
@@ -722,21 +742,23 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
     )`
   ).run();
 
-  const now = Date.now();
+  const myLockValue = Date.now();
 
   let insertResult = await db.prepare(
     `INSERT OR IGNORE INTO homestay_locks (homestay_id, locked_at) VALUES (?, ?)`
-  ).bind(lockKey, now).run();
+  ).bind(lockKey, myLockValue).run();
 
   if (insertResult.meta.changes === 0) {
+    // We did not get the lock. Check whether the existing one is stale.
     const existing = await db.prepare(
       `SELECT locked_at FROM homestay_locks WHERE homestay_id = ?`
     ).bind(lockKey).first();
 
-    if (existing && (now - existing.locked_at) > staleTimeoutMs) {
+    if (existing && (myLockValue - existing.locked_at) > staleTimeoutMs) {
+      // Atomic CAS takeover. We now own the lock with myLockValue.
       const casResult = await db.prepare(
         `UPDATE homestay_locks SET locked_at = ? WHERE homestay_id = ? AND locked_at = ?`
-      ).bind(now, lockKey, existing.locked_at).run();
+      ).bind(myLockValue, lockKey, existing.locked_at).run();
       if (!casResult.meta || casResult.meta.changes === 0) {
         throw new Error('Another operation is in progress. Please try again in a moment.');
       }
@@ -748,7 +770,18 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
   try {
     return await callback(db);
   } finally {
-    await db.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(lockKey).run();
+    // Release ONLY if we are still the owner of this lock row.
+    // If a slow request's lock was stolen by another request, our
+    // locked_at will no longer match — the delete becomes a no-op
+    // and the current owner's lock is preserved.
+    try {
+      await db.prepare(
+        `DELETE FROM homestay_locks WHERE homestay_id = ? AND locked_at = ?`
+      ).bind(lockKey, myLockValue).run();
+    } catch (_) {
+      // Best-effort release. A stale row will be reclaimed by the CAS
+      // takeover path on the next request.
+    }
   }
 }
 
