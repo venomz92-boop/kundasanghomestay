@@ -48,7 +48,6 @@
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
 
-    <!-- Logo & Brand -->
     <a href="/" class="flex items-center gap-3 shrink-0 group">
       <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
       <div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
@@ -57,23 +56,17 @@
       </div>
     </a>
 
-    <!-- Desktop Primary Nav -->
     <nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
       <a href="/" class="setsail-nav-link" data-nav="home">Home</a>
       <a href="/about.html" class="setsail-nav-link" data-nav="about">About Us</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
     </nav>
 
-    <!-- Desktop Actions -->
     <div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
-
-      <!-- Guest state: logged out -->
       <div id="guestNav" class="flex items-center gap-2">
         <a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
         <a href="/register.html" class="header-pill header-pill-accent">Register</a>
       </div>
-
-      <!-- Guest state: logged in -->
       <div id="guestProfileNav" class="hidden items-center gap-3">
         <a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
         <div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
@@ -82,13 +75,9 @@
           <button onclick="logoutGuest()" class="ml-1 text-[10px] opacity-70 hover:opacity-100 uppercase tracking-wider transition-opacity">Logout</button>
         </div>
       </div>
-
-      <!-- Primary CTA — always visible -->
       <a href="/owner-register.html" class="btn-primary" style="padding:11px 22px; font-size:11px;">List Your Homestay</a>
-
     </div>
 
-    <!-- Mobile Menu Button -->
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
@@ -111,12 +100,10 @@
 <div id="mobileNav">
   <div class="p-4">
 
-    <!-- DISCOVER -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
     <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
 
-    <!-- FOR HOSTS -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">For Hosts</div>
 
     <a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
@@ -136,7 +123,6 @@
       <a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a>
     </div>
 
-    <!-- ACCOUNT -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
 
     <div id="mGuestNav" class="space-y-2.5 px-1">
@@ -178,6 +164,12 @@
     </div>
     <button onclick="ownerLogin()" class="btn-primary w-full mt-6 py-3.5">Enter Dashboard</button>
     <div id="loginError" class="text-red-600 text-xs mt-3 hidden text-center p-2.5 bg-red-50 border border-red-200 rounded-xl"></div>
+
+    <!-- NEW: resend verification link. Always visible below the login form. -->
+    <div class="mt-5 pt-5 border-t border-black/5 text-center">
+      <p class="text-[11px] text-zinc-500 leading-relaxed">Never received the verification email, or the link expired?</p>
+      <button onclick="openResendVerification()" class="mt-2 text-xs text-[#0F382E] font-bold hover:underline">✉️ Resend verification email</button>
+    </div>
   </div>
 
   <div id="dashboardSection" class="hidden space-y-6">
@@ -217,7 +209,6 @@
       <span id="selectedHomestayName" class="text-xs text-zinc-500 font-medium italic"></span>
     </div>
 
-    <!-- ===== Reservation Books ===== -->
     <div class="card p-6 animate-on-scroll">
       <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2"><span>📅 Reservation Books</span></h3>
       <div id="ownerBookingsList" class="space-y-4">
@@ -225,7 +216,6 @@
       </div>
     </div>
 
-    <!-- ===== Manage Room Blocks ===== -->
     <div class="card p-6 animate-on-scroll">
       <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2">
         <span>🚫 Manage Room Blocks</span>
@@ -241,7 +231,6 @@
       </div>
     </div>
 
-    <!-- ===== Manage Pricing ===== -->
     <div class="card p-6 animate-on-scroll">
       <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2">
         <span>💰 Manage Pricing</span>
@@ -258,7 +247,6 @@
   </div>
 </main>
 
-<!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div>
@@ -314,11 +302,9 @@
   </div>
 </footer>
 
-<!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
 
-// ===== CSS sanitizer hook — strips url()/expression() etc from style attributes =====
 (function() {
   if (typeof DOMPurify === 'undefined') return;
   if (window.__kdCssHookInstalled) return;
@@ -349,10 +335,7 @@
     }
   });
 })();
-  
-// =============================================================
-// DOMPurify Helper
-// =============================================================
+
 function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
@@ -560,6 +543,49 @@ function openOwnerForgotPassword() {
   });
 }
 
+// ============================================================
+// NEW: resend the host verification email.
+// Prompts for the email address, POSTs to /api/owner-register with
+// action:'resendVerification', and shows a generic success message.
+// The backend always returns the same shape, so this never reveals
+// whether the email is actually registered.
+// ============================================================
+function openResendVerification() {
+  showPrompt(
+    'Resend Verification Email',
+    'Enter the email address you used to register your host account. If an unverified account exists, we will send a fresh verification link.'
+  ).then(async (email) => {
+    if (email === null) return;
+    const clean = String(email || '').trim().toLowerCase();
+    if (!clean || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      await showAlert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+
+    try {
+      const res = await fetch(API_BASE + '/owner-register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resendVerification', email: clean })
+      });
+      const data = await res.json();
+
+      if (res.status === 429) {
+        await showAlert('Please Wait', data.error || 'Too many resend attempts. Please wait 15 minutes.');
+        return;
+      }
+      if (res.ok && data.success) {
+        await showAlert('Verification Email Sent', data.message || 'If your account is unverified, a fresh link has been sent. Please check your inbox and spam folder.');
+      } else {
+        await showAlert('Notice', data.message || data.error || 'If your account is unverified, a fresh link has been sent.');
+      }
+    } catch (e) {
+      await showAlert('Network Error', 'Could not reach the server. Please try again.');
+    }
+  });
+}
+window.openResendVerification = openResendVerification;
+
 async function ownerLogin() {
   const whatsapp = document.getElementById('ownerWhatsapp').value.replace(/[^0-9]/g, '');
   const password = document.getElementById('ownerPassword').value;
@@ -637,9 +663,6 @@ async function logoutOwner() {
 }
 window.logoutOwner = logoutOwner;
 
-// =============================================================
-// LOAD BOOKINGS
-// =============================================================
 async function loadBookings() {
   if (!ownerToken) return;
   const listDiv = document.getElementById('ownerBookingsList');
@@ -677,7 +700,6 @@ async function loadBookings() {
       }
     }
     if (filteredBookings.length === 0) {
-      // Nicer empty state when the host has no listings at all vs. a filter with no results.
       const msg = (allHomestays.length === 0)
         ? 'You don\'t have any listings yet. Go to <strong>List Your Homestay</strong> in the top-right to submit your first property.'
         : 'No active reservation cycles discovered.';
@@ -814,9 +836,6 @@ function bookingActionHandler(e) {
   }
 }
 
-// =============================================================
-// confirmCheckIn – strict 6‑digit validation
-// =============================================================
 async function confirmCheckIn(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
   const guestName = booking ? booking.guestName : 'Guest';
@@ -855,9 +874,6 @@ async function confirmCheckIn(bookingId) {
   }
 }
 
-// =============================================================
-// changeBookingDates
-// =============================================================
 async function changeBookingDates(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
   if (!booking) return;
@@ -905,9 +921,6 @@ async function changeBookingDates(bookingId) {
   }
 }
 
-// =============================================================
-// cancelBooking
-// =============================================================
 async function cancelBooking(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
   if (!booking) {
@@ -967,9 +980,6 @@ async function cancelBooking(bookingId) {
   }
 }
 
-// =============================================================
-// ROOM BLOCK MANAGEMENT
-// =============================================================
 async function loadRoomBlocks() {
   const selector = document.getElementById('blockRoomSelect');
   if (!selector) return;
@@ -1094,9 +1104,6 @@ async function removeRoomBlock(date) {
   }
 }
 
-// =============================================================
-// Manage Pricing
-// =============================================================
 function loadHomestayPrice() {
   const input = document.getElementById('homestayPriceInput');
   const btn = document.getElementById('updatePriceBtn');
@@ -1194,9 +1201,6 @@ async function updateHomestayPrice() {
   }
 }
 
-// =============================================================
-// INIT — cookie-based auth probe
-// =============================================================
 (async function init() {
   renderGuestNav();
 
@@ -1303,14 +1307,11 @@ if (authed) {
     const welcomeEl = document.getElementById('welcomeName');
     if (welcomeEl) welcomeEl.innerText = storedName;
 
-    // FIX #2: always call these regardless of homestay count. A brand-new
-    // host with zero listings now gets the correct empty-state message
-    // instead of the permanent "Loading reservations data..." placeholder.
     loadBookings();
     loadRoomBlocks();
     loadHomestayPrice();
   } else {
-  
+
     try {
       sessionStorage.removeItem('kd_owner_token');
       sessionStorage.removeItem('kd_owner_homestays');
