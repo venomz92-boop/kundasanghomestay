@@ -12,7 +12,6 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
   
-<!-- ===== EARLY FUNCTION DEFINITION ===== -->
 <script>
   let lastToggleTime = 0;
   window.toggleMobileMenu = function() {
@@ -27,11 +26,9 @@
   };
 </script>
 
-<!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
 
-    <!-- Logo & Brand -->
     <a href="/" class="flex items-center gap-3 shrink-0 group">
       <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
       <div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
@@ -40,23 +37,19 @@
       </div>
     </a>
 
-    <!-- Desktop Primary Nav -->
     <nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
       <a href="/" class="setsail-nav-link" data-nav="home">Home</a>
       <a href="/about.html" class="setsail-nav-link" data-nav="about">About Us</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
     </nav>
 
-    <!-- Desktop Actions -->
     <div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
 
-      <!-- Guest state: logged out -->
       <div id="guestNav" class="flex items-center gap-2">
         <a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
         <a href="/register.html" class="header-pill header-pill-accent">Register</a>
       </div>
 
-      <!-- Guest state: logged in -->
       <div id="guestProfileNav" class="hidden items-center gap-3">
         <a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
         <div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
@@ -66,12 +59,10 @@
         </div>
       </div>
 
-      <!-- Primary CTA — always visible -->
       <a href="/owner-register.html" class="btn-primary" style="padding:11px 22px; font-size:11px;">List Your Homestay</a>
 
     </div>
 
-    <!-- Mobile Menu Button -->
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
@@ -90,16 +81,13 @@
   </div>
 </header>
 
-<!-- ===== MOBILE NAV ===== -->
 <div id="mobileNav">
   <div class="p-4">
 
-    <!-- DISCOVER -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
     <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
 
-    <!-- FOR HOSTS -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">For Hosts</div>
 
     <a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
@@ -119,7 +107,6 @@
       <a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a>
     </div>
 
-    <!-- ACCOUNT -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
 
     <div id="mGuestNav" class="space-y-2.5 px-1">
@@ -146,10 +133,43 @@
       <div class="font-satisfy text-[#D4A373] text-[32px] leading-none">Cancellation & Refund</div>
       <h1 class="font-poppins font-700 text-[34px] md:text-[44px] text-[#212121] tracking-[-0.5px] mt-1">Our Refund Rules</h1>
       <div class="w-[60px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
-      <p class="text-[13px] text-[#212121]/60 mt-3 max-w-[560px] mx-auto">Last updated: September 2026. Please read these rules carefully before booking.</p>
+      <p class="text-[13px] text-[#212121]/60 mt-3 max-w-[560px] mx-auto">Last updated: 12 September 2026. Please read these rules carefully before booking.</p>
     </div>
 
     <div class="card p-8 md:p-12">
+
+      <!-- ============================================================ -->
+      <!-- TWO-COLUMN REFUND SUMMARY — the two cases at a glance -->
+      <!-- ============================================================ -->
+      <div class="policy-section">
+        <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
+          <span class="text-[#D4A373] text-2xl">📋</span> Refund at a Glance
+        </h2>
+        <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
+          There are two possible cancellation paths. Each produces a different refund amount. The host chooses which path when they cancel a booking.
+        </p>
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="rounded-2xl border-2 border-green-500 bg-green-50 p-5">
+            <div class="font-poppins font-700 text-[16px] text-green-900">🟢 Host-Initiated Cancellation</div>
+            <p class="text-[13px] text-green-800 mt-2 leading-relaxed">The host cancels for their own reasons — overbooking, maintenance, emergency, or any situation not caused by the guest.</p>
+            <div class="mt-3 p-3 bg-white rounded-xl border border-green-200">
+              <div class="text-[11px] uppercase tracking-wider text-green-700 font-bold">Guest receives</div>
+              <div class="font-poppins font-800 text-[22px] text-green-900 mt-1">Full Refund</div>
+              <div class="text-[12px] text-green-800 mt-1">Everything the guest paid — base price + service fee + gateway fee.</div>
+            </div>
+          </div>
+          <div class="rounded-2xl border-2 border-amber-500 bg-amber-50 p-5">
+            <div class="font-poppins font-700 text-[16px] text-amber-900">🟡 Guest-Requested Cancellation</div>
+            <p class="text-[13px] text-amber-800 mt-2 leading-relaxed">The guest contacts the host and asks to cancel. If the host agrees, the cancellation proceeds under this rule.</p>
+            <div class="mt-3 p-3 bg-white rounded-xl border border-amber-200">
+              <div class="text-[11px] uppercase tracking-wider text-amber-700 font-bold">Guest receives</div>
+              <div class="font-poppins font-800 text-[22px] text-amber-900 mt-1">Base Amount Only</div>
+              <div class="text-[12px] text-amber-800 mt-1">The base nightly rate. The service fee and gateway fee are non-refundable under this path.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="policy-section">
         <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
           <span class="text-[#D4A373] text-2xl">1.</span> Guest-Initiated Cancellation
@@ -164,10 +184,17 @@
           <li><span class="font-semibold">Step 1 — Contact your host directly.</span> Reach out through WhatsApp or email using the contact details provided in your booking confirmation email.</li>
           <li><span class="font-semibold">Step 2 — Request a cancellation.</span> Explain the situation clearly and as early as possible.</li>
           <li><span class="font-semibold">Step 3 — Await the host's decision.</span> The host will review your request and decide whether to accept.</li>
-          <li><span class="font-semibold">Step 4 — If accepted, the host cancels the booking.</span> A full refund is processed automatically via CHIP back to your original payment method.</li>
+          <li><span class="font-semibold">Step 4 — If accepted, the host cancels the booking.</span> A refund is then processed automatically via CHIP.</li>
         </ul>
-        <div class="mt-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-          <span class="font-semibold">⚠️ Important:</span> The host is not obligated to accept a cancellation request. To maximise your chances, contact the host as early as possible and explain the situation clearly.
+
+        <div class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900">
+          <div class="font-semibold mb-1">💰 Refund Amount on Guest-Requested Cancellation</div>
+          <p class="leading-relaxed">You receive the <strong>base nightly rate</strong> back. The platform service fee (11%) and the RM1.00 gateway fee are <strong>non-refundable</strong> on this path, because the cancellation was not caused by the host.</p>
+          <p class="leading-relaxed mt-2"><strong>Example:</strong> For a booking where you paid RM 279.00 (RM 250.00 base + RM 28.00 service fee + RM 1.00 gateway fee), you would receive <strong>RM 250.00</strong> back.</p>
+        </div>
+
+        <div class="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-900">
+          <span class="font-semibold">ℹ️ Note:</span> The host is not obligated to accept a cancellation request. To maximise your chances, contact the host as early as possible and explain the situation clearly.
         </div>
       </div>
 
@@ -176,7 +203,8 @@
           <span class="text-[#D4A373] text-2xl">2.</span> Host-Initiated Cancellation
         </h2>
         <ul class="mt-2 text-sm text-zinc-600 space-y-1">
-          <li>If the host cancels a confirmed booking for any reason, the guest receives a <strong>full refund</strong> (including the service fee). The refund is processed automatically via CHIP.</li>
+          <li>If the host cancels a confirmed booking for any reason, the guest receives a <strong>full refund</strong> — the base amount, the service fee, and the gateway fee. The refund is processed automatically via CHIP.</li>
+          <li>Because the guest did nothing wrong, the platform absorbs the service fee and the gateway fee in this case. The host does not receive any payout for a booking they cancelled.</li>
           <li>The host's listing may be reviewed by our team. Repeated host cancellations may result in suspension of the listing or placement at the bottom of search results.</li>
           <li>We will assist the guest in finding alternative accommodation, but we do not guarantee availability.</li>
         </ul>
@@ -205,14 +233,43 @@
 
       <div class="policy-section border-b-0">
         <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
-          <span class="text-[#D4A373] text-2xl">5.</span> Refund Process
+          <span class="text-[#D4A373] text-2xl">5.</span> How Refunds Are Processed
         </h2>
         <ul class="mt-2 text-sm text-zinc-600 space-y-1">
-          <li>Refunds are processed via CHIP FPX back to the original payment source (bank account).</li>
+          <li>Refunds are processed via CHIP FPX back to the original payment source (your bank account).</li>
           <li>Refunds typically take <strong>1–7 business days</strong> to appear in your account, depending on your bank's processing time.</li>
-          <li>A small FPX refund fee (RM 1.00) is charged by CHIP. This fee is <strong>borne by the platform</strong> — it is not deducted from your refund amount.</li>
+          <li>A small FPX refund fee (RM 1.00) is charged by CHIP. This fee is <strong>borne by the platform</strong> — it is never deducted from your refund amount.</li>
+          <li>Both refund paths are automatic once the host confirms the cancellation. You do not need to contact CHIP yourself.</li>
           <li>If you encounter any issues, contact us at <a href="mailto:support@kundasanghomestay.my" class="text-[#0F382E] font-semibold hover:underline">support@kundasanghomestay.my</a>.</li>
         </ul>
+
+        <div class="mt-5 overflow-x-auto">
+          <table class="w-full text-sm border-collapse">
+            <thead>
+              <tr class="bg-[#0F382E] text-white">
+                <th class="text-left p-3 font-semibold rounded-tl-lg">Cancellation Reason</th>
+                <th class="text-right p-3 font-semibold">You Paid</th>
+                <th class="text-right p-3 font-semibold">You Get Back</th>
+                <th class="text-right p-3 font-semibold rounded-tr-lg">Retained</th>
+              </tr>
+            </thead>
+            <tbody class="text-zinc-700">
+              <tr class="border-b border-black/5">
+                <td class="p-3 font-semibold text-green-800">🟢 Host-initiated</td>
+                <td class="p-3 text-right">RM 279.00</td>
+                <td class="p-3 text-right font-bold text-green-700">RM 279.00</td>
+                <td class="p-3 text-right text-zinc-400">RM 0.00</td>
+              </tr>
+              <tr>
+                <td class="p-3 font-semibold text-amber-800">🟡 Guest-requested</td>
+                <td class="p-3 text-right">RM 279.00</td>
+                <td class="p-3 text-right font-bold text-amber-700">RM 250.00</td>
+                <td class="p-3 text-right text-zinc-500">RM 29.00</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="text-[11px] text-zinc-500 mt-2 italic">Numbers shown for a RM 250.00 base rate × 1 night. Your actual amounts depend on your booking.</p>
+        </div>
       </div>
     </div>
 
