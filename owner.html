@@ -677,7 +677,11 @@ async function loadBookings() {
       }
     }
     if (filteredBookings.length === 0) {
-      if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-zinc-500 py-6 text-center">No active reservation cycles discovered.</div>');
+      // Nicer empty state when the host has no listings at all vs. a filter with no results.
+      const msg = (allHomestays.length === 0)
+        ? 'You don\'t have any listings yet. Go to <strong>List Your Homestay</strong> in the top-right to submit your first property.'
+        : 'No active reservation cycles discovered.';
+      if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-zinc-500 py-6 text-center">' + msg + '</div>');
       return;
     }
     let html = '';
@@ -733,12 +737,6 @@ async function loadBookings() {
         statusBadge = `<span class="text-[10px] bg-zinc-100 text-zinc-600 border px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">${status}</span>`;
       }
 
-      // ============================================================
-      // ACTION BUTTONS
-      // Paid bookings: show BOTH "Confirm Arrival" and "Modify Dates".
-      //   Date change is limited to same-length shifts (server-enforced).
-      // Unpaid bookings: only "Modify Dates".
-      // ============================================================
       let actionButtons = '';
       if (!isRefunded && !isCompleted && !isCancelled) {
         if (isPaid) {
@@ -859,8 +857,6 @@ async function confirmCheckIn(bookingId) {
 
 // =============================================================
 // changeBookingDates
-// For PAID bookings: only same-length shifts allowed (price preserved).
-// For UNPAID bookings: any length allowed (price recalculated).
 // =============================================================
 async function changeBookingDates(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
@@ -873,7 +869,6 @@ async function changeBookingDates(bookingId) {
   const statusLower = (booking.status || '').toLowerCase();
   const isPaid = statusLower.includes('paid') || statusLower.startsWith('completed');
 
-  // Different help text depending on paid / unpaid
   const helpNote = isPaid
     ? `Format date exactly as YYYY-MM-DD:<br><br><span style="color:#b45309;font-weight:600;">⚠️ This booking is already paid.</span><br>You can shift the dates, but the stay length must remain <strong>${nights} night${nights !== 1 ? 's' : ''}</strong>. The paid amount will not change.<br><br>To change the length, cancel and rebook instead (the guest gets refunded automatically).`
     : `Format date exactly as YYYY-MM-DD:`;
@@ -1308,11 +1303,12 @@ if (authed) {
     const welcomeEl = document.getElementById('welcomeName');
     if (welcomeEl) welcomeEl.innerText = storedName;
 
-    if (allHomestays.length > 0) {
-      loadBookings();
-      loadRoomBlocks();
-      loadHomestayPrice();
-    }
+    // FIX #2: always call these regardless of homestay count. A brand-new
+    // host with zero listings now gets the correct empty-state message
+    // instead of the permanent "Loading reservations data..." placeholder.
+    loadBookings();
+    loadRoomBlocks();
+    loadHomestayPrice();
   } else {
   
     try {
