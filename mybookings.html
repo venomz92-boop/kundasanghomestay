@@ -229,7 +229,6 @@
 
 <script src="animations.js"></script>
 <script>
-// ===== DOMPurify hook + safeHTML =====
 (function() {
   if (typeof DOMPurify === 'undefined') return;
   if (window.__kdCssHookInstalled) return;
@@ -259,7 +258,6 @@ function getCsrfHeader() {
   return token ? { 'X-CSRF-Token': token } : {};
 }
 
-// ===== MODALS =====
 function showModal(title, message, buttons) {
   return new Promise(function(resolve) {
     var overlay = document.getElementById('customModal');
@@ -317,9 +315,6 @@ function closePaymentFailedModal() {
   document.body.style.overflow = '';
 }
 
-// =============================================================
-// GUEST STATE
-// =============================================================
 var API_BASE = "/api";
 var currentGuest = null;
 
@@ -369,11 +364,15 @@ function logoutGuest() {
   });
 }
 
-// =============================================================
-// PAGE STATE
-// =============================================================
 var myBookings = [];
 var pendingCheckInterval = null;
+// Polling budget: 30s per cycle, hard-capped at 10 cycles (5 minutes).
+// Each cycle checks at most ONE pending booking, so a guest with three
+// pending bookings still fires only one request per cycle. This keeps the
+// tab well under the per-IP limit on /api/verify-payment.
+var PENDING_CHECK_INTERVAL_MS = 30000;
+var PENDING_CHECK_MAX_CYCLES = 10;
+var pendingCheckCycles = 0;
 
 function showLoginRequired() {
   document.getElementById('loadingState').classList.add('hidden');
@@ -389,9 +388,6 @@ function showLoggedInView(guest) {
   if (nameDisplay) nameDisplay.textContent = guest.name || guest.email || 'Guest';
 }
 
-// =============================================================
-// GUEST-FACING STATUS MAPPING
-// =============================================================
 function guestStatusInfo(b) {
   var s = String(b.status || '').toLowerCase();
   var hasPayoutDate = !!b.payoutDate;
@@ -401,7 +397,6 @@ function guestStatusInfo(b) {
   var isRefundPending = isRefundRelated && s.indexOf('pending') !== -1;
   var isRefundComplete = isRefundRelated && !isRefundPending;
 
-  // 1) HOST CANCELLATION (with refund sub-state)
   if (isCancelled) {
     if (isRefundPending) {
       return {
@@ -430,7 +425,6 @@ function guestStatusInfo(b) {
     };
   }
 
-  // 2) STANDALONE REFUND (not host-cancelled)
   if (isRefundComplete) {
     return {
       key: 'refunded',
@@ -450,7 +444,6 @@ function guestStatusInfo(b) {
     };
   }
 
-  // 3) EXPIRED
   if (s.indexOf('expired') !== -1) {
     return {
       key: 'expired',
@@ -461,7 +454,6 @@ function guestStatusInfo(b) {
     };
   }
 
-  // 4) COMPLETED — GREEN
   if (s.indexOf('completed') !== -1 || hasPayoutDate) {
     return {
       key: 'completed',
@@ -472,7 +464,6 @@ function guestStatusInfo(b) {
     };
   }
 
-  // 5) PAYMENT FAILED
   if (s.indexOf('fail') !== -1) {
     return {
       key: 'failed',
@@ -483,7 +474,6 @@ function guestStatusInfo(b) {
     };
   }
 
-  // 6) PAID / CONFIRMED
   if (s.indexOf('paid') !== -1) {
     return {
       key: 'paid',
@@ -494,7 +484,6 @@ function guestStatusInfo(b) {
     };
   }
 
-  // 7) FALLBACK — AWAITING PAYMENT
   return {
     key: 'pending',
     badgeClass: 'badge-pending',
@@ -518,9 +507,6 @@ function buildButtons(actions, id) {
   return html;
 }
 
-// =============================================================
-// CHECK PAYMENT STATUS
-// =============================================================
 async function checkPaymentStatus(bookingId) {
   try {
     const res = await fetch(API_BASE + '/verify-payment', {
@@ -538,6 +524,10 @@ function isGuestPollable(b) {
   return info.key === 'pending' || info.key === 'failed';
 }
 
+// Automatic background polling. Runs at most PENDING_CHECK_MAX_CYCLES
+// times per page load, one request per cycle. Stops when there are no
+// more pending bookings, or when the budget is exhausted. The guest can
+// always click "Check Payment" manually to check again.
 async function autoCheckPendingBookings() {
   if (!currentGuest) return;
   const pending = myBookings.filter(isGuestPollable);
@@ -545,29 +535,34 @@ async function autoCheckPendingBookings() {
     if (pendingCheckInterval) { clearInterval(pendingCheckInterval); pendingCheckInterval = null; }
     return;
   }
-  let anyUpdated = false;
-  for (const b of pending) {
-    try {
-      const result = await checkPaymentStatus(b.id);
-      if (result.success && result.booking) {
-        const status = result.booking.status || '';
-        if (status.toLowerCase().includes('paid') || status.toLowerCase().includes('fail')) anyUpdated = true;
-      }
-      if (result.paymentStatus === 'refunded' || result.paymentStatus === 'cancelled' || result.paymentStatus === 'expired' || result.paymentStatus === 'failed') anyUpdated = true;
-    } catch (e) {}
-    await new Promise(r => setTimeout(r, 500));
+  if (pendingCheckCycles >= PENDING_CHECK_MAX_CYCLES) {
+    if (pendingCheckInterval) { clearInterval(pendingCheckInterval); pendingCheckInterval = null; }
+    return;
   }
+  pendingCheckCycles++;
+
+  // Only check the first pending booking per cycle. Guests with multiple
+  // pending bookings still get a check every cycle (via a fresh load),
+  // but the request rate stays low.
+  const b = pending[0];
+  let anyUpdated = false;
+  try {
+    const result = await checkPaymentStatus(b.id);
+    if (result.success && result.booking) {
+      const status = result.booking.status || '';
+      if (status.toLowerCase().includes('paid') || status.toLowerCase().includes('fail')) anyUpdated = true;
+    }
+    if (result.paymentStatus === 'refunded' || result.paymentStatus === 'cancelled' || result.paymentStatus === 'expired' || result.paymentStatus === 'failed') anyUpdated = true;
+  } catch (e) {}
   if (anyUpdated) loadMyBookings();
 }
 function startPendingCheckInterval() {
   if (pendingCheckInterval) clearInterval(pendingCheckInterval);
+  pendingCheckCycles = 0;
   autoCheckPendingBookings();
-  pendingCheckInterval = setInterval(autoCheckPendingBookings, 8000);
+  pendingCheckInterval = setInterval(autoCheckPendingBookings, PENDING_CHECK_INTERVAL_MS);
 }
 
-// =============================================================
-// LOAD BOOKINGS
-// =============================================================
 function loadMyBookings() {
   var listDiv = document.getElementById('bookingsList');
   if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10">Loading your bookings...</div>';
@@ -630,9 +625,6 @@ function loadMyBookings() {
   });
 }
 
-// =============================================================
-// RENDER BOOKINGS — clean guest-facing view
-// =============================================================
 function renderBookings() {
   var listDiv = document.getElementById('bookingsList');
   if (!listDiv) return;
@@ -716,7 +708,6 @@ async function manualCheckPayment(bookingId) {
   try {
     const result = await checkPaymentStatus(bookingId);
 
-    // Terminal states — show the correct message for each.
     if (result.paymentStatus === 'refunded') {
       await showAlert('Refunded', 'This booking has been refunded. Refunds may take 3–7 business days.');
       loadMyBookings();
@@ -733,8 +724,6 @@ async function manualCheckPayment(bookingId) {
       return;
     }
 
-    // FIX #3: failed payments now show the proper failure modal instead of
-    // falling through to the generic "Still Processing" message.
     if (result.paymentStatus === 'failed') {
       showPaymentFailedModal(bookingId, result.booking || { id: bookingId });
       return;
@@ -838,9 +827,6 @@ async function resendCode(bookingId) {
   } catch(e) { showAlert('Error', 'Network error. Please try again.'); }
 }
 
-// =============================================================
-// INIT
-// =============================================================
 (async function init() {
   currentGuest = findLocalGuest();
   renderGuestNav();
@@ -865,7 +851,7 @@ async function resendCode(bookingId) {
   if (!serverSaysLoggedIn) {
     currentGuest = null;
     try { localStorage.removeItem('kd_guest'); } catch (e) {}
-    if (window.GuestSession) window.GuestSession.clearGuestSession();
+    if (window.GuestSession) window.GuestSession.clearSession();
     renderGuestNav();
     showLoginRequired();
     return;
