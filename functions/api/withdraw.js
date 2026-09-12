@@ -1,4 +1,9 @@
-// /api/withdraw.js – CHIP Send platform commission withdrawal (full CHIP)
+// /api/withdraw.js — Plain English: admin-initiated CHIP Send withdrawal of
+// platform commission. Now refuses to fake a payout unless the environment
+// is non-production AND ALLOW_PAYOUT_SIMULATION is "true". All writes to
+// kd_fee_earnings happen inside the shared bookings lock so a withdrawal
+// can never race with a check-in that just earned money. History is
+// capped at 500 entries so the JSON blob can't grow forever.
 import {
   corsHeaders,
   getClientIP,
@@ -8,8 +13,12 @@ import {
   checkRateLimit,
   recordRateLimit,
   parseJSONSafely,
-  jsonResponse
+  jsonResponse,
+  withLock
 } from './_utils.js';
+
+const BOOKINGS_LOCK = 'bookings-global';
+const MAX_HISTORY = 500;
 
 // ===== CHIP bank code mapping =====
 function getChipBankCode(bankName) {
@@ -84,9 +93,17 @@ function getPlatformBank(env) {
   };
 }
 
+// M3: cap history length. Keeps the most recent MAX_HISTORY entries.
+function capHistory(earnings) {
+  if (!earnings || !Array.isArray(earnings.history)) return earnings;
+  if (earnings.history.length > MAX_HISTORY) {
+    earnings.history = earnings.history.slice(-MAX_HISTORY);
+  }
+  return earnings;
+}
+
 // ===== Load or create CHIP Send bank account for platform =====
 async function getOrCreatePlatformBankAccountId(db, platformBank, env) {
-  // Try cached
   const cached = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_platform_bank').first();
   if (cached?.data) {
     try {
@@ -99,7 +116,6 @@ async function getOrCreatePlatformBankAccountId(db, platformBank, env) {
     } catch (_) { /* fall through */ }
   }
 
-  // Create new
   const apiKey = env.CHIP_API_KEY;
   const apiSecret = env.CHIP_API_SECRET;
   if (!apiKey || !apiSecret) {
@@ -124,7 +140,8 @@ async function getOrCreatePlatformBankAccountId(db, platformBank, env) {
     },
     body: bankBody
   });
-  const data = await res.json();
+  let data = null;
+  try { data = await res.json(); } catch (_) { data = {}; }
   if (!res.ok || !data.id) {
     throw new Error('Failed to create platform bank account: ' + (data.error || 'unknown'));
   }
@@ -177,220 +194,281 @@ export async function onRequestPost({ request, env }) {
     const body = await parseJSONSafely(request);
     const { amount, reset, action } = body || {};
 
-    // ===== Load earnings + bookings =====
-    let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
-    let bookings = [];
+    // ============================================================
+    // C4 + M3: all writes to kd_fee_earnings happen inside the shared
+    // bookings lock so check-in (which also writes fee earnings) and
+    // withdrawal can never interleave and lose money.
+    // ============================================================
+    let result;
     try {
-      const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
-      if (r?.data) earnings = JSON.parse(r.data);
-      const bRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
-      if (bRes?.data) bookings = JSON.parse(bRes.data);
-    } catch (e) {
-      return jsonResponse({ error: 'Database error. Please try again later.' }, 500, request);
-    }
-
-    if (!Array.isArray(earnings.history)) earnings.history = [];
-
-    // Backfill total from bookings if missing
-    if (!earnings.total || earnings.total === 0) {
-      const totalFees = bookings.reduce((sum, b) => {
-        const status = (b.status || '').toLowerCase();
-        if (status.includes('completed') || status.includes('payout') || b.payoutSuccessDate || b.payoutDate) {
-          return sum + (Number(b.fee) || 0) + (Number(b.gatewayFee) || 1.00);
-        }
-        return sum;
-      }, 0);
-      if (totalFees > 0) {
-        earnings.total = totalFees;
-        earnings.available = totalFees - (earnings.withdrawn || 0);
-        await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_fee_earnings', JSON.stringify(earnings))
-          .run();
-      }
-    }
-
-    const actualAvailable = (earnings.total || 0) - (earnings.withdrawn || 0);
-
-    // ===== Reset =====
-    if (reset === true || action === 'reset') {
-      const prevWithdrawn = earnings.withdrawn || 0;
-      const prevTotal = earnings.total || 0;
-      earnings.withdrawn = 0;
-      earnings.available = 0;
-      earnings.total = 0;
-      earnings.history.push({
-        type: 'reset',
-        date: new Date().toISOString(),
-        note: 'FULL RESET - All to 0 by admin',
-        prevWithdrawn,
-        prevTotal,
-        ip: clientIP
-      });
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_fee_earnings', JSON.stringify(earnings))
-        .run();
-      await logAction({
-        db,
-        action: 'withdrawal_reset',
-        admin: 'admin',
-        details: `Reset earnings to 0. Previous: Total RM${prevTotal}, Withdrawn RM${prevWithdrawn}`,
-        ip: clientIP
-      });
-      return jsonResponse({
-        success: true,
-        message: 'Earnings reset to RM0.00',
-        earnings: { ...earnings, available: 0 }
-      }, 200, request);
-    }
-
-    // ===== Normal withdrawal =====
-    if (!amount) {
-      return jsonResponse({ error: 'Amount is required' }, 400, request);
-    }
-    if (!validateAmount(amount)) {
-      return jsonResponse({ error: 'Invalid amount. Please enter a valid number with up to 2 decimal places.' }, 400, request);
-    }
-
-    const withdrawAmount = Number(amount);
-    if (withdrawAmount < 10) {
-      return jsonResponse({ error: 'Minimum withdrawal is RM10.00' }, 400, request);
-    }
-    if (withdrawAmount > actualAvailable) {
-      return jsonResponse({ error: `Insufficient balance. Available: RM${actualAvailable.toFixed(2)}` }, 400, request);
-    }
-
-    await recordRateLimit(db, clientIP, 'withdraw');
-
-    const maskedAccount = platformBank.accountNumber.slice(-4).padStart(platformBank.accountNumber.length, '*');
-
-    // ===== Determine mode =====
-    const forceSimulation = env.PAYOUT_SIMULATION === 'true' || env.PAYOUT_SIMULATION === '1' || env.PAYOUT_SIMULATION === 'yes';
-    const isLive = !!(env.CHIP_API_KEY && env.CHIP_API_SECRET);
-
-    let payoutSuccess = false;
-    let payoutData = null;
-    let usedSimulation = false;
-
-    if (forceSimulation || !isLive) {
-      usedSimulation = true;
-      payoutSuccess = true;
-      payoutData = { simulation: true };
-      console.log(`[withdraw] SIMULATION: RM${withdrawAmount} to ${platformBank.accountHolder}`);
-    } else {
-      try {
-        const bankAccountId = await getOrCreatePlatformBankAccountId(db, platformBank, env);
-
-        const apiKey = env.CHIP_API_KEY;
-        const apiSecret = env.CHIP_API_SECRET;
-        const amountCents = Math.round(withdrawAmount * 100);
-        const reference = `PLATFORM-WD-${Date.now()}`;
-
-        const payload = {
-          bank_account_id: bankAccountId,
-          amount: amountCents,
-          reference: reference,
-          description: `Platform commission withdrawal ${reference}`
-        };
-
-        const epoch = Math.floor(Date.now() / 1000);
-        const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
-
-        const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'epoch': String(epoch),
-            'checksum': checksum
-          },
-          body: JSON.stringify(payload)
-        });
-
-        const raw = await payoutRes.json();
-        if (!payoutRes.ok || !raw.id) {
-          throw new Error('CHIP Send failed: ' + (raw.error || 'unknown'));
+      result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+        // Load earnings + bookings
+        let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
+        let bookings = [];
+        try {
+          const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
+          if (r?.data) earnings = JSON.parse(r.data);
+          const bRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+          if (bRes?.data) bookings = JSON.parse(bRes.data);
+        } catch (e) {
+          return { error: 'Database error. Please try again later.', status: 500 };
         }
 
-        payoutSuccess = true;
-        payoutData = raw;
-        usedSimulation = false;
-      } catch (err) {
-        console.error('[withdraw] CHIP Send error:', err.message);
-        return jsonResponse({
-          success: false,
-          error: 'CHIP Send payout failed: ' + err.message
-        }, 500, request);
-      }
-    }
+        if (!Array.isArray(earnings.history)) earnings.history = [];
 
-    // ===== Record withdrawal =====
-    const withdrawal = {
-      id: 'WD_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-      amount: withdrawAmount,
-      bankName: platformBank.bankName,
-      bankCode: platformBank.bankCode,
-      accountHolder: platformBank.accountHolder,
-      accountNumber: maskedAccount,
-      date: new Date().toISOString(),
-      status: usedSimulation ? 'Success - Simulated' : 'Success - Sent via CHIP Send',
-      ip: clientIP,
-      payoutId: payoutData?.id || ('SIM_' + Date.now()),
-      simulation: usedSimulation
-    };
+        // Backfill total from bookings if missing
+        if (!earnings.total || earnings.total === 0) {
+          const totalFees = bookings.reduce((sum, b) => {
+            const status = (b.status || '').toLowerCase();
+            if (status.includes('completed') || status.includes('payout') || b.payoutSuccessDate || b.payoutDate) {
+              return sum + (Number(b.fee) || 0) + (Number(b.gatewayFee) || 1.00);
+            }
+            return sum;
+          }, 0);
+          if (totalFees > 0) {
+            earnings.total = totalFees;
+            earnings.available = totalFees - (earnings.withdrawn || 0);
+            capHistory(earnings);
+            await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_fee_earnings', JSON.stringify(earnings))
+              .run();
+          }
+        }
 
-    try {
-      earnings.withdrawn = (earnings.withdrawn || 0) + withdrawAmount;
-      earnings.history.push({ ...withdrawal, type: 'withdrawal' });
-      earnings.available = earnings.total - earnings.withdrawn;
+        const actualAvailable = (earnings.total || 0) - (earnings.withdrawn || 0);
 
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_fee_earnings', JSON.stringify(earnings))
-        .run();
+        // ===== Reset =====
+        if (reset === true || action === 'reset') {
+          const prevWithdrawn = earnings.withdrawn || 0;
+          const prevTotal = earnings.total || 0;
+          earnings.withdrawn = 0;
+          earnings.available = 0;
+          earnings.total = 0;
+          earnings.history.push({
+            type: 'reset',
+            date: new Date().toISOString(),
+            note: 'FULL RESET - All to 0 by admin',
+            prevWithdrawn,
+            prevTotal,
+            ip: clientIP
+          });
+          capHistory(earnings);
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_fee_earnings', JSON.stringify(earnings))
+            .run();
+          await logAction({
+            db,
+            action: 'withdrawal_reset',
+            admin: 'admin',
+            details: `Reset earnings to 0. Previous: Total RM${prevTotal}, Withdrawn RM${prevWithdrawn}`,
+            ip: clientIP
+          });
+          return {
+            success: true,
+            message: 'Earnings reset to RM0.00',
+            earnings: { ...earnings, available: 0 }
+          };
+        }
 
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_platform_bank_last_withdrawal', JSON.stringify({
+        // ===== Normal withdrawal =====
+        if (!amount) {
+          return { error: 'Amount is required', status: 400 };
+        }
+        if (!validateAmount(amount)) {
+          return { error: 'Invalid amount. Please enter a valid number with up to 2 decimal places.', status: 400 };
+        }
+
+        const withdrawAmount = Number(amount);
+        if (withdrawAmount < 10) {
+          return { error: 'Minimum withdrawal is RM10.00', status: 400 };
+        }
+        if (withdrawAmount > actualAvailable) {
+          return { error: `Insufficient balance. Available: RM${actualAvailable.toFixed(2)}`, status: 400 };
+        }
+
+        await recordRateLimit(db, clientIP, 'withdraw');
+
+        const maskedAccount = platformBank.accountNumber.slice(-4).padStart(platformBank.accountNumber.length, '*');
+
+        // ============================================================
+        // C1: HARD GATE. Simulation only when NOT production AND
+        // ALLOW_PAYOUT_SIMULATION === 'true'. Otherwise refuse loudly.
+        // ============================================================
+        const isLive = !!(env.CHIP_API_KEY && env.CHIP_API_SECRET);
+        const isProduction = env.ENVIRONMENT === 'production';
+        const simulationAllowed = !isProduction && env.ALLOW_PAYOUT_SIMULATION === 'true';
+
+        if (!isLive && isProduction) {
+          return {
+            error: 'Withdrawal blocked: CHIP Send keys are missing on the production server. Ask admin to restore CHIP_API_KEY / CHIP_API_SECRET. No money was moved and no balance was changed.',
+            status: 500
+          };
+        }
+        if (!isLive && !simulationAllowed) {
+          return {
+            error: 'Withdrawal blocked: CHIP Send keys are not configured and ALLOW_PAYOUT_SIMULATION is not "true". No money was moved.',
+            status: 500
+          };
+        }
+
+        const usedSimulation = !isLive && simulationAllowed;
+
+        let payoutSuccess = false;
+        let payoutData = null;
+
+        if (usedSimulation) {
+          payoutSuccess = true;
+          payoutData = { simulation: true };
+          console.log(`[withdraw] SIMULATION: RM${withdrawAmount} to ${platformBank.accountHolder}`);
+        } else {
+          try {
+            const bankAccountId = await getOrCreatePlatformBankAccountId(db, platformBank, env);
+
+            const apiKey = env.CHIP_API_KEY;
+            const apiSecret = env.CHIP_API_SECRET;
+            const amountCents = Math.round(withdrawAmount * 100);
+            const reference = `PLATFORM-WD-${Date.now()}`;
+
+            const payload = {
+              bank_account_id: bankAccountId,
+              amount: amountCents,
+              reference: reference,
+              description: `Platform commission withdrawal ${reference}`
+            };
+
+            const epoch = Math.floor(Date.now() / 1000);
+            const checksum = await hmacSha512(`${epoch}${apiKey}`, apiSecret);
+
+            const payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'epoch': String(epoch),
+                'checksum': checksum
+              },
+              body: JSON.stringify(payload)
+            });
+
+            let raw = null;
+            let parseFailed = false;
+            try { raw = await payoutRes.json(); } catch (_) { parseFailed = true; }
+
+            if (parseFailed) {
+              return {
+                error: 'CHIP Send returned an unparseable response. Withdrawal status is UNKNOWN — verify the reference in your CHIP dashboard before retrying. No local balance change was made.',
+                status: 502
+              };
+            }
+            if (!payoutRes.ok || !raw?.id) {
+              const errStr = String(raw?.error || raw?.message || '').toLowerCase();
+              const isStructured = payoutRes.status >= 400 && payoutRes.status < 500 && errStr.length > 0;
+              if (isStructured) {
+                return {
+                  error: 'CHIP Send rejected the withdrawal: ' + (raw.error || raw.message),
+                  status: 502
+                };
+              }
+              return {
+                error: `CHIP Send response ambiguous (HTTP ${payoutRes.status}). Withdrawal status is UNKNOWN — verify in the CHIP dashboard. No local balance change was made.`,
+                status: 502
+              };
+            }
+
+            payoutSuccess = true;
+            payoutData = raw;
+          } catch (err) {
+            console.error('[withdraw] CHIP Send error:', err.message);
+            return {
+              error: 'CHIP Send payout failed: ' + err.message,
+              status: 500
+            };
+          }
+        }
+
+        // ===== Record withdrawal =====
+        const withdrawal = {
+          id: 'WD_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+          amount: withdrawAmount,
           bankName: platformBank.bankName,
           bankCode: platformBank.bankCode,
           accountHolder: platformBank.accountHolder,
           accountNumber: maskedAccount,
-          lastUpdated: new Date().toISOString(),
-          lastWithdrawal: {
-            amount: withdrawAmount,
-            date: withdrawal.date,
-            id: withdrawal.id,
-            status: withdrawal.status
-          }
-        }))
-        .run();
+          date: new Date().toISOString(),
+          status: usedSimulation ? 'Success - Simulated' : 'Success - Sent via CHIP Send',
+          ip: clientIP,
+          payoutId: payoutData?.id || ('SIM_' + Date.now()),
+          simulation: usedSimulation
+        };
 
-      await logAction({
-        db,
-        action: usedSimulation ? 'withdrawal_simulated' : 'withdrawal_completed',
-        admin: 'admin',
-        details: `Withdrawal RM${withdrawAmount} to ${platformBank.bankName} (${platformBank.accountHolder})${usedSimulation ? ' (SIMULATED)' : ''}`,
-        ip: clientIP
-      });
-    } catch (e) {
-      console.error('[withdraw] Save error after payout:', e.message);
-      return jsonResponse({
-        error: 'Payout succeeded, but failed to update records. Please verify CHIP dashboard.',
-        payoutId: withdrawal.payoutId
-      }, 500, request);
+        try {
+          earnings.withdrawn = (earnings.withdrawn || 0) + withdrawAmount;
+          earnings.history.push({ ...withdrawal, type: 'withdrawal' });
+          earnings.available = earnings.total - earnings.withdrawn;
+          // M3: cap history length on every write.
+          capHistory(earnings);
+
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_fee_earnings', JSON.stringify(earnings))
+            .run();
+
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_platform_bank_last_withdrawal', JSON.stringify({
+              bankName: platformBank.bankName,
+              bankCode: platformBank.bankCode,
+              accountHolder: platformBank.accountHolder,
+              accountNumber: maskedAccount,
+              lastUpdated: new Date().toISOString(),
+              lastWithdrawal: {
+                amount: withdrawAmount,
+                date: withdrawal.date,
+                id: withdrawal.id,
+                status: withdrawal.status
+              }
+            }))
+            .run();
+
+          await logAction({
+            db,
+            action: usedSimulation ? 'withdrawal_simulated' : 'withdrawal_completed',
+            admin: 'admin',
+            details: `Withdrawal RM${withdrawAmount} to ${platformBank.bankName} (${platformBank.accountHolder})${usedSimulation ? ' (SIMULATED)' : ''}`,
+            ip: clientIP
+          });
+        } catch (e) {
+          console.error('[withdraw] Save error after payout:', e.message);
+          return {
+            error: 'Payout succeeded, but failed to update records. Please verify CHIP dashboard.',
+            payoutId: withdrawal.payoutId,
+            status: 500
+          };
+        }
+
+        return {
+          success: true,
+          message: `RM${withdrawAmount.toFixed(2)} sent to your bank account (${platformBank.bankName} ${platformBank.accountHolder}). ` +
+                   (usedSimulation ? '(Simulation mode - no real money sent)' : 'CHIP Send is processing the transfer.'),
+          withdrawal,
+          earnings: {
+            total: earnings.total,
+            withdrawn: earnings.withdrawn,
+            available: earnings.total - earnings.withdrawn
+          },
+          security: 'Bank details LOCKED server-side',
+          simulation: usedSimulation
+        };
+      }, 120000);
+    } catch (lockErr) {
+      if (lockErr.message && lockErr.message.includes('in progress')) {
+        return jsonResponse({ error: 'Another money operation is in progress. Please wait a moment and try again.' }, 429, request);
+      }
+      throw lockErr;
     }
 
-    return jsonResponse({
-      success: true,
-      message: `RM${withdrawAmount.toFixed(2)} sent to your bank account (${platformBank.bankName} ${platformBank.accountHolder}). ` +
-               (usedSimulation ? '(Simulation mode - no real money sent)' : 'CHIP Send is processing the transfer.'),
-      withdrawal,
-      earnings: {
-        total: earnings.total,
-        withdrawn: earnings.withdrawn,
-        available: earnings.total - earnings.withdrawn
-      },
-      security: 'Bank details LOCKED server-side',
-      simulation: usedSimulation
-    }, 200, request);
+    if (result.error) {
+      return jsonResponse({ error: result.error }, result.status || 400, request);
+    }
+    return jsonResponse(result, 200, request);
 
   } catch (err) {
     console.error('[withdraw] Error:', err.message);
@@ -469,48 +547,65 @@ export async function onRequestDelete({ request, env }) {
   try {
     const clientIP = getClientIP(request);
     const db = env.DB;
-    let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
+    if (!db) {
+      return jsonResponse({ error: 'Database not configured' }, 500, request);
+    }
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    if (db) {
-      await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
-      const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
-      if (r?.data) earnings = JSON.parse(r.data);
+    let result;
+    try {
+      result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+        let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
+        const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
+        if (r?.data) earnings = JSON.parse(r.data);
+
+        const prevWithdrawn = earnings.withdrawn || 0;
+        const prevTotal = earnings.total || 0;
+
+        earnings.withdrawn = 0;
+        earnings.available = 0;
+        earnings.total = 0;
+        earnings.history = earnings.history || [];
+        earnings.history.push({
+          type: 'reset',
+          date: new Date().toISOString(),
+          note: 'FULL RESET - All to 0 via DELETE',
+          prevWithdrawn,
+          prevTotal,
+          ip: clientIP
+        });
+
+        // M3: cap history length on every write.
+        capHistory(earnings);
+
+        await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+          .bind('kd_fee_earnings', JSON.stringify(earnings))
+          .run();
+        await logAction({
+          db,
+          action: 'withdrawal_reset_delete',
+          admin: 'admin',
+          details: `Reset earnings via DELETE. Previous: Total RM${prevTotal}, Withdrawn RM${prevWithdrawn}`,
+          ip: clientIP
+        });
+
+        return {
+          success: true,
+          message: 'Earnings reset to RM0.00',
+          earnings: { ...earnings, available: 0 }
+        };
+      }, 30000);
+    } catch (lockErr) {
+      if (lockErr.message && lockErr.message.includes('in progress')) {
+        return jsonResponse({ error: 'Another money operation is in progress. Please wait and try again.' }, 429, request);
+      }
+      throw lockErr;
     }
 
-    const prevWithdrawn = earnings.withdrawn || 0;
-    const prevTotal = earnings.total || 0;
-
-    earnings.withdrawn = 0;
-    earnings.available = 0;
-    earnings.total = 0;
-    earnings.history = earnings.history || [];
-    earnings.history.push({
-      type: 'reset',
-      date: new Date().toISOString(),
-      note: 'FULL RESET - All to 0 via DELETE',
-      prevWithdrawn,
-      prevTotal,
-      ip: clientIP
-    });
-
-    if (db) {
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_fee_earnings', JSON.stringify(earnings))
-        .run();
-      await logAction({
-        db,
-        action: 'withdrawal_reset_delete',
-        admin: 'admin',
-        details: `Reset earnings via DELETE. Previous: Total RM${prevTotal}, Withdrawn RM${prevWithdrawn}`,
-        ip: clientIP
-      });
+    if (result.error) {
+      return jsonResponse({ error: result.error }, result.status || 400, request);
     }
-
-    return jsonResponse({
-      success: true,
-      message: 'Earnings reset to RM0.00',
-      earnings: { ...earnings, available: 0 }
-    }, 200, request);
+    return jsonResponse(result, 200, request);
 
   } catch (err) {
     console.error('[withdraw] DELETE error:', err.message);
