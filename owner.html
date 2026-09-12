@@ -15,7 +15,6 @@
 </head>
 
 <body>
-<!-- ===== CUSTOM MODAL ===== -->
 <div id="customModal" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-header">
@@ -29,7 +28,6 @@
   </div>
 </div>
 
-<!-- ===== EARLY FUNCTION DEFINITION ===== -->
 <script>
   let lastToggleTime = 0;
   window.toggleMobileMenu = function() {
@@ -44,7 +42,6 @@
   };
 </script>
 
-<!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
 
@@ -96,7 +93,6 @@
   </div>
 </header>
 
-<!-- ===== MOBILE NAV ===== -->
 <div id="mobileNav">
   <div class="p-4">
 
@@ -144,7 +140,6 @@
   </div>
 </div>
 
-<!-- ===== MAIN CONTENT ===== -->
 <main class="max-w-[1100px] mx-auto p-6 py-12 min-h-[75vh]">
   <div id="loginSection" class="max-w-md mx-auto card p-6 md:p-10 mt-10 animate-on-scroll">
     <h2 class="text-2xl font-bold font-poppins text-[#212121]">Host Console</h2>
@@ -165,7 +160,6 @@
     <button onclick="ownerLogin()" class="btn-primary w-full mt-6 py-3.5">Enter Dashboard</button>
     <div id="loginError" class="text-red-600 text-xs mt-3 hidden text-center p-2.5 bg-red-50 border border-red-200 rounded-xl"></div>
 
-    <!-- NEW: resend verification link. Always visible below the login form. -->
     <div class="mt-5 pt-5 border-t border-black/5 text-center">
       <p class="text-[11px] text-zinc-500 leading-relaxed">Never received the verification email, or the link expired?</p>
       <button onclick="openResendVerification()" class="mt-2 text-xs text-[#0F382E] font-bold hover:underline">✉️ Resend verification email</button>
@@ -360,9 +354,6 @@ function safeHTML(html) {
   });
 }
 
-// =============================================================
-// CUSTOM MODAL SYSTEM
-// =============================================================
 function showModal(title, message, buttons) {
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
@@ -453,9 +444,6 @@ document.getElementById('customModal').addEventListener('click', function(e) {
   if (e.target === this) { closeModal(); }
 });
 
-// =============================================================
-// GUEST SYSTEM (for nav rendering only)
-// =============================================================
 const API_BASE = "/api";
 let currentGuest = null;
 try {
@@ -496,9 +484,6 @@ function logoutGuest() {
   window.location.href = '/';
 }
 
-// =============================================================
-// HOST LOGIN & DASHBOARD (cookie-based auth)
-// =============================================================
 let ownerToken = 'cookie';
 let ownerHomestayIds = [];
 let allHomestays = [];
@@ -543,13 +528,6 @@ function openOwnerForgotPassword() {
   });
 }
 
-// ============================================================
-// NEW: resend the host verification email.
-// Prompts for the email address, POSTs to /api/owner-register with
-// action:'resendVerification', and shows a generic success message.
-// The backend always returns the same shape, so this never reveals
-// whether the email is actually registered.
-// ============================================================
 function openResendVerification() {
   showPrompt(
     'Resend Verification Email',
@@ -921,6 +899,18 @@ async function changeBookingDates(bookingId) {
   }
 }
 
+// ============================================================
+// CANCEL BOOKING — with reason.
+//
+// Two cancellation types, two refund outcomes:
+//   host_own      → full refund of everything the guest paid
+//   guest_request → refund of the base amount only; platform
+//                   retains the service fee + gateway fee
+//
+// The choice is made in a custom modal. The cancelType is sent in
+// the POST body. Missing/unknown cancelType on the server defaults
+// to host_own (full refund — the safer case).
+// ============================================================
 async function cancelBooking(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
   if (!booking) {
@@ -941,20 +931,60 @@ async function cancelBooking(bookingId) {
   }
 
   const isPaid = (booking.status || '').toLowerCase().includes('paid');
-  const warningExtra = isPaid
-    ? '<br><br><span style="color:#b91c1c;font-weight:600;">⚠️ This booking is already paid. Cancelling will trigger a full CHIP refund to the guest.</span>'
-    : '';
+  const baseAmount = Number(booking.base || 0).toFixed(2);
+  const totalAmount = Number(booking.amount_paid || booking.total || 0).toFixed(2);
+  const feeRetained = Math.max(0, Number(booking.amount_paid || booking.total || 0) - Number(booking.base || 0)).toFixed(2);
 
-  const confirmed = await showConfirm('Cancel Booking',
-    `Are you sure you want to cancel booking <strong>${bookingId}</strong> for <strong>${booking.guestName || 'Guest'}</strong>?<br><br>This will mark the booking as cancelled and free the dates. The guest will be notified via WhatsApp (optional).${warningExtra}`
+  // Refund preview depends on whether the booking is paid at all.
+  const paidNotice = isPaid
+    ? `<div style="margin-top:14px;padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;font-size:12px;color:#991b1b;">
+         ⚠️ This booking is already paid. Cancelling will trigger a refund to the guest via CHIP.
+       </div>`
+    : `<div style="margin-top:14px;padding:12px;background:#f0f9ff;border:1px solid #bfdbfe;border-radius:12px;font-size:12px;color:#1e40af;">
+         ℹ️ This booking has not been paid. No refund will be processed.
+       </div>`;
+
+  const choice = await showModal(
+    'Cancel Booking — Choose Reason',
+    `
+      <div style="line-height:1.6;">
+        <p>Cancelling booking <strong>${bookingId}</strong> for <strong>${booking.guestName || 'Guest'}</strong>.</p>
+        <p style="margin-top:10px;">Please choose the reason for cancellation. This determines how much the guest is refunded.</p>
+
+        <div style="margin-top:16px;border:1.5px solid #16a34a;border-radius:14px;padding:14px;background:#f0fdf4;">
+          <div style="font-weight:700;color:#166534;font-size:14px;">🟢 Host-Initiated Cancellation</div>
+          <div style="font-size:12px;color:#14532d;margin-top:6px;line-height:1.5;">
+            The host cancels for their own reasons (overbooking, maintenance, emergency).<br>
+            <strong>Guest receives a full refund:</strong> RM ${totalAmount}${isPaid ? '' : ' <span style="color:#6b7280;">(unpaid — no refund needed)</span>'}
+          </div>
+        </div>
+
+        <div style="margin-top:10px;border:1.5px solid #f59e0b;border-radius:14px;padding:14px;background:#fffbeb;">
+          <div style="font-weight:700;color:#92400e;font-size:14px;">🟡 Guest-Requested Cancellation</div>
+          <div style="font-size:12px;color:#78350f;margin-top:6px;line-height:1.5;">
+            The guest asked to cancel and the host has agreed.<br>
+            <strong>Guest receives base refund only:</strong> RM ${baseAmount}<br>
+            <span style="color:#92400e;">Platform retains the RM ${feeRetained} service fee + gateway fee.</span>${isPaid ? '' : ' <span style="color:#6b7280;">(unpaid — no refund needed)</span>'}
+          </div>
+        </div>
+
+        ${paidNotice}
+      </div>
+    `,
+    [
+      { label: 'Cancel', class: 'btn-secondary', value: null },
+      { label: '🟡 Guest Requested', class: 'btn-primary', value: 'guest_request' },
+      { label: '🟢 Host-Initiated', class: 'btn-success', value: 'host_own' }
+    ]
   );
-  if (!confirmed) return;
+
+  if (!choice) return;
 
   try {
     const res = await ownerFetch(API_BASE + '/owner-update-booking', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingId, action: 'cancelBooking' })
+      body: JSON.stringify({ bookingId, action: 'cancelBooking', cancelType: choice })
     });
     const data = await res.json();
     if (data.success) {
@@ -964,7 +994,13 @@ async function cancelBooking(bookingId) {
         let phone = String(booking.guestPhone || '').replace(/[^0-9]/g, '');
         if (phone && phone.length >= 9) {
           if (phone.startsWith('0')) phone = '60' + phone.substring(1);
-          const msg = `Hi ${booking.guestName || 'Guest'},\n\nYour booking ${bookingId} at ${booking.homestay} has been cancelled by the host.\n\nIf you have any questions, please contact the host directly.\n\nThank you.`;
+
+          const isGuestReq = choice === 'guest_request';
+          const refundLine = isGuestReq
+            ? `A refund of RM ${Number(data.refundAmount || booking.base).toFixed(2)} has been processed. The service fee is non-refundable for guest-requested cancellations.`
+            : `A full refund of RM ${Number(data.refundAmount || booking.total).toFixed(2)} has been processed.`;
+
+          const msg = `Hi ${booking.guestName || 'Guest'},\n\nYour booking ${bookingId} at ${booking.homestay} has been cancelled.\n\n${isPaid ? refundLine + '\n\n' : ''}If you have any questions, please contact the host directly.\n\nThank you.`;
           window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
         } else {
           showAlert('No WhatsApp', 'Guest WhatsApp number not available.');
