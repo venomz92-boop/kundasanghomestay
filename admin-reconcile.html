@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reconcile Payout - Kundasang Homestay Admin</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="bg-[#F8F5F0] min-h-screen">
+
+<div id="customModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modalTitle">Notice</h3>
+      <button onclick="closeModal()" class="modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">Message</div>
+    <div class="modal-footer" id="modalFooter">
+      <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
+    </div>
+  </div>
+</div>
+
+<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
+  <div class="max-w-[900px] mx-auto h-full px-6 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <img src="/logo.png" alt="Kundasang Homestay" class="w-10 h-10 md:w-12 md:h-12" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+      <div class="font-poppins font-800 text-[16px] tracking-[-0.5px] text-[#212121] leading-none">
+        KUNDASANG<span class="font-600 text-[#212121]/60 text-[13px]"> • Homestay</span>
+        <div class="font-500 text-[9px] tracking-[2px] uppercase text-[#212121]/50 mt-0.5">Admin • Reconcile Payout</div>
+      </div>
+    </div>
+    <a href="/admin.html" class="btn-outline" style="padding:8px 18px; font-size:11px;">← Back to Admin</a>
+  </div>
+</header>
+
+<main class="max-w-[900px] mx-auto px-6 py-10">
+
+  <!-- ============== LOGIN SECTION ============== -->
+  <div id="loginSection" class="max-w-[400px] mx-auto card p-8">
+    <h2 class="text-2xl font-bold font-poppins text-[#212121]">Admin Login</h2>
+    <p class="text-xs text-zinc-500 mt-1">Required to reconcile stuck payouts.</p>
+    <input id="adminPass" type="password" placeholder="Admin Password" class="form-input mt-4" />
+    <button onclick="doAdminLogin()" class="btn-primary w-full mt-4">Login</button>
+    <div id="loginError" class="text-red-600 text-xs mt-2 hidden"></div>
+  </div>
+
+  <!-- ============== RECONCILE SECTION ============== -->
+  <div id="reconcileSection" class="hidden">
+
+    <div class="mb-6">
+      <h1 class="font-poppins font-700 text-[28px] md:text-[32px] text-[#212121]">Reconcile Stuck Payout</h1>
+      <p class="text-sm text-zinc-500 mt-1 max-w-[600px] leading-relaxed">
+        Use this page only when a booking is stuck with a payout marker
+        (status <span class="font-semibold text-amber-700">"Completed - Payout Unknown"</span> or an unresolved attempt marker).
+        You must first log into your CHIP dashboard and search for the reference <span class="font-mono font-bold">KDH-&lt;bookingId&gt;</span>
+        to determine whether a payout exists.
+      </p>
+    </div>
+
+    <div class="card p-6 mb-6 border-l-4 border-amber-400 bg-amber-50">
+      <div class="flex items-start gap-3">
+        <div class="text-2xl leading-none">⚠️</div>
+        <div class="text-sm text-amber-900 leading-relaxed">
+          <strong>Before you use this page:</strong>
+          <ol class="mt-2 ml-4 list-decimal space-y-1">
+            <li>Open your CHIP Send dashboard in a new tab.</li>
+            <li>Search for the reference number of the stuck booking.</li>
+            <li>Note whether a payout exists, and if so its payout ID.</li>
+            <li>Come back to this page and choose the matching option below.</li>
+          </ol>
+          <div class="mt-3 text-xs text-amber-800">
+            Choosing the wrong option can cause a <strong>duplicate payout</strong> or hide a payout that already succeeded.
+            The confirmation text is there to slow you down.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-6 md:p-8 space-y-6">
+
+      <!-- Booking ID lookup -->
+      <div>
+        <label class="text-xs font-semibold text-[#212121] block mb-1.5">Booking ID</label>
+        <div class="flex gap-3">
+          <input id="bookingIdInput" type="text" placeholder="e.g. KDH-A7B3C92E" class="form-input flex-1 font-mono uppercase" />
+          <button onclick="lookupBooking()" class="btn-outline" style="padding:0 20px;">Look Up</button>
+        </div>
+      </div>
+
+      <!-- Booking status preview -->
+      <div id="bookingPreview" class="hidden rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm">
+        <div class="font-bold text-[#212121] mb-2">Current booking state</div>
+        <div id="bookingPreviewBody" class="space-y-1 text-xs text-zinc-700 font-mono"></div>
+      </div>
+
+      <!-- Mode selection -->
+      <div id="modeSection" class="hidden">
+        <label class="text-xs font-semibold text-[#212121] block mb-2">What did the CHIP dashboard show?</label>
+        <div class="space-y-2">
+          <label class="flex items-start gap-3 p-4 rounded-xl border border-zinc-200 hover:border-[#D4A373] cursor-pointer transition">
+            <input type="radio" name="reconcileMode" value="no-payout" class="mt-1" onchange="onModeChange()" />
+            <div>
+              <div class="font-semibold text-sm text-[#212121]">No payout exists at CHIP</div>
+              <div class="text-xs text-zinc-600 mt-0.5 leading-relaxed">
+                Clear the stuck markers so you can retry the payout from scratch.
+                Use this if the CHIP dashboard shows <strong>nothing</strong> for the reference number.
+              </div>
+            </div>
+          </label>
+          <label class="flex items-start gap-3 p-4 rounded-xl border border-zinc-200 hover:border-[#D4A373] cursor-pointer transition">
+            <input type="radio" name="reconcileMode" value="paid-manually" class="mt-1" onchange="onModeChange()" />
+            <div>
+              <div class="font-semibold text-sm text-[#212121]">A payout DID happen at CHIP</div>
+              <div class="text-xs text-zinc-600 mt-0.5 leading-relaxed">
+                Record the real payout ID from the CHIP dashboard. No new CHIP Send call is made.
+                Use this if the money already left your account successfully but our system lost the result.
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Payout ID (only shown for paid-manually) -->
+      <div id="payoutIdSection" class="hidden">
+        <label class="text-xs font-semibold text-[#212121] block mb-1.5">CHIP Payout ID</label>
+        <input id="payoutIdInput" type="text" placeholder="Copy the payout ID shown in your CHIP dashboard" class="form-input font-mono" />
+        <p class="text-[10px] text-zinc-500 mt-1.5">This is the number CHIP assigned to the successful payout.</p>
+      </div>
+
+      <!-- Confirmation -->
+      <div id="confirmSection" class="hidden">
+        <label class="text-xs font-semibold text-[#212121] block mb-1.5">
+          Type the confirmation phrase to proceed
+        </label>
+        <div class="text-[11px] text-zinc-600 mb-2">
+          Type exactly: <span id="confirmHint" class="font-mono font-bold text-red-600">CLEARED-&lt;bookingId&gt;</span>
+        </div>
+        <input id="confirmationInput" type="text" placeholder="Type the phrase exactly" class="form-input font-mono" />
+      </div>
+
+      <!-- Submit -->
+      <div id="submitSection" class="hidden">
+        <button onclick="submitReconcile()" id="reconcileBtn" class="btn-primary w-full py-4 text-sm tracking-widest">
+          Reconcile Booking
+        </button>
+      </div>
+
+      <!-- Result -->
+      <div id="resultSection" class="hidden rounded-xl p-4 text-sm"></div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+// ============================================================
+// MODAL SYSTEM
+// ============================================================
+function showModal(title, message, buttons) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('customModal');
+    document.getElementById('modalTitle').textContent = title || 'Notice';
+    document.getElementById('modalBody').innerHTML = typeof message === 'string' ? message : '';
+    const footerEl = document.getElementById('modalFooter');
+    footerEl.innerHTML = '';
+    buttons.forEach(btn => {
+      const el = document.createElement('button');
+      el.textContent = btn.label;
+      el.className = 'btn ' + (btn.class || 'btn-primary');
+      el.onclick = () => {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+        resolve(btn.value !== undefined ? btn.value : true);
+      };
+      footerEl.appendChild(el);
+    });
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  });
+}
+function closeModal() {
+  const o = document.getElementById('customModal');
+  if (o) o.classList.remove('active');
+  document.body.style.overflow = '';
+}
+function modalConfirm() { closeModal(); }
+function showAlert(t, m) { return showModal(t, m, [{ label: 'OK', class: 'btn-primary' }]); }
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+document.getElementById('customModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ============================================================
+// STATE
+// ============================================================
+let currentBooking = null;
+
+// ============================================================
+// ADMIN LOGIN
+// ============================================================
+async function doAdminLogin() {
+  const pass = document.getElementById('adminPass').value;
+  const errEl = document.getElementById('loginError');
+  errEl.classList.add('hidden');
+  try {
+    const res = await fetch('/api/admin-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ password: pass })
+    });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById('loginSection').classList.add('hidden');
+      document.getElementById('reconcileSection').classList.remove('hidden');
+      document.getElementById('adminPass').value = '';
+    } else {
+      errEl.textContent = data.error || 'Login failed.';
+      errEl.classList.remove('hidden');
+    }
+  } catch (e) {
+    errEl.textContent = 'Network error: ' + e.message;
+    errEl.classList.remove('hidden');
+  }
+}
+
+// ============================================================
+// PROBE SESSION ON LOAD
+// ============================================================
+(async function probe() {
+  try {
+    const res = await fetch('/api/bookings?limit=1&approvedLimit=1&pendingLimit=1&guestsLimit=1', {
+      credentials: 'include',
+      cache: 'no-store'
+    });
+    const data = await res.json().catch(() => ({}));
+    const isAdmin = data && data.pending !== undefined && data.guests !== undefined;
+    if (isAdmin) {
+      document.getElementById('loginSection').classList.add('hidden');
+      document.getElementById('reconcileSection').classList.remove('hidden');
+    }
+  } catch (e) { /* login form stays visible */ }
+})();
+
+// ============================================================
+// LOOKUP BOOKING
+// ============================================================
+async function lookupBooking() {
+  const id = document.getElementById('bookingIdInput').value.trim().toUpperCase();
+  if (!id) { await showAlert('Missing', 'Please enter a booking ID.'); return; }
+
+  const preview = document.getElementById('bookingPreview');
+  const body = document.getElementById('bookingPreviewBody');
+  preview.classList.remove('hidden');
+  body.innerHTML = '<div class="text-zinc-500">Looking up booking…</div>';
+
+  try {
+    // Pull the admin bookings list and find the matching booking.
+    const res = await fetch('/api/bookings?limit=99999&approvedLimit=1&pendingLimit=1&guestsLimit=1', {
+      credentials: 'include',
+      cache: 'no-store'
+    });
+    if (res.status === 401) {
+      document.getElementById('loginSection').classList.remove('hidden');
+      document.getElementById('reconcileSection').classList.add('hidden');
+      preview.classList.add('hidden');
+      await showAlert('Session expired', 'Please log in again.');
+      return;
+    }
+    const data = await res.json();
+    const list = Array.isArray(data.bookings) ? data.bookings : [];
+    const booking = list.find(b => String(b.id || '').toUpperCase() === id);
+
+    if (!booking) {
+      body.innerHTML = '<div class="text-red-600">No booking found with that ID.</div>';
+      document.getElementById('modeSection').classList.add('hidden');
+      document.getElementById('confirmSection').classList.add('hidden');
+      document.getElementById('submitSection').classList.add('hidden');
+      document.getElementById('resultSection').classList.add('hidden');
+      currentBooking = null;
+      return;
+    }
+
+    currentBooking = booking;
+
+    const hasUnknown = booking.payoutUnknown === true;
+    const hasAttemptOnly = !!booking.payoutAttemptedAt
+      && !booking.payoutSuccessDate
+      && !booking.ownerPayoutId;
+    const hasFailedAttempt = booking.payoutFailedAttempt === true;
+    const isStuck = hasUnknown || hasAttemptOnly || hasFailedAttempt;
+
+    let html = '';
+    html += '<div><span class="text-zinc-500">Status:</span> <span class="font-bold">' + (booking.status || '(none)') + '</span></div>';
+    html += '<div><span class="text-zinc-500">Homestay:</span> ' + (booking.homestay || '?') + '</div>';
+    html += '<div><span class="text-zinc-500">Base amount:</span> RM ' + (booking.base || 0) + '</div>';
+    if (booking.payoutAttemptedAt) html += '<div><span class="text-zinc-500">Attempted at:</span> ' + booking.payoutAttemptedAt + '</div>';
+    if (booking.payoutAttemptedReference) html += '<div><span class="text-zinc-500">Reference:</span> <span class="font-bold">' + booking.payoutAttemptedReference + '</span></div>';
+    if (booking.payoutUnknown) html += '<div class="text-red-600"><span class="font-bold">payoutUnknown = true</span></div>';
+    if (booking.payoutFailedAttempt) html += '<div class="text-amber-700"><span class="font-bold">payoutFailedAttempt = true</span></div>';
+    if (booking.payoutSuccessDate) html += '<div class="text-green-700"><span class="font-bold">Already paid:</span> ' + booking.payoutSuccessDate + '</div>';
+    if (booking.ownerPayoutId) html += '<div class="text-green-700"><span class="font-bold">Payout ID:</span> ' + booking.ownerPayoutId + '</div>';
+
+    body.innerHTML = html;
+
+    if (!isStuck) {
+      document.getElementById('modeSection').classList.add('hidden');
+      document.getElementById('confirmSection').classList.add('hidden');
+      document.getElementById('submitSection').classList.add('hidden');
+      document.getElementById('payoutIdSection').classList.add('hidden');
+      document.getElementById('resultSection').classList.remove('hidden');
+      document.getElementById('resultSection').className = 'rounded-xl p-4 text-sm bg-blue-50 border border-blue-200 text-blue-800';
+      document.getElementById('resultSection').innerHTML = 'This booking has no stuck payout markers. Nothing to reconcile.';
+      return;
+    }
+
+    document.getElementById('modeSection').classList.remove('hidden');
+    document.getElementById('confirmSection').classList.remove('hidden');
+    document.getElementById('submitSection').classList.remove('hidden');
+    document.getElementById('resultSection').classList.add('hidden');
+
+    const hint = document.getElementById('confirmHint');
+    hint.textContent = 'CLEARED-' + booking.id;
+    document.getElementById('confirmationInput').value = '';
+    document.getElementById('payoutIdInput').value = '';
+    document.querySelectorAll('input[name="reconcileMode"]').forEach(r => r.checked = false);
+    document.getElementById('payoutIdSection').classList.add('hidden');
+
+  } catch (e) {
+    body.innerHTML = '<div class="text-red-600">Lookup failed: ' + e.message + '</div>';
+  }
+}
+
+// ============================================================
+// MODE CHANGE
+// ============================================================
+function onModeChange() {
+  const mode = document.querySelector('input[name="reconcileMode"]:checked')?.value;
+  const pidSec = document.getElementById('payoutIdSection');
+  if (mode === 'paid-manually') {
+    pidSec.classList.remove('hidden');
+  } else {
+    pidSec.classList.add('hidden');
+  }
+}
+
+// ============================================================
+// SUBMIT
+// ============================================================
+async function submitReconcile() {
+  if (!currentBooking) { await showAlert('Error', 'Please look up a booking first.'); return; }
+
+  const mode = document.querySelector('input[name="reconcileMode"]:checked')?.value;
+  if (!mode) { await showAlert('Missing', 'Please choose what the CHIP dashboard showed.'); return; }
+
+  const confirmation = document.getElementById('confirmationInput').value.trim();
+  const expected = 'CLEARED-' + currentBooking.id;
+  if (confirmation !== expected) {
+    await showAlert('Wrong phrase', 'The confirmation text does not match. You must type exactly:\n\n' + expected);
+    return;
+  }
+
+  const payoutId = document.getElementById('payoutIdInput').value.trim();
+  if (mode === 'paid-manually' && !payoutId) {
+    await showAlert('Missing', 'Please paste the CHIP payout ID.');
+    return;
+  }
+
+  const finalConfirm = await showModal(
+    'Final Check',
+    mode === 'no-payout'
+      ? 'You are about to <strong>clear all payout markers</strong> for ' + currentBooking.id + '.<br><br>After this, you must click <strong>Confirm Arrival</strong> again from the Host Console to retry the payout.<br><br>Have you verified in the CHIP dashboard that <strong>no payout exists</strong> for reference KDH-' + currentBooking.id + '?'
+      : 'You are about to record a <strong>manual payout</strong> of RM' + (currentBooking.payoutAttemptedAmount || currentBooking.base || 0) + ' for ' + currentBooking.id + '.<br><br>Payout ID: <span class="font-mono">' + payoutId + '</span><br><br>No new CHIP Send call will be made. Proceed?',
+    [
+      { label: 'Cancel', class: 'btn-secondary', value: false },
+      { label: 'Yes, Reconcile', class: 'btn-primary', value: true }
+    ]
+  );
+  if (!finalConfirm) return;
+
+  const btn = document.getElementById('reconcileBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Reconciling…';
+
+  try {
+    const res = await fetch('/api/admin-reconcile-payout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        bookingId: currentBooking.id,
+        mode,
+        confirmation,
+        payoutId: mode === 'paid-manually' ? payoutId : undefined
+      })
+    });
+    const data = await res.json();
+
+    const resultSec = document.getElementById('resultSection');
+    resultSec.classList.remove('hidden');
+
+    if (data.success) {
+      resultSec.className = 'rounded-xl p-4 text-sm bg-emerald-50 border border-emerald-200 text-emerald-800';
+      resultSec.innerHTML = '<strong>✓ ' + data.message + '</strong>';
+      // Refresh the booking preview.
+      await lookupBooking();
+    } else {
+      resultSec.className = 'rounded-xl p-4 text-sm bg-red-50 border border-red-200 text-red-700';
+      resultSec.innerHTML = '<strong>Failed:</strong> ' + (data.error || 'Unknown error');
+    }
+  } catch (e) {
+    const resultSec = document.getElementById('resultSection');
+    resultSec.classList.remove('hidden');
+    resultSec.className = 'rounded-xl p-4 text-sm bg-red-50 border border-red-200 text-red-700';
+    resultSec.innerHTML = '<strong>Network error:</strong> ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+</script>
+</body>
+</html>
