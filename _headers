@@ -13,12 +13,17 @@
 # the other.
 #
 # CHANGELOG (this revision):
-#   - Added https://cdn.jsdelivr.net to script-src.
-#     landingpage.html loads Alpine.js from jsdelivr; without this,
-#     the CSP blocks Alpine and the entire interactive page stays blank.
+#   - Added https://static.cloudflareinsights.com to script-src
+#     (Cloudflare auto-injects its Web Analytics beacon into every page)
+#   - Added https://cloudflareinsights.com to connect-src
+#     (the beacon POSTs its data there)
+#   - Added https://api.open-meteo.com to connect-src
+#     (footer-weather.js fetches live Kundasang weather)
+#   - Added https://theculturetrip.com and https://*.theculturetrip.com
+#     to img-src (some listing images are hosted there)
 
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia https://static.cloudflareinsights.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com https://res.cloudinary.com https://theculturetrip.com https://*.theculturetrip.com; connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia https://api.resend.com https://api.sendgrid.com https://api.cloudinary.com https://api.open-meteo.com https://cloudflareinsights.com; frame-src 'self' https://gate.chip-in.asia; base-uri 'self'; form-action 'self' https://gate.chip-in.asia;
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com https://res.cloudinary.com https://theculturetrip.com https://*.theculturetrip.com; connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia https://api.resend.com https://api.sendgrid.com https://api.cloudinary.com https://api.open-meteo.com https://cloudflareinsights.com; frame-src 'self' https://gate.chip-in.asia; base-uri 'self'; form-action 'self' https://gate.chip-in.asia;
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
