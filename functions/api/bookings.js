@@ -1,14 +1,10 @@
-// /api/bookings.js — Plain English: this file handles all booking reads
-// and writes. Two things changed in THIS revision inside
-// createPublicBooking():
-//   (1) If the SAME guest books the SAME dates at the SAME homestay
-//       again, and they already have a "Pending Payment" or
-//       "Payment Failed" booking for those dates, we REUSE that
-//       existing booking instead of creating a duplicate.
-//   (2) Stale "Payment Failed" bookings now also get expired the same
-//       way stale "Pending Payment" ones do (after 15 minutes).
-// Everything else (locking, admin actions, pagination, CSP, auth) is
-// unchanged from the previous version.
+// /api/bookings.js — Plain English: this file handles all booking reads and
+// writes. In THIS revision, approveHomestay and rejectHomestay now also
+// permanently delete verification images (IC, bank QR, PBT license) from
+// Cloudinary on success, matching the promise made in Data Privacy Consent.
+// On reject, all property + room photos are also destroyed, and the orphaned
+// bank-QR entry in kd_homestays is removed (previous bug). Everything else
+// (locking, admin actions, pagination, CSP, auth) is unchanged.
 import {
   corsHeaders,
   getClientIP,
@@ -23,7 +19,8 @@ import {
   withLock,
   checkRateLimit,
   recordRateLimit,
-  invalidateOwnerSessionsForHomestay
+  invalidateOwnerSessionsForHomestay,
+  sha256
 } from './_utils.js';
 
 const MAX_NIGHTS = 60;
@@ -70,6 +67,146 @@ function stripPasswordFields(h) {
   } = h;
   return safe;
 }
+
+// ============================================================
+// Cloudinary destroy helpers
+// Plain English: permanently deletes an image file from Cloudinary.
+// The caller must know the file's `public_id` (which we now store
+// alongside every upload URL). Safe to call with a missing ID —
+// it just returns { skipped: true }.
+// ============================================================
+
+async function destroyCloudinaryImage(publicId, env) {
+  if (!publicId || typeof publicId !== 'string') {
+    return { skipped: true };
+  }
+  const cloudName = env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = env.CLOUDINARY_API_KEY;
+  const apiSecret = env.CLOUDINARY_API_SECRET;
+  if (!cloudName || !apiKey || !apiSecret) {
+    return { error: 'Cloudinary credentials missing' };
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  // Cloudinary signature: sorted params concatenated, then api_secret appended
+  const toSign = `public_id=${publicId}&timestamp=${timestamp}`;
+  let signature;
+  try {
+    signature = await sha256(toSign + apiSecret);
+  } catch (e) {
+    return { error: 'Signature compute failed: ' + e.message };
+  }
+
+  const body = new URLSearchParams({
+    public_id: publicId,
+    api_key: apiKey,
+    timestamp: String(timestamp),
+    signature,
+    signature_algorithm: 'sha256'
+  });
+
+  try {
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+      }
+    );
+    let data = null;
+    try { data = await res.json(); } catch (_) { data = null; }
+    if (!res.ok) {
+      return { error: `Cloudinary HTTP ${res.status}` };
+    }
+    // Cloudinary returns result: 'ok' on success, 'not found' if already gone.
+    const ok = data && (data.result === 'ok' || data.result === 'not found');
+    return { success: ok, result: data?.result || 'unknown' };
+  } catch (e) {
+    return { error: 'Network error: ' + e.message };
+  }
+}
+
+// Best-effort: extract public_id from a Cloudinary URL for legacy
+// records uploaded before we started saving `publicId`. Cloudinary
+// URL format:
+//   https://res.cloudinary.com/<cloud>/image/upload/v1234/<public_id>.<ext>
+function extractPublicIdFromCloudinaryUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  try {
+    const m = url.match(/\/upload\/v\d+\/(.+?)(?:\?|$)/);
+    if (!m || !m[1]) return null;
+    return m[1].replace(/\.\w+$/, '');
+  } catch (_) {
+    return null;
+  }
+}
+
+// Collects the verification-only images (IC + bank QR + PBT).
+// Uses stored `*PublicId` when available, falls back to URL extraction.
+function collectVerificationPublicIds(h) {
+  const ids = [];
+  if (!h) return ids;
+
+  if (h.icPublicId) ids.push(h.icPublicId);
+  else if (h.icImage) {
+    const pid = extractPublicIdFromCloudinaryUrl(h.icImage);
+    if (pid) ids.push(pid);
+  }
+
+  if (h.bankQRPublicId) ids.push(h.bankQRPublicId);
+  else if (h.bankQRImage) {
+    const pid = extractPublicIdFromCloudinaryUrl(h.bankQRImage);
+    if (pid) ids.push(pid);
+  }
+
+  if (h.pbtLicensePublicId) ids.push(h.pbtLicensePublicId);
+  else if (h.pbtLicense) {
+    const pid = extractPublicIdFromCloudinaryUrl(h.pbtLicense);
+    if (pid) ids.push(pid);
+  }
+
+  return ids.filter(Boolean);
+}
+
+// Collects ALL image public IDs belonging to a listing:
+// property cover + gallery + every room + verification images.
+// Used only on reject / remove, where the whole listing is being deleted.
+function collectAllImagePublicIds(h) {
+  const ids = collectVerificationPublicIds(h);
+  if (!h) return ids;
+
+  if (Array.isArray(h.imagePublicIds)) {
+    h.imagePublicIds.forEach(p => { if (p) ids.push(p); });
+  } else if (Array.isArray(h.images)) {
+    h.images.forEach(url => {
+      const pid = extractPublicIdFromCloudinaryUrl(url);
+      if (pid) ids.push(pid);
+    });
+  }
+  if (h.image && !Array.isArray(h.imagePublicIds)) {
+    const pid = extractPublicIdFromCloudinaryUrl(h.image);
+    if (pid) ids.push(pid);
+  }
+
+  if (Array.isArray(h.rooms)) {
+    h.rooms.forEach(room => {
+      if (Array.isArray(room.imagePublicIds)) {
+        room.imagePublicIds.forEach(p => { if (p) ids.push(p); });
+      } else if (Array.isArray(room.images)) {
+        room.images.forEach(url => {
+          const pid = extractPublicIdFromCloudinaryUrl(url);
+          if (pid) ids.push(pid);
+        });
+      }
+    });
+  }
+
+  // Dedupe
+  return [...new Set(ids.filter(Boolean))];
+}
+
+// (Real version below; the stub above is intentionally left out.)
 
 // ============================================================
 // Helpers
@@ -430,12 +567,7 @@ export async function onRequestPost({ request, env }) {
         const guest = guests.find(g => String(g.id) === String(auth.session.userId));
         if (!guest) return { error: 'Guest not found', status: 404 };
 
-        // ============================================================
-        // FIX: If the SAME guest already has a Pending Payment OR
-        // Payment Failed booking for these exact dates at this
-        // homestay, reuse it instead of creating a duplicate.
-        // If it was marked Payment Failed, reopen it as Pending.
-        // ============================================================
+        // Reuse existing Pending/Failed booking for these exact dates
         const existingOwn = allBookings.find(b =>
           String(b.guestId) === String(guest.id) &&
           String(b.homestayId) === String(homestay.id) &&
@@ -475,10 +607,6 @@ export async function onRequestPost({ request, env }) {
           }
         }
 
-        // ============================================================
-        // Expire stale Pending Payment AND stale Payment Failed
-        // bookings that overlap our request. Then re-check overlap.
-        // ============================================================
         const now = Date.now();
         let modified = false;
         allBookings = allBookings.map(b => {
@@ -890,9 +1018,13 @@ export async function onRequestPost({ request, env }) {
         }
         const homestay = pending[idx];
 
+        // NEW: Collect verification image public IDs BEFORE we strip them.
+        const verificationPublicIds = collectVerificationPublicIds(homestay);
+
         const {
-          icImage, icOriginalName, icUploadDate,
-          bankQRImage, bankQROriginalName, pbtLicense,
+          icImage, icOriginalName, icUploadDate, icPublicId,
+          bankQRImage, bankQROriginalName, bankQRPublicId,
+          pbtLicense, pbtLicensePublicId,
           ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm, ownerPasswordVersion,
           ...safeHomestay
         } = homestay;
@@ -920,9 +1052,12 @@ export async function onRequestPost({ request, env }) {
           delete cleanHome.icImage;
           delete cleanHome.icOriginalName;
           delete cleanHome.icUploadDate;
+          delete cleanHome.icPublicId;
           delete cleanHome.bankQRImage;
           delete cleanHome.bankQROriginalName;
+          delete cleanHome.bankQRPublicId;
           delete cleanHome.pbtLicense;
+          delete cleanHome.pbtLicensePublicId;
           delete cleanHome.ownerPasswordHash;
           delete cleanHome.ownerSalt;
           delete cleanHome.ownerPasswordAlgorithm;
@@ -940,11 +1075,23 @@ export async function onRequestPost({ request, env }) {
 
         await invalidateOwnerSessionsForHomestay(db, safeHomestay.id);
 
+        // NEW: Destroy verification images (IC, bank QR, PBT) from Cloudinary.
+        // Best-effort — a failed destroy does NOT roll back the approval.
+        let destroyReport = { attempted: 0, succeeded: 0, failed: 0 };
+        if (verificationPublicIds.length > 0) {
+          for (const pid of verificationPublicIds) {
+            const r = await destroyCloudinaryImage(pid, env);
+            destroyReport.attempted++;
+            if (r.success) destroyReport.succeeded++;
+            else destroyReport.failed++;
+          }
+        }
+
         await logAction({
           db,
           action: 'homestay_approved',
           admin: 'admin',
-          details: `Approved homestay "${safeHomestay.name}" (ID: ${safeHomestay.id}) by ${safeHomestay.ownerName}`,
+          details: `Approved homestay "${safeHomestay.name}" (ID: ${safeHomestay.id}) by ${safeHomestay.ownerName}. Cloudinary destroy: ${destroyReport.succeeded}/${destroyReport.attempted} verified images removed.`,
           ip: clientIP,
           userId: safeHomestay.ownerEmail,
           homestayId: safeHomestay.id
@@ -971,20 +1118,52 @@ export async function onRequestPost({ request, env }) {
       const homestay = pending[idx];
       const reason = String(body.reason || '').slice(0, 500).trim();
 
+      // NEW: collect ALL image public IDs (verification + property + rooms)
+      // because the entire listing is being removed.
+      const allPublicIds = collectAllImagePublicIds(homestay);
+
       pending.splice(idx, 1);
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_pending', JSON.stringify(pending))
-        .run();
+
+      // NEW: also clean the orphaned entry from kd_homestays — this was the
+      // original bug. Previously reject only removed from kd_pending and left
+      // the bank QR URL + any other verification remnants behind forever.
+      const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
+      let allHomes = [];
+      if (homestaysRes && homestaysRes.data) {
+        try { allHomes = JSON.parse(homestaysRes.data); } catch(e) {}
+      }
+      const hIdx = allHomes.findIndex(h => String(h.id) === String(homestay.id));
+      if (hIdx !== -1) {
+        allHomes.splice(hIdx, 1);
+      }
+
+      await db.batch([
+        db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+          .bind('kd_pending', JSON.stringify(pending)),
+        db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+          .bind('kd_homestays', JSON.stringify(allHomes))
+      ]);
 
       await invalidateOwnerSessionsForHomestay(db, homestay.id);
 
       const emailResult = await sendRejectionEmail(homestay, reason, env);
 
+      // NEW: Destroy every uploaded image for this listing from Cloudinary.
+      let destroyReport = { attempted: 0, succeeded: 0, failed: 0 };
+      if (allPublicIds.length > 0) {
+        for (const pid of allPublicIds) {
+          const r = await destroyCloudinaryImage(pid, env);
+          destroyReport.attempted++;
+          if (r.success) destroyReport.succeeded++;
+          else destroyReport.failed++;
+        }
+      }
+
       await logAction({
         db,
         action: 'homestay_rejected',
         admin: 'admin',
-        details: `Rejected homestay "${homestay.name}" (ID: ${homestay.id}). Reason: ${reason || '(none)'}. Email: ${emailResult.sent ? 'sent' : 'failed — ' + (emailResult.error || 'unknown')}`,
+        details: `Rejected homestay "${homestay.name}" (ID: ${homestay.id}). Reason: ${reason || '(none)'}. Email: ${emailResult.sent ? 'sent' : 'failed — ' + (emailResult.error || 'unknown')}. Cloudinary destroy: ${destroyReport.succeeded}/${destroyReport.attempted} images removed (IC, bank QR, PBT, property, room photos).`,
         ip: clientIP,
         userId: homestay.ownerEmail,
         homestayId: homestay.id
@@ -993,7 +1172,9 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({
         success: true,
         emailSent: emailResult.sent,
-        emailError: emailResult.sent ? undefined : emailResult.error
+        emailError: emailResult.sent ? undefined : emailResult.error,
+        imagesDeleted: destroyReport.succeeded,
+        imagesAttempted: destroyReport.attempted
       }, 200, request);
     }
 
