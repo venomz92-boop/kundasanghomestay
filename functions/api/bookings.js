@@ -1,10 +1,17 @@
 // /api/bookings.js — Plain English: this file handles all booking reads and
-// writes. In THIS revision, approveHomestay and rejectHomestay now also
-// permanently delete verification images (IC, bank QR, PBT license) from
-// Cloudinary on success, matching the promise made in Data Privacy Consent.
-// On reject, all property + room photos are also destroyed, and the orphaned
-// bank-QR entry in kd_homestays is removed (previous bug). Everything else
-// (locking, admin actions, pagination, CSP, auth) is unchanged.
+// writes. In THIS revision:
+//   (1) approveHomestay and rejectHomestay permanently delete verification
+//       images (IC, bank QR, PBT license) from Cloudinary on success,
+//       matching the promise made in Data Privacy Consent.
+//   (2) On reject, all property + room photos are also destroyed, and the
+//       orphaned bank-QR entry in kd_homestays is removed.
+//   (3) deleteOwner now ALSO removes the account from kd_owners, so a
+//       "deleted" host cannot log back in and submit a new listing.
+//   (4) removeApprovedHomestay now destroys Cloudinary images and cleans
+//       the orphaned kd_homestays row.
+//   (5) updateHomestays now clears chip_bank_account_id when the bank
+//       code, account number, or holder name changes, so the next payout
+//       re-registers the bank account with CHIP using the new details.
 import {
   corsHeaders,
   getClientIP,
@@ -205,8 +212,6 @@ function collectAllImagePublicIds(h) {
   // Dedupe
   return [...new Set(ids.filter(Boolean))];
 }
-
-// (Real version below; the stub above is intentionally left out.)
 
 // ============================================================
 // Helpers
@@ -1018,7 +1023,7 @@ export async function onRequestPost({ request, env }) {
         }
         const homestay = pending[idx];
 
-        // NEW: Collect verification image public IDs BEFORE we strip them.
+        // Collect verification image public IDs BEFORE we strip them.
         const verificationPublicIds = collectVerificationPublicIds(homestay);
 
         const {
@@ -1075,7 +1080,7 @@ export async function onRequestPost({ request, env }) {
 
         await invalidateOwnerSessionsForHomestay(db, safeHomestay.id);
 
-        // NEW: Destroy verification images (IC, bank QR, PBT) from Cloudinary.
+        // Destroy verification images (IC, bank QR, PBT) from Cloudinary.
         // Best-effort — a failed destroy does NOT roll back the approval.
         let destroyReport = { attempted: 0, succeeded: 0, failed: 0 };
         if (verificationPublicIds.length > 0) {
@@ -1118,13 +1123,13 @@ export async function onRequestPost({ request, env }) {
       const homestay = pending[idx];
       const reason = String(body.reason || '').slice(0, 500).trim();
 
-      // NEW: collect ALL image public IDs (verification + property + rooms)
+      // Collect ALL image public IDs (verification + property + rooms)
       // because the entire listing is being removed.
       const allPublicIds = collectAllImagePublicIds(homestay);
 
       pending.splice(idx, 1);
 
-      // NEW: also clean the orphaned entry from kd_homestays — this was the
+      // Also clean the orphaned entry from kd_homestays — this was the
       // original bug. Previously reject only removed from kd_pending and left
       // the bank QR URL + any other verification remnants behind forever.
       const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
@@ -1148,7 +1153,7 @@ export async function onRequestPost({ request, env }) {
 
       const emailResult = await sendRejectionEmail(homestay, reason, env);
 
-      // NEW: Destroy every uploaded image for this listing from Cloudinary.
+      // Destroy every uploaded image for this listing from Cloudinary.
       let destroyReport = { attempted: 0, succeeded: 0, failed: 0 };
       if (allPublicIds.length > 0) {
         for (const pid of allPublicIds) {
@@ -1199,6 +1204,21 @@ export async function onRequestPost({ request, env }) {
         const removed = approved[idx];
         approved.splice(idx, 1);
 
+        // Collect ALL image public IDs (verification + property + rooms)
+        // because the entire listing is being removed.
+        const allPublicIds = collectAllImagePublicIds(removed);
+
+        // Remove the orphaned entry from kd_homestays.
+        const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
+        let allHomes = [];
+        if (homestaysRes && homestaysRes.data) {
+          try { allHomes = JSON.parse(homestaysRes.data); } catch(e) {}
+        }
+        const hIdx = allHomes.findIndex(h => String(h.id) === String(removed.id));
+        if (hIdx !== -1) {
+          allHomes.splice(hIdx, 1);
+        }
+
         if (isDemo) {
           const demoRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_deleted_demo').first();
           let deletedDemo = [];
@@ -1214,17 +1234,31 @@ export async function onRequestPost({ request, env }) {
             .run();
         }
 
-        await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_approved', JSON.stringify(approved))
-          .run();
+        await db.batch([
+          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_approved', JSON.stringify(approved)),
+          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_homestays', JSON.stringify(allHomes))
+        ]);
 
         await invalidateOwnerSessionsForHomestay(db, removed.id);
+
+        // Destroy every uploaded image for this listing from Cloudinary.
+        let destroyReport = { attempted: 0, succeeded: 0, failed: 0 };
+        if (allPublicIds.length > 0) {
+          for (const pid of allPublicIds) {
+            const r = await destroyCloudinaryImage(pid, env);
+            destroyReport.attempted++;
+            if (r.success) destroyReport.succeeded++;
+            else destroyReport.failed++;
+          }
+        }
 
         await logAction({
           db,
           action: 'homestay_removed',
           admin: 'admin',
-          details: `Removed homestay "${removed.name}" (ID: ${removed.id}) from approved`,
+          details: `Removed homestay "${removed.name}" (ID: ${removed.id}) from approved. Cloudinary destroy: ${destroyReport.succeeded}/${destroyReport.attempted} images removed.`,
           ip: clientIP,
           userId: removed.ownerEmail,
           homestayId: removed.id
@@ -1294,13 +1328,33 @@ export async function onRequestPost({ request, env }) {
       pending = pending.filter(h => !matches(h));
       allHomes = allHomes.filter(h => !matches(h));
 
+      // Also remove the owner's login account from kd_owners — this is
+      // the actual account they log in with. Without this, a "deleted"
+      // host can still log in and submit new listings.
+      const ownersRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
+      let owners = [];
+      try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch (_) {}
+      const beforeOwnersCount = owners.length;
+      owners = owners.filter(o => {
+        const oId = String(o.id || '');
+        const oEmail = String(o.ownerEmail || '').toLowerCase().trim();
+        const oWa = String(o.whatsapp || '').replace(/[^0-9]/g, '');
+        if (ownerId && oId === ownerId) return false;
+        if (email && oEmail === email) return false;
+        if (whatsapp && oWa === whatsapp) return false;
+        return true;
+      });
+      const removedOwnersCount = beforeOwnersCount - owners.length;
+
       await db.batch([
         db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
           .bind('kd_approved', JSON.stringify(approved)),
         db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
           .bind('kd_pending', JSON.stringify(pending)),
         db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_homestays', JSON.stringify(allHomes))
+          .bind('kd_homestays', JSON.stringify(allHomes)),
+        db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+          .bind('kd_owners', JSON.stringify(owners))
       ]);
 
       for (const h of [...removedApproved, ...removedPending]) {
@@ -1311,7 +1365,7 @@ export async function onRequestPost({ request, env }) {
         db,
         action: 'owner_deleted',
         admin: 'admin',
-        details: `Deleted owner (id=${ownerId}, email=${email}) — removed ${removedApproved.length} approved + ${removedPending.length} pending homestays`,
+        details: `Deleted owner (id=${ownerId}, email=${email}) — removed ${removedApproved.length} approved + ${removedPending.length} pending homestays + ${removedOwnersCount} owner account(s)`,
         ip: clientIP,
         userId: email || ownerId
       });
@@ -1322,6 +1376,7 @@ export async function onRequestPost({ request, env }) {
           approved: removedApproved.length,
           pending: removedPending.length
         },
+        removedOwnerAccounts: removedOwnersCount,
         removedIds: [...targetIds]
       }, 200, request);
     }
@@ -1388,6 +1443,41 @@ export async function onRequestPost({ request, env }) {
         }
       }
 
+      // Before overwriting, read the old approved list so we can detect
+      // bank-detail changes and clear the cached chip_bank_account_id.
+      // The cache must be cleared whenever bank details change, otherwise
+      // the next payout reuses the previous bank account at CHIP and
+      // money goes to the wrong place.
+      const oldApprovedRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
+      let oldApproved = [];
+      try { if (oldApprovedRes?.data) oldApproved = JSON.parse(oldApprovedRes.data); } catch (_) {}
+
+      const oldBankById = new Map();
+      for (const h of oldApproved) {
+        oldBankById.set(String(h.id), {
+          bankCode: (h.bankCode || '').toUpperCase().trim(),
+          bankAccount: (h.ownerBankAccount || '').replace(/[^0-9]/g, ''),
+          bankHolder: (h.bankHolder || '').trim().toLowerCase()
+        });
+      }
+
+      let cacheClearedCount = 0;
+      for (const h of approved) {
+        const old = oldBankById.get(String(h.id));
+        if (!old) continue;
+        const newCode = (h.bankCode || '').toUpperCase().trim();
+        const newAcct = (h.ownerBankAccount || '').replace(/[^0-9]/g, '');
+        const newHolder = (h.bankHolder || '').trim().toLowerCase();
+        const changed =
+          old.bankCode !== newCode ||
+          old.bankAccount !== newAcct ||
+          old.bankHolder !== newHolder;
+        if (changed) {
+          delete h.chip_bank_account_id;
+          cacheClearedCount++;
+        }
+      }
+
       const stmts = [];
       stmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_approved', JSON.stringify(approved)));
@@ -1411,7 +1501,7 @@ export async function onRequestPost({ request, env }) {
         db,
         action: 'homestays_updated',
         admin: 'admin',
-        details: `Updated ${approved.length} approved homestays`,
+        details: `Updated ${approved.length} approved homestays (cleared cached bank account on ${cacheClearedCount} due to bank-detail change)`,
         ip: clientIP,
         userId: 'admin'
       });
