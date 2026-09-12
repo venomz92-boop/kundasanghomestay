@@ -1,4 +1,9 @@
-// /api/retry-payout.js — Admin retries failed CHIP Send payouts + records platform fee
+// /api/retry-payout.js — Plain English: admin-triggered retry of a failed
+// CHIP Send payout. Now uses the same global bookings lock as every other
+// money-movement file, refuses to simulate in production, and treats
+// unparseable/ambiguous CHIP responses as UNKNOWN (manual verification)
+// rather than a definitive failure that would let a duplicate be sent.
+// Platform fee is only recorded on a REAL, confirmed success.
 import {
   corsHeaders,
   getClientIP,
@@ -9,6 +14,8 @@ import {
   parseJSONSafely,
   withLock
 } from './_utils.js';
+
+const BOOKINGS_LOCK = 'bookings-global';
 
 function getChipBankCode(bankName) {
   const map = {
@@ -72,9 +79,13 @@ export async function onRequestPost({ request, env }) {
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
+    const clientIP = getClientIP(request);
+
     let result;
     try {
-      result = await withLock(db, `checkin-${bookingId}`, async (db) => {
+      // C4: canonical bookings lock. This serializes against booking
+      // creation, check-in, cancellation, admin override, and admin edits.
+      result = await withLock(db, BOOKINGS_LOCK, async (db) => {
         const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
         let bookings = [];
         try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
@@ -116,13 +127,70 @@ export async function onRequestPost({ request, env }) {
 
         const apiKey = env.CHIP_API_KEY;
         const apiSecret = env.CHIP_API_SECRET;
-        if (!apiKey || !apiSecret) return { error: 'CHIP Send not configured', status: 500 };
+        const isLive = !!(apiKey && apiSecret);
+        const isProduction = env.ENVIRONMENT === 'production';
+        const simulationAllowed = !isProduction && env.ALLOW_PAYOUT_SIMULATION === 'true';
 
+        // ============================================================
+        // C1: HARD GATE. Retry cannot simulate in production.
+        // ============================================================
+        if (!isLive && isProduction) {
+          return {
+            error: 'CHIP Send keys are missing on the production server. No payout was attempted. Contact admin to restore CHIP_API_KEY / CHIP_API_SECRET.',
+            status: 500
+          };
+        }
+        if (!isLive && !simulationAllowed) {
+          return {
+            error: 'CHIP Send keys are not configured and ALLOW_PAYOUT_SIMULATION is not "true". Refusing to fake a payout.',
+            status: 500
+          };
+        }
+
+        const isSimulation = !isLive && simulationAllowed;
+
+        // ============================================================
+        // SIMULATION PATH (non-prod only, explicit flag)
+        // ============================================================
+        if (isSimulation) {
+          bookings[idx].status = 'Completed - Payout Success';
+          bookings[idx].payoutSuccess = true;
+          bookings[idx].payoutSuccessDate = new Date().toISOString();
+          bookings[idx].payoutAmount = ownerAmount;
+          bookings[idx].ownerPayoutId = 'SIM_' + Date.now();
+          bookings[idx].payoutMethod = 'Simulated (retry)';
+          bookings[idx].payoutSimulated = true;
+          bookings[idx].retriedAt = new Date().toISOString();
+          bookings[idx].payoutFailedAttempt = false;
+          delete bookings[idx].lastPayoutError;
+
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_bookings', JSON.stringify(bookings)).run();
+
+          await logAction({
+            db,
+            action: 'payout_retry_simulated',
+            admin: 'admin',
+            details: `Simulated retry payout for ${bookingId} (RM${ownerAmount})`,
+            ip: clientIP,
+            homestayId: booking.homestayId
+          });
+
+          return {
+            success: true,
+            simulated: true,
+            payoutId: bookings[idx].ownerPayoutId,
+            amount: ownerAmount,
+            bookingId
+          };
+        }
+
+        // ============================================================
+        // LIVE PATH
+        // ============================================================
         const chipBankCode = getChipBankCode(homestay.ownerBank || homestay.bankCode || '');
 
-        // ============================================================
         // STEP A: Ensure CHIP bank account exists
-        // ============================================================
         let bankAccountId = homestay.chip_bank_account_id || null;
         if (!bankAccountId) {
           const bankEpoch = Math.floor(Date.now() / 1000);
@@ -133,19 +201,28 @@ export async function onRequestPost({ request, env }) {
           });
           const bankChecksum = await hmacSha512(`${bankEpoch}${apiKey}`, apiSecret);
 
-          const bankRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-              'epoch': String(bankEpoch),
-              'checksum': bankChecksum
-            },
-            body: bankBody
-          });
-          const bankData = await bankRes.json();
-          if (!bankRes.ok || !bankData.id) {
-            return { error: 'Failed to create bank account: ' + (bankData.error || 'unknown'), status: 502 };
+          let bankRes;
+          try {
+            bankRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'epoch': String(bankEpoch),
+                'checksum': bankChecksum
+              },
+              body: bankBody
+            });
+          } catch (netErr) {
+            return { error: `Bank-account lookup failed (network). No payout sent. Error: ${netErr.message}`, status: 502 };
+          }
+
+          let bankData = null;
+          let bankParseFailed = false;
+          try { bankData = await bankRes.json(); } catch (_) { bankParseFailed = true; }
+
+          if (bankParseFailed || !bankRes.ok || !bankData?.id) {
+            return { error: 'Failed to create bank account at CHIP. No payout sent.', status: 502 };
           }
           bankAccountId = bankData.id;
 
@@ -163,9 +240,7 @@ export async function onRequestPost({ request, env }) {
           }
         }
 
-        // ============================================================
         // STEP B: Send payout
-        // ============================================================
         const amountCents = Math.round(ownerAmount * 100);
         const reference = `KDH-${bookingId}`;
         const payoutPayload = {
@@ -209,16 +284,45 @@ export async function onRequestPost({ request, env }) {
           };
         }
 
-        let payoutData;
-        try { payoutData = await payoutRes.json(); } catch (_) { payoutData = {}; }
+        // H3: unparseable response → UNKNOWN, not definitive failure.
+        let payoutData = null;
+        let parseFailed = false;
+        try { payoutData = await payoutRes.json(); } catch (_) { parseFailed = true; }
 
-        if (!payoutRes.ok || !payoutData.id) {
-          return { error: 'CHIP Send failed: ' + (payoutData.error || 'unknown'), status: 502 };
+        if (parseFailed) {
+          bookings[idx].payoutUnknown = true;
+          bookings[idx].payoutUnknownAt = new Date().toISOString();
+          bookings[idx].payoutUnknownError = 'Unparseable response from CHIP Send';
+          bookings[idx].status = 'Completed - Payout Unknown';
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+          return {
+            error: `CHIP Send returned an unparseable response. Payout status is UNKNOWN — verify reference ${reference} in the CHIP dashboard before retrying.`,
+            status: 502
+          };
         }
 
-        // ============================================================
+        if (!payoutRes.ok || !payoutData.id) {
+          const errStr = String(payoutData?.error || payoutData?.message || '').toLowerCase();
+          const isStructuredRejection = payoutRes.status >= 400 && payoutRes.status < 500 && errStr.length > 0;
+          if (isStructuredRejection) {
+            return { error: 'CHIP Send rejected the payout: ' + (payoutData.error || payoutData.message), status: 502 };
+          }
+          bookings[idx].payoutUnknown = true;
+          bookings[idx].payoutUnknownAt = new Date().toISOString();
+          bookings[idx].payoutUnknownError = `Ambiguous CHIP response (HTTP ${payoutRes.status})`;
+          bookings[idx].status = 'Completed - Payout Unknown';
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+          return {
+            error: `CHIP Send response ambiguous (HTTP ${payoutRes.status}). Status set to UNKNOWN. Verify reference ${reference} in the CHIP dashboard.`,
+            status: 502
+          };
+        }
+
         // STEP C: Update booking on success
-        // ============================================================
         bookings[idx].status = 'Completed - Payout Success';
         bookings[idx].payoutSuccess = true;
         bookings[idx].payoutSuccessDate = new Date().toISOString();
@@ -232,7 +336,7 @@ export async function onRequestPost({ request, env }) {
         await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
           .bind('kd_bookings', JSON.stringify(bookings)).run();
 
-        // Record platform fee (idempotent)
+        // Record platform fee (idempotent) — ONLY on real success.
         try {
           const feeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_fee_earnings').first();
           let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
@@ -253,7 +357,7 @@ export async function onRequestPost({ request, env }) {
                 type: 'earning',
                 payoutToOwner: ownerAmount,
                 method: 'chip_send_retry',
-                ip: getClientIP(request)
+                ip: clientIP
               });
               await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
                 .bind('kd_fee_earnings', JSON.stringify(feeEarnings)).run();
@@ -266,7 +370,7 @@ export async function onRequestPost({ request, env }) {
           action: 'payout_retried',
           admin: 'admin',
           details: `Retried payout for ${bookingId}: ${payoutData.id} (RM${ownerAmount})`,
-          ip: getClientIP(request),
+          ip: clientIP,
           homestayId: booking.homestayId
         });
 
@@ -279,7 +383,7 @@ export async function onRequestPost({ request, env }) {
       }, 60000);
     } catch (lockErr) {
       if (lockErr.message && lockErr.message.includes('in progress')) {
-        return jsonResponse({ error: 'A payout or check-in is already in progress for this booking. Please wait.' }, 429, request);
+        return jsonResponse({ error: 'Another booking operation is in progress. Please wait.' }, 429, request);
       }
       throw lockErr;
     }
