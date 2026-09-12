@@ -2,23 +2,16 @@
 // actions: block/unblock a room date, change the nightly price, shift a
 // booking's dates, and cancel a booking (with automatic refund).
 //
-// [PREVIOUS] Cancellation emails. When a host cancels a booking, the guest
-// now receives an email describing the outcome (refund processed / refund
-// processing / refund failed / no refund needed). Best-effort: an email
-// failure never blocks the cancellation itself.
-//
 // [THIS REVISION]
-// (1) Refund amount uses `amount_paid` (the amount CHIP actually collected)
-//     instead of `total` (which can be recalculated by an admin editing
-//     dates on a paid booking).
-// (2) Before calling CHIP, we write a `refund_attempted_at` marker to the
-//     booking. If a second cancel request arrives while the first is
-//     still talking to CHIP (a stale-lock race), it sees the marker and
-//     refuses, preventing a double refund.
-// (3) `calculatePrice` returns `youReceive: base` — the host's payout —
-//     matching the meaning of `youReceive` used everywhere else. It used
-//     to return `fee - gatewayFee` (the platform's cut), which was the
-//     wrong number for a field labelled "youReceive".
+// All four ownership checks (updateRoomBlock, updateHomestayPrice,
+// changeDates, cancelBooking) now resolve the owner's homestay IDs FRESH
+// from D1 by calling getOwnerHomestayIdsFresh() in _utils.js. Previously
+// they trusted the session token's `homestayIds` snapshot, which was
+// taken at login / email-verification time and went stale whenever a new
+// listing was approved after that moment. The symptom was:
+//   "Unauthorized: You do not own this homestay"
+// on any host action for a listing that was approved after the session
+// token was minted.
 import {
   corsHeaders,
   getClientIP,
@@ -26,14 +19,13 @@ import {
   enforceHttps,
   getOwnerSession,
   jsonResponse,
-  withLock
+  withLock,
+  getOwnerHomestayIdsFresh
 } from './_utils.js';
 
 const MAX_NIGHTS = 60;
 const GATEWAY_FEE = 1.00;
 
-// Canonical lock key. EVERY kd_bookings (and related) write in this file
-// goes through this same key so nothing can interleave.
 const BOOKINGS_LOCK = 'bookings-global';
 
 async function verifyOwner(request, env) { return getOwnerSession(request, env); }
@@ -51,9 +43,6 @@ function calculatePrice(ownerPrice, nights = 1) {
   const fee = Math.round((base * 11) / 100);
   const gatewayFee = GATEWAY_FEE;
   const total = base + fee + gatewayFee;
-  // [FIX 1.8] `youReceive` = the host's payout. Was previously
-  // `fee - gatewayFee` (the platform's cut), which was the wrong
-  // meaning for a field labelled "youReceive".
   return { nights, base, fee, gatewayFee, total, youReceive: base };
 }
 
@@ -118,15 +107,6 @@ function isPaidBooking(booking) {
   return false;
 }
 
-// ============================================================
-// Cancellation email — best-effort, never blocks the cancel.
-//
-// Four cases:
-//   1. Paid + refund fully processed     → green header + refund ID
-//   2. Paid + refund pending at CHIP     → amber header, "processing"
-//   3. Paid + refund FAILED               → red header, "manual review"
-//   4. Unpaid                             → grey header, "no refund needed"
-// ============================================================
 async function sendCancellationEmail(booking, refundInfo, env) {
   if (!booking || !booking.guestEmail) {
     return { sent: false, error: 'No guest email on file' };
@@ -241,6 +221,15 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json();
     const { bookingId, checkin, checkout, action } = body;
 
+    const db = env.DB;
+    if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+
+    // ===== Resolve owner's homestay IDs FRESH from D1. =====
+    // Never trust the session token's homestayIds snapshot — it can be
+    // stale if a listing was approved after the token was minted.
+    const ownerHomestayIds = await getOwnerHomestayIdsFresh(db, ownerData);
+
     // ===== ACTION: Update room block (LOCK PROTECTED) =====
     if (action === 'updateRoomBlock') {
       const { homestayId, roomId, date } = body;
@@ -248,14 +237,9 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Missing homestayId, roomId, or date' }, 400, request);
       }
 
-      const ownerHomestayIds = (ownerData.homestayIds || []).map(String);
-      if (!ownerHomestayIds.includes(String(homestayId))) {
+      if (!ownerHomestayIds.map(String).includes(String(homestayId))) {
         return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
       }
-
-      const db = env.DB;
-      if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
-      await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
       let result;
       try {
@@ -333,8 +317,7 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Missing homestayId or newPrice' }, 400, request);
       }
 
-      const ownerHomestayIds = (ownerData.homestayIds || []).map(String);
-      if (!ownerHomestayIds.includes(String(homestayId))) {
+      if (!ownerHomestayIds.map(String).includes(String(homestayId))) {
         return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
       }
 
@@ -342,10 +325,6 @@ export async function onRequestPost({ request, env }) {
       if (isNaN(priceNum) || priceNum < 0) {
         return jsonResponse({ error: 'Invalid price (must be a positive number)' }, 400, request);
       }
-
-      const db = env.DB;
-      if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
-      await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
       let result;
       try {
@@ -398,10 +377,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Missing bookingId' }, 400, request);
     }
 
-    const db = env.DB;
-    if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
-    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
-
     // ========== ACTION: CHANGE DATES ==========
     if (action === 'changeDates') {
       if (!checkin || !checkout) {
@@ -425,8 +400,7 @@ export async function onRequestPost({ request, env }) {
       const preBooking = preBookings.find(b => String(b.id) === String(bookingId));
       if (!preBooking) return jsonResponse({ error: 'Invalid request.' }, 400, request);
 
-      const ownerHomestayIds = (ownerData.homestayIds || [ownerData.ownerId]).map(String);
-      if (!ownerHomestayIds.includes(String(preBooking.homestayId))) {
+      if (!ownerHomestayIds.map(String).includes(String(preBooking.homestayId))) {
         return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
       }
 
@@ -568,8 +542,7 @@ export async function onRequestPost({ request, env }) {
       const preBooking = preBookings.find(b => String(b.id) === String(bookingId));
       if (!preBooking) return jsonResponse({ error: 'Invalid request.' }, 400, request);
 
-      const ownerHomestayIds = (ownerData.homestayIds || [ownerData.ownerId]).map(String);
-      if (!ownerHomestayIds.includes(String(preBooking.homestayId))) {
+      if (!ownerHomestayIds.map(String).includes(String(preBooking.homestayId))) {
         return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
       }
 
@@ -597,9 +570,6 @@ export async function onRequestPost({ request, env }) {
             return { error: 'This booking has already been refunded.', status: 400 };
           }
 
-          // [FIX 1.5] Unresolved-refund guard: a refund was started but
-          // never confirmed. Refuse to fire a second one; the admin must
-          // verify in the CHIP dashboard first.
           if (booking.refund_attempted_at && !booking.chip_refund_id) {
             return {
               error: `A refund was already attempted for this booking at ${booking.refund_attempted_at}. Log into the CHIP dashboard and check purchase ${booking.chip_purchase_id || '(unknown)'} before retrying. If no refund exists, contact support to clear the marker.`,
@@ -613,9 +583,6 @@ export async function onRequestPost({ request, env }) {
           let refundError = null;
 
           if (isPaid && booking.chip_purchase_id) {
-            // [FIX 1.5] Mark the attempt BEFORE calling CHIP. If the lock
-            // goes stale while CHIP is talking (a slow round-trip), a
-            // second cancel request will see this marker and refuse.
             bookings[idx].refund_attempted_at = new Date().toISOString();
             bookings[idx].refund_attempted_by = 'host';
             await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
@@ -623,8 +590,6 @@ export async function onRequestPost({ request, env }) {
               .run();
 
             try {
-              // [FIX 1.4] Refund the amount CHIP actually collected,
-              // not the amount an admin may have recalculated.
               refundData = await processChipRefund(
                 booking.chip_purchase_id,
                 booking.amount_paid || booking.total,
@@ -641,7 +606,6 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded';
             bookings[idx].chip_refund_id = refundData.id;
             bookings[idx].refunded_at = new Date().toISOString();
-            // [FIX 1.4] Refund amount stored = what was actually paid.
             bookings[idx].refund_amount = booking.amount_paid || booking.total;
             bookings[idx].cancelled_by = 'host';
             bookings[idx].statusUpdated = new Date().toISOString();
@@ -684,10 +648,6 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: result.error }, result.status || 400, request);
       }
 
-      // ============================================================
-      // Send the cancellation email to the guest. Best-effort:
-      // an email failure never rolls back the cancellation or refund.
-      // ============================================================
       let emailReport = { sent: false, error: 'skipped' };
       try {
         emailReport = await sendCancellationEmail(result.booking, {
