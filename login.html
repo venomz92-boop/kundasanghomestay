@@ -247,6 +247,9 @@
 
 <script src="animations.js"></script>
 <script>
+  /* ============================================================
+   * CUSTOM MODAL SYSTEM
+   * ============================================================ */
   function showModal(title, message, buttons) {
     return new Promise(function(resolve) {
       var overlay = document.getElementById('customModal');
@@ -306,44 +309,40 @@
     }
   });
 
+  /* ============================================================
+   * SESSION CONTEXT
+   * ============================================================ */
   var API_BASE = "/api";
   var currentGuest = null;
 
   if (window.GuestSession && window.GuestSession.isGuestSessionValid()) {
-    try {
-      currentGuest = JSON.parse(localStorage.getItem('kd_guest'));
-    } catch (e) {
-      currentGuest = null;
-    }
+    currentGuest = window.GuestSession.readGuest();
   } else {
     if (window.GuestSession) window.GuestSession.clearGuestSession();
     currentGuest = null;
   }
 
   function renderGuestNav() {
+    // GuestSession owns the DOM updates now; this hook just runs it.
+    if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+      window.GuestSession.updateNavDOM();
+      return;
+    }
+    // Fallback if GuestSession failed to load for any reason.
     var loginNav = document.getElementById("guestNav");
     var profileNav = document.getElementById("guestProfileNav");
     var mLoginNav = document.getElementById("mGuestNav");
     var mProfileNav = document.getElementById("mGuestProfileNav");
-    var mAvatar = document.getElementById("mGuestAvatar");
-    var mNameNav = document.getElementById("mGuestNameNav");
-
-    if (currentGuest) {
+    if (currentGuest && currentGuest.id) {
       if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
       if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
-      var avatar = document.getElementById("guestAvatar");
-      var nameNav = document.getElementById("guestNameNav");
-      if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-      if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
-      if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
-      if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
-      if (mAvatar) mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-      if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
+      if (mLoginNav) mLoginNav.classList.add("hidden");
+      if (mProfileNav) mProfileNav.classList.remove("hidden");
     } else {
       if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
       if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-      if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
-      if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
+      if (mLoginNav) mLoginNav.classList.remove("hidden");
+      if (mProfileNav) mProfileNav.classList.add("hidden");
     }
   }
 
@@ -353,6 +352,12 @@
     }
   };
 
+  /* ============================================================
+   * LOGIN HANDLER — cookie-based.
+   * The server no longer returns the session token; the HttpOnly
+   * cookie is set automatically via Set-Cookie. We only persist
+   * the guest profile + expiry timestamp locally for the UI.
+   * ============================================================ */
   async function handleLogin(e) {
     e.preventDefault();
     var email = document.getElementById('loginEmail').value.trim().toLowerCase();
@@ -384,11 +389,27 @@
         return;
       }
 
-      if (data.success) {
+      if (data.success && data.guest) {
         currentGuest = data.guest;
-        localStorage.setItem('kd_guest', JSON.stringify(currentGuest));
-        if (data.csrfToken) localStorage.setItem('kd_csrf_token', data.csrfToken);
-        if (data.token) localStorage.setItem('kd_guest_token', data.token);
+
+        // Persist guest profile + TTL. NO TOKEN — the cookie carries it.
+        if (window.GuestSession && typeof window.GuestSession.setSession === 'function') {
+          window.GuestSession.setSession(data.guest, data.expiresIn);
+        } else {
+          // Fallback if GuestSession failed to load.
+          try {
+            localStorage.setItem('kd_guest', JSON.stringify(data.guest));
+            var ttl = Number(data.expiresIn) || 7200;
+            localStorage.setItem('kd_guest_expires_at', String(Date.now() + ttl * 1000));
+          } catch (e) {}
+        }
+
+        // CSRF token is still returned in the body — that's fine to
+        // keep in JS because it is not a session credential.
+        if (data.csrfToken) {
+          try { localStorage.setItem('kd_csrf_token', data.csrfToken); } catch (e) {}
+        }
+
         renderGuestNav();
 
         await showAlert('Login Successful', 'You have been logged in successfully. Your session will expire in 2 hours.');
