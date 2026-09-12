@@ -12,21 +12,25 @@
 //                                 Platform retains RM 0.00.
 //
 //   cancelType: 'guest_request' — guest asked to cancel, host approved.
-//                                 Guest receives the BASE amount only.
-//                                 The service fee + gateway fee are retained
-//                                 by the platform, per policy.
+//                                 Guest receives the BASE amount MINUS the
+//                                 CHIP refund fee (RM 1.00 for FPX B2C).
+//                                 The service fee and gateway fee are
+//                                 retained by the platform.
+//                                 The RM 1.00 CHIP refund fee is passed on
+//                                 to the guest by reducing their refund.
 //
-// NEW: when a guest_request cancellation completes successfully, the
-// retained amount (service fee + gateway fee) is now written to the
-// kd_fee_earnings ledger — the same ledger the check-in flow uses.
-// The write happens inside the same lock and the same db.batch as the
-// booking status update, so the two records land together or not at all.
+// The retained amount is written to the kd_fee_earnings ledger (gross
+// retained) alongside a separate kd_chip_costs ledger that records the
+// CHIP fees the platform paid. The platform's true net cash position is
+//   kd_fee_earnings.available − kd_chip_costs.available.
+//
+// Both ledger entries are written inside the same lock and the same
+// db.batch as the booking status update, so they land together or not
+// at all.
 //
 // The retained-fee history entry uses type: 'cancellation_retained_fee',
-// which is distinct from type: 'earning' (check-in flow). The admin
-// dashboard aggregates both. A guard prevents double-recording if the
-// same booking is cancelled twice (which the code already prevents, but
-// the guard is defensive).
+// which is distinct from type: 'earning' (check-in flow). A guard
+// prevents double-recording if the same booking is cancelled twice.
 import {
   corsHeaders,
   getClientIP,
@@ -40,6 +44,16 @@ import {
 
 const MAX_NIGHTS = 60;
 const GATEWAY_FEE = 1.00;
+
+// CHIP's FPX B2C fee schedule (from chip-in.asia pricing page):
+//   - RM 1.00 per paid transaction
+//   - RM 1.00 per refund (FPX B2C only)
+// These are hardcoded because CHIP does not expose them via API. If CHIP
+// changes their published rates, update these two constants AND the
+// corresponding numbers in refund-cancellation.html.
+const CHIP_PAYMENT_FEE = 1.00;
+const CHIP_REFUND_FEE = 1.00;
+const CHIP_TOTAL_FEES_PER_CANCELLATION = CHIP_PAYMENT_FEE + CHIP_REFUND_FEE;
 
 const BOOKINGS_LOCK = 'bookings-global';
 
@@ -133,13 +147,16 @@ async function sendCancellationEmail(booking, refundInfo, env) {
 
   const refundAmountNum = Number(
     refundInfo.refundAmount ||
-    (isGuestRequest ? booking.base : (booking.amount_paid || booking.total)) ||
+    (isGuestRequest ? (booking.base - CHIP_REFUND_FEE) : (booking.amount_paid || booking.total)) ||
     0
   );
   const refundAmount = refundAmountNum.toFixed(2);
   const totalPaidNum = Number(booking.amount_paid || booking.total || 0);
   const totalPaid = totalPaidNum.toFixed(2);
-  const feeRetainedNum = Math.max(0, totalPaidNum - refundAmountNum);
+  const baseNum = Number(booking.base || 0);
+  const baseStr = baseNum.toFixed(2);
+  const chipRefundFee = CHIP_REFUND_FEE.toFixed(2);
+  const feeRetainedNum = Math.max(0, Math.round((totalPaidNum - refundAmountNum) * 100) / 100);
   const feeRetained = feeRetainedNum.toFixed(2);
 
   const initiatedBy = isGuestRequest
@@ -157,16 +174,24 @@ async function sendCancellationEmail(booking, refundInfo, env) {
 
     const refundNote = isGuestRequest
       ? `
-        <p>Per our cancellation policy, the platform service fee and payment gateway fee are <strong>non-refundable</strong> on guest-requested cancellations.</p>
-        <p>A refund of <strong>RM${refundAmount}</strong> has been processed to your original payment method via CHIP. This represents the base nightly rate.</p>
+        <p>Per our cancellation policy, on guest-requested cancellations the platform service fee and payment gateway fee are <strong>non-refundable</strong>. The payment processor's refund fee is passed on to you.</p>
+        <p>A refund of <strong>RM${refundAmount}</strong> has been processed to your original payment method via CHIP.</p>
         <table style="font-size:13px;margin:12px 0;">
           <tr>
             <td style="padding:4px 12px 4px 0;color:#6b7280;">You paid</td>
             <td style="padding:4px 0;font-weight:600;">RM ${totalPaid}</td>
           </tr>
           <tr>
-            <td style="padding:4px 12px 4px 0;color:#6b7280;">Service fee retained</td>
-            <td style="padding:4px 0;font-weight:600;">− RM ${feeRetained}</td>
+            <td style="padding:4px 12px 4px 0;color:#6b7280;">Base nightly rate</td>
+            <td style="padding:4px 0;font-weight:600;">RM ${baseStr}</td>
+          </tr>
+          <tr>
+            <td style="padding:4px 12px 4px 0;color:#6b7280;">Less: processor refund fee</td>
+            <td style="padding:4px 0;font-weight:600;">− RM ${chipRefundFee}</td>
+          </tr>
+          <tr>
+            <td style="padding:4px 12px 4px 0;color:#6b7280;">Less: service fee + gateway fee</td>
+            <td style="padding:4px 0;font-weight:600;">− RM ${(feeRetainedNum - CHIP_REFUND_FEE).toFixed(2)}</td>
           </tr>
           <tr style="border-top:1px solid #e5e7eb;">
             <td style="padding:6px 12px 4px 0;color:#0F382E;font-weight:700;">Refunded to you</td>
@@ -192,7 +217,7 @@ async function sendCancellationEmail(booking, refundInfo, env) {
     headerText = '⏳ Booking Cancelled — Refund Processing';
 
     const pendingNote = isGuestRequest
-      ? `<p>A refund of <strong>RM${refundAmount}</strong> is being processed by CHIP. Per policy, the platform service fee of <strong>RM${feeRetained}</strong> is retained on guest-requested cancellations.</p>`
+      ? `<p>A refund of <strong>RM${refundAmount}</strong> is being processed by CHIP. Per policy, the platform service fee and gateway fee are retained, and the payment processor's refund fee is passed on to you.</p>`
       : `<p>A <strong>full refund of RM${refundAmount}</strong> is being processed by CHIP. This usually completes within a few minutes.</p>`;
 
     bodyHtml = `
@@ -646,9 +671,13 @@ export async function onRequestPost({ request, env }) {
 
           const totalPaidNum = Number(booking.amount_paid || booking.total) || 0;
           const baseAmountNum = Number(booking.base) || 0;
+
+          // [NEW POLICY] For guest_request: refund = base − CHIP refund fee.
+          // For host_own: refund = full amount paid.
           const refundAmountNum = cancelType === 'guest_request'
-            ? baseAmountNum
+            ? Math.max(0, Math.round((baseAmountNum - CHIP_REFUND_FEE) * 100) / 100)
             : totalPaidNum;
+
           const feeRetainedNum = Math.max(0, Math.round((totalPaidNum - refundAmountNum) * 100) / 100);
 
           let refundSuccess = false;
@@ -705,32 +734,35 @@ export async function onRequestPost({ request, env }) {
           }
 
           // -----------------------------------------------------------
-          // RETAINED-FEE LEDGER ENTRY
+          // LEDGER WRITES
           //
-          // Only written when:
-          //   - cancelType is 'guest_request'
-          //   - the booking was paid
-          //   - the refund actually succeeded (either immediate or
-          //     pending at CHIP; both count as "amount fixed")
-          //   - the retained amount is greater than zero
+          // Two ledgers are written whenever a paid cancellation succeeds:
           //
-          // The retained amount is totalPaid − refundAmount, which for
-          // a guest_request cancellation equals the service fee plus
-          // the gateway fee.
+          //   kd_fee_earnings — the GROSS amount retained from the guest
+          //     (i.e. totalPaid − refundAmount). For guest_request this is
+          //     base + fee + gatewayFee minus (base − CHIP refund fee),
+          //     which equals fee + gatewayFee + CHIP refund fee.
+          //     For host_own this is zero.
           //
-          // Guard: skip if a fee entry for this booking already exists
-          // (either a normal 'earning' from a check-in or a previous
-          // 'cancellation_retained_fee' entry).
+          //   kd_chip_costs — CHIP's fees the platform paid out of the
+          //     above, being the RM 1.00 payment fee plus the RM 1.00
+          //     refund fee. Recorded separately so the platform can see
+          //     its true net position:
+          //       net = kd_fee_earnings.available − kd_chip_costs.available
+          //
+          // Both writes happen in the same db.batch as the booking
+          // update. If either fails, none of the three land.
+          //
+          // Guard: skip if a fee entry for this booking already exists in
+          // either ledger.
           // -----------------------------------------------------------
           let feeEarningsToWrite = null;
           let feeRecordedAmount = 0;
+          let chipCostsToWrite = null;
+          let chipCostRecorded = 0;
 
-          if (
-            cancelType === 'guest_request' &&
-            isPaid &&
-            refundSuccess &&
-            feeRetainedNum > 0
-          ) {
+          if (isPaid && refundSuccess) {
+            // --- kd_fee_earnings (gross retained) ---
             try {
               const feeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
               let feeEarnings = feeRes && feeRes.data
@@ -743,7 +775,7 @@ export async function onRequestPost({ request, env }) {
                 (h.type === 'earning' || h.type === 'cancellation_retained_fee')
               );
 
-              if (!alreadyRecorded) {
+              if (!alreadyRecorded && feeRetainedNum > 0) {
                 feeEarnings.total = Math.round(((feeEarnings.total || 0) + feeRetainedNum) * 100) / 100;
                 feeEarnings.available = Math.round(((feeEarnings.available || 0) + feeRetainedNum) * 100) / 100;
                 feeEarnings.history.push({
@@ -751,7 +783,7 @@ export async function onRequestPost({ request, env }) {
                   fee: feeRetainedNum,
                   date: new Date().toISOString(),
                   type: 'cancellation_retained_fee',
-                  cancellation_type: 'guest_request',
+                  cancellation_type: cancelType,
                   original_amount_paid: totalPaidNum,
                   refunded_amount: refundAmountNum,
                   method: 'chip_collect_partial_refund',
@@ -762,13 +794,41 @@ export async function onRequestPost({ request, env }) {
               }
             } catch (feeReadErr) {
               console.error('Could not read fee earnings before cancel batch:', feeReadErr.message);
-              // Do NOT fail the cancellation — the refund has already
-              // happened at CHIP. Log the failure so it can be reconciled
-              // manually. The booking status update will still proceed.
+            }
+
+            // --- kd_chip_costs (CHIP fees) ---
+            try {
+              const chipRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_chip_costs').first();
+              let chipCosts = chipRes && chipRes.data
+                ? JSON.parse(chipRes.data)
+                : { total: 0, history: [] };
+              chipCosts.history = chipCosts.history || [];
+
+              const alreadyRecordedChip = chipCosts.history.some(h =>
+                h.bookingId === bookingId && h.type === 'cancellation'
+              );
+
+              if (!alreadyRecordedChip) {
+                chipCosts.total = Math.round(((chipCosts.total || 0) + CHIP_TOTAL_FEES_PER_CANCELLATION) * 100) / 100;
+                chipCosts.history.push({
+                  bookingId,
+                  amount: CHIP_TOTAL_FEES_PER_CANCELLATION,
+                  payment_fee: CHIP_PAYMENT_FEE,
+                  refund_fee: CHIP_REFUND_FEE,
+                  date: new Date().toISOString(),
+                  type: 'cancellation',
+                  cancellation_type: cancelType,
+                  ip: getClientIP(request)
+                });
+                chipCostsToWrite = chipCosts;
+                chipCostRecorded = CHIP_TOTAL_FEES_PER_CANCELLATION;
+              }
+            } catch (chipReadErr) {
+              console.error('Could not read chip costs before cancel batch:', chipReadErr.message);
             }
           }
 
-          // Atomic write: booking (always) + fee earnings (when applicable).
+          // Atomic write: booking (always) + fee earnings + chip costs (when applicable).
           const atomicStmts = [
             db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
               .bind('kd_bookings', JSON.stringify(bookings))
@@ -779,13 +839,19 @@ export async function onRequestPost({ request, env }) {
                 .bind('kd_fee_earnings', JSON.stringify(feeEarningsToWrite))
             );
           }
+          if (chipCostsToWrite) {
+            atomicStmts.push(
+              db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+                .bind('kd_chip_costs', JSON.stringify(chipCostsToWrite))
+            );
+          }
 
           try {
             await db.batch(atomicStmts);
           } catch (batchErr) {
             console.error('Atomic batch write failed during cancel:', batchErr.message);
             return {
-              error: `Refund succeeded at CHIP but the booking and ledger could not be updated (${batchErr.message}). Booking left in "attempt marker only" state. Verify refund ${refundData?.id || ''} in the CHIP dashboard, then contact support to reconcile.`,
+              error: `Refund succeeded at CHIP but the booking and ledgers could not be updated (${batchErr.message}). Booking left in "attempt marker only" state. Verify refund ${refundData?.id || ''} in the CHIP dashboard, then contact support to reconcile.`,
               status: 500
             };
           }
@@ -797,6 +863,7 @@ export async function onRequestPost({ request, env }) {
             refundAmountNum,
             feeRetainedNum,
             feeRecordedAmount,
+            chipCostRecorded,
             refundSuccess,
             refundData,
             refundError,
@@ -848,7 +915,7 @@ export async function onRequestPost({ request, env }) {
                     : `Refund processed: ${result.refundData.id}, RM${result.refundAmountNum.toFixed(2)}`)
                 : 'Refund failed: ' + result.refundError)
             : '(unpaid)'
-        }. Retained fee recorded to ledger: RM${(result.feeRecordedAmount || 0).toFixed(2)}. Cancellation email: ${emailReport.sent ? 'sent' : 'failed — ' + (emailReport.error || 'unknown')}`,
+        }. Retained fee recorded to ledger: RM${(result.feeRecordedAmount || 0).toFixed(2)}. Chip cost recorded: RM${(result.chipCostRecorded || 0).toFixed(2)}. Cancellation email: ${emailReport.sent ? 'sent' : 'failed — ' + (emailReport.error || 'unknown')}`,
         ip: clientIP,
         userId: result.booking.guestEmail,
         homestayId: result.booking.homestayId
@@ -864,7 +931,7 @@ export async function onRequestPost({ request, env }) {
             return `Booking ${bookingId} cancelled. CHIP is processing the refund of RM${amt} — this can take a few minutes. The guest will be notified when complete.`;
           }
           if (result.cancelType === 'guest_request') {
-            return `Booking ${bookingId} cancelled at guest request. Refund of RM${amt} processed (base amount only; service fee retained).`;
+            return `Booking ${bookingId} cancelled at guest request. Refund of RM${amt} processed (base amount minus the RM 1.00 processor refund fee; service fee retained).`;
           }
           return `Booking ${bookingId} cancelled and full refund of RM${amt} processed.`;
         }
@@ -878,6 +945,7 @@ export async function onRequestPost({ request, env }) {
         refundAmount: result.refundAmountNum,
         feeRetained: result.feeRetainedNum,
         feeRecorded: result.feeRecordedAmount,
+        chipCostRecorded: result.chipCostRecorded,
         booking: result.booking,
         refund: result.refundData || undefined,
         refundError: result.refundError || undefined,
