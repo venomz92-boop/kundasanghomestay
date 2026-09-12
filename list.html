@@ -794,17 +794,196 @@ function compressImageToBlob(file, maxWidth, quality) {
 // TEMP STORAGE
 // =============================================================
 let tempPhotos = [];
-let tempPhotoPublicIds = [];              // NEW: parallel to tempPhotos
+let tempPhotoPublicIds = [];              // parallel to tempPhotos
 let tempBlockedDates = [];
 let tempIcWatermarked = "";
-let tempIcPublicId = "";                  // NEW
+let tempIcPublicId = "";
 let tempIcOriginalName = "";
 let tempBankQRWatermarked = "";
-let tempBankQRPublicId = "";              // NEW
+let tempBankQRPublicId = "";
 let tempBankQROriginalName = "";
 let tempPbtLicense = "";
-let tempPbtPublicId = "";                 // NEW
+let tempPbtPublicId = "";
 let tempRooms = [];                       // each room: { ..., imagePublicIds: [] }
+
+// =============================================================
+// FORM DRAFT (localStorage)
+// Fix #6: preserves the entire form when the server returns
+// OWNER_ACCOUNT_REQUIRED and the user is redirected to register.
+// =============================================================
+const DRAFT_KEY = 'kd_list_draft_v1';
+
+function saveDraft() {
+  try {
+    const draft = {
+      savedAt: Date.now(),
+      fields: {
+        listOwnerName:      document.getElementById('listOwnerName')?.value || '',
+        listWhatsapp:       document.getElementById('listWhatsapp')?.value || '',
+        listOwnerEmail:     document.getElementById('listOwnerEmail')?.value || '',
+        listHomestayName:   document.getElementById('listHomestayName')?.value || '',
+        listArea:           document.getElementById('listArea')?.value || '',
+        listPrice:          document.getElementById('listPrice')?.value || '',
+        listGuests:         document.getElementById('listGuests')?.value || '',
+        listBedrooms:       document.getElementById('listBedrooms')?.value || '',
+        listDescription:    document.getElementById('listDescription')?.value || '',
+        listBankName:       document.getElementById('listBankName')?.value || '',
+        listBankCode:       document.getElementById('listBankCode')?.value || '',
+        listBankAccount:    document.getElementById('listBankAccount')?.value || '',
+        listBankHolder:     document.getElementById('listBankHolder')?.value || '',
+        listBankConfirm:    document.getElementById('listBankConfirm')?.checked || false,
+        listIcName:         document.getElementById('listIcName')?.value || '',
+        listIcNumber:       document.getElementById('listIcNumber')?.value || '',
+        listConsent:        document.getElementById('listConsent')?.checked || false,
+        listHostAgreement:  document.getElementById('listHostAgreement')?.checked || false
+      },
+      tempRooms: JSON.parse(JSON.stringify(tempRooms || [])),
+      tempBlockedDates: Array.isArray(tempBlockedDates) ? [...tempBlockedDates] : [],
+      tempPhotos: Array.isArray(tempPhotos) ? [...tempPhotos] : [],
+      tempPhotoPublicIds: Array.isArray(tempPhotoPublicIds) ? [...tempPhotoPublicIds] : [],
+      tempIcWatermarked: tempIcWatermarked || '',
+      tempIcPublicId: tempIcPublicId || '',
+      tempIcOriginalName: tempIcOriginalName || '',
+      tempBankQRWatermarked: tempBankQRWatermarked || '',
+      tempBankQRPublicId: tempBankQRPublicId || '',
+      tempBankQROriginalName: tempBankQROriginalName || '',
+      tempPbtLicense: tempPbtLicense || '',
+      tempPbtPublicId: tempPbtPublicId || ''
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch (e) { /* storage unavailable — silent */ }
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+}
+
+function restoreDraft() {
+  let raw;
+  try { raw = localStorage.getItem(DRAFT_KEY); } catch (e) { return false; }
+  if (!raw) return false;
+
+  let draft;
+  try { draft = JSON.parse(raw); } catch (e) { clearDraft(); return false; }
+  if (!draft || typeof draft !== 'object') { clearDraft(); return false; }
+
+  const f = draft.fields || {};
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el && val !== undefined && val !== null) el.value = val;
+  };
+  const setChk = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.checked = !!val;
+  };
+
+  setVal('listOwnerName', f.listOwnerName);
+  setVal('listWhatsapp', f.listWhatsapp);
+  setVal('listOwnerEmail', f.listOwnerEmail);
+  setVal('listHomestayName', f.listHomestayName);
+  setVal('listArea', f.listArea);
+  setVal('listPrice', f.listPrice);
+  setVal('listGuests', f.listGuests);
+  setVal('listBedrooms', f.listBedrooms);
+  setVal('listDescription', f.listDescription);
+  setVal('listBankName', f.listBankName);
+  setVal('listBankCode', f.listBankCode);
+  setVal('listBankAccount', f.listBankAccount);
+  setVal('listBankHolder', f.listBankHolder);
+  setChk('listBankConfirm', f.listBankConfirm);
+  setVal('listIcName', f.listIcName);
+  setVal('listIcNumber', f.listIcNumber);
+  setChk('listConsent', f.listConsent);
+  setChk('listHostAgreement', f.listHostAgreement);
+
+  // Show "Other Bank" SWIFT input if needed
+  if (f.listBankName === 'Other') {
+    const wrap = document.getElementById('manualBankCodeWrap');
+    if (wrap) wrap.classList.remove('hidden');
+  }
+
+  // Rooms
+  if (Array.isArray(draft.tempRooms) && draft.tempRooms.length > 0) {
+    tempRooms = draft.tempRooms;
+  }
+  renderRooms();
+
+  // Blocked dates
+  if (Array.isArray(draft.tempBlockedDates)) {
+    tempBlockedDates = draft.tempBlockedDates;
+  }
+  renderBlockedDatesList();
+
+  // Property photos
+  if (Array.isArray(draft.tempPhotos)) {
+    tempPhotos = draft.tempPhotos;
+    tempPhotoPublicIds = Array.isArray(draft.tempPhotoPublicIds) ? draft.tempPhotoPublicIds : [];
+    const preview = document.getElementById('photoPreview');
+    if (preview) {
+      preview.innerHTML = '';
+      tempPhotos.forEach(url => {
+        const img = document.createElement('img');
+        img.src = url;
+        img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
+        preview.appendChild(img);
+      });
+    }
+  }
+
+  // IC watermarked image
+  if (draft.tempIcWatermarked) {
+    tempIcWatermarked = draft.tempIcWatermarked;
+    tempIcPublicId = draft.tempIcPublicId || '';
+    tempIcOriginalName = draft.tempIcOriginalName || '';
+    const img = document.getElementById('icPreview');
+    if (img) img.src = tempIcWatermarked;
+    const wrap = document.getElementById('icPreviewWrap');
+    if (wrap) wrap.classList.remove('hidden');
+    const info = document.getElementById('icWatermarkInfo');
+    if (info) info.innerHTML = safeHTML('✓ Restored from saved draft');
+  }
+
+  // Bank QR image
+  if (draft.tempBankQRWatermarked) {
+    tempBankQRWatermarked = draft.tempBankQRWatermarked;
+    tempBankQRPublicId = draft.tempBankQRPublicId || '';
+    tempBankQROriginalName = draft.tempBankQROriginalName || '';
+    const img = document.getElementById('bankQRImg');
+    if (img) img.src = tempBankQRWatermarked;
+    const wrap = document.getElementById('bankQRPreview');
+    if (wrap) wrap.classList.remove('hidden');
+  }
+
+  // PBT license image
+  if (draft.tempPbtLicense) {
+    tempPbtLicense = draft.tempPbtLicense;
+    tempPbtPublicId = draft.tempPbtPublicId || '';
+    const img = document.getElementById('pbtPreview');
+    if (img) img.src = tempPbtLicense;
+    const wrap = document.getElementById('pbtPreviewWrap');
+    if (wrap) wrap.classList.remove('hidden');
+  }
+
+  return true;
+}
+
+function showDraftRestoredToast() {
+  var toast = document.createElement('div');
+  toast.style.cssText =
+    'position:fixed;top:96px;left:50%;transform:translateX(-50%);z-index:99999;' +
+    'background:#0F382E;color:#fff;padding:14px 24px;border-radius:999px;' +
+    'font-family:Poppins,sans-serif;font-size:13px;font-weight:600;' +
+    'box-shadow:0 12px 30px rgba(15,56,46,0.35);display:flex;align-items:center;gap:10px;' +
+    'max-width:calc(100vw - 32px);';
+  toast.innerHTML = '<span style="font-size:18px;">📝</span> Draft restored — your previous listing details are back.';
+  document.body.appendChild(toast);
+  setTimeout(function() {
+    toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(-10px)';
+    setTimeout(function() { toast.remove(); }, 400);
+  }, 5000);
+}
 
 // =============================================================
 // ROOMS MANAGEMENT
@@ -1352,7 +1531,7 @@ async function submitHomestay() {
       bedrooms: bedrooms,
       image: tempPhotos[0],
       images: tempPhotos,
-      imagePublicIds: tempPhotoPublicIds,          // NEW
+      imagePublicIds: tempPhotoPublicIds,
       rooms: tempRooms,
       ownerName: ownerName,
       whatsapp: whatsapp,
@@ -1364,14 +1543,14 @@ async function submitHomestay() {
       icName: icName,
       icNumber: icNumber || "",
       icImage: tempIcWatermarked,
-      icPublicId: tempIcPublicId,                  // NEW
+      icPublicId: tempIcPublicId,
       icOriginalName: tempIcOriginalName,
       icUploadDate: new Date().toISOString(),
       bankQRImage: tempBankQRWatermarked,
-      bankQRPublicId: tempBankQRPublicId,          // NEW
+      bankQRPublicId: tempBankQRPublicId,
       bankQROriginalName: tempBankQROriginalName,
       pbtLicense: pbtLicense,
-      pbtLicensePublicId: tempPbtPublicId,          // NEW
+      pbtLicensePublicId: tempPbtPublicId,
       description: description || "Mountain view cottage.",
       blockedDates: [...tempBlockedDates],
       approved: false,
@@ -1402,6 +1581,9 @@ async function submitHomestay() {
 
     if (!syncRes.ok) {
       if (syncData.code === 'OWNER_ACCOUNT_REQUIRED') {
+        // FIX #6: persist entire draft so nothing is lost on redirect
+        saveDraft();
+
         if (statusEl) {
           statusEl.className = 'block p-3 text-xs bg-amber-50 text-amber-900 border border-amber-300 rounded-xl mt-3 font-semibold';
           statusEl.textContent = '🔐 Host account required — redirecting you to create one...';
@@ -1410,6 +1592,7 @@ async function submitHomestay() {
           'Host Account Required',
           'To submit a listing you need a <strong>verified host account</strong>.<br><br>' +
           'This is a one-time step that protects guests from fake listings.<br><br>' +
+          '<div style="font-size:12px;color:#0f382e;background:#ecfdf5;border:1px solid #a7f3d0;padding:8px 10px;border-radius:8px;margin-bottom:8px;">✓ <strong>Your form has been saved.</strong> When you come back to this page after registering, everything will be restored automatically.</div>' +
           (syncData.hint ? '<div style="font-size:12px;color:#6b7280;margin-top:8px;">' + syncData.hint + '</div>' : ''),
           [
             { label: 'Not now', class: 'btn-secondary', value: 'cancel' },
@@ -1452,6 +1635,10 @@ async function submitHomestay() {
       statusEl.className = 'block p-3 text-xs bg-emerald-50 text-emerald-800 border rounded-xl mt-3 font-semibold';
       statusEl.textContent = '✓ Secure cloud storage synchronized successfully!';
     }
+
+    // FIX #6: successful submit — clear saved draft so it doesn't leak into future listings
+    clearDraft();
+
     await showAlert("Listing Staged", `"${homestayName}" has been queued for admin approval.\n\nYou can log in to your dashboard panel at Host Login once verification has concluded.`);
     window.location.href = "/";
 
@@ -1474,7 +1661,16 @@ async function submitHomestay() {
 // =============================================================
 (function init() {
   renderGuestNav();
-  renderBlockedDatesList();
+
+  // FIX #6: attempt to restore any previously saved draft first
+  let restored = false;
+  try { restored = restoreDraft(); } catch (e) { restored = false; }
+
+  if (restored) {
+    showDraftRestoredToast();
+  } else {
+    renderBlockedDatesList();
+  }
 })();
 
 // =============================================================
