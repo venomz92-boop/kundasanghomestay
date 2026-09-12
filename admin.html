@@ -354,7 +354,6 @@ body {
   background: #d97706; border-color: #d97706;
 }
 
-/* NEW: Retry Refund styling — same amber as retry payout, different icon */
 .admin-action-btn[data-action="retryRefund"] {
   background: #f59e0b; border-color: #f59e0b; color: #ffffff;
 }
@@ -390,7 +389,6 @@ body {
 </head>
 <body>
 
-<!-- ====== CUSTOM MODAL ====== -->
 <div id="customModal" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-header">
@@ -404,13 +402,11 @@ body {
   </div>
 </div>
 
-<!-- ====== LIGHTBOX ====== -->
 <div id="imageLightbox" onclick="closeLightbox()">
   <span class="close-btn" onclick="closeLightbox()">&times;</span>
   <img id="lightboxImage" src="" alt="Enlarged image" onclick="event.stopPropagation();" />
 </div>
 
-<!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1200px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between">
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
@@ -427,7 +423,6 @@ body {
   </div>
 </header>
 
-<!-- ===== MAIN CONTENT ===== -->
 <div class="page-content max-w-[1200px] mx-auto px-5 md:px-8 py-8">
   <div id="adminLogin" class="max-w-[400px] mx-auto card p-8 animate-on-scroll">
     <h2 class="text-2xl font-bold">Admin Login</h2>
@@ -508,7 +503,6 @@ body {
   </div>
 </div>
 
-<!-- ====== WITHDRAW MODAL ====== -->
 <div id="kdWithdrawOverlay" class="kd-w-overlay">
   <div class="kd-w-modal">
     <h3 class="font-bold">Withdraw Earnings</h3>
@@ -524,7 +518,6 @@ body {
   </div>
 </div>
 
-<!-- ====== PENDING DETAIL MODAL ====== -->
 <div id="pendingDetailModal" class="fixed inset-0 z-[100] hidden bg-black/70 p-4 overflow-y-auto" onclick="if(event.target===this) closePendingDetail()">
   <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-6 md:p-8 relative mt-10 mb-10">
     <button onclick="closePendingDetail()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-2xl hover:bg-zinc-200 transition">✕</button>
@@ -533,7 +526,6 @@ body {
   </div>
 </div>
 
-<!-- ====== EDIT HOMESTAY MODAL ====== -->
 <div id="editHomestayModal" class="fixed inset-0 z-[100] hidden bg-black/70 p-4 overflow-y-auto" onclick="if(event.target===this) closeEditHomestayModal()">
   <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-2xl p-6 md:p-8 relative mt-10 mb-10">
     <button onclick="closeEditHomestayModal()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-2xl hover:bg-zinc-200 transition">✕</button>
@@ -603,9 +595,6 @@ function safeHTML(html) {
   });
 }
 
-// =============================================================
-// CUSTOM MODAL SYSTEM
-// =============================================================
 function showModal(title, message, buttons) {
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
@@ -681,9 +670,6 @@ document.getElementById('customModal').addEventListener('click', function(e) {
   if (e.target === this) { closeModal(); }
 });
 
-// =============================================================
-// LIGHTBOX
-// =============================================================
 function openLightbox(src) {
   const lb = document.getElementById('imageLightbox');
   const img = document.getElementById('lightboxImage');
@@ -701,9 +687,6 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// =============================================================
-// AUTH STATE (cookie-based)
-// =============================================================
 let ADMIN_LOGGED_IN = false;
 
 var CLOUD_ENABLED = true;
@@ -1482,8 +1465,6 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
     const isAwaiting = statusLower.includes("awaiting");
     const isCompleted = statusLower.includes("completed") || statusLower.includes("payout");
     const isCancelled = statusLower.includes("cancelled");
-    // NEW: detect refund-pending state. Any cancelled booking with a
-    // refund_error but no chip_refund_id is stuck and needs the retry button.
     const isRefundPending = (/refund pending|refund_pending/i.test(status)) ||
                             (isCancelled && !b.chip_refund_id && (b.refund_error || b.refund_attempted_at));
     const homestayName = b.homestay || "Homestay";
@@ -1499,14 +1480,19 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
     if (b.payoutFailedAttempt && !b.payoutSuccessDate) {
       btns += `<button class="booking-action-btn px-3 py-1.5 bg-yellow-500 text-white rounded-full text-[11px] uppercase font-700" data-action="retryPayout" data-id="${b.id}">🔁 RETRY PAYOUT</button>`;
     }
-    // NEW: retry refund button for stuck refunds
     if (isRefundPending) {
       btns += `<button class="booking-action-btn px-3 py-1.5 bg-yellow-500 text-white rounded-full text-[11px] uppercase font-700" data-action="retryRefund" data-id="${b.id}">🔁 RETRY REFUND</button>`;
     }
     if (!isCompleted && !isCancelled) {
       btns += `<button class="booking-action-btn px-3 py-1.5 bg-green-600 text-white rounded-full text-[11px] uppercase font-600" data-action="updateBookingStatus" data-id="${b.id}" data-status="Completed">COMPLETE</button>`;
     }
-    html += `<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">${b.id}</div><div class="text-[12px] mt-1">${homestayName} • ${nights} nights • ${checkin} → ${checkout} • RM${total}</div><div class="text-[12px]">Guest: ${b.guestName || ''} ${b.guestEmail || ''} ${b.guestPhone || ''}</div><div class="text-[10px] text-zinc-500 mt-1">Base RM${base} + Fee RM${fee} = You receive RM${youReceive} ${b.payoutAmount ? '• Owner Paid RM' + b.payoutAmount + (b.payoutDate ? ' on ' + toMYDate(b.payoutDate) : '') : ''}${b.refund_error ? ' • Refund error: ' + b.refund_error : ''}</div></div><div><span class="text-[11px] px-2 py-1 rounded-full ${badgeClass}">${badgeText}</span></div></div><div class="flex gap-2 mt-3 flex-wrap">${btns}<button class="booking-action-btn px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600" data-action="whatsappGuest" data-id="${b.id}">WHATSAPP GUEST</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="copyBookingId" data-id="${b.id}">COPY ID</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="changeBookingDates" data-id="${b.id}">CHANGE DATES</button><button class="booking-action-btn px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600" data-action="deleteBooking" data-id="${b.id}">DELETE</button></div></div>`;
+
+    // Show cancel_type tag when present (helps admin understand which refund path applies)
+    const cancelTypeTag = b.cancel_type
+      ? `<span class="text-[10px] px-2 py-0.5 rounded-full border ${b.cancel_type === 'guest_request' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-green-50 text-green-700 border-green-200'}">Cancelled as: ${b.cancel_type}</span>`
+      : '';
+
+    html += `<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">${b.id}</div><div class="text-[12px] mt-1">${homestayName} • ${nights} nights • ${checkin} → ${checkout} • RM${total}</div><div class="text-[12px]">Guest: ${b.guestName || ''} ${b.guestEmail || ''} ${b.guestPhone || ''}</div><div class="text-[10px] text-zinc-500 mt-1">Base RM${base} + Fee RM${fee} = You receive RM${youReceive} ${b.payoutAmount ? '• Owner Paid RM' + b.payoutAmount + (b.payoutDate ? ' on ' + toMYDate(b.payoutDate) : '') : ''}${b.refund_error ? ' • Refund error: ' + b.refund_error : ''}</div>${cancelTypeTag ? `<div class="mt-2">${cancelTypeTag}</div>` : ''}</div><div><span class="text-[11px] px-2 py-1 rounded-full ${badgeClass}">${badgeText}</span></div></div><div class="flex gap-2 mt-3 flex-wrap">${btns}<button class="booking-action-btn px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600" data-action="whatsappGuest" data-id="${b.id}">WHATSAPP GUEST</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="copyBookingId" data-id="${b.id}">COPY ID</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="changeBookingDates" data-id="${b.id}">CHANGE DATES</button><button class="booking-action-btn px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600" data-action="deleteBooking" data-id="${b.id}">DELETE</button></div></div>`;
   });
 
   html += '</div>';
@@ -1612,14 +1598,56 @@ async function retryPayout(bookingId) {
   }
 }
 
-// NEW: retry a refund that failed at CHIP. Calls the new `retryRefund`
-// action on /api/bookings. Uses the same pre-flight marker pattern as
-// host cancellation, so a second attempt while the first is still on the
-// wire will be refused by the backend.
+// ============================================================
+// Retry a refund that failed at CHIP. Calls the new `retryRefund`
+// action on /api/bookings.
+//
+// [THIS REVISION]
+// The confirmation modal now previews the refund amount based on the
+// booking's stored cancel_type. The success alert shows the actual
+// refund amount and the retained fee returned by the server.
+// ============================================================
 async function retryRefund(bookingId) {
-  const confirmed = await showConfirm(
+  const booking = bookings.find(b => String(b.id) === String(bookingId));
+
+  // Determine what the server will do, based on the stored cancel_type.
+  // Missing cancel_type is treated as host_own (full refund) by the server.
+  const storedCancelType = String(booking?.cancel_type || 'host_own').toLowerCase().trim();
+  const effectiveCancelType = (storedCancelType === 'guest_request') ? 'guest_request' : 'host_own';
+  const isGuestRequest = effectiveCancelType === 'guest_request';
+
+  const amountPaid = Number(booking?.amount_paid || booking?.total || 0);
+  const baseAmount = Number(booking?.base || 0);
+  const expectedRefund = isGuestRequest ? baseAmount : amountPaid;
+  const expectedRetained = isGuestRequest ? Math.max(0, amountPaid - baseAmount) : 0;
+
+  const typeLabel = isGuestRequest
+    ? '🟡 Guest-Requested Cancellation'
+    : '🟢 Host-Initiated Cancellation';
+  const amountNote = isGuestRequest
+    ? `<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Refund to guest</span><strong>RM ${expectedRefund.toFixed(2)}</strong></div>
+       <div style="display:flex;justify-content:space-between;padding:4px 0;color:#92400e;"><span>Platform retains</span><strong>RM ${expectedRetained.toFixed(2)}</strong></div>`
+    : `<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Refund to guest</span><strong>RM ${expectedRefund.toFixed(2)}</strong></div>
+       <div style="display:flex;justify-content:space-between;padding:4px 0;color:#166534;"><span>Platform retains</span><strong>RM 0.00</strong></div>`;
+
+  const confirmed = await showModal(
     "Retry Refund",
-    `Retry the CHIP refund for booking <strong>${bookingId}</strong>?<br><br>Only do this after confirming in the CHIP dashboard that no refund already exists for this purchase.`
+    `<div style="text-align:left;line-height:1.6;">
+       <p>Retry the CHIP refund for booking <strong>${bookingId}</strong>?</p>
+
+       <div style="margin-top:14px;padding:14px;background:#f8f5f0;border-radius:12px;font-size:13px;">
+         <div style="font-weight:700;margin-bottom:8px;">${typeLabel}</div>
+         ${amountNote}
+       </div>
+
+       <p style="margin-top:14px;font-size:12px;color:#6b7280;">
+         Only proceed after confirming in your CHIP dashboard that no refund with this booking ID already exists.
+       </p>
+     </div>`,
+    [
+      { label: 'Cancel', class: 'btn-secondary', value: false },
+      { label: 'Confirm Retry', class: 'btn-primary', value: true }
+    ]
   );
   if (!confirmed) return;
 
@@ -1642,13 +1670,44 @@ async function retryRefund(bookingId) {
       return;
     }
 
+    // Build the result alert using the actual amounts the server returned.
+    const actualRefund = Number(data.refundAmount || 0).toFixed(2);
+    const actualRetained = Number(data.feeRetained || 0).toFixed(2);
+    const actualRecorded = Number(data.feeRecorded || 0).toFixed(2);
+    const isGuestReq = String(data.cancelType || '').toLowerCase() === 'guest_request';
+
     if (data.refunded && !data.refundPending) {
-      await showAlert("Refund Processed", `✅ Refund ${data.refundId || ''} sent to the guest via CHIP.`);
+      let msg = `<div style="text-align:left;line-height:1.6;">
+          <p>✅ Refund <strong>RM ${actualRefund}</strong> processed to the guest via CHIP.</p>
+          <p style="font-size:12px;color:#6b7280;margin-top:8px;">Refund ID: <code>${data.refundId || 'N/A'}</code></p>`;
+      if (isGuestReq && actualRecorded !== '0.00') {
+        msg += `<p style="margin-top:12px;padding:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12px;color:#92400e;">
+                  Platform retained <strong>RM ${actualRetained}</strong> (base-only refund).
+                  Recorded to fee ledger: <strong>RM ${actualRecorded}</strong>.
+                </p>`;
+      }
+      msg += `</div>`;
+      await showAlert("Refund Processed", msg);
     } else if (data.refunded && data.refundPending) {
-      await showAlert("Refund Pending", `⏳ CHIP is processing the refund (${data.refundId || 'no ID yet'}). It will complete shortly.`);
+      let msg = `<div style="text-align:left;line-height:1.6;">
+          <p>⏳ CHIP is processing the refund of <strong>RM ${actualRefund}</strong>.</p>
+          <p style="font-size:12px;color:#6b7280;margin-top:8px;">Refund ID: <code>${data.refundId || 'no ID yet'}</code></p>
+          <p style="font-size:12px;color:#6b7280;margin-top:4px;">This normally completes within a few minutes.</p>`;
+      if (isGuestReq && actualRecorded !== '0.00') {
+        msg += `<p style="margin-top:12px;padding:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12px;color:#92400e;">
+                  Platform retained <strong>RM ${actualRetained}</strong> — recorded to fee ledger.
+                </p>`;
+      }
+      msg += `</div>`;
+      await showAlert("Refund Pending", msg);
     } else {
-      await showAlert("Refund Still Failed", `❌ CHIP rejected the retry: ${data.refundError || 'unknown reason'}. Verify purchase details in the CHIP dashboard.`);
+      await showAlert("Refund Still Failed",
+        `<div style="text-align:left;line-height:1.6;">
+           <p>❌ CHIP rejected the retry: <strong>${data.refundError || 'unknown reason'}</strong>.</p>
+           <p style="font-size:12px;color:#6b7280;margin-top:8px;">Verify purchase details in the CHIP dashboard before retrying again.</p>
+         </div>`);
     }
+
     await fetchCloudData();
     renderAdmin();
   } catch (e) {
@@ -1809,7 +1868,13 @@ async function approveHomestay(id){
     if (data.success) {
       await fetchCloudData();
       renderAdmin();
-      await showAlert("Success", "✅ Homestay approved and synced to cloud!");
+      let msg = "✅ Homestay approved and synced to cloud!";
+      if (data.emailSent === true) {
+        msg += "<br><br>📧 Approval email sent to the host.";
+      } else if (data.emailError) {
+        msg += "<br><br>⚠️ Email could not be sent: " + data.emailError;
+      }
+      await showAlert("Success", msg);
     } else {
       await showAlert("Error", "❌ Approval failed: " + (data.error || "Unknown error"));
     }
