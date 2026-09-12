@@ -1,17 +1,18 @@
 // SHARED HELPERS — full drop-in replacement.
 //
 // [THIS REVISION]
-//  (1) finalizePaidBooking now stores `amount_paid` — the amount CHIP
-//      actually collected — so a later refund uses the correct figure.
+//  (1) finalizePaidBooking stores `amount_paid`.
 //  (2) finalizePaidBooking refuses to finalize if the guest account no
 //      longer exists.
-//  (3) chipSendPayout validates the bank code against CHIP Send's
-//      known SWIFT/BIC list and refuses before calling CHIP.
-//  (4) NEW: getOwnerHomestayIdsFresh(db, owner) resolves an owner's
-//      homestay IDs by matching WhatsApp in kd_approved / kd_pending.
-//      Owner endpoints must use this instead of the JWT's homestayIds
-//      snapshot, which goes stale whenever a new listing is approved
-//      after the session token was minted.
+//  (3) chipSendPayout validates the bank code against CHIP Send's known
+//      SWIFT/BIC list and refuses before calling CHIP.
+//  (4) getOwnerHomestayIdsFresh(db, owner) resolves an owner's homestay
+//      IDs by matching WhatsApp in kd_approved / kd_pending.
+//  (5) NEW: sendHostPayoutEmail(booking, homestay, payoutInfo, env)
+//      sends a payout receipt to the host after a successful CHIP Send
+//      transfer. Called from owner-checkin.js, payout.js, and
+//      retry-payout.js. Best-effort — a failed email never rolls back
+//      the payout.
 
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
@@ -232,17 +233,6 @@ export async function getOwnerSession(request, env) {
   return payload;
 }
 
-// ============================================================
-// NEW: resolve an owner's homestay IDs FRESH from D1.
-//
-// The session token carries a `homestayIds` snapshot taken at mint time
-// (login or email verification). That snapshot goes stale whenever a new
-// listing is approved after the token was issued. Owner endpoints must
-// call this instead of trusting the snapshot.
-//
-// Accepts either a session payload ({ whatsapp, ownerId }) or a raw
-// WhatsApp / ownerId string.
-// ============================================================
 export async function getOwnerHomestayIdsFresh(db, ownerOrWhatsapp) {
   if (!db) return [];
   const rawWa = (typeof ownerOrWhatsapp === 'string')
@@ -266,7 +256,6 @@ export async function getOwnerHomestayIdsFresh(db, ownerOrWhatsapp) {
   return [...ids];
 }
 
-// Also export the raw WhatsApp cleaner for callers that need it.
 export function cleanWhatsapp(value) {
   return String(value || '').replace(/[^0-9]/g, '');
 }
@@ -833,6 +822,185 @@ export async function finalizePaidBooking(db, bookingId) {
     booking: updated
   };
 }
+
+// ============================================================
+// Host payout receipt email.
+// Sent after a successful CHIP Send payout to the host, so the host
+// has a record for their book-keeping. Called from owner-checkin.js,
+// payout.js, and retry-payout.js. Best-effort — a failure never rolls
+// back the payout.
+//
+// Arguments:
+//   booking    — the booking object (id, guestName, checkin, checkout,
+//                nights, total, base, fee, gatewayFee)
+//   homestay   — the homestay object (name, ownerName, ownerEmail,
+//                ownerBank, ownerBankAccount)
+//   payoutInfo — { amount, payoutId, reference, paidAt }
+//   env        — Cloudflare env
+// ============================================================
+export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
+  if (!homestay || !homestay.ownerEmail) {
+    return { sent: false, error: 'No host email on file' };
+  }
+  const safe = (s) => String(s || '').replace(/[<>]/g, '');
+
+  const ownerName = safe(homestay.ownerName || 'Host');
+  const homestayName = safe(homestay.name || 'your property');
+  const payoutAmount = Number(payoutInfo.amount || 0).toFixed(2);
+  const total = Number(booking.total || 0).toFixed(2);
+  const base = Number(booking.base || 0).toFixed(2);
+  const fee = Number(booking.fee || 0).toFixed(2);
+  const gatewayFee = Number(booking.gatewayFee || 0).toFixed(2);
+  const ref = safe(payoutInfo.reference || `KDH-${booking.id}`);
+  const payoutId = safe(payoutInfo.payoutId || 'N/A');
+  const paidAtIso = payoutInfo.paidAt || new Date().toISOString();
+  const paidAt = (() => {
+    try {
+      return new Date(paidAtIso).toLocaleString('en-MY', {
+        timeZone: 'Asia/Kuala_Lumpur',
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true
+      }) + ' MYT';
+    } catch (_) { return paidAtIso; }
+  })();
+
+  const acct = String(homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
+  const bankMasked = acct.length >= 4 ? '****' + acct.slice(-4) : 'N/A';
+  const bankName = safe(homestay.ownerBank || 'Bank');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;background:#f8f5f0;padding:20px;">
+      <div style="background:#ffffff;padding:30px;border-radius:16px;border:1px solid #e5e7eb;">
+
+        <div style="text-align:center;border-bottom:2px solid #0F382E;padding-bottom:16px;margin-bottom:22px;">
+          <div style="font-size:22px;font-weight:800;color:#0F382E;">Kundasang Homestay</div>
+          <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;">Payout Receipt</div>
+        </div>
+
+        <h2 style="color:#0F382E;margin-top:0;font-size:18px;">Hello ${ownerName},</h2>
+        <p style="color:#4b5563;font-size:14px;line-height:1.6;">
+          A payout for a completed guest stay at <strong>${homestayName}</strong> has been sent to your bank account via CHIP Send.
+        </p>
+
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin:22px 0;text-align:center;">
+          <div style="font-size:11px;color:#166534;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Amount Received</div>
+          <div style="font-size:32px;font-weight:800;color:#0F382E;margin:6px 0;">RM ${payoutAmount}</div>
+          <div style="font-size:12px;color:#166534;">Sent to ${bankName} ${bankMasked}</div>
+        </div>
+
+        <div style="font-size:13px;color:#4b5563;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Payout Details</div>
+        <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:20px;color:#374151;">
+          <tr>
+            <td style="padding:7px 0;color:#6b7280;">Reference</td>
+            <td style="padding:7px 0;text-align:right;font-family:'Courier New',monospace;font-weight:700;">${ref}</td>
+          </tr>
+          <tr>
+            <td style="padding:7px 0;color:#6b7280;">CHIP Send ID</td>
+            <td style="padding:7px 0;text-align:right;font-family:'Courier New',monospace;">${payoutId}</td>
+          </tr>
+          <tr>
+            <td style="padding:7px 0;color:#6b7280;">Date Sent</td>
+            <td style="padding:7px 0;text-align:right;">${paidAt}</td>
+          </tr>
+        </table>
+
+        <div style="font-size:13px;color:#4b5563;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Booking Details</div>
+        <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:20px;color:#374151;">
+          <tr>
+            <td style="padding:7px 0;color:#6b7280;">Booking ID</td>
+            <td style="padding:7px 0;text-align:right;font-family:'Courier New',monospace;">${safe(booking.id)}</td>
+          </tr>
+          <tr>
+            <td style="padding:7px 0;color:#6b7280;">Guest</td>
+            <td style="padding:7px 0;text-align:right;">${safe(booking.guestName || 'Guest')}</td>
+          </tr>
+          <tr>
+            <td style="padding:7px 0;color:#6b7280;">Check-in</td>
+            <td style="padding:7px 0;text-align:right;">${safe(booking.checkin)}</td>
+          </tr>
+          <tr>
+            <td style="padding:7px 0;color:#6b7280;">Check-out</td>
+            <td style="padding:7px 0;text-align:right;">${safe(booking.checkout)} (${safe(booking.nights)} night${Number(booking.nights) === 1 ? '' : 's'})</td>
+          </tr>
+        </table>
+
+        <div style="font-size:13px;color:#4b5563;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Payment Breakdown</div>
+        <table style="width:100%;font-size:13px;border-collapse:collapse;color:#374151;">
+          <tr>
+            <td style="padding:7px 0;color:#6b7280;">Guest paid</td>
+            <td style="padding:7px 0;text-align:right;">RM ${total}</td>
+          </tr>
+          <tr>
+            <td style="padding:7px 0;color:#6b7280;">Service fee (11%)</td>
+            <td style="padding:7px 0;text-align:right;color:#b91c1c;">− RM ${fee}</td>
+          </tr>
+          <tr>
+            <td style="padding:7px 0;color:#6b7280;">Gateway fee</td>
+            <td style="padding:7px 0;text-align:right;color:#b91c1c;">− RM ${gatewayFee}</td>
+          </tr>
+          <tr style="border-top:2px solid #0F382E;">
+            <td style="padding:10px 0;font-weight:700;color:#0F382E;">You received</td>
+            <td style="padding:10px 0;text-align:right;font-weight:800;color:#0F382E;font-size:15px;">RM ${payoutAmount}</td>
+          </tr>
+        </table>
+
+        <p style="font-size:12px;color:#6b7280;margin-top:22px;line-height:1.6;border-top:1px solid #e5e7eb;padding-top:16px;">
+          Keep this email for your book-keeping. If you have any questions about this payout, reply to this email or contact us at
+          <a href="mailto:support@kundasanghomestay.my" style="color:#0F382E;">support@kundasanghomestay.my</a>.
+        </p>
+
+        <p style="font-size:12px;color:#9ca3af;text-align:center;margin-bottom:0;">
+          © ${new Date().getFullYear()} Kundasang Homestay
+        </p>
+
+      </div>
+    </div>
+  `;
+
+  const subject = `Payout Receipt — RM ${payoutAmount} for Booking ${booking.id}`;
+
+  try {
+    if (env.RESEND_API_KEY) {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.RESEND_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
+          to: homestay.ownerEmail,
+          subject,
+          html
+        })
+      });
+      return { sent: r.ok, error: r.ok ? null : 'Resend API error' };
+    }
+    if (env.SENDGRID_API_KEY) {
+      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.SENDGRID_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: homestay.ownerEmail }] }],
+          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
+          subject,
+          content: [{ type: 'text/html', value: html }]
+        })
+      });
+      return { sent: r.ok, error: r.ok ? null : 'SendGrid API error' };
+    }
+    return { sent: false, error: 'No email provider configured' };
+  } catch (e) {
+    return { sent: false, error: e.message };
+  }
+}
+
+// ============================================================
+// CHIP SEND — 4-STEP FLOW
+// ============================================================
 
 async function chipHmacSha512(message, secret) {
   const key = await crypto.subtle.importKey(
