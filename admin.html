@@ -882,7 +882,15 @@ function renderAvailabilityCalendar(h, containerId) {
 async function fetchCloudData(){
   if(!CLOUD_ENABLED) return false;
   try{
-    const res = await fetchWithAuth(API_BASE + "/bookings", {cache:"no-store"});
+    // [H7 sync] Request an effectively-unlimited page of approved / pending /
+    // guests so pushHomestaysToCloud() can never accidentally wipe approved
+    // listings beyond the default 100-item page size.
+    const url = API_BASE + "/bookings"
+      + "?limit=99999"
+      + "&approvedLimit=99999"
+      + "&pendingLimit=99999"
+      + "&guestsLimit=99999";
+    const res = await fetchWithAuth(url, {cache:"no-store"});
 
     if (res.status === 401) {
       ADMIN_LOGGED_IN = false;
