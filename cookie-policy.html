@@ -59,11 +59,9 @@
   };
 </script>
 
-<!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
 
-    <!-- Logo & Brand -->
     <a href="/" class="flex items-center gap-3 shrink-0 group">
       <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
       <div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
@@ -72,23 +70,19 @@
       </div>
     </a>
 
-    <!-- Desktop Primary Nav -->
     <nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
       <a href="/" class="setsail-nav-link" data-nav="home">Home</a>
       <a href="/about.html" class="setsail-nav-link" data-nav="about">About Us</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
     </nav>
 
-    <!-- Desktop Actions -->
     <div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
 
-      <!-- Guest state: logged out -->
       <div id="guestNav" class="flex items-center gap-2">
         <a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
         <a href="/register.html" class="header-pill header-pill-accent">Register</a>
       </div>
 
-      <!-- Guest state: logged in -->
       <div id="guestProfileNav" class="hidden items-center gap-3">
         <a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
         <div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
@@ -98,12 +92,10 @@
         </div>
       </div>
 
-      <!-- Primary CTA — always visible -->
       <a href="/owner-register.html" class="btn-primary" style="padding:11px 22px; font-size:11px;">List Your Homestay</a>
 
     </div>
 
-    <!-- Mobile Menu Button -->
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
@@ -122,16 +114,13 @@
   </div>
 </header>
 
-<!-- ===== MOBILE NAV ===== -->
 <div id="mobileNav">
   <div class="p-4">
 
-    <!-- DISCOVER -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
     <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
 
-    <!-- FOR HOSTS -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">For Hosts</div>
 
     <a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
@@ -151,7 +140,6 @@
       <a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a>
     </div>
 
-    <!-- ACCOUNT -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
 
     <div id="mGuestNav" class="space-y-2.5 px-1">
@@ -178,7 +166,7 @@
       <div class="font-satisfy text-[#D4A373] text-[32px] leading-none">Cookie Policy</div>
       <h1 class="font-poppins font-700 text-[34px] md:text-[44px] text-[#212121] tracking-[-0.5px] mt-1">How We Use Cookies</h1>
       <div class="w-[60px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
-      <p class="text-[13px] text-[#212121]/60 mt-3 max-w-[560px] mx-auto">Last updated: September 2026. This policy explains what cookies are and how we use them.</p>
+      <p class="text-[13px] text-[#212121]/60 mt-3 max-w-[560px] mx-auto">Last updated: 12 September 2026. This policy explains what cookies are and how we use them.</p>
     </div>
 
     <div class="card p-8 md:p-12">
@@ -187,7 +175,7 @@
           <span class="text-[#D4A373] text-2xl">1.</span> What Are Cookies?
         </h2>
         <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
-          Cookies are small text files that are stored on your device when you visit a website. They help us remember your preferences, improve your browsing experience, and analyse site usage.
+          Cookies are small text files that are stored on your device when you visit a website. They help us remember your login state, keep your session secure, and improve your browsing experience.
         </p>
       </div>
 
@@ -195,40 +183,66 @@
         <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
           <span class="text-[#D4A373] text-2xl">2.</span> Cookies We Use
         </h2>
-        <ul class="mt-2 text-sm text-zinc-600 space-y-1">
-          <li><span class="font-semibold">Essential Cookies:</span> Required for basic site functionality (e.g., session management, login state). These cannot be disabled.</li>
-          <li><span class="font-semibold">Preference Cookies:</span> Remember your language, region, and display preferences.</li>
-          <li><span class="font-semibold">Analytics Cookies:</span> We use anonymised analytics to understand how visitors interact with our site (e.g., page views, bounce rate). We do not use any third‑party analytics that collect personal data.</li>
-          <li><span class="font-semibold">Security Cookies:</span> Used to detect and prevent fraud or abuse.</li>
+        <p class="text-sm text-zinc-600 mt-2 leading-relaxed">Kundasang Homestay uses only two types of cookies:</p>
+        <ul class="mt-3 text-sm text-zinc-600 space-y-2">
+          <li>
+            <span class="font-semibold">Session Cookies (essential).</span>
+            Two cookies are set when you log in — <code class="bg-zinc-100 px-1.5 py-0.5 rounded text-[12px]">guest_token</code> for guests and <code class="bg-zinc-100 px-1.5 py-0.5 rounded text-[12px]">owner_token</code> for hosts. Both are HttpOnly, Secure, and SameSite=Lax, which means JavaScript on the page cannot read them and they are never sent over an unencrypted connection. They exist only to keep you logged in. These cannot be disabled without breaking login.
+          </li>
+          <li>
+            <span class="font-semibold">Security Cookies (essential).</span>
+            A CSRF protection token is stored in your browser's <code class="bg-zinc-100 px-1.5 py-0.5 rounded text-[12px]">localStorage</code> (not as a cookie) to protect forms from cross-site request forgery. It is not used for tracking.
+          </li>
         </ul>
-        <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
-          We do not use advertising or tracking cookies from third parties.
+        <p class="text-sm text-zinc-600 mt-3 leading-relaxed">
+          We do <strong>not</strong> use advertising cookies, tracking cookies, preference cookies, or any third-party cookies that follow you across other websites.
         </p>
       </div>
 
       <div class="policy-section">
         <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
-          <span class="text-[#D4A373] text-2xl">3.</span> Your Control
+          <span class="text-[#D4A373] text-2xl">3.</span> Analytics
+        </h2>
+        <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
+          We use <strong>Cloudflare Web Analytics</strong> to understand aggregate site usage — for example, how many visitors we get per day and which pages are most read. Cloudflare Web Analytics:
+        </p>
+        <ul class="mt-2 text-sm text-zinc-600 space-y-1">
+          <li>Does <strong>not</strong> set any cookies on your device.</li>
+          <li>Does <strong>not</strong> collect or store personal data.</li>
+          <li>Does <strong>not</strong> fingerprint your browser or track you across other websites.</li>
+          <li>Reports only aggregate, anonymous statistics to us.</li>
+        </ul>
+        <p class="text-sm text-zinc-600 mt-3 leading-relaxed">
+          It is a third-party service operated by Cloudflare, Inc., and is used only in this privacy-preserving configuration.
+        </p>
+      </div>
+
+      <div class="policy-section">
+        <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
+          <span class="text-[#D4A373] text-2xl">4.</span> Your Control
         </h2>
         <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
           You can manage or delete cookies in your browser settings. Most browsers allow you to:
         </p>
         <ul class="mt-2 text-sm text-zinc-600 space-y-1">
           <li>View and delete cookies already stored.</li>
-          <li>Block all cookies or only third‑party cookies.</li>
+          <li>Block all cookies or only third-party cookies.</li>
           <li>Receive a notification when a cookie is set.</li>
         </ul>
         <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
-          <strong>Note:</strong> Disabling essential cookies may affect the functionality of our website, such as login and booking processes.
+          <strong>Note:</strong> Our cookies are session cookies that only exist to keep you logged in. If you disable them, you will not be able to log in to your account, view your bookings, or complete a booking. The public pages of the site will still work.
         </p>
       </div>
 
       <div class="policy-section border-b-0">
         <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
-          <span class="text-[#D4A373] text-2xl">4.</span> Updates to This Policy
+          <span class="text-[#D4A373] text-2xl">5.</span> Updates to This Policy
         </h2>
         <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
           We may update this Cookie Policy from time to time. Any changes will be posted on this page with an updated date. Continued use of our site constitutes acceptance of the updated policy.
+        </p>
+        <p class="text-sm text-zinc-600 mt-3 leading-relaxed">
+          If you have any questions about how we use cookies, contact us at <a href="mailto:support@kundasanghomestay.my" class="text-[#0F382E] font-semibold hover:underline">support@kundasanghomestay.my</a>.
         </p>
       </div>
     </div>
