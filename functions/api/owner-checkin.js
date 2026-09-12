@@ -3,6 +3,11 @@
 // only allowed when ENVIRONMENT !== 'production' AND ALLOW_PAYOUT_SIMULATION
 // === 'true'. It also uses the canonical 'bookings-global' lock so it can
 // never race with booking creation, cancellation, or admin edits.
+//
+// [NEW] Payout double-fire protection: we now persist an "attempt marker"
+// to D1 BEFORE calling CHIP Send. If the worker crashes between the CHIP
+// call and the result write, a retry refuses instead of firing a second
+// real payout.
 import {
   corsHeaders,
   getClientIP,
@@ -160,6 +165,24 @@ export async function onRequestPost({ request, env }) {
         if (booking.payoutUnknown) {
           return {
             error: `Payout is in UNKNOWN state. Check CHIP dashboard for reference KDH-${bookingId}.`,
+            status: 409
+          };
+        }
+
+        // ============================================================
+        // [NEW] UNRESOLVED-ATTEMPT GUARD.
+        // If a previous run wrote the attempt marker to D1 but never
+        // recorded a result (success, unknown, or definitive failure),
+        // we MUST refuse. Otherwise a retry would fire a second real
+        // payout to the host.
+        // ============================================================
+        if (booking.payoutAttemptedAt
+            && !booking.payoutSuccessDate
+            && !booking.payoutUnknown
+            && !booking.payoutFailedAttempt
+            && !booking.ownerPayoutId) {
+          return {
+            error: `A previous payout attempt at ${booking.payoutAttemptedAt} has an unresolved outcome. Log into your CHIP dashboard and check for reference ${booking.payoutAttemptedReference || 'KDH-' + bookingId}. If no payout exists, contact support to clear the marker before retrying.`,
             status: 409
           };
         }
@@ -325,6 +348,27 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].payoutAttemptedReference = reference;
             bookings[idx].payoutAttemptedAmount = Number(ownerAmount);
 
+            // ============================================================
+            // [NEW] PRE-FLIGHT WRITE.
+            // Persist the attempt marker to D1 BEFORE calling CHIP Send.
+            // If the worker dies between here and the final result write,
+            // this marker survives — the guard above will refuse a retry
+            // instead of firing a second real payout.
+            //
+            // If this write itself fails, we abort BEFORE calling CHIP
+            // Send, so no money can move without a durable marker in place.
+            // ============================================================
+            try {
+              await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+                .bind('kd_bookings', JSON.stringify(bookings))
+                .run();
+            } catch (preflightErr) {
+              return {
+                error: `Could not record the payout attempt before contacting CHIP (${preflightErr.message}). No payout was sent. Please try again.`,
+                status: 500
+              };
+            }
+
             const payoutEpoch = Math.floor(Date.now() / 1000);
             const payoutChecksum = await hmacSha512(`${payoutEpoch}${apiKey}`, apiSecret);
 
@@ -359,8 +403,6 @@ export async function onRequestPost({ request, env }) {
                 payoutUnknown = true;
                 payoutMessage = `Check-in confirmed, but CHIP Send returned an unparseable response. Reference KDH-${bookingId} may have been sent. Check your CHIP dashboard before retrying.`;
               } else if (!payoutRes.ok || !payoutDataRaw?.id) {
-                // Only treat as definitive failure if CHIP returned a structured
-                // error body we can identify. Otherwise it's UNKNOWN.
                 const errStr = String(payoutDataRaw?.error || payoutDataRaw?.message || '').toLowerCase();
                 const isStructuredRejection = payoutRes.status >= 400 && payoutRes.status < 500 && errStr.length > 0;
                 if (isStructuredRejection) {
@@ -403,7 +445,6 @@ export async function onRequestPost({ request, env }) {
           bookings[idx].homestaySource = homestaySource;
           bookings[idx].chip_bank_code = chipBankCode;
           bookings[idx].payoutFailedAttempt = false;
-          // C1: mark simulated payouts so admin UI can distinguish.
           if (isSimulation) bookings[idx].payoutSimulated = true;
           delete bookings[idx].lastPayoutError;
         } else if (payoutUnknown) {
