@@ -1,9 +1,20 @@
 // SHARED HELPERS — full drop-in replacement.
 //
-// [NEW] chipSendPayout() — correct 4-step CHIP Send flow.
-// [NEW] withLock fix: release matches BOTH homestay_id AND locked_at.
+// [THIS REVISION]
+//  (1) finalizePaidBooking now stores `amount_paid` — the amount CHIP
+//      actually collected — so a later refund uses the correct figure even
+//      if an admin has recalculated `total` by editing dates on a paid
+//      booking.
+//  (2) finalizePaidBooking refuses to finalize if the guest account no
+//      longer exists. Previously money could be taken from a guest the
+//      admin had already deleted, leaving an orphaned paid booking.
+//  (3) chipSendPayout now validates the bank code against CHIP Send's
+//      known SWIFT/BIC list and refuses before calling CHIP if the code
+//      is missing or unknown. No silent Maybank default. Also relaxed the
+//      bank account digit requirement from 10 to 8, matching what
+//      pending.js accepts at submission.
 //
-// Every other fix from the previous revisions is preserved:
+// [EARLIER]
 //  (1) PBKDF2 iterations configurable via env.PBKDF2_ITERATIONS.
 //  (2) parseJSONSafely checks Content-Length BEFORE reading the body.
 //  (3) admin Bearer tokens only accepted when ALLOW_ADMIN_BEARER=true.
@@ -15,6 +26,20 @@ export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 const DEFAULT_PBKDF2_ITERATIONS = 100000;
 const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_KEYLEN = 256;
+
+// ============================================================
+// CHIP Send supported bank codes.
+// Source: CHIP Send's "Add a bank account" documentation.
+// Kept in sync with /api/bank-list.js and /api/pending.js.
+// ============================================================
+const VALID_CHIP_SEND_CODES = new Set([
+  'ACDBMYK2','PHBMMYKL','AGOBMYKL','RJHIMYKL','MFBBMYKL','ARBKMYKL',
+  'BIMBMYKL','BKRMMYKL','BMMBMYKL','BOFAMY2X','BKCHMYKL','BOTKMYKX',
+  'BSNAMYK1','BNPAMYKL','PCBCMYKL','CIBBMYKL','DEUTMYKL','FNXSMYNB',
+  'GXSPMYKL','HLBBMYKL','HBMBMYKL','ICBKMYKL','CHASMYKX','KFHOMYKL',
+  'MBBEMYKL','AFBQMYKL','MHCBMYKA','OCBCMYKL','PBBEMYKL','RHBBMYKL',
+  'SCBLMYKX','SMBCMYKL','TNGDMYNB','UOVBMYKL'
+]);
 
 function getPbkdf2Iterations(env) {
   const fromEnv = env && env.PBKDF2_ITERATIONS;
@@ -746,6 +771,18 @@ export async function finalizePaidBooking(db, bookingId) {
 
   const booking = bookings[idx];
 
+  // Refuse to finalize if the guest account has been deleted. Money was
+  // taken from a guest who no longer has an account here.
+  if (booking.guestId) {
+    const gr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_guests').first();
+    let guests = [];
+    try { if (gr?.data) guests = JSON.parse(gr.data); } catch(_) {}
+    const guestExists = guests.some(g => String(g.id) === String(booking.guestId));
+    if (!guestExists) {
+      return { error: 'Guest account has been deleted. Refund required before finalization.' };
+    }
+  }
+
   const s = String(booking.status || '');
   if (s === 'Paid - Awaiting Check-in' || s === 'Completed' || s.startsWith('Completed')) {
     return {
@@ -776,7 +813,11 @@ export async function finalizePaidBooking(db, bookingId) {
     checkinCode: code,
     paid_at: booking.paid_at || new Date().toISOString(),
     chip_status: 'paid',
-    chip_paid_at: booking.chip_paid_at || new Date().toISOString()
+    chip_paid_at: booking.chip_paid_at || new Date().toISOString(),
+    // Store the amount CHIP actually collected. This is what a later
+    // refund must use, because `total` can be recalculated by an admin
+    // editing a paid booking's dates.
+    amount_paid: booking.amount_paid || Number(booking.total) || 0
   };
 
   bookings[idx] = updated;
@@ -848,16 +889,28 @@ export async function chipSendPayout({
     'checksum': ''
   });
 
-  // ---------- STEP 0: Resolve bank details ----------
+  // ---------- STEP 0: Resolve and validate bank details ----------
   const accountName = homestay.bankHolder || homestay.ownerName || '';
   const accountNumber = (homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
-  const bankCode = (homestay.bankCode || homestay.ownerBank || '').toUpperCase();
+  const bankCode = (homestay.bankCode || '').toUpperCase().trim();
 
-  if (!accountNumber || accountNumber.length < 10) {
-    return { success: false, error: 'Owner bank account invalid or missing (must be at least 10 digits)' };
+  if (!accountNumber || accountNumber.length < 8) {
+    return { success: false, error: 'Owner bank account invalid or missing (must be at least 8 digits)' };
   }
   if (!accountName) {
     return { success: false, error: 'Owner bank holder name missing' };
+  }
+  if (!bankCode) {
+    return {
+      success: false,
+      error: 'Owner bank code is missing. This listing cannot be paid out. Admin must set the bank code via the admin dashboard before retrying.'
+    };
+  }
+  if (!VALID_CHIP_SEND_CODES.has(bankCode)) {
+    return {
+      success: false,
+      error: `Owner bank code "${bankCode}" is not a recognised CHIP Send bank code. Admin must correct this in the admin dashboard before retrying.`
+    };
   }
 
   const amountCents = Math.round(amount * 100);
@@ -950,7 +1003,7 @@ export async function chipSendPayout({
           'checksum': checksum3
         },
         body: JSON.stringify({
-          bank_code: bankCode || 'MBBEMYKL',
+          bank_code: bankCode,
           account_number: accountNumber,
           account_name: accountName
         })
@@ -968,6 +1021,8 @@ export async function chipSendPayout({
       bankAccountId = bankData.id;
 
       // Persist the bank account id so the next payout can skip step 3.
+      // NOTE: this cache MUST be cleared whenever bank details change.
+      // bookings.js → updateHomestays handles that.
       if (homestayId && db) {
         for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
           const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
