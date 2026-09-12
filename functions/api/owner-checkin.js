@@ -1,12 +1,11 @@
 // /api/owner-checkin.js — Host confirms guest check-in and triggers CHIP Send payout.
 //
 // [THIS REVISION]
-// The ownership check now resolves the owner's homestay IDs FRESH from D1
-// via getOwnerHomestayIdsFresh() in _utils.js. Previously it trusted the
-// session token's `homestayIds` snapshot, which went stale whenever a
-// listing was approved after the token was minted. Symptom:
-//   "Unauthorized – you do not own this homestay"
-// on check-in for a listing approved after the session token was issued.
+// After a successful live payout, the host now receives a payout receipt
+// email via sendHostPayoutEmail() from _utils.js. Sent only on real
+// success (not on simulation, not on unknown, not on failure). Best-effort:
+// a failed email never rolls back the payout, and the failure is recorded
+// in the audit log.
 import {
   corsHeaders,
   getClientIP,
@@ -19,7 +18,8 @@ import {
   clearCheckinAttempts,
   withLock,
   chipSendPayout,
-  getOwnerHomestayIdsFresh
+  getOwnerHomestayIdsFresh,
+  sendHostPayoutEmail
 } from './_utils.js';
 
 const BOOKINGS_LOCK = 'bookings-global';
@@ -272,18 +272,22 @@ export async function onRequestPost({ request, env }) {
 
         let payoutSuccess = false;
         let payoutUnknown = false;
+        let payoutId = null;
+        let paidAtIso = null;
         const isSimulation = false;
 
         if (payoutResult.success) {
           payoutSuccess = true;
+          payoutId = payoutResult.payoutId;
+          paidAtIso = new Date().toISOString();
           bookings[idx].status = 'Completed - Payout Success';
           bookings[idx].payoutSuccess = true;
-          bookings[idx].payoutSuccessDate = new Date().toISOString();
+          bookings[idx].payoutSuccessDate = paidAtIso;
           bookings[idx].payoutAmount = Number(ownerAmount);
           bookings[idx].payoutMethod = 'CHIP Send';
-          bookings[idx].ownerPayoutId = payoutResult.payoutId;
-          bookings[idx].completedDate = new Date().toISOString();
-          bookings[idx].checkedInAt = new Date().toISOString();
+          bookings[idx].ownerPayoutId = payoutId;
+          bookings[idx].completedDate = paidAtIso;
+          bookings[idx].checkedInAt = paidAtIso;
           bookings[idx].checkedInBy = 'owner';
           bookings[idx].homestaySource = homestaySource;
           bookings[idx].payoutFailedAttempt = false;
@@ -361,13 +365,32 @@ export async function onRequestPost({ request, env }) {
           };
         }
 
+        // ---------- Payout receipt email ----------
+        // Only on real success. Not on simulation. Not on unknown.
+        // Not on failure. Best-effort — failure here never rolls back the
+        // payout, and the audit log records the result.
+        let emailReport = { sent: false, error: 'not attempted' };
+        if (payoutSuccess && !isSimulation) {
+          try {
+            emailReport = await sendHostPayoutEmail(
+              booking,
+              homestay,
+              { amount: ownerAmount, payoutId, reference, paidAt: paidAtIso },
+              env
+            );
+          } catch (mailErr) {
+            console.error('Payout email error:', mailErr.message);
+            emailReport = { sent: false, error: mailErr.message };
+          }
+        }
+
         await logAction({
           db,
           action: payoutSuccess
             ? (isSimulation ? 'owner_checkin_simulation' : 'owner_checkin_payout_success')
             : (payoutUnknown ? 'owner_checkin_payout_unknown' : 'owner_checkin_payout_failed'),
           admin: 'owner',
-          details: `Check-in ${bookingId}, payout ${payoutSuccess ? (isSimulation ? 'simulated' : 'success') : (payoutUnknown ? 'UNKNOWN' : 'failed')}${payoutResult.payoutId ? ' id=' + payoutResult.payoutId : ''}`,
+          details: `Check-in ${bookingId}, payout ${payoutSuccess ? (isSimulation ? 'simulated' : 'success') : (payoutUnknown ? 'UNKNOWN' : 'failed')}${payoutId ? ' id=' + payoutId : ''}. Payout email: ${emailReport.sent ? 'sent' : (payoutSuccess && !isSimulation ? 'failed — ' + (emailReport.error || 'unknown') : 'n/a')}.`,
           ip: getClientIP(request),
           userId: booking.guestEmail,
           homestayId: booking.homestayId
@@ -385,6 +408,7 @@ export async function onRequestPost({ request, env }) {
           payoutUnknown,
           simulation: isSimulation,
           homestaySource,
+          payoutEmailSent: emailReport.sent,
           warning: payoutUnknown ? 'Payout state unknown. Check CHIP dashboard before retrying.' : undefined
         };
       }, 60000);
