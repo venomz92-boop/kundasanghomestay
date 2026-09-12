@@ -29,7 +29,7 @@
   </div>
 </div>
 
-<!-- ===== PAYMENT FAILED MODAL (friendly version) ===== -->
+<!-- ===== PAYMENT FAILED MODAL ===== -->
 <div id="paymentFailedModal" class="modal-overlay thankyou-modal">
   <div class="modal-box max-w-[500px]">
     <div class="modal-body text-center p-6 md:p-8">
@@ -41,7 +41,7 @@
       <p class="text-sm text-zinc-600 mt-1 leading-relaxed">
         Simply go to your <strong>My Bookings</strong> page and click the <strong>Retry Payment</strong> button next to this booking.
       </p>
-      
+
       <div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
         <div class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Booking ID:</span><span id="failedBookingId" class="font-bold text-red-600 text-sm font-mono">-</span></div>
         <div id="failedDatesRow" class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Dates:</span><span id="failedDates" class="font-semibold text-zinc-800">-</span></div>
@@ -60,7 +60,6 @@
   </div>
 </div>
 
-<!-- ===== EARLY FUNCTION DEFINITION ===== -->
 <script>
   let lastToggleTime = 0;
   window.toggleMobileMenu = function() {
@@ -79,7 +78,6 @@
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
 
-    <!-- Logo & Brand -->
     <a href="/" class="flex items-center gap-3 shrink-0 group">
       <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
       <div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
@@ -88,23 +86,17 @@
       </div>
     </a>
 
-    <!-- Desktop Primary Nav -->
     <nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
-      <a href="/" class="setsail-nav-link" data-nav="home">Home</a>
-      <a href="/about.html" class="setsail-nav-link" data-nav="about">About Us</a>
+      <a href="/" class="setsail-nav-link">Home</a>
+      <a href="/about.html" class="setsail-nav-link">About Us</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
     </nav>
 
-    <!-- Desktop Actions -->
     <div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
-
-      <!-- Guest state: logged out -->
       <div id="guestNav" class="flex items-center gap-2">
         <a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
         <a href="/register.html" class="header-pill header-pill-accent">Register</a>
       </div>
-
-      <!-- Guest state: logged in -->
       <div id="guestProfileNav" class="hidden items-center gap-3">
         <a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
         <div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
@@ -113,68 +105,39 @@
           <button onclick="logoutGuest()" class="ml-1 text-[10px] opacity-70 hover:opacity-100 uppercase tracking-wider transition-opacity">Logout</button>
         </div>
       </div>
-
-      <!-- Primary CTA — always visible -->
       <a href="/owner-register.html" class="btn-primary" style="padding:11px 22px; font-size:11px;">List Your Homestay</a>
-
     </div>
 
-    <!-- Mobile Menu Button -->
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
-
-    <script>
-      (function() {
-        var btn = document.getElementById('mobileMenuBtn');
-        if (btn) {
-          btn.removeEventListener('click', window.toggleMobileMenu);
-          btn.removeEventListener('touchstart', window.toggleMobileMenu);
-          btn.addEventListener('click', window.toggleMobileMenu);
-          btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
-        }
-      })();
-    </script>
   </div>
 </header>
 
 <!-- ===== MOBILE NAV ===== -->
 <div id="mobileNav">
   <div class="p-4">
-
-    <!-- DISCOVER -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
     <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
 
-    <!-- FOR HOSTS -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">For Hosts</div>
-
     <a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
-      <div style="display:flex; align-items:center; gap:12px; padding:14px 14px; border-radius:14px; background:#F8F5F0; border:1px solid rgba(212,163,115,0.35); transition: background 0.2s;">
+      <div style="display:flex; align-items:center; gap:12px; padding:14px 14px; border-radius:14px; background:#F8F5F0; border:1px solid rgba(212,163,115,0.35);">
         <div style="width:40px; height:40px; border-radius:999px; background:#0F382E; color:#ffffff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px;">🏡</div>
         <div style="flex:1; min-width:0;">
           <div style="font-family:Poppins, sans-serif; font-weight:700; font-size:13px; color:#212121; line-height:1.2;">List Your Homestay</div>
           <div style="font-family:Poppins, sans-serif; font-weight:500; font-size:10.5px; color:rgba(33,33,33,0.55); margin-top:2px;">Earn from your property</div>
         </div>
-        <svg width="16" height="16" fill="none" stroke="rgba(33,33,33,0.35)" stroke-width="2.2" viewBox="0 0 24 24" style="flex-shrink:0;">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-        </svg>
       </div>
     </a>
+    <div class="px-1 pt-1"><a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a></div>
 
-    <div class="px-1 pt-1">
-      <a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a>
-    </div>
-
-    <!-- ACCOUNT -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
-
     <div id="mGuestNav" class="space-y-2.5 px-1">
       <a href="/login.html" class="guest-btn guest-btn-primary block text-center">Sign In</a>
       <a href="/register.html" class="guest-btn block text-center">Create Account</a>
     </div>
-
     <div id="mGuestProfileNav" class="hidden space-y-2 px-1">
       <div class="profile-card">
         <div id="mGuestAvatar" class="avatar">G</div>
@@ -191,6 +154,10 @@
 
 <!-- ===== MY BOOKINGS PAGE ===== -->
 <main class="flex-1 max-w-[1100px] mx-auto px-4 md:px-6 py-8 md:py-12 w-full">
+  <div id="loadingState" class="text-center py-20 animate-on-scroll">
+    <div class="text-sm text-zinc-400">Loading your bookings...</div>
+  </div>
+
   <div id="notLoggedIn" class="hidden text-center py-20 animate-on-scroll">
     <div class="text-6xl mb-4">🔐</div>
     <h2 class="font-poppins font-700 text-[28px] text-[#212121]">Login Required</h2>
@@ -217,13 +184,10 @@
       <div class="metric-card"><div class="label">Pending</div><div id="metricPending" class="number text-amber-600">0</div></div>
     </div>
 
-    <div id="bookingsList" class="space-y-4 animate-on-scroll">
-      <div class="text-sm text-zinc-400 text-center py-10">Loading your bookings...</div>
-    </div>
+    <div id="bookingsList" class="space-y-4 animate-on-scroll"></div>
   </div>
 </main>
 
-<!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
     <div>
@@ -251,15 +215,6 @@
         <a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
         <a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
         <a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
-           <a href="https://www.facebook.com/kundasanghomestaymy/" 
-          target="_blank" 
-            rel="noopener noreferrer" 
-           class="hover:text-white block">
-          <svg class="inline w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-          </svg>
-          Facebook Page
-          </a>
       </div>
     </div>
     <div>
@@ -271,11 +226,11 @@
       </div>
     </div>
     <div>
-  <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
-  <div id="kdWeatherWidget" class="kd-weather-widget">
-    <div class="kd-weather-loading">Loading live weather…</div>
-  </div>
-</div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
+      <div id="kdWeatherWidget" class="kd-weather-widget">
+        <div class="kd-weather-loading">Loading live weather…</div>
+      </div>
+    </div>
   </div>
   <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
     © 2026 Kundasang Homestay. All rights reserved.
@@ -284,753 +239,549 @@
 
 <script src="animations.js"></script>
 <script>
-
-// ===== CSS sanitizer hook — strips url()/expression() etc from style attributes =====
+// ===== CSS sanitizer hook (DOMPurify) =====
 (function() {
   if (typeof DOMPurify === 'undefined') return;
   if (window.__kdCssHookInstalled) return;
   window.__kdCssHookInstalled = true;
-
-  // Dangerous CSS patterns: url() loaders, JS execution, and legacy vectors
   const DANGEROUS_RULE = /(?:\burl\s*\(|expression\s*\(|\bbehavior\s*:|-moz-binding|@import|javascript\s*:)/i;
-
   DOMPurify.addHook('afterSanitizeAttributes', function (node) {
     if (!node.getAttribute || !node.hasAttribute) return;
     if (!node.hasAttribute('style')) return;
-
     const raw = node.getAttribute('style') || '';
     if (!raw) return;
-
-    // If nothing dangerous, leave as-is (keeps performance high)
     if (!DANGEROUS_RULE.test(raw)) return;
-
-    const safeRules = raw
-      .split(';')
-      .map(r => r.trim())
-      .filter(r => r.length > 0)
-      .filter(r => !DANGEROUS_RULE.test(r))
-      .join('; ');
-
-    if (safeRules.length === 0) {
-      node.removeAttribute('style');
-    } else {
-      node.setAttribute('style', safeRules);
-    }
+    const safeRules = raw.split(';').map(r => r.trim()).filter(r => r.length > 0).filter(r => !DANGEROUS_RULE.test(r)).join('; ');
+    if (safeRules.length === 0) node.removeAttribute('style');
+    else node.setAttribute('style', safeRules);
   });
 })();
-  
-  // =============================================================
-  // SAFE HTML – ALLOW DATA-ATTR (no onclick)
-  // =============================================================
-  function safeHTML(html) {
+
+function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
-      'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
-      'button','input','form','label','select','option','textarea',
-      'section','article','header','footer','nav','main','aside',
-      'code','pre','blockquote','hr','small','sub','sup','svg','path',
-      'canvas', 'figure', 'figcaption', 'blockquote', 'cite'
-    ],
-    ALLOWED_ATTR: [
-      'id','class','style','href','src','alt','title','rel','target',
-      'method','action','type','name','value','placeholder',
-      'checked','disabled','readonly','required','multiple',
-      'min','max','step','pattern','autocomplete','inputmode',
-      'viewBox','fill','stroke','stroke-width','d','aria-*','data-*'
-    ],
+    ALLOWED_TAGS: ['div','span','p','a','img','br','b','i','u','strong','em','h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th','button','input','form','label','select','option','textarea','section','article','header','footer','nav','main','aside','code','pre','blockquote','hr','small','sub','sup','svg','path','canvas','figure','figcaption','cite'],
+    ALLOWED_ATTR: ['id','class','style','href','src','alt','title','rel','target','method','action','type','name','value','placeholder','checked','disabled','readonly','required','multiple','min','max','step','pattern','autocomplete','inputmode','viewBox','fill','stroke','stroke-width','d','aria-*','data-*'],
     ADD_ATTR: ['target'],
     ALLOW_DATA_ATTR: true,
     FORCE_HTTPS: true
   });
 }
 
-  // =============================================================
-  // CSRF HELPER
-  // =============================================================
-  function getCsrfHeader() {
-    var token = localStorage.getItem('kd_csrf_token');
-    return token ? { 'X-CSRF-Token': token } : {};
-  }
+function getCsrfHeader() {
+  var token = localStorage.getItem('kd_csrf_token');
+  return token ? { 'X-CSRF-Token': token } : {};
+}
 
-  // =============================================================
-  // MODAL SYSTEM
-  // =============================================================
-  function showModal(title, message, buttons) {
-    return new Promise(function(resolve) {
-      var overlay = document.getElementById('customModal');
-      var titleEl = document.getElementById('modalTitle');
-      var bodyEl = document.getElementById('modalBody');
-      var footerEl = document.getElementById('modalFooter');
-      titleEl.textContent = title || 'Notice';
-      bodyEl.innerHTML = typeof message === 'string' ? message : '';
-      footerEl.innerHTML = '';
-      buttons.forEach(function(btn) {
-        var el = document.createElement('button');
-        el.textContent = btn.label;
-        el.className = 'btn ' + (btn.class || 'btn-primary');
-        el.onclick = function() {
-          overlay.classList.remove('active');
-          document.body.style.overflow = '';
-          if (btn.value !== undefined) resolve(btn.value);
-          else resolve(true);
-        };
-        footerEl.appendChild(el);
-      });
-      overlay.classList.add('active');
-      document.body.style.overflow = 'hidden';
-    });
-  }
-
-  function closeModal() {
+// ===== MODALS =====
+function showModal(title, message, buttons) {
+  return new Promise(function(resolve) {
     var overlay = document.getElementById('customModal');
-    if (overlay) overlay.classList.remove('active');
-    document.body.style.overflow = '';
-  }
-
-  function modalConfirm() {
-    closeModal();
-  }
-
-  function showAlert(title, message) {
-    return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
-  }
-
-  function showConfirm(title, message) {
-    return showModal(title, message, [
-      { label: 'Cancel', class: 'btn-secondary', value: false },
-      { label: 'Confirm', class: 'btn-primary', value: true }
-    ]);
-  }
-
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      var overlay = document.getElementById('customModal');
-      if (overlay && overlay.classList.contains('active')) {
+    var titleEl = document.getElementById('modalTitle');
+    var bodyEl = document.getElementById('modalBody');
+    var footerEl = document.getElementById('modalFooter');
+    titleEl.textContent = title || 'Notice';
+    bodyEl.innerHTML = typeof message === 'string' ? message : '';
+    footerEl.innerHTML = '';
+    buttons.forEach(function(btn) {
+      var el = document.createElement('button');
+      el.textContent = btn.label;
+      el.className = 'btn ' + (btn.class || 'btn-primary');
+      el.onclick = function() {
         overlay.classList.remove('active');
         document.body.style.overflow = '';
-      }
-      var fModal = document.getElementById('paymentFailedModal');
-      if (fModal && fModal.classList.contains('active')) {
-        fModal.classList.remove('active');
-        document.body.style.overflow = '';
-      }
-    }
-  });
-
-  // =============================================================
-  // PAYMENT FAILED MODAL CONTROLS
-  // =============================================================
-  function showPaymentFailedModal(bookingId, bookingData) {
-    var overlay = document.getElementById('paymentFailedModal');
-    var idEl = document.getElementById('failedBookingId');
-    var datesEl = document.getElementById('failedDates');
-    var totalEl = document.getElementById('failedTotal');
-
-    if (idEl) idEl.textContent = bookingId || 'N/A';
-    if (datesEl) datesEl.textContent = (bookingData?.checkin || '') + ' → ' + (bookingData?.checkout || '') + ' (' + (bookingData?.nights || 1) + 'N)';
-    if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(bookingData?.total) || 0).toFixed(2);
-
-    window._failedBookingId = bookingId;
-    window._failedBookingData = bookingData;
-
-    if (overlay) overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closePaymentFailedModal() {
-    var overlay = document.getElementById('paymentFailedModal');
-    if (overlay) overlay.classList.remove('active');
-    document.body.style.overflow = '';
-  }
-
-  // =============================================================
-  // GUEST SYSTEM
-  // Cookie-based — no session token ever lives in localStorage.
-  // =============================================================
-  var API_BASE = "/api";
-  var currentGuest = null;
-  if (window.GuestSession && window.GuestSession.isGuestSessionValid()) {
-    currentGuest = window.GuestSession.readGuest();
-  } else {
-    if (window.GuestSession) window.GuestSession.clearGuestSession();
-    currentGuest = null;
-  }
-
-  function renderGuestNav() {
-    // Delegate to GuestSession — it owns the nav DOM now.
-    if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
-      window.GuestSession.updateNavDOM();
-      return;
-    }
-    // Fallback (only if GuestSession failed to load).
-    var loginNav = document.getElementById("guestNav");
-    var profileNav = document.getElementById("guestProfileNav");
-    var mLoginNav = document.getElementById("mGuestNav");
-    var mProfileNav = document.getElementById("mGuestProfileNav");
-    if (currentGuest && currentGuest.id) {
-      if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
-      if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
-      if (mLoginNav) mLoginNav.classList.add("hidden");
-      if (mProfileNav) mProfileNav.classList.remove("hidden");
-    } else {
-      if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
-      if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-      if (mLoginNav) mLoginNav.classList.remove("hidden");
-      if (mProfileNav) mProfileNav.classList.add("hidden");
-    }
-  }
-
-  function logoutGuest() {
-    if (window.GuestSession) {
-      window.GuestSession.logoutGuest();
-      return;
-    }
-    // Fallback
-    showConfirm("Logout", "Are you sure you want to logout?").then(function(confirmed) {
-      if (!confirmed) return;
-      currentGuest = null;
-      try { localStorage.removeItem('kd_guest'); } catch(e) {}
-      renderGuestNav();
-      window.location.href = '/';
+        resolve(btn.value !== undefined ? btn.value : true);
+      };
+      footerEl.appendChild(el);
     });
-  }
-
-  document.addEventListener('click', function(e) {
-    var nav = document.getElementById('mobileNav');
-    var btn = document.getElementById('mobileMenuBtn');
-    if (!nav || !btn) return;
-    if (nav.classList.contains('open') &&
-        !nav.contains(e.target) &&
-        !btn.contains(e.target)) {
-      nav.classList.remove('open');
-    }
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
   });
-
-  // =============================================================
-  // PAYMENT STATUS CHECK
-  // [H1 sync] cookie-only auth — no Bearer token, always send cookie.
-  // =============================================================
-  async function checkPaymentStatus(bookingId) {
-    try {
-      const res = await fetch(API_BASE + '/verify-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ bookingId })
-      });
-      const data = await res.json();
-      return data;
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
+}
+function closeModal() {
+  var overlay = document.getElementById('customModal');
+  if (overlay) overlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+function modalConfirm() { closeModal(); }
+function showAlert(title, message) { return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]); }
+function showConfirm(title, message) {
+  return showModal(title, message, [
+    { label: 'Cancel', class: 'btn-secondary', value: false },
+    { label: 'Confirm', class: 'btn-primary', value: true }
+  ]);
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var overlay = document.getElementById('customModal');
+    if (overlay && overlay.classList.contains('active')) { overlay.classList.remove('active'); document.body.style.overflow = ''; }
+    var fModal = document.getElementById('paymentFailedModal');
+    if (fModal && fModal.classList.contains('active')) { fModal.classList.remove('active'); document.body.style.overflow = ''; }
   }
+});
 
-  // =============================================================
-  // AUTO CHECK WITH POLLING (every 8 seconds)
-  // =============================================================
-  let pendingCheckInterval = null;
+function showPaymentFailedModal(bookingId, bookingData) {
+  var overlay = document.getElementById('paymentFailedModal');
+  var idEl = document.getElementById('failedBookingId');
+  var datesEl = document.getElementById('failedDates');
+  var totalEl = document.getElementById('failedTotal');
+  if (idEl) idEl.textContent = bookingId || 'N/A';
+  if (datesEl) datesEl.textContent = (bookingData?.checkin || '') + ' → ' + (bookingData?.checkout || '') + ' (' + (bookingData?.nights || 1) + 'N)';
+  if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(bookingData?.total) || 0).toFixed(2);
+  window._failedBookingId = bookingId;
+  window._failedBookingData = bookingData;
+  if (overlay) overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closePaymentFailedModal() {
+  var overlay = document.getElementById('paymentFailedModal');
+  if (overlay) overlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
 
-  async function autoCheckPendingBookings() {
-    if (!currentGuest || !currentGuest.id) return;
-    const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
-    if (pending.length === 0) {
-      if (pendingCheckInterval) {
-        clearInterval(pendingCheckInterval);
-        pendingCheckInterval = null;
-      }
-      return;
-    }
+// =============================================================
+// GUEST STATE — read local cache OR trust the server.
+// =============================================================
+var API_BASE = "/api";
+var currentGuest = null;
 
-    let anyUpdated = false;
-    for (const b of pending) {
-      try {
-        const result = await checkPaymentStatus(b.id);
-        if (result.success && result.booking) {
-          const status = result.booking.status || '';
-          if (status.toLowerCase().includes('paid')) {
-            anyUpdated = true;
-          } else if (status.toLowerCase().includes('fail')) {
-            anyUpdated = true;
-          }
-        }
-        // [H4 sync] Any terminal payment status should trigger a refresh.
-        if (result.paymentStatus === 'refunded' ||
-            result.paymentStatus === 'cancelled' ||
-            result.paymentStatus === 'expired' ||
-            result.paymentStatus === 'failed') {
-          anyUpdated = true;
-        }
-      } catch (e) {
-        // ignore
-      }
-      await new Promise(r => setTimeout(r, 500));
-    }
-    
-    if (anyUpdated) {
-      loadMyBookings();
-    }
+// Very lenient read — accepts a single object, a list, or a
+// record that only has an email.
+function findLocalGuest() {
+  try {
+    var raw = localStorage.getItem('kd_guest');
+    if (!raw) return null;
+    var g = JSON.parse(raw);
+    if (Array.isArray(g)) g = g.length > 0 ? g[g.length - 1] : null;
+    if (!g) return null;
+    if (g.id) return g;
+    if (g.email) return g;
+    return null;
+  } catch (e) { return null; }
+}
+
+// When a booking is returned, it always carries the guest's name/email.
+// We can use those to display "Logged in as X" even without a local cache.
+function inferGuestFromBookings(bookings) {
+  if (!Array.isArray(bookings) || bookings.length === 0) return null;
+  // Prefer the newest booking's guest fields.
+  var b = bookings[0];
+  if (b.guestId) {
+    return { id: b.guestId, name: b.guestName || '', email: b.guestEmail || '' };
   }
+  return null;
+}
 
-  function startPendingCheckInterval() {
-    if (pendingCheckInterval) clearInterval(pendingCheckInterval);
-    autoCheckPendingBookings();
-    pendingCheckInterval = setInterval(autoCheckPendingBookings, 8000);
+function renderGuestNav() {
+  // Let GuestSession handle the header if it's loaded.
+  if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+    window.GuestSession.updateNavDOM();
+    return;
   }
+  // Fallback header logic.
+  var loginNav = document.getElementById('guestNav');
+  var profileNav = document.getElementById('guestProfileNav');
+  var mLoginNav = document.getElementById('mGuestNav');
+  var mProfileNav = document.getElementById('mGuestProfileNav');
+  if (currentGuest && (currentGuest.id || currentGuest.email)) {
+    if (loginNav) { loginNav.classList.add('hidden'); loginNav.classList.remove('flex'); }
+    if (profileNav) { profileNav.classList.remove('hidden'); profileNav.classList.add('flex'); }
+    if (mLoginNav) mLoginNav.classList.add('hidden');
+    if (mProfileNav) mProfileNav.classList.remove('hidden');
+  } else {
+    if (loginNav) { loginNav.classList.remove('hidden'); loginNav.classList.add('flex'); }
+    if (profileNav) { profileNav.classList.add('hidden'); profileNav.classList.remove('flex'); }
+    if (mLoginNav) mLoginNav.classList.remove('hidden');
+    if (mProfileNav) mProfileNav.classList.add('hidden');
+  }
+}
 
-  // =============================================================
-  // LOAD BOOKINGS – cookie-only auth.
-  // [H1 sync] removed Authorization: Bearer <token>. Every fetch
-  // sends credentials: 'include' so the HttpOnly cookie rides along.
-  // =============================================================
-  var myBookings = [];
+function logoutGuest() {
+  if (window.GuestSession) { window.GuestSession.logoutGuest(); return; }
+  showConfirm('Logout', 'Are you sure you want to logout?').then(function(ok) {
+    if (!ok) return;
+    currentGuest = null;
+    try { localStorage.removeItem('kd_guest'); } catch (e) {}
+    try { fetch('/api/logout', { method: 'POST', credentials: 'include' }); } catch (e) {}
+    renderGuestNav();
+    window.location.href = '/';
+  });
+}
 
-  function loadMyBookings() {
-    var listDiv = document.getElementById('bookingsList');
-    if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10">Loading your bookings...</div>';
-    
-    if (!currentGuest || !currentGuest.id) {
-      if (listDiv) listDiv.innerHTML = '<div class="text-sm text-red-500 text-center py-10">Please log in to view your bookings.</div>';
-      return;
-    }
+// =============================================================
+// PAGE STATE
+// =============================================================
+var myBookings = [];
+var pendingCheckInterval = null;
 
-    fetch(API_BASE + '/bookings?t=' + Date.now(), {
-      method: 'GET',
+function showLoginRequired() {
+  document.getElementById('loadingState').classList.add('hidden');
+  document.getElementById('bookingsView').classList.add('hidden');
+  document.getElementById('notLoggedIn').classList.remove('hidden');
+}
+
+function showLoggedInView(guest) {
+  document.getElementById('loadingState').classList.add('hidden');
+  document.getElementById('notLoggedIn').classList.add('hidden');
+  document.getElementById('bookingsView').classList.remove('hidden');
+  var nameDisplay = document.getElementById('guestNameDisplay');
+  if (nameDisplay) nameDisplay.textContent = guest.name || guest.email || 'Guest';
+}
+
+// =============================================================
+// CHECK PAYMENT STATUS — cookie-only
+// =============================================================
+async function checkPaymentStatus(bookingId) {
+  try {
+    const res = await fetch(API_BASE + '/verify-payment', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
-      credentials: 'include'
-      // No Authorization header — the HttpOnly cookie authenticates us.
-    })
-    .then(function(res) {
-      if (res.status === 401) {
-        // Session no longer valid on server → clear and redirect.
-        if (window.GuestSession) window.GuestSession.clearGuestSession();
-        window.location.href = '/login.html?expired=1';
-        throw new Error('Session expired');
+      credentials: 'include',
+      body: JSON.stringify({ bookingId })
+    });
+    const data = await res.json();
+    return data;
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+async function autoCheckPendingBookings() {
+  if (!currentGuest) return;
+  const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
+  if (pending.length === 0) {
+    if (pendingCheckInterval) { clearInterval(pendingCheckInterval); pendingCheckInterval = null; }
+    return;
+  }
+  let anyUpdated = false;
+  for (const b of pending) {
+    try {
+      const result = await checkPaymentStatus(b.id);
+      if (result.success && result.booking) {
+        const status = result.booking.status || '';
+        if (status.toLowerCase().includes('paid') || status.toLowerCase().includes('fail')) anyUpdated = true;
       }
-      if (!res.ok) throw new Error('Server error: ' + res.status);
-      return res.json();
-    })
-    .then(function(data) {
-      var allBookings = data.bookings || [];
-      var filtered = allBookings.filter(function(b) {
-        if (!currentGuest) return false;
-        var matchById = b.guestId && String(b.guestId) === String(currentGuest.id);
-        var matchByEmail = b.guestEmail && b.guestEmail.toLowerCase() === (currentGuest.email || '').toLowerCase();
-        var guestPhoneClean = String(currentGuest.phone || '').replace(/[^0-9]/g, '');
-        var bookingPhoneClean = String(b.guestPhone || '').replace(/[^0-9]/g, '');
-        var matchByPhone = guestPhoneClean && bookingPhoneClean && bookingPhoneClean === guestPhoneClean;
-        var matchByName = b.guestName && currentGuest.name && 
-          b.guestName.toLowerCase().includes(currentGuest.name.toLowerCase());
-        return matchById || matchByEmail || matchByPhone || matchByName;
-      });
-      myBookings = filtered;
+      if (result.paymentStatus === 'refunded' || result.paymentStatus === 'cancelled' || result.paymentStatus === 'expired' || result.paymentStatus === 'failed') {
+        anyUpdated = true;
+      }
+    } catch (e) { /* ignore */ }
+    await new Promise(r => setTimeout(r, 500));
+  }
+  if (anyUpdated) loadMyBookings();
+}
+
+function startPendingCheckInterval() {
+  if (pendingCheckInterval) clearInterval(pendingCheckInterval);
+  autoCheckPendingBookings();
+  pendingCheckInterval = setInterval(autoCheckPendingBookings, 8000);
+}
+
+// =============================================================
+// LOAD BOOKINGS — the ONE source of truth is the server.
+// We call /api/bookings with cookies. The server decides whether
+// the caller is a logged-in guest or the public.
+// =============================================================
+function loadMyBookings() {
+  var listDiv = document.getElementById('bookingsList');
+  if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10">Loading your bookings...</div>';
+
+  fetch(API_BASE + '/bookings?t=' + Date.now(), {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+    credentials: 'include'
+  })
+  .then(function(res) {
+    if (!res.ok) throw new Error('Server error: ' + res.status);
+    return res.json();
+  })
+  .then(function(data) {
+    // The /api/bookings GET returns:
+    //  - { bookings, total, page, limit, totalPages }   when the caller is a guest
+    //  - { approved, availability }                      when the caller is public
+    //  - { bookings, approved, pending, guests, ... }    when the caller is an admin
+    // So the presence of `bookings` is our signal.
+    var serverBookings = Array.isArray(data.bookings) ? data.bookings : null;
+
+    if (!serverBookings) {
+      // Server does NOT consider us logged in as a guest.
+      // Clear any stale local guest record and show the login screen.
+      try { localStorage.removeItem('kd_guest'); } catch (e) {}
+      currentGuest = null;
+      if (window.GuestSession) window.GuestSession.clearGuestSession();
+      renderGuestNav();
+      showLoginRequired();
+      return;
+    }
+
+    // Server considers us logged in as guest.
+    // Make sure the header reflects that — even if the local cache is empty.
+    if (!currentGuest) {
+      currentGuest = findLocalGuest() || inferGuestFromBookings(serverBookings);
       if (currentGuest && currentGuest.id) {
+        try { localStorage.setItem('kd_guest', JSON.stringify(currentGuest)); } catch (e) {}
+      }
+    }
+    renderGuestNav();
+
+    // If the server returned 0 bookings and we have no local guest record,
+    // we know the server accepted our cookie but we still can't identify who
+    // we are. That is unusual but possible — fall back to treating this as
+    // "no bookings yet" and show the logged-in view with a generic label.
+    var displayGuest = currentGuest || { id: 'unknown', name: 'Guest', email: '' };
+
+    myBookings = serverBookings;
+
+    showLoggedInView(displayGuest);
+    renderBookings();
+
+    const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
+    if (pending.length > 0) startPendingCheckInterval();
+    else if (pendingCheckInterval) { clearInterval(pendingCheckInterval); pendingCheckInterval = null; }
+  })
+  .catch(function(err) {
+    console.error('loadMyBookings failed:', err);
+    // Network error: try to render from cache so the user still sees something.
+    if (currentGuest) {
+      var cachedKey = 'kd_guest_bookings_' + (currentGuest.id || 'unknown');
+      var cached = localStorage.getItem(cachedKey);
+      if (cached) {
         try {
-          localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings));
-        } catch (e) {}
-      }
-      renderBookings();
-      // Start polling if there are pending bookings
-      const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
-      if (pending.length > 0) {
-        startPendingCheckInterval();
-      } else {
-        if (pendingCheckInterval) {
-          clearInterval(pendingCheckInterval);
-          pendingCheckInterval = null;
-        }
-      }
-    })
-    .catch(function(err) {
-      // If it was an auth error, we already navigated away.
-      if (String(err.message || '').indexOf('Session expired') !== -1) return;
-      try {
-        var cached = localStorage.getItem('kd_guest_bookings_' + currentGuest.id);
-        if (cached) {
           myBookings = JSON.parse(cached);
+          showLoggedInView(currentGuest);
           renderBookings();
           var notice = document.createElement('div');
           notice.className = 'text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center mb-4';
-          notice.innerHTML = '📡 Showing cached bookings. Connect to internet for latest updates.';
-          var listDiv2 = document.getElementById('bookingsList');
-          if (listDiv2 && listDiv2.parentNode) {
-            listDiv2.parentNode.insertBefore(notice, listDiv2);
-          }
-          const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
-          if (pending.length > 0) {
-            startPendingCheckInterval();
-          }
-        } else {
-          myBookings = [];
-          renderBookings();
-        }
-      } catch(e2) {
-        myBookings = [];
-        renderBookings();
+          notice.textContent = '📡 Showing cached bookings. Connect to internet for latest updates.';
+          var listEl = document.getElementById('bookingsList');
+          if (listEl && listEl.parentNode) listEl.parentNode.insertBefore(notice, listEl);
+          return;
+        } catch (e) { /* fall through */ }
       }
-    });
+    }
+    showLoginRequired();
+  });
+}
+
+// =============================================================
+// RENDER BOOKINGS
+// =============================================================
+function renderBookings() {
+  var listDiv = document.getElementById('bookingsList');
+  if (!listDiv) return;
+
+  var countPaid = 0, countCompleted = 0, countPending = 0;
+  myBookings.forEach(function(b) {
+    var s = (b.status || '').toLowerCase();
+    if (s.includes('completed') || b.payoutDate) countCompleted++;
+    else if (s.includes('paid')) countPaid++;
+    else if (s.includes('pending')) countPending++;
+  });
+
+  document.getElementById('metricTotal').textContent = myBookings.length;
+  document.getElementById('metricPaid').textContent = countPaid;
+  document.getElementById('metricCompleted').textContent = countCompleted;
+  document.getElementById('metricPending').textContent = countPending;
+
+  if (myBookings.length === 0) {
+    listDiv.innerHTML = safeHTML('' +
+      '<div class="text-center py-16 space-y-4">' +
+        '<div class="text-6xl">🏔️</div>' +
+        '<h3 class="font-poppins font-700 text-[20px] text-[#212121]">No Bookings Yet</h3>' +
+        '<p class="text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed">You have not made any bookings yet. Explore our verified Kundasang homestays!</p>' +
+        '<a href="/" class="btn-primary inline-block mt-2">Browse Homestays</a>' +
+      '</div>'
+    );
+    return;
   }
 
-  // =============================================================
-  // RENDER BOOKINGS – with event delegation (no inline onclick)
-  // =============================================================
-  function renderBookings() {
-    var listDiv = document.getElementById('bookingsList');
-    if (!listDiv) return;
-    
-    var countPaid = 0, countCompleted = 0, countPending = 0;
-    myBookings.forEach(function(b) {
-      var s = (b.status || '').toLowerCase();
-      if (s.includes('completed') || b.payoutDate) countCompleted++;
-      else if (s.includes('paid')) countPaid++;
-      else if (s.includes('pending')) countPending++;
-    });
-    
-    document.getElementById('metricTotal').textContent = myBookings.length;
-    document.getElementById('metricPaid').textContent = countPaid;
-    document.getElementById('metricCompleted').textContent = countCompleted;
-    document.getElementById('metricPending').textContent = countPending;
+  var sorted = myBookings.slice().sort(function(a, b) {
+    return new Date(b.date || 0) - new Date(a.date || 0);
+  });
 
-    if (myBookings.length === 0) {
-      listDiv.innerHTML = safeHTML('' +
-        '<div class="text-center py-16 space-y-4">' +
-          '<div class="text-6xl">🏔️</div>' +
-          '<h3 class="font-poppins font-700 text-[20px] text-[#212121]">No Bookings Yet</h3>' +
-          '<p class="text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed">You have not made any bookings yet. Explore our verified Kundasang homestays!</p>' +
-          '<a href="/" class="btn-primary inline-block mt-2">Browse Homestays</a>' +
-        '</div>' +
-      '');
-      return;
+  var html = '';
+  sorted.forEach(function(b) {
+    var id = b.id || 'N/A';
+    var homestay = b.homestay || 'Kundasang Homestay';
+    var checkin = b.checkin || 'N/A';
+    var checkout = b.checkout || 'N/A';
+    var nights = b.nights || 1;
+    var total = parseFloat(b.total) || 0;
+    var statusRaw = b.status || 'Unknown';
+    var statusLower = statusRaw.toLowerCase();
+    var isCompleted = b.payoutDate || statusLower.includes('completed');
+    var isPaid = statusLower.includes('paid') && !isCompleted;
+    var isPending = statusLower.includes('pending');
+    var isCancelled = statusLower.includes('cancel');
+    var isFailed = statusLower.includes('fail');
+    var isRefunded = statusLower.includes('refunded');
+    var isExpired = statusLower.includes('expired');
+
+    var badgeClass = 'badge-pending', badgeLabel = 'Pending';
+    if (isRefunded) { badgeClass = 'badge-refunded'; badgeLabel = '🔁 Refunded'; }
+    else if (isExpired) { badgeClass = 'badge-cancelled'; badgeLabel = '⏰ Expired'; }
+    else if (isCompleted) { badgeClass = 'badge-completed'; badgeLabel = '✓ Completed'; }
+    else if (isPaid) { badgeClass = 'badge-paid'; badgeLabel = '✓ Paid — Awaiting Check‑in Upon Arrival'; }
+    else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
+    else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
+
+    var buttonsHtml = '';
+    if (isPaid || isCompleted) {
+      buttonsHtml += `<button class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition action-btn" data-action="resendCode" data-id="${id}">📧 Resend Code</button>`;
     }
-    
-    var sorted = myBookings.slice().sort(function(a, b) {
-      return new Date(b.date || 0) - new Date(a.date || 0);
-    });
-    
-    var html = '';
-    sorted.forEach(function(b) {
-      var id = b.id || 'N/A';
-      var homestay = b.homestay || 'Kundasang Homestay';
-      var checkin = b.checkin || 'N/A';
-      var checkout = b.checkout || 'N/A';
-      var nights = b.nights || 1;
-      var total = parseFloat(b.total) || 0;
-      var base = parseFloat(b.base) || 0;
-      var statusRaw = b.status || 'Unknown';
-      var statusLower = statusRaw.toLowerCase();
-      var isCompleted = b.payoutDate || statusLower.includes('completed');
-      var isPaid = statusLower.includes('paid') && !isCompleted;
-      var isPending = statusLower.includes('pending');
-      var isCancelled = statusLower.includes('cancel');
-      var isFailed = statusLower.includes('fail');
-      var isRefunded = statusLower.includes('refunded');
-      var isExpired = statusLower.includes('expired');
-      
-      var badgeClass = 'badge-pending', badgeLabel = 'Pending';
-      if (isRefunded) { badgeClass = 'badge-refunded'; badgeLabel = '🔁 Refunded'; }
-      else if (isExpired) { badgeClass = 'badge-cancelled'; badgeLabel = '⏰ Expired'; }
-      else if (isCompleted) { badgeClass = 'badge-completed'; badgeLabel = '✓ Completed'; }
-      else if (isPaid) { badgeClass = 'badge-paid'; badgeLabel = '✓ Paid — Awaiting Check‑in Upon Arrival'; }
-      else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
-      else if (isFailed) { badgeClass = 'badge-failed'; badgeLabel = 'Payment Failed'; }
-      
-      // Build buttons array with data-* attributes (no onclick)
-      var buttonsHtml = '';
-      
-      // Resend Code – only for Paid or Completed
-      if (isPaid || isCompleted) {
-        buttonsHtml += `<button class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition action-btn" data-action="resendCode" data-id="${id}">📧 Resend Code</button>`;
-      }
-      
-      if (isPending) {
-        buttonsHtml += `<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="${id}">🔍 Check Payment</button>`;
-        buttonsHtml += `<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#D4A373;" data-action="retryPayment" data-id="${id}">🔄 Retry Payment</button>`;
-      }
-      if (isFailed) {
-        buttonsHtml += `<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="${id}">🔍 Check Status</button>`;
-        buttonsHtml += `<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#dc2626;" data-action="retryPayment" data-id="${id}">🔄 Retry Payment</button>`;
-      }
-      
-      var pendingNote = '';
-      if (isPending) {
-        pendingNote = '<div class="text-xs text-amber-600 mt-1">⏳ If your payment is pending for more than 10 minutes, you can retry.</div>';
-      }
+    if (isPending) {
+      buttonsHtml += `<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="${id}">🔍 Check Payment</button>`;
+      buttonsHtml += `<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#D4A373;" data-action="retryPayment" data-id="${id}">🔄 Retry Payment</button>`;
+    }
+    if (isFailed) {
+      buttonsHtml += `<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="${id}">🔍 Check Status</button>`;
+      buttonsHtml += `<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#dc2626;" data-action="retryPayment" data-id="${id}">🔄 Retry Payment</button>`;
+    }
 
-      // [H4 sync] Show a small explanatory line for refunded/cancelled/expired.
-      var extraNote = '';
-      if (isRefunded) {
-        extraNote = '<div class="text-xs text-blue-700 mt-1">💧 A full refund has been processed to your original payment method. It may take 3–7 business days to appear in your bank.</div>';
-      } else if (isCancelled) {
-        extraNote = '<div class="text-xs text-zinc-600 mt-1">This booking was cancelled by the host. If you had paid, the refund is being processed.</div>';
-      } else if (isExpired) {
-        extraNote = '<div class="text-xs text-zinc-600 mt-1">This booking expired before payment completed. The dates have been released.</div>';
-      }
+    var pendingNote = isPending ? '<div class="text-xs text-amber-600 mt-1">⏳ If your payment is pending for more than 10 minutes, you can retry.</div>' : '';
+    var extraNote = '';
+    if (isRefunded) extraNote = '<div class="text-xs text-blue-700 mt-1">💧 A full refund has been processed. It may take 3–7 business days to appear in your bank.</div>';
+    else if (isCancelled) extraNote = '<div class="text-xs text-zinc-600 mt-1">This booking was cancelled by the host.</div>';
+    else if (isExpired) extraNote = '<div class="text-xs text-zinc-600 mt-1">This booking expired before payment completed. The dates have been released.</div>';
 
-      html += '' +
-        '<div class="card hover:shadow-md transition-all duration-300" data-id="' + id + '">' +
-          '<div class="flex flex-col md:flex-row justify-between gap-4">' +
-            '<div class="flex-1 min-w-0 space-y-2">' +
-              '<div class="flex items-start justify-between gap-2 flex-wrap">' +
-                '<h3 class="font-poppins font-700 text-[18px] text-[#212121] leading-tight">' + homestay + '</h3>' +
-              '</div>' +
-              '<div class="text-sm text-zinc-600 space-y-1">' +
-                '<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
-                '<div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span> <span class="text-zinc-400 text-[10px]"></span></div>' +
-                '<div class="inline-block text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">' +
-                  'Booking ID: <span class="font-mono">' + id + '</span>' +
-                '</div>' +
-                pendingNote +
-                extraNote +
-                '<div class="mt-1 flex flex-wrap gap-2">' +
-                  buttonsHtml +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-            '<div class="flex flex-col items-end gap-2 shrink-0">' +
-              '<span class="' + badgeClass + '">' + badgeLabel + '</span>' +
+    html += '' +
+      '<div class="card hover:shadow-md transition-all duration-300" data-id="' + id + '">' +
+        '<div class="flex flex-col md:flex-row justify-between gap-4">' +
+          '<div class="flex-1 min-w-0 space-y-2">' +
+            '<h3 class="font-poppins font-700 text-[18px] text-[#212121] leading-tight">' + homestay + '</h3>' +
+            '<div class="text-sm text-zinc-600 space-y-1">' +
+              '<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
+              '<div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span></div>' +
+              '<div class="inline-block text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">Booking ID: <span class="font-mono">' + id + '</span></div>' +
+              pendingNote + extraNote +
+              '<div class="mt-1 flex flex-wrap gap-2">' + buttonsHtml + '</div>' +
             '</div>' +
           '</div>' +
+          '<div class="flex flex-col items-end gap-2 shrink-0"><span class="' + badgeClass + '">' + badgeLabel + '</span></div>' +
         '</div>' +
-      '';
-    });
-    listDiv.innerHTML = safeHTML(html);
-    
-    // Attach event listener for action buttons (delegation)
-    listDiv.removeEventListener('click', bookingActionHandler);
-    listDiv.addEventListener('click', bookingActionHandler);
-  }
+      '</div>';
+  });
+  listDiv.innerHTML = safeHTML(html);
+  listDiv.removeEventListener('click', bookingActionHandler);
+  listDiv.addEventListener('click', bookingActionHandler);
+}
 
-  // =============================================================
-  // EVENT DELEGATION FOR BOOKING ACTIONS
-  // =============================================================
-  function bookingActionHandler(e) {
-    var btn = e.target.closest('.action-btn');
-    if (!btn) return;
-    var action = btn.dataset.action;
-    var id = btn.dataset.id;
-    if (!action || !id) return;
-    e.preventDefault();
+function bookingActionHandler(e) {
+  var btn = e.target.closest('.action-btn');
+  if (!btn) return;
+  var action = btn.dataset.action;
+  var id = btn.dataset.id;
+  if (!action || !id) return;
+  e.preventDefault();
+  if (action === 'checkStatus') manualCheckPayment(id);
+  else if (action === 'retryPayment') retryPaymentFromBookings(id);
+  else if (action === 'resendCode') resendCode(id);
+}
 
-    switch (action) {
-      case 'checkStatus':
-        manualCheckPayment(id);
-        break;
-      case 'retryPayment':
-        retryPaymentFromBookings(id);
-        break;
-      case 'resendCode':
-        resendCode(id);
-        break;
-      default:
-        console.warn('Unknown action:', action);
-    }
-  }
-
-  // =============================================================
-  // MANUAL CHECK
-  // [H4 sync] Recognise the new terminal paymentStatus values.
-  // =============================================================
-  async function manualCheckPayment(bookingId) {
-    try {
-      const result = await checkPaymentStatus(bookingId);
-
-      // Terminal states from the [H4] backend change.
-      if (result.paymentStatus === 'refunded') {
-        await showAlert('Refunded', 'This booking has been refunded. The refund may take 3–7 business days to appear in your bank.');
-        loadMyBookings();
-        return;
-      }
-      if (result.paymentStatus === 'cancelled') {
-        await showAlert('Booking Cancelled', 'This booking was cancelled by the host.');
-        loadMyBookings();
-        return;
-      }
-      if (result.paymentStatus === 'expired') {
-        await showAlert('Booking Expired', 'This booking expired before the payment completed.');
-        loadMyBookings();
-        return;
-      }
-
-      if (result.success && result.booking) {
-        const status = result.booking.status || '';
-        if (status.toLowerCase().includes('paid')) {
-          await showAlert('✅ Payment confirmed!', 'Your booking is now active.');
-          loadMyBookings();
-          return;
-        } else if (status.toLowerCase().includes('fail')) {
-          showPaymentFailedModal(bookingId, result.booking);
-          return;
-        } else {
-          await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
-          return;
-        }
-      } else if (result.retry) {
-        await showAlert('Still Processing', result.message || 'The payment is still being processed. Please try again in a few seconds.');
-      } else {
-        await showAlert('Error', result.error || 'Could not check payment status.');
-      }
-    } catch (e) {
-      await showAlert('Error', 'Could not connect to the server.');
-    }
-  }
-
-  // =============================================================
-  // RETRY PAYMENT – cookie-only auth + CSRF refresh
-  // =============================================================
-  async function retryPayment(bookingId) {
-    let token = localStorage.getItem('kd_csrf_token');
-    if (!token) {
-      try {
-        const res = await fetch('/api/csrf-token', { method: 'GET', credentials: 'include' });
-        const data = await res.json();
-        if (data.token) {
-          localStorage.setItem('kd_csrf_token', data.token);
-          token = data.token;
-        } else {
-          throw new Error('No token received');
-        }
-      } catch (e) {
-        showModal('Session Expired', 
-          'Your security token is missing. Please log in again to continue.',
-          [
-            { label: 'Login', class: 'btn-primary', value: 'login' }
-          ]
-        ).then(function(result) {
-          if (result === 'login') window.location.href = '/login.html';
-        });
-        return;
-      }
-    }
-
-    try {
-      const res = await fetch('/api/chip-create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': token
-          // No Authorization header — the HttpOnly cookie authenticates us.
-        },
-        credentials: 'include',
-        body: JSON.stringify({ bookingId })
-      });
-
-      // 401 means the session cookie itself is gone/invalid.
-      if (res.status === 401) {
-        if (window.GuestSession) window.GuestSession.clearGuestSession();
-        showModal('Session Expired',
-          'Your session has expired. Please log in again to retry payment.',
-          [{ label: 'Login', class: 'btn-primary', value: 'login' }]
-        ).then(function(result) {
-          if (result === 'login') window.location.href = '/login.html?expired=1';
-        });
-        return;
-      }
-
-      const data = await res.json();
-
-      if (res.status === 403 && data.error && data.error.includes('token')) {
-        localStorage.removeItem('kd_csrf_token');
-        showModal('Security Error', 
-          'Your session token is invalid. Please log in again to retry payment.',
-          [
-            { label: 'Login', class: 'btn-primary', value: 'login' }
-          ]
-        ).then(function(result) {
-          if (result === 'login') window.location.href = '/login.html';
-        });
-        return;
-      }
-
-      if (!res.ok || !data.success) {
-        showAlert('Error', data.error || 'Could not create payment. Please try again.');
-        return;
-      }
-
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        showAlert('Error', 'Payment URL missing.');
-      }
-
-    } catch (e) {
-      showAlert('Network Error', 'Could not connect to the server. Please try again.');
-    }
-  }
-
-  // ✅ WRAPPER FOR ONCLICK (must be globally accessible)
-  async function retryPaymentFromBookings(bookingId) {
-    await retryPayment(bookingId);
-  }
-
-  // ✅ Ensure globals (in case of module scripts)
-  window.retryPayment = retryPayment;
-  window.retryPaymentFromBookings = retryPaymentFromBookings;
-
-  // =============================================================
-  // RESEND CHECK‑IN CODE – cookie-only auth
-  // =============================================================
-  async function resendCode(bookingId) {
-    const booking = myBookings.find(b => String(b.id) === String(bookingId));
-    if (!booking) {
-      showAlert('Error', 'Booking not found.');
+async function manualCheckPayment(bookingId) {
+  try {
+    const result = await checkPaymentStatus(bookingId);
+    if (result.paymentStatus === 'refunded') { await showAlert('Refunded', 'This booking has been refunded. Refunds may take 3–7 business days.'); loadMyBookings(); return; }
+    if (result.paymentStatus === 'cancelled') { await showAlert('Booking Cancelled', 'This booking was cancelled by the host.'); loadMyBookings(); return; }
+    if (result.paymentStatus === 'expired') { await showAlert('Booking Expired', 'This booking expired before the payment completed.'); loadMyBookings(); return; }
+    if (result.success && result.booking) {
+      const status = result.booking.status || '';
+      if (status.toLowerCase().includes('paid')) { await showAlert('✅ Payment confirmed!', 'Your booking is now active.'); loadMyBookings(); return; }
+      if (status.toLowerCase().includes('fail')) { showPaymentFailedModal(bookingId, result.booking); return; }
+      await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
       return;
     }
+    if (result.retry) { await showAlert('Still Processing', result.message || 'The payment is still being processed. Please try again in a few seconds.'); return; }
+    await showAlert('Error', result.error || 'Could not check payment status.');
+  } catch (e) {
+    await showAlert('Error', 'Could not connect to the server.');
+  }
+}
+
+async function retryPayment(bookingId) {
+  let token = localStorage.getItem('kd_csrf_token');
+  if (!token) {
     try {
-      const res = await fetch(API_BASE + '/resend-code', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getCsrfHeader()
-        },
-        credentials: 'include',
-        body: JSON.stringify({ bookingId })
-      });
-
-      if (res.status === 401) {
-        if (window.GuestSession) window.GuestSession.clearGuestSession();
-        window.location.href = '/login.html?expired=1';
-        return;
-      }
-
+      const res = await fetch('/api/csrf-token', { method: 'GET', credentials: 'include' });
       const data = await res.json();
-      if (data.success) {
-        if (data.emailSent) {
-          showAlert('Code Sent', data.message);
-        } else {
-          showAlert('Your Check‑in Code', data.message + '\n\nPlease save this code for check‑in.');
-        }
-      } else {
-        showAlert('Error', data.error || 'Failed to resend.');
-      }
-    } catch(e) {
-      showAlert('Error', 'Network error. Please try again.');
+      if (data.token) { localStorage.setItem('kd_csrf_token', data.token); token = data.token; }
+      else throw new Error('No token received');
+    } catch (e) {
+      showModal('Session Expired', 'Your security token is missing. Please log in again.', [{ label: 'Login', class: 'btn-primary', value: 'login' }])
+        .then(function(r) { if (r === 'login') window.location.href = '/login.html'; });
+      return;
     }
   }
-
-  // =============================================================
-  // INIT
-  // =============================================================
-  (function init() {
-    renderGuestNav();
-    var notLoggedIn = document.getElementById('notLoggedIn');
-    var bookingsView = document.getElementById('bookingsView');
-    var nameDisplay = document.getElementById('guestNameDisplay');
-    
-    if (currentGuest && currentGuest.id) {
-      if (notLoggedIn) notLoggedIn.classList.add('hidden');
-      if (bookingsView) bookingsView.classList.remove('hidden');
-      if (nameDisplay) nameDisplay.textContent = currentGuest.name || currentGuest.email || 'Guest';
-      setTimeout(function() {
-        loadMyBookings();
-      }, 100);
-    } else {
-      if (notLoggedIn) notLoggedIn.classList.remove('hidden');
-      if (bookingsView) bookingsView.classList.add('hidden');
+  try {
+    const res = await fetch('/api/chip-create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+      credentials: 'include',
+      body: JSON.stringify({ bookingId })
+    });
+    if (res.status === 401) {
+      if (window.GuestSession) window.GuestSession.clearGuestSession();
+      try { localStorage.removeItem('kd_guest'); } catch (e) {}
+      showModal('Session Expired', 'Your session has expired. Please log in again.', [{ label: 'Login', class: 'btn-primary', value: 'login' }])
+        .then(function(r) { if (r === 'login') window.location.href = '/login.html?expired=1'; });
+      return;
     }
-    
-  })();
+    const data = await res.json();
+    if (res.status === 403 && data.error && data.error.includes('token')) {
+      localStorage.removeItem('kd_csrf_token');
+      showModal('Security Error', 'Your session token is invalid. Please log in again.', [{ label: 'Login', class: 'btn-primary', value: 'login' }])
+        .then(function(r) { if (r === 'login') window.location.href = '/login.html'; });
+      return;
+    }
+    if (!res.ok || !data.success) { showAlert('Error', data.error || 'Could not create payment. Please try again.'); return; }
+    if (data.url) window.location.href = data.url;
+    else showAlert('Error', 'Payment URL missing.');
+  } catch (e) {
+    showAlert('Network Error', 'Could not connect to the server. Please try again.');
+  }
+}
+async function retryPaymentFromBookings(bookingId) { await retryPayment(bookingId); }
+window.retryPayment = retryPayment;
+window.retryPaymentFromBookings = retryPaymentFromBookings;
+
+async function resendCode(bookingId) {
+  const booking = myBookings.find(b => String(b.id) === String(bookingId));
+  if (!booking) { showAlert('Error', 'Booking not found.'); return; }
+  try {
+    const res = await fetch(API_BASE + '/resend-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getCsrfHeader() },
+      credentials: 'include',
+      body: JSON.stringify({ bookingId })
+    });
+    if (res.status === 401) {
+      if (window.GuestSession) window.GuestSession.clearGuestSession();
+      window.location.href = '/login.html?expired=1';
+      return;
+    }
+    const data = await res.json();
+    if (data.success) {
+      if (data.emailSent) showAlert('Code Sent', data.message);
+      else showAlert('Your Check‑in Code', data.message + '\n\nPlease save this code for check‑in.');
+    } else {
+      showAlert('Error', data.error || 'Failed to resend.');
+    }
+  } catch(e) { showAlert('Error', 'Network error. Please try again.'); }
+}
+
+// =============================================================
+// INIT
+// =============================================================
+(function init() {
+  // Try to fill currentGuest from local cache first (so the header
+  // shows the right name while we ask the server).
+  currentGuest = findLocalGuest();
+  renderGuestNav();
+
+  // Always ask the server. If the cookie is valid, we're logged in —
+  // regardless of what the local cache says.
+  loadMyBookings();
+})();
 </script>
 <script src="/footer-weather.js"></script>
 </body>
