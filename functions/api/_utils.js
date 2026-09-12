@@ -1,9 +1,6 @@
-// ===== SHARED HELPERS – Complete (all exports) =====
-
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
-// === PBKDF2 constants ===
-const PBKDF2_ITERATIONS = 100000;
+const PBKDF2_ITERATIONS = 600000;
 const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_KEYLEN = 256;
 
@@ -133,6 +130,47 @@ async function getUserRecord(type, userId, db) {
   return null;
 }
 
+// H5 FIX: resolve the MAXIMUM ownerSessionVersion across kd_owners AND
+// every kd_approved/kd_pending record sharing the same whatsapp. This
+// prevents a stale homestay row (which still has an old version number)
+// from re-enabling a session that was already invalidated everywhere else.
+async function getOwnerMaxSessionVersion(db, ownerIdOrWhatsapp) {
+  const key = String(ownerIdOrWhatsapp || '').trim();
+  const cleanWa = key.replace(/[^0-9]/g, '');
+  let maxVersion = 0;
+  let found = false;
+
+  const ownersRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_owners').first();
+  let owners = [];
+  try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch(_) {}
+  for (const o of owners) {
+    const matches = String(o.id) === key ||
+      (cleanWa && String(o.whatsapp || '').replace(/[^0-9]/g, '') === cleanWa);
+    if (matches) {
+      found = true;
+      const v = Number(o.ownerSessionVersion || 0);
+      if (v > maxVersion) maxVersion = v;
+    }
+  }
+
+  const approved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
+  const pending = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
+  let homes = [];
+  try { if (approved?.data) homes = homes.concat(JSON.parse(approved.data)); } catch(_) {}
+  try { if (pending?.data) homes = homes.concat(JSON.parse(pending.data)); } catch(_) {}
+  for (const h of homes) {
+    const matches = String(h.id) === key ||
+      (cleanWa && String(h.whatsapp || '').replace(/[^0-9]/g, '') === cleanWa);
+    if (matches) {
+      found = true;
+      const v = Number(h.ownerSessionVersion || 0);
+      if (v > maxVersion) maxVersion = v;
+    }
+  }
+
+  return { found, maxVersion };
+}
+
 export async function getGuestSession(request, env) {
   const token = getBearerToken(request) || getCookie(request, 'guest_token');
   if (!token) return null;
@@ -161,8 +199,12 @@ export async function getOwnerSession(request, env) {
   await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
   const record = await getUserRecord('owner', payload.ownerId, db);
   if (!record) return null;
-  if (record.ownerSessionVersion !== undefined && payload.ownerSessionVersion !== undefined) {
-    if (Number(record.ownerSessionVersion) !== Number(payload.ownerSessionVersion)) return null;
+
+  // H5 FIX: compare against the MAXIMUM ownerSessionVersion across
+  // kd_owners AND every matching homestay row.
+  if (payload.ownerSessionVersion !== undefined) {
+    const { found, maxVersion } = await getOwnerMaxSessionVersion(db, payload.ownerId);
+    if (found && maxVersion !== Number(payload.ownerSessionVersion)) return null;
   }
   return payload;
 }
@@ -272,7 +314,19 @@ export function corsHeaders(request) {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'X-Frame-Options': 'DENY',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com; connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia; frame-src 'self' https://gate.chip-in.asia;",
+    // H9: CSP kept in sync with /_headers (img-src includes res.cloudinary.com,
+    // gate.chip-in.asia allowed in script/frame/connect, etc.)
+    'Content-Security-Policy': [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com data:",
+      "img-src 'self' data: blob: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com https://res.cloudinary.com",
+      "connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia https://api.resend.com https://api.sendgrid.com https://api.cloudinary.com",
+      "frame-src 'self' https://gate.chip-in.asia",
+      "base-uri 'self'",
+      "form-action 'self' https://gate.chip-in.asia"
+    ].join('; ') + ';',
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
   };
   if (allowed.has(origin)) {
@@ -325,12 +379,22 @@ export function getCSRFToken(request) {
 }
 
 // === Admin token retrieval ===
-export async function getAdminToken(request) {
-  return getBearerToken(request) || getCookie(request, 'admin_token');
+export async function getAdminToken(request, env) {
+  // M7: cookie first. Bearer only if explicitly enabled.
+  const cookie = getCookie(request, 'admin_token');
+  if (cookie) return cookie;
+  if (env?.ALLOW_ADMIN_BEARER === 'true') {
+    return getBearerToken(request);
+  }
+  return null;
 }
 
 export async function getAdminSession(request, env) {
-  const token = getBearerToken(request) || getCookie(request, 'admin_token');
+  // M7: cookie-only by default; Bearer must be opted-in via ALLOW_ADMIN_BEARER.
+  let token = getCookie(request, 'admin_token');
+  if (!token && env?.ALLOW_ADMIN_BEARER === 'true') {
+    token = getBearerToken(request);
+  }
   if (!token) return null;
   try {
     const payload = await verifySignedToken(token, env);
@@ -358,8 +422,15 @@ export function errorResponse(message, status, request, logDetails = null) {
   return jsonResponse({ error: message || 'An unexpected error occurred. Please try again later.' }, status, request);
 }
 
-// ===== SAFE JSON PARSING WITH SIZE LIMIT =====
+// === M5: Size-check BEFORE reading the body ===
 export async function parseJSONSafely(request) {
+  const cl = request.headers.get('Content-Length');
+  if (cl !== null) {
+    const declared = parseInt(cl, 10);
+    if (!isNaN(declared) && declared > MAX_BODY_SIZE) {
+      throw new Error('Payload too large');
+    }
+  }
   const text = await request.text();
   if (text.length > MAX_BODY_SIZE) {
     throw new Error('Payload too large');
@@ -371,7 +442,7 @@ export async function parseJSONSafely(request) {
   }
 }
 
-// ===== RATE LIMITING (Persistent D1) =====
+// === RATE LIMITING (Persistent D1) ===
 export async function ensureRateLimitTable(db) {
   if (!db) return;
   await db.prepare(
@@ -421,7 +492,7 @@ export async function recordRateLimit(db, ip, action) {
   }
 }
 
-// ===== SESSION VERSION MANAGEMENT =====
+// === SESSION VERSION MANAGEMENT ===
 export async function incrementSessionVersion(db, userId, type) {
   if (type === 'guest') {
     const key = 'kd_guests';
@@ -516,10 +587,7 @@ export async function incrementOwnerSessionVersion(db, ownerIdOrWhatsapp) {
   return changed;
 }
 
-// =============================================================
-// VALIDATION HELPERS
-// =============================================================
-
+// === VALIDATION HELPERS ===
 export function sanitizeString(str, maxLen = 200) {
   if (!str) return '';
   return String(str).replace(/[<>]/g, '').trim().slice(0, maxLen);
@@ -559,9 +627,7 @@ export function sanitizeArray(arr, maxItems = 20) {
   return arr.slice(0, maxItems);
 }
 
-// =============================================================
-// Check‑in attempt tracking
-// =============================================================
+// === Check-in attempt tracking ===
 async function ensureCheckinAttemptsTable(db) {
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS checkin_attempts (
@@ -596,17 +662,28 @@ export async function clearCheckinAttempts(db, bookingId) {
   ).bind(bookingId).run();
 }
 
-// =============================================================
-// Invalidate owner sessions on homestay changes.
-// =============================================================
-export async function invalidateOwnerSessions(db, homestayId) {
-  if (!homestayId) return;
+// === Owner session invalidation (M6 rename) ===
+export async function invalidateOwnerSessionsForHomestay(db, homestayId) {
+  if (!homestayId) return false;
   return await incrementOwnerSessionVersion(db, homestayId);
 }
 
-// =============================================================
-// D1-Compatible Lock using INSERT OR IGNORE (no transactions)
-// =============================================================
+export async function invalidateOwnerSessionsForOwner(db, ownerIdOrWhatsapp) {
+  if (!ownerIdOrWhatsapp) return false;
+  return await incrementOwnerSessionVersion(db, ownerIdOrWhatsapp);
+}
+
+// DEPRECATED: use invalidateOwnerSessionsForHomestay or
+// invalidateOwnerSessionsForOwner. Kept so existing callers keep working.
+export async function invalidateOwnerSessions(db, homestayId) {
+  return invalidateOwnerSessionsForHomestay(db, homestayId);
+}
+
+// === D1-Compatible Lock — C3: atomic CAS takeover ===
+// Plain English: if a lock looks stale, we don't DELETE-then-INSERT (which
+// let two workers race and one could delete the other's fresh lock). We now
+// do a single UPDATE ... WHERE locked_at = <old value>. D1 reports 1 row
+// changed to exactly one winner; the loser throws.
 export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS homestay_locks (
@@ -627,11 +704,10 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
     ).bind(lockKey).first();
 
     if (existing && (now - existing.locked_at) > staleTimeoutMs) {
-      await db.prepare(`DELETE FROM homestay_locks WHERE homestay_id = ?`).bind(lockKey).run();
-      insertResult = await db.prepare(
-        `INSERT OR IGNORE INTO homestay_locks (homestay_id, locked_at) VALUES (?, ?)`
-      ).bind(lockKey, now).run();
-      if (insertResult.meta.changes === 0) {
+      const casResult = await db.prepare(
+        `UPDATE homestay_locks SET locked_at = ? WHERE homestay_id = ? AND locked_at = ?`
+      ).bind(now, lockKey, existing.locked_at).run();
+      if (!casResult.meta || casResult.meta.changes === 0) {
         throw new Error('Another operation is in progress. Please try again in a moment.');
       }
     } else {
@@ -646,14 +722,7 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
   }
 }
 
-// =============================================================
-// Payment finalization (idempotent, lock-protected by caller)
-//
-// BUG B FIX: If the booking was cancelled (by guest or owner), refunded,
-// or otherwise expired, DO NOT resurrect it to "Paid - Awaiting Check-in".
-// Return { refuseFinalize: true, reason, booking } so the caller knows
-// the payment needs to be refunded instead.
-// =============================================================
+// === Payment finalization (idempotent, lock-protected by caller) ===
 export async function finalizePaidBooking(db, bookingId) {
   const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
   let bookings = [];
@@ -663,7 +732,6 @@ export async function finalizePaidBooking(db, bookingId) {
 
   const booking = bookings[idx];
 
-  // Another confirmation path already finalized this booking.
   const s = String(booking.status || '');
   if (s === 'Paid - Awaiting Check-in' || s === 'Completed' || s.startsWith('Completed')) {
     return {
@@ -673,10 +741,6 @@ export async function finalizePaidBooking(db, bookingId) {
     };
   }
 
-  // ============================================================
-  // BUG B FIX: Refuse to finalize cancelled/refunded/expired bookings.
-  // The caller must refund the CHIP payment instead.
-  // ============================================================
   if (/cancelled|refunded|expired/i.test(s)) {
     return {
       refuseFinalize: true,
