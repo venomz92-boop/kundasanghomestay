@@ -1,18 +1,8 @@
-// /api/owner-checkin.js — Plain English: this file will NO LONGER pretend a
-// host was paid when CHIP keys are missing in production. Simulation is
-// only allowed when ENVIRONMENT !== 'production' AND ALLOW_PAYOUT_SIMULATION
-// === 'true'. It also uses the canonical 'bookings-global' lock so it can
-// never race with booking creation, cancellation, or admin edits.
+// /api/owner-checkin.js — Host confirms guest check-in and triggers CHIP Send payout.
 //
-// Payout double-fire protection (previous fix): the attempt marker is
-// written to D1 BEFORE calling CHIP Send. If the worker crashes between
-// the CHIP call and the result write, a retry refuses instead of firing
-// a second real payout.
-//
-// [NEW] Atomic fee-recording: the booking update and the platform-fee
-// update are now written in a single db.batch(). D1 batches are atomic.
-// If the batch fails, the booking reverts to "attempt marker only" and
-// the double-fire guard refuses retries — no silent fee loss.
+// Payout double-fire protection: attempt marker written to D1 BEFORE CHIP Send.
+// Atomic fee-recording: booking + platform-fee written in one db.batch().
+// Uses shared 'bookings-global' lock.
 import {
   corsHeaders,
   getClientIP,
@@ -23,84 +13,11 @@ import {
   recordCheckinAttempt,
   getRecentCheckinAttempts,
   clearCheckinAttempts,
-  withLock
+  withLock,
+  chipSendPayout
 } from './_utils.js';
 
 const BOOKINGS_LOCK = 'bookings-global';
-
-function getChipBankCode(bankName) {
-  const map = {
-    'AEON BANK': 'ACDBMYK2',
-    'AFFIN BANK': 'PHBMMYKL',
-    'AGROBANK': 'AGOBMYKL',
-    'AL-RAJHI': 'RJHIMYKL',
-    'ALLIANCE BANK': 'MFBBMYKL',
-    'AMBANK': 'ARBKMYKL',
-    'BANK ISLAM': 'BIMBMYKL',
-    'BANK RAKYAT': 'BKRMMYKL',
-    'BANK MUAMALAT': 'BMMBMYKL',
-    'BANK OF AMERICA': 'BOFAMY2X',
-    'BANK OF CHINA': 'BKCHMYKL',
-    'BANK OF TOKYO-MITSUBISHI': 'BOTKMYKX',
-    'BSN': 'BSNAMYK1',
-    'BNP PARIBAS': 'BNPAMYKL',
-    'CHINA CONSTRUCTION BANK': 'PCBCMYKL',
-    'CIMB': 'CIBBMYKL',
-    'DEUTSCHE BANK': 'DEUTMYKL',
-    'FINEXUS': 'FNXSMYNB',
-    'GX BANK': 'GXSPMYKL',
-    'HONG LEONG': 'HLBBMYKL',
-    'HSBC': 'HBMBMYKL',
-    'ICBC': 'ICBKMYKL',
-    'JP MORGAN': 'CHASMYKX',
-    'KUWAIT FINANCE HOUSE': 'KFHOMYKL',
-    'MAYBANK': 'MBBEMYKL',
-    'MBSB': 'AFBQMYKL',
-    'MIZUHO': 'MHCBMYKA',
-    'OCBC': 'OCBCMYKL',
-    'PUBLIC BANK': 'PBBEMYKL',
-    'RHB': 'RHBBMYKL',
-    'STANDARD CHARTERED': 'SCBLMYKX',
-    'SUMITOMO MITSUI': 'SMBCMYKL',
-    'TOUCH N GO': 'TNGDMYNB',
-    'UOB': 'UOVBMYKL'
-  };
-  const clean = (bankName || '').toUpperCase().trim();
-  if (!clean) return 'MBBEMYKL';
-  const entries = Object.entries(map).sort((a, b) => b[0].length - a[0].length);
-  for (const [key, code] of entries) {
-    if (clean.includes(key)) return code;
-  }
-  return 'MBBEMYKL';
-}
-
-async function hmacSha512(message, secret) {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-512' },
-    false,
-    ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
-  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function saveBankAccountId(db, homestayId, bankAccountId) {
-  if (!homestayId) return;
-  for (const store of ['kd_approved', 'kd_homestays', 'kd_pending']) {
-    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(store).first();
-    let list = [];
-    try { if (r?.data) list = JSON.parse(r.data); } catch (_) {}
-    if (!Array.isArray(list) || list.length === 0) continue;
-    const idx = list.findIndex(h => String(h.id) === String(homestayId));
-    if (idx === -1) continue;
-    list[idx].chip_bank_account_id = bankAccountId;
-    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-      .bind(store, JSON.stringify(list))
-      .run();
-  }
-}
 
 const GATEWAY_FEE = 1.00;
 
@@ -127,7 +44,7 @@ export async function onRequestPost({ request, env }) {
     if (!db) return jsonResponse({ error: 'Database unavailable' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // Pre-fetch for auth check (read-only, doesn't mutate so no lock needed)
+    // Pre-fetch for auth check (read-only, no lock needed)
     const storeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
     let preBookings = [];
     try { if (storeRes?.data) preBookings = JSON.parse(storeRes.data); } catch (_) {}
@@ -225,17 +142,14 @@ export async function onRequestPost({ request, env }) {
           if (found) { homestay = found; homestaySource = store; break; }
         }
 
-        const ownerAmount = booking.base || 0;
-        const ownerAcc = homestay?.ownerBankAccount || '';
-        const ownerName = homestay?.bankHolder || homestay?.ownerName || '';
-        const bankCodeInput = homestay?.bankCode || homestay?.ownerBank || '';
-        const chipBankCode = getChipBankCode(bankCodeInput);
+        if (!homestay) {
+          return { error: 'Homestay not found for this booking', status: 404 };
+        }
 
-        let payoutSuccess = false;
-        let payoutUnknown = false;
-        let payoutData = null;
-        let payoutMessage = '';
-        let isSimulation = false;
+        const ownerAmount = Number(booking.base) || 0;
+        if (ownerAmount <= 0) {
+          return { error: 'Invalid booking base amount', status: 400 };
+        }
 
         const isLive = !!(env.CHIP_API_KEY && env.CHIP_API_SECRET);
         const isProduction = env.ENVIRONMENT === 'production';
@@ -268,11 +182,44 @@ export async function onRequestPost({ request, env }) {
         }
 
         if (!isLive && simulationAllowed) {
-          payoutSuccess = true;
-          payoutData = { simulation: true };
-          payoutMessage = `Check-in confirmed! SIMULATED payout of RM${ownerAmount} completed (ALLOW_PAYOUT_SIMULATION=true on non-prod).`;
-          isSimulation = true;
-        } else if (!isLive) {
+          // Simulate success (non-production only).
+          bookings[idx].status = 'Completed - Payout Success';
+          bookings[idx].payoutSuccess = true;
+          bookings[idx].payoutSuccessDate = new Date().toISOString();
+          bookings[idx].payoutAmount = ownerAmount;
+          bookings[idx].payoutMethod = 'Simulated';
+          bookings[idx].ownerPayoutId = 'SIM_' + Date.now();
+          bookings[idx].completedDate = new Date().toISOString();
+          bookings[idx].checkedInAt = new Date().toISOString();
+          bookings[idx].checkedInBy = 'owner';
+          bookings[idx].homestaySource = homestaySource;
+          bookings[idx].payoutFailedAttempt = false;
+          delete bookings[idx].lastPayoutError;
+
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+
+          await logAction({
+            db,
+            action: 'owner_checkin_simulation',
+            admin: 'owner',
+            details: `Check-in ${bookingId}, payout SIMULATED (non-prod)`,
+            ip: getClientIP(request),
+            userId: booking.guestEmail,
+            homestayId: booking.homestayId
+          });
+
+          return {
+            success: true,
+            message: `Check-in confirmed! SIMULATED payout of RM${ownerAmount} recorded.`,
+            bookingId,
+            payoutSuccess: true,
+            simulation: true
+          };
+        }
+
+        if (!isLive && !simulationAllowed) {
           bookings[idx].status = 'Completed - Payout Pending';
           bookings[idx].checkedInAt = new Date().toISOString();
           bookings[idx].checkedInBy = 'owner';
@@ -286,187 +233,73 @@ export async function onRequestPost({ request, env }) {
             error: 'Payout gateway not configured and simulation not allowed. Contact admin.',
             status: 500
           };
-        } else {
-          try {
-            const apiKey = env.CHIP_API_KEY;
-            const apiSecret = env.CHIP_API_SECRET;
-
-            if (!ownerAcc || ownerAcc.replace(/[^0-9]/g, '').length < 10) {
-              throw new Error('CHIP Send failed: Owner bank account is missing or invalid (must be at least 10 digits)');
-            }
-            if (!ownerName) {
-              throw new Error('CHIP Send failed: Owner bank account holder name is missing');
-            }
-
-            let bankAccountId = homestay?.chip_bank_account_id || null;
-            if (!bankAccountId) {
-              const bankEpoch = Math.floor(Date.now() / 1000);
-              const bankBody = JSON.stringify({
-                bank_code: chipBankCode,
-                account_number: ownerAcc.replace(/[^0-9]/g, ''),
-                account_name: ownerName
-              });
-              const bankChecksum = await hmacSha512(`${bankEpoch}${apiKey}`, apiSecret);
-
-              const createRes = await fetch('https://api.chip-in.asia/api/send/bank_accounts/', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${apiKey}`,
-                  'Content-Type': 'application/json',
-                  'epoch': String(bankEpoch),
-                  'checksum': bankChecksum
-                },
-                body: bankBody
-              });
-              let bankData;
-              try { bankData = await createRes.json(); } catch (_) { bankData = {}; }
-              if (!createRes.ok || !bankData.id) {
-                throw new Error(`CHIP Send failed: Failed to create bank account: ${bankData.error || 'unknown'}`);
-              }
-              bankAccountId = bankData.id;
-              if (homestay) await saveBankAccountId(db, booking.homestayId, bankAccountId);
-            }
-
-            const amountCents = Math.round(ownerAmount * 100);
-            const reference = `KDH-${bookingId}`;
-            const payoutPayload = {
-              bank_account_id: bankAccountId,
-              amount: amountCents,
-              reference: reference,
-              description: `Owner payout for ${bookingId}`
-            };
-
-            bookings[idx].payoutAttemptedAt = new Date().toISOString();
-            bookings[idx].payoutAttemptedReference = reference;
-            bookings[idx].payoutAttemptedAmount = Number(ownerAmount);
-
-            // PRE-FLIGHT WRITE. Persist the attempt marker to D1 BEFORE
-            // calling CHIP Send. If the worker dies between here and the
-            // final result write, this marker survives — the guard above
-            // will refuse a retry instead of firing a second real payout.
-            try {
-              await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-                .bind('kd_bookings', JSON.stringify(bookings))
-                .run();
-            } catch (preflightErr) {
-              return {
-                error: `Could not record the payout attempt before contacting CHIP (${preflightErr.message}). No payout was sent. Please try again.`,
-                status: 500
-              };
-            }
-
-            const payoutEpoch = Math.floor(Date.now() / 1000);
-            const payoutChecksum = await hmacSha512(`${payoutEpoch}${apiKey}`, apiSecret);
-
-            let payoutRes;
-            try {
-              payoutRes = await fetch('https://api.chip-in.asia/api/send/payouts/', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${apiKey}`,
-                  'Content-Type': 'application/json',
-                  'epoch': String(payoutEpoch),
-                  'checksum': payoutChecksum
-                },
-                body: JSON.stringify(payoutPayload)
-              });
-            } catch (networkErr) {
-              payoutUnknown = true;
-              payoutMessage = `Check-in confirmed, but payout status is UNKNOWN due to a network error. Reference KDH-${bookingId} may have been sent to CHIP. Log into your CHIP dashboard to verify before retrying.`;
-            }
-
-            // H3: unparseable → UNKNOWN.
-            if (!payoutUnknown) {
-              let payoutDataRaw = null;
-              let parseFailed = false;
-              try {
-                payoutDataRaw = await payoutRes.json();
-              } catch (_) {
-                parseFailed = true;
-              }
-
-              if (parseFailed) {
-                payoutUnknown = true;
-                payoutMessage = `Check-in confirmed, but CHIP Send returned an unparseable response. Reference KDH-${bookingId} may have been sent. Check your CHIP dashboard before retrying.`;
-              } else if (!payoutRes.ok || !payoutDataRaw?.id) {
-                const errStr = String(payoutDataRaw?.error || payoutDataRaw?.message || '').toLowerCase();
-                const isStructuredRejection = payoutRes.status >= 400 && payoutRes.status < 500 && errStr.length > 0;
-                if (isStructuredRejection) {
-                  throw new Error(`CHIP Send failed: ${payoutDataRaw.error || payoutDataRaw.message || 'unknown'}`);
-                }
-                payoutUnknown = true;
-                payoutMessage = `Check-in confirmed, but CHIP Send response was ambiguous (HTTP ${payoutRes.status}). Reference KDH-${bookingId} may have been sent. Check your CHIP dashboard before retrying.`;
-              } else {
-                payoutSuccess = true;
-                payoutData = payoutDataRaw;
-                payoutMessage = `Check-in confirmed! Payout of RM${ownerAmount} sent to owner via CHIP Send.`;
-                isSimulation = false;
-              }
-            }
-          } catch (err) {
-            payoutSuccess = false;
-            const errMsg = err.message || 'unknown';
-            const isApiError = /^CHIP Send failed:/.test(errMsg);
-
-            if (isApiError) {
-              payoutMessage = `Real payout failed: ${errMsg}. Please check CHIP Send credentials and bank details.`;
-            } else {
-              payoutUnknown = true;
-              payoutMessage = `Check-in confirmed, but payout status is UNKNOWN due to an unexpected error. Reference KDH-${bookingId} may have been sent to CHIP. Log into your CHIP dashboard to verify before retrying.`;
-            }
-          }
         }
 
-        // Update booking object in memory based on outcome
-        if (payoutSuccess) {
+        // ---------- LIVE CHIP Send payout ----------
+        const reference = `KDH-${bookingId}`;
+
+        // PRE-FLIGHT WRITE. Persist the attempt marker BEFORE calling CHIP Send.
+        bookings[idx].payoutAttemptedAt = new Date().toISOString();
+        bookings[idx].payoutAttemptedReference = reference;
+        bookings[idx].payoutAttemptedAmount = ownerAmount;
+        try {
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+        } catch (preflightErr) {
+          return {
+            error: `Could not record the payout attempt before contacting CHIP (${preflightErr.message}). No payout was sent. Please try again.`,
+            status: 500
+          };
+        }
+
+        const payoutResult = await chipSendPayout({
+          db,
+          homestayId: booking.homestayId,
+          homestay,
+          amount: ownerAmount,
+          reference,
+          description: `Owner payout for ${bookingId}`,
+          env
+        });
+
+        let payoutSuccess = false;
+        let payoutUnknown = false;
+        let isSimulation = false;
+
+        if (payoutResult.success) {
+          payoutSuccess = true;
           bookings[idx].status = 'Completed - Payout Success';
           bookings[idx].payoutSuccess = true;
           bookings[idx].payoutSuccessDate = new Date().toISOString();
           bookings[idx].payoutAmount = Number(ownerAmount);
-          bookings[idx].payoutMethod = isSimulation ? 'Simulated' : 'CHIP Send';
-          bookings[idx].ownerPayoutId = payoutData?.id || 'SIM_' + Date.now();
+          bookings[idx].payoutMethod = 'CHIP Send';
+          bookings[idx].ownerPayoutId = payoutResult.payoutId;
           bookings[idx].completedDate = new Date().toISOString();
           bookings[idx].checkedInAt = new Date().toISOString();
           bookings[idx].checkedInBy = 'owner';
           bookings[idx].homestaySource = homestaySource;
-          bookings[idx].chip_bank_code = chipBankCode;
           bookings[idx].payoutFailedAttempt = false;
-          if (isSimulation) bookings[idx].payoutSimulated = true;
           delete bookings[idx].lastPayoutError;
-        } else if (payoutUnknown) {
+        } else if (payoutResult.unknown) {
+          payoutUnknown = true;
           bookings[idx].status = 'Completed - Payout Unknown';
           bookings[idx].checkedInAt = new Date().toISOString();
           bookings[idx].checkedInBy = 'owner';
           bookings[idx].payoutUnknown = true;
           bookings[idx].payoutUnknownAt = new Date().toISOString();
-          bookings[idx].payoutUnknownError = payoutMessage;
+          bookings[idx].payoutUnknownError = payoutResult.error;
           bookings[idx].homestaySource = homestaySource;
         } else {
           bookings[idx].status = 'Completed - Payout Pending';
           bookings[idx].checkedInAt = new Date().toISOString();
           bookings[idx].checkedInBy = 'owner';
           bookings[idx].payoutFailedAttempt = true;
-          bookings[idx].lastPayoutError = payoutMessage;
+          bookings[idx].lastPayoutError = payoutResult.error;
           bookings[idx].homestaySource = homestaySource;
         }
 
-        // ============================================================
-        // [NEW] ATOMIC WRITE: booking + platform-fee in ONE batch.
-        //
-        // Previously these were two separate writes. If the second one
-        // failed, the platform's 11% commission was silently lost
-        // forever (the booking already showed payoutSuccessDate, so
-        // no retry path would ever record the fee).
-        //
-        // We read fee-earnings first, prepare the modified blob, then
-        // batch both writes. If the batch fails, the booking reverts
-        // to "attempt marker only" and the double-fire guard above
-        // refuses retries — the admin is forced to reconcile manually
-        // against the CHIP dashboard instead of the fee vanishing.
-        //
-        // Simulation NEVER records a fee (isSimulation === true), so
-        // the batch then contains only the booking write.
-        // ============================================================
+        // ATOMIC WRITE: booking + platform-fee in ONE batch.
         let feeEarningsToWrite = null;
         if (payoutSuccess && !isSimulation) {
           try {
@@ -494,7 +327,7 @@ export async function onRequestPost({ request, env }) {
           } catch (feeReadErr) {
             console.error('Could not read fee earnings before atomic batch:', feeReadErr.message);
             return {
-              error: `Payout succeeded at CHIP but the platform fee could not be prepared for write (${feeReadErr.message}). Booking left in "attempt marker only" state. Verify reference KDH-${bookingId} in the CHIP dashboard, then contact support to reconcile.`,
+              error: `Payout succeeded at CHIP but the platform fee could not be prepared for write (${feeReadErr.message}). Booking left in "attempt marker only" state. Verify reference ${reference} in the CHIP dashboard, then contact support to reconcile.`,
               status: 500
             };
           }
@@ -516,7 +349,7 @@ export async function onRequestPost({ request, env }) {
         } catch (batchErr) {
           console.error('Atomic batch write failed:', batchErr.message);
           return {
-            error: `Could not persist the payout result (${batchErr.message}). Booking left in "attempt marker only" state. Verify reference KDH-${bookingId} in the CHIP dashboard before retrying.`,
+            error: `Could not persist the payout result (${batchErr.message}). Booking left in "attempt marker only" state. Verify reference ${reference} in the CHIP dashboard before retrying.`,
             status: 500
           };
         }
@@ -527,7 +360,7 @@ export async function onRequestPost({ request, env }) {
             ? (isSimulation ? 'owner_checkin_simulation' : 'owner_checkin_payout_success')
             : (payoutUnknown ? 'owner_checkin_payout_unknown' : 'owner_checkin_payout_failed'),
           admin: 'owner',
-          details: `Check-in ${bookingId}, payout ${payoutSuccess ? (isSimulation ? 'simulated' : 'success') : (payoutUnknown ? 'UNKNOWN' : 'failed')}`,
+          details: `Check-in ${bookingId}, payout ${payoutSuccess ? (isSimulation ? 'simulated' : 'success') : (payoutUnknown ? 'UNKNOWN' : 'failed')}${payoutResult.payoutId ? ' id=' + payoutResult.payoutId : ''}`,
           ip: getClientIP(request),
           userId: booking.guestEmail,
           homestayId: booking.homestayId
@@ -535,16 +368,17 @@ export async function onRequestPost({ request, env }) {
 
         return {
           success: payoutSuccess,
-          message: payoutMessage,
+          message: payoutSuccess
+            ? `Check-in confirmed! Payout of RM${ownerAmount} sent to owner via CHIP Send.`
+            : (payoutUnknown
+                ? `Check-in confirmed, but payout status is UNKNOWN. Reference ${reference} may have been sent — check your CHIP dashboard before retrying.`
+                : `Check-in confirmed, but payout failed: ${payoutResult.error}`),
           bookingId,
           payoutSuccess,
           payoutUnknown,
           simulation: isSimulation,
           homestaySource,
-          bankCodeUsed: chipBankCode,
-          warning: isSimulation
-            ? 'Payout was simulated (no real money transferred).'
-            : (payoutUnknown ? 'Payout state unknown. Check CHIP dashboard before retrying.' : undefined)
+          warning: payoutUnknown ? 'Payout state unknown. Check CHIP dashboard before retrying.' : undefined
         };
       }, 60000);
     } catch (lockErr) {
