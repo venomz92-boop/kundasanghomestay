@@ -11,7 +11,6 @@
 <link rel="stylesheet" href="animations.css" />
 
 <style>
-/* ===== ROOT ===== */
 :root {
   --primary: #0F382E;
   --primary-light: #1a4d3e;
@@ -289,9 +288,6 @@ body {
 .calendar-legend .dot.red { background: #fef2f2; border: 1px solid #fecaca; }
 .calendar-legend .dot.today-dot { border: 2px solid var(--primary); background: white; width: 10px; height: 10px; }
 
-/* ============================================================
-  ADMIN ACTION BUTTONS
-   ============================================================ */
 .admin-action-btn {
   display: inline-flex;
   align-items: center;
@@ -311,103 +307,76 @@ body {
   white-space: nowrap;
   line-height: 1.2;
 }
+.admin-action-btn:hover { background: #f1f5f9; border-color: #94a3b8; transform: translateY(-1px); }
+.admin-action-btn:active { transform: translateY(0); }
 
-.admin-action-btn:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
-  transform: translateY(-1px);
-}
-
-.admin-action-btn:active {
-  transform: translateY(0);
-}
-
-/* ---------- Neutral (View / Edit / Manage) ---------- */
 .admin-action-btn[data-action="viewPendingDetails"],
 .admin-action-btn[data-action="editApprovedHomestay"],
 .admin-action-btn[data-action="openOwnerAvailabilityManager"],
 .admin-action-btn[data-action="changeBookingDates"] {
-  background: #0F382E;
-  border-color: #0F382E;
-  color: #ffffff;
+  background: #0F382E; border-color: #0F382E; color: #ffffff;
 }
 .admin-action-btn[data-action="viewPendingDetails"]:hover,
 .admin-action-btn[data-action="editApprovedHomestay"]:hover,
 .admin-action-btn[data-action="openOwnerAvailabilityManager"]:hover,
 .admin-action-btn[data-action="changeBookingDates"]:hover {
-  background: #1a4d3e;
-  border-color: #1a4d3e;
+  background: #1a4d3e; border-color: #1a4d3e;
 }
 
-/* ---------- Approve / Complete (green) ---------- */
 .admin-action-btn[data-action="approveHomestay"],
 .admin-action-btn[data-action="updateBookingStatus"] {
-  background: #16a34a;
-  border-color: #16a34a;
-  color: #ffffff;
+  background: #16a34a; border-color: #16a34a; color: #ffffff;
 }
 .admin-action-btn[data-action="approveHomestay"]:hover,
 .admin-action-btn[data-action="updateBookingStatus"]:hover {
-  background: #15803d;
-  border-color: #15803d;
+  background: #15803d; border-color: #15803d;
 }
 
-/* ---------- Reject / Delete (red) ---------- */
 .admin-action-btn[data-action="rejectHomestay"],
 .admin-action-btn[data-action="removeApprovedHomestay"],
 .admin-action-btn[data-action="deleteBooking"],
 .admin-action-btn[data-action="deleteGuest"],
 .admin-action-btn[data-action="deleteOwner"] {
-  background: #dc2626;
-  border-color: #dc2626;
-  color: #ffffff;
+  background: #dc2626; border-color: #dc2626; color: #ffffff;
 }
 .admin-action-btn[data-action="rejectHomestay"]:hover,
 .admin-action-btn[data-action="removeApprovedHomestay"]:hover,
 .admin-action-btn[data-action="deleteBooking"]:hover,
 .admin-action-btn[data-action="deleteGuest"]:hover,
 .admin-action-btn[data-action="deleteOwner"]:hover {
-  background: #b91c1c;
-  border-color: #b91c1c;
+  background: #b91c1c; border-color: #b91c1c;
 }
 
-/* ---------- Retry Payout (amber) ---------- */
 .admin-action-btn[data-action="retryPayout"] {
-  background: #f59e0b;
-  border-color: #f59e0b;
-  color: #ffffff;
+  background: #f59e0b; border-color: #f59e0b; color: #ffffff;
 }
 .admin-action-btn[data-action="retryPayout"]:hover {
-  background: #d97706;
-  border-color: #d97706;
+  background: #d97706; border-color: #d97706;
 }
 
-/* ---------- WhatsApp / Copy (subtle outline) ---------- */
+/* NEW: Retry Refund styling — same amber as retry payout, different icon */
+.admin-action-btn[data-action="retryRefund"] {
+  background: #f59e0b; border-color: #f59e0b; color: #ffffff;
+}
+.admin-action-btn[data-action="retryRefund"]:hover {
+  background: #d97706; border-color: #d97706;
+}
+
 .admin-action-btn[data-action="whatsappGuest"] {
-  background: #25D366;
-  border-color: #25D366;
-  color: #ffffff;
+  background: #25D366; border-color: #25D366; color: #ffffff;
 }
 .admin-action-btn[data-action="whatsappGuest"]:hover {
-  background: #1ebe5d;
-  border-color: #1ebe5d;
+  background: #1ebe5d; border-color: #1ebe5d;
 }
 .admin-action-btn[data-action="copyBookingId"] {
-  background: #ffffff;
-  border-color: #cbd5e1;
-  color: #475569;
+  background: #ffffff; border-color: #cbd5e1; color: #475569;
 }
 .admin-action-btn[data-action="copyBookingId"]:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
+  background: #f1f5f9; border-color: #94a3b8;
 }
 
-/* ---------- Mobile: slightly tighter ---------- */
 @media (max-width: 480px) {
-  .admin-action-btn {
-    padding: 7px 12px;
-    font-size: 10px;
-  }
+  .admin-action-btn { padding: 7px 12px; font-size: 10px; }
 }
 
 @media (max-width: 768px) {
@@ -471,13 +440,12 @@ body {
     <h2 class="text-3xl font-bold animate-on-scroll">Admin — CHIP Auto Payout</h2>
     <div class="text-[11px] text-zinc-500 mt-1 animate-on-scroll">Malaysia Time: <span id="myTimeNow"></span> • Timezone: Asia/Kuala_Lumpur (UTC+8)</div>
 
-    <!-- Force Sync & Cache Status -->
     <div class="flex items-center gap-3 flex-wrap mt-2 animate-on-scroll">
       <button onclick="forceSync()" class="btn-accent" style="padding:8px 18px; font-size:11px;">🔄 Force Sync (Cloud)</button>
       <div id="cacheStatus" class="text-xs text-zinc-500 hidden">Using cached data – last updated: <span id="cacheTimestamp"></span></div>
     </div>
 
-      <div class="grid md:grid-cols-3 gap-4 mt-6">
+    <div class="grid md:grid-cols-3 gap-4 mt-6">
       <div class="card p-5 animate-on-scroll">
         <div class="text-[11px] uppercase text-zinc-500">Your Fee Earnings (11% + RM1.00 Gateway)</div>
         <div id="totalFees" class="text-3xl font-bold mt-1">RM0.00</div>
@@ -580,17 +548,11 @@ body {
 
 <script src="animations.js"></script>
 <script>
-// =============================================================
-// DOMPurify Helper
-// =============================================================
-
-// ===== CSS sanitizer hook — strips url()/expression() etc from style attributes =====
 (function() {
   if (typeof DOMPurify === 'undefined') return;
   if (window.__kdCssHookInstalled) return;
   window.__kdCssHookInstalled = true;
 
-  // Dangerous CSS patterns: url() loaders, JS execution, and legacy vectors
   const DANGEROUS_RULE = /(?:\burl\s*\(|expression\s*\(|\bbehavior\s*:|-moz-binding|@import|javascript\s*:)/i;
 
   DOMPurify.addHook('afterSanitizeAttributes', function (node) {
@@ -600,7 +562,6 @@ body {
     const raw = node.getAttribute('style') || '';
     if (!raw) return;
 
-    // If nothing dangerous, leave as-is (keeps performance high)
     if (!DANGEROUS_RULE.test(raw)) return;
 
     const safeRules = raw
@@ -617,7 +578,7 @@ body {
     }
   });
 })();
-  
+
 function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
@@ -761,7 +722,6 @@ let currentBookingFilter = 'all';
 let bookingsPage = 1;
 const BOOKINGS_PER_PAGE = 5;
 
-// ===== No Authorization header – cookie is sent automatically =====
 async function fetchWithAuth(url, options = {}) {
   const opts = { ...options, credentials: 'include' };
   opts.headers = opts.headers || {};
@@ -775,14 +735,6 @@ function toMYDate(dateInput){
     const d = new Date(dateInput);
     if(isNaN(d)) return dateInput;
     return d.toLocaleDateString('en-MY', {timeZone: MY_TZ, year:'numeric', month:'short', day:'numeric'});
-  }catch(e){ return dateInput; }
-}
-function toMYDateTime(dateInput){
-  if(!dateInput) return "";
-  try{
-    const d = new Date(dateInput);
-    if(isNaN(d)) return dateInput;
-    return d.toLocaleString('en-MY', {timeZone: MY_TZ, year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', hour12:true}) + " MYT";
   }catch(e){ return dateInput; }
 }
 
@@ -878,13 +830,9 @@ function renderAvailabilityCalendar(h, containerId) {
   renderMonth.call(container);
 }
 
-// ===== Treat 401 as "not logged in" + distinguish admin vs public/guest =====
 async function fetchCloudData(){
   if(!CLOUD_ENABLED) return false;
   try{
-    // [H7 sync] Request an effectively-unlimited page of approved / pending /
-    // guests so pushHomestaysToCloud() can never accidentally wipe approved
-    // listings beyond the default 100-item page size.
     const url = API_BASE + "/bookings"
       + "?limit=99999"
       + "&approvedLimit=99999"
@@ -1315,9 +1263,6 @@ async function saveEditHomestay() {
     }
   });
 
-  // Validate the bank code against CHIP Send's known list before saving.
-  // This prevents the silent Maybank default at payout time: if the code
-  // is empty or unknown, we refuse to save rather than let it through.
   if (newData.bankCode !== undefined) {
     const code = String(newData.bankCode || '').toUpperCase().trim();
     if (!code) {
@@ -1334,7 +1279,7 @@ async function saveEditHomestay() {
       if (!valid) {
         await showAlert(
           'Invalid Bank Code',
-          `"${code}" is not a recognised CHIP Send bank code. Please check the code and try again. The full list is on the server (see /api/bank-list).`
+          `"${code}" is not a recognised CHIP Send bank code. Please check the code and try again.`
         );
         return;
       }
@@ -1533,15 +1478,20 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
 
   pageBookings.forEach(b => {
     const status = b.status || "Paid - Awaiting Check-in";
-    const isAwaiting = status.toLowerCase().includes("awaiting");
-    const isCompleted = status.toLowerCase().includes("completed") || status.toLowerCase().includes("payout");
-    const isCancelled = status.toLowerCase().includes("cancelled");
+    const statusLower = status.toLowerCase();
+    const isAwaiting = statusLower.includes("awaiting");
+    const isCompleted = statusLower.includes("completed") || statusLower.includes("payout");
+    const isCancelled = statusLower.includes("cancelled");
+    // NEW: detect refund-pending state. Any cancelled booking with a
+    // refund_error but no chip_refund_id is stuck and needs the retry button.
+    const isRefundPending = (/refund pending|refund_pending/i.test(status)) ||
+                            (isCancelled && !b.chip_refund_id && (b.refund_error || b.refund_attempted_at));
     const homestayName = b.homestay || "Homestay";
     const nights = b.nights || calculateNights(b.checkin, b.checkout);
     const checkin = b.checkin || "", checkout = b.checkout || "", total = b.total || 0;
     const base = b.base || 0, fee = b.fee || 0, youReceive = b.youReceive || fee;
     let badgeClass = isCancelled ? 'bg-gray-100 text-gray-600' : isAwaiting ? 'bg-yellow-100 text-yellow-800' : isCompleted ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800';
-    let badgeText = isCancelled ? '❌ Cancelled' : isAwaiting ? '🟡 Awaiting Check-in' : isCompleted ? '✅ Completed' : '💳 Paid';
+    let badgeText = isRefundPending ? '⏳ Refund Pending' : (isCancelled ? '❌ Cancelled' : isAwaiting ? '🟡 Awaiting Check-in' : isCompleted ? '✅ Completed' : '💳 Paid');
     let btns = "";
     if (isAwaiting) {
       btns += `<span class="text-[11px] text-zinc-500 italic px-2">Awaiting host check-in</span>`;
@@ -1549,10 +1499,14 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
     if (b.payoutFailedAttempt && !b.payoutSuccessDate) {
       btns += `<button class="booking-action-btn px-3 py-1.5 bg-yellow-500 text-white rounded-full text-[11px] uppercase font-700" data-action="retryPayout" data-id="${b.id}">🔁 RETRY PAYOUT</button>`;
     }
+    // NEW: retry refund button for stuck refunds
+    if (isRefundPending) {
+      btns += `<button class="booking-action-btn px-3 py-1.5 bg-yellow-500 text-white rounded-full text-[11px] uppercase font-700" data-action="retryRefund" data-id="${b.id}">🔁 RETRY REFUND</button>`;
+    }
     if (!isCompleted && !isCancelled) {
       btns += `<button class="booking-action-btn px-3 py-1.5 bg-green-600 text-white rounded-full text-[11px] uppercase font-600" data-action="updateBookingStatus" data-id="${b.id}" data-status="Completed">COMPLETE</button>`;
     }
-    html += `<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">${b.id}</div><div class="text-[12px] mt-1">${homestayName} • ${nights} nights • ${checkin} → ${checkout} • RM${total}</div><div class="text-[12px]">Guest: ${b.guestName || ''} ${b.guestEmail || ''} ${b.guestPhone || ''}</div><div class="text-[10px] text-zinc-500 mt-1">Base RM${base} + Fee RM${fee} = You receive RM${youReceive} ${b.payoutAmount ? '• Owner Paid RM' + b.payoutAmount + (b.payoutDate ? ' on ' + toMYDate(b.payoutDate) : '') : ''}</div></div><div><span class="text-[11px] px-2 py-1 rounded-full ${badgeClass}">${badgeText}</span></div></div><div class="flex gap-2 mt-3 flex-wrap">${btns}<button class="booking-action-btn px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600" data-action="whatsappGuest" data-id="${b.id}">WHATSAPP GUEST</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="copyBookingId" data-id="${b.id}">COPY ID</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="changeBookingDates" data-id="${b.id}">CHANGE DATES</button><button class="booking-action-btn px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600" data-action="deleteBooking" data-id="${b.id}">DELETE</button></div></div>`;
+    html += `<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">${b.id}</div><div class="text-[12px] mt-1">${homestayName} • ${nights} nights • ${checkin} → ${checkout} • RM${total}</div><div class="text-[12px]">Guest: ${b.guestName || ''} ${b.guestEmail || ''} ${b.guestPhone || ''}</div><div class="text-[10px] text-zinc-500 mt-1">Base RM${base} + Fee RM${fee} = You receive RM${youReceive} ${b.payoutAmount ? '• Owner Paid RM' + b.payoutAmount + (b.payoutDate ? ' on ' + toMYDate(b.payoutDate) : '') : ''}${b.refund_error ? ' • Refund error: ' + b.refund_error : ''}</div></div><div><span class="text-[11px] px-2 py-1 rounded-full ${badgeClass}">${badgeText}</span></div></div><div class="flex gap-2 mt-3 flex-wrap">${btns}<button class="booking-action-btn px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600" data-action="whatsappGuest" data-id="${b.id}">WHATSAPP GUEST</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="copyBookingId" data-id="${b.id}">COPY ID</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="changeBookingDates" data-id="${b.id}">CHANGE DATES</button><button class="booking-action-btn px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600" data-action="deleteBooking" data-id="${b.id}">DELETE</button></div></div>`;
   });
 
   html += '</div>';
@@ -1585,6 +1539,9 @@ function bookingActionHandler(e) {
   switch (action) {
     case 'retryPayout':
       retryPayout(id);
+      break;
+    case 'retryRefund':
+      retryRefund(id);
       break;
     case 'updateBookingStatus':
       const status = btn.dataset.status || 'Completed';
@@ -1652,6 +1609,52 @@ async function retryPayout(bookingId) {
     }
   } catch (e) {
     await showAlert("Error", "Network error: " + e.message);
+  }
+}
+
+// NEW: retry a refund that failed at CHIP. Calls the new `retryRefund`
+// action on /api/bookings. Uses the same pre-flight marker pattern as
+// host cancellation, so a second attempt while the first is still on the
+// wire will be refused by the backend.
+async function retryRefund(bookingId) {
+  const confirmed = await showConfirm(
+    "Retry Refund",
+    `Retry the CHIP refund for booking <strong>${bookingId}</strong>?<br><br>Only do this after confirming in the CHIP dashboard that no refund already exists for this purchase.`
+  );
+  if (!confirmed) return;
+
+  const btn = document.querySelector(`.booking-action-btn[data-action="retryRefund"][data-id="${bookingId}"]`);
+  const origText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Processing…'; }
+
+  try {
+    const res = await fetchWithAuth(API_BASE + "/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "retryRefund", id: bookingId })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      await showAlert("Refund Retry Failed", data.error || data.message || "Unknown error");
+      await fetchCloudData();
+      renderAdmin();
+      return;
+    }
+
+    if (data.refunded && !data.refundPending) {
+      await showAlert("Refund Processed", `✅ Refund ${data.refundId || ''} sent to the guest via CHIP.`);
+    } else if (data.refunded && data.refundPending) {
+      await showAlert("Refund Pending", `⏳ CHIP is processing the refund (${data.refundId || 'no ID yet'}). It will complete shortly.`);
+    } else {
+      await showAlert("Refund Still Failed", `❌ CHIP rejected the retry: ${data.refundError || 'unknown reason'}. Verify purchase details in the CHIP dashboard.`);
+    }
+    await fetchCloudData();
+    renderAdmin();
+  } catch (e) {
+    await showAlert("Network Error", "Could not reach the server. Please try again.");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = origText || '🔁 RETRY REFUND'; }
   }
 }
 
@@ -1734,7 +1737,6 @@ async function changeBookingDates(id){
   const oldDates = getDatesInRange(b.checkin, b.checkout);
   const temp = oldBlocked.filter(d => !oldDates.includes(d));
 
-  // Room-level blocked dates (matches server-side check)
   let roomBlocked = [];
   if (b.roomId && h && Array.isArray(h.rooms)) {
     const room = h.rooms.find(r => String(r.id) === String(b.roomId));
@@ -1823,13 +1825,11 @@ async function approveHomestay(id){
   );
   if (!confirmed) return;
 
-  // Optional reason — captured in the same prompt
   const reason = await showPrompt(
     "Rejection Reason (Optional)",
     "Type a short reason for rejecting this listing. The host will see this in the email. Leave blank to send the rejection without a specific reason.",
     ""
   );
-  // If user clicked "Cancel" on the prompt, we still proceed with no reason
   const cleanReason = (reason || "").trim().slice(0, 500);
 
   try {
@@ -1891,13 +1891,11 @@ async function fetchEarnings(){
 }
 
 async function resetWithdrawn() {
-  // Show current values so admin knows exactly what will be wiped
   const availEl = document.getElementById("kdAvailInline");
   const withEl = document.getElementById("kdWithdrawnInline");
   const currentAvail = availEl ? availEl.textContent : "unknown";
   const currentWith = withEl ? withEl.textContent : "unknown";
 
-  // Step 1: strong warning
   const confirmed = await showModal(
     "⚠️ Danger: Reset All Earnings",
     `<div style="line-height:1.7;">
@@ -1917,7 +1915,6 @@ async function resetWithdrawn() {
   );
   if (!confirmed) return;
 
-  // Step 2: require typing RESET
   const typed = await showPrompt(
     "Type RESET to confirm",
     "Type the word <strong>RESET</strong> (all caps) to permanently reset all earnings to RM0.00:",
@@ -2274,9 +2271,6 @@ document.addEventListener('click', async (e)=>{
   }
 });
 
-// =============================================================
-// INIT — cookie-based auth
-// =============================================================
 (async () => {
   try { sessionStorage.removeItem('kd_admin_token'); } catch (e) {}
 
