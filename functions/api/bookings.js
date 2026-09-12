@@ -1,13 +1,18 @@
-// /api/bookings.js – Full file
-// - Signed admin auth
-// - Guest-scoped reads
-// - Owner management (list + delete cascade)
-// - Rejection emails
-// - Public responses filtered to whitelist fields (no hashes, no bank info)
-// - Admin responses strip password hashes but keep bank/IC info (needed for verification UI)
-// - Stale pending bookings are actively expired when a new booking takes their slot
-// - Guests CANNOT cancel their own bookings (only host/admin can cancel)
-
+// /api/bookings.js — Plain English: this file is the big one. Changes:
+// (1) EVERY write to the bookings list now runs inside a single global
+//     lock, so booking creation, cancellation, admin date edits, and
+//     admin status changes can never interleave and corrupt the file.
+// (2) When an admin changes dates, the server recomputes the money
+//     (base / fee / total / youReceive) itself from the homestay price —
+//     it no longer trusts numbers coming from the browser.
+// (3) When an admin changes a status, only `status` and `statusUpdated`
+//     are allowed through; the browser can no longer overwrite the guest
+//     ID, checkin code, payout flags, or any other sensitive field.
+// (4) The homestay lookups for a new guest booking now happen INSIDE the
+//     lock, so a homestay that got approved/removed a millisecond ago
+//     can't create a booking against stale data.
+// (5) The admin list now paginates approved + pending listings (default
+//     100 per page) so the response can't grow unbounded.
 import {
   corsHeaders,
   getClientIP,
@@ -22,13 +27,18 @@ import {
   withLock,
   checkRateLimit,
   recordRateLimit,
-  invalidateOwnerSessions
+  invalidateOwnerSessionsForHomestay
 } from './_utils.js';
 
 const MAX_NIGHTS = 60;
 const DEFAULT_PAGE_SIZE = 50;
+const DEFAULT_APPROVED_PAGE_SIZE = 100;
+const DEFAULT_PENDING_PAGE_SIZE = 100;
 const GATEWAY_FEE = 1.00;
 const PENDING_EXPIRY_MS = 15 * 60 * 1000;
+
+// Canonical lock key. Every write to kd_bookings MUST be inside this lock.
+const BOOKINGS_LOCK = 'bookings-global';
 
 // ============================================================
 // Field whitelists
@@ -42,6 +52,9 @@ const PUBLIC_HOMESTAY_FIELDS = [
   'blockedDates', 'approved', 'verified',
   'rating', 'reviews', 'createdAt', 'updatedAt'
 ];
+
+// C5: only these fields may be changed by admin through updateStatus.
+const ADMIN_STATUS_FIELD_WHITELIST = ['status', 'statusUpdated'];
 
 function pickPublicFields(h) {
   if (!h || typeof h !== 'object') return h;
@@ -85,7 +98,6 @@ function getDatesInRange(checkin, checkout) {
   return dates;
 }
 
-// Booking is "dead" (frees the slot) if cancelled, failed, expired, or refunded
 function isDeadBookingStatus(status) {
   return /cancelled|failed|expired|refunded/i.test(String(status || ''));
 }
@@ -269,17 +281,35 @@ export async function onRequestGet({ request, env }) {
       const safeApprovedAdmin = approved.map(stripPasswordFields);
       const safePendingAdmin = pending.map(stripPasswordFields);
 
+      // H7: paginate approved + pending so the response cannot grow
+      // unbounded as the platform grows.
+      const approvedPage = parseInt(url.searchParams.get('approvedPage')) || 1;
+      const approvedLimit = parseInt(url.searchParams.get('approvedLimit')) || DEFAULT_APPROVED_PAGE_SIZE;
+      const approvedOffset = (approvedPage - 1) * approvedLimit;
+      const paginatedApproved = safeApprovedAdmin.slice(approvedOffset, approvedOffset + approvedLimit);
+
+      const pendingPage = parseInt(url.searchParams.get('pendingPage')) || 1;
+      const pendingLimit = parseInt(url.searchParams.get('pendingLimit')) || DEFAULT_PENDING_PAGE_SIZE;
+      const pendingOffset = (pendingPage - 1) * pendingLimit;
+      const paginatedPending = safePendingAdmin.slice(pendingOffset, pendingOffset + pendingLimit);
+
       return jsonResponse({
         bookings: paginated,
         total: bookings.length,
         page,
         limit,
         totalPages: Math.ceil(bookings.length / limit),
-        approved: safeApprovedAdmin,
+        approved: paginatedApproved,
+        approvedTotal: safeApprovedAdmin.length,
+        approvedPage,
+        approvedLimit,
         demoOverrides,
         demoBlocked,
         deletedDemo,
-        pending: safePendingAdmin,
+        pending: paginatedPending,
+        pendingTotal: safePendingAdmin.length,
+        pendingPage,
+        pendingLimit,
         guests: paginatedGuests,
         guestsTotal: safeGuests.length,
         guestsPage,
@@ -377,25 +407,31 @@ export async function onRequestPost({ request, env }) {
     const today = new Date(); today.setHours(0,0,0,0);
     if (d1 < today) return jsonResponse({ error: 'Cannot book past dates' }, 400, request);
 
-    const approvedRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_approved').first();
-    let approved = [];
-    try { if (approvedRes?.data) approved = JSON.parse(approvedRes.data); } catch(_) {}
-    const homestay = approved.find(h => String(h.id) === homestayId && h.approved === true);
-    if (!homestay) return jsonResponse({ error: 'Homestay not found or not approved' }, 404, request);
-
-    let selectedRoom = null;
-    const rooms = homestay.rooms || [];
-    if (roomId) {
-      selectedRoom = rooms.find(r => String(r.id) === roomId);
-      if (!selectedRoom) return jsonResponse({ error: 'Selected room not found' }, 400, request);
-    }
-    const ownerPrice = selectedRoom ? parseFloat(selectedRoom.price) : homestay.ownerPrice;
-    if (!Number.isFinite(ownerPrice) || ownerPrice <= 0) {
-      return jsonResponse({ error: 'Invalid price configuration' }, 500, request);
-    }
-
+    // H2 FIX: the homestay/room lookup and price validation now happen
+    // INSIDE the lock. A homestay that just got unapproved or had its
+    // price changed can no longer produce a booking against stale data.
+    // C4 FIX: canonical BOOKINGS_LOCK so this serializes with every
+    // other kd_bookings write across the app.
+    let result;
     try {
-      const result = await withLock(db, homestayId, async (db) => {
+      result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+        const approvedRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_approved').first();
+        let approved = [];
+        try { if (approvedRes?.data) approved = JSON.parse(approvedRes.data); } catch(_) {}
+        const homestay = approved.find(h => String(h.id) === homestayId && h.approved === true);
+        if (!homestay) return { error: 'Homestay not found or not approved', status: 404 };
+
+        let selectedRoom = null;
+        const rooms = homestay.rooms || [];
+        if (roomId) {
+          selectedRoom = rooms.find(r => String(r.id) === roomId);
+          if (!selectedRoom) return { error: 'Selected room not found', status: 400 };
+        }
+        const ownerPrice = selectedRoom ? parseFloat(selectedRoom.price) : homestay.ownerPrice;
+        if (!Number.isFinite(ownerPrice) || ownerPrice <= 0) {
+          return { error: 'Invalid price configuration', status: 500 };
+        }
+
         const bookingsRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
         let allBookings = [];
         try { if (bookingsRes?.data) allBookings = JSON.parse(bookingsRes.data); } catch(_) {}
@@ -405,7 +441,7 @@ export async function onRequestPost({ request, env }) {
         try { if (guestsRes?.data) guests = JSON.parse(guestsRes.data); } catch(_) {}
 
         const guest = guests.find(g => String(g.id) === String(auth.session.userId));
-        if (!guest) throw new Error('Guest not found');
+        if (!guest) return { error: 'Guest not found', status: 404 };
 
         const existingPending = allBookings.find(b =>
           String(b.guestId) === String(guest.id) &&
@@ -422,7 +458,7 @@ export async function onRequestPost({ request, env }) {
         const requestedDates = getDatesInRange(checkin, checkout);
         for (const ds of requestedDates) {
           if (homestayBlocked.has(ds)) {
-            throw new Error(`Selected dates are unavailable (${ds}) due to homestay block`);
+            return { error: `Selected dates are unavailable (${ds}) due to homestay block`, status: 400 };
           }
         }
 
@@ -430,16 +466,12 @@ export async function onRequestPost({ request, env }) {
           const roomBlocked = new Set((selectedRoom.blockedDates || []).map(String));
           for (const ds of requestedDates) {
             if (roomBlocked.has(ds)) {
-              throw new Error(`Room "${selectedRoom.name}" is blocked on ${ds}`);
+              return { error: `Room "${selectedRoom.name}" is blocked on ${ds}`, status: 400 };
             }
           }
         }
 
-        // ============================================================
-        // BUG A FIX: identify stale pending bookings that overlap our request,
-        // and mark them 'Expired - Abandoned' so they can never be paid.
-        // Then re-run the overlap check treating only live bookings as blockers.
-        // ============================================================
+        // BUG A: expire stale pending bookings that overlap our request.
         const now = Date.now();
         let modified = false;
         allBookings = allBookings.map(b => {
@@ -468,7 +500,7 @@ export async function onRequestPost({ request, env }) {
                  checkout > String(b.checkin||'');
         });
         if (overlaps) {
-          throw new Error('Selected dates are already booked for this room');
+          return { error: 'Selected dates are already booked for this room', status: 400 };
         }
 
         const base = Math.round(ownerPrice * nights * 100) / 100;
@@ -482,7 +514,7 @@ export async function onRequestPost({ request, env }) {
         }
 
         // NOTE: checkinCode is intentionally NOT generated here.
-        // It is generated on payment success by finalizePaidBooking() in _utils.js.
+        // It is generated on payment success by finalizePaidBooking().
 
         const booking = {
           id: bookingId,
@@ -514,42 +546,46 @@ export async function onRequestPost({ request, env }) {
           .run();
 
         return { booking, expiredCount: modified ? 1 : 0 };
-      });
-
-      if (result.alreadyExists) {
-        return jsonResponse({
-          success: true,
-          booking: result.booking,
-          alreadyExists: true,
-          message: 'You already have a pending booking for these dates. Please complete the payment.'
-        }, 200, request);
+      }, 30000);
+    } catch (lockErr) {
+      if (lockErr.message && lockErr.message.includes('in progress')) {
+        return jsonResponse({ error: 'Another booking is being processed. Please try again in a moment.' }, 429, request);
       }
-
-      const booking = result.booking;
-
-      await logAction({
-        db,
-        action: 'booking_created',
-        admin: 'guest',
-        details: `Booking ${booking.id} created; payment pending${result.expiredCount ? ' (expired stale overlap)' : ''}`,
-        ip: clientIP,
-        userId: booking.guestId,
-        homestayId: booking.homestayId
-      });
-
-      return jsonResponse({ success: true, booking: booking }, 200, request);
-
-    } catch (err) {
-      console.error('Create booking error:', err.message);
-      return jsonResponse({ error: err.message || 'Unable to create booking. Please try again later.' }, 400, request);
+      throw lockErr;
     }
+
+    if (result.error) {
+      return jsonResponse({ error: result.error }, result.status || 400, request);
+    }
+
+    if (result.alreadyExists) {
+      return jsonResponse({
+        success: true,
+        booking: result.booking,
+        alreadyExists: true,
+        message: 'You already have a pending booking for these dates. Please complete the payment.'
+      }, 200, request);
+    }
+
+    const booking = result.booking;
+
+    await logAction({
+      db,
+      action: 'booking_created',
+      admin: 'guest',
+      details: `Booking ${booking.id} created; payment pending${result.expiredCount ? ' (expired stale overlap)' : ''}`,
+      ip: clientIP,
+      userId: booking.guestId,
+      homestayId: booking.homestayId
+    });
+
+    return jsonResponse({ success: true, booking: booking }, 200, request);
   }
 
   // ============ PUBLIC: MARK PAYMENT FAILED ONLY ============
   // Guests are NOT allowed to cancel their own bookings.
   // This endpoint only exists so the CHIP failure-return flow can
   // mark an unpaid booking as failed (which frees the dates).
-  // Cancellations must go through the host (Owner Dashboard) or admin.
   if (action === "publicUpdateStatus" && body.id) {
     const auth = await requireGuest(request, env, body);
     if (auth.error) return auth.error;
@@ -564,42 +600,63 @@ export async function onRequestPost({ request, env }) {
     if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
     try {
       await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
-      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
-      let bookings = [];
-      try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
-      const idx = bookings.findIndex(b => String(b.id) === String(body.id));
-      if (idx < 0) return jsonResponse({ error: 'Invalid request.' }, 400, request);
-      const b = bookings[idx];
-      if (String(b.guestId) !== String(auth.session.userId)) {
-        return jsonResponse({ error: 'Unauthorized' }, 403, request);
+
+      // C4: kd_bookings write must be inside the canonical lock.
+      let result;
+      try {
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+          let bookings = [];
+          try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+          const idx = bookings.findIndex(b => String(b.id) === String(body.id));
+          if (idx < 0) return { error: 'Invalid request.', status: 400 };
+          const b = bookings[idx];
+          if (String(b.guestId) !== String(auth.session.userId)) {
+            return { error: 'Unauthorized', status: 403 };
+          }
+
+          // Never downgrade a booking that's already paid/completed/refunded/cancelled/expired.
+          const currentStatus = String(b.status || '');
+          const isTerminal = currentStatus === 'Paid - Awaiting Check-in'
+            || currentStatus.startsWith('Completed')
+            || /cancelled|refunded|expired/i.test(currentStatus);
+
+          if (isTerminal) {
+            return { noop: true, booking: b };
+          }
+
+          bookings[idx] = { ...b, status: 'Payment Failed', statusUpdated: new Date().toISOString() };
+
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_bookings', JSON.stringify(bookings)).run();
+
+          return { updated: true, booking: bookings[idx] };
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another operation is in progress. Please try again in a moment.' }, 429, request);
+        }
+        throw lockErr;
       }
 
-      // Never downgrade a booking that's already paid/completed/refunded/cancelled/expired.
-      const currentStatus = String(b.status || '');
-      const isTerminal = currentStatus === 'Paid - Awaiting Check-in'
-        || currentStatus.startsWith('Completed')
-        || /cancelled|refunded|expired/i.test(currentStatus);
-
-      if (isTerminal) {
-        return jsonResponse({ success: true, booking: b, message: 'Booking already finalised.' }, 200, request);
+      if (result.error) {
+        return jsonResponse({ error: result.error }, result.status || 400, request);
       }
-
-      bookings[idx] = { ...b, status: 'Payment Failed', statusUpdated: new Date().toISOString() };
-
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind('kd_bookings', JSON.stringify(bookings)).run();
+      if (result.noop) {
+        return jsonResponse({ success: true, booking: result.booking, message: 'Booking already finalised.' }, 200, request);
+      }
 
       await logAction({
         db,
         action: 'public_status_updated',
         admin: 'guest',
-        details: `Booking ${b.id} marked as Payment Failed`,
+        details: `Booking ${result.booking.id} marked as Payment Failed`,
         ip: clientIP,
-        userId: b.guestId,
-        homestayId: b.homestayId
+        userId: result.booking.guestId,
+        homestayId: result.booking.homestayId
       });
 
-      return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
+      return jsonResponse({ success: true, booking: result.booking }, 200, request);
     } catch (e) {
       console.error('Guest status update error:', e.message);
       return jsonResponse({ error: 'Could not update booking' }, 500, request);
@@ -629,9 +686,20 @@ export async function onRequestPost({ request, env }) {
 
     // ---- Admin: clearAll ----
     if (action === "clearAll") {
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_bookings', JSON.stringify([]))
-        .run();
+      let result;
+      try {
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify([]))
+            .run();
+          return { success: true };
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another operation is in progress. Please try again in a moment.' }, 429, request);
+        }
+        throw lockErr;
+      }
       await logAction({
         db,
         action: 'bookings_cleared',
@@ -642,69 +710,169 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, bookings: [] }, 200, request);
     }
 
-    // ---- Admin: updateStatus ----
+    // ---- Admin: updateStatus (C4 + C5) ----
+    // C5: whitelist. Only `status` and `statusUpdated` can be changed.
+    // The browser cannot overwrite guestId, chip_purchase_id, payoutSuccess,
+    // checkinCode, base, fee, total, or anything else in the booking object.
     if (action === "updateStatus" && body.id) {
-      const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
-      let bookings = [];
-      if (r && r.data) { try { bookings = JSON.parse(r.data); } catch(e) {} }
-      const idx = bookings.findIndex(b => String(b.id) === String(body.id));
-      if (idx === -1) {
-        return jsonResponse({ error: 'Booking not found' }, 404, request);
+      const newStatus = String(body.status || '');
+      if (!newStatus) {
+        return jsonResponse({ error: 'Missing status' }, 400, request);
       }
-      bookings[idx].status = body.status;
-      bookings[idx].statusUpdated = new Date().toISOString();
-      if (body.booking) {
-        bookings[idx] = { ...bookings[idx], ...body.booking };
+
+      let result;
+      try {
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+          let bookings = [];
+          if (r && r.data) { try { bookings = JSON.parse(r.data); } catch(e) {} }
+          const idx = bookings.findIndex(b => String(b.id) === String(body.id));
+          if (idx === -1) return { error: 'Booking not found', status: 404 };
+
+          // C5: whitelist fields from body.booking if present. Ignore
+          // anything not on the list. The status field itself is always
+          // taken from body.status (top-level), not body.booking.status.
+          const patch = {};
+          if (body.booking && typeof body.booking === 'object') {
+            for (const key of ADMIN_STATUS_FIELD_WHITELIST) {
+              if (body.booking[key] !== undefined) patch[key] = body.booking[key];
+            }
+          }
+          // Force status from the top-level field and always refresh
+          // statusUpdated server-side (never trust client clock).
+          patch.status = newStatus;
+          patch.statusUpdated = new Date().toISOString();
+
+          bookings[idx] = { ...bookings[idx], ...patch };
+
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+
+          return { success: true, booking: bookings[idx] };
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another booking operation is in progress. Please try again in a moment.' }, 429, request);
+        }
+        throw lockErr;
       }
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_bookings', JSON.stringify(bookings))
-        .run();
+
+      if (result.error) {
+        return jsonResponse({ error: result.error }, result.status || 400, request);
+      }
 
       await logAction({
         db,
         action: 'booking_status_updated',
         admin: 'admin',
-        details: `Booking ${body.id} status changed to ${body.status}`,
+        details: `Booking ${body.id} status changed to ${newStatus}`,
         ip: clientIP,
-        userId: bookings[idx].guestEmail,
-        homestayId: bookings[idx].homestayId
+        userId: result.booking.guestEmail,
+        homestayId: result.booking.homestayId
       });
 
-      return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
+      return jsonResponse({ success: true, booking: result.booking }, 200, request);
     }
 
-    // ---- Admin: updateDates ----
+    // ---- Admin: updateDates (C4 + C5) ----
+    // C5: server recomputes base/fee/gatewayFee/total/youReceive from the
+    // homestay's current ownerPrice (or room price if roomId). The client
+    // can no longer supply money fields.
     if (action === "updateDates" && body.id) {
-      const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
-      let bookings = [];
-      if (r && r.data) { try { bookings = JSON.parse(r.data); } catch(e) {} }
-      const idx = bookings.findIndex(b => String(b.id) === String(body.id));
-      if (idx === -1) {
-        return jsonResponse({ error: 'Booking not found' }, 404, request);
+      const newCheckin = String(body.checkin || '');
+      const newCheckout = String(body.checkout || '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(newCheckin) || !/^\d{4}-\d{2}-\d{2}$/.test(newCheckout)) {
+        return jsonResponse({ error: 'Invalid date format' }, 400, request);
       }
-      bookings[idx].checkin = body.checkin;
-      bookings[idx].checkout = body.checkout;
-      bookings[idx].nights = body.nights;
-      bookings[idx].base = body.base;
-      bookings[idx].fee = body.fee;
-      bookings[idx].total = body.total;
-      bookings[idx].youReceive = body.youReceive;
-      bookings[idx].statusUpdated = new Date().toISOString();
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_bookings', JSON.stringify(bookings))
-        .run();
+      const d1 = new Date(newCheckin + 'T00:00:00');
+      const d2 = new Date(newCheckout + 'T00:00:00');
+      if (isNaN(d1) || isNaN(d2) || d1 >= d2) {
+        return jsonResponse({ error: 'Invalid dates' }, 400, request);
+      }
+      const newNights = Math.round((d2 - d1) / 86400000);
+      if (newNights < 1) return jsonResponse({ error: 'Minimum 1 night' }, 400, request);
+      if (newNights > MAX_NIGHTS) {
+        return jsonResponse({ error: `Maximum ${MAX_NIGHTS} nights` }, 400, request);
+      }
+
+      let result;
+      try {
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+          let bookings = [];
+          if (r && r.data) { try { bookings = JSON.parse(r.data); } catch(e) {} }
+          const idx = bookings.findIndex(b => String(b.id) === String(body.id));
+          if (idx === -1) return { error: 'Booking not found', status: 404 };
+
+          const booking = bookings[idx];
+
+          // Look up the homestay to get authoritative pricing.
+          const approvedRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_approved').first();
+          let approved = [];
+          try { if (approvedRes?.data) approved = JSON.parse(approvedRes.data); } catch(_) {}
+          const homestay = approved.find(h => String(h.id) === String(booking.homestayId));
+          if (!homestay) return { error: 'Homestay not found', status: 404 };
+
+          let unitPrice = Number(homestay.ownerPrice);
+          if (booking.roomId && Array.isArray(homestay.rooms)) {
+            const room = homestay.rooms.find(rm => String(rm.id) === String(booking.roomId));
+            if (room && Number.isFinite(Number(room.price))) {
+              unitPrice = Number(room.price);
+            }
+          }
+          if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+            return { error: 'Invalid price configuration on homestay', status: 500 };
+          }
+
+          // Server-side money math. Matches bookings.js createPublicBooking.
+          const base = Math.round(unitPrice * newNights * 100) / 100;
+          const fee = Math.round(base * 0.11 * 100) / 100;
+          const gatewayFee = GATEWAY_FEE;
+          const total = Math.round((base + fee + gatewayFee) * 100) / 100;
+          const youReceive = Math.round((base) * 100) / 100; // host gets base only
+
+          bookings[idx] = {
+            ...booking,
+            checkin: newCheckin,
+            checkout: newCheckout,
+            nights: newNights,
+            base,
+            fee,
+            gatewayFee,
+            total,
+            youReceive,
+            statusUpdated: new Date().toISOString()
+          };
+
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+            .run();
+
+          return { success: true, booking: bookings[idx] };
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another booking operation is in progress. Please try again in a moment.' }, 429, request);
+        }
+        throw lockErr;
+      }
+
+      if (result.error) {
+        return jsonResponse({ error: result.error }, result.status || 400, request);
+      }
 
       await logAction({
         db,
         action: 'booking_dates_changed',
         admin: 'admin',
-        details: `Booking ${body.id} dates changed to ${body.checkin}→${body.checkout}`,
+        details: `Booking ${body.id} dates changed to ${newCheckin}→${newCheckout} (server-recomputed amount RM${result.booking.total})`,
         ip: clientIP,
-        userId: bookings[idx].guestEmail,
-        homestayId: bookings[idx].homestayId
+        userId: result.booking.guestEmail,
+        homestayId: result.booking.homestayId
       });
 
-      return jsonResponse({ success: true, booking: bookings[idx] }, 200, request);
+      return jsonResponse({ success: true, booking: result.booking }, 200, request);
     }
 
     // ---- Admin: approveHomestay ----
@@ -771,7 +939,7 @@ export async function onRequestPost({ request, env }) {
           db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)').bind('kd_homestays', JSON.stringify(allHomes))
         ]);
 
-        await invalidateOwnerSessions(db, safeHomestay.id);
+        await invalidateOwnerSessionsForHomestay(db, safeHomestay.id);
 
         await logAction({
           db,
@@ -809,7 +977,7 @@ export async function onRequestPost({ request, env }) {
         .bind('kd_pending', JSON.stringify(pending))
         .run();
 
-      await invalidateOwnerSessions(db, homestay.id);
+      await invalidateOwnerSessionsForHomestay(db, homestay.id);
 
       const emailResult = await sendRejectionEmail(homestay, reason, env);
 
@@ -870,7 +1038,7 @@ export async function onRequestPost({ request, env }) {
           .bind('kd_approved', JSON.stringify(approved))
           .run();
 
-        await invalidateOwnerSessions(db, removed.id);
+        await invalidateOwnerSessionsForHomestay(db, removed.id);
 
         await logAction({
           db,
@@ -956,7 +1124,7 @@ export async function onRequestPost({ request, env }) {
       ]);
 
       for (const h of [...removedApproved, ...removedPending]) {
-        try { await invalidateOwnerSessions(db, h.id); } catch (_) {}
+        try { await invalidateOwnerSessionsForHomestay(db, h.id); } catch (_) {}
       }
 
       await logAction({
@@ -1098,29 +1266,42 @@ export async function onRequestDelete({ request, env }) {
   if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
   await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-  const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
-  let bookings = [];
-  try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
-  const idx = bookings.findIndex(b => String(b.id) === String(id));
-  if (idx === -1) {
-    return jsonResponse({ error: 'Booking not found' }, 404, request);
+  let result;
+  try {
+    result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+      let bookings = [];
+      try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+      const idx = bookings.findIndex(b => String(b.id) === String(id));
+      if (idx === -1) return { error: 'Booking not found', status: 404 };
+      const deleted = bookings[idx];
+      bookings.splice(idx, 1);
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings)).run();
+      return { success: true, deleted };
+    }, 30000);
+  } catch (lockErr) {
+    if (lockErr.message && lockErr.message.includes('in progress')) {
+      return jsonResponse({ error: 'Another booking operation is in progress. Please try again in a moment.' }, 429, request);
+    }
+    throw lockErr;
   }
-  const deleted = bookings[idx];
-  bookings.splice(idx, 1);
-  await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-    .bind('kd_bookings', JSON.stringify(bookings)).run();
+
+  if (result.error) {
+    return jsonResponse({ error: result.error }, result.status || 400, request);
+  }
 
   await logAction({
     db,
     action: 'booking_deleted_admin',
     admin: 'admin',
-    details: `Deleted booking ${id} (${deleted.homestay})`,
+    details: `Deleted booking ${id} (${result.deleted.homestay})`,
     ip: getClientIP(request),
-    userId: deleted.guestId,
-    homestayId: deleted.homestayId
+    userId: result.deleted.guestId,
+    homestayId: result.deleted.homestayId
   });
 
-  return jsonResponse({ success: true, deleted: deleted }, 200, request);
+  return jsonResponse({ success: true, deleted: result.deleted }, 200, request);
 }
 
 export async function onRequestOptions({ request }) {
