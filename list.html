@@ -266,24 +266,12 @@
         </div>
         <p class="text-xs text-zinc-600">Secure booking settlement runs direct. Account details provided must correlate to host legal identity.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+          <div class="md:col-span-2">
             <label class="text-xs font-semibold text-[#212121]">Receiving Bank *</label>
             <select id="listBankName" class="form-select mt-1">
-              <option value="">Choose Bank</option>
-              <option value="Maybank">Maybank</option>
-              <option value="CIMB Bank">CIMB Bank</option>
-              <option value="Public Bank">Public Bank</option>
-              <option value="RHB Bank">RHB Bank</option>
-              <option value="Hong Leong Bank">Hong Leong Bank</option>
-              <option value="Bank Islam">Bank Islam</option>
-              <option value="Bank Rakyat">Bank Rakyat</option>
-              <option value="BSN">BSN</option>
-              <option value="Other">Other Bank (Define Below)</option>
+              <option value="">Loading banks…</option>
             </select>
-          </div>
-          <div id="manualBankCodeWrap" class="hidden">
-            <label class="text-xs font-semibold text-[#212121]">Bank Swift Code</label>
-            <input id="listBankCode" placeholder="e.g. MBBEMYKL" class="form-input mt-1 uppercase font-mono text-xs" />
+            <p class="text-[10px] text-zinc-500 mt-1">Only banks supported by CHIP Send are listed. This is the account that will receive your payouts.</p>
           </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -706,25 +694,28 @@ function logoutGuest() {
 }
 
 // =============================================================
-// BANK CODES
+// CHIP SEND BANK LIST — fetched from the server so it always
+// matches CHIP's current supported banks. If CHIP changes their
+// list, only /api/bank-list.js needs updating. No hardcoded list
+// here, and no free-text fallback.
 // =============================================================
-const BANK_CODES = {
-  'Maybank': 'MBBEMYKL',
-  'CIMB Bank': 'CIBBMYKL',
-  'Public Bank': 'PBBEMYKL',
-  'RHB Bank': 'RHBBMYKL',
-  'Hong Leong Bank': 'HLBBMYKL',
-  'Bank Islam': 'BIMBMYKL',
-  'Bank Rakyat': 'BKRMMYKL',
-  'BSN': 'BSNAMYK1',
-  'Affin Bank': 'PHBMMYKL',
-  'Alliance Bank': 'MFBBMYKL',
-  'Ambank': 'ARBKMYKL',
-  'HSBC': 'HBMBMYKL',
-  'OCBC': 'OCBCMYKL',
-  'UOB': 'UOVBMYKL',
-  'Standard Chartered': 'SCBLMYKX'
-};
+let CHIP_BANKS = [];       // [{ code, name }]
+let CHIP_BANKS_LOADED = false;
+
+async function loadChipBanks() {
+  if (CHIP_BANKS_LOADED) return CHIP_BANKS;
+  try {
+    const res = await fetch('/api/bank-list', { cache: 'default' });
+    const data = await res.json();
+    if (data.success && Array.isArray(data.banks)) {
+      CHIP_BANKS = data.banks;
+      CHIP_BANKS_LOADED = true;
+    }
+  } catch (e) {
+    console.error('Failed to load bank list:', e.message);
+  }
+  return CHIP_BANKS;
+}
 
 // =============================================================
 // IMAGE COMPRESSION
@@ -808,7 +799,7 @@ let tempRooms = [];
 
 // =============================================================
 // FORM DRAFT (localStorage)
-// Fix #6: preserves the entire form when the server returns
+// Preserves the entire form when the server returns
 // OWNER_ACCOUNT_REQUIRED and the user is redirected to register.
 // =============================================================
 const DRAFT_KEY = 'kd_list_draft_v1';
@@ -828,7 +819,6 @@ function saveDraft() {
         listBedrooms:       document.getElementById('listBedrooms')?.value || '',
         listDescription:    document.getElementById('listDescription')?.value || '',
         listBankName:       document.getElementById('listBankName')?.value || '',
-        listBankCode:       document.getElementById('listBankCode')?.value || '',
         listBankAccount:    document.getElementById('listBankAccount')?.value || '',
         listBankHolder:     document.getElementById('listBankHolder')?.value || '',
         listBankConfirm:    document.getElementById('listBankConfirm')?.checked || false,
@@ -887,7 +877,6 @@ function restoreDraft() {
   setVal('listBedrooms', f.listBedrooms);
   setVal('listDescription', f.listDescription);
   setVal('listBankName', f.listBankName);
-  setVal('listBankCode', f.listBankCode);
   setVal('listBankAccount', f.listBankAccount);
   setVal('listBankHolder', f.listBankHolder);
   setChk('listBankConfirm', f.listBankConfirm);
@@ -895,11 +884,6 @@ function restoreDraft() {
   setVal('listIcNumber', f.listIcNumber);
   setChk('listConsent', f.listConsent);
   setChk('listHostAgreement', f.listHostAgreement);
-
-  if (f.listBankName === 'Other') {
-    const wrap = document.getElementById('manualBankCodeWrap');
-    if (wrap) wrap.classList.remove('hidden');
-  }
 
   if (Array.isArray(draft.tempRooms) && draft.tempRooms.length > 0) {
     tempRooms = draft.tempRooms;
@@ -1104,12 +1088,6 @@ function removeRoomImage(roomId, imageIndex) {
 }
 
 renderRooms();
-
-document.getElementById('listBankName').addEventListener('change', function() {
-  const wrap = document.getElementById('manualBankCodeWrap');
-  if (this.value === 'Other') wrap.classList.remove('hidden');
-  else { wrap.classList.add('hidden'); document.getElementById('listBankCode').value = ''; }
-});
 
 // =============================================================
 // DELEGATED HANDLERS FOR DYNAMIC ROOM UI
@@ -1476,9 +1454,19 @@ async function submitHomestay() {
     const icNumber = document.getElementById("listIcNumber").value.trim();
     const ownerPassword = document.getElementById("listOwnerPassword").value.trim();
     const pbtLicense = tempPbtLicense || "";
-    let bankCode = BANK_CODES[bankName] || '';
-    if (bankName === 'Other') { bankCode = document.getElementById('listBankCode').value.trim().toUpperCase(); }
-    if (!bankCode) bankCode = 'MBBEMYKL';
+
+    // Bank code comes directly from the server-provided CHIP Send list.
+    // No hardcoded map, no free-text fallback, no silent Maybank default.
+    let bankCode = '';
+    const bankMatch = CHIP_BANKS.find(b => b.name === bankName);
+    if (bankMatch) {
+      bankCode = bankMatch.code;
+    }
+    if (!bankCode) {
+      await showAlert('Bank Required', 'Please select a bank from the list. The bank code is required for your payouts.');
+      resetBtn();
+      return;
+    }
 
     const consent = document.getElementById('listConsent').checked;
     if (!consent) {
@@ -1574,10 +1562,10 @@ async function submitHomestay() {
 
     if (!syncRes.ok) {
       if (syncData.code === 'OWNER_ACCOUNT_REQUIRED') {
-        // FIX #6: persist entire draft so nothing is lost on redirect
+        // Persist entire draft so nothing is lost on redirect
         saveDraft();
 
-        // FIX #7: if the host *had* a session when the page loaded, this is
+        // If the host *had* a session when the page loaded, this is
         // a session expiry — send them to /owner.html, NOT /owner-register.html.
         const hadOwnerSession = !!(window._ownerAuth && window._ownerAuth.ownerId);
 
@@ -1606,7 +1594,7 @@ async function submitHomestay() {
           return;
         }
 
-        // Never logged in as a host — existing FIX #6 behaviour
+        // Never logged in as a host
         if (statusEl) {
           statusEl.className = 'block p-3 text-xs bg-amber-50 text-amber-900 border border-amber-300 rounded-xl mt-3 font-semibold';
           statusEl.textContent = '🔐 Host account required — redirecting you to create one...';
@@ -1638,6 +1626,16 @@ async function submitHomestay() {
         }
         await showAlert('Invalid Host Password',
           'The password you entered does not match any verified host account. Please double-check it, or click "I already have one" above to log into the Host Console.');
+        resetBtn();
+        return;
+      }
+
+      if (syncData.code === 'INVALID_BANK_CODE') {
+        if (statusEl) {
+          statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
+          statusEl.textContent = '❌ ' + (syncData.error || 'Invalid bank code.');
+        }
+        await showAlert('Invalid Bank', syncData.error || 'The selected bank is not supported. Please pick another from the list.');
         resetBtn();
         return;
       }
@@ -1681,8 +1679,20 @@ async function submitHomestay() {
 // =============================================================
 // INIT
 // =============================================================
-(function init() {
+(async function init() {
   renderGuestNav();
+
+  // Load the CHIP Send bank list from the server before populating the
+  // dropdown. If the fetch fails, the dropdown shows an error message
+  // and submission is blocked (no free-text fallback).
+  await loadChipBanks();
+  const sel = document.getElementById('listBankName');
+  if (sel && CHIP_BANKS.length > 0) {
+    sel.innerHTML = '<option value="">Choose Bank</option>' +
+      CHIP_BANKS.map(b => `<option value="${escapeHTML(b.name)}">${escapeHTML(b.name)} (${escapeHTML(b.code)})</option>`).join('');
+  } else if (sel) {
+    sel.innerHTML = '<option value="">Could not load bank list — please refresh the page</option>';
+  }
 
   let restored = false;
   try { restored = restoreDraft(); } catch (e) { restored = false; }
