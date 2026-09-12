@@ -1258,6 +1258,7 @@ function openEditHomestayModal(id) {
     { label: 'Owner Email', id: 'edit_ownerEmail', type: 'email', value: h.ownerEmail || '' },
     { label: 'Owner Phone', id: 'edit_ownerPhone', type: 'text', value: h.ownerPhone || '' },
     { label: 'Bank Name', id: 'edit_ownerBank', type: 'text', value: h.ownerBank || '' },
+    { label: 'Bank Code (CHIP Send)', id: 'edit_bankCode', type: 'text', value: h.bankCode || '' },
     { label: 'Bank Account Number', id: 'edit_ownerBankAccount', type: 'text', value: h.ownerBankAccount || '' },
     { label: 'Bank Account Holder', id: 'edit_bankHolder', type: 'text', value: h.bankHolder || '' },
     { label: 'IC Name (as per IC)', id: 'edit_icName', type: 'text', value: h.icName || '' },
@@ -1271,12 +1272,15 @@ function openEditHomestayModal(id) {
   let html = '';
   fields.forEach(f => {
     const safeVal = String(f.value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const hint = f.id === 'edit_bankCode'
+      ? '<p class="text-[10px] text-zinc-400 mt-1">SWIFT/BIC code from the CHIP Send bank list. e.g. MBBEMYKL for Maybank.</p>'
+      : '';
     if (f.type === 'textarea') {
       html += `<div><label class="block text-xs font-bold text-zinc-600">${f.label}</label>
-        <textarea id="${f.id}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm">${safeVal}</textarea></div>`;
+        <textarea id="${f.id}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm">${safeVal}</textarea>${hint}</div>`;
     } else {
       html += `<div><label class="block text-xs font-bold text-zinc-600">${f.label}</label>
-        <input type="${f.type}" id="${f.id}" value="${safeVal}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm" /></div>`;
+        <input type="${f.type}" id="${f.id}" value="${safeVal}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm" />${hint}</div>`;
     }
   });
   form.innerHTML = safeHTML(html);
@@ -1298,8 +1302,8 @@ async function saveEditHomestay() {
 
   const fields = [
     'name', 'location', 'description', 'ownerPrice', 'ownerName', 'ownerEmail',
-    'ownerPhone', 'ownerBank', 'ownerBankAccount', 'bankHolder', 'icName',
-    'icNumber', 'image', 'icImage', 'bankQRImage', 'pbtLicense'
+    'ownerPhone', 'ownerBank', 'bankCode', 'ownerBankAccount', 'bankHolder',
+    'icName', 'icNumber', 'image', 'icImage', 'bankQRImage', 'pbtLicense'
   ];
   const newData = {};
   fields.forEach(f => {
@@ -1310,6 +1314,36 @@ async function saveEditHomestay() {
       newData[f] = val;
     }
   });
+
+  // Validate the bank code against CHIP Send's known list before saving.
+  // This prevents the silent Maybank default at payout time: if the code
+  // is empty or unknown, we refuse to save rather than let it through.
+  if (newData.bankCode !== undefined) {
+    const code = String(newData.bankCode || '').toUpperCase().trim();
+    if (!code) {
+      await showAlert(
+        'Bank Code Required',
+        'The bank code is required for payouts. Enter a valid CHIP Send bank code (e.g. MBBEMYKL for Maybank, CIBBMYKL for CIMB).'
+      );
+      return;
+    }
+    try {
+      const res = await fetch('/api/bank-list');
+      const data = await res.json();
+      const valid = (data.banks || []).some(b => b.code === code);
+      if (!valid) {
+        await showAlert(
+          'Invalid Bank Code',
+          `"${code}" is not a recognised CHIP Send bank code. Please check the code and try again. The full list is on the server (see /api/bank-list).`
+        );
+        return;
+      }
+    } catch (e) {
+      await showAlert('Error', 'Could not verify the bank code against CHIP. Please try again.');
+      return;
+    }
+    newData.bankCode = code;
+  }
 
   Object.assign(h, newData);
 
@@ -1385,6 +1419,7 @@ function viewPendingDetails(id) {
         <div class="text-sm font-semibold text-zinc-500">Bank Details</div>
         <div class="mt-2 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
           <div><span class="font-bold">Bank:</span> ${h.ownerBank || 'N/A'}</div>
+          <div><span class="font-bold">Bank Code:</span> <span class="font-mono font-bold">${h.bankCode || 'MISSING'}</span></div>
           <div><span class="font-bold">Account Number:</span> <span class="font-mono font-bold text-lg">${h.ownerBankAccount || 'N/A'}</span></div>
           <div><span class="font-bold">Account Holder:</span> ${h.bankHolder || 'N/A'}</div>
           <div><span class="font-bold">Bank QR:</span> ${h.bankQRImage ? '✅ Uploaded' : '❌ Not uploaded'}</div>
