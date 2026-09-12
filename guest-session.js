@@ -1,9 +1,7 @@
 /* /guest-session.js — Guest session tracker.
- *
  * Plain English: "logged in" just means "we have your guest record
- * saved". If the saved value is a single guest OR a list of guests
- * (from an older version of the site), we handle both. If the server
- * ever says your cookie is dead, we'll auto-log-out on the next call.
+ * saved in the browser". No timestamps, no tokens, no expiry checks.
+ * If the server ever says your cookie is dead, we log you out then.
  */
 (function () {
   'use strict';
@@ -16,15 +14,12 @@
       var raw = localStorage.getItem(GUEST_KEY);
       if (!raw) return null;
       var g = JSON.parse(raw);
-
-      // Accept both shapes:
-      //   - { id, name, ... }        ← what we save now
-      //   - [{ id, ... }, { id, ...}] ← what older versions left behind
-      if (Array.isArray(g)) {
-        g = g.length > 0 ? g[g.length - 1] : null;
-      }
-
-      return g && g.id ? g : null;
+      // Accept a single guest OR a list (older versions left a list).
+      if (Array.isArray(g)) g = g.length > 0 ? g[g.length - 1] : null;
+      if (!g) return null;
+      if (g.id) return g;
+      if (g.email) return g;   // tolerate a record with only an email
+      return null;
     } catch (e) { return null; }
   }
 
@@ -110,8 +105,7 @@
         },
         credentials: 'include'
       });
-    } catch (e) { /* ignore — still clear local */ }
-
+    } catch (e) {}
     clearSession();
     updateNavDOM();
     window.location.href = '/';
@@ -133,10 +127,7 @@
     return res;
   }
 
-  function startExpiryWatcher() {
-    // The server's 401 response is the source of truth.
-    // No polling needed.
-  }
+  function startExpiryWatcher() { /* server is the source of truth */ }
 
   function init() {
     updateNavDOM();
