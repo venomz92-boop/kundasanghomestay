@@ -1,10 +1,11 @@
 // /api/owner-update-booking.js — Plain English: this file handles host
 // actions: block/unblock a room date, change the nightly price, shift a
-// booking's dates, and cancel a booking (with automatic refund). Every
-// action now uses the SAME lock key ("bookings-global") as the rest of
-// the platform, so a host cancelling a booking can never race with an
-// admin changing dates, a guest creating a booking, a check-in payout,
-// or the CHIP webhook. Behavior and messages are otherwise unchanged.
+// booking's dates, and cancel a booking (with automatic refund).
+//
+// [NEW] Cancellation emails. When a host cancels a booking, the guest now
+// receives an email describing the outcome (refund processed / refund
+// processing / refund failed / no refund needed). Best-effort: an email
+// failure never blocks the cancellation itself.
 import {
   corsHeaders,
   getClientIP,
@@ -72,9 +73,6 @@ async function processChipRefund(purchaseId, amount, env) {
     body: JSON.stringify(payload)
   });
 
-  // If the response is not parseable JSON, treat as "unknown" — the
-  // caller will set the booking to "Refund Pending" so the money can be
-  // verified manually before any retry.
   let data = null;
   try { data = await response.json(); } catch (_) { data = null; }
 
@@ -102,6 +100,114 @@ function isPaidBooking(booking) {
   if (s === 'Completed - Payout Pending') return true;
   if (s.startsWith('Completed')) return true;
   return false;
+}
+
+// ============================================================
+// [NEW] Cancellation email — best-effort, never blocks the cancel.
+//
+// Four cases:
+//   1. Paid + refund fully processed     → green header + refund ID
+//   2. Paid + refund pending at CHIP     → amber header, "processing"
+//   3. Paid + refund FAILED               → red header, "manual review"
+//   4. Unpaid                             → grey header, "no refund needed"
+// ============================================================
+async function sendCancellationEmail(booking, refundInfo, env) {
+  if (!booking || !booking.guestEmail) {
+    return { sent: false, error: 'No guest email on file' };
+  }
+
+  const safe = (s) => String(s || '').replace(/[<>]/g, '');
+  const totalAmount = Number(booking.total || 0).toFixed(2);
+
+  let subject, headerColor, headerText, bodyHtml;
+
+  if (refundInfo.isPaid && refundInfo.refundSuccess && !refundInfo.refundPending) {
+    subject = 'Booking Cancelled by Host - Refund Processed';
+    headerColor = '#16a34a';
+    headerText = '✓ Booking Cancelled — Refund Processed';
+    bodyHtml = `
+      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled by the host.</p>
+      <p>A <strong>full refund of RM${totalAmount}</strong> has been processed to your original payment method via CHIP.</p>
+      <p>Refunds typically take <strong>3–7 business days</strong> to appear in your bank account, depending on your bank's processing times.</p>
+      <p><strong>Refund ID (CHIP):</strong> ${safe(refundInfo.refundId || 'N/A')}</p>
+    `;
+  } else if (refundInfo.isPaid && refundInfo.refundSuccess && refundInfo.refundPending) {
+    subject = 'Booking Cancelled by Host - Refund Processing';
+    headerColor = '#d97706';
+    headerText = '⏳ Booking Cancelled — Refund Processing';
+    bodyHtml = `
+      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled by the host.</p>
+      <p>A <strong>full refund of RM${totalAmount}</strong> is being processed by CHIP. This usually completes within a few minutes.</p>
+      <p>Once CHIP finishes, the refund may take a further <strong>3–7 business days</strong> to appear in your bank account.</p>
+      <p><strong>Refund ID (CHIP):</strong> ${safe(refundInfo.refundId || 'N/A')}</p>
+    `;
+  } else if (refundInfo.isPaid && !refundInfo.refundSuccess) {
+    subject = 'Booking Cancelled by Host';
+    headerColor = '#dc2626';
+    headerText = '❌ Booking Cancelled';
+    bodyHtml = `
+      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled by the host.</p>
+      <p>Your payment of <strong>RM${totalAmount}</strong> was taken. The refund could not be processed automatically and is now under manual review by our team.</p>
+      <p>Please contact <a href="mailto:support@kundasanghomestay.my">support@kundasanghomestay.my</a> if you don't hear from us within 24 hours.</p>
+    `;
+  } else {
+    subject = 'Booking Cancelled by Host';
+    headerColor = '#6b7280';
+    headerText = '❌ Booking Cancelled';
+    bodyHtml = `
+      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled by the host.</p>
+      <p>No payment was taken for this booking, so no refund is needed.</p>
+      <p>If you have any questions, please contact the host directly.</p>
+    `;
+  }
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+      <h2 style="color:${headerColor};">${headerText}</h2>
+      <p>Hello ${safe(booking.guestName || 'Guest')},</p>
+      ${bodyHtml}
+      <div style="background:#f8f5f0;padding:16px;border-radius:8px;margin:16px 0;font-size:13px;">
+        <div><strong>Booking ID:</strong> ${safe(booking.id)}</div>
+        <div><strong>Homestay:</strong> ${safe(booking.homestay)}</div>
+        <div><strong>Check-in:</strong> ${safe(booking.checkin)}</div>
+        <div><strong>Check-out:</strong> ${safe(booking.checkout)}</div>
+        <div><strong>Nights:</strong> ${safe(booking.nights)}</div>
+      </div>
+      <p>— Kundasang Homestay Team</p>
+    </div>
+  `;
+
+  try {
+    if (env.RESEND_API_KEY) {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
+          to: booking.guestEmail,
+          subject,
+          html
+        })
+      });
+      return { sent: r.ok, error: r.ok ? null : 'Resend API error' };
+    }
+    if (env.SENDGRID_API_KEY) {
+      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + env.SENDGRID_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: booking.guestEmail }] }],
+          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
+          subject,
+          content: [{ type: 'text/html', value: html }]
+        })
+      });
+      return { sent: r.ok, error: r.ok ? null : 'SendGrid API error' };
+    }
+    return { sent: false, error: 'No email provider configured' };
+  } catch (e) {
+    return { sent: false, error: e.message };
+  }
 }
 
 export async function onRequestPost({ request, env }) {
@@ -297,7 +403,6 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: `Maximum booking length is ${MAX_NIGHTS} nights.` }, 400, request);
       }
 
-      // Pre-flight auth check (unlocked read).
       const preRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
       let preBookings = [];
       try { if (preRes?.data) preBookings = JSON.parse(preRes.data); } catch (_) {}
@@ -317,7 +422,6 @@ export async function onRequestPost({ request, env }) {
 
       let result;
       try {
-        // C4: canonical lock instead of the old `String(preBooking.homestayId)`.
         result = await withLock(db, BOOKINGS_LOCK, async (db) => {
           const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
           let bookings = [];
@@ -336,7 +440,6 @@ export async function onRequestPost({ request, env }) {
 
           const isPaid = isPaidBooking(booking);
 
-          // PAID BOOKINGS: same-length shift only.
           if (isPaid) {
             const originalNights = Number(booking.nights) || 1;
             if (nights !== originalNights) {
@@ -456,7 +559,6 @@ export async function onRequestPost({ request, env }) {
 
       let result;
       try {
-        // C4: canonical lock instead of the old `cancel-${bookingId}`.
         result = await withLock(db, BOOKINGS_LOCK, async (db) => {
           const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
           let bookings = [];
@@ -494,7 +596,6 @@ export async function onRequestPost({ request, env }) {
           }
 
           if (isPaid && refundSuccess) {
-            // CHIP may return pending_refund if the acquirer is still processing.
             const isPending = refundData && refundData.status === 'pending_refund';
             bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded';
             bookings[idx].chip_refund_id = refundData.id;
@@ -541,6 +642,23 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: result.error }, result.status || 400, request);
       }
 
+      // ============================================================
+      // [NEW] Send the cancellation email to the guest. Best-effort:
+      // an email failure never rolls back the cancellation or refund.
+      // ============================================================
+      let emailReport = { sent: false, error: 'skipped' };
+      try {
+        emailReport = await sendCancellationEmail(result.booking, {
+          isPaid: result.isPaid,
+          refundSuccess: result.refundSuccess,
+          refundPending: result.refundPending || false,
+          refundId: result.refundData?.id || null
+        }, env);
+      } catch (mailErr) {
+        console.error('Cancellation email error:', mailErr.message);
+        emailReport = { sent: false, error: mailErr.message };
+      }
+
       await logAction({
         db,
         action: result.isPaid
@@ -557,7 +675,7 @@ export async function onRequestPost({ request, env }) {
                     : 'Refund processed: ' + result.refundData.id)
                 : 'Refund failed: ' + result.refundError)
             : '(unpaid)'
-        }`,
+        }. Cancellation email: ${emailReport.sent ? 'sent' : 'failed — ' + (emailReport.error || 'unknown')}`,
         ip: clientIP,
         userId: result.booking.guestEmail,
         homestayId: result.booking.homestayId
@@ -575,7 +693,8 @@ export async function onRequestPost({ request, env }) {
         booking: result.booking,
         refund: result.refundData || undefined,
         refundError: result.refundError || undefined,
-        refundPending: result.refundPending || false
+        refundPending: result.refundPending || false,
+        emailSent: emailReport.sent
       }, 200, request);
     }
 
