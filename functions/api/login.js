@@ -1,6 +1,8 @@
-// /api/login.js — Guest login with 2-hour session
-// Timing-safe: always runs PBKDF2 even for unknown emails.
-// Multi-device: does NOT invalidate other sessions on login.
+// /api/login.js — Plain English: guest login. The session token is NO
+// LONGER returned in the JSON body — it only lives in the HttpOnly cookie
+// which JavaScript cannot read. This protects guests if a malicious script
+// ever gets onto the page. The CSRF token is still returned (that one is
+// fine to expose to JS).
 import {
   corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword,
   createSignedToken, generateCSRFToken, cookieHeader, jsonResponse,
@@ -11,11 +13,12 @@ const GUEST_TTL_MS      = 2 * 60 * 60 * 1000;  // 2 hours
 const GUEST_TTL_SECONDS = GUEST_TTL_MS / 1000;
 
 // Dummy record used to equalize response time when the email is unknown.
-// Must use the SAME algorithm as real records so PBKDF2 burns the same CPU.
+// MUST use the SAME algorithm string as freshly-created records so PBKDF2
+// burns the same CPU. Keep this in sync with PBKDF2_ITERATIONS in _utils.js.
 const DUMMY_PASSWORD_RECORD = {
   password: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
   salt: 'AAAAAAAAAAAAAAAAAAAAAA',
-  passwordAlgorithm: 'PBKDF2-100000-SHA256'
+  passwordAlgorithm: 'PBKDF2-600000-SHA256'
 };
 
 function validateEmail(email) {
@@ -93,10 +96,12 @@ export async function onRequestPost({ request, env }) {
     const csrfToken = await generateCSRFToken(user.id, env);
     const { password: _, salt: __, ...safeUser } = user;
 
+    // H1: `token` removed from response body. HttpOnly cookie is the only
+    // delivery path. Frontend must use `credentials: 'include'` and stop
+    // reading `data.token` / writing to localStorage.
     return new Response(JSON.stringify({
       success: true,
       guest: safeUser,
-      token: session,
       csrfToken,
       expiresIn: GUEST_TTL_SECONDS,
       message: 'Login successful'
