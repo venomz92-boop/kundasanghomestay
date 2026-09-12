@@ -45,8 +45,6 @@
 <!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
-
-    <!-- Logo & Brand -->
     <a href="/" class="flex items-center gap-3 shrink-0 group">
       <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
       <div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
@@ -55,23 +53,17 @@
       </div>
     </a>
 
-    <!-- Desktop Primary Nav -->
     <nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
       <a href="/" class="setsail-nav-link" data-nav="home">Home</a>
       <a href="/about.html" class="setsail-nav-link" data-nav="about">About Us</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
     </nav>
 
-    <!-- Desktop Actions -->
     <div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
-
-      <!-- Guest state: logged out -->
       <div id="guestNav" class="flex items-center gap-2">
         <a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
         <a href="/register.html" class="header-pill header-pill-accent">Register</a>
       </div>
-
-      <!-- Guest state: logged in -->
       <div id="guestProfileNav" class="hidden items-center gap-3">
         <a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
         <div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
@@ -80,13 +72,9 @@
           <button onclick="logoutGuest()" class="ml-1 text-[10px] opacity-70 hover:opacity-100 uppercase tracking-wider transition-opacity">Logout</button>
         </div>
       </div>
-
-      <!-- Primary CTA — always visible -->
       <a href="/owner-register.html" class="btn-primary" style="padding:11px 22px; font-size:11px;">List Your Homestay</a>
-
     </div>
 
-    <!-- Mobile Menu Button -->
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
@@ -108,15 +96,11 @@
 <!-- ===== MOBILE NAV ===== -->
 <div id="mobileNav">
   <div class="p-4">
-
-    <!-- DISCOVER -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
     <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
 
-    <!-- FOR HOSTS -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">For Hosts</div>
-
     <a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
       <div style="display:flex; align-items:center; gap:12px; padding:14px 14px; border-radius:14px; background:#F8F5F0; border:1px solid rgba(212,163,115,0.35); transition: background 0.2s;">
         <div style="width:40px; height:40px; border-radius:999px; background:#0F382E; color:#ffffff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px;">🏡</div>
@@ -134,14 +118,11 @@
       <a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a>
     </div>
 
-    <!-- ACCOUNT -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
-
     <div id="mGuestNav" class="space-y-2.5 px-1">
       <a href="/login.html" class="guest-btn guest-btn-primary block text-center">Sign In</a>
       <a href="/register.html" class="guest-btn block text-center">Create Account</a>
     </div>
-
     <div id="mGuestProfileNav" class="hidden space-y-2 px-1">
       <div class="profile-card">
         <div id="mGuestAvatar" class="avatar">G</div>
@@ -179,12 +160,6 @@
     </div>
   </div>
 
-  <!-- ============================================================
-       HOST-ACCOUNT GATE BANNER
-       The backend now requires a verified host account before a
-       listing can be submitted. This banner tells the visitor that
-       up front and offers a one-click way to create or log in.
-       ============================================================ -->
   <div id="accountRequiredBanner" class="mb-8 rounded-2xl border border-amber-300 bg-amber-50 p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center gap-4 animate-on-scroll">
     <div class="text-3xl md:text-4xl leading-none">🔐</div>
     <div class="flex-1 min-w-0">
@@ -404,11 +379,7 @@
         </div>
       </section>
 
-      <!-- ============================================================
-           HOST ACCOUNT LINK — the password must match an existing
-           verified host account. For logged-in owners the whole
-           section is hidden by initOwnerAwareness().
-           ============================================================ -->
+      <!-- HOST ACCOUNT LINK -->
       <section id="ownerPasswordSection" class="space-y-4 border-l-4 border-purple-400 bg-purple-50/50 p-4 rounded-xl">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-purple-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m-2 2a2 2 0 002-2m2 0a2 2 0 012 2m3 5a3 3 0 01-3 3H9a3 3 0 01-3-3m9.93 0l-1.977-1.977A1.5 1.5 0 0011.66 11.1l-1.977-1.977M15 7h.01M15 11h.01"/></svg>
@@ -542,7 +513,6 @@
   if (window.__kdCssHookInstalled) return;
   window.__kdCssHookInstalled = true;
 
-  // Dangerous CSS patterns: url() loaders, JS execution, and legacy vectors
   const DANGEROUS_RULE = /(?:\burl\s*\(|expression\s*\(|\bbehavior\s*:|-moz-binding|@import|javascript\s*:)/i;
 
   DOMPurify.addHook('afterSanitizeAttributes', function (node) {
@@ -552,7 +522,6 @@
     const raw = node.getAttribute('style') || '';
     if (!raw) return;
 
-    // If nothing dangerous, leave as-is (keeps performance high)
     if (!DANGEROUS_RULE.test(raw)) return;
 
     const safeRules = raw
@@ -569,7 +538,7 @@
     }
   });
 })();
-  
+
 // =============================================================
 // SECURE HELPERS
 // =============================================================
@@ -825,20 +794,24 @@ function compressImageToBlob(file, maxWidth, quality) {
 // TEMP STORAGE
 // =============================================================
 let tempPhotos = [];
+let tempPhotoPublicIds = [];              // NEW: parallel to tempPhotos
 let tempBlockedDates = [];
 let tempIcWatermarked = "";
+let tempIcPublicId = "";                  // NEW
 let tempIcOriginalName = "";
 let tempBankQRWatermarked = "";
+let tempBankQRPublicId = "";              // NEW
 let tempBankQROriginalName = "";
 let tempPbtLicense = "";
-let tempRooms = [];
+let tempPbtPublicId = "";                 // NEW
+let tempRooms = [];                       // each room: { ..., imagePublicIds: [] }
 
 // =============================================================
 // ROOMS MANAGEMENT
 // =============================================================
 function addRoom(name = '', price = '', guests = '', desc = '', images = []) {
   const id = 'room-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
-  tempRooms.push({ id, name, price, guests, desc, images: images || [] });
+  tempRooms.push({ id, name, price, guests, desc, images: images || [], imagePublicIds: [] });
   renderRooms();
 }
 
@@ -933,7 +906,9 @@ async function handleRoomImages(roomId, input) {
 
       if (res.ok && data.url) {
         if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
+        if (!tempRooms[roomIndex].imagePublicIds) tempRooms[roomIndex].imagePublicIds = [];
         tempRooms[roomIndex].images.push(data.url);
+        if (data.publicId) tempRooms[roomIndex].imagePublicIds.push(data.publicId);
         renderRooms();
       } else {
         await showAlert('Upload Failed', data.error || 'Unknown server error');
@@ -949,6 +924,9 @@ function removeRoomImage(roomId, imageIndex) {
   const roomIndex = tempRooms.findIndex(r => r.id === roomId);
   if (roomIndex !== -1 && tempRooms[roomIndex].images) {
     tempRooms[roomIndex].images.splice(imageIndex, 1);
+    if (tempRooms[roomIndex].imagePublicIds) {
+      tempRooms[roomIndex].imagePublicIds.splice(imageIndex, 1);
+    }
     renderRooms();
   }
 }
@@ -1004,6 +982,7 @@ async function handlePhotos(input) {
   const files = input.files;
   if (!files.length) return;
   tempPhotos = [];
+  tempPhotoPublicIds = [];
   const preview = document.getElementById('photoPreview');
   if (preview) preview.innerHTML = '';
 
@@ -1025,6 +1004,7 @@ async function handlePhotos(input) {
 
       if (res.ok && data.url) {
         tempPhotos.push(data.url);
+        if (data.publicId) tempPhotoPublicIds.push(data.publicId);
         const img = document.createElement('img');
         img.src = data.url;
         img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
@@ -1117,13 +1097,16 @@ async function handleIcFile(input) {
 
         if (res.ok && data.url) {
           tempIcWatermarked = data.url;
-          if (label) label.innerHTML = safeHTML("✓ Watermarked & uploaded securely<br>✓ Reference ID: " + data.publicId.split('/').pop());
+          if (data.publicId) tempIcPublicId = data.publicId;
+          if (label) label.innerHTML = safeHTML("✓ Watermarked & uploaded securely<br>✓ Reference ID: " + (data.publicId || '').split('/').pop());
         } else {
           tempIcWatermarked = watermarkedDataUrl;
+          tempIcPublicId = "";
           if (label) label.innerHTML = safeHTML("⚠️ Cloud upload failed. Using local fallback.");
         }
       } catch (err) {
         tempIcWatermarked = watermarkedDataUrl;
+        tempIcPublicId = "";
         if (label) label.innerHTML = safeHTML("⚠️ Upload error. Using local fallback.");
       }
     };
@@ -1134,7 +1117,7 @@ async function handleIcFile(input) {
 }
 
 function removeIc() {
-  tempIcWatermarked = ""; tempIcOriginalName = "";
+  tempIcWatermarked = ""; tempIcOriginalName = ""; tempIcPublicId = "";
   document.getElementById("listIcFront").value = "";
   document.getElementById("icPreviewWrap").classList.add("hidden");
   document.getElementById("icPreview").src = "";
@@ -1167,6 +1150,7 @@ async function handleBankQRUpload(input) {
 
     if (res.ok && data.url) {
       tempBankQRWatermarked = data.url;
+      if (data.publicId) tempBankQRPublicId = data.publicId;
       document.getElementById("bankQRImg").src = data.url;
       document.getElementById("bankQRPreview").classList.remove("hidden");
     } else {
@@ -1178,7 +1162,7 @@ async function handleBankQRUpload(input) {
 }
 
 function removeBankQR() {
-  tempBankQRWatermarked = ""; tempBankQROriginalName = "";
+  tempBankQRWatermarked = ""; tempBankQROriginalName = ""; tempBankQRPublicId = "";
   document.getElementById("listBankQR").value = "";
   document.getElementById("bankQRPreview").classList.add("hidden");
   document.getElementById("bankQRImg").src = "";
@@ -1263,6 +1247,7 @@ async function handlePbtLicense(input) {
     const data = await res.json();
     if (res.ok && data.url) {
       tempPbtLicense = data.url;
+      if (data.publicId) tempPbtPublicId = data.publicId;
       document.getElementById("pbtPreview").src = data.url;
       document.getElementById("pbtPreviewWrap").classList.remove("hidden");
     } else {
@@ -1275,13 +1260,14 @@ async function handlePbtLicense(input) {
 
 function removePbtLicense() {
   tempPbtLicense = "";
+  tempPbtPublicId = "";
   document.getElementById("listPbtLicense").value = "";
   document.getElementById("pbtPreviewWrap").classList.add("hidden");
   document.getElementById("pbtPreview").src = "";
 }
 
 // =============================================================
-// SUBMIT — handles the new [M4] OWNER_ACCOUNT_REQUIRED response
+// SUBMIT
 // =============================================================
 async function submitHomestay() {
   const statusEl = document.getElementById('submitStatus');
@@ -1292,7 +1278,6 @@ async function submitHomestay() {
     submitBtn.textContent = '⏳ Submitting...';
   }
 
-  // Reset helper in case a previous attempt failed.
   const resetBtn = () => {
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -1349,7 +1334,6 @@ async function submitHomestay() {
     if (!bankConfirm) { await showAlert("Escrow Agreement", "Please consent to Host bank verification checkbox."); resetBtn(); return; }
     if (tempPhotos.length === 0) { await showAlert("Required Field", "Add at least 1 cover photo of your homestay."); resetBtn(); return; }
 
-    // Only require a password when the caller is NOT an authenticated owner.
     const isAuthenticatedOwner = window._ownerAuth && window._ownerAuth.ownerId;
     if (!isAuthenticatedOwner && ownerPassword.length < 1) {
       await showAlert("Host Account Required",
@@ -1368,6 +1352,7 @@ async function submitHomestay() {
       bedrooms: bedrooms,
       image: tempPhotos[0],
       images: tempPhotos,
+      imagePublicIds: tempPhotoPublicIds,          // NEW
       rooms: tempRooms,
       ownerName: ownerName,
       whatsapp: whatsapp,
@@ -1379,11 +1364,14 @@ async function submitHomestay() {
       icName: icName,
       icNumber: icNumber || "",
       icImage: tempIcWatermarked,
+      icPublicId: tempIcPublicId,                  // NEW
       icOriginalName: tempIcOriginalName,
       icUploadDate: new Date().toISOString(),
       bankQRImage: tempBankQRWatermarked,
+      bankQRPublicId: tempBankQRPublicId,          // NEW
       bankQROriginalName: tempBankQROriginalName,
       pbtLicense: pbtLicense,
+      pbtLicensePublicId: tempPbtPublicId,          // NEW
       description: description || "Mountain view cottage.",
       blockedDates: [...tempBlockedDates],
       approved: false,
@@ -1412,10 +1400,6 @@ async function submitHomestay() {
     });
     const syncData = await syncRes.json();
 
-    // ============================================================
-    // M4: The backend now rejects unauthenticated submissions.
-    // Present a clear call-to-action instead of a raw error string.
-    // ============================================================
     if (!syncRes.ok) {
       if (syncData.code === 'OWNER_ACCOUNT_REQUIRED') {
         if (statusEl) {
@@ -1479,7 +1463,6 @@ async function submitHomestay() {
     resetBtn();
   } finally {
     if (submitBtn && submitBtn.disabled) {
-      // Only restore if we didn't just redirect.
       submitBtn.disabled = false;
       submitBtn.textContent = 'Submit Homestay Listing for Approval';
     }
@@ -1496,8 +1479,6 @@ async function submitHomestay() {
 
 // =============================================================
 // OWNER-ACCOUNT AWARENESS
-// If visitor is an authenticated owner, pre-fill their details
-// and hide the password section (they already have a password).
 // =============================================================
 (function initOwnerAwareness() {
   fetch('/api/owner-session', { credentials: 'include', cache: 'no-store' })
@@ -1522,12 +1503,9 @@ async function submitHomestay() {
       if (emailEl && data.ownerEmail) emailEl.value = data.ownerEmail;
       if (icNameEl && data.ownerName) icNameEl.value = data.ownerName;
 
-      // Hide the "Host Account Password" section entirely — the cookie
-      // already authenticates this owner, so the server doesn't need a password.
       var pwdSection = document.getElementById('ownerPasswordSection');
       if (pwdSection) pwdSection.style.display = 'none';
 
-      // Hide the top "Host account required" banner — they already have one.
       var banner = document.getElementById('accountRequiredBanner');
       if (banner) banner.style.display = 'none';
 
@@ -1578,7 +1556,7 @@ async function submitHomestay() {
 })();
 
 // =============================================================
-// MOBILE NAV HIDE (guest buttons on mobile desktop nav)
+// MOBILE NAV HIDE
 // =============================================================
 (function() {
   function hideLoginButtonsOnMobile() {
