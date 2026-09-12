@@ -1,14 +1,14 @@
 // /api/retry-payout.js — Plain English: admin-triggered retry of a failed
-// CHIP Send payout. Now uses the same global bookings lock as every other
-// money-movement file, refuses to simulate in production, and treats
-// unparseable/ambiguous CHIP responses as UNKNOWN (manual verification)
-// rather than a definitive failure that would let a duplicate be sent.
-// Platform fee is only recorded on a REAL, confirmed success.
+// CHIP Send payout. Uses the global bookings lock, refuses to simulate in
+// production, and treats unparseable/ambiguous CHIP responses as UNKNOWN.
 //
-// [NEW] Payout double-fire protection: the attempt marker is now written
-// to D1 BEFORE calling CHIP Send. If the worker crashes between the CHIP
-// call and the result write, a retry refuses instead of firing a second
-// real payout.
+// Payout double-fire protection (previous fix): the attempt marker is
+// written to D1 BEFORE calling CHIP Send.
+//
+// [NEW] Atomic fee-recording: booking + platform-fee are written in a
+// single db.batch(). If the batch fails, booking reverts to "attempt
+// marker only" and the double-fire guard refuses retries — no silent
+// fee loss.
 import {
   corsHeaders,
   getClientIP,
@@ -109,11 +109,7 @@ export async function onRequestPost({ request, env }) {
           };
         }
 
-        // ============================================================
-        // [NEW] UNRESOLVED-ATTEMPT GUARD.
-        // Same as owner-checkin.js and payout.js — refuse if a previous
-        // run wrote the attempt marker but never recorded a result.
-        // ============================================================
+        // UNRESOLVED-ATTEMPT GUARD.
         if (booking.payoutAttemptedAt
             && !booking.payoutSuccessDate
             && !booking.payoutUnknown
@@ -150,9 +146,7 @@ export async function onRequestPost({ request, env }) {
         const isProduction = env.ENVIRONMENT === 'production';
         const simulationAllowed = !isProduction && env.ALLOW_PAYOUT_SIMULATION === 'true';
 
-        // ============================================================
         // C1: HARD GATE. Retry cannot simulate in production.
-        // ============================================================
         if (!isLive && isProduction) {
           return {
             error: 'CHIP Send keys are missing on the production server. No payout was attempted. Contact admin to restore CHIP_API_KEY / CHIP_API_SECRET.',
@@ -168,9 +162,7 @@ export async function onRequestPost({ request, env }) {
 
         const isSimulation = !isLive && simulationAllowed;
 
-        // ============================================================
         // SIMULATION PATH (non-prod only, explicit flag)
-        // ============================================================
         if (isSimulation) {
           bookings[idx].status = 'Completed - Payout Success';
           bookings[idx].payoutSuccess = true;
@@ -204,9 +196,7 @@ export async function onRequestPost({ request, env }) {
           };
         }
 
-        // ============================================================
         // LIVE PATH
-        // ============================================================
         const chipBankCode = getChipBankCode(homestay.ownerBank || homestay.bankCode || '');
 
         // STEP A: Ensure CHIP bank account exists
@@ -272,9 +262,7 @@ export async function onRequestPost({ request, env }) {
         bookings[idx].payoutAttemptedReference = reference;
         bookings[idx].payoutAttemptedAmount = ownerAmount;
 
-        // ============================================================
-        // [NEW] PRE-FLIGHT WRITE. See owner-checkin.js for full rationale.
-        // ============================================================
+        // PRE-FLIGHT WRITE.
         try {
           await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
             .bind('kd_bookings', JSON.stringify(bookings))
@@ -315,7 +303,7 @@ export async function onRequestPost({ request, env }) {
           };
         }
 
-        // H3: unparseable response → UNKNOWN, not definitive failure.
+        // H3: unparseable → UNKNOWN.
         let payoutData = null;
         let parseFailed = false;
         try { payoutData = await payoutRes.json(); } catch (_) { parseFailed = true; }
@@ -358,7 +346,7 @@ export async function onRequestPost({ request, env }) {
           };
         }
 
-        // STEP C: Update booking on success
+        // STEP C: Update booking object in memory
         bookings[idx].status = 'Completed - Payout Success';
         bookings[idx].payoutSuccess = true;
         bookings[idx].payoutSuccessDate = new Date().toISOString();
@@ -369,10 +357,11 @@ export async function onRequestPost({ request, env }) {
         bookings[idx].payoutFailedAttempt = false;
         delete bookings[idx].lastPayoutError;
 
-        await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-          .bind('kd_bookings', JSON.stringify(bookings)).run();
-
-        // Record platform fee (idempotent) — ONLY on real success.
+        // ============================================================
+        // [NEW] ATOMIC WRITE: booking + platform-fee in ONE batch.
+        // See owner-checkin.js for full rationale.
+        // ============================================================
+        let feeEarningsToWrite = null;
         try {
           const feeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_fee_earnings').first();
           let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
@@ -395,11 +384,37 @@ export async function onRequestPost({ request, env }) {
                 method: 'chip_send_retry',
                 ip: clientIP
               });
-              await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-                .bind('kd_fee_earnings', JSON.stringify(feeEarnings)).run();
+              feeEarningsToWrite = feeEarnings;
             }
           }
-        } catch (_) { /* best-effort */ }
+        } catch (feeReadErr) {
+          console.error('Could not read fee earnings before atomic batch:', feeReadErr.message);
+          return {
+            error: `Payout succeeded at CHIP but the platform fee could not be prepared for write (${feeReadErr.message}). Booking left in "attempt marker only" state. Verify reference ${reference} in the CHIP dashboard, then contact support to reconcile.`,
+            status: 500
+          };
+        }
+
+        const atomicStmts = [
+          db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_bookings', JSON.stringify(bookings))
+        ];
+        if (feeEarningsToWrite) {
+          atomicStmts.push(
+            db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+              .bind('kd_fee_earnings', JSON.stringify(feeEarningsToWrite))
+          );
+        }
+
+        try {
+          await db.batch(atomicStmts);
+        } catch (batchErr) {
+          console.error('Atomic batch write failed:', batchErr.message);
+          return {
+            error: `Could not persist the payout result (${batchErr.message}). Booking left in "attempt marker only" state. Verify reference ${reference} in the CHIP dashboard before retrying.`,
+            status: 500
+          };
+        }
 
         await logAction({
           db,
