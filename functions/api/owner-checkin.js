@@ -1,11 +1,27 @@
 // /api/owner-checkin.js — Host confirms guest check-in and triggers CHIP Send payout.
 //
 // [THIS REVISION]
-// Payout receipt email is now sent in BOTH the live success branch and the
+// Payout receipt email is sent in BOTH the live success branch and the
 // simulation branch. The helper renders a [TEST] prefix and a yellow
 // banner when isSimulation is true, so sandbox testing produces a
 // visibly-marked test email and live payouts produce the real receipt.
 // Unknown and failure do not send email — there is no payout to receipt.
+//
+// [NEW]
+// On a successful LIVE payout, the platform now writes TWO ledger entries
+// in a single atomic db.batch alongside the booking update:
+//
+//   kd_fee_earnings — the gross retained amount (booking.fee + gatewayFee).
+//     Unchanged from before.
+//
+//   kd_chip_costs — CHIP's RM 1.00 payment-processing fee. New. This is
+//     what the platform actually paid CHIP to receive the guest's money.
+//
+// The platform's true net for the booking is:
+//   kd_fee_earnings.available − kd_chip_costs.available
+//
+// The simulation branch does NOT write kd_chip_costs because no real
+// CHIP fee was charged in simulation.
 import {
   corsHeaders,
   getClientIP,
@@ -25,6 +41,10 @@ import {
 const BOOKINGS_LOCK = 'bookings-global';
 
 const GATEWAY_FEE = 1.00;
+
+// CHIP's FPX B2C payment-processing fee (from chip-in.asia pricing page).
+// Recorded into kd_chip_costs on every successful live check-in.
+const CHIP_PAYMENT_FEE = 1.00;
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
@@ -211,9 +231,10 @@ export async function onRequestPost({ request, env }) {
             .bind('kd_bookings', JSON.stringify(bookings))
             .run();
 
-          // [NEW] Send the simulation receipt email.
+          // Send the simulation receipt email.
           // isSimulation:true makes the helper render a [TEST] subject
           // prefix and a yellow banner at the top of the email body.
+          // No kd_chip_costs write here — no real CHIP fee was charged.
           let simEmailReport = { sent: false, error: 'not attempted' };
           try {
             simEmailReport = await sendHostPayoutEmail(
@@ -337,9 +358,13 @@ export async function onRequestPost({ request, env }) {
           bookings[idx].homestaySource = homestaySource;
         }
 
-        // ATOMIC WRITE: booking + platform-fee in ONE batch.
+        // ATOMIC WRITE: booking + kd_fee_earnings (gross) + kd_chip_costs
+        // (CHIP fees) in ONE batch.
         let feeEarningsToWrite = null;
+        let chipCostsToWrite = null;
+
         if (payoutSuccess && !isSimulation) {
+          // --- kd_fee_earnings (gross retained from guest) ---
           try {
             const feeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
             let feeEarnings = feeRes ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
@@ -369,6 +394,36 @@ export async function onRequestPost({ request, env }) {
               status: 500
             };
           }
+
+          // --- kd_chip_costs (CHIP's payment-processing fee) ---
+          try {
+            const chipRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_chip_costs').first();
+            let chipCosts = chipRes && chipRes.data
+              ? JSON.parse(chipRes.data)
+              : { total: 0, history: [] };
+            chipCosts.history = chipCosts.history || [];
+            const alreadyRecordedChip = chipCosts.history.some(h =>
+              h.bookingId === bookingId && h.type === 'checkin'
+            );
+            if (!alreadyRecordedChip) {
+              chipCosts.total = Math.round(((chipCosts.total || 0) + CHIP_PAYMENT_FEE) * 100) / 100;
+              chipCosts.history.push({
+                bookingId,
+                amount: CHIP_PAYMENT_FEE,
+                payment_fee: CHIP_PAYMENT_FEE,
+                refund_fee: 0,
+                date: new Date().toISOString(),
+                type: 'checkin',
+                method: 'chip_collect_payment',
+                ip: getClientIP(request)
+              });
+              chipCostsToWrite = chipCosts;
+            }
+          } catch (chipReadErr) {
+            console.error('Could not read chip costs before atomic batch:', chipReadErr.message);
+            // Do not fail — the fee earnings write is the primary record.
+            // Log for reconciliation. The booking update still proceeds.
+          }
         }
 
         const atomicStmts = [
@@ -379,6 +434,12 @@ export async function onRequestPost({ request, env }) {
           atomicStmts.push(
             db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
               .bind('kd_fee_earnings', JSON.stringify(feeEarningsToWrite))
+          );
+        }
+        if (chipCostsToWrite) {
+          atomicStmts.push(
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_chip_costs', JSON.stringify(chipCostsToWrite))
           );
         }
 
