@@ -179,6 +179,26 @@
     </div>
   </div>
 
+  <!-- ============================================================
+       HOST-ACCOUNT GATE BANNER
+       The backend now requires a verified host account before a
+       listing can be submitted. This banner tells the visitor that
+       up front and offers a one-click way to create or log in.
+       ============================================================ -->
+  <div id="accountRequiredBanner" class="mb-8 rounded-2xl border border-amber-300 bg-amber-50 p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center gap-4 animate-on-scroll">
+    <div class="text-3xl md:text-4xl leading-none">🔐</div>
+    <div class="flex-1 min-w-0">
+      <div class="font-poppins font-800 text-[15px] md:text-[16px] text-amber-900">A verified host account is required before you can list a property</div>
+      <div class="text-[12px] md:text-[13px] text-amber-800 mt-1 leading-relaxed">
+        This protects guests from fake listings. Create a free host account, verify your email (1 minute), then return here to submit your property details.
+      </div>
+    </div>
+    <div class="flex gap-2 flex-wrap shrink-0">
+      <a href="/owner-register.html" class="btn-primary" style="padding:10px 20px; font-size:11px;">Create Host Account</a>
+      <a href="/owner.html" class="btn-outline" style="padding:10px 20px; font-size:11px;">I already have one</a>
+    </div>
+  </div>
+
   <div class="card p-6 md:p-10 bg-white shadow-xl animate-on-scroll">
     <div class="space-y-8">
       <!-- SECTION 1: OWNER DATA -->
@@ -384,16 +404,24 @@
         </div>
       </section>
 
-      <!-- PASSWORD -->
-      <section class="space-y-4 border-l-4 border-purple-400 bg-purple-50/50 p-4 rounded-xl">
+      <!-- ============================================================
+           HOST ACCOUNT LINK — the password must match an existing
+           verified host account. For logged-in owners the whole
+           section is hidden by initOwnerAwareness().
+           ============================================================ -->
+      <section id="ownerPasswordSection" class="space-y-4 border-l-4 border-purple-400 bg-purple-50/50 p-4 rounded-xl">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-purple-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m-2 2a2 2 0 002-2m2 0a2 2 0 012 2m3 5a3 3 0 01-3 3H9a3 3 0 01-3-3m9.93 0l-1.977-1.977A1.5 1.5 0 0011.66 11.1l-1.977-1.977M15 7h.01M15 11h.01"/></svg>
-          <span class="font-bold text-[16px] text-purple-950">Management Password Configuration</span>
+          <span class="font-bold text-[16px] text-purple-950">Verify with Host Account Password</span>
         </div>
-        <p class="text-xs text-zinc-600">Formulate a secure password to access your secure Admin/Owner panel where you can lock dynamic dates and monitor payouts.</p>
+        <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 leading-relaxed">
+          <strong>🔑 Password must match an existing verified host account.</strong><br>
+          Type the password you used when you <a href="/owner-register.html" class="underline font-semibold">created your host account</a>.
+          If you haven't created one yet, please do that first — the property submission will be rejected without it.
+        </div>
         <div>
-          <label class="text-xs font-semibold text-[#212121]">Owner Panel Password (min 8 characters) *</label>
-          <input id="listOwnerPassword" type="password" placeholder="Define dashboard access password" class="form-input mt-1" />
+          <label class="text-xs font-semibold text-[#212121]">Host Account Password *</label>
+          <input id="listOwnerPassword" type="password" placeholder="Your existing host account password" class="form-input mt-1" autocomplete="current-password" />
         </div>
       </section>
 
@@ -667,16 +695,22 @@ document.getElementById('customModal').addEventListener('click', function(e) {
 });
 
 // =============================================================
-// GUEST SYSTEM
+// GUEST SYSTEM (nav only)
 // =============================================================
 const API_BASE = "/api";
 let currentGuest = null;
-try {
-  const saved = localStorage.getItem('kd_guest');
-  if (saved) currentGuest = JSON.parse(saved);
-} catch (e) { currentGuest = null; }
+if (window.GuestSession && window.GuestSession.isGuestSessionValid()) {
+  currentGuest = window.GuestSession.readGuest();
+} else {
+  if (window.GuestSession) window.GuestSession.clearGuestSession();
+  currentGuest = null;
+}
 
 function renderGuestNav() {
+  if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+    window.GuestSession.updateNavDOM();
+    return;
+  }
   const loginNav = document.getElementById("guestNav");
   const profileNav = document.getElementById("guestProfileNav");
   const mLoginNav = document.getElementById("mGuestNav");
@@ -684,10 +718,6 @@ function renderGuestNav() {
   if (currentGuest && currentGuest.id) {
     if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
     if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
-    const avatar = document.getElementById("guestAvatar");
-    const nameNav = document.getElementById("guestNameNav");
-    if (avatar) avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-    if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
     if (mLoginNav) mLoginNav.classList.add("hidden");
     if (mProfileNav) mProfileNav.classList.remove("hidden");
   } else {
@@ -698,9 +728,10 @@ function renderGuestNav() {
   }
 }
 function logoutGuest() {
+  if (window.GuestSession) { window.GuestSession.logoutGuest(); return; }
   if (!confirm("Confirm guest logout?")) return;
   currentGuest = null;
-  localStorage.removeItem('kd_guest');
+  try { localStorage.removeItem('kd_guest'); } catch(e) {}
   renderGuestNav();
   window.location.href = '/';
 }
@@ -1250,7 +1281,7 @@ function removePbtLicense() {
 }
 
 // =============================================================
-// SUBMIT
+// SUBMIT — handles the new [M4] OWNER_ACCOUNT_REQUIRED response
 // =============================================================
 async function submitHomestay() {
   const statusEl = document.getElementById('submitStatus');
@@ -1260,6 +1291,14 @@ async function submitHomestay() {
     submitBtn.disabled = true;
     submitBtn.textContent = '⏳ Submitting...';
   }
+
+  // Reset helper in case a previous attempt failed.
+  const resetBtn = () => {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Homestay Listing for Approval';
+    }
+  };
 
   try {
     const ownerName = document.getElementById("listOwnerName").value.trim();
@@ -1287,36 +1326,38 @@ async function submitHomestay() {
     const consent = document.getElementById('listConsent').checked;
     if (!consent) {
       await showAlert("Consent Required", "Please agree to the data processing consent before submitting.");
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; }
+      resetBtn();
       return;
     }
 
     const hostAgreement = document.getElementById('listHostAgreement').checked;
     if (!hostAgreement) {
       await showAlert('Agreement Required', 'You must agree to the Host Agreement before submitting your listing.');
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; }
+      resetBtn();
       return;
     }
 
-    if (!ownerName) { await showAlert("Required Field", "Host full legal name is missing."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
-    if (!whatsapp) { await showAlert("Required Field", "WhatsApp contact number is missing."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
-    if (!ownerEmail) { await showAlert("Required Field", "Owner email address is missing."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
-    if (!homestayName) { await showAlert("Required Field", "Please declare property name."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
-    if (!price || isNaN(price) || price <= 0) { await showAlert("Required Field", "Price per night must be a valid positive amount."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
-    if (!bankName) { await showAlert("Required Field", "Choose your receiving bank."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
-    if (!bankAccount) { await showAlert("Required Field", "Receiving bank account number is required."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
-    if (!bankHolder) { await showAlert("Required Field", "Recipient account holder name is required."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
-    if (!icName) { await showAlert("Required Field", "Legal registration name matching IC is required."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
-    if (!bankConfirm) { await showAlert("Escrow Agreement", "Please consent to Host bank verification checkbox."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
-    if (tempPhotos.length === 0) { await showAlert("Required Field", "Add at least 1 cover photo of your homestay."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
+    if (!ownerName) { await showAlert("Required Field", "Host full legal name is missing."); resetBtn(); return; }
+    if (!whatsapp) { await showAlert("Required Field", "WhatsApp contact number is missing."); resetBtn(); return; }
+    if (!ownerEmail) { await showAlert("Required Field", "Owner email address is missing."); resetBtn(); return; }
+    if (!homestayName) { await showAlert("Required Field", "Please declare property name."); resetBtn(); return; }
+    if (!price || isNaN(price) || price <= 0) { await showAlert("Required Field", "Price per night must be a valid positive amount."); resetBtn(); return; }
+    if (!bankName) { await showAlert("Required Field", "Choose your receiving bank."); resetBtn(); return; }
+    if (!bankAccount) { await showAlert("Required Field", "Receiving bank account number is required."); resetBtn(); return; }
+    if (!bankHolder) { await showAlert("Required Field", "Recipient account holder name is required."); resetBtn(); return; }
+    if (!icName) { await showAlert("Required Field", "Legal registration name matching IC is required."); resetBtn(); return; }
+    if (!bankConfirm) { await showAlert("Escrow Agreement", "Please consent to Host bank verification checkbox."); resetBtn(); return; }
+    if (tempPhotos.length === 0) { await showAlert("Required Field", "Add at least 1 cover photo of your homestay."); resetBtn(); return; }
 
+    // Only require a password when the caller is NOT an authenticated owner.
     const isAuthenticatedOwner = window._ownerAuth && window._ownerAuth.ownerId;
-    if (!isAuthenticatedOwner && ownerPassword.length < 8) {
-      await showAlert("Required Field", "Password must be at least 8 characters.");
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; }
+    if (!isAuthenticatedOwner && ownerPassword.length < 1) {
+      await showAlert("Host Account Required",
+        "Please enter the password of your existing verified host account. If you don't have one yet, click 'Create Host Account' above and verify your email first.");
+      resetBtn();
       return;
     }
-    if (!tempIcWatermarked) { await showAlert("Required Field", "Identity document front upload is mandatory."); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Homestay Listing for Approval'; } return; }
+    if (!tempIcWatermarked) { await showAlert("Required Field", "Identity document front upload is mandatory."); resetBtn(); return; }
 
     const newHome = {
       id: Date.now(),
@@ -1371,14 +1412,52 @@ async function submitHomestay() {
     });
     const syncData = await syncRes.json();
 
-       if (!syncRes.ok) {
+    // ============================================================
+    // M4: The backend now rejects unauthenticated submissions.
+    // Present a clear call-to-action instead of a raw error string.
+    // ============================================================
+    if (!syncRes.ok) {
+      if (syncData.code === 'OWNER_ACCOUNT_REQUIRED') {
+        if (statusEl) {
+          statusEl.className = 'block p-3 text-xs bg-amber-50 text-amber-900 border border-amber-300 rounded-xl mt-3 font-semibold';
+          statusEl.textContent = '🔐 Host account required — redirecting you to create one...';
+        }
+        const goCreate = await showModal(
+          'Host Account Required',
+          'To submit a listing you need a <strong>verified host account</strong>.<br><br>' +
+          'This is a one-time step that protects guests from fake listings.<br><br>' +
+          (syncData.hint ? '<div style="font-size:12px;color:#6b7280;margin-top:8px;">' + syncData.hint + '</div>' : ''),
+          [
+            { label: 'Not now', class: 'btn-secondary', value: 'cancel' },
+            { label: 'Create Host Account →', class: 'btn-primary', value: 'create' }
+          ]
+        );
+        if (goCreate === 'create') {
+          window.location.href = '/owner-register.html';
+          return;
+        }
+        resetBtn();
+        if (statusEl) statusEl.className = 'hidden';
+        return;
+      }
+
+      if (syncData.code === 'INVALID_OWNER_PASSWORD') {
+        if (statusEl) {
+          statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
+          statusEl.textContent = '❌ ' + (syncData.error || 'Invalid host password.') + ' Please check the password and try again, or log in via the Host Console.';
+        }
+        await showAlert('Invalid Host Password',
+          'The password you entered does not match any verified host account. Please double-check it, or click "I already have one" above to log into the Host Console.');
+        resetBtn();
+        return;
+      }
+
       const errMsg = syncData.error || 'Server error';
       const hint = syncData.hint ? ' ' + syncData.hint : '';
       if (statusEl) {
         statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
         statusEl.textContent = '❌ ' + errMsg + hint;
       }
-      // For duplicate cases, show an alert with a link to owner login
       if (syncData.code === 'ALREADY_APPROVED' || syncData.code === 'ALREADY_PENDING') {
         await showAlert('Listing Already On File', errMsg + hint);
       }
@@ -1389,7 +1468,7 @@ async function submitHomestay() {
       statusEl.className = 'block p-3 text-xs bg-emerald-50 text-emerald-800 border rounded-xl mt-3 font-semibold';
       statusEl.textContent = '✓ Secure cloud storage synchronized successfully!';
     }
-    await showAlert("Listing Staged", `"${homestayName}" has been queued for admin approval.\n\nYou can log in to your dashboard panel at Agent Login once verification has concluded.`);
+    await showAlert("Listing Staged", `"${homestayName}" has been queued for admin approval.\n\nYou can log in to your dashboard panel at Host Login once verification has concluded.`);
     window.location.href = "/";
 
   } catch(err) {
@@ -1397,8 +1476,10 @@ async function submitHomestay() {
       statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
       statusEl.textContent = '⚠️ Operation Interrupted: ' + err.message;
     }
+    resetBtn();
   } finally {
-    if (submitBtn) {
+    if (submitBtn && submitBtn.disabled) {
+      // Only restore if we didn't just redirect.
       submitBtn.disabled = false;
       submitBtn.textContent = 'Submit Homestay Listing for Approval';
     }
@@ -1441,24 +1522,27 @@ async function submitHomestay() {
       if (emailEl && data.ownerEmail) emailEl.value = data.ownerEmail;
       if (icNameEl && data.ownerName) icNameEl.value = data.ownerName;
 
-      var pwdInput = document.getElementById('listOwnerPassword');
-      if (pwdInput) {
-        var pwdSection = pwdInput.closest('section');
-        if (pwdSection) pwdSection.style.display = 'none';
-      }
+      // Hide the "Host Account Password" section entirely — the cookie
+      // already authenticates this owner, so the server doesn't need a password.
+      var pwdSection = document.getElementById('ownerPasswordSection');
+      if (pwdSection) pwdSection.style.display = 'none';
+
+      // Hide the top "Host account required" banner — they already have one.
+      var banner = document.getElementById('accountRequiredBanner');
+      if (banner) banner.style.display = 'none';
 
       var formCard = document.querySelector('main .card');
       if (formCard && !document.getElementById('ownerAuthBanner')) {
-        var banner = document.createElement('div');
-        banner.id = 'ownerAuthBanner';
-        banner.className = 'mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-3';
-        banner.innerHTML =
+        var authBanner = document.createElement('div');
+        authBanner.id = 'ownerAuthBanner';
+        authBanner.className = 'mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-3';
+        authBanner.innerHTML =
           '<div class="text-xl">✅</div>' +
           '<div>' +
             '<div class="font-bold mb-0.5">Signed in as host: ' + (data.ownerName || data.whatsapp || 'Host') + '</div>' +
-            '<div>Fill in your property details below. Your account password is already set.</div>' +
+            '<div>Fill in your property details below. Your account is already verified — no password needed.</div>' +
           '</div>';
-        formCard.insertBefore(banner, formCard.firstChild);
+        formCard.insertBefore(authBanner, formCard.firstChild);
       }
     })
     .catch(function() { /* silent */ });
