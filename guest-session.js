@@ -1,153 +1,64 @@
-/* /guest-session.js — Guest session tracker.
- * Plain English: "logged in" just means "we have your guest record
- * saved in the browser". No timestamps, no tokens, no expiry checks.
- * If the server ever says your cookie is dead, we log you out then.
- */
-(function () {
-  'use strict';
+// /api/guest-session.js — Returns the current guest's profile.
+// Plain English: this endpoint just answers the question
+// "who is the person behind this browser cookie?" so the front-end
+// can display their name and know they are signed in.
+//
+// Always returns 200. If the cookie is missing or dead, it returns
+// { authenticated: false }. Never throws.
+import {
+  corsHeaders,
+  enforceHttps,
+  getGuestSession,
+  jsonResponse
+} from './_utils.js';
 
-  var GUEST_KEY = 'kd_guest';
-  var CSRF_KEY  = 'kd_csrf_token';
+export async function onRequestGet({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
 
-  function readGuest() {
-    try {
-      var raw = localStorage.getItem(GUEST_KEY);
-      if (!raw) return null;
-      var g = JSON.parse(raw);
-      // Accept a single guest OR a list (older versions left a list).
-      if (Array.isArray(g)) g = g.length > 0 ? g[g.length - 1] : null;
-      if (!g) return null;
-      if (g.id) return g;
-      if (g.email) return g;   // tolerate a record with only an email
-      return null;
-    } catch (e) { return null; }
-  }
-
-  function isValid() {
-    return !!readGuest();
-  }
-
-  function setSession(guest) {
-    if (!guest || !guest.id) return false;
-    try {
-      localStorage.setItem(GUEST_KEY, JSON.stringify(guest));
-      try { localStorage.removeItem('kd_guest_token'); } catch (e) {}
-      try { localStorage.removeItem('kd_guest_expires_at'); } catch (e) {}
-    } catch (e) { return false; }
-    return true;
-  }
-
-  function clearSession() {
-    try {
-      localStorage.removeItem(GUEST_KEY);
-      localStorage.removeItem(CSRF_KEY);
-      localStorage.removeItem('kd_guest_token');
-      localStorage.removeItem('kd_guest_expires_at');
-      localStorage.removeItem('kd_guest_pending_payment');
-      localStorage.removeItem('kd_pending_booking');
-      localStorage.removeItem('kd_failed_booking');
-    } catch (e) {}
-  }
-
-  function updateNavDOM() {
-    var guest = isValid() ? readGuest() : null;
-
-    var loginNav    = document.getElementById('guestNav');
-    var profileNav  = document.getElementById('guestProfileNav');
-    var mLoginNav   = document.getElementById('mGuestNav');
-    var mProfileNav = document.getElementById('mGuestProfileNav');
-    var avatar      = document.getElementById('guestAvatar');
-    var nameNav     = document.getElementById('guestNameNav');
-    var mAvatar     = document.getElementById('mGuestAvatar');
-    var mNameNav    = document.getElementById('mGuestNameNav');
-
-    if (guest) {
-      if (loginNav) { loginNav.classList.add('hidden'); loginNav.classList.remove('flex'); }
-      if (profileNav) { profileNav.classList.remove('hidden'); profileNav.classList.add('flex'); }
-
-      var initial = (guest.name || 'G').charAt(0).toUpperCase();
-      var isVerified = guest.verified === true;
-      var avatarText = isVerified ? '✓' : initial;
-
-      if (avatar) {
-        avatar.innerText = avatarText;
-        avatar.className = 'guest-avatar w-7 h-7 text-xs flex items-center justify-center rounded-full font-bold ' +
-          (isVerified ? 'bg-emerald-600 text-white' : 'bg-[#D4A373] text-[#0F382E]');
-      }
-      if (nameNav) nameNav.innerText = guest.name || guest.email || 'Guest';
-
-      if (mLoginNav) { mLoginNav.classList.add('hidden'); mLoginNav.classList.remove('space-y-2', 'space-y-3'); }
-      if (mProfileNav) { mProfileNav.classList.remove('hidden'); }
-
-      if (mAvatar) {
-        mAvatar.innerText = avatarText;
-        mAvatar.className = 'avatar ' + (isVerified ? 'bg-emerald-600 text-white' : 'bg-[#D4A373] text-[#0F382E]');
-      }
-      if (mNameNav) mNameNav.innerText = guest.name || guest.email || 'Guest';
-    } else {
-      if (loginNav) { loginNav.classList.remove('hidden'); loginNav.classList.add('flex'); }
-      if (profileNav) { profileNav.classList.add('hidden'); profileNav.classList.remove('flex'); }
-      if (mLoginNav) { mLoginNav.classList.remove('hidden'); }
-      if (mProfileNav) { mProfileNav.classList.add('hidden'); }
+  try {
+    const session = await getGuestSession(request, env);
+    if (!session || session.type !== 'guest') {
+      return jsonResponse({ authenticated: false }, 200, request, { 'Cache-Control': 'no-store' });
     }
-  }
 
-  async function logoutGuest(skipConfirm) {
-    if (!skipConfirm) {
-      if (!window.confirm('Are you sure you want to logout?')) return;
+    const db = env.DB;
+    if (!db) {
+      return jsonResponse({ authenticated: false }, 200, request, { 'Cache-Control': 'no-store' });
     }
-    try {
-      await fetch('/api/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': localStorage.getItem(CSRF_KEY) || ''
-        },
-        credentials: 'include'
-      });
-    } catch (e) {}
-    clearSession();
-    updateNavDOM();
-    window.location.href = '/';
-  }
 
-  async function apiFetch(url, opts) {
-    opts = opts || {};
-    opts.credentials = opts.credentials || 'include';
-    var res = await fetch(url, opts);
-    if (res.status === 401) {
-      clearSession();
-      updateNavDOM();
-      var path = String(window.location.pathname || '');
-      if (path.indexOf('/login.html') === -1 && path.indexOf('/register.html') === -1) {
-        window.location.href = '/login.html?expired=1';
-      }
-      throw new Error('Session expired');
+    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_guests').first();
+    let guests = [];
+    try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
+
+    const guest = guests.find(g => String(g.id) === String(session.userId));
+    if (!guest) {
+      return jsonResponse({ authenticated: false }, 200, request, { 'Cache-Control': 'no-store' });
     }
-    return res;
+
+    // Strip every sensitive field. Only return what the UI needs.
+    const {
+      password,
+      salt,
+      passwordAlgorithm,
+      passwordVersion,
+      sessionVersion,
+      verifiedAt,
+      ...safeGuest
+    } = guest;
+
+    return jsonResponse({
+      authenticated: true,
+      guest: safeGuest
+    }, 200, request, { 'Cache-Control': 'no-store' });
+
+  } catch (e) {
+    console.error('guest-session error:', e.message);
+    return jsonResponse({ authenticated: false }, 200, request, { 'Cache-Control': 'no-store' });
   }
+}
 
-  function startExpiryWatcher() { /* server is the source of truth */ }
-
-  function init() {
-    updateNavDOM();
-    window.logoutGuest = logoutGuest;
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(init, 0); });
-  } else {
-    setTimeout(init, 0);
-  }
-
-  window.GuestSession = {
-    isGuestSessionValid: isValid,
-    clearGuestSession:   clearSession,
-    logoutGuest:         logoutGuest,
-    apiFetch:            apiFetch,
-    setSession:          setSession,
-    readGuest:           readGuest,
-    updateNavDOM:        updateNavDOM,
-    startExpiryWatcher:  startExpiryWatcher
-  };
-})();
+export async function onRequestOptions({ request }) {
+  return new Response(null, { headers: corsHeaders(request) });
+}
