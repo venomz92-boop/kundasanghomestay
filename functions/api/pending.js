@@ -1,15 +1,25 @@
-// /api/pending.js – With server‑side validation + admin update mode + rate limiting + owner-account link
+// /api/pending.js — Plain English: this is the "submit a new homestay
+// listing" endpoint used by hosts. Before this change, ANYONE could submit
+// a listing by typing any password — no account, no verification. That
+// let fake listings into the review queue. Now we require either:
+//   (a) an already-logged-in verified host, OR
+//   (b) a host password that matches an existing verified host account.
+// If neither applies, we return 401 telling the user to register and
+// verify first. The admin force-sync path and the admin delete path are
+// unchanged.
 import {
   corsHeaders,
   getClientIP,
   logAction,
   enforceHttps,
   hashPassword,
+  verifyPassword,
   verifyAdminAuth,
   getOwnerSession,
   jsonResponse,
   checkRateLimit,
-  recordRateLimit
+  recordRateLimit,
+  parseJSONSafely
 } from './_utils.js';
 
 import {
@@ -92,7 +102,12 @@ export async function onRequestPost({ request, env }) {
   if (redirect) return redirect;
 
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await parseJSONSafely(request);
+    } catch (_) {
+      return jsonResponse({ error: 'Invalid JSON or payload too large' }, 400, request);
+    }
 
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
@@ -100,11 +115,12 @@ export async function onRequestPost({ request, env }) {
 
     // ============================================================
     // ADMIN UPDATE MODE — used by admin.html Force Sync
+    // (unchanged)
     // ============================================================
     if (Object.prototype.hasOwnProperty.call(body, 'pending') && body.pending !== undefined) {
       const ok = await verifyAdminAuth(request, env);
       if (!ok) {
-      return jsonResponse({ error: 'Unauthorized' }, 401, request);
+        return jsonResponse({ error: 'Unauthorized' }, 401, request);
       }
       if (!Array.isArray(body.pending)) {
         return jsonResponse({ error: 'Invalid pending payload' }, 400, request);
@@ -123,54 +139,86 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ============================================================
-    // PUBLIC SUBMIT MODE
+    // PUBLIC SUBMIT MODE — M4: now requires a verified owner account
     // ============================================================
     const h = body.homestay || body.listing;
     if (!h) {
       return jsonResponse({ error: 'Homestay data is required' }, 400, request);
     }
 
-    // ===== Attempt to use an authenticated owner =====
-    const ownerSession = await getOwnerSession(request, env);
     const clientIP = getClientIP(request);
 
-    let ownerId = null;
-    let ownerName = null;
-    let ownerEmail = null;
-    let ownerWhatsapp = null;
+    // Load kd_owners once so both auth paths can use it.
+    const ownersRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
+    let owners = [];
+    try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch(_) {}
+
     let authenticatedOwnerAccount = null;
 
+    // ---- Path A: authenticated owner session ----
+    const ownerSession = await getOwnerSession(request, env);
     if (ownerSession && ownerSession.type === 'owner') {
       const cleanWa = String(ownerSession.whatsapp || ownerSession.ownerId || '').replace(/[^0-9]/g, '');
       if (cleanWa) {
-        // Look up the owner account so we can use trusted values
-        const ownersRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
-        let owners = [];
-        try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch(_) {}
         const acc = owners.find(o => String(o.whatsapp || '').replace(/[^0-9]/g, '') === cleanWa);
         if (acc && acc.verified === true) {
           authenticatedOwnerAccount = acc;
-          ownerId = acc.id;
-          ownerName = acc.ownerName;
-          ownerEmail = acc.ownerEmail;
-          ownerWhatsapp = cleanWa;
         }
       }
     }
 
+    // ---- Path B: legacy ownerPassword against an existing verified account ----
     const ownerPassword = String(body.ownerPassword || '');
+    const ownerWhatsappInput = String(h.whatsapp || '').replace(/[^0-9]/g, '');
 
-    // Password is required only when the owner is NOT authenticated
     if (!authenticatedOwnerAccount) {
-      if (!ownerPassword) {
-        return jsonResponse({ error: 'Homestay and ownerPassword are required' }, 400, request);
+      if (!ownerPassword || !ownerWhatsappInput) {
+        return jsonResponse({
+          error: 'You must register and verify your host account before submitting a listing.',
+          code: 'OWNER_ACCOUNT_REQUIRED',
+          hint: 'Please create a host account first, verify your email, then log in and submit from the Host Panel.'
+        }, 401, request);
       }
-      if (ownerPassword.length < 8) {
-        return jsonResponse({ error: 'Owner password must be at least 8 characters' }, 400, request);
+
+      const acc = owners.find(o =>
+        String(o.whatsapp || '').replace(/[^0-9]/g, '') === ownerWhatsappInput
+      );
+
+      if (!acc || acc.verified !== true) {
+        return jsonResponse({
+          error: 'You must register and verify your host account before submitting a listing.',
+          code: 'OWNER_ACCOUNT_REQUIRED',
+          hint: 'No verified host account was found for that phone number. Please register first.'
+        }, 401, request);
       }
+
+      // Constant-ish verification: PBKDF2 against the stored hash.
+      const verified = await verifyPassword(ownerPassword, {
+        ownerPasswordHash: acc.ownerPasswordHash,
+        ownerSalt: acc.ownerSalt,
+        ownerPasswordAlgorithm: acc.ownerPasswordAlgorithm
+      }, env);
+
+      if (!verified.ok) {
+        await recordRateLimit(db, clientIP, 'pending_submit');
+        return jsonResponse({
+          error: 'Invalid host password.',
+          code: 'INVALID_OWNER_PASSWORD'
+        }, 401, request);
+      }
+
+      authenticatedOwnerAccount = acc;
     }
 
-    const required = ['name', 'location', 'ownerPrice', 'ownerName', 'whatsapp', 'ownerEmail', 'ownerBankAccount', 'bankHolder'];
+    // From here on, we have a verified owner account. Trusted identity:
+    const ownerId = authenticatedOwnerAccount.id;
+    const ownerName = authenticatedOwnerAccount.ownerName;
+    const ownerEmail = String(authenticatedOwnerAccount.ownerEmail || '').toLowerCase().trim();
+    const ownerWhatsapp = String(authenticatedOwnerAccount.whatsapp || '').replace(/[^0-9]/g, '');
+
+    // M4: dynamic required fields. Owner identity comes from the account,
+    // so the client doesn't need to re-supply it.
+    const required = ['name', 'location', 'ownerPrice', 'ownerBankAccount', 'bankHolder'];
     for (const key of required) {
       if (h[key] === undefined || h[key] === null || String(h[key]).trim() === '') {
         return jsonResponse({ error: `Missing required field: ${key}` }, 400, request);
@@ -179,9 +227,9 @@ export async function onRequestPost({ request, env }) {
 
     const name = sanitizeString(h.name, 100);
     const location = sanitizeString(h.location, 50);
-    const finalOwnerName = authenticatedOwnerAccount ? ownerName : sanitizeString(h.ownerName, 100);
-    const finalOwnerEmail = authenticatedOwnerAccount ? ownerEmail : String(h.ownerEmail || '').toLowerCase().trim();
-    const finalWhatsapp = authenticatedOwnerAccount ? ownerWhatsapp : String(h.whatsapp || '').replace(/[^0-9]/g, '');
+    const finalOwnerName = ownerName;
+    const finalOwnerEmail = ownerEmail;
+    const finalWhatsapp = ownerWhatsapp;
     const ownerBankAccount = String(h.ownerBankAccount || '').replace(/[^0-9]/g, '');
     const bankHolder = sanitizeString(h.bankHolder, 100);
     const description = sanitizeDescription(h.description || '');
@@ -194,10 +242,10 @@ export async function onRequestPost({ request, env }) {
     const bedrooms = Math.max(1, Math.min(10, Number(h.bedrooms) || 1));
 
     if (!isValidEmail(finalOwnerEmail)) {
-      return jsonResponse({ error: 'Invalid email address' }, 400, request);
+      return jsonResponse({ error: 'Invalid email address on owner account' }, 400, request);
     }
     if (!isValidPhone(finalWhatsapp)) {
-      return jsonResponse({ error: 'Invalid WhatsApp number' }, 400, request);
+      return jsonResponse({ error: 'Invalid WhatsApp number on owner account' }, 400, request);
     }
     if (!isValidPrice(price)) {
       return jsonResponse({ error: 'Invalid nightly price (must be > RM0 and < RM100,000)' }, 400, request);
@@ -220,12 +268,12 @@ export async function onRequestPost({ request, env }) {
 
     // Detect same email OR same name+location to catch obvious duplicates
     const existingPending = pending.find(x =>
-      String(x.ownerEmail || '').toLowerCase() === ownerEmail ||
+      String(x.ownerEmail || '').toLowerCase() === finalOwnerEmail ||
       (String(x.name || '').toLowerCase() === name.toLowerCase() &&
        String(x.location || '').toLowerCase() === location.toLowerCase())
     );
     const existingApproved = approved.find(x =>
-      String(x.ownerEmail || '').toLowerCase() === ownerEmail
+      String(x.ownerEmail || '').toLowerCase() === finalOwnerEmail
     );
 
     if (existingApproved) {
@@ -237,7 +285,6 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (existingPending) {
-      // Same owner, still under review — tell them nicely
       return jsonResponse({
         error: 'You already have a listing under review with this email. Please wait for approval, or log into your Host Panel if you have already received your welcome email.',
         code: 'ALREADY_PENDING',
@@ -245,24 +292,13 @@ export async function onRequestPost({ request, env }) {
       }, 409, request);
     }
 
-    // For authenticated owners: reuse their stored password hash
-    let passwordFields = {};
-    if (authenticatedOwnerAccount) {
-      passwordFields = {
-        ownerPasswordHash: authenticatedOwnerAccount.ownerPasswordHash,
-        ownerSalt: authenticatedOwnerAccount.ownerSalt,
-        ownerPasswordAlgorithm: authenticatedOwnerAccount.ownerPasswordAlgorithm,
-        ownerPasswordVersion: authenticatedOwnerAccount.ownerPasswordVersion || 1
-      };
-    } else {
-      const hashed = await hashPassword(ownerPassword, env);
-      passwordFields = {
-        ownerPasswordHash: hashed.hash,
-        ownerSalt: hashed.salt,
-        ownerPasswordAlgorithm: hashed.algorithm,
-        ownerPasswordVersion: 1
-      };
-    }
+    // Reuse the verified owner account's stored password hash.
+    const passwordFields = {
+      ownerPasswordHash: authenticatedOwnerAccount.ownerPasswordHash,
+      ownerSalt: authenticatedOwnerAccount.ownerSalt,
+      ownerPasswordAlgorithm: authenticatedOwnerAccount.ownerPasswordAlgorithm,
+      ownerPasswordVersion: authenticatedOwnerAccount.ownerPasswordVersion || 1
+    };
 
     const clean = {
       ...h,
@@ -273,7 +309,7 @@ export async function onRequestPost({ request, env }) {
       ownerName: finalOwnerName,
       ownerEmail: finalOwnerEmail,
       whatsapp: finalWhatsapp,
-      ownerId: ownerId, // null in legacy flow, kd_owners.id in new flow
+      ownerId,
       ownerBank: bankName,
       ownerBankAccount,
       bankCode,
@@ -285,7 +321,9 @@ export async function onRequestPost({ request, env }) {
       icNumber,
       images: Array.isArray(h.images) ? h.images.slice(0, 20) : [],
       rooms: Array.isArray(h.rooms) ? h.rooms.slice(0, 20) : [],
-      blockedDates: Array.isArray(h.blockedDates) ? h.blockedDates.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 365) : [],
+      blockedDates: Array.isArray(h.blockedDates)
+        ? h.blockedDates.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 365)
+        : [],
       approved: false,
       verified: false,
       ...passwordFields,
@@ -303,8 +341,8 @@ export async function onRequestPost({ request, env }) {
     await logAction({
       db,
       action: 'homestay_submitted',
-      admin: 'public',
-      details: `Homestay ${clean.id} submitted and synced${ownerId ? ' (owner account: ' + ownerId + ')' : ''}`,
+      admin: 'owner',
+      details: `Homestay ${clean.id} submitted by owner account ${ownerId}`,
       ip: clientIP,
       userId: clean.ownerEmail,
       homestayId: clean.id
