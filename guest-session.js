@@ -1,10 +1,9 @@
 /* /guest-session.js — Guest session tracker.
  *
- * Plain English: "logged in" now just means "we have your guest record
- * saved in the browser". That's it. No expiry timestamps, no tokens.
- * The server is the real judge — if your cookie is expired, the next
- * API call returns 401 and we automatically log you out and send you
- * back to the login page. Simple, and it works.
+ * Plain English: "logged in" just means "we have your guest record
+ * saved". If the saved value is a single guest OR a list of guests
+ * (from an older version of the site), we handle both. If the server
+ * ever says your cookie is dead, we'll auto-log-out on the next call.
  */
 (function () {
   'use strict';
@@ -17,13 +16,19 @@
       var raw = localStorage.getItem(GUEST_KEY);
       if (!raw) return null;
       var g = JSON.parse(raw);
+
+      // Accept both shapes:
+      //   - { id, name, ... }        ← what we save now
+      //   - [{ id, ... }, { id, ...}] ← what older versions left behind
+      if (Array.isArray(g)) {
+        g = g.length > 0 ? g[g.length - 1] : null;
+      }
+
       return g && g.id ? g : null;
     } catch (e) { return null; }
   }
 
   function isValid() {
-    // If we have a guest record, the user is logged in.
-    // The server will tell us if the cookie is dead.
     return !!readGuest();
   }
 
@@ -31,7 +36,6 @@
     if (!guest || !guest.id) return false;
     try {
       localStorage.setItem(GUEST_KEY, JSON.stringify(guest));
-      // Clean up old keys from previous versions so nothing lingers.
       try { localStorage.removeItem('kd_guest_token'); } catch (e) {}
       try { localStorage.removeItem('kd_guest_expires_at'); } catch (e) {}
     } catch (e) { return false; }
@@ -130,7 +134,8 @@
   }
 
   function startExpiryWatcher() {
-    // No polling needed. The server's 401 is the source of truth.
+    // The server's 401 response is the source of truth.
+    // No polling needed.
   }
 
   function init() {
