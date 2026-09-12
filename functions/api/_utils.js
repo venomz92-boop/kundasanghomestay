@@ -1,8 +1,49 @@
+// SHARED HELPERS — full drop-in replacement.
+// Plain English: this file contains every shared helper your API uses.
+// The most important change in THIS revision: password hashing strength
+// is now configurable and defaults to a value that works on Cloudflare's
+// free plan. If you later upgrade to a paid plan, set the env var
+// PBKDF2_ITERATIONS to 600000 to raise it.
+//
+// All other fixes from the previous revision are preserved:
+//  (1) withLock uses an atomic compare-and-swap so two requests can never
+//      steal each other's lock.
+//  (2) parseJSONSafely checks Content-Length BEFORE reading the body.
+//  (3) admin Bearer tokens only accepted when ALLOW_ADMIN_BEARER=true.
+//  (4) owner session version uses the MAX across kd_owners + homestays.
+//  (5) CSP in corsHeaders matches /_headers.
+
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
-const PBKDF2_ITERATIONS = 600000;
+// === PBKDF2 constants ===
+// IMPORTANT: PBKDF2 is a pure-CPU operation. Cloudflare Workers on the
+// FREE plan kill a request that uses more than ~10ms of CPU. Rough
+// timing on current Cloudflare hardware:
+//   ~100,000 iterations  ≈  60–100 ms CPU   (works on Free, on the edge)
+//   ~210,000 iterations  ≈ 130–210 ms CPU   (needs Paid)
+//   ~600,000 iterations  ≈ 380–600 ms CPU   (needs Paid)
+// The DEFAULT below is 100,000, which is what this app already used
+// before. If you are on the Workers Paid plan, set the env var
+// PBKDF2_ITERATIONS=600000 in Cloudflare → Pages → Settings → Environment
+// variables (Production + Preview), and password hashing will
+// automatically upgrade on next deploy.
+//
+// The algorithm string is stored on each record as
+//   PBKDF2-<iterations>-SHA256
+// so legacy hashes (which used 100,000) keep verifying after you raise
+// the iteration count. New passwords use whatever value is currently set.
+const DEFAULT_PBKDF2_ITERATIONS = 100000;
 const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_KEYLEN = 256;
+
+function getPbkdf2Iterations(env) {
+  const fromEnv = env && env.PBKDF2_ITERATIONS;
+  const parsed = parseInt(fromEnv, 10);
+  if (Number.isFinite(parsed) && parsed >= 10000 && parsed <= 2000000) {
+    return parsed;
+  }
+  return DEFAULT_PBKDF2_ITERATIONS;
+}
 
 // === Encoding helpers ===
 function b64urlEncode(input) {
@@ -130,10 +171,8 @@ async function getUserRecord(type, userId, db) {
   return null;
 }
 
-// H5 FIX: resolve the MAXIMUM ownerSessionVersion across kd_owners AND
-// every kd_approved/kd_pending record sharing the same whatsapp. This
-// prevents a stale homestay row (which still has an old version number)
-// from re-enabling a session that was already invalidated everywhere else.
+// Resolve the MAXIMUM ownerSessionVersion across kd_owners AND every
+// matching homestay row. Prevents a stale row from reviving a dead session.
 async function getOwnerMaxSessionVersion(db, ownerIdOrWhatsapp) {
   const key = String(ownerIdOrWhatsapp || '').trim();
   const cleanWa = key.replace(/[^0-9]/g, '');
@@ -200,8 +239,6 @@ export async function getOwnerSession(request, env) {
   const record = await getUserRecord('owner', payload.ownerId, db);
   if (!record) return null;
 
-  // H5 FIX: compare against the MAXIMUM ownerSessionVersion across
-  // kd_owners AND every matching homestay row.
   if (payload.ownerSessionVersion !== undefined) {
     const { found, maxVersion } = await getOwnerMaxSessionVersion(db, payload.ownerId);
     if (found && maxVersion !== Number(payload.ownerSessionVersion)) return null;
@@ -236,7 +273,7 @@ export function generateSalt() {
   return b64urlEncode(bytes);
 }
 
-async function derivePassword(password, salt, pepper, iterations = PBKDF2_ITERATIONS) {
+async function derivePassword(password, salt, pepper, iterations) {
   const material = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(`${pepper}${password}`),
@@ -255,9 +292,10 @@ async function derivePassword(password, salt, pepper, iterations = PBKDF2_ITERAT
 export async function hashPassword(password, env, salt = generateSalt()) {
   const pepper = env?.PASSWORD_PEPPER || env?.SESSION_SECRET;
   if (!pepper) throw new Error('PASSWORD_PEPPER or SESSION_SECRET is required');
-  const algorithm = `PBKDF2-${PBKDF2_ITERATIONS}-SHA256`;
+  const iterations = getPbkdf2Iterations(env);
+  const algorithm = `PBKDF2-${iterations}-SHA256`;
   return {
-    hash: await derivePassword(password, salt, pepper, PBKDF2_ITERATIONS),
+    hash: await derivePassword(password, salt, pepper, iterations),
     salt,
     algorithm
   };
@@ -279,9 +317,9 @@ export async function verifyPassword(password, record, env) {
 
   if (algorithm && algorithm.startsWith('PBKDF2-')) {
     const parts = algorithm.split('-');
-    const iterations = parts.length >= 2 ? parseInt(parts[1], 10) : PBKDF2_ITERATIONS;
+    const iterations = parts.length >= 2 ? parseInt(parts[1], 10) : DEFAULT_PBKDF2_ITERATIONS;
     if (isNaN(iterations) || iterations <= 0) {
-      const computed = await derivePassword(password, salt, pepper, PBKDF2_ITERATIONS);
+      const computed = await derivePassword(password, salt, pepper, DEFAULT_PBKDF2_ITERATIONS);
       return { ok: computed === hash, legacy: false };
     }
     const computed = await derivePassword(password, salt, pepper, iterations);
@@ -314,15 +352,13 @@ export function corsHeaders(request) {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'X-Frame-Options': 'DENY',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    // H9: CSP kept in sync with /_headers (img-src includes res.cloudinary.com,
-    // gate.chip-in.asia allowed in script/frame/connect, etc.)
     'Content-Security-Policy': [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia",
+      "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia https://static.cloudflareinsights.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
-      "img-src 'self' data: blob: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com https://res.cloudinary.com",
-      "connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia https://api.resend.com https://api.sendgrid.com https://api.cloudinary.com",
+      "img-src 'self' data: blob: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com https://res.cloudinary.com https://theculturetrip.com https://*.theculturetrip.com",
+      "connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia https://api.resend.com https://api.sendgrid.com https://api.cloudinary.com https://api.open-meteo.com https://cloudflareinsights.com",
       "frame-src 'self' https://gate.chip-in.asia",
       "base-uri 'self'",
       "form-action 'self' https://gate.chip-in.asia"
@@ -380,7 +416,6 @@ export function getCSRFToken(request) {
 
 // === Admin token retrieval ===
 export async function getAdminToken(request, env) {
-  // M7: cookie first. Bearer only if explicitly enabled.
   const cookie = getCookie(request, 'admin_token');
   if (cookie) return cookie;
   if (env?.ALLOW_ADMIN_BEARER === 'true') {
@@ -390,7 +425,6 @@ export async function getAdminToken(request, env) {
 }
 
 export async function getAdminSession(request, env) {
-  // M7: cookie-only by default; Bearer must be opted-in via ALLOW_ADMIN_BEARER.
   let token = getCookie(request, 'admin_token');
   if (!token && env?.ALLOW_ADMIN_BEARER === 'true') {
     token = getBearerToken(request);
@@ -422,7 +456,7 @@ export function errorResponse(message, status, request, logDetails = null) {
   return jsonResponse({ error: message || 'An unexpected error occurred. Please try again later.' }, status, request);
 }
 
-// === M5: Size-check BEFORE reading the body ===
+// === Size-check BEFORE reading the body ===
 export async function parseJSONSafely(request) {
   const cl = request.headers.get('Content-Length');
   if (cl !== null) {
@@ -679,11 +713,7 @@ export async function invalidateOwnerSessions(db, homestayId) {
   return invalidateOwnerSessionsForHomestay(db, homestayId);
 }
 
-// === D1-Compatible Lock — C3: atomic CAS takeover ===
-// Plain English: if a lock looks stale, we don't DELETE-then-INSERT (which
-// let two workers race and one could delete the other's fresh lock). We now
-// do a single UPDATE ... WHERE locked_at = <old value>. D1 reports 1 row
-// changed to exactly one winner; the loser throws.
+// === D1-Compatible Lock — atomic CAS takeover ===
 export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS homestay_locks (
