@@ -1,11 +1,11 @@
 // /api/owner-checkin.js — Host confirms guest check-in and triggers CHIP Send payout.
 //
 // [THIS REVISION]
-// After a successful live payout, the host now receives a payout receipt
-// email via sendHostPayoutEmail() from _utils.js. Sent only on real
-// success (not on simulation, not on unknown, not on failure). Best-effort:
-// a failed email never rolls back the payout, and the failure is recorded
-// in the audit log.
+// Payout receipt email is now sent in BOTH the live success branch and the
+// simulation branch. The helper renders a [TEST] prefix and a yellow
+// banner when isSimulation is true, so sandbox testing produces a
+// visibly-marked test email and live payouts produce the real receipt.
+// Unknown and failure do not send email — there is no payout to receipt.
 import {
   corsHeaders,
   getClientIP,
@@ -190,14 +190,18 @@ export async function onRequestPost({ request, env }) {
 
         if (!isLive && simulationAllowed) {
           // Simulate success (non-production only).
+          const simPayoutId = 'SIM_' + Date.now();
+          const simPaidAt = new Date().toISOString();
+          const simReference = `KDH-${bookingId}`;
+
           bookings[idx].status = 'Completed - Payout Success';
           bookings[idx].payoutSuccess = true;
-          bookings[idx].payoutSuccessDate = new Date().toISOString();
+          bookings[idx].payoutSuccessDate = simPaidAt;
           bookings[idx].payoutAmount = ownerAmount;
           bookings[idx].payoutMethod = 'Simulated';
-          bookings[idx].ownerPayoutId = 'SIM_' + Date.now();
-          bookings[idx].completedDate = new Date().toISOString();
-          bookings[idx].checkedInAt = new Date().toISOString();
+          bookings[idx].ownerPayoutId = simPayoutId;
+          bookings[idx].completedDate = simPaidAt;
+          bookings[idx].checkedInAt = simPaidAt;
           bookings[idx].checkedInBy = 'owner';
           bookings[idx].homestaySource = homestaySource;
           bookings[idx].payoutFailedAttempt = false;
@@ -207,11 +211,33 @@ export async function onRequestPost({ request, env }) {
             .bind('kd_bookings', JSON.stringify(bookings))
             .run();
 
+          // [NEW] Send the simulation receipt email.
+          // isSimulation:true makes the helper render a [TEST] subject
+          // prefix and a yellow banner at the top of the email body.
+          let simEmailReport = { sent: false, error: 'not attempted' };
+          try {
+            simEmailReport = await sendHostPayoutEmail(
+              booking,
+              homestay,
+              {
+                amount: ownerAmount,
+                payoutId: simPayoutId,
+                reference: simReference,
+                paidAt: simPaidAt,
+                isSimulation: true
+              },
+              env
+            );
+          } catch (mailErr) {
+            console.error('Payout email error (simulation):', mailErr.message);
+            simEmailReport = { sent: false, error: mailErr.message };
+          }
+
           await logAction({
             db,
             action: 'owner_checkin_simulation',
             admin: 'owner',
-            details: `Check-in ${bookingId}, payout SIMULATED (non-prod)`,
+            details: `Check-in ${bookingId}, payout SIMULATED (non-prod). Payout email: ${simEmailReport.sent ? 'sent ([TEST])' : 'failed — ' + (simEmailReport.error || 'unknown')}.`,
             ip: getClientIP(request),
             userId: booking.guestEmail,
             homestayId: booking.homestayId
@@ -222,7 +248,8 @@ export async function onRequestPost({ request, env }) {
             message: `Check-in confirmed! SIMULATED payout of RM${ownerAmount} recorded.`,
             bookingId,
             payoutSuccess: true,
-            simulation: true
+            simulation: true,
+            payoutEmailSent: simEmailReport.sent
           };
         }
 
@@ -365,10 +392,7 @@ export async function onRequestPost({ request, env }) {
           };
         }
 
-        // ---------- Payout receipt email ----------
-        // Only on real success. Not on simulation. Not on unknown.
-        // Not on failure. Best-effort — failure here never rolls back the
-        // payout, and the audit log records the result.
+        // ---------- Payout receipt email (live) ----------
         let emailReport = { sent: false, error: 'not attempted' };
         if (payoutSuccess && !isSimulation) {
           try {
