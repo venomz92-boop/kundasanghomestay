@@ -36,7 +36,7 @@
       <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">😞</div>
       <div class="font-poppins font-800 text-[22px] text-red-700">Payment Not Completed</div>
       <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
-        Your payment didn’t go through this time. No worries — you can try again in <strong>5 minutes</strong>.
+        Your payment didn't go through this time. No worries — you can try again in <strong>5 minutes</strong>.
       </p>
       <p class="text-sm text-zinc-600 mt-1 leading-relaxed">
         Simply go to your <strong>My Bookings</strong> page and click the <strong>Retry Payment</strong> button next to this booking.
@@ -447,69 +447,51 @@
 
   // =============================================================
   // GUEST SYSTEM
+  // Cookie-based — no session token ever lives in localStorage.
   // =============================================================
   var API_BASE = "/api";
   var currentGuest = null;
-  try {
-    var saved = localStorage.getItem('kd_guest');
-    if (saved) {
-      var parsed = JSON.parse(saved);
-      if (parsed && parsed.id) currentGuest = parsed;
-    }
-  } catch(e) { currentGuest = null; }
+  if (window.GuestSession && window.GuestSession.isGuestSessionValid()) {
+    currentGuest = window.GuestSession.readGuest();
+  } else {
+    if (window.GuestSession) window.GuestSession.clearGuestSession();
+    currentGuest = null;
+  }
 
   function renderGuestNav() {
+    // Delegate to GuestSession — it owns the nav DOM now.
+    if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+      window.GuestSession.updateNavDOM();
+      return;
+    }
+    // Fallback (only if GuestSession failed to load).
     var loginNav = document.getElementById("guestNav");
     var profileNav = document.getElementById("guestProfileNav");
     var mLoginNav = document.getElementById("mGuestNav");
     var mProfileNav = document.getElementById("mGuestProfileNav");
-    var mAvatar = document.getElementById("mGuestAvatar");
-    var mNameNav = document.getElementById("mGuestNameNav");
-
-    if (currentGuest) {
+    if (currentGuest && currentGuest.id) {
       if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
       if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
-
-      var avatar = document.getElementById("guestAvatar");
-      var nameNav = document.getElementById("guestNameNav");
-
-      if (avatar) {
-        if (currentGuest.verified === true) {
-          avatar.innerText = "✓";
-          avatar.className = "guest-avatar w-7 h-7 text-xs bg-[#D4A373] text-[#0F382E] flex items-center justify-center rounded-full font-bold";
-        } else {
-          avatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-          avatar.className = "guest-avatar w-7 h-7 text-xs bg-[#D4A373] text-[#0F382E] flex items-center justify-center rounded-full font-bold";
-        }
-      }
-      if (nameNav) nameNav.innerText = currentGuest.name || currentGuest.email;
-
-      if (mLoginNav) { mLoginNav.classList.add("hidden"); mLoginNav.classList.remove("space-y-3"); }
-      if (mProfileNav) { mProfileNav.classList.remove("hidden"); mProfileNav.classList.add("space-y-3"); }
-      if (mAvatar) {
-        if (currentGuest.verified === true) {
-          mAvatar.innerText = "✓";
-          mAvatar.className = "avatar bg-[#D4A373] text-[#0F382E]";
-        } else {
-          mAvatar.innerText = (currentGuest.name || "G").charAt(0).toUpperCase();
-          mAvatar.className = "avatar bg-[#D4A373] text-[#0F382E]";
-        }
-      }
-      if (mNameNav) mNameNav.innerText = currentGuest.name || currentGuest.email;
-
+      if (mLoginNav) mLoginNav.classList.add("hidden");
+      if (mProfileNav) mProfileNav.classList.remove("hidden");
     } else {
       if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
       if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-      if (mLoginNav) { mLoginNav.classList.remove("hidden"); mLoginNav.classList.add("space-y-3"); }
-      if (mProfileNav) { mProfileNav.classList.add("hidden"); mProfileNav.classList.remove("space-y-3"); }
+      if (mLoginNav) mLoginNav.classList.remove("hidden");
+      if (mProfileNav) mProfileNav.classList.add("hidden");
     }
   }
 
   function logoutGuest() {
+    if (window.GuestSession) {
+      window.GuestSession.logoutGuest();
+      return;
+    }
+    // Fallback
     showConfirm("Logout", "Are you sure you want to logout?").then(function(confirmed) {
       if (!confirmed) return;
       currentGuest = null;
-      localStorage.removeItem('kd_guest');
+      try { localStorage.removeItem('kd_guest'); } catch(e) {}
       renderGuestNav();
       window.location.href = '/';
     });
@@ -528,12 +510,14 @@
 
   // =============================================================
   // PAYMENT STATUS CHECK
+  // [H1 sync] cookie-only auth — no Bearer token, always send cookie.
   // =============================================================
   async function checkPaymentStatus(bookingId) {
     try {
       const res = await fetch(API_BASE + '/verify-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ bookingId })
       });
       const data = await res.json();
@@ -571,6 +555,13 @@
             anyUpdated = true;
           }
         }
+        // [H4 sync] Any terminal payment status should trigger a refresh.
+        if (result.paymentStatus === 'refunded' ||
+            result.paymentStatus === 'cancelled' ||
+            result.paymentStatus === 'expired' ||
+            result.paymentStatus === 'failed') {
+          anyUpdated = true;
+        }
       } catch (e) {
         // ignore
       }
@@ -589,7 +580,9 @@
   }
 
   // =============================================================
-  // LOAD BOOKINGS – with cache‑buster
+  // LOAD BOOKINGS – cookie-only auth.
+  // [H1 sync] removed Authorization: Bearer <token>. Every fetch
+  // sends credentials: 'include' so the HttpOnly cookie rides along.
   // =============================================================
   var myBookings = [];
 
@@ -602,17 +595,20 @@
       return;
     }
 
-    const token = localStorage.getItem('kd_guest_token');
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-
     fetch(API_BASE + '/bookings?t=' + Date.now(), {
       method: 'GET',
-      headers: headers,
+      headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
       credentials: 'include'
+      // No Authorization header — the HttpOnly cookie authenticates us.
     })
     .then(function(res) {
+      if (res.status === 401) {
+        // Session no longer valid on server → clear and redirect.
+        if (window.GuestSession) window.GuestSession.clearGuestSession();
+        window.location.href = '/login.html?expired=1';
+        throw new Error('Session expired');
+      }
       if (!res.ok) throw new Error('Server error: ' + res.status);
       return res.json();
     })
@@ -631,7 +627,9 @@
       });
       myBookings = filtered;
       if (currentGuest && currentGuest.id) {
-        localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings));
+        try {
+          localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings));
+        } catch (e) {}
       }
       renderBookings();
       // Start polling if there are pending bookings
@@ -646,6 +644,8 @@
       }
     })
     .catch(function(err) {
+      // If it was an auth error, we already navigated away.
+      if (String(err.message || '').indexOf('Session expired') !== -1) return;
       try {
         var cached = localStorage.getItem('kd_guest_bookings_' + currentGuest.id);
         if (cached) {
@@ -658,7 +658,6 @@
           if (listDiv2 && listDiv2.parentNode) {
             listDiv2.parentNode.insertBefore(notice, listDiv2);
           }
-          // Still try to start polling even with cached data
           const pending = myBookings.filter(b => String(b.status || '').toLowerCase().includes('pending'));
           if (pending.length > 0) {
             startPendingCheckInterval();
@@ -727,9 +726,11 @@
       var isCancelled = statusLower.includes('cancel');
       var isFailed = statusLower.includes('fail');
       var isRefunded = statusLower.includes('refunded');
+      var isExpired = statusLower.includes('expired');
       
       var badgeClass = 'badge-pending', badgeLabel = 'Pending';
       if (isRefunded) { badgeClass = 'badge-refunded'; badgeLabel = '🔁 Refunded'; }
+      else if (isExpired) { badgeClass = 'badge-cancelled'; badgeLabel = '⏰ Expired'; }
       else if (isCompleted) { badgeClass = 'badge-completed'; badgeLabel = '✓ Completed'; }
       else if (isPaid) { badgeClass = 'badge-paid'; badgeLabel = '✓ Paid — Awaiting Check‑in Upon Arrival'; }
       else if (isCancelled) { badgeClass = 'badge-cancelled'; badgeLabel = 'Cancelled'; }
@@ -757,6 +758,16 @@
         pendingNote = '<div class="text-xs text-amber-600 mt-1">⏳ If your payment is pending for more than 10 minutes, you can retry.</div>';
       }
 
+      // [H4 sync] Show a small explanatory line for refunded/cancelled/expired.
+      var extraNote = '';
+      if (isRefunded) {
+        extraNote = '<div class="text-xs text-blue-700 mt-1">💧 A full refund has been processed to your original payment method. It may take 3–7 business days to appear in your bank.</div>';
+      } else if (isCancelled) {
+        extraNote = '<div class="text-xs text-zinc-600 mt-1">This booking was cancelled by the host. If you had paid, the refund is being processed.</div>';
+      } else if (isExpired) {
+        extraNote = '<div class="text-xs text-zinc-600 mt-1">This booking expired before payment completed. The dates have been released.</div>';
+      }
+
       html += '' +
         '<div class="card hover:shadow-md transition-all duration-300" data-id="' + id + '">' +
           '<div class="flex flex-col md:flex-row justify-between gap-4">' +
@@ -771,6 +782,7 @@
                   'Booking ID: <span class="font-mono">' + id + '</span>' +
                 '</div>' +
                 pendingNote +
+                extraNote +
                 '<div class="mt-1 flex flex-wrap gap-2">' +
                   buttonsHtml +
                 '</div>' +
@@ -818,10 +830,29 @@
 
   // =============================================================
   // MANUAL CHECK
+  // [H4 sync] Recognise the new terminal paymentStatus values.
   // =============================================================
   async function manualCheckPayment(bookingId) {
     try {
       const result = await checkPaymentStatus(bookingId);
+
+      // Terminal states from the [H4] backend change.
+      if (result.paymentStatus === 'refunded') {
+        await showAlert('Refunded', 'This booking has been refunded. The refund may take 3–7 business days to appear in your bank.');
+        loadMyBookings();
+        return;
+      }
+      if (result.paymentStatus === 'cancelled') {
+        await showAlert('Booking Cancelled', 'This booking was cancelled by the host.');
+        loadMyBookings();
+        return;
+      }
+      if (result.paymentStatus === 'expired') {
+        await showAlert('Booking Expired', 'This booking expired before the payment completed.');
+        loadMyBookings();
+        return;
+      }
+
       if (result.success && result.booking) {
         const status = result.booking.status || '';
         if (status.toLowerCase().includes('paid')) {
@@ -846,13 +877,13 @@
   }
 
   // =============================================================
-  // RETRY PAYMENT – with CSRF refresh
+  // RETRY PAYMENT – cookie-only auth + CSRF refresh
   // =============================================================
   async function retryPayment(bookingId) {
     let token = localStorage.getItem('kd_csrf_token');
     if (!token) {
       try {
-        const res = await fetch('/api/csrf-token', { method: 'GET' });
+        const res = await fetch('/api/csrf-token', { method: 'GET', credentials: 'include' });
         const data = await res.json();
         if (data.token) {
           localStorage.setItem('kd_csrf_token', data.token);
@@ -879,9 +910,23 @@
         headers: {
           'Content-Type': 'application/json',
           'X-CSRF-Token': token
+          // No Authorization header — the HttpOnly cookie authenticates us.
         },
+        credentials: 'include',
         body: JSON.stringify({ bookingId })
       });
+
+      // 401 means the session cookie itself is gone/invalid.
+      if (res.status === 401) {
+        if (window.GuestSession) window.GuestSession.clearGuestSession();
+        showModal('Session Expired',
+          'Your session has expired. Please log in again to retry payment.',
+          [{ label: 'Login', class: 'btn-primary', value: 'login' }]
+        ).then(function(result) {
+          if (result === 'login') window.location.href = '/login.html?expired=1';
+        });
+        return;
+      }
 
       const data = await res.json();
 
@@ -924,7 +969,7 @@
   window.retryPaymentFromBookings = retryPaymentFromBookings;
 
   // =============================================================
-  // RESEND CHECK‑IN CODE
+  // RESEND CHECK‑IN CODE – cookie-only auth
   // =============================================================
   async function resendCode(bookingId) {
     const booking = myBookings.find(b => String(b.id) === String(bookingId));
@@ -939,8 +984,16 @@
           'Content-Type': 'application/json',
           ...getCsrfHeader()
         },
+        credentials: 'include',
         body: JSON.stringify({ bookingId })
       });
+
+      if (res.status === 401) {
+        if (window.GuestSession) window.GuestSession.clearGuestSession();
+        window.location.href = '/login.html?expired=1';
+        return;
+      }
+
       const data = await res.json();
       if (data.success) {
         if (data.emailSent) {
