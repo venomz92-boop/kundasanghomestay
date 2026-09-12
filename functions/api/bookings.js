@@ -11,14 +11,12 @@
 //       the orphaned kd_homestays row.
 //   (5) updateHomestays clears chip_bank_account_id when the bank code,
 //       account number, or holder name changes.
-//   (6) updateHomestays now MERGES instead of overwriting. Any entry the
-//       browser did not send stays in the database untouched. This fixes
-//       the bug where saving an admin edit from a stale browser tab could
-//       silently delete listings that were approved after the tab loaded.
-//   (7) New admin action `retryRefund`. When a booking is stuck in
-//       "Cancelled by Host - Refund Pending" because CHIP rejected the
-//       original refund call, the admin can now retry it from the booking
-//       row without touching D1 by hand.
+//   (6) updateHomestays now MERGES instead of overwriting.
+//   (7) New admin action `retryRefund`.
+//   (8) approveHomestay now sends an approval notification email to the
+//       host. Same delivery mechanism as the rejection email (Resend,
+//       SendGrid fallback). Best-effort — a failed email never rolls back
+//       the approval.
 import {
   corsHeaders,
   getClientIP,
@@ -308,6 +306,85 @@ async function sendRejectionEmail(homestay, reason, env) {
           personalizations: [{ to: [{ email: homestay.ownerEmail }] }],
           from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
           subject: 'Update on Your Homestay Listing — Kundasang Homestay',
+          content: [{ type: 'text/html', value: html }]
+        })
+      });
+      return { sent: r.ok, error: r.ok ? null : 'SendGrid API error' };
+    }
+    return { sent: false, error: 'No email provider configured' };
+  } catch (e) {
+    return { sent: false, error: e.message };
+  }
+}
+
+// ============================================================
+// Approval notification email
+// Sent when the admin approves a pending homestay. Same delivery
+// mechanism as the rejection email. Best-effort — a failure never
+// rolls back the approval.
+// ============================================================
+async function sendApprovalEmail(homestay, env) {
+  if (!homestay.ownerEmail) {
+    return { sent: false, error: 'No email address on file' };
+  }
+  const safe = (s) => String(s || '').replace(/[<>]/g, '');
+  const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
+  const dashboardUrl = `${domain}/owner.html`;
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+      <h2 style="color:#0F382E;">Hello ${safe(homestay.ownerName || 'Host')},</h2>
+      <p>Great news — your homestay listing <strong>"${safe(homestay.name)}"</strong> has been reviewed and approved.</p>
+      <p>It is now <strong>live on Kundasang Homestay</strong> and guests can start booking it.</p>
+
+      <div style="background:#f0fdf4;padding:16px;border-radius:8px;border:1px solid #bbf7d0;margin:20px 0;">
+        <p style="margin:0 0 8px 0;"><strong>What happens next:</strong></p>
+        <ul style="margin:0;padding-left:20px;line-height:1.7;">
+          <li>Guests can now see and book your property.</li>
+          <li>When a guest checks in, you confirm their arrival with the 6-digit code they received by email.</li>
+          <li>Your payout is sent automatically to your bank account via CHIP Send after each check-in.</li>
+          <li>You can manage availability, pricing, and view bookings from your Host Dashboard.</li>
+        </ul>
+      </div>
+
+      <p style="text-align:center;margin:24px 0;">
+        <a href="${dashboardUrl}" style="display:inline-block;padding:14px 28px;background:#0F382E;color:#ffffff;text-decoration:none;border-radius:999px;font-weight:bold;">Open Your Host Dashboard &rarr;</a>
+      </p>
+
+      <p>If you have any questions, just reply to this email or contact us at <a href="mailto:support@kundasanghomestay.my">support@kundasanghomestay.my</a>.</p>
+      <p>Thank you for being part of Kundasang Homestay.</p>
+      <p>— Kundasang Homestay Team</p>
+    </div>
+  `;
+
+  try {
+    if (env.RESEND_API_KEY) {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.RESEND_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
+          to: homestay.ownerEmail,
+          subject: 'Your Homestay Listing is Approved — Kundasang Homestay',
+          html
+        })
+      });
+      return { sent: r.ok, error: r.ok ? null : 'Resend API error' };
+    }
+    if (env.SENDGRID_API_KEY) {
+      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.SENDGRID_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: homestay.ownerEmail }] }],
+          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
+          subject: 'Your Homestay Listing is Approved — Kundasang Homestay',
           content: [{ type: 'text/html', value: html }]
         })
       });
@@ -998,9 +1075,6 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ---- Admin: retryRefund ----
-    // When a booking is stuck in "Cancelled by Host - Refund Pending"
-    // (because CHIP rejected the original refund), the admin can retry it
-    // here. Uses the same pre-flight marker pattern as owner cancelBooking.
     if (action === "retryRefund" && body.id) {
       const bookingId = String(body.id);
       let result;
@@ -1009,7 +1083,7 @@ export async function onRequestPost({ request, env }) {
           const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
           let bookings = [];
           try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
-          const idx = bookings.findIndex(b => String(b.id) === bookingId);
+          const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
           if (idx === -1) return { error: 'Booking not found', status: 404 };
           const booking = bookings[idx];
 
@@ -1020,7 +1094,6 @@ export async function onRequestPost({ request, env }) {
             return { error: 'This booking has already been refunded.', status: 400 };
           }
 
-          // Only allow retry from a state that represents a failed refund.
           const status = String(booking.status || '');
           const isRefundableState =
             /refund pending|refund_pending|Refund Pending/i.test(status) ||
@@ -1037,7 +1110,6 @@ export async function onRequestPost({ request, env }) {
             return { error: 'CHIP_SECRET_KEY not configured. Cannot process refund.', status: 500 };
           }
 
-          // Mark the attempt before the CHIP call.
           bookings[idx].refund_attempted_at = new Date().toISOString();
           bookings[idx].refund_attempted_by = 'admin';
           await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
@@ -1204,17 +1276,31 @@ export async function onRequestPost({ request, env }) {
           }
         }
 
+        // NEW: send the approval email. Best-effort — never rolls back.
+        let emailResult = { sent: false, error: 'not attempted' };
+        try {
+          emailResult = await sendApprovalEmail(safeHomestay, env);
+        } catch (mailErr) {
+          console.error('Approval email error:', mailErr.message);
+          emailResult = { sent: false, error: mailErr.message };
+        }
+
         await logAction({
           db,
           action: 'homestay_approved',
           admin: 'admin',
-          details: `Approved homestay "${safeHomestay.name}" (ID: ${safeHomestay.id}) by ${safeHomestay.ownerName}. Cloudinary destroy: ${destroyReport.succeeded}/${destroyReport.attempted} verified images removed.`,
+          details: `Approved homestay "${safeHomestay.name}" (ID: ${safeHomestay.id}) by ${safeHomestay.ownerName}. Cloudinary destroy: ${destroyReport.succeeded}/${destroyReport.attempted} verified images removed. Email: ${emailResult.sent ? 'sent' : 'failed — ' + (emailResult.error || 'unknown')}.`,
           ip: clientIP,
           userId: safeHomestay.ownerEmail,
           homestayId: safeHomestay.id
         });
 
-        return jsonResponse({ success: true, homestay: safeHomestay }, 200, request);
+        return jsonResponse({
+          success: true,
+          homestay: safeHomestay,
+          emailSent: emailResult.sent,
+          emailError: emailResult.sent ? undefined : emailResult.error
+        }, 200, request);
       } catch (approveErr) {
         console.error('Approve homestay error:', approveErr.message);
         return jsonResponse({ error: 'Approval failed. Please try again later.' }, 500, request);
@@ -1542,11 +1628,6 @@ export async function onRequestPost({ request, env }) {
         }
       }
 
-      // Read the current approved list so we can detect bank changes AND
-      // merge instead of overwriting. The merge is the important part:
-      // a stale admin browser tab must not be able to delete listings
-      // that were approved after the tab loaded. Removal goes through
-      // removeApprovedHomestay — never through this path.
       const oldApprovedRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
       let oldApproved = [];
       try { if (oldApprovedRes?.data) oldApproved = JSON.parse(oldApprovedRes.data); } catch (_) {}
@@ -1557,7 +1638,6 @@ export async function onRequestPost({ request, env }) {
       const incomingById = new Map();
       for (const h of approved) incomingById.set(String(h.id), h);
 
-      // Clear cached chip_bank_account_id when bank details change.
       let cacheClearedCount = 0;
       for (const h of approved) {
         const old = oldById.get(String(h.id));
@@ -1575,11 +1655,6 @@ export async function onRequestPost({ request, env }) {
         }
       }
 
-      // Merge: start from the DB list. For every DB entry that the
-      // incoming payload also contains, use the incoming version. Every
-      // DB entry the payload does NOT contain is preserved untouched.
-      // Any entry in the payload that is not in the DB is appended
-      // (should never happen through this path, but safe to allow).
       const merged = [];
       for (const old of oldApproved) {
         const idKey = String(old.id);
