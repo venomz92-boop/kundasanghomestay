@@ -9,20 +9,16 @@
 //       orphaned kd_homestays row.
 //   (5) updateHomestays clears chip_bank_account_id on bank-detail change.
 //   (6) updateHomestays MERGES instead of overwriting.
-//   (7) New admin action `retryRefund`. It now reads the stored
-//       cancel_type on the booking and:
-//         - guest_request → refund base only; write the retained fee
-//                           to the kd_fee_earnings ledger.
-//         - host_own      → refund full amount; no ledger entry.
+//   (7) Admin action `retryRefund` now mirrors owner-update-booking.js:
+//         - Reads stored cancel_type on the booking.
+//         - guest_request → refund base − RM 1.00 (CHIP refund fee).
+//         - host_own      → refund full amount.
 //         - missing       → treated as host_own (safe default).
-//       Booking status and fee ledger are written in a single db.batch.
+//       Booking status, kd_fee_earnings, and kd_chip_costs are written in
+//       a single db.batch. Also refuses to fire a second refund when a
+//       previous attempt left an unclear state (refund_attempted_at set
+//       but chip_refund_id missing).
 //   (8) approveHomestay sends an approval notification email to the host.
-//   (9) retryRefund now refuses to fire a second refund when a previous
-//       attempt left an unclear state (refund_attempted_at set but
-//       chip_refund_id missing). This closes a double-refund risk that
-//       occurs if CHIP's refund response is lost or the D1 batch write
-//       fails after CHIP already accepted the refund. The guard mirrors
-//       the identical one already present in owner-update-booking.js.
 import {
   corsHeaders,
   getClientIP,
@@ -47,6 +43,11 @@ const DEFAULT_APPROVED_PAGE_SIZE = 100;
 const DEFAULT_PENDING_PAGE_SIZE = 100;
 const GATEWAY_FEE = 1.00;
 const PENDING_EXPIRY_MS = 15 * 60 * 1000;
+
+// CHIP's FPX B2C fees (see owner-update-booking.js for the source).
+const CHIP_PAYMENT_FEE = 1.00;
+const CHIP_REFUND_FEE = 1.00;
+const CHIP_TOTAL_FEES_PER_CANCELLATION = CHIP_PAYMENT_FEE + CHIP_REFUND_FEE;
 
 const BOOKINGS_LOCK = 'bookings-global';
 
@@ -1079,18 +1080,14 @@ export async function onRequestPost({ request, env }) {
 
     // ---- Admin: retryRefund ----
     // [THIS REVISION]
-    // Reads the stored cancel_type on the booking and applies the correct
-    // refund amount and ledger write for each case:
-    //   - guest_request → refund base; write retained fee to kd_fee_earnings
-    //   - host_own (default for missing cancel_type) → refund full amount
-    // Booking status + fee ledger are written in a single db.batch.
-    //
-    // [NEW GUARD in this revision]
-    // Refuses to fire a second refund if a prior attempt recorded a marker
-    // (refund_attempted_at) but never captured a refund ID. This closes a
-    // double-refund risk when CHIP's response is lost or the D1 write
-    // fails after CHIP already accepted the refund. Mirrors the identical
-    // guard in owner-update-booking.js.
+    // Mirrors owner-update-booking.js:
+    //   - guest_request → refund base − RM 1.00 (CHIP refund fee).
+    //   - host_own      → refund full amount.
+    //   - missing       → host_own (safe default).
+    //   - Refuses if refund_attempted_at set but chip_refund_id missing
+    //     (prevents double refund).
+    //   - Writes booking + kd_fee_earnings (gross retained) + kd_chip_costs
+    //     (CHIP's fees) in a single db.batch.
     if (action === "retryRefund" && body.id) {
       const bookingId = String(body.id);
       let result;
@@ -1110,21 +1107,7 @@ export async function onRequestPost({ request, env }) {
             return { error: 'This booking has already been refunded.', status: 400 };
           }
 
-          // ------------------------------------------------------------
-          // DEFENSIVE GUARD — prevents a double refund.
-          //
-          // If refund_attempted_at is set but chip_refund_id is missing,
-          // the outcome at CHIP is UNKNOWN: the earlier attempt may have
-          // succeeded but its response was lost, or the D1 batch write
-          // failed after CHIP accepted the refund. Firing another refund
-          // in that state risks refunding the same purchase twice.
-          //
-          // This mirrors the identical guard in owner-update-booking.js.
-          // The admin must verify the purchase in the CHIP dashboard
-          // before retrying. If CHIP shows no refund on the purchase,
-          // support clears the marker (by removing refund_attempted_at
-          // from the booking record in D1) and the retry can proceed.
-          // ------------------------------------------------------------
+          // Defensive guard — prevents a double refund.
           if (booking.refund_attempted_at && !booking.chip_refund_id) {
             return {
               error:
@@ -1154,17 +1137,14 @@ export async function onRequestPost({ request, env }) {
             return { error: 'CHIP_SECRET_KEY not configured. Cannot process refund.', status: 500 };
           }
 
-          // Determine the correct refund amount from the stored cancel_type.
-          // A missing cancel_type means this is a legacy booking created
-          // before the two-path policy. Default to host_own (full refund),
-          // the safer choice for the guest.
           const storedCancelType = String(booking.cancel_type || 'host_own').toLowerCase().trim();
           const effectiveCancelType = (storedCancelType === 'guest_request') ? 'guest_request' : 'host_own';
 
           const totalPaidNum = Number(booking.amount_paid || booking.total) || 0;
           const baseAmountNum = Number(booking.base) || 0;
+          // [NEW POLICY] guest_request = base − CHIP refund fee.
           const refundAmountNum = effectiveCancelType === 'guest_request'
-            ? baseAmountNum
+            ? Math.max(0, Math.round((baseAmountNum - CHIP_REFUND_FEE) * 100) / 100)
             : totalPaidNum;
           const feeRetainedNum = Math.max(0, Math.round((totalPaidNum - refundAmountNum) * 100) / 100);
 
@@ -1221,16 +1201,13 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].statusUpdated = new Date().toISOString();
           }
 
-          // On a successful guest_request retry, write the retained fee
-          // to the ledger — same rules as owner-update-booking.js.
+          // --- Ledger writes (fee earnings + chip costs) ---
           let feeEarningsToWrite = null;
           let feeRecordedAmount = 0;
+          let chipCostsToWrite = null;
+          let chipCostRecorded = 0;
 
-          if (
-            refundData &&
-            effectiveCancelType === 'guest_request' &&
-            feeRetainedNum > 0
-          ) {
+          if (refundData) {
             try {
               const feeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
               let feeEarnings = feeRes && feeRes.data
@@ -1243,7 +1220,7 @@ export async function onRequestPost({ request, env }) {
                 (h.type === 'earning' || h.type === 'cancellation_retained_fee')
               );
 
-              if (!alreadyRecorded) {
+              if (!alreadyRecorded && feeRetainedNum > 0) {
                 feeEarnings.total = Math.round(((feeEarnings.total || 0) + feeRetainedNum) * 100) / 100;
                 feeEarnings.available = Math.round(((feeEarnings.available || 0) + feeRetainedNum) * 100) / 100;
                 feeEarnings.history.push({
@@ -1251,7 +1228,7 @@ export async function onRequestPost({ request, env }) {
                   fee: feeRetainedNum,
                   date: new Date().toISOString(),
                   type: 'cancellation_retained_fee',
-                  cancellation_type: 'guest_request',
+                  cancellation_type: effectiveCancelType,
                   original_amount_paid: totalPaidNum,
                   refunded_amount: refundAmountNum,
                   method: 'chip_collect_partial_refund_admin_retry',
@@ -1262,12 +1239,40 @@ export async function onRequestPost({ request, env }) {
               }
             } catch (feeReadErr) {
               console.error('Could not read fee earnings before admin retry batch:', feeReadErr.message);
-              // Do not fail the response. The refund already happened at
-              // CHIP. Log for manual reconciliation.
+            }
+
+            try {
+              const chipRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_chip_costs').first();
+              let chipCosts = chipRes && chipRes.data
+                ? JSON.parse(chipRes.data)
+                : { total: 0, history: [] };
+              chipCosts.history = chipCosts.history || [];
+
+              const alreadyRecordedChip = chipCosts.history.some(h =>
+                h.bookingId === bookingId && h.type === 'cancellation'
+              );
+
+              if (!alreadyRecordedChip) {
+                chipCosts.total = Math.round(((chipCosts.total || 0) + CHIP_TOTAL_FEES_PER_CANCELLATION) * 100) / 100;
+                chipCosts.history.push({
+                  bookingId,
+                  amount: CHIP_TOTAL_FEES_PER_CANCELLATION,
+                  payment_fee: CHIP_PAYMENT_FEE,
+                  refund_fee: CHIP_REFUND_FEE,
+                  date: new Date().toISOString(),
+                  type: 'cancellation',
+                  cancellation_type: effectiveCancelType,
+                  method: 'chip_collect_partial_refund_admin_retry',
+                  ip: clientIP
+                });
+                chipCostsToWrite = chipCosts;
+                chipCostRecorded = CHIP_TOTAL_FEES_PER_CANCELLATION;
+              }
+            } catch (chipReadErr) {
+              console.error('Could not read chip costs before admin retry batch:', chipReadErr.message);
             }
           }
 
-          // Atomic write: booking status (always) + fee ledger (when applicable).
           const atomicStmts = [
             db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
               .bind('kd_bookings', JSON.stringify(bookings))
@@ -1278,13 +1283,19 @@ export async function onRequestPost({ request, env }) {
                 .bind('kd_fee_earnings', JSON.stringify(feeEarningsToWrite))
             );
           }
+          if (chipCostsToWrite) {
+            atomicStmts.push(
+              db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+                .bind('kd_chip_costs', JSON.stringify(chipCostsToWrite))
+            );
+          }
 
           try {
             await db.batch(atomicStmts);
           } catch (batchErr) {
             console.error('Atomic batch write failed during admin refund retry:', batchErr.message);
             return {
-              error: `Refund succeeded at CHIP but the booking and ledger could not be updated (${batchErr.message}). Booking left in "attempt marker only" state. Verify refund ${refundData?.id || ''} in the CHIP dashboard, then contact support to reconcile.`,
+              error: `Refund succeeded at CHIP but the booking and ledgers could not be updated (${batchErr.message}). Booking left in "attempt marker only" state. Verify refund ${refundData?.id || ''} in the CHIP dashboard, then contact support to reconcile.`,
               status: 500
             };
           }
@@ -1299,6 +1310,7 @@ export async function onRequestPost({ request, env }) {
             refundAmount: refundAmountNum,
             feeRetained: feeRetainedNum,
             feeRecorded: feeRecordedAmount,
+            chipCostRecorded,
             booking: bookings[idx]
           };
         }, 60000);
@@ -1321,7 +1333,7 @@ export async function onRequestPost({ request, env }) {
           result.refunded
             ? `${result.refundId}, RM${Number(result.refundAmount || 0).toFixed(2)}`
             : result.refundError
-        }. Retained fee recorded to ledger: RM${Number(result.feeRecorded || 0).toFixed(2)}.`,
+        }. Retained fee recorded to ledger: RM${Number(result.feeRecorded || 0).toFixed(2)}. Chip cost recorded: RM${Number(result.chipCostRecorded || 0).toFixed(2)}.`,
         ip: clientIP,
         homestayId: result.booking?.homestayId
       });
