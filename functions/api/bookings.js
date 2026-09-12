@@ -17,6 +17,12 @@
 //         - missing       → treated as host_own (safe default).
 //       Booking status and fee ledger are written in a single db.batch.
 //   (8) approveHomestay sends an approval notification email to the host.
+//   (9) retryRefund now refuses to fire a second refund when a previous
+//       attempt left an unclear state (refund_attempted_at set but
+//       chip_refund_id missing). This closes a double-refund risk that
+//       occurs if CHIP's refund response is lost or the D1 batch write
+//       fails after CHIP already accepted the refund. The guard mirrors
+//       the identical one already present in owner-update-booking.js.
 import {
   corsHeaders,
   getClientIP,
@@ -1073,11 +1079,18 @@ export async function onRequestPost({ request, env }) {
 
     // ---- Admin: retryRefund ----
     // [THIS REVISION]
-    // Now reads the stored cancel_type on the booking and applies the
-    // correct refund amount and ledger write for each case:
+    // Reads the stored cancel_type on the booking and applies the correct
+    // refund amount and ledger write for each case:
     //   - guest_request → refund base; write retained fee to kd_fee_earnings
     //   - host_own (default for missing cancel_type) → refund full amount
     // Booking status + fee ledger are written in a single db.batch.
+    //
+    // [NEW GUARD in this revision]
+    // Refuses to fire a second refund if a prior attempt recorded a marker
+    // (refund_attempted_at) but never captured a refund ID. This closes a
+    // double-refund risk when CHIP's response is lost or the D1 write
+    // fails after CHIP already accepted the refund. Mirrors the identical
+    // guard in owner-update-booking.js.
     if (action === "retryRefund" && body.id) {
       const bookingId = String(body.id);
       let result;
@@ -1095,6 +1108,34 @@ export async function onRequestPost({ request, env }) {
           }
           if (booking.chip_refund_id) {
             return { error: 'This booking has already been refunded.', status: 400 };
+          }
+
+          // ------------------------------------------------------------
+          // DEFENSIVE GUARD — prevents a double refund.
+          //
+          // If refund_attempted_at is set but chip_refund_id is missing,
+          // the outcome at CHIP is UNKNOWN: the earlier attempt may have
+          // succeeded but its response was lost, or the D1 batch write
+          // failed after CHIP accepted the refund. Firing another refund
+          // in that state risks refunding the same purchase twice.
+          //
+          // This mirrors the identical guard in owner-update-booking.js.
+          // The admin must verify the purchase in the CHIP dashboard
+          // before retrying. If CHIP shows no refund on the purchase,
+          // support clears the marker (by removing refund_attempted_at
+          // from the booking record in D1) and the retry can proceed.
+          // ------------------------------------------------------------
+          if (booking.refund_attempted_at && !booking.chip_refund_id) {
+            return {
+              error:
+                `A refund for this booking was already attempted at ${booking.refund_attempted_at}` +
+                ` by ${booking.refund_attempted_by || 'unknown'}` +
+                ` for RM${Number(booking.refund_attempted_amount || 0).toFixed(2)}, but no refund` +
+                ` ID was recorded. Log into the CHIP dashboard and check purchase` +
+                ` ${booking.chip_purchase_id} for an existing refund before retrying. If CHIP` +
+                ` shows no refund, contact support to clear the attempt marker on this booking.`,
+              status: 409
+            };
           }
 
           const status = String(booking.status || '');
