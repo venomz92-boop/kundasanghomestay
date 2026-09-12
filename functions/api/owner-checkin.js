@@ -1,8 +1,12 @@
 // /api/owner-checkin.js — Host confirms guest check-in and triggers CHIP Send payout.
 //
-// Payout double-fire protection: attempt marker written to D1 BEFORE CHIP Send.
-// Atomic fee-recording: booking + platform-fee written in one db.batch().
-// Uses shared 'bookings-global' lock.
+// [THIS REVISION]
+// The ownership check now resolves the owner's homestay IDs FRESH from D1
+// via getOwnerHomestayIdsFresh() in _utils.js. Previously it trusted the
+// session token's `homestayIds` snapshot, which went stale whenever a
+// listing was approved after the token was minted. Symptom:
+//   "Unauthorized – you do not own this homestay"
+// on check-in for a listing approved after the session token was issued.
 import {
   corsHeaders,
   getClientIP,
@@ -14,7 +18,8 @@ import {
   getRecentCheckinAttempts,
   clearCheckinAttempts,
   withLock,
-  chipSendPayout
+  chipSendPayout,
+  getOwnerHomestayIdsFresh
 } from './_utils.js';
 
 const BOOKINGS_LOCK = 'bookings-global';
@@ -51,8 +56,10 @@ export async function onRequestPost({ request, env }) {
     const preBooking = preBookings.find(b => String(b.id) === String(bookingId));
     if (!preBooking) return jsonResponse({ error: 'Invalid request.' }, 400, request);
 
-    const allowedIds = (ownerData.homestayIds || [ownerData.ownerId]).map(String);
-    if (!allowedIds.includes(String(preBooking.homestayId))) {
+    // Resolve owner's homestay IDs FRESH from D1, not from the session
+    // token's snapshot.
+    const allowedIds = await getOwnerHomestayIdsFresh(db, ownerData);
+    if (!allowedIds.map(String).includes(String(preBooking.homestayId))) {
       return jsonResponse({ error: 'Unauthorized – you do not own this homestay' }, 403, request);
     }
 
@@ -265,7 +272,7 @@ export async function onRequestPost({ request, env }) {
 
         let payoutSuccess = false;
         let payoutUnknown = false;
-        let isSimulation = false;
+        const isSimulation = false;
 
         if (payoutResult.success) {
           payoutSuccess = true;
