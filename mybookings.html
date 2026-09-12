@@ -391,35 +391,45 @@ function showLoggedInView(guest) {
 
 // =============================================================
 // GUEST-FACING STATUS MAPPING
+//
+// Key idea:
+//  - If the booking was cancelled by the host (cancelled_by === 'host'
+//    OR status mentions cancel), we ALWAYS say "Cancelled by Host" first.
+//    Then we append the refund sub-state so the guest knows whether the
+//    money is already back or still moving.
+//  - If the booking was refunded for some other reason (e.g. late
+//    payment auto-refund), we show the plain "Refunded" label.
 // =============================================================
 function guestStatusInfo(b) {
   var s = String(b.status || '').toLowerCase();
   var hasPayoutDate = !!b.payoutDate;
+  var cancelledByHost = String(b.cancelled_by || '').toLowerCase() === 'host';
+  var isCancelled = cancelledByHost || s.indexOf('cancel') !== -1;
+  var isRefundRelated = s.indexOf('refund') !== -1;
+  var isRefundPending = isRefundRelated && s.indexOf('pending') !== -1;
+  var isRefundComplete = isRefundRelated && !isRefundPending;
 
-  // 1) Refunded (fully refunded)
-  if (s.indexOf('refund') !== -1 && s.indexOf('pending') === -1) {
-    return {
-      key: 'refunded',
-      badgeClass: 'badge-refunded',
-      badgeLabel: '🔁 Refunded',
-      note: 'A full refund has been processed. It may take 3–7 business days to appear in your bank.',
-      buttons: []
-    };
-  }
-
-  // 2) Refund Pending (refund in flight at CHIP)
-  if (s.indexOf('refund') !== -1 && s.indexOf('pending') !== -1) {
-    return {
-      key: 'refund_pending',
-      badgeClass: 'badge-refunded',
-      badgeLabel: '💧 Refund Processing',
-      note: 'Your refund is being processed by CHIP. This usually completes within a few minutes.',
-      buttons: []
-    };
-  }
-
-  // 3) Cancelled by host — RED styling (same class as Payment Failed).
-  if (s.indexOf('cancel') !== -1) {
+  // ---------- 1) HOST CANCELLATION (with refund sub-state) ----------
+  if (isCancelled) {
+    if (isRefundPending) {
+      return {
+        key: 'refund_pending',
+        badgeClass: 'badge-refunded',
+        badgeLabel: 'Cancelled by Host - Refund Processing',
+        note: 'The host cancelled this booking. Your refund is being processed by CHIP and usually completes within a few minutes.',
+        buttons: []
+      };
+    }
+    if (isRefundComplete) {
+      return {
+        key: 'refunded',
+        badgeClass: 'badge-refunded',
+        badgeLabel: 'Cancelled by Host - Refunded',
+        note: 'The host cancelled this booking. A full refund has been processed. It may take 3–7 business days to appear in your bank.',
+        buttons: []
+      };
+    }
+    // Unpaid cancellation — no refund involved.
     return {
       key: 'cancelled',
       badgeClass: 'badge-failed',
@@ -429,7 +439,27 @@ function guestStatusInfo(b) {
     };
   }
 
-  // 4) Expired / abandoned
+  // ---------- 2) STANDALONE REFUND (not host-cancelled) ----------
+  if (isRefundComplete) {
+    return {
+      key: 'refunded',
+      badgeClass: 'badge-refunded',
+      badgeLabel: '🔁 Refunded',
+      note: 'A full refund has been processed. It may take 3–7 business days to appear in your bank.',
+      buttons: []
+    };
+  }
+  if (isRefundPending) {
+    return {
+      key: 'refund_pending',
+      badgeClass: 'badge-refunded',
+      badgeLabel: '💧 Refund Processing',
+      note: 'Your refund is being processed by CHIP. This usually completes within a few minutes.',
+      buttons: []
+    };
+  }
+
+  // ---------- 3) EXPIRED ----------
   if (s.indexOf('expired') !== -1) {
     return {
       key: 'expired',
@@ -440,7 +470,7 @@ function guestStatusInfo(b) {
     };
   }
 
-  // 5) Completed — GREEN styling, label "✓ Completed".
+  // ---------- 4) COMPLETED — GREEN ----------
   if (s.indexOf('completed') !== -1 || hasPayoutDate) {
     return {
       key: 'completed',
@@ -451,7 +481,7 @@ function guestStatusInfo(b) {
     };
   }
 
-  // 6) Payment Failed
+  // ---------- 5) PAYMENT FAILED ----------
   if (s.indexOf('fail') !== -1) {
     return {
       key: 'failed',
@@ -462,7 +492,7 @@ function guestStatusInfo(b) {
     };
   }
 
-  // 7) Paid — confirmed, waiting for the stay
+  // ---------- 6) PAID / CONFIRMED ----------
   if (s.indexOf('paid') !== -1) {
     return {
       key: 'paid',
@@ -473,7 +503,7 @@ function guestStatusInfo(b) {
     };
   }
 
-  // 8) Fallback — Pending Payment (the initial state)
+  // ---------- 7) FALLBACK — AWAITING PAYMENT ----------
   return {
     key: 'pending',
     badgeClass: 'badge-pending',
