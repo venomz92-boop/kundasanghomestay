@@ -37,7 +37,7 @@
         Your payment didn't go through this time. No worries — you can try again in <strong>5 minutes</strong>.
       </p>
       <p class="text-sm text-zinc-600 mt-1 leading-relaxed">
-        Simply go to your <strong>My Bookings</strong> page and click the <strong>Retry Payment</strong> button next to this booking.
+        Simply click the <strong>Retry Payment</strong> button next to this booking.
       </p>
       <div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
         <div class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Booking ID:</span><span id="failedBookingId" class="font-bold text-red-600 text-sm font-mono">-</span></div>
@@ -390,6 +390,117 @@ function showLoggedInView(guest) {
 }
 
 // =============================================================
+// GUEST-FACING STATUS MAPPING
+// The 12+ internal statuses collapse into 6 things a guest cares about.
+// Payout states are NEVER shown to the guest — they only live in admin.
+// =============================================================
+function guestStatusInfo(b) {
+  var s = String(b.status || '').toLowerCase();
+  var hasPayoutDate = !!b.payoutDate;
+
+  // 1) Refunded (fully refunded)
+  if (s.indexOf('refund') !== -1 && s.indexOf('pending') === -1) {
+    return {
+      key: 'refunded',
+      badgeClass: 'badge-refunded',
+      badgeLabel: '🔁 Refunded',
+      note: 'A full refund has been processed. It may take 3–7 business days to appear in your bank.',
+      buttons: []
+    };
+  }
+
+  // 2) Refund Pending (refund in flight at CHIP)
+  if (s.indexOf('refund') !== -1 && s.indexOf('pending') !== -1) {
+    return {
+      key: 'refund_pending',
+      badgeClass: 'badge-refunded',
+      badgeLabel: '💧 Refund Processing',
+      note: 'Your refund is being processed by CHIP. This usually completes within a few minutes.',
+      buttons: []
+    };
+  }
+
+  // 3) Cancelled by host (any form)
+  if (s.indexOf('cancel') !== -1) {
+    return {
+      key: 'cancelled',
+      badgeClass: 'badge-cancelled',
+      badgeLabel: 'Cancelled by Host',
+      note: '',
+      buttons: []
+    };
+  }
+
+  // 4) Expired / abandoned
+  if (s.indexOf('expired') !== -1) {
+    return {
+      key: 'expired',
+      badgeClass: 'badge-cancelled',
+      badgeLabel: 'Expired',
+      note: 'This booking expired before payment was completed. The dates have been released.',
+      buttons: []
+    };
+  }
+
+  // 5) Completed — ALL the payout sub-states collapse to one guest label.
+  //    The guest does not care whether the host has been paid yet.
+  if (s.indexOf('completed') !== -1 || hasPayoutDate) {
+    return {
+      key: 'completed',
+      badgeClass: 'badge-completed',
+      badgeLabel: '✓ Stay Completed',
+      note: '',
+      buttons: []
+    };
+  }
+
+  // 6) Payment Failed
+  if (s.indexOf('fail') !== -1) {
+    return {
+      key: 'failed',
+      badgeClass: 'badge-failed',
+      badgeLabel: 'Payment Failed',
+      note: 'Your payment didn\'t go through. Click Retry Payment to try again.',
+      buttons: ['checkStatus', 'retryPayment']
+    };
+  }
+
+  // 7) Paid — confirmed, waiting for the stay
+  if (s.indexOf('paid') !== -1) {
+    return {
+      key: 'paid',
+      badgeClass: 'badge-paid',
+      badgeLabel: '✓ Confirmed — Ready for Stay',
+      note: 'Your 6-digit check-in code was emailed to you. Share it with the host on arrival.',
+      buttons: ['resendCode']
+    };
+  }
+
+  // 8) Fallback — Pending Payment (the initial state)
+  return {
+    key: 'pending',
+    badgeClass: 'badge-pending',
+    badgeLabel: 'Awaiting Payment',
+    note: 'Complete your payment to confirm this booking.',
+    buttons: ['checkStatus', 'retryPayment']
+  };
+}
+
+function buildButtons(actions, id) {
+  var html = '';
+  if (actions.indexOf('resendCode') !== -1) {
+    html += '<button class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition action-btn" data-action="resendCode" data-id="' + id + '">📧 Resend Code</button>';
+  }
+  if (actions.indexOf('checkStatus') !== -1) {
+    html += '<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="' + id + '">🔍 Check Payment</button>';
+  }
+  if (actions.indexOf('retryPayment') !== -1) {
+    html += '<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#D4A373;" data-action="retryPayment" data-id="' + id + '">🔄 Retry Payment</button>';
+  }
+  return html;
+}
+
+// =============================================================
 // CHECK PAYMENT STATUS
 // =============================================================
 async function checkPaymentStatus(bookingId) {
@@ -404,14 +515,16 @@ async function checkPaymentStatus(bookingId) {
   } catch (e) { return { success: false, error: e.message }; }
 }
 
+// Only poll when the guest has an unresolved payment to wait for.
+// Completed / cancelled / refunded / expired bookings are final.
+function isGuestPollable(b) {
+  var info = guestStatusInfo(b);
+  return info.key === 'pending' || info.key === 'failed';
+}
+
 async function autoCheckPendingBookings() {
   if (!currentGuest) return;
-  // Only truly-pending bookings (not completed-payout-pending).
-  const pending = myBookings.filter(b => {
-    var s = String(b.status || '').toLowerCase();
-    if (s.includes('completed')) return false;
-    return s.includes('pending');
-  });
+  const pending = myBookings.filter(isGuestPollable);
   if (pending.length === 0) {
     if (pendingCheckInterval) { clearInterval(pendingCheckInterval); pendingCheckInterval = null; }
     return;
@@ -466,7 +579,6 @@ function loadMyBookings() {
 
     var displayGuest = currentGuest || { name: 'Guest', email: '' };
     renderGuestNav();
-
     myBookings = serverBookings;
 
     if (currentGuest && currentGuest.id) {
@@ -476,11 +588,7 @@ function loadMyBookings() {
     showLoggedInView(displayGuest);
     renderBookings();
 
-    const pending = myBookings.filter(b => {
-      var s = String(b.status || '').toLowerCase();
-      if (s.includes('completed')) return false;
-      return s.includes('pending');
-    });
+    const pending = myBookings.filter(isGuestPollable);
     if (pending.length > 0) startPendingCheckInterval();
     else if (pendingCheckInterval) { clearInterval(pendingCheckInterval); pendingCheckInterval = null; }
   })
@@ -507,18 +615,19 @@ function loadMyBookings() {
 }
 
 // =============================================================
-// RENDER BOOKINGS
+// RENDER BOOKINGS — clean guest-facing view
 // =============================================================
 function renderBookings() {
   var listDiv = document.getElementById('bookingsList');
   if (!listDiv) return;
 
+  // Metrics use the guest-facing status, not the internal one.
   var countPaid = 0, countCompleted = 0, countPending = 0;
   myBookings.forEach(function(b) {
-    var s = (b.status || '').toLowerCase();
-    if (s.includes('completed') || b.payoutDate) countCompleted++;
-    else if (s.includes('paid')) countPaid++;
-    else if (s.includes('pending')) countPending++;
+    var info = guestStatusInfo(b);
+    if (info.key === 'completed') countCompleted++;
+    else if (info.key === 'paid') countPaid++;
+    else if (info.key === 'pending' || info.key === 'failed') countPending++;
   });
   document.getElementById('metricTotal').textContent = myBookings.length;
   document.getElementById('metricPaid').textContent = countPaid;
@@ -549,82 +658,10 @@ function renderBookings() {
     var checkout = b.checkout || 'N/A';
     var nights = b.nights || 1;
     var total = parseFloat(b.total) || 0;
-    var statusRaw = b.status || 'Unknown';
-    var statusLower = statusRaw.toLowerCase();
 
-    // ---- Status flags (with priority order) ----
-    var isRefunded = statusLower.includes('refunded');
-    var isExpired = statusLower.includes('expired');
-    var isCancelled = statusLower.includes('cancel');
-    var isFailed = statusLower.includes('fail') && !statusLower.includes('refund');
-    var isCompleted = statusLower.includes('completed') || !!b.payoutDate;
-
-    // Payout sub-states (only meaningful when isCompleted is true)
-    var payoutPending = isCompleted && statusLower.includes('payout pending');
-    var payoutSuccess = isCompleted && (statusLower.includes('payout success') || (b.payoutSuccess === true && b.payoutSuccessDate));
-    var payoutUnknown = isCompleted && statusLower.includes('payout unknown');
-
-    // A "genuinely pending" booking is Pending Payment. A "completed -
-    // payout pending" booking is NOT pending from the guest's POV.
-    var isPending = !isCompleted && !isCancelled && !isRefunded && !isExpired && statusLower.includes('pending');
-    var isPaid = !isCompleted && !isCancelled && !isRefunded && !isExpired && statusLower.includes('paid');
-
-    // ---- Badge ----
-    var badgeClass = 'badge-pending';
-    var badgeLabel = 'Pending';
-    if (isRefunded) {
-      badgeClass = 'badge-refunded';
-      badgeLabel = '🔁 Refunded';
-    } else if (isExpired) {
-      badgeClass = 'badge-cancelled';
-      badgeLabel = '⏰ Expired';
-    } else if (payoutSuccess) {
-      badgeClass = 'badge-completed';
-      badgeLabel = '✅ Completed — Payout Sent';
-    } else if (payoutUnknown) {
-      badgeClass = 'badge-pending';
-      badgeLabel = '❓ Completed — Payout Unknown';
-    } else if (payoutPending) {
-      badgeClass = 'badge-pending';
-      badgeLabel = '⏳ Completed — Payout Pending';
-    } else if (isCompleted) {
-      badgeClass = 'badge-completed';
-      badgeLabel = '✓ Completed';
-    } else if (isPaid) {
-      badgeClass = 'badge-paid';
-      badgeLabel = '✓ Paid — Awaiting Check‑in';
-    } else if (isCancelled) {
-      badgeClass = 'badge-cancelled';
-      badgeLabel = 'Cancelled';
-    } else if (isFailed) {
-      badgeClass = 'badge-failed';
-      badgeLabel = 'Payment Failed';
-    }
-
-    // ---- Buttons ----
-    // Priority chain: completed > paid > pending > failed.
-    // Only one branch fires, so a "Completed - Payout Pending" booking
-    // never shows the guest "Retry Payment" or "Check Payment" buttons.
-    var buttonsHtml = '';
-    if (isCompleted || isPaid) {
-      buttonsHtml += '<button class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition action-btn" data-action="resendCode" data-id="' + id + '">📧 Resend Code</button>';
-    } else if (isPending) {
-      buttonsHtml += '<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="' + id + '">🔍 Check Payment</button>';
-      buttonsHtml += '<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#D4A373;" data-action="retryPayment" data-id="' + id + '">🔄 Retry Payment</button>';
-    } else if (isFailed) {
-      buttonsHtml += '<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="' + id + '">🔍 Check Status</button>';
-      buttonsHtml += '<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#dc2626;" data-action="retryPayment" data-id="' + id + '">🔄 Retry Payment</button>';
-    }
-
-    // ---- Notes ----
-    var pendingNote = isPending ? '<div class="text-xs text-amber-600 mt-1">⏳ If your payment is pending for more than 10 minutes, you can retry.</div>' : '';
-    var extraNote = '';
-    if (isRefunded) extraNote = '<div class="text-xs text-blue-700 mt-1">💧 A full refund has been processed. It may take 3–7 business days to appear in your bank.</div>';
-    else if (isCancelled) extraNote = '<div class="text-xs text-zinc-600 mt-1">This booking was cancelled by the host.</div>';
-    else if (isExpired) extraNote = '<div class="text-xs text-zinc-600 mt-1">This booking expired before payment completed. The dates have been released.</div>';
-    else if (payoutPending) extraNote = '<div class="text-xs text-amber-700 mt-1">⏳ Your stay is finished. The host\'s payout is being processed.</div>';
-    else if (payoutSuccess) extraNote = '<div class="text-xs text-emerald-700 mt-1">✅ All settled. Thanks for staying with us!</div>';
-    else if (payoutUnknown) extraNote = '<div class="text-xs text-amber-700 mt-1">The payout status is being verified. Support will follow up if needed.</div>';
+    var info = guestStatusInfo(b);
+    var buttonsHtml = buildButtons(info.buttons, id);
+    var note = info.note ? '<div class="text-xs text-zinc-500 mt-1">' + info.note + '</div>' : '';
 
     html +=
       '<div class="card hover:shadow-md transition-all duration-300" data-id="' + id + '">' +
@@ -635,11 +672,11 @@ function renderBookings() {
               '<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
               '<div>💳 Total paid: <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span></div>' +
               '<div class="inline-block text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">Booking ID: <span class="font-mono">' + id + '</span></div>' +
-              pendingNote + extraNote +
-              '<div class="mt-1 flex flex-wrap gap-2">' + buttonsHtml + '</div>' +
+              note +
+              (buttonsHtml ? '<div class="mt-1 flex flex-wrap gap-2">' + buttonsHtml + '</div>' : '') +
             '</div>' +
           '</div>' +
-          '<div class="flex flex-col items-end gap-2 shrink-0"><span class="' + badgeClass + '">' + badgeLabel + '</span></div>' +
+          '<div class="flex flex-col items-end gap-2 shrink-0"><span class="' + info.badgeClass + '">' + info.badgeLabel + '</span></div>' +
         '</div>' +
       '</div>';
   });
@@ -668,8 +705,8 @@ async function manualCheckPayment(bookingId) {
     if (result.paymentStatus === 'expired') { await showAlert('Booking Expired', 'This booking expired before the payment completed.'); loadMyBookings(); return; }
     if (result.success && result.booking) {
       const status = result.booking.status || '';
-      if (status.toLowerCase().includes('paid') && !status.toLowerCase().includes('failed')) { await showAlert('✅ Payment confirmed!', 'Your booking is now active.'); loadMyBookings(); return; }
-      if (status.toLowerCase().includes('completed')) { await showAlert('Already checked in', 'This stay is already complete.'); loadMyBookings(); return; }
+      if (status.toLowerCase().includes('completed')) { await showAlert('Stay Completed', 'This stay is already complete.'); loadMyBookings(); return; }
+      if (status.toLowerCase().includes('paid') && !status.toLowerCase().includes('failed')) { await showAlert('✅ Payment confirmed!', 'Your booking is confirmed — ready for your stay.'); loadMyBookings(); return; }
       if (status.toLowerCase().includes('fail')) { showPaymentFailedModal(bookingId, result.booking); return; }
       await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
       return;
