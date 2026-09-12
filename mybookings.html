@@ -391,14 +391,6 @@ function showLoggedInView(guest) {
 
 // =============================================================
 // GUEST-FACING STATUS MAPPING
-//
-// Key idea:
-//  - If the booking was cancelled by the host (cancelled_by === 'host'
-//    OR status mentions cancel), we ALWAYS say "Cancelled by Host" first.
-//    Then we append the refund sub-state so the guest knows whether the
-//    money is already back or still moving.
-//  - If the booking was refunded for some other reason (e.g. late
-//    payment auto-refund), we show the plain "Refunded" label.
 // =============================================================
 function guestStatusInfo(b) {
   var s = String(b.status || '').toLowerCase();
@@ -409,7 +401,7 @@ function guestStatusInfo(b) {
   var isRefundPending = isRefundRelated && s.indexOf('pending') !== -1;
   var isRefundComplete = isRefundRelated && !isRefundPending;
 
-  // ---------- 1) HOST CANCELLATION (with refund sub-state) ----------
+  // 1) HOST CANCELLATION (with refund sub-state)
   if (isCancelled) {
     if (isRefundPending) {
       return {
@@ -420,7 +412,7 @@ function guestStatusInfo(b) {
         buttons: []
       };
     }
-   if (isRefundComplete) {
+    if (isRefundComplete) {
       return {
         key: 'refunded',
         badgeClass: 'badge-failed',
@@ -429,7 +421,6 @@ function guestStatusInfo(b) {
         buttons: []
       };
     }
-    // Unpaid cancellation — no refund involved.
     return {
       key: 'cancelled',
       badgeClass: 'badge-failed',
@@ -439,7 +430,7 @@ function guestStatusInfo(b) {
     };
   }
 
-  // ---------- 2) STANDALONE REFUND (not host-cancelled) ----------
+  // 2) STANDALONE REFUND (not host-cancelled)
   if (isRefundComplete) {
     return {
       key: 'refunded',
@@ -459,7 +450,7 @@ function guestStatusInfo(b) {
     };
   }
 
-  // ---------- 3) EXPIRED ----------
+  // 3) EXPIRED
   if (s.indexOf('expired') !== -1) {
     return {
       key: 'expired',
@@ -470,7 +461,7 @@ function guestStatusInfo(b) {
     };
   }
 
-  // ---------- 4) COMPLETED — GREEN ----------
+  // 4) COMPLETED — GREEN
   if (s.indexOf('completed') !== -1 || hasPayoutDate) {
     return {
       key: 'completed',
@@ -481,7 +472,7 @@ function guestStatusInfo(b) {
     };
   }
 
-  // ---------- 5) PAYMENT FAILED ----------
+  // 5) PAYMENT FAILED
   if (s.indexOf('fail') !== -1) {
     return {
       key: 'failed',
@@ -492,7 +483,7 @@ function guestStatusInfo(b) {
     };
   }
 
-  // ---------- 6) PAID / CONFIRMED ----------
+  // 6) PAID / CONFIRMED
   if (s.indexOf('paid') !== -1) {
     return {
       key: 'paid',
@@ -503,7 +494,7 @@ function guestStatusInfo(b) {
     };
   }
 
-  // ---------- 7) FALLBACK — AWAITING PAYMENT ----------
+  // 7) FALLBACK — AWAITING PAYMENT
   return {
     key: 'pending',
     badgeClass: 'badge-pending',
@@ -724,20 +715,58 @@ function bookingActionHandler(e) {
 async function manualCheckPayment(bookingId) {
   try {
     const result = await checkPaymentStatus(bookingId);
-    if (result.paymentStatus === 'refunded') { await showAlert('Refunded', 'This booking has been refunded. Refunds may take 3–7 business days.'); loadMyBookings(); return; }
-    if (result.paymentStatus === 'cancelled') { await showAlert('Booking Cancelled', 'This booking was cancelled by the host.'); loadMyBookings(); return; }
-    if (result.paymentStatus === 'expired') { await showAlert('Booking Expired', 'This booking expired before the payment completed.'); loadMyBookings(); return; }
+
+    // Terminal states — show the correct message for each.
+    if (result.paymentStatus === 'refunded') {
+      await showAlert('Refunded', 'This booking has been refunded. Refunds may take 3–7 business days.');
+      loadMyBookings();
+      return;
+    }
+    if (result.paymentStatus === 'cancelled') {
+      await showAlert('Booking Cancelled', 'This booking was cancelled by the host.');
+      loadMyBookings();
+      return;
+    }
+    if (result.paymentStatus === 'expired') {
+      await showAlert('Booking Expired', 'This booking expired before the payment completed.');
+      loadMyBookings();
+      return;
+    }
+
+    // FIX #3: failed payments now show the proper failure modal instead of
+    // falling through to the generic "Still Processing" message.
+    if (result.paymentStatus === 'failed') {
+      showPaymentFailedModal(bookingId, result.booking || { id: bookingId });
+      return;
+    }
+
     if (result.success && result.booking) {
       const status = result.booking.status || '';
-      if (status.toLowerCase().includes('completed')) { await showAlert('Stay Completed', 'This stay is already complete.'); loadMyBookings(); return; }
-      if (status.toLowerCase().includes('paid') && !status.toLowerCase().includes('failed')) { await showAlert('✅ Payment confirmed!', 'Your booking is confirmed — ready for your stay.'); loadMyBookings(); return; }
-      if (status.toLowerCase().includes('fail')) { showPaymentFailedModal(bookingId, result.booking); return; }
+      if (status.toLowerCase().includes('completed')) {
+        await showAlert('Stay Completed', 'This stay is already complete.');
+        loadMyBookings();
+        return;
+      }
+      if (status.toLowerCase().includes('paid') && !status.toLowerCase().includes('failed')) {
+        await showAlert('✅ Payment confirmed!', 'Your booking is confirmed — ready for your stay.');
+        loadMyBookings();
+        return;
+      }
+      if (status.toLowerCase().includes('fail')) {
+        showPaymentFailedModal(bookingId, result.booking);
+        return;
+      }
       await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
       return;
     }
-    if (result.retry) { await showAlert('Still Processing', result.message || 'The payment is still being processed. Please try again in a few seconds.'); return; }
+    if (result.retry) {
+      await showAlert('Still Processing', result.message || 'The payment is still being processed. Please try again in a few seconds.');
+      return;
+    }
     await showAlert('Error', result.error || 'Could not check payment status.');
-  } catch (e) { await showAlert('Error', 'Could not connect to the server.'); }
+  } catch (e) {
+    await showAlert('Error', 'Could not connect to the server.');
+  }
 }
 
 async function retryPayment(bookingId) {
