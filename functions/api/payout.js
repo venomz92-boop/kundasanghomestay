@@ -1,6 +1,12 @@
 // /api/payout.js — Admin-only emergency payout using the shared
 // chipSendPayout() helper. Refuses to simulate unless non-prod with
 // ALLOW_PAYOUT_SIMULATION=true. Uses the global bookings lock.
+//
+// [THIS REVISION]
+// After a successful live payout, the host now receives a payout receipt
+// email via sendHostPayoutEmail() from _utils.js. Sent only on real
+// success (not on simulation, not on unknown, not on failure). Best-effort:
+// a failed email never rolls back the payout.
 import {
   corsHeaders,
   getClientIP,
@@ -12,7 +18,8 @@ import {
   parseJSONSafely,
   jsonResponse,
   withLock,
-  chipSendPayout
+  chipSendPayout,
+  sendHostPayoutEmail
 } from './_utils.js';
 
 const BOOKINGS_LOCK = 'bookings-global';
@@ -182,17 +189,21 @@ export async function onRequestPost({ request, env }) {
 
         let payoutSuccess = false;
         let payoutUnknown = false;
+        let payoutId = null;
+        let paidAtIso = null;
 
         if (payoutResult.success) {
           payoutSuccess = true;
+          payoutId = payoutResult.payoutId;
+          paidAtIso = new Date().toISOString();
           bookings[idx].status = 'Completed - Payout Success';
-          bookings[idx].chip_payout_id = payoutResult.payoutId;
-          bookings[idx].ownerPayoutId = payoutResult.payoutId;
+          bookings[idx].chip_payout_id = payoutId;
+          bookings[idx].ownerPayoutId = payoutId;
           bookings[idx].payoutAmount = payoutAmount;
-          bookings[idx].payoutDate = new Date().toISOString();
-          bookings[idx].payoutSuccessDate = new Date().toISOString();
+          bookings[idx].payoutDate = paidAtIso;
+          bookings[idx].payoutSuccessDate = paidAtIso;
           bookings[idx].payoutSuccess = true;
-          bookings[idx].checkedInAt = bookings[idx].checkedInAt || new Date().toISOString();
+          bookings[idx].checkedInAt = bookings[idx].checkedInAt || paidAtIso;
           bookings[idx].checkedInBy = 'admin';
           bookings[idx].payoutMethod = 'CHIP Send (admin override)';
           bookings[idx].payoutFailedAttempt = false;
@@ -265,11 +276,27 @@ export async function onRequestPost({ request, env }) {
           };
         }
 
+        // Payout receipt email — only on real success.
+        let emailReport = { sent: false, error: 'not attempted' };
+        if (payoutSuccess) {
+          try {
+            emailReport = await sendHostPayoutEmail(
+              booking,
+              homestay,
+              { amount: payoutAmount, payoutId, reference, paidAt: paidAtIso },
+              env
+            );
+          } catch (mailErr) {
+            console.error('Payout email error:', mailErr.message);
+            emailReport = { sent: false, error: mailErr.message };
+          }
+        }
+
         await logAction({
           db,
           action: payoutSuccess ? 'payout_chip_send_admin' : (payoutUnknown ? 'payout_chip_send_admin_unknown' : 'payout_chip_send_admin_failed'),
           admin: 'admin',
-          details: `CHIP payout ${payoutResult.payoutId || 'failed'} for ${bookingId} (RM${payoutAmount})`,
+          details: `CHIP payout ${payoutId || 'failed'} for ${bookingId} (RM${payoutAmount}). Payout email: ${emailReport.sent ? 'sent' : (payoutSuccess ? 'failed — ' + (emailReport.error || 'unknown') : 'n/a')}.`,
           ip: clientIP,
           userId: booking.guestEmail,
           homestayId: booking.homestayId
@@ -279,8 +306,9 @@ export async function onRequestPost({ request, env }) {
           ? {
               success: true,
               message: `RM${payoutAmount.toFixed(2)} sent to owner via CHIP Send.`,
-              payoutId: payoutResult.payoutId,
-              bookingId
+              payoutId,
+              bookingId,
+              payoutEmailSent: emailReport.sent
             }
           : {
               success: false,
