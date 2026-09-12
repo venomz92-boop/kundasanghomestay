@@ -2,10 +2,23 @@
 // actions: block/unblock a room date, change the nightly price, shift a
 // booking's dates, and cancel a booking (with automatic refund).
 //
-// [NEW] Cancellation emails. When a host cancels a booking, the guest now
-// receives an email describing the outcome (refund processed / refund
+// [PREVIOUS] Cancellation emails. When a host cancels a booking, the guest
+// now receives an email describing the outcome (refund processed / refund
 // processing / refund failed / no refund needed). Best-effort: an email
 // failure never blocks the cancellation itself.
+//
+// [THIS REVISION]
+// (1) Refund amount uses `amount_paid` (the amount CHIP actually collected)
+//     instead of `total` (which can be recalculated by an admin editing
+//     dates on a paid booking).
+// (2) Before calling CHIP, we write a `refund_attempted_at` marker to the
+//     booking. If a second cancel request arrives while the first is
+//     still talking to CHIP (a stale-lock race), it sees the marker and
+//     refuses, preventing a double refund.
+// (3) `calculatePrice` returns `youReceive: base` — the host's payout —
+//     matching the meaning of `youReceive` used everywhere else. It used
+//     to return `fee - gatewayFee` (the platform's cut), which was the
+//     wrong number for a field labelled "youReceive".
 import {
   corsHeaders,
   getClientIP,
@@ -38,7 +51,10 @@ function calculatePrice(ownerPrice, nights = 1) {
   const fee = Math.round((base * 11) / 100);
   const gatewayFee = GATEWAY_FEE;
   const total = base + fee + gatewayFee;
-  return { nights, base, fee, gatewayFee, total, youReceive: fee - gatewayFee };
+  // [FIX 1.8] `youReceive` = the host's payout. Was previously
+  // `fee - gatewayFee` (the platform's cut), which was the wrong
+  // meaning for a field labelled "youReceive".
+  return { nights, base, fee, gatewayFee, total, youReceive: base };
 }
 
 function getDatesInRange(checkin, checkout) {
@@ -103,7 +119,7 @@ function isPaidBooking(booking) {
 }
 
 // ============================================================
-// [NEW] Cancellation email — best-effort, never blocks the cancel.
+// Cancellation email — best-effort, never blocks the cancel.
 //
 // Four cases:
 //   1. Paid + refund fully processed     → green header + refund ID
@@ -581,14 +597,39 @@ export async function onRequestPost({ request, env }) {
             return { error: 'This booking has already been refunded.', status: 400 };
           }
 
+          // [FIX 1.5] Unresolved-refund guard: a refund was started but
+          // never confirmed. Refuse to fire a second one; the admin must
+          // verify in the CHIP dashboard first.
+          if (booking.refund_attempted_at && !booking.chip_refund_id) {
+            return {
+              error: `A refund was already attempted for this booking at ${booking.refund_attempted_at}. Log into the CHIP dashboard and check purchase ${booking.chip_purchase_id || '(unknown)'} before retrying. If no refund exists, contact support to clear the marker.`,
+              status: 409
+            };
+          }
+
           const isPaid = isPaidBooking(booking);
           let refundSuccess = false;
           let refundData = null;
           let refundError = null;
 
           if (isPaid && booking.chip_purchase_id) {
+            // [FIX 1.5] Mark the attempt BEFORE calling CHIP. If the lock
+            // goes stale while CHIP is talking (a slow round-trip), a
+            // second cancel request will see this marker and refuse.
+            bookings[idx].refund_attempted_at = new Date().toISOString();
+            bookings[idx].refund_attempted_by = 'host';
+            await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_bookings', JSON.stringify(bookings))
+              .run();
+
             try {
-              refundData = await processChipRefund(booking.chip_purchase_id, booking.total, env);
+              // [FIX 1.4] Refund the amount CHIP actually collected,
+              // not the amount an admin may have recalculated.
+              refundData = await processChipRefund(
+                booking.chip_purchase_id,
+                booking.amount_paid || booking.total,
+                env
+              );
               refundSuccess = true;
             } catch (err) {
               refundError = err.message;
@@ -600,7 +641,8 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded';
             bookings[idx].chip_refund_id = refundData.id;
             bookings[idx].refunded_at = new Date().toISOString();
-            bookings[idx].refund_amount = booking.total;
+            // [FIX 1.4] Refund amount stored = what was actually paid.
+            bookings[idx].refund_amount = booking.amount_paid || booking.total;
             bookings[idx].cancelled_by = 'host';
             bookings[idx].statusUpdated = new Date().toISOString();
             if (isPending) bookings[idx].refund_pending = true;
@@ -643,7 +685,7 @@ export async function onRequestPost({ request, env }) {
       }
 
       // ============================================================
-      // [NEW] Send the cancellation email to the guest. Best-effort:
+      // Send the cancellation email to the guest. Best-effort:
       // an email failure never rolls back the cancellation or refund.
       // ============================================================
       let emailReport = { sent: false, error: 'skipped' };
@@ -686,8 +728,8 @@ export async function onRequestPost({ request, env }) {
         message: result.isPaid
           ? (result.refundSuccess
               ? (result.refundPending
-                  ? `Booking ${bookingId} cancelled. CHIP is processing the refund of RM${result.booking.total.toFixed(2)} — this can take a few minutes. The guest will be notified when complete.`
-                  : `Booking ${bookingId} cancelled and full refund of RM${result.booking.total.toFixed(2)} processed.`)
+                  ? `Booking ${bookingId} cancelled. CHIP is processing the refund of RM${Number(result.booking.refund_amount || 0).toFixed(2)} — this can take a few minutes. The guest will be notified when complete.`
+                  : `Booking ${bookingId} cancelled and full refund of RM${Number(result.booking.refund_amount || 0).toFixed(2)} processed.`)
               : `Booking ${bookingId} cancelled but refund failed. Status set to 'Refund Pending'. Please contact support.`)
           : `Booking ${bookingId} cancelled (unpaid).`,
         booking: result.booking,
