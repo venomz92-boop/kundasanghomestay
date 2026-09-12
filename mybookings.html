@@ -391,8 +391,6 @@ function showLoggedInView(guest) {
 
 // =============================================================
 // GUEST-FACING STATUS MAPPING
-// The 12+ internal statuses collapse into 6 things a guest cares about.
-// Payout states are NEVER shown to the guest — they only live in admin.
 // =============================================================
 function guestStatusInfo(b) {
   var s = String(b.status || '').toLowerCase();
@@ -420,11 +418,11 @@ function guestStatusInfo(b) {
     };
   }
 
-  // 3) Cancelled by host (any form)
+  // 3) Cancelled by host — RED styling (same class as Payment Failed).
   if (s.indexOf('cancel') !== -1) {
     return {
       key: 'cancelled',
-      badgeClass: 'badge-cancelled',
+      badgeClass: 'badge-failed',
       badgeLabel: 'Cancelled by Host',
       note: '',
       buttons: []
@@ -442,13 +440,12 @@ function guestStatusInfo(b) {
     };
   }
 
-  // 5) Completed — ALL the payout sub-states collapse to one guest label.
-  //    The guest does not care whether the host has been paid yet.
+  // 5) Completed — GREEN styling, label "✓ Completed".
   if (s.indexOf('completed') !== -1 || hasPayoutDate) {
     return {
       key: 'completed',
-      badgeClass: 'badge-completed',
-      badgeLabel: '✓ Stay Completed',
+      badgeClass: 'badge-paid',
+      badgeLabel: '✓ Completed',
       note: '',
       buttons: []
     };
@@ -515,8 +512,6 @@ async function checkPaymentStatus(bookingId) {
   } catch (e) { return { success: false, error: e.message }; }
 }
 
-// Only poll when the guest has an unresolved payment to wait for.
-// Completed / cancelled / refunded / expired bookings are final.
 function isGuestPollable(b) {
   var info = guestStatusInfo(b);
   return info.key === 'pending' || info.key === 'failed';
@@ -621,7 +616,6 @@ function renderBookings() {
   var listDiv = document.getElementById('bookingsList');
   if (!listDiv) return;
 
-  // Metrics use the guest-facing status, not the internal one.
   var countPaid = 0, countCompleted = 0, countPending = 0;
   myBookings.forEach(function(b) {
     var info = guestStatusInfo(b);
