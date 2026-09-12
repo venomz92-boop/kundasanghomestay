@@ -1,5 +1,16 @@
-// /api/chip-webhook.js – RSASSA-PKCS1-v1_5 + SHA-256 + Refund + Idempotency + Late-payment auto-refund
+// /api/chip-webhook.js — Plain English: this is the file CHIP calls when
+// a payment succeeds, fails, or is refunded. Two big changes:
+// (1) Duplicate events are now tracked in a real database table with an
+//     automatic 30-day cleanup — before this, we kept them in a JSON blob
+//     capped at 1000 entries, which could forget old events and re-run
+//     them. Now every event is recorded exactly once.
+// (2) This file now uses the same shared "bookings-global" lock as every
+//     other booking file, so it can never race with the guest payment
+//     check, the host dashboard, or an admin edit.
 import { corsHeaders, getClientIP, logAction, withLock, finalizePaidBooking } from './_utils.js';
+
+const BOOKINGS_LOCK = 'bookings-global';
+const WEBHOOK_EVENT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 function pemToArrayBuffer(pem) {
   const b64 = pem
@@ -48,67 +59,73 @@ async function verifyChipSignature(request, env) {
   }
 }
 
-// ============================================================
-// Helper: refund a cancelled booking whose CHIP payment settled late.
-// Lock-protected so concurrent callers don't double-refund.
-// ============================================================
-async function tryAutoRefundLatePayment(db, bookingId, env) {
-  return withLock(db, `refund-${bookingId}`, async (db) => {
-    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
-    let bookings = [];
-    try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
-    const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-    if (idx === -1) return { error: 'Booking not found' };
-    const b = bookings[idx];
+// M2: dedicated D1 table for dedup, replacing the capped JSON blob.
+async function ensureWebhookEventsTable(db) {
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS webhook_events (
+      event_key TEXT PRIMARY KEY,
+      processed_at INTEGER NOT NULL
+    )`
+  ).run();
+}
 
-    if (b.chip_refund_id) {
-      return { alreadyRefunded: true, refundId: b.chip_refund_id };
-    }
-    if (!b.chip_purchase_id) {
-      return { error: 'No chip_purchase_id to refund' };
-    }
+// Auto-refund helper. CALLER MUST HOLD BOOKINGS_LOCK (C4).
+async function tryAutoRefundLatePaymentLocked(db, bookingId, env) {
+  const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+  let bookings = [];
+  try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+  const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
+  if (idx === -1) return { error: 'Booking not found' };
+  const b = bookings[idx];
 
-    const secret = env.CHIP_SECRET_KEY;
-    if (!secret) return { error: 'CHIP_SECRET_KEY missing' };
+  if (b.chip_refund_id) {
+    return { alreadyRefunded: true, refundId: b.chip_refund_id };
+  }
+  if (!b.chip_purchase_id) {
+    return { error: 'No chip_purchase_id to refund' };
+  }
 
-    const refundAmountCents = Math.round(Number(b.total) * 100);
+  const secret = env.CHIP_SECRET_KEY;
+  if (!secret) return { error: 'CHIP_SECRET_KEY missing' };
 
-    try {
-      const res = await fetch(
-        `https://gate.chip-in.asia/api/v1/purchases/${b.chip_purchase_id}/refund/`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${secret}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ amount: refundAmountCents })
-        }
-      );
-      const data = await res.json();
+  const refundAmountCents = Math.round(Number(b.total) * 100);
 
-      if (!res.ok || !data.id) {
-        return { error: `CHIP refund failed: ${data.error || 'unknown'}` };
+  try {
+    const res = await fetch(
+      `https://gate.chip-in.asia/api/v1/purchases/${b.chip_purchase_id}/refund/`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${secret}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ amount: refundAmountCents })
       }
+    );
+    let data = null;
+    try { data = await res.json(); } catch (_) { data = null; }
 
-      const isPending = data.status === 'pending_refund';
-
-      bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded - Late Payment';
-      bookings[idx].chip_refund_id = data.id;
-      bookings[idx].refunded_at = new Date().toISOString();
-      bookings[idx].refund_amount = Number(b.total) || 0;
-      bookings[idx].late_payment_refund = true;
-      if (isPending) bookings[idx].refund_pending = true;
-
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind('kd_bookings', JSON.stringify(bookings))
-        .run();
-
-      return { success: true, refundId: data.id, pending: isPending };
-    } catch (e) {
-      return { error: `Refund network error: ${e.message}` };
+    if (!res.ok || !data || !data.id) {
+      return { error: `CHIP refund failed: ${data?.error || 'unknown'}` };
     }
-  }, 60000);
+
+    const isPending = data.status === 'pending_refund';
+
+    bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded - Late Payment';
+    bookings[idx].chip_refund_id = data.id;
+    bookings[idx].refunded_at = new Date().toISOString();
+    bookings[idx].refund_amount = Number(b.total) || 0;
+    bookings[idx].late_payment_refund = true;
+    if (isPending) bookings[idx].refund_pending = true;
+
+    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+      .bind('kd_bookings', JSON.stringify(bookings))
+      .run();
+
+    return { success: true, refundId: data.id, pending: isPending };
+  } catch (e) {
+    return { error: `Refund network error: ${e.message}` };
+  }
 }
 
 async function sendCheckinEmail(booking, env) {
@@ -228,6 +245,9 @@ async function sendRefundEmail(booking, env) {
 }
 
 export async function onRequestPost({ request, env }) {
+  let eventKey = null;
+  let db = null;
+
   try {
     const isValid = await verifyChipSignature(request, env);
     if (!isValid) {
@@ -246,29 +266,48 @@ export async function onRequestPost({ request, env }) {
       return new Response('Missing fields', { status: 400, headers: corsHeaders(request) });
     }
 
-    const db = env.DB;
+    db = env.DB;
     if (!db) return new Response('DB error', { status: 500, headers: corsHeaders(request) });
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+    await ensureWebhookEventsTable(db);
 
     // ============================================================
-    // IDEMPOTENCY: dedupe events by event + purchaseId
+    // M2: dedup via dedicated D1 table using INSERT OR IGNORE.
+    // Row is rolled back on handler failure (see catch below) so
+    // CHIP's automatic retry re-processes cleanly.
     // ============================================================
-    const eventKey = `${event}:${purchaseId}`;
-    const eventsRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_webhook_events').first();
-    let processedEvents = [];
-    try { if (eventsRes?.data) processedEvents = JSON.parse(eventsRes.data); } catch (_) {}
+    eventKey = `${event}:${purchaseId}`;
+    const now = Date.now();
 
-    if (processedEvents.includes(eventKey)) {
+    const insertRes = await db.prepare(
+      `INSERT OR IGNORE INTO webhook_events (event_key, processed_at) VALUES (?, ?)`
+    ).bind(eventKey, now).run();
+
+    if (!insertRes.meta || insertRes.meta.changes === 0) {
       console.log(`Webhook event ${eventKey} already processed. Skipping.`);
       return new Response('OK', { status: 200, headers: corsHeaders(request) });
     }
 
+    // Prune stale rows (cheap DELETE; runs on every webhook).
+    try {
+      const cutoff = now - WEBHOOK_EVENT_TTL_MS;
+      await db.prepare(`DELETE FROM webhook_events WHERE processed_at < ?`).bind(cutoff).run();
+    } catch (_) { /* best-effort */ }
+
+    // ============================================================
+    // Find the booking for this purchase.
+    // ============================================================
     const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
     let bookings = [];
     try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
     const idx = bookings.findIndex(b => b.chip_purchase_id === purchaseId);
     if (idx === -1) {
       console.warn(`No booking found for purchase_id: ${purchaseId}`);
+      // Roll back dedup row so a retry can try again after the
+      // booking is created (rare race).
+      try {
+        await db.prepare(`DELETE FROM webhook_events WHERE event_key = ?`).bind(eventKey).run();
+      } catch (_) {}
       return new Response('Booking not found', { status: 404, headers: corsHeaders(request) });
     }
 
@@ -276,21 +315,30 @@ export async function onRequestPost({ request, env }) {
 
     // ===== PURCHASE PAID =====
     if (event === 'purchase.paid' || status === 'completed') {
-      let finalizeResult;
+      let lockResult;
       try {
-        finalizeResult = await withLock(db, `paid-${booking.id}`, async (db) => {
-          return await finalizePaidBooking(db, booking.id);
-        }, 10000);
+        // C4: canonical lock. Finalize + potential auto-refund live
+        // inside one atomic block.
+        lockResult = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const finalizeResult = await finalizePaidBooking(db, booking.id);
+          if (finalizeResult.error) return { finalizeResult };
+          if (finalizeResult.refuseFinalize) {
+            const refundResult = await tryAutoRefundLatePaymentLocked(db, booking.id, env);
+            return { finalizeResult, refundResult };
+          }
+          return { finalizeResult };
+        }, 60000);
       } catch (lockErr) {
-        // Another confirmation path is finalizing. Give it a moment and re-check.
         if (lockErr.message && lockErr.message.includes('in progress')) {
-          await new Promise(r => setTimeout(r, 800));
+          // Another confirmation path is finalizing. Give it a moment,
+          // then re-read and answer from the fresh state.
+          await new Promise(res => setTimeout(res, 800));
           const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
           let bb = [];
           try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
           const cur = bb.find(b => String(b.id) === String(booking.id));
           if (cur && (cur.status === 'Paid - Awaiting Check-in' || String(cur.status).startsWith('Completed'))) {
-            finalizeResult = { alreadyFinalized: true, booking: cur, checkinCode: cur.checkinCode };
+            lockResult = { finalizeResult: { alreadyFinalized: true, booking: cur, checkinCode: cur.checkinCode } };
           } else {
             throw lockErr;
           }
@@ -299,14 +347,14 @@ export async function onRequestPost({ request, env }) {
         }
       }
 
+      const finalizeResult = lockResult.finalizeResult;
+
       if (finalizeResult.error) {
         console.warn(`Finalize error: ${finalizeResult.error}`);
       } else if (finalizeResult.alreadyFinalized) {
         console.log(`Booking ${booking.id} already finalized by another path. Skipping email.`);
       } else if (finalizeResult.refuseFinalize) {
-        // BUG B fix: booking was cancelled while CHIP processed the payment.
-        // Refuse to resurrect; auto-refund instead.
-        const refundResult = await tryAutoRefundLatePayment(db, booking.id, env);
+        const refundResult = lockResult.refundResult || { error: 'refund not attempted' };
         await logAction({
           db,
           action: refundResult.success ? 'late_payment_auto_refunded' : 'late_payment_refund_failed',
@@ -318,7 +366,6 @@ export async function onRequestPost({ request, env }) {
         });
         console.log(`Late-payment auto-refund for ${booking.id}:`, refundResult);
       } else if (finalizeResult.finalized) {
-        // Only send email if we generated the code (avoid duplicates)
         if (finalizeResult.codeWasMissing) {
           const result = await sendCheckinEmail(finalizeResult.booking, env);
           if (result.emailSent) {
@@ -344,54 +391,81 @@ export async function onRequestPost({ request, env }) {
 
     // ===== PURCHASE FAILED =====
     else if (event === 'purchase.failed' || status === 'failed' || status === 'cancelled') {
-      // Never downgrade a booking that's already paid/refunded/cancelled by us.
-      const currentStatus = String(bookings[idx].status || '');
-      const isTerminal = currentStatus === 'Paid - Awaiting Check-in'
-        || currentStatus.startsWith('Completed')
-        || /cancelled|refunded|expired/i.test(currentStatus);
-
-      if (!isTerminal) {
-        bookings[idx] = {
-          ...booking,
-          status: 'Payment Failed',
-          chip_status: 'failed'
-        };
-        await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-          .bind('kd_bookings', JSON.stringify(bookings))
-          .run();
-        console.log(`Booking ${booking.id} marked as FAILED`);
-      } else {
-        console.log(`Booking ${booking.id} already terminal (${currentStatus}) — ignoring failed event.`);
+      try {
+        await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+          let bb = [];
+          try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
+          const ii = bb.findIndex(b => String(b.id) === String(booking.id));
+          if (ii === -1) return;
+          const cur = bb[ii];
+          const currentStatus = String(cur.status || '');
+          const isTerminal = currentStatus === 'Paid - Awaiting Check-in'
+            || currentStatus.startsWith('Completed')
+            || /cancelled|refunded|expired/i.test(currentStatus);
+          if (isTerminal) {
+            console.log(`Booking ${booking.id} already terminal (${currentStatus}) — ignoring failed event.`);
+            return;
+          }
+          bb[ii] = { ...cur, status: 'Payment Failed', chip_status: 'failed' };
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_bookings', JSON.stringify(bb))
+            .run();
+          console.log(`Booking ${booking.id} marked as FAILED`);
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          console.warn(`Webhook failed-event: lock busy for ${booking.id}. verify-payment will reconcile.`);
+        } else {
+          throw lockErr;
+        }
       }
     }
 
     // ===== PURCHASE REFUNDED (completion of a refund) =====
-    // CHIP fires 'payment.refunded' per docs. We also accept 'purchase.refunded'
-    // in case they use that name in the future.
     else if (event === 'purchase.refunded' || event === 'payment.refunded' || status === 'refunded') {
       const refundedAmount = payload.data?.refunded_amount
         ? Number(payload.data.refunded_amount) / 100
         : (booking.refund_amount || booking.total || 0);
 
-      bookings[idx] = {
-        ...booking,
-        status: 'Refunded',
-        chip_status: 'refunded',
-        refunded_at: new Date().toISOString(),
-        refund_amount: refundedAmount,
-        chip_refund_id: payload.data?.refund_id || payload.data?.id || booking.chip_refund_id || 'webhook_refund',
-        refund_pending: false
-      };
+      let emailTarget = null;
+      try {
+        await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+          let bb = [];
+          try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
+          const ii = bb.findIndex(b => String(b.id) === String(booking.id));
+          if (ii === -1) return;
+          const cur = bb[ii];
+          bb[ii] = {
+            ...cur,
+            status: 'Refunded',
+            chip_status: 'refunded',
+            refunded_at: new Date().toISOString(),
+            refund_amount: refundedAmount,
+            chip_refund_id: payload.data?.refund_id || payload.data?.id || cur.chip_refund_id || 'webhook_refund',
+            refund_pending: false
+          };
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_bookings', JSON.stringify(bb))
+            .run();
+          emailTarget = bb[ii];
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          console.warn(`Webhook refunded-event: lock busy for ${booking.id}. Reconcile later.`);
+          return new Response('OK', { status: 200, headers: corsHeaders(request) });
+        }
+        throw lockErr;
+      }
 
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind('kd_bookings', JSON.stringify(bookings))
-        .run();
-
-      const result = await sendRefundEmail(bookings[idx], env);
-      if (result.emailSent) {
-        console.log(`Refund email sent to ${booking.guestEmail}`);
-      } else {
-        console.warn(`Refund email failed: ${result.emailError}`);
+      if (emailTarget) {
+        const result = await sendRefundEmail(emailTarget, env);
+        if (result.emailSent) {
+          console.log(`Refund email sent to ${booking.guestEmail}`);
+        } else {
+          console.warn(`Refund email failed: ${result.emailError}`);
+        }
       }
 
       await logAction({
@@ -409,35 +483,49 @@ export async function onRequestPost({ request, env }) {
 
     // ===== PURCHASE PENDING REFUND (acquirer processing) =====
     else if (event === 'purchase.pending_refund' || status === 'pending_refund') {
-      bookings[idx] = {
-        ...booking,
-        status: 'Refund Pending - Awaiting CHIP',
-        chip_status: 'pending_refund',
-        chip_refund_id: payload.data?.refund_id || payload.data?.id || booking.chip_refund_id || null,
-        refund_pending: true,
-        refund_pending_at: new Date().toISOString()
-      };
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind('kd_bookings', JSON.stringify(bookings))
-        .run();
-      console.log(`Booking ${booking.id} refund PENDING`);
+      try {
+        await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+          let bb = [];
+          try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
+          const ii = bb.findIndex(b => String(b.id) === String(booking.id));
+          if (ii === -1) return;
+          const cur = bb[ii];
+          bb[ii] = {
+            ...cur,
+            status: 'Refund Pending - Awaiting CHIP',
+            chip_status: 'pending_refund',
+            chip_refund_id: payload.data?.refund_id || payload.data?.id || cur.chip_refund_id || null,
+            refund_pending: true,
+            refund_pending_at: new Date().toISOString()
+          };
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_bookings', JSON.stringify(bb))
+            .run();
+          console.log(`Booking ${booking.id} refund PENDING`);
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          console.warn(`Webhook pending_refund-event: lock busy for ${booking.id}. Reconcile later.`);
+        } else {
+          throw lockErr;
+        }
+      }
     }
-
-    // ============================================================
-    // Record event as processed (only after successful handling)
-    // ============================================================
-    processedEvents.push(eventKey);
-    if (processedEvents.length > 1000) {
-      processedEvents = processedEvents.slice(-1000);
-    }
-    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-      .bind('kd_webhook_events', JSON.stringify(processedEvents))
-      .run();
 
     return new Response('OK', { status: 200, headers: corsHeaders(request) });
 
   } catch (e) {
     console.error('Webhook error:', e.message);
+
+    // Roll back the dedup row so CHIP's automatic retry re-processes
+    // this event instead of silently no-op'ing on the retry.
+    if (db && eventKey) {
+      try {
+        await db.prepare(`DELETE FROM webhook_events WHERE event_key = ?`).bind(eventKey).run();
+      } catch (_) { /* best-effort */ }
+    }
+
     return new Response('Internal server error', { status: 500, headers: corsHeaders(request) });
   }
 }
