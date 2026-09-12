@@ -396,7 +396,13 @@ async function handleRegister(e) {
    
 if (data.success) {
   renderGuestNav();
-  await showAlert('Registration Successful', data.message);
+  // FIX #8 (option a): the API may return success because it re-sent a
+  // verification email for an already-existing UNVERIFIED account
+  // (data.resent === true). Distinguish the modal title so the user
+  // isn't confused by "Registration Successful" when they were
+  // already registered.
+  const title = data.resent ? 'Verification Email Resent' : 'Registration Successful';
+  await showAlert(title, data.message);
   window.location.href = '/login.html';
 }
     
