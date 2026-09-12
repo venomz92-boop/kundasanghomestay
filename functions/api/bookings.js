@@ -1,22 +1,22 @@
 // /api/bookings.js — Plain English: this file handles all booking reads and
 // writes. In THIS revision:
 //   (1) approveHomestay and rejectHomestay permanently delete verification
-//       images (IC, bank QR, PBT license) from Cloudinary on success,
-//       matching the promise made in Data Privacy Consent.
+//       images (IC, bank QR, PBT license) from Cloudinary on success.
 //   (2) On reject, all property + room photos are also destroyed, and the
 //       orphaned bank-QR entry in kd_homestays is removed.
-//   (3) deleteOwner now ALSO removes the account from kd_owners, so a
-//       "deleted" host cannot log back in and submit a new listing.
-//   (4) removeApprovedHomestay now destroys Cloudinary images and cleans
-//       the orphaned kd_homestays row.
-//   (5) updateHomestays clears chip_bank_account_id when the bank code,
-//       account number, or holder name changes.
-//   (6) updateHomestays now MERGES instead of overwriting.
-//   (7) New admin action `retryRefund`.
-//   (8) approveHomestay now sends an approval notification email to the
-//       host. Same delivery mechanism as the rejection email (Resend,
-//       SendGrid fallback). Best-effort — a failed email never rolls back
-//       the approval.
+//   (3) deleteOwner now ALSO removes the account from kd_owners.
+//   (4) removeApprovedHomestay destroys Cloudinary images and cleans the
+//       orphaned kd_homestays row.
+//   (5) updateHomestays clears chip_bank_account_id on bank-detail change.
+//   (6) updateHomestays MERGES instead of overwriting.
+//   (7) New admin action `retryRefund`. It now reads the stored
+//       cancel_type on the booking and:
+//         - guest_request → refund base only; write the retained fee
+//                           to the kd_fee_earnings ledger.
+//         - host_own      → refund full amount; no ledger entry.
+//         - missing       → treated as host_own (safe default).
+//       Booking status and fee ledger are written in a single db.batch.
+//   (8) approveHomestay sends an approval notification email to the host.
 import {
   corsHeaders,
   getClientIP,
@@ -319,9 +319,6 @@ async function sendRejectionEmail(homestay, reason, env) {
 
 // ============================================================
 // Approval notification email
-// Sent when the admin approves a pending homestay. Same delivery
-// mechanism as the rejection email. Best-effort — a failure never
-// rolls back the approval.
 // ============================================================
 async function sendApprovalEmail(homestay, env) {
   if (!homestay.ownerEmail) {
@@ -1075,6 +1072,12 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ---- Admin: retryRefund ----
+    // [THIS REVISION]
+    // Now reads the stored cancel_type on the booking and applies the
+    // correct refund amount and ledger write for each case:
+    //   - guest_request → refund base; write retained fee to kd_fee_earnings
+    //   - host_own (default for missing cancel_type) → refund full amount
+    // Booking status + fee ledger are written in a single db.batch.
     if (action === "retryRefund" && body.id) {
       const bookingId = String(body.id);
       let result;
@@ -1110,13 +1113,32 @@ export async function onRequestPost({ request, env }) {
             return { error: 'CHIP_SECRET_KEY not configured. Cannot process refund.', status: 500 };
           }
 
+          // Determine the correct refund amount from the stored cancel_type.
+          // A missing cancel_type means this is a legacy booking created
+          // before the two-path policy. Default to host_own (full refund),
+          // the safer choice for the guest.
+          const storedCancelType = String(booking.cancel_type || 'host_own').toLowerCase().trim();
+          const effectiveCancelType = (storedCancelType === 'guest_request') ? 'guest_request' : 'host_own';
+
+          const totalPaidNum = Number(booking.amount_paid || booking.total) || 0;
+          const baseAmountNum = Number(booking.base) || 0;
+          const refundAmountNum = effectiveCancelType === 'guest_request'
+            ? baseAmountNum
+            : totalPaidNum;
+          const feeRetainedNum = Math.max(0, Math.round((totalPaidNum - refundAmountNum) * 100) / 100);
+
+          if (refundAmountNum <= 0) {
+            return { error: 'Computed refund amount is zero or negative. Cannot refund.', status: 400 };
+          }
+
           bookings[idx].refund_attempted_at = new Date().toISOString();
           bookings[idx].refund_attempted_by = 'admin';
+          bookings[idx].refund_attempted_amount = refundAmountNum;
           await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
             .bind('kd_bookings', JSON.stringify(bookings))
             .run();
 
-          const refundAmountCents = Math.round(Number(booking.amount_paid || booking.total) * 100);
+          const refundAmountCents = Math.round(refundAmountNum * 100);
           let refundData = null;
           let refundError = null;
 
@@ -1148,7 +1170,7 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded';
             bookings[idx].chip_refund_id = refundData.id;
             bookings[idx].refunded_at = new Date().toISOString();
-            bookings[idx].refund_amount = Number(booking.amount_paid || booking.total) || 0;
+            bookings[idx].refund_amount = refundAmountNum;
             bookings[idx].refund_pending = isPending;
             bookings[idx].statusUpdated = new Date().toISOString();
             delete bookings[idx].refund_error;
@@ -1158,9 +1180,73 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].statusUpdated = new Date().toISOString();
           }
 
-          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-            .bind('kd_bookings', JSON.stringify(bookings))
-            .run();
+          // On a successful guest_request retry, write the retained fee
+          // to the ledger — same rules as owner-update-booking.js.
+          let feeEarningsToWrite = null;
+          let feeRecordedAmount = 0;
+
+          if (
+            refundData &&
+            effectiveCancelType === 'guest_request' &&
+            feeRetainedNum > 0
+          ) {
+            try {
+              const feeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
+              let feeEarnings = feeRes && feeRes.data
+                ? JSON.parse(feeRes.data)
+                : { total: 0, available: 0, withdrawn: 0, history: [] };
+              feeEarnings.history = feeEarnings.history || [];
+
+              const alreadyRecorded = feeEarnings.history.some(h =>
+                h.bookingId === bookingId &&
+                (h.type === 'earning' || h.type === 'cancellation_retained_fee')
+              );
+
+              if (!alreadyRecorded) {
+                feeEarnings.total = Math.round(((feeEarnings.total || 0) + feeRetainedNum) * 100) / 100;
+                feeEarnings.available = Math.round(((feeEarnings.available || 0) + feeRetainedNum) * 100) / 100;
+                feeEarnings.history.push({
+                  bookingId,
+                  fee: feeRetainedNum,
+                  date: new Date().toISOString(),
+                  type: 'cancellation_retained_fee',
+                  cancellation_type: 'guest_request',
+                  original_amount_paid: totalPaidNum,
+                  refunded_amount: refundAmountNum,
+                  method: 'chip_collect_partial_refund_admin_retry',
+                  ip: clientIP
+                });
+                feeEarningsToWrite = feeEarnings;
+                feeRecordedAmount = feeRetainedNum;
+              }
+            } catch (feeReadErr) {
+              console.error('Could not read fee earnings before admin retry batch:', feeReadErr.message);
+              // Do not fail the response. The refund already happened at
+              // CHIP. Log for manual reconciliation.
+            }
+          }
+
+          // Atomic write: booking status (always) + fee ledger (when applicable).
+          const atomicStmts = [
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_bookings', JSON.stringify(bookings))
+          ];
+          if (feeEarningsToWrite) {
+            atomicStmts.push(
+              db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+                .bind('kd_fee_earnings', JSON.stringify(feeEarningsToWrite))
+            );
+          }
+
+          try {
+            await db.batch(atomicStmts);
+          } catch (batchErr) {
+            console.error('Atomic batch write failed during admin refund retry:', batchErr.message);
+            return {
+              error: `Refund succeeded at CHIP but the booking and ledger could not be updated (${batchErr.message}). Booking left in "attempt marker only" state. Verify refund ${refundData?.id || ''} in the CHIP dashboard, then contact support to reconcile.`,
+              status: 500
+            };
+          }
 
           return {
             success: true,
@@ -1168,6 +1254,10 @@ export async function onRequestPost({ request, env }) {
             refundPending: refundData && refundData.status === 'pending_refund',
             refundId: refundData?.id || null,
             refundError: refundError || null,
+            cancelType: effectiveCancelType,
+            refundAmount: refundAmountNum,
+            feeRetained: feeRetainedNum,
+            feeRecorded: feeRecordedAmount,
             booking: bookings[idx]
           };
         }, 60000);
@@ -1186,9 +1276,13 @@ export async function onRequestPost({ request, env }) {
         db,
         action: result.refunded ? 'admin_refund_retry_success' : 'admin_refund_retry_failed',
         admin: 'admin',
-        details: `Admin retry refund for ${bookingId}: ${result.refunded ? result.refundId : result.refundError}`,
+        details: `Admin retry refund for ${bookingId} (type=${result.cancelType || 'unknown'}): ${
+          result.refunded
+            ? `${result.refundId}, RM${Number(result.refundAmount || 0).toFixed(2)}`
+            : result.refundError
+        }. Retained fee recorded to ledger: RM${Number(result.feeRecorded || 0).toFixed(2)}.`,
         ip: clientIP,
-        homestayId: result.booking.homestayId
+        homestayId: result.booking?.homestayId
       });
 
       return jsonResponse(result, 200, request);
@@ -1276,7 +1370,6 @@ export async function onRequestPost({ request, env }) {
           }
         }
 
-        // NEW: send the approval email. Best-effort — never rolls back.
         let emailResult = { sent: false, error: 'not attempted' };
         try {
           emailResult = await sendApprovalEmail(safeHomestay, env);
