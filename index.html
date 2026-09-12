@@ -1522,8 +1522,6 @@ if (list.length === 0) {
 
   // =============================================================
   // HANDLE PAYMENT RETURN
-  // Recognises the new [H4] paymentStatus values: 'refunded',
-  // 'cancelled', 'expired' (in addition to paid / pending / failed).
   // =============================================================
   async function handlePaymentReturn() {
   const params = new URLSearchParams(window.location.search);
@@ -1569,7 +1567,6 @@ if (list.length === 0) {
           verifiedBooking = data.booking;
           break;
         }
-        // [H4] Explicit terminal states — stop polling and record which one.
         if (data.paymentStatus === 'refunded' || data.paymentStatus === 'cancelled' || data.paymentStatus === 'expired' || data.paymentStatus === 'failed') {
           terminalStatus = data.paymentStatus;
           verifiedBooking = data.booking || null;
@@ -1588,7 +1585,6 @@ if (list.length === 0) {
       return;
     }
 
-    // [H4] Friendly messages for the new terminal states
     if (terminalStatus === 'refunded') {
       await showModal(
         'Booking Refunded',
@@ -1643,9 +1639,6 @@ if (list.length === 0) {
 
   // ---- Case 2: user cancelled or payment failed ----
   if (params.get('payment') === 'cancel' || params.get('payment') === 'failed' || statusId === '3') {
-    // Ensure CSRF token exists before sending the status update —
-    // otherwise the request is silently rejected with 403 and the
-    // booking stays stuck in "Pending Payment".
     let csrf = localStorage.getItem('kd_csrf_token');
     if (!csrf) {
       try {
@@ -1684,8 +1677,6 @@ if (list.length === 0) {
       });
       const data = await res.json();
 
-      // [H4] If verify says this is actually refunded/cancelled/expired,
-      // show the truthful message rather than the generic "payment failed" one.
       if (data.paymentStatus === 'refunded') {
         await showModal(
           'Booking Refunded',
@@ -1829,8 +1820,51 @@ if (list.length === 0) {
     
   // =============================================================
   // INITIALIZATION
+  //
+  // [FIX #5] Before rendering the guest nav, probe the server for the
+  // current session. Previously the nav trusted localStorage alone, so an
+  // expired cookie would leave the user seeing a phantom "logged in"
+  // header until they tried to book and got a 401.
+  //
+  // Behaviour:
+  //  - Server says authenticated  → adopt the server profile as truth.
+  //  - Server says not logged in  → clear local state so the header is
+  //                                 consistent with reality.
+  //  - Network error              → leave local state alone (offline
+  //                                 users shouldn't be logged out just
+  //                                 because the probe failed).
   // =============================================================
-  (function init() {
+  (async function init() {
+    // ---- [FIX #5] Reconcile session state with the server ----
+    try {
+      const sessionRes = await fetch('/api/guest-session', {
+        credentials: 'include',
+        cache: 'no-store'
+      });
+      if (sessionRes.ok) {
+        const sessionData = await sessionRes.json();
+        if (sessionData.authenticated && sessionData.guest) {
+          currentGuest = sessionData.guest;
+          try { localStorage.setItem('kd_guest', JSON.stringify(currentGuest)); } catch (e) {}
+          if (window.GuestSession && typeof window.GuestSession.setSession === 'function') {
+            window.GuestSession.setSession(currentGuest);
+          }
+        } else {
+          // Server explicitly says "not authenticated" — clear the phantom.
+          currentGuest = null;
+          try { localStorage.removeItem('kd_guest'); } catch (e) {}
+          try { localStorage.removeItem('kd_csrf_token'); } catch (e) {}
+          if (window.GuestSession && typeof window.GuestSession.clearGuestSession === 'function') {
+            window.GuestSession.clearGuestSession();
+          }
+        }
+      }
+    } catch (e) {
+      // Network failure — leave local state alone so offline users still
+      // see their name in the header.
+      console.warn('Session probe failed; using local guest state.', e.message);
+    }
+
     renderGuestNav();
 
     var today = new Date();
