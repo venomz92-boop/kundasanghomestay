@@ -7,6 +7,11 @@
 // (2) When a booking is already refunded or cancelled, we no longer
 //     pretend the payment "failed" — we say "refunded" or "cancelled"
 //     so the guest page shows the truth.
+//
+// [THIS REVISION]
+// Refund calculation uses `amount_paid` (the amount CHIP actually
+// collected) instead of `total` (which can be recalculated by an admin
+// editing dates on a paid booking).
 import {
   corsHeaders,
   getClientIP,
@@ -48,7 +53,8 @@ async function tryAutoRefundLatePaymentLocked(db, bookingId, env) {
   const secret = env.CHIP_SECRET_KEY;
   if (!secret) return { error: 'CHIP_SECRET_KEY missing' };
 
-  const refundAmountCents = Math.round(Number(b.total) * 100);
+  // [FIX 1.4] Refund the amount CHIP actually collected.
+  const refundAmountCents = Math.round(Number(b.amount_paid || b.total) * 100);
 
   try {
     const res = await fetch(
@@ -74,7 +80,7 @@ async function tryAutoRefundLatePaymentLocked(db, bookingId, env) {
     bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded - Late Payment';
     bookings[idx].chip_refund_id = data.id;
     bookings[idx].refunded_at = new Date().toISOString();
-    bookings[idx].refund_amount = Number(b.total) || 0;
+    bookings[idx].refund_amount = Number(b.amount_paid || b.total) || 0;
     bookings[idx].late_payment_refund = true;
     if (isPending) bookings[idx].refund_pending = true;
 
