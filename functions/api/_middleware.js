@@ -6,12 +6,14 @@
 //   1. Force HTTPS on http:// requests.
 //   2. GLOBAL CSRF GATE — reject any state-changing request
 //      (POST / PUT / DELETE / PATCH) that does not carry a valid
-//      CSRF token, UNLESS the endpoint is on a small allow-list of
-//      pre-authentication or server-to-server routes.
+//      CSRF token, UNLESS:
+//        (a) the endpoint is on the pre-auth / server-to-server
+//            allow-list below, OR
+//        (b) an authenticated ADMIN session is present (admins are
+//            protected by HTTP Basic Auth at the root middleware
+//            and their HttpOnly SameSite=Lax cookie).
 //   3. Catch and log any 5xx response or uncaught error to the
 //      kd_errors store, so the admin panel can display them.
-//
-// Logging failures NEVER break the response — they are swallowed.
 
 import {
   getGuestSession,
@@ -30,9 +32,8 @@ const DEDUPE_WINDOW_MS = 5 * 60 * 1000;
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
 
 // Routes that must be reachable BEFORE a session exists, are
-// server-to-server, or are harmless (logout). These skip the gate.
+// server-to-server, or are harmless (logout).
 const CSRF_EXEMPT_PATHS = new Set([
-  // Pre-authentication — user has no session yet
   '/api/login',
   '/api/register',
   '/api/owner-register',
@@ -42,9 +43,7 @@ const CSRF_EXEMPT_PATHS = new Set([
   '/api/reset-password',
   '/api/verify-email',
   '/api/verify-owner-email',
-  // Server-to-server (CHIP signs its own requests)
   '/api/chip-webhook',
-  // Logout endpoints — CSRF-forcing a logout is not a security risk
   '/api/logout',
   '/api/owner-logout',
   '/api/admin-logout'
@@ -74,6 +73,16 @@ async function enforceCSRFGate(request, env) {
   const clean = normaliseApiPath(url.pathname);
   if (CSRF_EXEMPT_PATHS.has(clean)) return null;
 
+  // ---- 1. ADMIN SESSION BYPASS -------------------------------------------
+  // Admins authenticate via HttpOnly SameSite=Lax cookie + HTTP Basic
+  // Auth at the root middleware. They do not carry a CSRF token.
+  // Check this FIRST so admin actions are never blocked.
+  try {
+    const admin = await getAdminSession(request, env);
+    if (admin) return null;
+  } catch (_) {}
+
+  // ---- 2. Everything else must present a valid CSRF token ----------------
   const token = request.headers.get('X-CSRF-Token');
   if (!token) {
     return csrfFailure(
@@ -82,7 +91,6 @@ async function enforceCSRFGate(request, env) {
     );
   }
 
-  // Which session is this request bound to?
   let userId = null;
   try {
     const guest = await getGuestSession(request, env);
@@ -97,16 +105,6 @@ async function enforceCSRFGate(request, env) {
   }
 
   if (!userId) {
-    // Admin sessions use HttpOnly cookies + SameSite=Lax and, for the
-    // most sensitive routes, HTTP Basic Auth at the root middleware.
-    // They do not carry a CSRF token. If an admin session is present,
-    // let the request through; the endpoint still calls
-    // verifyAdminAuth() itself before doing anything.
-    try {
-      const admin = await getAdminSession(request, env);
-      if (admin) return null;
-    } catch (_) {}
-
     return csrfFailure(
       'CSRF_NO_SESSION',
       'No active session for CSRF validation.'
@@ -129,7 +127,7 @@ async function enforceCSRFGate(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// Error logging (unchanged from before)
+// Error logging (unchanged)
 // ---------------------------------------------------------------------------
 function shortenStack(stack) {
   if (!stack || typeof stack !== 'string') return '';
