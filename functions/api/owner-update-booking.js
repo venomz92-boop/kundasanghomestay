@@ -3,7 +3,7 @@
 // booking's dates, and cancel a booking (with automatic refund).
 //
 // [THIS REVISION]
-// Cancellation now distinguishes two cases:
+// Cancellation distinguishes two cases:
 //
 //   cancelType: 'host_own'      — host cancels for their own reasons
 //                                 (overbooking, maintenance, emergency).
@@ -19,18 +19,12 @@
 //                                 The RM 1.00 CHIP refund fee is passed on
 //                                 to the guest by reducing their refund.
 //
-// The retained amount is written to the kd_fee_earnings ledger (gross
-// retained) alongside a separate kd_chip_costs ledger that records the
-// CHIP fees the platform paid. The platform's true net cash position is
-//   kd_fee_earnings.available − kd_chip_costs.available.
-//
-// Both ledger entries are written inside the same lock and the same
-// db.batch as the booking status update, so they land together or not
-// at all.
-//
-// The retained-fee history entry uses type: 'cancellation_retained_fee',
-// which is distinct from type: 'earning' (check-in flow). A guard
-// prevents double-recording if the same booking is cancelled twice.
+// [SECURITY/PRICING FIX]
+// changeDates now resolves the room price from booking.roomId when the
+// booking is on a specific room. Previously it used homestay.ownerPrice
+// unconditionally, so a booking on a premium room silently re-priced to
+// the base homestay rate the moment the host shifted its dates. This
+// mirrors bookings.js on create and admin updateDates.
 import {
   corsHeaders,
   getClientIP,
@@ -73,6 +67,21 @@ function calculatePrice(ownerPrice, nights = 1) {
   const gatewayFee = GATEWAY_FEE;
   const total = base + fee + gatewayFee;
   return { nights, base, fee, gatewayFee, total, youReceive: base };
+}
+
+// [PRICING FIX] Resolve the nightly unit price for a booking.
+// If the booking is on a specific room and that room has a numeric price,
+// use the room price. Otherwise fall back to the homestay's base price.
+// This matches the logic in bookings.js (create) and admin updateDates.
+function resolveUnitPrice(booking, homestay) {
+  let unitPrice = Number(homestay.ownerPrice);
+  if (booking && booking.roomId && Array.isArray(homestay.rooms)) {
+    const room = homestay.rooms.find(r => String(r.id) === String(booking.roomId));
+    if (room && Number.isFinite(Number(room.price))) {
+      unitPrice = Number(room.price);
+    }
+  }
+  return unitPrice;
 }
 
 function getDatesInRange(checkin, checkout) {
@@ -575,7 +584,10 @@ export async function onRequestPost({ request, env }) {
           bookings[idx].statusUpdated = new Date().toISOString();
 
           if (!isPaid) {
-            const price = calculatePrice(homestay.ownerPrice, nights);
+            // [PRICING FIX] Use the room's nightly price when the booking
+            // is tied to a specific room. Falls back to homestay.ownerPrice.
+            const unitPrice = resolveUnitPrice(booking, homestay);
+            const price = calculatePrice(unitPrice, nights);
             bookings[idx].base = price.base;
             bookings[idx].fee = price.fee;
             bookings[idx].gatewayFee = price.gatewayFee;
@@ -672,7 +684,7 @@ export async function onRequestPost({ request, env }) {
           const totalPaidNum = Number(booking.amount_paid || booking.total) || 0;
           const baseAmountNum = Number(booking.base) || 0;
 
-          // [NEW POLICY] For guest_request: refund = base − CHIP refund fee.
+          // For guest_request: refund = base − CHIP refund fee.
           // For host_own: refund = full amount paid.
           const refundAmountNum = cancelType === 'guest_request'
             ? Math.max(0, Math.round((baseAmountNum - CHIP_REFUND_FEE) * 100) / 100)
@@ -734,27 +746,13 @@ export async function onRequestPost({ request, env }) {
           }
 
           // -----------------------------------------------------------
-          // LEDGER WRITES
+          // LEDGER WRITES (unchanged from prior revision)
           //
-          // Two ledgers are written whenever a paid cancellation succeeds:
-          //
-          //   kd_fee_earnings — the GROSS amount retained from the guest
-          //     (i.e. totalPaid − refundAmount). For guest_request this is
-          //     base + fee + gatewayFee minus (base − CHIP refund fee),
-          //     which equals fee + gatewayFee + CHIP refund fee.
-          //     For host_own this is zero.
-          //
-          //   kd_chip_costs — CHIP's fees the platform paid out of the
-          //     above, being the RM 1.00 payment fee plus the RM 1.00
-          //     refund fee. Recorded separately so the platform can see
-          //     its true net position:
-          //       net = kd_fee_earnings.available − kd_chip_costs.available
+          //   kd_fee_earnings — gross amount retained from the guest
+          //   kd_chip_costs   — CHIP's fees the platform paid
           //
           // Both writes happen in the same db.batch as the booking
           // update. If either fails, none of the three land.
-          //
-          // Guard: skip if a fee entry for this booking already exists in
-          // either ledger.
           // -----------------------------------------------------------
           let feeEarningsToWrite = null;
           let feeRecordedAmount = 0;
@@ -828,7 +826,6 @@ export async function onRequestPost({ request, env }) {
             }
           }
 
-          // Atomic write: booking (always) + fee earnings + chip costs (when applicable).
           const atomicStmts = [
             db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
               .bind('kd_bookings', JSON.stringify(bookings))
