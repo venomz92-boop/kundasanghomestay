@@ -1,9 +1,23 @@
 // /api/withdraw.js — Plain English: admin-initiated CHIP Send withdrawal of
-// platform commission. Now refuses to fake a payout unless the environment
-// is non-production AND ALLOW_PAYOUT_SIMULATION is "true". All writes to
-// kd_fee_earnings happen inside the shared bookings lock so a withdrawal
-// can never race with a check-in that just earned money. History is
-// capped at 500 entries so the JSON blob can't grow forever.
+// platform commission.
+//
+// [THIS REVISION — SECURITY FIX]
+// (1) The bank-code fuzzy matcher (getChipBankCode) is gone. It was dead
+//     code that defaulted to MBBEMYKL (Maybank) if no match was found,
+//     which is a real money-loss risk if it ever got wired in.
+// (2) getPlatformBank() no longer falls back to 'Maybank' / 'MBBEMYKL'.
+//     If PLATFORM_BANK_CODE (or any other required var) is missing, it
+//     returns an empty string.
+// (3) A hard pre-flight gate refuses any withdrawal attempt when any of
+//     PLATFORM_BANK_NAME / PLATFORM_BANK_CODE / PLATFORM_BANK_HOLDER /
+//     PLATFORM_BANK_ACCOUNT is missing. The error names exactly which
+//     env vars are missing so you can fix them in the Cloudflare
+//     dashboard without guessing.
+// (4) PLATFORM_BANK_CODE is validated against the CHIP Send bank list.
+//     A typo cannot send money to the wrong bank.
+// (5) Account number must be at least 8 digits, matching CHIP Send's
+//     registration rule.
+// (6) GET honestly reports "not configured" instead of a fake Maybank.
 import {
   corsHeaders,
   getClientIP,
@@ -20,39 +34,19 @@ import {
 const BOOKINGS_LOCK = 'bookings-global';
 const MAX_HISTORY = 500;
 
-// ===== CHIP bank code mapping =====
-function getChipBankCode(bankName) {
-  const map = {
-    'AEON BANK': 'ACDBMYK2',
-    'AFFIN BANK': 'PHBMMYKL',
-    'AGROBANK': 'AGOBMYKL',
-    'AL-RAJHI': 'RJHIMYKL',
-    'ALLIANCE BANK': 'MFBBMYKL',
-    'AMBANK': 'ARBKMYKL',
-    'BANK ISLAM': 'BIMBMYKL',
-    'BANK RAKYAT': 'BKRMMYKL',
-    'BANK MUAMALAT': 'BMMBMYKL',
-    'BSN': 'BSNAMYK1',
-    'CIMB': 'CIBBMYKL',
-    'HONG LEONG': 'HLBBMYKL',
-    'HSBC': 'HBMBMYKL',
-    'MAYBANK': 'MBBEMYKL',
-    'MBSB': 'AFBQMYKL',
-    'OCBC': 'OCBCMYKL',
-    'PUBLIC BANK': 'PBBEMYKL',
-    'RHB': 'RHBBMYKL',
-    'STANDARD CHARTERED': 'SCBLMYKX',
-    'TOUCH N GO': 'TNGDMYNB',
-    'UOB': 'UOVBMYKL'
-  };
-  const clean = (bankName || '').toUpperCase().trim();
-  if (!clean) return 'MBBEMYKL';
-  const entries = Object.entries(map).sort((a, b) => b[0].length - a[0].length);
-  for (const [key, code] of entries) {
-    if (clean.includes(key)) return code;
-  }
-  return 'MBBEMYKL';
-}
+// ============================================================
+// CHIP Send supported bank codes (SWIFT/BIC). Source: CHIP Send's
+// "Add a bank account" documentation. Kept in sync with the same set
+// in _utils.js, pending.js, and bank-list.js.
+// ============================================================
+const VALID_CHIP_SEND_CODES = new Set([
+  'ACDBMYK2','PHBMMYKL','AGOBMYKL','RJHIMYKL','MFBBMYKL','ARBKMYKL',
+  'BIMBMYKL','BKRMMYKL','BMMBMYKL','BOFAMY2X','BKCHMYKL','BOTKMYKX',
+  'BSNAMYK1','BNPAMYKL','PCBCMYKL','CIBBMYKL','DEUTMYKL','FNXSMYNB',
+  'GXSPMYKL','HLBBMYKL','HBMBMYKL','ICBKMYKL','CHASMYKX','KFHOMYKL',
+  'MBBEMYKL','AFBQMYKL','MHCBMYKA','OCBCMYKL','PBBEMYKL','RHBBMYKL',
+  'SCBLMYKX','SMBCMYKL','TNGDMYNB','UOVBMYKL'
+]);
 
 async function hmacSha512(message, secret) {
   const key = await crypto.subtle.importKey(
@@ -66,7 +60,6 @@ async function hmacSha512(message, secret) {
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ===== Admin auth (signed token) =====
 async function verifyAdmin(request, env) {
   const ok = await verifyAdminAuth(request, env);
   if (!ok) {
@@ -83,17 +76,37 @@ function validateAmount(amount) {
   return true;
 }
 
-// ===== Platform bank config from env =====
+// ============================================================
+// Platform bank config from env.
+//
+// [SECURITY FIX] No hardcoded fallbacks. If the env var is missing, we
+// return an empty string. The caller must gate on isPlatformBankConfigured()
+// before doing anything with the value.
+//
+// `YOUR_BANK_*` aliases are still honoured for backward compatibility
+// with older deployments, but the platform-bank-* names take precedence.
+// ============================================================
 function getPlatformBank(env) {
   return {
-    bankName: env.PLATFORM_BANK_NAME || env.YOUR_BANK_NAME || 'Maybank',
-    bankCode: env.PLATFORM_BANK_CODE || env.YOUR_BANK_CODE || 'MBBEMYKL',
+    bankName: env.PLATFORM_BANK_NAME || env.YOUR_BANK_NAME || '',
+    bankCode: String(env.PLATFORM_BANK_CODE || env.YOUR_BANK_CODE || '').toUpperCase().trim(),
     accountHolder: env.PLATFORM_BANK_HOLDER || env.YOUR_BANK_HOLDER || '',
-    accountNumber: (env.PLATFORM_BANK_ACCOUNT || env.YOUR_BANK_ACCOUNT || '').replace(/[^0-9]/g, '')
+    accountNumber: String(env.PLATFORM_BANK_ACCOUNT || env.YOUR_BANK_ACCOUNT || '').replace(/[^0-9]/g, '')
   };
 }
 
-// M3: cap history length. Keeps the most recent MAX_HISTORY entries.
+// Returns null if fully configured, or an array of the env var names
+// that are missing so the admin gets an actionable error message.
+function getPlatformBankMissing(bank) {
+  const missing = [];
+  if (!bank.bankName) missing.push('PLATFORM_BANK_NAME');
+  if (!bank.bankCode) missing.push('PLATFORM_BANK_CODE');
+  if (!bank.accountHolder) missing.push('PLATFORM_BANK_HOLDER');
+  if (!bank.accountNumber) missing.push('PLATFORM_BANK_ACCOUNT');
+  return missing;
+}
+
+// Cap history length. Keeps the most recent MAX_HISTORY entries.
 function capHistory(earnings) {
   if (!earnings || !Array.isArray(earnings.history)) return earnings;
   if (earnings.history.length > MAX_HISTORY) {
@@ -102,7 +115,11 @@ function capHistory(earnings) {
   return earnings;
 }
 
-// ===== Load or create CHIP Send bank account for platform =====
+// ============================================================
+// Load or create CHIP Send bank account for platform.
+// Caller MUST have validated bankCode against VALID_CHIP_SEND_CODES
+// and accountNumber length before calling this.
+// ============================================================
 async function getOrCreatePlatformBankAccountId(db, platformBank, env) {
   const cached = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_platform_bank').first();
   if (cached?.data) {
@@ -179,15 +196,53 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Too many withdrawal attempts. Please wait 5 minutes.' }, 429, request);
     }
 
+    // ============================================================
+    // [SECURITY FIX] Hard pre-flight gate on platform bank config.
+    // Runs BEFORE the lock, BEFORE any write, BEFORE any CHIP call.
+    // If anything is missing, refuse with an actionable list.
+    // ============================================================
     const platformBank = getPlatformBank(env);
-    if (!platformBank.accountNumber) {
+    const missingEnv = getPlatformBankMissing(platformBank);
+    if (missingEnv.length > 0) {
+      await logAction({
+        db,
+        action: 'withdrawal_blocked_missing_bank_config',
+        admin: 'admin',
+        details: `Withdrawal refused: missing env vars ${missingEnv.join(', ')}`,
+        ip: clientIP
+      });
       return jsonResponse({
-        error: 'Platform bank not configured. Please set PLATFORM_BANK_ACCOUNT env variable.'
+        error: `Platform bank is not configured. Missing environment variable(s): ${missingEnv.join(', ')}. Refusing to withdraw — no money was moved and no balance was changed.`,
+        missing: missingEnv
       }, 500, request);
     }
-    if (!platformBank.accountHolder) {
+
+    // [SECURITY FIX] Validate the bank code before it ever reaches CHIP.
+    if (!VALID_CHIP_SEND_CODES.has(platformBank.bankCode)) {
+      await logAction({
+        db,
+        action: 'withdrawal_blocked_invalid_bank_code',
+        admin: 'admin',
+        details: `Withdrawal refused: PLATFORM_BANK_CODE "${platformBank.bankCode}" is not a known CHIP Send code`,
+        ip: clientIP
+      });
       return jsonResponse({
-        error: 'Platform bank holder not configured. Please set PLATFORM_BANK_HOLDER env variable.'
+        error: `PLATFORM_BANK_CODE "${platformBank.bankCode}" is not a recognised CHIP Send bank code. Fix the environment variable in the Cloudflare dashboard. No money was moved.`,
+        code: 'INVALID_PLATFORM_BANK_CODE'
+      }, 500, request);
+    }
+
+    if (platformBank.accountNumber.length < 8) {
+      await logAction({
+        db,
+        action: 'withdrawal_blocked_invalid_account_number',
+        admin: 'admin',
+        details: `Withdrawal refused: PLATFORM_BANK_ACCOUNT is only ${platformBank.accountNumber.length} digit(s)`,
+        ip: clientIP
+      });
+      return jsonResponse({
+        error: 'PLATFORM_BANK_ACCOUNT must be at least 8 digits. Fix the environment variable in the Cloudflare dashboard. No money was moved.',
+        code: 'INVALID_PLATFORM_BANK_ACCOUNT'
       }, 500, request);
     }
 
@@ -195,9 +250,9 @@ export async function onRequestPost({ request, env }) {
     const { amount, reset, action } = body || {};
 
     // ============================================================
-    // C4 + M3: all writes to kd_fee_earnings happen inside the shared
-    // bookings lock so check-in (which also writes fee earnings) and
-    // withdrawal can never interleave and lose money.
+    // All writes to kd_fee_earnings happen inside the shared bookings
+    // lock so check-in (which also writes fee earnings) and withdrawal
+    // can never interleave and lose money.
     // ============================================================
     let result;
     try {
@@ -291,7 +346,7 @@ export async function onRequestPost({ request, env }) {
         const maskedAccount = platformBank.accountNumber.slice(-4).padStart(platformBank.accountNumber.length, '*');
 
         // ============================================================
-        // C1: HARD GATE. Simulation only when NOT production AND
+        // HARD GATE. Simulation only when NOT production AND
         // ALLOW_PAYOUT_SIMULATION === 'true'. Otherwise refuse loudly.
         // ============================================================
         const isLive = !!(env.CHIP_API_KEY && env.CHIP_API_SECRET);
@@ -405,7 +460,6 @@ export async function onRequestPost({ request, env }) {
           earnings.withdrawn = (earnings.withdrawn || 0) + withdrawAmount;
           earnings.history.push({ ...withdrawal, type: 'withdrawal' });
           earnings.available = earnings.total - earnings.withdrawn;
-          // M3: cap history length on every write.
           capHistory(earnings);
 
           await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
@@ -486,7 +540,12 @@ export async function onRequestGet({ request, env }) {
 
   const db = env.DB;
   let earnings = { total: 0, available: 0, withdrawn: 0, history: [] };
+
+  // [SECURITY FIX] Show the truth about the platform bank config. If env
+  // vars are missing, report "not configured" instead of a fake Maybank.
   const platformBank = getPlatformBank(env);
+  const missingBankEnv = getPlatformBankMissing(platformBank);
+  const bankConfigured = missingBankEnv.length === 0;
 
   if (db) {
     try {
@@ -518,14 +577,20 @@ export async function onRequestGet({ request, env }) {
 
   return jsonResponse({
     message: 'Withdraw API ready - CHIP Send',
-    lockedBank: {
-      bankName: platformBank.bankName,
-      holder: platformBank.accountHolder,
-      accountMasked: platformBank.accountNumber
-        ? '****' + platformBank.accountNumber.slice(-4)
-        : 'not set',
-      locked: true
-    },
+    lockedBank: bankConfigured
+      ? {
+          bankName: platformBank.bankName,
+          bankCode: platformBank.bankCode,
+          holder: platformBank.accountHolder,
+          accountMasked: '****' + platformBank.accountNumber.slice(-4),
+          locked: true
+        }
+      : {
+          configured: false,
+          missing: missingBankEnv,
+          locked: true,
+          note: 'Platform bank is not fully configured. Withdrawals are disabled until the missing env vars are set in the Cloudflare dashboard.'
+        },
     earnings: {
       total: earnings.total || 0,
       available: earnings.available || 0,
@@ -575,7 +640,6 @@ export async function onRequestDelete({ request, env }) {
           ip: clientIP
         });
 
-        // M3: cap history length on every write.
         capHistory(earnings);
 
         await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
