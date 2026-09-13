@@ -44,7 +44,6 @@
 
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
-
     <a href="/" class="flex items-center gap-3 shrink-0 group">
       <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
       <div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
@@ -78,54 +77,30 @@
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
-
-    <script>
-      (function() {
-        var btn = document.getElementById('mobileMenuBtn');
-        if (btn) {
-          btn.removeEventListener('click', window.toggleMobileMenu);
-          btn.removeEventListener('touchstart', window.toggleMobileMenu);
-          btn.addEventListener('click', window.toggleMobileMenu);
-          btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
-        }
-      })();
-    </script>
   </div>
 </header>
 
 <div id="mobileNav">
   <div class="p-4">
-
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
     <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
-
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">For Hosts</div>
-
     <a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
-      <div style="display:flex; align-items:center; gap:12px; padding:14px 14px; border-radius:14px; background:#F8F5F0; border:1px solid rgba(212,163,115,0.35); transition: background 0.2s;">
+      <div style="display:flex; align-items:center; gap:12px; padding:14px 14px; border-radius:14px; background:#F8F5F0; border:1px solid rgba(212,163,115,0.35);">
         <div style="width:40px; height:40px; border-radius:999px; background:#0F382E; color:#ffffff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px;">🏡</div>
         <div style="flex:1; min-width:0;">
           <div style="font-family:Poppins, sans-serif; font-weight:700; font-size:13px; color:#212121; line-height:1.2;">List Your Homestay</div>
           <div style="font-family:Poppins, sans-serif; font-weight:500; font-size:10.5px; color:rgba(33,33,33,0.55); margin-top:2px;">Earn from your property</div>
         </div>
-        <svg width="16" height="16" fill="none" stroke="rgba(33,33,33,0.35)" stroke-width="2.2" viewBox="0 0 24 24" style="flex-shrink:0;">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-        </svg>
       </div>
     </a>
-
-    <div class="px-1 pt-1">
-      <a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a>
-    </div>
-
+    <div class="px-1 pt-1"><a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a></div>
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
-
     <div id="mGuestNav" class="space-y-2.5 px-1">
       <a href="/login.html" class="guest-btn guest-btn-primary block text-center">Sign In</a>
       <a href="/register.html" class="guest-btn block text-center">Create Account</a>
     </div>
-
     <div id="mGuestProfileNav" class="hidden space-y-2 px-1">
       <div class="profile-card">
         <div id="mGuestAvatar" class="avatar">G</div>
@@ -238,6 +213,20 @@
       </div>
       <p class="text-xs text-zinc-500 mt-2">Update the base price for the selected homestay. All future bookings will use this new price.</p>
     </div>
+
+    <div class="p-5 md:p-6 rounded-2xl border border-red-200 bg-red-50/40 animate-on-scroll">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="flex-1 min-w-0">
+          <div class="font-poppins font-700 text-[14px] text-red-900">Delete My Host Account</div>
+          <div class="text-[12px] text-red-700 mt-1 leading-relaxed">
+            Permanently delete your host account and remove every listing you have submitted. All uploaded photos will be destroyed. Past booking records stay for accounting but your name, email, and phone number will be removed from them. You cannot undo this.
+          </div>
+        </div>
+        <button onclick="deleteOwnerAccount()" class="text-[11px] uppercase tracking-wider font-700 text-red-700 border-2 border-red-300 hover:bg-red-600 hover:text-white hover:border-red-600 px-4 py-2.5 rounded-full transition-all duration-200 shrink-0 whitespace-nowrap">
+          Delete Account
+        </button>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -285,11 +274,11 @@
       </div>
     </div>
     <div>
-  <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
-  <div id="kdWeatherWidget" class="kd-weather-widget">
-    <div class="kd-weather-loading">Loading live weather…</div>
-  </div>
-</div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
+      <div id="kdWeatherWidget" class="kd-weather-widget">
+        <div class="kd-weather-loading">Loading live weather…</div>
+      </div>
+    </div>
   </div>
   <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
     © 2026 Kundasang Homestay. All rights reserved.
@@ -303,51 +292,22 @@
   if (typeof DOMPurify === 'undefined') return;
   if (window.__kdCssHookInstalled) return;
   window.__kdCssHookInstalled = true;
-
   const DANGEROUS_RULE = /(?:\burl\s*\(|expression\s*\(|\bbehavior\s*:|-moz-binding|@import|javascript\s*:)/i;
-
   DOMPurify.addHook('afterSanitizeAttributes', function (node) {
     if (!node.getAttribute || !node.hasAttribute) return;
     if (!node.hasAttribute('style')) return;
-
     const raw = node.getAttribute('style') || '';
-    if (!raw) return;
-
-    if (!DANGEROUS_RULE.test(raw)) return;
-
-    const safeRules = raw
-      .split(';')
-      .map(r => r.trim())
-      .filter(r => r.length > 0)
-      .filter(r => !DANGEROUS_RULE.test(r))
-      .join('; ');
-
-    if (safeRules.length === 0) {
-      node.removeAttribute('style');
-    } else {
-      node.setAttribute('style', safeRules);
-    }
+    if (!raw || !DANGEROUS_RULE.test(raw)) return;
+    const safeRules = raw.split(';').map(r => r.trim()).filter(r => r.length > 0).filter(r => !DANGEROUS_RULE.test(r)).join('; ');
+    if (safeRules.length === 0) node.removeAttribute('style'); else node.setAttribute('style', safeRules);
   });
 })();
 
 function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
-      'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
-      'button','input','form','label','select','option','textarea',
-      'section','article','header','footer','nav','main','aside',
-      'code','pre','blockquote','hr','small','sub','sup','svg','path',
-      'canvas', 'figure', 'figcaption', 'blockquote', 'cite'
-    ],
-    ALLOWED_ATTR: [
-      'id','class','style','href','src','alt','title','rel','target',
-      'method','action','type','name','value','placeholder',
-      'checked','disabled','readonly','required','multiple',
-      'min','max','step','pattern','autocomplete','inputmode',
-      'viewBox','fill','stroke','stroke-width','d','aria-*','data-*'
-    ],
+    ALLOWED_TAGS: ['div','span','p','a','img','br','b','i','u','strong','em','h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th','button','input','form','label','select','option','textarea','section','article','header','footer','nav','main','aside','code','pre','blockquote','hr','small','sub','sup','svg','path','canvas','figure','figcaption','cite'],
+    ALLOWED_ATTR: ['id','class','style','href','src','alt','title','rel','target','method','action','type','name','value','placeholder','checked','disabled','readonly','required','multiple','min','max','step','pattern','autocomplete','inputmode','viewBox','fill','stroke','stroke-width','d','aria-*','data-*'],
     ADD_ATTR: ['target'],
     ALLOW_DATA_ATTR: true,
     FORCE_HTTPS: true
@@ -496,6 +456,20 @@ async function ownerFetch(url, options = {}) {
   return fetch(url, opts);
 }
 
+async function ensureOwnerCsrfToken() {
+  let token = localStorage.getItem('kd_csrf_token');
+  if (token) return token;
+  try {
+    const res = await fetch('/api/csrf-token', { credentials: 'include' });
+    const data = await res.json();
+    if (data.token) {
+      localStorage.setItem('kd_csrf_token', data.token);
+      return data.token;
+    }
+  } catch (e) {}
+  return null;
+}
+
 function openOwnerForgotPassword() {
   showPrompt('Forgot Password', 'Type your registered host email address to receive password adjustments details:').then(email => {
     if (email && email.trim()) {
@@ -588,6 +562,13 @@ async function ownerLogin() {
       try {
         sessionStorage.setItem('kd_owner_homestays', JSON.stringify(allHomestays));
         sessionStorage.setItem('kd_owner_name', allHomestays[0]?.ownerName || 'Owner');
+      } catch (e) {}
+
+      // Refresh CSRF token after login
+      try {
+        const csrfRes = await fetch('/api/csrf-token', { credentials: 'include' });
+        const csrfData = await csrfRes.json();
+        if (csrfData.token) localStorage.setItem('kd_csrf_token', csrfData.token);
       } catch (e) {}
 
       const selector = document.getElementById('homestaySelector');
@@ -810,7 +791,7 @@ function bookingActionHandler(e) {
       cancelBooking(id);
       break;
     default:
-      console.warn('Unknown action:', action);
+      break;
   }
 }
 
@@ -899,18 +880,6 @@ async function changeBookingDates(bookingId) {
   }
 }
 
-// ============================================================
-// CANCEL BOOKING — with reason.
-//
-// Two cancellation types, two refund outcomes:
-//   host_own      → full refund of everything the guest paid
-//   guest_request → refund of the base amount only; platform
-//                   retains the service fee + gateway fee
-//
-// The choice is made in a custom modal. The cancelType is sent in
-// the POST body. Missing/unknown cancelType on the server defaults
-// to host_own (full refund — the safer case).
-// ============================================================
 async function cancelBooking(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
   if (!booking) {
@@ -935,7 +904,6 @@ async function cancelBooking(bookingId) {
   const totalAmount = Number(booking.amount_paid || booking.total || 0).toFixed(2);
   const feeRetained = Math.max(0, Number(booking.amount_paid || booking.total || 0) - Number(booking.base || 0)).toFixed(2);
 
-  // Refund preview depends on whether the booking is paid at all.
   const paidNotice = isPaid
     ? `<div style="margin-top:14px;padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;font-size:12px;color:#991b1b;">
          ⚠️ This booking is already paid. Cancelling will trigger a refund to the guest via CHIP.
@@ -1012,7 +980,6 @@ async function cancelBooking(bookingId) {
     }
   } catch(e) {
     await showAlert('Network Error', 'Could not cancel booking. Please try again.');
-    console.error('Cancel error:', e);
   }
 }
 
@@ -1233,143 +1200,11 @@ async function updateHomestayPrice() {
     }
   } catch(e) {
     await showAlert('Network Error', 'Could not update price. Please try again.');
-    console.error('Price update error:', e);
   }
 }
 
-(async function init() {
-  renderGuestNav();
-
-  const loginSection = document.getElementById('loginSection');
-  const dashboardSection = document.getElementById('dashboardSection');
-  const selector = document.getElementById('homestaySelector');
-
-  let authed = false;
-  let storedHomestays = null;
-  let storedName = 'Owner';
-
-  try {
-    const raw = sessionStorage.getItem('kd_owner_homestays');
-    if (raw) storedHomestays = JSON.parse(raw);
-    const n = sessionStorage.getItem('kd_owner_name');
-    if (n) storedName = n;
-  } catch (e) {}
-
-  try {
-    const probe = await fetch(API_BASE + '/owner-session', {
-      credentials: 'include',
-      cache: 'no-store'
-    });
-    const probeData = await probe.json().catch(() => ({}));
-    authed = probeData.authenticated === true;
-
-    if (authed && Array.isArray(probeData.homestays)) {
-      storedHomestays = probeData.homestays;
-      if (probeData.ownerName) storedName = probeData.ownerName;
-      try {
-        sessionStorage.setItem('kd_owner_homestays', JSON.stringify(storedHomestays));
-        sessionStorage.setItem('kd_owner_name', storedName);
-      } catch (e) {}
-    }
-  } catch (e) {
-    authed = false;
-  }
-
-if (authed) {
-    ownerToken = 'cookie';
-    allHomestays = Array.isArray(storedHomestays) ? storedHomestays : [];
-    ownerHomestayIds = allHomestays.map(h => h.id);
-
-    const pendingHomes = allHomestays.filter(h => h.approved !== true);
-    const approvedHomes = allHomestays.filter(h => h.approved === true);
-
-    if (selector) {
-      selector.innerHTML = safeHTML('<option value="all">📍 All Linked Homestays</option>');
-
-      if (approvedHomes.length > 0) {
-        const groupLive = document.createElement('optgroup');
-        groupLive.label = '✓ Live Listings';
-        approvedHomes.forEach(h => {
-          const opt = document.createElement('option');
-          opt.value = h.id;
-          opt.textContent = h.name;
-          groupLive.appendChild(opt);
-        });
-        selector.appendChild(groupLive);
-      }
-
-      if (pendingHomes.length > 0) {
-        const groupPending = document.createElement('optgroup');
-        groupPending.label = '⏳ Pending Approval';
-        pendingHomes.forEach(h => {
-          const opt = document.createElement('option');
-          opt.value = h.id;
-          opt.textContent = h.name + '  (awaiting admin review)';
-          groupPending.appendChild(opt);
-        });
-        selector.appendChild(groupPending);
-      }
-
-      currentHomestayId = 'all';
-      selector.value = 'all';
-    }
-
-    const banner = document.getElementById('pendingListingsBanner');
-    if (banner) {
-      if (pendingHomes.length > 0) {
-        const names = pendingHomes.map(h => h.name).join(', ');
-        banner.innerHTML =
-          '<div class="text-2xl leading-none">⏳</div>' +
-          '<div class="flex-1 min-w-0">' +
-            '<div class="font-bold text-sm text-amber-900">' +
-              pendingHomes.length + ' listing' + (pendingHomes.length !== 1 ? 's' : '') + ' awaiting approval' +
-            '</div>' +
-            '<div class="text-xs text-amber-800 mt-1 leading-relaxed">' +
-              '<strong>' + names + '</strong> ' +
-              (pendingHomes.length !== 1 ? 'are' : 'is') + ' under review by our team. ' +
-              'Guest bookings will only be possible once approved — typically within 24 hours. ' +
-              'You can safely prepare your rooms, dates, and pricing in the meantime.' +
-            '</div>' +
-          '</div>';
-        banner.classList.remove('hidden');
-      } else {
-        banner.classList.add('hidden');
-        banner.innerHTML = '';
-      }
-    }
-
-    if (loginSection) loginSection.classList.add('hidden');
-    if (dashboardSection) dashboardSection.classList.remove('hidden');
-    const welcomeEl = document.getElementById('welcomeName');
-    if (welcomeEl) welcomeEl.innerText = storedName;
-
-    loadBookings();
-    loadRoomBlocks();
-    loadHomestayPrice();
-  } else {
-
-    try {
-      sessionStorage.removeItem('kd_owner_token');
-      sessionStorage.removeItem('kd_owner_homestays');
-      sessionStorage.removeItem('kd_owner_name');
-    } catch (e) {}
-    if (loginSection) loginSection.classList.remove('hidden');
-    if (dashboardSection) dashboardSection.classList.add('hidden');
-  }
-
-  if (selector) {
-    selector.addEventListener('change', function() {
-      currentHomestayId = this.value;
-      loadBookings();
-      loadHomestayPrice();
-    });
-  }
-  const updateBtn = document.getElementById('updatePriceBtn');
-  if (updateBtn) {
-    updateBtn.addEventListener('click', updateHomestayPrice);
-  }
-})();
-</script>
-<script src="/footer-weather.js"></script>
-</body>
-</html>
+/* ============================================================
+ * DELETE MY HOST ACCOUNT — PDPA self-service deletion.
+ * ============================================================ */
+function openDeleteOwnerAccountModal() {
+  return new Promise((resolve)
