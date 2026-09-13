@@ -456,14 +456,30 @@ async function ownerFetch(url, options = {}) {
   return fetch(url, opts);
 }
 
-async function ensureOwnerCsrfToken() {
-  let token = localStorage.getItem('kd_csrf_token');
-  if (token) return token;
+/* ============================================================
+ * Owner CSRF token — ALWAYS fetch fresh.
+ *
+ * [THIS REVISION]
+ * The previous version reused whatever was cached in localStorage
+ * under the shared key "kd_csrf_token". If the same browser had ever
+ * been signed in as a guest, or as a different owner, that cached
+ * token belonged to a different user ID and every owner-side CSRF
+ * check failed with "Invalid security token".
+ *
+ * Now we always ask the server for a token explicitly scoped to
+ * ?type=owner, and store it under its own key. Guest and owner CSRF
+ * tokens no longer collide.
+ * ============================================================ */
+async function fetchOwnerCsrfToken() {
   try {
-    const res = await fetch('/api/csrf-token', { credentials: 'include' });
+    const res = await fetch('/api/csrf-token?type=owner', {
+      credentials: 'include',
+      cache: 'no-store'
+    });
+    if (!res.ok) return null;
     const data = await res.json();
-    if (data.token) {
-      localStorage.setItem('kd_csrf_token', data.token);
+    if (data && data.token) {
+      try { localStorage.setItem('kd_owner_csrf_token', data.token); } catch (e) {}
       return data.token;
     }
   } catch (e) {}
@@ -564,12 +580,8 @@ async function ownerLogin() {
         sessionStorage.setItem('kd_owner_name', allHomestays[0]?.ownerName || 'Owner');
       } catch (e) {}
 
-      // Refresh CSRF token after login
-      try {
-        const csrfRes = await fetch('/api/csrf-token', { credentials: 'include' });
-        const csrfData = await csrfRes.json();
-        if (csrfData.token) localStorage.setItem('kd_csrf_token', csrfData.token);
-      } catch (e) {}
+      // Fetch a fresh owner-scoped CSRF token now that we're logged in.
+      await fetchOwnerCsrfToken();
 
       const selector = document.getElementById('homestaySelector');
       if (selector) {
@@ -612,6 +624,7 @@ async function logoutOwner() {
     sessionStorage.removeItem('kd_owner_token');
     sessionStorage.removeItem('kd_owner_homestays');
     sessionStorage.removeItem('kd_owner_name');
+    localStorage.removeItem('kd_owner_csrf_token');
   } catch (e) {}
   ownerToken = '';
   allHomestays = [];
@@ -1205,6 +1218,12 @@ async function updateHomestayPrice() {
 
 /* ============================================================
  * DELETE MY HOST ACCOUNT — PDPA self-service deletion.
+ *
+ * [THIS REVISION]
+ * Always fetches a fresh owner-scoped CSRF token right before the
+ * request. Never relies on a cached value. This fixes the
+ * "Invalid security token" error that occurred when the browser
+ * had a stale guest or owner token in localStorage.
  * ============================================================ */
 function openDeleteOwnerAccountModal() {
   return new Promise((resolve) => {
@@ -1277,9 +1296,13 @@ async function deleteOwnerAccount() {
   const inputs = await openDeleteOwnerAccountModal();
   if (!inputs) return;
 
-  const token = await ensureOwnerCsrfToken();
+  // Always fetch a FRESH owner-scoped token. Never trust a cached one.
+  const token = await fetchOwnerCsrfToken();
   if (!token) {
-    await showAlert('Session Error', 'Could not verify your session. Please log out and log back in, then try again.');
+    await showAlert(
+      'Session Error',
+      'Your session has expired or you are not logged in. Please log out, then log back in, and try again.'
+    );
     return;
   }
 
@@ -1310,6 +1333,7 @@ async function deleteOwnerAccount() {
       sessionStorage.removeItem('kd_owner_token');
       sessionStorage.removeItem('kd_owner_homestays');
       sessionStorage.removeItem('kd_owner_name');
+      localStorage.removeItem('kd_owner_csrf_token');
     } catch (e) {}
     try { localStorage.removeItem('kd_csrf_token'); } catch (e) {}
 
@@ -1368,8 +1392,8 @@ window.deleteOwnerAccount = deleteOwnerAccount;
     allHomestays = Array.isArray(storedHomestays) ? storedHomestays : [];
     ownerHomestayIds = allHomestays.map(h => h.id);
 
-    // Fetch CSRF for later use
-    ensureOwnerCsrfToken();
+    // Prefetch a fresh owner-scoped CSRF token.
+    fetchOwnerCsrfToken();
 
     const pendingHomes = allHomestays.filter(h => h.approved !== true);
     const approvedHomes = allHomestays.filter(h => h.approved === true);
@@ -1442,6 +1466,7 @@ window.deleteOwnerAccount = deleteOwnerAccount;
       sessionStorage.removeItem('kd_owner_token');
       sessionStorage.removeItem('kd_owner_homestays');
       sessionStorage.removeItem('kd_owner_name');
+      localStorage.removeItem('kd_owner_csrf_token');
     } catch (e) {}
     if (loginSection) loginSection.classList.remove('hidden');
     if (dashboardSection) dashboardSection.classList.add('hidden');
