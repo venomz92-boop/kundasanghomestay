@@ -1,5 +1,13 @@
 // /api/forgot-password.js
-import { corsHeaders, getClientIP, jsonResponse, logAction, checkRateLimit, recordRateLimit } from './_utils.js';
+import {
+  corsHeaders,
+  getClientIP,
+  enforceHttps,
+  jsonResponse,
+  logAction,
+  checkRateLimit,
+  recordRateLimit
+} from './_utils.js';
 
 async function generateResetToken() {
   const b = crypto.getRandomValues(new Uint8Array(32));
@@ -42,6 +50,10 @@ async function sendResetEmail(email, name, url, env) {
 }
 
 export async function onRequestPost({ request, env }) {
+  // [FIX] Force HTTPS, matching every other endpoint.
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+
   try {
     // Fail loudly if email is not configured
     if (!env.RESEND_API_KEY && !env.SENDGRID_API_KEY) {
@@ -92,7 +104,7 @@ export async function onRequestPost({ request, env }) {
       try { return r?.data ? JSON.parse(r.data) : []; } catch (_) { return []; }
     };
 
-        if (userType === 'guest') {
+    if (userType === 'guest') {
       const users = await read('kd_guests');
       const u = users.find(x => String(x.email || '').toLowerCase() === cleanEmail);
       if (u) { userId = u.id; userData = { name: u.name }; }
