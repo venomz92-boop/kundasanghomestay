@@ -217,7 +217,7 @@ export async function onRequestPost({ request, env }) {
       success: true,
       guest: safeGuest,
       message: emailSent 
-        ? 'Registration successful. Please check your email to verify your account before logging in.'
+        ? 'Registration successful. Please check your email to verify your account before logging in. You can close this window now.'
         : 'Registration successful, but verification email could not be sent. Please contact support.',
     };
 
