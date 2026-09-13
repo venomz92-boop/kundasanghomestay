@@ -1,33 +1,30 @@
-// /api/owner-login.js — Plain English: host login. Two fixes:
-// (1) The session token is NO LONGER returned in the JSON body (it lives
-//     only in the HttpOnly cookie).
-// (2) A host whose account exists in kd_owners but who has not yet
-//     submitted a property can now log in. We look up the phone number in
-//     BOTH kd_owners AND kd_approved/kd_pending. If both exist we prefer
-//     kd_owners (the newer flow). homestayIds may legitimately be empty.
+// /api/owner-login.js — Plain English: host login.
 //
 // [THIS REVISION]
-// (3) The filter that decides which homestays belong to this WhatsApp no
-//     longer requires `ownerPasswordHash` and `ownerSalt`. Those fields
-//     are stripped from a listing when it is approved, so the old filter
-//     excluded every approved listing from the login response's
-//     `homestays` array — the owner would log in and see an empty
-//     dropdown until they refreshed the page.
-//     Auth still uses password fields; the "homestays list" is now
-//     decoupled from the auth path.
+// The dummy record used for timing-equalisation now matches the real
+// iteration count. Before this change the dummy used 600,000 iterations
+// while real records used 100,000 — an attacker could tell whether a
+// WhatsApp number existed by measuring response time. The dummy is now
+// built at request time from the same PBKDF2_ITERATIONS value real
+// records use.
 import {
   corsHeaders, getClientIP, enforceHttps, verifyPassword, hashPassword,
   createSignedToken, cookieHeader, jsonResponse, checkRateLimit,
   recordRateLimit, parseJSONSafely
 } from './_utils.js';
 
-// Dummy record for timing equalization on unknown WhatsApp numbers.
-// Keep the algorithm string in sync with PBKDF2_ITERATIONS in _utils.js.
-const DUMMY_OWNER_RECORD = {
-  ownerPasswordHash: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-  ownerSalt: 'AAAAAAAAAAAAAAAAAAAAAA',
-  ownerPasswordAlgorithm: 'PBKDF2-600000-SHA256'
-};
+const DUMMY_PASSWORD = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const DUMMY_SALT = 'AAAAAAAAAAAAAAAAAAAAAA';
+
+function makeDummyRecord(env) {
+  const parsed = parseInt(env && env.PBKDF2_ITERATIONS, 10);
+  const iterations = (Number.isFinite(parsed) && parsed >= 10000) ? parsed : 100000;
+  return {
+    ownerPasswordHash: DUMMY_PASSWORD,
+    ownerSalt: DUMMY_SALT,
+    ownerPasswordAlgorithm: `PBKDF2-${iterations}-SHA256`
+  };
+}
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
@@ -52,9 +49,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
 
-    // ============================================================
-    // Look up in BOTH kd_owners AND kd_approved/kd_pending.
-    // ============================================================
     const ownersRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
     let owners = [];
     try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch(_) {}
@@ -69,13 +63,10 @@ export async function onRequestPost({ request, env }) {
       String(o.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp
     ) || null;
 
-    // All homestays belonging to this WhatsApp — approved or pending.
-    // No password requirement on this list; it's just ownership.
     const ownerHomes = homes.filter(h =>
       String(h.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp
     );
 
-    // Auth path: only these need to carry password fields.
     const ownerHomesWithPassword = ownerHomes.filter(h =>
       h.ownerPasswordHash && h.ownerSalt
     );
@@ -83,10 +74,9 @@ export async function onRequestPost({ request, env }) {
     const accountHasPassword = !!(ownerAccount && ownerAccount.ownerPasswordHash && ownerAccount.ownerSalt);
     const homestayHasPassword = ownerHomesWithPassword.length > 0;
 
-    // If neither source has a password, we cannot authenticate this user.
     if (!accountHasPassword && !homestayHasPassword) {
       // Run dummy PBKDF2 to keep timing constant regardless of existence.
-      await verifyPassword(cleanPassword, DUMMY_OWNER_RECORD, env);
+      await verifyPassword(cleanPassword, makeDummyRecord(env), env);
       await recordRateLimit(db, clientIP, 'owner_login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
@@ -154,7 +144,6 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // ---- homestayIds now includes approved AND pending listings ----
     const homestayIds = ownerHomes.map(h => h.id);
 
     const ownerId = ownerAccount
@@ -182,7 +171,6 @@ export async function onRequestPost({ request, env }) {
       ownerSessionVersion
     }, env);
 
-    // Strip password fields from every homestay we return.
     const safeHomes = ownerHomes.map(({
       ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm,
       ownerPasswordVersion, ownerSessionVersion: _sv, ...rest
