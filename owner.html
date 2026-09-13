@@ -1207,4 +1207,259 @@ async function updateHomestayPrice() {
  * DELETE MY HOST ACCOUNT — PDPA self-service deletion.
  * ============================================================ */
 function openDeleteOwnerAccountModal() {
-  return new Promise((resolve)
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('customModal');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const footerEl = document.getElementById('modalFooter');
+
+    titleEl.textContent = 'Delete My Host Account';
+    bodyEl.innerHTML = `
+      <div style="text-align:left;line-height:1.7;">
+        <p style="color:#b91c1c;font-weight:700;">This action is permanent and cannot be undone.</p>
+        <p>Your host account will be deleted. <strong>Every listing you submitted will be removed</strong>, and every uploaded photo (property, room, IC, bank QR, PBT license) will be destroyed from our servers.</p>
+        <p>Past booking records stay in our accounting system, but your name, email, and phone number will be removed from them.</p>
+        <p style="margin-top:14px;">Please enter your password and type <strong>DELETE</strong> (all caps) to confirm.</p>
+        <div style="margin-top:14px;">
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Your Password</label>
+          <input id="da-password" type="password" class="form-input" placeholder="Enter your password" style="width:100%;" autocomplete="current-password" />
+        </div>
+        <div style="margin-top:12px;">
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Type DELETE to confirm</label>
+          <input id="da-confirm" type="text" class="form-input" placeholder="DELETE" style="width:100%;" autocomplete="off" />
+        </div>
+        <div id="da-error" style="display:none;margin-top:12px;padding:10px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;font-size:12px;"></div>
+      </div>
+    `;
+
+    footerEl.innerHTML = '';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.onclick = () => { closeModal(); resolve(null); };
+    footerEl.appendChild(cancelBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete My Account';
+    deleteBtn.className = 'btn btn-danger';
+    deleteBtn.onclick = () => {
+      const pwEl = document.getElementById('da-password');
+      const cfEl = document.getElementById('da-confirm');
+      const errEl = document.getElementById('da-error');
+      const pw = pwEl ? pwEl.value : '';
+      const phrase = cfEl ? cfEl.value.trim() : '';
+
+      if (!pw) {
+        errEl.textContent = 'Please enter your password.';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (phrase !== 'DELETE') {
+        errEl.textContent = 'Type DELETE (all caps) to confirm.';
+        errEl.style.display = 'block';
+        return;
+      }
+      closeModal();
+      resolve({ password: pw, confirmPhrase: phrase });
+    };
+    footerEl.appendChild(deleteBtn);
+
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+      const inp = document.getElementById('da-password');
+      if (inp) inp.focus();
+    }, 200);
+  });
+}
+
+async function deleteOwnerAccount() {
+  const inputs = await openDeleteOwnerAccountModal();
+  if (!inputs) return;
+
+  const token = await ensureOwnerCsrfToken();
+  if (!token) {
+    await showAlert('Session Error', 'Could not verify your session. Please log out and log back in, then try again.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/delete-account', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': token
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        userType: 'owner',
+        password: inputs.password,
+        confirmPhrase: inputs.confirmPhrase
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.success) {
+      const errMsg = data.error || 'Could not delete your account. Please contact support@kundasanghomestay.my.';
+      await showAlert('Could Not Delete', errMsg);
+      return;
+    }
+
+    try {
+      sessionStorage.removeItem('kd_owner_token');
+      sessionStorage.removeItem('kd_owner_homestays');
+      sessionStorage.removeItem('kd_owner_name');
+    } catch (e) {}
+    try { localStorage.removeItem('kd_csrf_token'); } catch (e) {}
+
+    await showAlert(
+      'Account Deleted',
+      'Your host account and all its listings have been deleted. A confirmation email has been sent. You will now be returned to the homepage.'
+    );
+    window.location.href = '/';
+  } catch (e) {
+    await showAlert('Network Error', 'Could not reach the server. Please check your connection and try again.');
+  }
+}
+
+window.deleteOwnerAccount = deleteOwnerAccount;
+
+(async function init() {
+  renderGuestNav();
+
+  const loginSection = document.getElementById('loginSection');
+  const dashboardSection = document.getElementById('dashboardSection');
+  const selector = document.getElementById('homestaySelector');
+
+  let authed = false;
+  let storedHomestays = null;
+  let storedName = 'Owner';
+
+  try {
+    const raw = sessionStorage.getItem('kd_owner_homestays');
+    if (raw) storedHomestays = JSON.parse(raw);
+    const n = sessionStorage.getItem('kd_owner_name');
+    if (n) storedName = n;
+  } catch (e) {}
+
+  try {
+    const probe = await fetch(API_BASE + '/owner-session', {
+      credentials: 'include',
+      cache: 'no-store'
+    });
+    const probeData = await probe.json().catch(() => ({}));
+    authed = probeData.authenticated === true;
+
+    if (authed && Array.isArray(probeData.homestays)) {
+      storedHomestays = probeData.homestays;
+      if (probeData.ownerName) storedName = probeData.ownerName;
+      try {
+        sessionStorage.setItem('kd_owner_homestays', JSON.stringify(storedHomestays));
+        sessionStorage.setItem('kd_owner_name', storedName);
+      } catch (e) {}
+    }
+  } catch (e) {
+    authed = false;
+  }
+
+  if (authed) {
+    ownerToken = 'cookie';
+    allHomestays = Array.isArray(storedHomestays) ? storedHomestays : [];
+    ownerHomestayIds = allHomestays.map(h => h.id);
+
+    // Fetch CSRF for later use
+    ensureOwnerCsrfToken();
+
+    const pendingHomes = allHomestays.filter(h => h.approved !== true);
+    const approvedHomes = allHomestays.filter(h => h.approved === true);
+
+    if (selector) {
+      selector.innerHTML = safeHTML('<option value="all">📍 All Linked Homestays</option>');
+
+      if (approvedHomes.length > 0) {
+        const groupLive = document.createElement('optgroup');
+        groupLive.label = '✓ Live Listings';
+        approvedHomes.forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h.id;
+          opt.textContent = h.name;
+          groupLive.appendChild(opt);
+        });
+        selector.appendChild(groupLive);
+      }
+
+      if (pendingHomes.length > 0) {
+        const groupPending = document.createElement('optgroup');
+        groupPending.label = '⏳ Pending Approval';
+        pendingHomes.forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h.id;
+          opt.textContent = h.name + '  (awaiting admin review)';
+          groupPending.appendChild(opt);
+        });
+        selector.appendChild(groupPending);
+      }
+
+      currentHomestayId = 'all';
+      selector.value = 'all';
+    }
+
+    const banner = document.getElementById('pendingListingsBanner');
+    if (banner) {
+      if (pendingHomes.length > 0) {
+        const names = pendingHomes.map(h => h.name).join(', ');
+        banner.innerHTML =
+          '<div class="text-2xl leading-none">⏳</div>' +
+          '<div class="flex-1 min-w-0">' +
+            '<div class="font-bold text-sm text-amber-900">' +
+              pendingHomes.length + ' listing' + (pendingHomes.length !== 1 ? 's' : '') + ' awaiting approval' +
+            '</div>' +
+            '<div class="text-xs text-amber-800 mt-1 leading-relaxed">' +
+              '<strong>' + names + '</strong> ' +
+              (pendingHomes.length !== 1 ? 'are' : 'is') + ' under review by our team. ' +
+              'Guest bookings will only be possible once approved — typically within 24 hours. ' +
+              'You can safely prepare your rooms, dates, and pricing in the meantime.' +
+            '</div>' +
+          '</div>';
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+        banner.innerHTML = '';
+      }
+    }
+
+    if (loginSection) loginSection.classList.add('hidden');
+    if (dashboardSection) dashboardSection.classList.remove('hidden');
+    const welcomeEl = document.getElementById('welcomeName');
+    if (welcomeEl) welcomeEl.innerText = storedName;
+
+    loadBookings();
+    loadRoomBlocks();
+    loadHomestayPrice();
+  } else {
+    try {
+      sessionStorage.removeItem('kd_owner_token');
+      sessionStorage.removeItem('kd_owner_homestays');
+      sessionStorage.removeItem('kd_owner_name');
+    } catch (e) {}
+    if (loginSection) loginSection.classList.remove('hidden');
+    if (dashboardSection) dashboardSection.classList.add('hidden');
+  }
+
+  if (selector) {
+    selector.addEventListener('change', function() {
+      currentHomestayId = this.value;
+      loadBookings();
+      loadHomestayPrice();
+    });
+  }
+  const updateBtn = document.getElementById('updatePriceBtn');
+  if (updateBtn) {
+    updateBtn.addEventListener('click', updateHomestayPrice);
+  }
+})();
+</script>
+<script src="/footer-weather.js"></script>
+</body>
+</html>
