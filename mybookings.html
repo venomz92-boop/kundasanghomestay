@@ -268,6 +268,34 @@ function safeHTML(html) {
     FORCE_HTTPS: true
   });
 }
+
+/* ============================================================
+ * Guest CSRF token — always fetch fresh with ?type=guest.
+ *
+ * [THIS REVISION]
+ * The shared key "kd_csrf_token" could previously hold an owner
+ * token from a previous session, which then failed every guest
+ * CSRF check. Now we always ask for a guest-scoped token and
+ * store it under its own key. Existing guest-side helpers that
+ * read "kd_csrf_token" are kept for backward compatibility.
+ * ============================================================ */
+async function fetchGuestCsrfToken() {
+  try {
+    const res = await fetch('/api/csrf-token?type=guest', {
+      credentials: 'include',
+      cache: 'no-store'
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && data.token) {
+      try { localStorage.setItem('kd_csrf_token', data.token); } catch (e) {}
+      try { localStorage.setItem('kd_guest_csrf_token', data.token); } catch (e) {}
+      return data.token;
+    }
+  } catch (e) {}
+  return null;
+}
+
 function getCsrfHeader() {
   var token = localStorage.getItem('kd_csrf_token');
   return token ? { 'X-CSRF-Token': token } : {};
@@ -701,7 +729,7 @@ async function retryPayment(bookingId) {
   let token = localStorage.getItem('kd_csrf_token');
   if (!token) {
     try {
-      const res = await fetch('/api/csrf-token', { method: 'GET', credentials: 'include' });
+      const res = await fetch('/api/csrf-token?type=guest', { method: 'GET', credentials: 'include' });
       const data = await res.json();
       if (data.token) { localStorage.setItem('kd_csrf_token', data.token); token = data.token; }
       else throw new Error('No token received');
@@ -769,26 +797,11 @@ async function resendCode(bookingId) {
 /* ============================================================
  * DELETE MY ACCOUNT — PDPA self-service deletion.
  *
- * Flow:
- *   1. Modal shows password field + "type DELETE" field.
- *   2. On submit, POST to /api/delete-account.
- *   3. On success: clear local session, redirect home.
- *   4. On failure: show the server's error (or generic).
+ * [THIS REVISION]
+ * Always fetches a fresh guest-scoped CSRF token right before the
+ * request. Fixes the mirror of the owner-side bug: a stale owner
+ * token in localStorage would have blocked guest delete.
  * ============================================================ */
-async function ensureCsrfToken() {
-  let token = localStorage.getItem('kd_csrf_token');
-  if (token) return token;
-  try {
-    const res = await fetch('/api/csrf-token', { credentials: 'include' });
-    const data = await res.json();
-    if (data.token) {
-      localStorage.setItem('kd_csrf_token', data.token);
-      return data.token;
-    }
-  } catch (e) {}
-  return null;
-}
-
 function openDeleteAccountModal() {
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
@@ -859,9 +872,13 @@ async function deleteMyAccount() {
   const inputs = await openDeleteAccountModal();
   if (!inputs) return;
 
-  const token = await ensureCsrfToken();
+  // Always fetch a FRESH guest-scoped token.
+  const token = await fetchGuestCsrfToken();
   if (!token) {
-    await showAlert('Session Error', 'Could not verify your session. Please log out and log back in, then try again.');
+    await showAlert(
+      'Session Error',
+      'Your session has expired or you are not logged in. Please log out, then log back in, and try again.'
+    );
     return;
   }
 
@@ -893,6 +910,7 @@ async function deleteMyAccount() {
     }
     try { localStorage.removeItem('kd_guest'); } catch (e) {}
     try { localStorage.removeItem('kd_csrf_token'); } catch (e) {}
+    try { localStorage.removeItem('kd_guest_csrf_token'); } catch (e) {}
 
     await showAlert(
       'Account Deleted',
@@ -936,8 +954,8 @@ window.deleteMyAccount = deleteMyAccount;
     return;
   }
 
-  // Make sure we have a CSRF token handy before any action needs it.
-  ensureCsrfToken();
+  // Prefetch a fresh guest-scoped CSRF token.
+  fetchGuestCsrfToken();
 
   loadMyBookings();
 })();
