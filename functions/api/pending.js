@@ -16,6 +16,11 @@
 //     missing or unknown, the request is rejected before anything is
 //     written. This prevents the silent Maybank default that would
 //     otherwise send a host's payout to the wrong bank.
+// (3) [SECURITY] Rate-limit is now enforced BEFORE password verification,
+//     and every auth failure returns the SAME generic 401 body. This
+//     closes (a) owner-password brute force and (b) the account-existence
+//     oracle where OWNER_ACCOUNT_REQUIRED vs INVALID_OWNER_PASSWORD told
+//     an attacker whether a WhatsApp number was registered.
 import {
   corsHeaders,
   getClientIP,
@@ -217,6 +222,19 @@ async function syncHomestayToHomestays(db, homestay) {
   return homestays;
 }
 
+// ============================================================
+// Generic auth-failure response. Same body for every failure mode
+// (account missing, account unverified, wrong password) so an
+// attacker cannot tell whether a WhatsApp number is registered.
+// ============================================================
+function authFailureResponse(request) {
+  return jsonResponse({
+    error: 'You must register and verify your host account before submitting a listing.',
+    code: 'OWNER_ACCOUNT_REQUIRED',
+    hint: 'Please create a host account first, verify your email, then log in and submit from the Host Panel.'
+  }, 401, request);
+}
+
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -299,16 +317,28 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ---- Path B: legacy ownerPassword against an existing verified account ----
-    const ownerPassword = String(body.ownerPassword || '');
-    const ownerWhatsappInput = String(h.whatsapp || '').replace(/[^0-9]/g, '');
-
+    // [SECURITY FIX] Rate-limit BEFORE touching the owners list or verifying
+    // the password. Every failure (missing fields, unknown account, wrong
+    // password) counts against the same window so an attacker gets at most
+    // 5 guesses per hour per IP, and cannot distinguish account-existence
+    // from wrong-password because every failure returns the same body.
     if (!authenticatedOwnerAccount) {
-      if (!ownerPassword || !ownerWhatsappInput) {
+      const ownerPassword = String(body.ownerPassword || '');
+      const ownerWhatsappInput = String(h.whatsapp || '').replace(/[^0-9]/g, '');
+
+      const authRateOk = await checkRateLimit(db, clientIP, 'pending_submit_auth', 5, 60 * 60);
+      if (!authRateOk) {
         return jsonResponse({
-          error: 'You must register and verify your host account before submitting a listing.',
-          code: 'OWNER_ACCOUNT_REQUIRED',
-          hint: 'Please create a host account first, verify your email, then log in and submit from the Host Panel.'
-        }, 401, request);
+          error: 'Too many submission attempts. Please wait an hour and try again.'
+        }, 429, request);
+      }
+
+      // Charge the attempt NOW — before we know whether the password is
+      // correct — so unknown-account probes also consume rate budget.
+      await recordRateLimit(db, clientIP, 'pending_submit_auth');
+
+      if (!ownerPassword || !ownerWhatsappInput) {
+        return authFailureResponse(request);
       }
 
       const acc = owners.find(o =>
@@ -316,14 +346,9 @@ export async function onRequestPost({ request, env }) {
       );
 
       if (!acc || acc.verified !== true) {
-        return jsonResponse({
-          error: 'You must register and verify your host account before submitting a listing.',
-          code: 'OWNER_ACCOUNT_REQUIRED',
-          hint: 'No verified host account was found for that phone number. Please register first.'
-        }, 401, request);
+        return authFailureResponse(request);
       }
 
-      // Constant-ish verification: PBKDF2 against the stored hash.
       const verified = await verifyPassword(ownerPassword, {
         ownerPasswordHash: acc.ownerPasswordHash,
         ownerSalt: acc.ownerSalt,
@@ -331,11 +356,7 @@ export async function onRequestPost({ request, env }) {
       }, env);
 
       if (!verified.ok) {
-        await recordRateLimit(db, clientIP, 'pending_submit');
-        return jsonResponse({
-          error: 'Invalid host password.',
-          code: 'INVALID_OWNER_PASSWORD'
-        }, 401, request);
+        return authFailureResponse(request);
       }
 
       authenticatedOwnerAccount = acc;
@@ -347,7 +368,7 @@ export async function onRequestPost({ request, env }) {
     const ownerEmail = String(authenticatedOwnerAccount.ownerEmail || '').toLowerCase().trim();
     const ownerWhatsapp = String(authenticatedOwnerAccount.whatsapp || '').replace(/[^0-9]/g, '');
 
-    // Required fields. [FIX 2.6] `bankCode` is now required.
+    // Required fields. `bankCode` is required.
     const required = ['name', 'location', 'ownerPrice', 'ownerBankAccount', 'bankHolder', 'bankCode'];
     for (const key of required) {
       if (h[key] === undefined || h[key] === null || String(h[key]).trim() === '') {
@@ -355,9 +376,7 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // [FIX 2.6] Validate the bank code against CHIP Send's known list.
-    // If the code is missing or unknown, refuse — do not silently
-    // default to Maybank at payout time.
+    // Validate the bank code against CHIP Send's known list.
     const incomingBankCode = String(h.bankCode || '').toUpperCase().trim();
     if (!VALID_CHIP_SEND_CODES.has(incomingBankCode)) {
       return jsonResponse({
@@ -398,6 +417,8 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'IC name is required' }, 400, request);
     }
 
+    // Submission rate limit (separate bucket from auth attempts, so a host
+    // who mistyped their password earlier can still submit once they get in).
     const rateOk = await checkRateLimit(db, clientIP, 'pending_submit', 3, 60 * 60);
     if (!rateOk) {
       return jsonResponse({ error: 'Too many submissions. Please wait an hour.' }, 429, request);
