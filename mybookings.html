@@ -175,6 +175,20 @@
     </div>
 
     <div id="bookingsList" class="space-y-4 animate-on-scroll"></div>
+
+    <div class="mt-10 p-5 md:p-6 rounded-2xl border border-red-200 bg-red-50/40 animate-on-scroll">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="flex-1 min-w-0">
+          <div class="font-poppins font-700 text-[14px] text-red-900">Delete My Account</div>
+          <div class="text-[12px] text-red-700 mt-1 leading-relaxed">
+            Permanently delete your account and personal details. Past booking records stay in our accounting system, but your name, email, and phone number will be removed from them. You cannot undo this.
+          </div>
+        </div>
+        <button onclick="deleteMyAccount()" class="text-[11px] uppercase tracking-wider font-700 text-red-700 border-2 border-red-300 hover:bg-red-600 hover:text-white hover:border-red-600 px-4 py-2.5 rounded-full transition-all duration-200 shrink-0 whitespace-nowrap">
+          Delete Account
+        </button>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -243,6 +257,7 @@
     if (safeRules.length === 0) node.removeAttribute('style'); else node.setAttribute('style', safeRules);
   });
 })();
+
 function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
@@ -366,10 +381,6 @@ function logoutGuest() {
 
 var myBookings = [];
 var pendingCheckInterval = null;
-// Polling budget: 30s per cycle, hard-capped at 10 cycles (5 minutes).
-// Each cycle checks at most ONE pending booking, so a guest with three
-// pending bookings still fires only one request per cycle. This keeps the
-// tab well under the per-IP limit on /api/verify-payment.
 var PENDING_CHECK_INTERVAL_MS = 30000;
 var PENDING_CHECK_MAX_CYCLES = 10;
 var pendingCheckCycles = 0;
@@ -399,98 +410,33 @@ function guestStatusInfo(b) {
 
   if (isCancelled) {
     if (isRefundPending) {
-      return {
-        key: 'refund_pending',
-        badgeClass: 'badge-refunded',
-        badgeLabel: 'Cancelled by Host - Refund Processing',
-        note: 'The host cancelled this booking. Your refund is being processed by CHIP and usually completes within a few minutes.',
-        buttons: []
-      };
+      return { key: 'refund_pending', badgeClass: 'badge-refunded', badgeLabel: 'Cancelled by Host - Refund Processing', note: 'The host cancelled this booking. Your refund is being processed by CHIP and usually completes within a few minutes.', buttons: [] };
     }
     if (isRefundComplete) {
-      return {
-        key: 'refunded',
-        badgeClass: 'badge-failed',
-        badgeLabel: 'Cancelled by Host - Refunded',
-        note: 'The host cancelled this booking. A full refund has been processed. It may take 3–7 business days to appear in your bank.',
-        buttons: []
-      };
+      return { key: 'refunded', badgeClass: 'badge-failed', badgeLabel: 'Cancelled by Host - Refunded', note: 'The host cancelled this booking. A full refund has been processed. It may take 3–7 business days to appear in your bank.', buttons: [] };
     }
-    return {
-      key: 'cancelled',
-      badgeClass: 'badge-failed',
-      badgeLabel: 'Cancelled by Host',
-      note: '',
-      buttons: []
-    };
+    return { key: 'cancelled', badgeClass: 'badge-failed', badgeLabel: 'Cancelled by Host', note: '', buttons: [] };
   }
 
   if (isRefundComplete) {
-    return {
-      key: 'refunded',
-      badgeClass: 'badge-refunded',
-      badgeLabel: '🔁 Refunded',
-      note: 'A full refund has been processed. It may take 3–7 business days to appear in your bank.',
-      buttons: []
-    };
+    return { key: 'refunded', badgeClass: 'badge-refunded', badgeLabel: '🔁 Refunded', note: 'A full refund has been processed. It may take 3–7 business days to appear in your bank.', buttons: [] };
   }
   if (isRefundPending) {
-    return {
-      key: 'refund_pending',
-      badgeClass: 'badge-refunded',
-      badgeLabel: '💧 Refund Processing',
-      note: 'Your refund is being processed by CHIP. This usually completes within a few minutes.',
-      buttons: []
-    };
+    return { key: 'refund_pending', badgeClass: 'badge-refunded', badgeLabel: '💧 Refund Processing', note: 'Your refund is being processed by CHIP. This usually completes within a few minutes.', buttons: [] };
   }
-
   if (s.indexOf('expired') !== -1) {
-    return {
-      key: 'expired',
-      badgeClass: 'badge-cancelled',
-      badgeLabel: 'Expired',
-      note: 'This booking expired before payment was completed. The dates have been released.',
-      buttons: []
-    };
+    return { key: 'expired', badgeClass: 'badge-cancelled', badgeLabel: 'Expired', note: 'This booking expired before payment was completed. The dates have been released.', buttons: [] };
   }
-
   if (s.indexOf('completed') !== -1 || hasPayoutDate) {
-    return {
-      key: 'completed',
-      badgeClass: 'badge-paid',
-      badgeLabel: '✓ Completed',
-      note: '',
-      buttons: []
-    };
+    return { key: 'completed', badgeClass: 'badge-paid', badgeLabel: '✓ Completed', note: '', buttons: [] };
   }
-
   if (s.indexOf('fail') !== -1) {
-    return {
-      key: 'failed',
-      badgeClass: 'badge-failed',
-      badgeLabel: 'Payment Failed',
-      note: 'Your payment didn\'t go through. Click Retry Payment to try again.',
-      buttons: ['checkStatus', 'retryPayment']
-    };
+    return { key: 'failed', badgeClass: 'badge-failed', badgeLabel: 'Payment Failed', note: 'Your payment didn\'t go through. Click Retry Payment to try again.', buttons: ['checkStatus', 'retryPayment'] };
   }
-
   if (s.indexOf('paid') !== -1) {
-    return {
-      key: 'paid',
-      badgeClass: 'badge-paid',
-      badgeLabel: '✓ Confirmed — Ready for Stay',
-      note: 'Your 6-digit check-in code was emailed to you. Share it with the host on arrival.',
-      buttons: ['resendCode']
-    };
+    return { key: 'paid', badgeClass: 'badge-paid', badgeLabel: '✓ Confirmed — Ready for Stay', note: 'Your 6-digit check-in code was emailed to you. Share it with the host on arrival.', buttons: ['resendCode'] };
   }
-
-  return {
-    key: 'pending',
-    badgeClass: 'badge-pending',
-    badgeLabel: 'Awaiting Payment',
-    note: 'Complete your payment to confirm this booking.',
-    buttons: ['checkStatus', 'retryPayment']
-  };
+  return { key: 'pending', badgeClass: 'badge-pending', badgeLabel: 'Awaiting Payment', note: 'Complete your payment to confirm this booking.', buttons: ['checkStatus', 'retryPayment'] };
 }
 
 function buildButtons(actions, id) {
@@ -524,10 +470,6 @@ function isGuestPollable(b) {
   return info.key === 'pending' || info.key === 'failed';
 }
 
-// Automatic background polling. Runs at most PENDING_CHECK_MAX_CYCLES
-// times per page load, one request per cycle. Stops when there are no
-// more pending bookings, or when the budget is exhausted. The guest can
-// always click "Check Payment" manually to check again.
 async function autoCheckPendingBookings() {
   if (!currentGuest) return;
   const pending = myBookings.filter(isGuestPollable);
@@ -541,9 +483,6 @@ async function autoCheckPendingBookings() {
   }
   pendingCheckCycles++;
 
-  // Only check the first pending booking per cycle. Guests with multiple
-  // pending bookings still get a check every cycle (via a fresh load),
-  // but the request rate stays low.
   const b = pending[0];
   let anyUpdated = false;
   try {
@@ -827,6 +766,146 @@ async function resendCode(bookingId) {
   } catch(e) { showAlert('Error', 'Network error. Please try again.'); }
 }
 
+/* ============================================================
+ * DELETE MY ACCOUNT — PDPA self-service deletion.
+ *
+ * Flow:
+ *   1. Modal shows password field + "type DELETE" field.
+ *   2. On submit, POST to /api/delete-account.
+ *   3. On success: clear local session, redirect home.
+ *   4. On failure: show the server's error (or generic).
+ * ============================================================ */
+async function ensureCsrfToken() {
+  let token = localStorage.getItem('kd_csrf_token');
+  if (token) return token;
+  try {
+    const res = await fetch('/api/csrf-token', { credentials: 'include' });
+    const data = await res.json();
+    if (data.token) {
+      localStorage.setItem('kd_csrf_token', data.token);
+      return data.token;
+    }
+  } catch (e) {}
+  return null;
+}
+
+function openDeleteAccountModal() {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('customModal');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const footerEl = document.getElementById('modalFooter');
+
+    titleEl.textContent = 'Delete My Account';
+    bodyEl.innerHTML = `
+      <div style="text-align:left;line-height:1.7;">
+        <p style="color:#b91c1c;font-weight:700;">This action is permanent and cannot be undone.</p>
+        <p>Your account and personal details will be deleted. Past booking records stay in our accounting system, but your name, email, and phone number will be removed from them.</p>
+        <p style="margin-top:14px;">Please enter your password and type <strong>DELETE</strong> (all caps) to confirm.</p>
+        <div style="margin-top:14px;">
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Your Password</label>
+          <input id="da-password" type="password" class="form-input" placeholder="Enter your password" style="width:100%;" autocomplete="current-password" />
+        </div>
+        <div style="margin-top:12px;">
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Type DELETE to confirm</label>
+          <input id="da-confirm" type="text" class="form-input" placeholder="DELETE" style="width:100%;" autocomplete="off" />
+        </div>
+        <div id="da-error" style="display:none;margin-top:12px;padding:10px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;font-size:12px;"></div>
+      </div>
+    `;
+
+    footerEl.innerHTML = '';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.onclick = () => { closeModal(); resolve(null); };
+    footerEl.appendChild(cancelBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete My Account';
+    deleteBtn.className = 'btn btn-danger';
+    deleteBtn.onclick = () => {
+      const pwEl = document.getElementById('da-password');
+      const cfEl = document.getElementById('da-confirm');
+      const errEl = document.getElementById('da-error');
+      const pw = pwEl ? pwEl.value : '';
+      const phrase = cfEl ? cfEl.value.trim() : '';
+
+      if (!pw) {
+        errEl.textContent = 'Please enter your password.';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (phrase !== 'DELETE') {
+        errEl.textContent = 'Type DELETE (all caps) to confirm.';
+        errEl.style.display = 'block';
+        return;
+      }
+      closeModal();
+      resolve({ password: pw, confirmPhrase: phrase });
+    };
+    footerEl.appendChild(deleteBtn);
+
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+      const inp = document.getElementById('da-password');
+      if (inp) inp.focus();
+    }, 200);
+  });
+}
+
+async function deleteMyAccount() {
+  const inputs = await openDeleteAccountModal();
+  if (!inputs) return;
+
+  const token = await ensureCsrfToken();
+  if (!token) {
+    await showAlert('Session Error', 'Could not verify your session. Please log out and log back in, then try again.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/delete-account', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': token
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        userType: 'guest',
+        password: inputs.password,
+        confirmPhrase: inputs.confirmPhrase
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.success) {
+      const errMsg = data.error || 'Could not delete your account. Please try again or contact support@kundasanghomestay.my.';
+      await showAlert('Could Not Delete', errMsg);
+      return;
+    }
+
+    if (window.GuestSession && typeof window.GuestSession.clearGuestSession === 'function') {
+      window.GuestSession.clearGuestSession();
+    }
+    try { localStorage.removeItem('kd_guest'); } catch (e) {}
+    try { localStorage.removeItem('kd_csrf_token'); } catch (e) {}
+
+    await showAlert(
+      'Account Deleted',
+      'Your account has been deleted. A confirmation email has been sent. You will now be logged out.'
+    );
+    window.location.href = '/';
+  } catch (e) {
+    await showAlert('Network Error', 'Could not reach the server. Please check your connection and try again.');
+  }
+}
+
+window.deleteMyAccount = deleteMyAccount;
+
 (async function init() {
   currentGuest = findLocalGuest();
   renderGuestNav();
@@ -856,6 +935,9 @@ async function resendCode(bookingId) {
     showLoginRequired();
     return;
   }
+
+  // Make sure we have a CSRF token handy before any action needs it.
+  ensureCsrfToken();
 
   loadMyBookings();
 })();
