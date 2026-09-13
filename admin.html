@@ -595,14 +595,28 @@ function safeHTML(html) {
   });
 }
 
-function showModal(title, message, buttons) {
+function escapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function showModal(title, message, buttons, options = {}) {
+  const { allowHtml = false } = options;
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
     const titleEl = document.getElementById('modalTitle');
     const bodyEl = document.getElementById('modalBody');
     const footerEl = document.getElementById('modalFooter');
     titleEl.textContent = title || 'Notice';
-    bodyEl.innerHTML = typeof message === 'string' ? message : '';
+    if (allowHtml) {
+      bodyEl.innerHTML = typeof message === 'string' ? message : '';
+    } else {
+      bodyEl.textContent = typeof message === 'string' ? message : '';
+    }
     footerEl.innerHTML = '';
     buttons.forEach(btn => {
       const el = document.createElement('button');
@@ -621,17 +635,18 @@ function closeModal() {
   document.body.style.overflow = '';
 }
 function modalConfirm() { closeModal(); }
-function showAlert(title, message) {
-  return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
+function showAlert(title, message, options = {}) {
+  return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }], options);
 }
-function showConfirm(title, message) {
+function showConfirm(title, message, options = {}) {
   return showModal(title, message, [
     { label: 'Cancel', class: 'btn-secondary', value: false },
     { label: 'Confirm', class: 'btn-primary', value: true }
-  ]);
+  ], options);
 }
-function showPrompt(title, message, defaultValue) {
-  const safeVal = String(defaultValue || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function showPrompt(title, message, defaultValue, options = {}) {
+  const { allowHtml = false } = options;
+  const safeVal = escapeHtml(defaultValue == null ? '' : defaultValue);
   const input = `<input type="text" id="modalInput" value="${safeVal}" placeholder="Enter value..." />`;
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
@@ -639,13 +654,15 @@ function showPrompt(title, message, defaultValue) {
     const bodyEl = document.getElementById('modalBody');
     const footerEl = document.getElementById('modalFooter');
     titleEl.textContent = title || 'Enter value';
-    bodyEl.innerHTML = (message || '') + input;
+    const safeMessage = allowHtml ? String(message || '') : escapeHtml(message || '');
+    bodyEl.innerHTML = safeMessage + input;
     footerEl.innerHTML = '';
     const okBtn = document.createElement('button');
     okBtn.textContent = 'OK';
     okBtn.className = 'btn btn-primary';
     okBtn.onclick = () => {
-      const val = document.getElementById('modalInput')?.value || '';
+      const el = document.getElementById('modalInput');
+      const val = el ? el.value : '';
       closeModal();
       resolve(val);
     };
@@ -663,6 +680,7 @@ function showPrompt(title, message, defaultValue) {
     }, 200);
   });
 }
+
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') { closeModal(); }
 });
@@ -1084,23 +1102,23 @@ function renderAdmin(){
         <div class="card p-5 mb-4">
           <div class="flex flex-wrap gap-4">
             <div class="flex-1 min-w-[250px]">
-              <div class="font-bold text-lg">${h.name || 'Unnamed'} — ${h.location || ''}</div>
-              <div class="text-sm mt-1">Owner: <b>${h.ownerName || ''}</b> • ${h.whatsapp || ''}</div>
-              <div class="text-sm">Email: ${h.ownerEmail || 'Not provided'}</div>
-              <div class="text-xs mt-1 text-zinc-500">${h.description || ''}</div>
+              <div class="font-bold text-lg">${escapeHtml(h.name || 'Unnamed')} — ${escapeHtml(h.location || '')}</div>
+              <div class="text-sm mt-1">Owner: <b>${escapeHtml(h.ownerName || '')}</b> • ${escapeHtml(h.whatsapp || '')}</div>
+              <div class="text-sm">Email: ${escapeHtml(h.ownerEmail || 'Not provided')}</div>
+              <div class="text-xs mt-1 text-zinc-500">${escapeHtml(h.description || '')}</div>
             </div>
             <div class="text-sm bg-yellow-50 border border-yellow-200 p-3 rounded-xl min-w-[200px]">
               <div class="font-bold text-xs uppercase text-zinc-500">Bank Details</div>
-              <div>${h.ownerBank || 'N/A'}</div>
-              <div class="font-mono font-bold">${h.ownerBankAccount || 'N/A'}</div>
-              <div class="text-xs">Holder: ${h.bankHolder || 'N/A'}</div>
+              <div>${escapeHtml(h.ownerBank || 'N/A')}</div>
+              <div class="font-mono font-bold">${escapeHtml(h.ownerBankAccount || 'N/A')}</div>
+              <div class="text-xs">Holder: ${escapeHtml(h.bankHolder || 'N/A')}</div>
             </div>
           </div>
           <div class="flex flex-wrap gap-2 mt-3">${nameMatchBadge} ${icUploaded} ${qrUploaded}</div>
           <div class="flex flex-wrap gap-2 mt-3">
-            <button class="admin-action-btn" data-action="viewPendingDetails" data-id="${h.id}">🔍 View Full Details</button>
-            <button class="admin-action-btn" data-action="approveHomestay" data-id="${h.id}">✅ Approve</button>
-            <button class="admin-action-btn" data-action="rejectHomestay" data-id="${h.id}">✕ Reject</button>
+            <button class="admin-action-btn" data-action="viewPendingDetails" data-id="${escapeHtml(h.id)}">🔍 View Full Details</button>
+            <button class="admin-action-btn" data-action="approveHomestay" data-id="${escapeHtml(h.id)}">✅ Approve</button>
+            <button class="admin-action-btn" data-action="rejectHomestay" data-id="${escapeHtml(h.id)}">✕ Reject</button>
           </div>
         </div>
       `;
@@ -1119,16 +1137,16 @@ function renderAdmin(){
       approvedHtml += `
         <div class="card p-4 flex flex-wrap gap-4 items-center justify-between">
           <div class="flex items-center gap-4">
-            <img src="${h.image || ''}" class="w-16 h-16 rounded-xl object-cover" onerror="this.style.display='none'"/>
+            <img src="${escapeHtml(h.image || '')}" class="w-16 h-16 rounded-xl object-cover" onerror="this.style.display='none'"/>
             <div>
-              <div class="font-bold text-sm">${h.name}</div>
-              <div class="text-xs">RM${h.ownerPrice} • ${h.location} • ${blocked.length} booked</div>
+              <div class="font-bold text-sm">${escapeHtml(h.name)}</div>
+              <div class="text-xs">RM${escapeHtml(h.ownerPrice)} • ${escapeHtml(h.location)} • ${blocked.length} booked</div>
             </div>
           </div>
           <div class="flex gap-2 flex-wrap">
-            <button class="admin-action-btn" data-action="openOwnerAvailabilityManager" data-id="${h.id}">📅 Manage</button>
-            <button class="admin-action-btn" data-action="editApprovedHomestay" data-id="${h.id}">✏️ Edit</button>
-            <button class="admin-action-btn" data-action="removeApprovedHomestay" data-id="${h.id}">🗑️ Remove</button>
+            <button class="admin-action-btn" data-action="openOwnerAvailabilityManager" data-id="${escapeHtml(h.id)}">📅 Manage</button>
+            <button class="admin-action-btn" data-action="editApprovedHomestay" data-id="${escapeHtml(h.id)}">✏️ Edit</button>
+            <button class="admin-action-btn" data-action="removeApprovedHomestay" data-id="${escapeHtml(h.id)}">🗑️ Remove</button>
           </div>
         </div>
       `;
@@ -1202,16 +1220,16 @@ function openEditHomestayModal(id) {
 
   let html = '';
   fields.forEach(f => {
-    const safeVal = String(f.value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const safeVal = escapeHtml(f.value);
     const hint = f.id === 'edit_bankCode'
       ? '<p class="text-[10px] text-zinc-400 mt-1">SWIFT/BIC code from the CHIP Send bank list. e.g. MBBEMYKL for Maybank.</p>'
       : '';
     if (f.type === 'textarea') {
-      html += `<div><label class="block text-xs font-bold text-zinc-600">${f.label}</label>
-        <textarea id="${f.id}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm">${safeVal}</textarea>${hint}</div>`;
+      html += `<div><label class="block text-xs font-bold text-zinc-600">${escapeHtml(f.label)}</label>
+        <textarea id="${escapeHtml(f.id)}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm">${safeVal}</textarea>${hint}</div>`;
     } else {
-      html += `<div><label class="block text-xs font-bold text-zinc-600">${f.label}</label>
-        <input type="${f.type}" id="${f.id}" value="${safeVal}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm" />${hint}</div>`;
+      html += `<div><label class="block text-xs font-bold text-zinc-600">${escapeHtml(f.label)}</label>
+        <input type="${escapeHtml(f.type)}" id="${escapeHtml(f.id)}" value="${safeVal}" class="w-full border border-zinc-300 rounded-xl px-3 py-2 text-sm" />${hint}</div>`;
     }
   });
   form.innerHTML = safeHTML(html);
@@ -1324,21 +1342,21 @@ function viewPendingDetails(id) {
       <div>
         <div class="text-sm font-semibold text-zinc-500">Owner Information</div>
         <div class="mt-2 space-y-2 text-sm">
-          <div><span class="font-bold">Name:</span> ${h.ownerName || 'N/A'}</div>
-          <div><span class="font-bold">WhatsApp:</span> ${h.whatsapp || 'N/A'}</div>
-          <div><span class="font-bold">Email:</span> ${h.ownerEmail || 'N/A'}</div>
-          <div><span class="font-bold">IC Name:</span> ${h.icName || 'N/A'}</div>
-          <div><span class="font-bold">IC Number:</span> ${h.icNumber || 'N/A'}</div>
+          <div><span class="font-bold">Name:</span> ${escapeHtml(h.ownerName || 'N/A')}</div>
+          <div><span class="font-bold">WhatsApp:</span> ${escapeHtml(h.whatsapp || 'N/A')}</div>
+          <div><span class="font-bold">Email:</span> ${escapeHtml(h.ownerEmail || 'N/A')}</div>
+          <div><span class="font-bold">IC Name:</span> ${escapeHtml(h.icName || 'N/A')}</div>
+          <div><span class="font-bold">IC Number:</span> ${escapeHtml(h.icNumber || 'N/A')}</div>
         </div>
       </div>
       <div>
         <div class="text-sm font-semibold text-zinc-500">Homestay Details</div>
         <div class="mt-2 space-y-2 text-sm">
-          <div><span class="font-bold">Name:</span> ${h.name || 'N/A'}</div>
-          <div><span class="font-bold">Location:</span> ${h.location || 'N/A'}</div>
-          <div><span class="font-bold">Price/Night:</span> RM${h.ownerPrice || 0}</div>
-          <div><span class="font-bold">Guests:</span> ${h.guests || 0}</div>
-          <div><span class="font-bold">Bedrooms:</span> ${h.bedrooms || 0}</div>
+          <div><span class="font-bold">Name:</span> ${escapeHtml(h.name || 'N/A')}</div>
+          <div><span class="font-bold">Location:</span> ${escapeHtml(h.location || 'N/A')}</div>
+          <div><span class="font-bold">Price/Night:</span> RM${escapeHtml(h.ownerPrice || 0)}</div>
+          <div><span class="font-bold">Guests:</span> ${escapeHtml(h.guests || 0)}</div>
+          <div><span class="font-bold">Bedrooms:</span> ${escapeHtml(h.bedrooms || 0)}</div>
         </div>
       </div>
     </div>
@@ -1346,10 +1364,10 @@ function viewPendingDetails(id) {
       <div>
         <div class="text-sm font-semibold text-zinc-500">Bank Details</div>
         <div class="mt-2 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-          <div><span class="font-bold">Bank:</span> ${h.ownerBank || 'N/A'}</div>
-          <div><span class="font-bold">Bank Code:</span> <span class="font-mono font-bold">${h.bankCode || 'MISSING'}</span></div>
-          <div><span class="font-bold">Account Number:</span> <span class="font-mono font-bold text-lg">${h.ownerBankAccount || 'N/A'}</span></div>
-          <div><span class="font-bold">Account Holder:</span> ${h.bankHolder || 'N/A'}</div>
+          <div><span class="font-bold">Bank:</span> ${escapeHtml(h.ownerBank || 'N/A')}</div>
+          <div><span class="font-bold">Bank Code:</span> <span class="font-mono font-bold">${escapeHtml(h.bankCode || 'MISSING')}</span></div>
+          <div><span class="font-bold">Account Number:</span> <span class="font-mono font-bold text-lg">${escapeHtml(h.ownerBankAccount || 'N/A')}</span></div>
+          <div><span class="font-bold">Account Holder:</span> ${escapeHtml(h.bankHolder || 'N/A')}</div>
           <div><span class="font-bold">Bank QR:</span> ${h.bankQRImage ? '✅ Uploaded' : '❌ Not uploaded'}</div>
         </div>
       </div>
@@ -1374,7 +1392,7 @@ function viewPendingDetails(id) {
       <div class="mt-4">
         <div class="text-sm font-semibold text-zinc-500">IC Front (Watermarked)</div>
         <div class="mt-2 border rounded-xl p-3 bg-blue-50">
-          <img src="${h.icImage}" class="detail-modal-img max-h-[500px] w-auto mx-auto cursor-pointer lightbox-trigger" data-lightbox-src="${h.icImage}" />
+          <img src="${escapeHtml(h.icImage)}" class="detail-modal-img max-h-[500px] w-auto mx-auto cursor-pointer lightbox-trigger" data-lightbox-src="${escapeHtml(h.icImage)}" />
           <div class="text-[10px] text-zinc-500 mt-2 text-center">Tap image to enlarge</div>
         </div>
       </div>
@@ -1385,7 +1403,7 @@ function viewPendingDetails(id) {
       <div class="mt-4">
         <div class="text-sm font-semibold text-zinc-500">Bank QR / DuitNow</div>
         <div class="mt-2 border rounded-xl p-3 bg-green-50">
-          <img src="${h.bankQRImage}" class="detail-modal-img max-h-[400px] w-auto mx-auto cursor-pointer lightbox-trigger" data-lightbox-src="${h.bankQRImage}" />
+          <img src="${escapeHtml(h.bankQRImage)}" class="detail-modal-img max-h-[400px] w-auto mx-auto cursor-pointer lightbox-trigger" data-lightbox-src="${escapeHtml(h.bankQRImage)}" />
           <div class="text-[10px] text-zinc-500 mt-2 text-center">Tap image to enlarge</div>
         </div>
       </div>
@@ -1396,7 +1414,7 @@ function viewPendingDetails(id) {
       <div class="mt-4">
         <div class="text-sm font-semibold text-zinc-500">PBT Trading License</div>
         <div class="mt-2 border rounded-xl p-3 bg-blue-50">
-          <img src="${h.pbtLicense}" class="detail-modal-img max-h-[400px] w-auto mx-auto cursor-pointer lightbox-trigger" data-lightbox-src="${h.pbtLicense}" />
+          <img src="${escapeHtml(h.pbtLicense)}" class="detail-modal-img max-h-[400px] w-auto mx-auto cursor-pointer lightbox-trigger" data-lightbox-src="${escapeHtml(h.pbtLicense)}" />
           <div class="text-[10px] text-zinc-500 mt-2 text-center">Tap image to enlarge</div>
         </div>
       </div>
@@ -1406,7 +1424,7 @@ function viewPendingDetails(id) {
     <div class="mt-4">
       <button onclick="toggleJsonView()" class="text-xs text-blue-600 underline">Show Full JSON Data</button>
       <div id="jsonView" class="hidden mt-2 p-3 bg-zinc-100 border rounded-xl text-xs font-mono overflow-auto max-h-60">
-        ${safeHTML(JSON.stringify(h, null, 2))}
+        ${escapeHtml(JSON.stringify(h, null, 2))}
       </div>
     </div>
   `;
@@ -1478,21 +1496,20 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
       btns += `<span class="text-[11px] text-zinc-500 italic px-2">Awaiting host check-in</span>`;
     }
     if (b.payoutFailedAttempt && !b.payoutSuccessDate) {
-      btns += `<button class="booking-action-btn px-3 py-1.5 bg-yellow-500 text-white rounded-full text-[11px] uppercase font-700" data-action="retryPayout" data-id="${b.id}">🔁 RETRY PAYOUT</button>`;
+      btns += `<button class="booking-action-btn px-3 py-1.5 bg-yellow-500 text-white rounded-full text-[11px] uppercase font-700" data-action="retryPayout" data-id="${escapeHtml(b.id)}">🔁 RETRY PAYOUT</button>`;
     }
     if (isRefundPending) {
-      btns += `<button class="booking-action-btn px-3 py-1.5 bg-yellow-500 text-white rounded-full text-[11px] uppercase font-700" data-action="retryRefund" data-id="${b.id}">🔁 RETRY REFUND</button>`;
+      btns += `<button class="booking-action-btn px-3 py-1.5 bg-yellow-500 text-white rounded-full text-[11px] uppercase font-700" data-action="retryRefund" data-id="${escapeHtml(b.id)}">🔁 RETRY REFUND</button>`;
     }
     if (!isCompleted && !isCancelled) {
-      btns += `<button class="booking-action-btn px-3 py-1.5 bg-green-600 text-white rounded-full text-[11px] uppercase font-600" data-action="updateBookingStatus" data-id="${b.id}" data-status="Completed">COMPLETE</button>`;
+      btns += `<button class="booking-action-btn px-3 py-1.5 bg-green-600 text-white rounded-full text-[11px] uppercase font-600" data-action="updateBookingStatus" data-id="${escapeHtml(b.id)}" data-status="Completed">COMPLETE</button>`;
     }
 
-    // Show cancel_type tag when present (helps admin understand which refund path applies)
     const cancelTypeTag = b.cancel_type
-      ? `<span class="text-[10px] px-2 py-0.5 rounded-full border ${b.cancel_type === 'guest_request' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-green-50 text-green-700 border-green-200'}">Cancelled as: ${b.cancel_type}</span>`
+      ? `<span class="text-[10px] px-2 py-0.5 rounded-full border ${b.cancel_type === 'guest_request' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-green-50 text-green-700 border-green-200'}">Cancelled as: ${escapeHtml(b.cancel_type)}</span>`
       : '';
 
-    html += `<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">${b.id}</div><div class="text-[12px] mt-1">${homestayName} • ${nights} nights • ${checkin} → ${checkout} • RM${total}</div><div class="text-[12px]">Guest: ${b.guestName || ''} ${b.guestEmail || ''} ${b.guestPhone || ''}</div><div class="text-[10px] text-zinc-500 mt-1">Base RM${base} + Fee RM${fee} = You receive RM${youReceive} ${b.payoutAmount ? '• Owner Paid RM' + b.payoutAmount + (b.payoutDate ? ' on ' + toMYDate(b.payoutDate) : '') : ''}${b.refund_error ? ' • Refund error: ' + b.refund_error : ''}</div>${cancelTypeTag ? `<div class="mt-2">${cancelTypeTag}</div>` : ''}</div><div><span class="text-[11px] px-2 py-1 rounded-full ${badgeClass}">${badgeText}</span></div></div><div class="flex gap-2 mt-3 flex-wrap">${btns}<button class="booking-action-btn px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600" data-action="whatsappGuest" data-id="${b.id}">WHATSAPP GUEST</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="copyBookingId" data-id="${b.id}">COPY ID</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="changeBookingDates" data-id="${b.id}">CHANGE DATES</button><button class="booking-action-btn px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600" data-action="deleteBooking" data-id="${b.id}">DELETE</button></div></div>`;
+    html += `<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">${escapeHtml(b.id)}</div><div class="text-[12px] mt-1">${escapeHtml(homestayName)} • ${nights} nights • ${escapeHtml(checkin)} → ${escapeHtml(checkout)} • RM${escapeHtml(total)}</div><div class="text-[12px]">Guest: ${escapeHtml(b.guestName || '')} ${escapeHtml(b.guestEmail || '')} ${escapeHtml(b.guestPhone || '')}</div><div class="text-[10px] text-zinc-500 mt-1">Base RM${escapeHtml(base)} + Fee RM${escapeHtml(fee)} = You receive RM${escapeHtml(youReceive)} ${b.payoutAmount ? '• Owner Paid RM' + escapeHtml(b.payoutAmount) + (b.payoutDate ? ' on ' + toMYDate(b.payoutDate) : '') : ''}${b.refund_error ? ' • Refund error: ' + escapeHtml(b.refund_error) : ''}</div>${cancelTypeTag ? `<div class="mt-2">${cancelTypeTag}</div>` : ''}</div><div><span class="text-[11px] px-2 py-1 rounded-full ${badgeClass}">${badgeText}</span></div></div><div class="flex gap-2 mt-3 flex-wrap">${btns}<button class="booking-action-btn px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600" data-action="whatsappGuest" data-id="${escapeHtml(b.id)}">WHATSAPP GUEST</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="copyBookingId" data-id="${escapeHtml(b.id)}">COPY ID</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="changeBookingDates" data-id="${escapeHtml(b.id)}">CHANGE DATES</button><button class="booking-action-btn px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600" data-action="deleteBooking" data-id="${escapeHtml(b.id)}">DELETE</button></div></div>`;
   });
 
   html += '</div>';
@@ -1598,20 +1615,9 @@ async function retryPayout(bookingId) {
   }
 }
 
-// ============================================================
-// Retry a refund that failed at CHIP. Calls the new `retryRefund`
-// action on /api/bookings.
-//
-// [THIS REVISION]
-// The confirmation modal now previews the refund amount based on the
-// booking's stored cancel_type. The success alert shows the actual
-// refund amount and the retained fee returned by the server.
-// ============================================================
 async function retryRefund(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
 
-  // Determine what the server will do, based on the stored cancel_type.
-  // Missing cancel_type is treated as host_own (full refund) by the server.
   const storedCancelType = String(booking?.cancel_type || 'host_own').toLowerCase().trim();
   const effectiveCancelType = (storedCancelType === 'guest_request') ? 'guest_request' : 'host_own';
   const isGuestRequest = effectiveCancelType === 'guest_request';
@@ -1633,7 +1639,7 @@ async function retryRefund(bookingId) {
   const confirmed = await showModal(
     "Retry Refund",
     `<div style="text-align:left;line-height:1.6;">
-       <p>Retry the CHIP refund for booking <strong>${bookingId}</strong>?</p>
+       <p>Retry the CHIP refund for booking <strong>${escapeHtml(bookingId)}</strong>?</p>
 
        <div style="margin-top:14px;padding:14px;background:#f8f5f0;border-radius:12px;font-size:13px;">
          <div style="font-weight:700;margin-bottom:8px;">${typeLabel}</div>
@@ -1647,7 +1653,8 @@ async function retryRefund(bookingId) {
     [
       { label: 'Cancel', class: 'btn-secondary', value: false },
       { label: 'Confirm Retry', class: 'btn-primary', value: true }
-    ]
+    ],
+    { allowHtml: true }
   );
   if (!confirmed) return;
 
@@ -1670,7 +1677,6 @@ async function retryRefund(bookingId) {
       return;
     }
 
-    // Build the result alert using the actual amounts the server returned.
     const actualRefund = Number(data.refundAmount || 0).toFixed(2);
     const actualRetained = Number(data.feeRetained || 0).toFixed(2);
     const actualRecorded = Number(data.feeRecorded || 0).toFixed(2);
@@ -1679,7 +1685,7 @@ async function retryRefund(bookingId) {
     if (data.refunded && !data.refundPending) {
       let msg = `<div style="text-align:left;line-height:1.6;">
           <p>✅ Refund <strong>RM ${actualRefund}</strong> processed to the guest via CHIP.</p>
-          <p style="font-size:12px;color:#6b7280;margin-top:8px;">Refund ID: <code>${data.refundId || 'N/A'}</code></p>`;
+          <p style="font-size:12px;color:#6b7280;margin-top:8px;">Refund ID: <code>${escapeHtml(data.refundId || 'N/A')}</code></p>`;
       if (isGuestReq && actualRecorded !== '0.00') {
         msg += `<p style="margin-top:12px;padding:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12px;color:#92400e;">
                   Platform retained <strong>RM ${actualRetained}</strong> (base-only refund).
@@ -1687,11 +1693,11 @@ async function retryRefund(bookingId) {
                 </p>`;
       }
       msg += `</div>`;
-      await showAlert("Refund Processed", msg);
+      await showAlert("Refund Processed", msg, { allowHtml: true });
     } else if (data.refunded && data.refundPending) {
       let msg = `<div style="text-align:left;line-height:1.6;">
           <p>⏳ CHIP is processing the refund of <strong>RM ${actualRefund}</strong>.</p>
-          <p style="font-size:12px;color:#6b7280;margin-top:8px;">Refund ID: <code>${data.refundId || 'no ID yet'}</code></p>
+          <p style="font-size:12px;color:#6b7280;margin-top:8px;">Refund ID: <code>${escapeHtml(data.refundId || 'no ID yet')}</code></p>
           <p style="font-size:12px;color:#6b7280;margin-top:4px;">This normally completes within a few minutes.</p>`;
       if (isGuestReq && actualRecorded !== '0.00') {
         msg += `<p style="margin-top:12px;padding:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12px;color:#92400e;">
@@ -1699,13 +1705,14 @@ async function retryRefund(bookingId) {
                 </p>`;
       }
       msg += `</div>`;
-      await showAlert("Refund Pending", msg);
+      await showAlert("Refund Pending", msg, { allowHtml: true });
     } else {
       await showAlert("Refund Still Failed",
         `<div style="text-align:left;line-height:1.6;">
-           <p>❌ CHIP rejected the retry: <strong>${data.refundError || 'unknown reason'}</strong>.</p>
+           <p>❌ CHIP rejected the retry: <strong>${escapeHtml(data.refundError || 'unknown reason')}</strong>.</p>
            <p style="font-size:12px;color:#6b7280;margin-top:8px;">Verify purchase details in the CHIP dashboard before retrying again.</p>
-         </div>`);
+         </div>`,
+        { allowHtml: true });
     }
 
     await fetchCloudData();
@@ -1872,9 +1879,9 @@ async function approveHomestay(id){
       if (data.emailSent === true) {
         msg += "<br><br>📧 Approval email sent to the host.";
       } else if (data.emailError) {
-        msg += "<br><br>⚠️ Email could not be sent: " + data.emailError;
+        msg += "<br><br>⚠️ Email could not be sent: " + escapeHtml(data.emailError);
       }
-      await showAlert("Success", msg);
+      await showAlert("Success", msg, { allowHtml: true });
     } else {
       await showAlert("Error", "❌ Approval failed: " + (data.error || "Unknown error"));
     }
@@ -1883,7 +1890,7 @@ async function approveHomestay(id){
   }
 }
 
-  async function rejectHomestay(id){
+async function rejectHomestay(id){
   const confirmed = await showConfirm(
     "Reject Homestay",
     "Reject this homestay? The host will receive a notification email."
@@ -1912,9 +1919,9 @@ async function approveHomestay(id){
       if (data.emailSent === true) {
         msg += "<br><br>📧 Notification email sent to the host.";
       } else if (data.emailError) {
-        msg += "<br><br>⚠️ Email could not be sent: " + data.emailError;
+        msg += "<br><br>⚠️ Email could not be sent: " + escapeHtml(data.emailError);
       }
-      await showAlert("Rejected", msg);
+      await showAlert("Rejected", msg, { allowHtml: true });
     } else {
       await showAlert("Error", "❌ Rejection failed: " + (data.error || "Unknown error"));
     }
@@ -1922,7 +1929,7 @@ async function approveHomestay(id){
     await showAlert("Error", "Error: " + e.message);
   }
 }
-  
+
 async function forceSyncPending(){
   const confirmed = await showConfirm("Force Sync", "Force sync pending data from localStorage to cloud?");
   if (!confirmed) return;
@@ -1970,20 +1977,22 @@ async function resetWithdrawn() {
         <li>Available Balance → RM0.00</li>
         <li>Withdrawn Balance → RM0.00</li>
       </ul>
-      <p style="color:#b91c1c;"><strong>Current values:</strong> ${currentAvail} • ${currentWith}</p>
+      <p style="color:#b91c1c;"><strong>Current values:</strong> ${escapeHtml(currentAvail)} • ${escapeHtml(currentWith)}</p>
       <p style="font-size:11px; color:#6b7280; margin-top:8px;">This cannot be undone. Only do this if you are resetting the platform for a new period.</p>
     </div>`,
     [
       { label: "Cancel", class: "btn-secondary", value: false },
       { label: "Continue", class: "btn-danger", value: true }
-    ]
+    ],
+    { allowHtml: true }
   );
   if (!confirmed) return;
 
   const typed = await showPrompt(
     "Type RESET to confirm",
     "Type the word <strong>RESET</strong> (all caps) to permanently reset all earnings to RM0.00:",
-    ""
+    "",
+    { allowHtml: true }
   );
   if (typed === null) return;
   if (String(typed).trim() !== "RESET") {
@@ -2006,7 +2015,7 @@ async function resetWithdrawn() {
     await showAlert("Error", "Error: " + e.message);
   }
 }
-  
+
 async function clearAllBookingsCloud() {
   const confirmed1 = await showConfirm("Clear All Bookings", "DELETE ALL bookings from Cloudflare D1? This cannot be undone.");
   if (!confirmed1) return;
@@ -2042,16 +2051,16 @@ function renderAvailabilityTab(){
   homestays.forEach(h => {
     const blocked = getAllBlockedDatesForHomestay(h);
     const blockedStr = blocked.length
-      ? blocked.map(d => `<span class="text-xs bg-red-100 px-1.5 py-0.5 rounded-full">${d}</span>`).join(' ')
+      ? blocked.map(d => `<span class="text-xs bg-red-100 px-1.5 py-0.5 rounded-full">${escapeHtml(d)}</span>`).join(' ')
       : '<span class="text-xs text-zinc-400">No blocked dates</span>';
     html += `
       <div class="border rounded-xl p-3">
         <div class="font-bold text-sm flex justify-between">
-          <span>${h.name}</span>
+          <span>${escapeHtml(h.name)}</span>
           <span class="text-xs text-zinc-500">${blocked.length} blocked</span>
         </div>
         <div class="mt-1 flex flex-wrap gap-1 max-h-32 overflow-y-auto">${blockedStr}</div>
-        <button class="admin-action-btn mt-2 text-xs border rounded-full px-3 py-1 bg-white hover:bg-zinc-50" data-action="openOwnerAvailabilityManager" data-id="${h.id}">📅 Manage</button>
+        <button class="admin-action-btn mt-2 text-xs border rounded-full px-3 py-1 bg-white hover:bg-zinc-50" data-action="openOwnerAvailabilityManager" data-id="${escapeHtml(h.id)}">📅 Manage</button>
       </div>
     `;
   });
@@ -2076,10 +2085,10 @@ function renderGuestsTable(){
       html += `
         <div class="border rounded-xl p-3 text-sm flex justify-between items-center">
           <div>
-            <div class="font-bold">${g.name || ''} • ${g.email || ''}</div>
-            <div class="text-[11px] text-zinc-500">${g.phone || ''}</div>
+            <div class="font-bold">${escapeHtml(g.name || '')} • ${escapeHtml(g.email || '')}</div>
+            <div class="text-[11px] text-zinc-500">${escapeHtml(g.phone || '')}</div>
           </div>
-          <button class="admin-action-btn text-xs px-3 py-1.5 rounded-full bg-red-600 text-white" data-action="deleteGuest" data-id="${guestId}">Delete</button>
+          <button class="admin-action-btn text-xs px-3 py-1.5 rounded-full bg-red-600 text-white" data-action="deleteGuest" data-id="${escapeHtml(guestId)}">Delete</button>
         </div>
       `;
     });
@@ -2116,17 +2125,17 @@ function renderHostsTable(){
       <div class="border rounded-xl p-4 mb-3 flex flex-wrap justify-between items-start gap-3">
         <div class="flex-1 min-w-[220px]">
           <div class="font-bold text-sm flex items-center gap-2 flex-wrap">
-            <span>${o.ownerName || '—'}</span>
+            <span>${escapeHtml(o.ownerName || '—')}</span>
             ${badge}
           </div>
-          <div class="text-[12px] text-zinc-600 mt-1">${o.ownerEmail || '—'}</div>
-          <div class="text-[11px] text-zinc-500 mt-0.5">WhatsApp: ${o.whatsapp || '—'}</div>
-          <div class="text-[10px] text-zinc-400 mt-1">Registered: ${created}</div>
-          <div class="text-[10px] text-zinc-400 mt-0.5 font-mono break-all">ID: ${o.id || '—'}</div>
+          <div class="text-[12px] text-zinc-600 mt-1">${escapeHtml(o.ownerEmail || '—')}</div>
+          <div class="text-[11px] text-zinc-500 mt-0.5">WhatsApp: ${escapeHtml(o.whatsapp || '—')}</div>
+          <div class="text-[10px] text-zinc-400 mt-1">Registered: ${escapeHtml(created)}</div>
+          <div class="text-[10px] text-zinc-400 mt-0.5 font-mono break-all">ID: ${escapeHtml(o.id || '—')}</div>
         </div>
         <div class="flex gap-2 flex-wrap">
           <button class="admin-action-btn text-xs px-3 py-1.5 rounded-full bg-red-600 text-white"
-                  data-action="deleteOwner" data-id="${o.id || ''}">Delete Host</button>
+                  data-action="deleteOwner" data-id="${escapeHtml(o.id || '')}">Delete Host</button>
         </div>
       </div>
     `;
@@ -2168,10 +2177,14 @@ async function deleteOwner(identifier) {
     return;
   }
 
+  const ownerLabel = escapeHtml(owner.ownerName || 'this host');
+  const ownerContact = escapeHtml(owner.ownerEmail || owner.whatsapp || '');
+
   const confirmed = await showConfirm(
     'Delete Host Account',
-    `Permanently delete <strong>${owner.ownerName || 'this host'}</strong> (${owner.ownerEmail || owner.whatsapp})?<br><br>` +
-    `This will also remove any homestays they've submitted. This action cannot be undone.`
+    `Permanently delete <strong>${ownerLabel}</strong> (${ownerContact})?<br><br>` +
+    `This will also remove any homestays they've submitted. This action cannot be undone.`,
+    { allowHtml: true }
   );
   if (!confirmed) return;
 
@@ -2196,7 +2209,8 @@ async function deleteOwner(identifier) {
     const r = data.removedHomes || {};
     await showAlert(
       'Deleted',
-      `Host removed.<br><br>Also removed:<br>• ${r.pending || 0} pending homestays<br>• ${r.approved || 0} approved homestays`
+      `Host removed.<br><br>Also removed:<br>• ${Number(r.pending || 0)} pending homestays<br>• ${Number(r.approved || 0)} approved homestays`,
+      { allowHtml: true }
     );
 
     await fetchCloudData();
@@ -2217,9 +2231,13 @@ async function deleteGuest(identifier) {
     await showAlert("Error", "Guest not found in local data.");
     return;
   }
+  const guestLabel = escapeHtml(guest.name || guest.email || 'this guest');
+  const guestEmail = escapeHtml(guest.email || '');
+
   const confirmed = await showConfirm(
     "Delete Guest",
-    `Delete <strong>${guest.name || guest.email}</strong> (${guest.email})? This will permanently remove the guest record.`
+    `Delete <strong>${guestLabel}</strong> (${guestEmail})? This will permanently remove the guest record.`,
+    { allowHtml: true }
   );
   if (!confirmed) return;
   try {
@@ -2239,7 +2257,7 @@ async function deleteGuest(identifier) {
     await fetchCloudData();
     renderGuestsTable();
     renderAdmin();
-    await showAlert("Success", `Deleted ${guest.email}.`);
+    await showAlert("Success", `Deleted ${guestEmail}.`);
   } catch(e) {
     await showAlert("Error", "Guest was NOT deleted: " + e.message);
   }
