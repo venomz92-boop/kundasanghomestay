@@ -41,6 +41,7 @@
       localStorage.removeItem('kd_guest_pending_payment');
       localStorage.removeItem('kd_pending_booking');
       localStorage.removeItem('kd_failed_booking');
+      localStorage.removeItem('kd_guest_csrf_token');
     } catch (e) {}
   }
 
