@@ -3,6 +3,13 @@
 // which JavaScript cannot read. This protects guests if a malicious script
 // ever gets onto the page. The CSRF token is still returned (that one is
 // fine to expose to JS).
+//
+// [THIS REVISION]
+// The dummy record used for timing-equalisation now matches the real
+// iteration count. Before this change the dummy used 600,000 iterations
+// while real records used 100,000 — an attacker could tell whether an
+// email existed by measuring response time. The dummy is now built at
+// request time from the same PBKDF2_ITERATIONS value real records use.
 import {
   corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword,
   createSignedToken, generateCSRFToken, cookieHeader, jsonResponse,
@@ -14,12 +21,20 @@ const GUEST_TTL_SECONDS = GUEST_TTL_MS / 1000;
 
 // Dummy record used to equalize response time when the email is unknown.
 // MUST use the SAME algorithm string as freshly-created records so PBKDF2
-// burns the same CPU. Keep this in sync with PBKDF2_ITERATIONS in _utils.js.
-const DUMMY_PASSWORD_RECORD = {
-  password: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-  salt: 'AAAAAAAAAAAAAAAAAAAAAA',
-  passwordAlgorithm: 'PBKDF2-600000-SHA256'
-};
+// burns the same CPU. Built at request time from env, so if you set
+// PBKDF2_ITERATIONS in Cloudflare the dummy follows automatically.
+const DUMMY_PASSWORD = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const DUMMY_SALT = 'AAAAAAAAAAAAAAAAAAAAAA';
+
+function makeDummyRecord(env) {
+  const parsed = parseInt(env && env.PBKDF2_ITERATIONS, 10);
+  const iterations = (Number.isFinite(parsed) && parsed >= 10000) ? parsed : 100000;
+  return {
+    password: DUMMY_PASSWORD,
+    salt: DUMMY_SALT,
+    passwordAlgorithm: `PBKDF2-${iterations}-SHA256`
+  };
+}
 
 function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -55,8 +70,9 @@ export async function onRequestPost({ request, env }) {
 
     // ---- TIMING-SAFE PATH ----
     // Always run PBKDF2, even when email is unknown, so response time
-    // does not leak whether the account exists.
-    const recordToCheck = user || DUMMY_PASSWORD_RECORD;
+    // does not leak whether the account exists. The dummy uses the same
+    // iteration count as real records (via makeDummyRecord).
+    const recordToCheck = user || makeDummyRecord(env);
     const verified = await verifyPassword(cleanPassword, recordToCheck, env);
 
     if (!user || !verified.ok) {
@@ -79,10 +95,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Please verify your email first.' }, 401, request);
     }
 
-    // ---- MULTI-DEVICE POLICY ----
-    // We do NOT increment sessionVersion on login. Users stay signed in on
-    // multiple devices. To force a global logout, use the password reset flow
-    // (which DOES bump sessionVersion in the DB, invalidating all tokens).
     const sessionVersion = user.sessionVersion || 0;
 
     const session = await createSignedToken({
@@ -96,9 +108,6 @@ export async function onRequestPost({ request, env }) {
     const csrfToken = await generateCSRFToken(user.id, env);
     const { password: _, salt: __, ...safeUser } = user;
 
-    // H1: `token` removed from response body. HttpOnly cookie is the only
-    // delivery path. Frontend must use `credentials: 'include'` and stop
-    // reading `data.token` / writing to localStorage.
     return new Response(JSON.stringify({
       success: true,
       guest: safeUser,
