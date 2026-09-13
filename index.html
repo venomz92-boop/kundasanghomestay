@@ -1426,7 +1426,7 @@ if (list.length === 0) {
     let csrfToken = localStorage.getItem('kd_csrf_token');
     if (!csrfToken) {
       try {
-        const res = await fetch('/api/csrf-token', { method: 'GET', credentials: 'include' });
+        const res = await fetch('/api/csrf-token?type=guest', { method: 'GET', credentials: 'include' });
         const data = await res.json();
         if (data.token) {
           localStorage.setItem('kd_csrf_token', data.token);
