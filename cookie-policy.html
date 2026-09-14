@@ -11,6 +11,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="stylesheet" href="styles.css" />
   <script src="/csrf-auto.js"></script>
+  <script src="/guest-session.js"></script>
   <style>
     :root {
       --primary: #0F382E;
@@ -311,5 +312,21 @@
   </div>
 </footer>
 <script src="/footer-weather.js"></script>
+<script>
+  function logoutGuest() {
+    if (window.GuestSession) {
+      window.GuestSession.logoutGuest();
+      return;
+    }
+    if (!confirm('Logout?')) return;
+    try { localStorage.removeItem('kd_guest'); } catch (e) {}
+    window.location.href = '/';
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+      window.GuestSession.updateNavDOM();
+    }
+  });
+</script>
 </body>
 </html>
