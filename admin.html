@@ -1817,6 +1817,12 @@ function bookingActionHandler(e) {
 // confirm a guest's arrival. Prompts for the guest's 6-digit check-in
 // code, verifies it server-side, then either queues the booking for
 // manual payout (PAYOUT_MODE=manual) or fires CHIP Send (auto mode).
+//
+// [FIX]
+// showModal() in admin.html defaults to textContent, which escapes
+// HTML. We must pass { allowHtml: true } as the 4th argument so the
+// input renders as an actual <input> element instead of being
+// printed as literal text on screen.
 // ============================================================
 async function adminConfirmArrival(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
@@ -1825,27 +1831,31 @@ async function adminConfirmArrival(bookingId) {
     return;
   }
 
-  // Prompt for the 6-digit code
-  const code = await showModal(
+  const choice = await showModal(
     'Admin Confirm Arrival',
     '<div style="text-align:left;line-height:1.6;">' +
       '<p>Booking <strong>' + escapeHtml(bookingId) + '</strong></p>' +
       '<p style="font-size:13px;color:#4b5563;margin-top:8px;">Guest: <strong>' + escapeHtml(booking.guestName || 'Guest') + '</strong></p>' +
       '<p style="font-size:13px;color:#6b7280;margin-top:12px;">Ask the host or the guest for the <strong>6-digit check-in code</strong> that was emailed to the guest, and enter it below.</p>' +
-      '<input id="adminCheckinCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" style="margin-top:14px;width:100%;padding:14px;font-size:24px;font-family:monospace;letter-spacing:8px;text-align:center;border:2px solid #e2e8f0;border-radius:12px;" autocomplete="off" />' +
-      '<div id="adminCheckinError" style="display:none;margin-top:10px;padding:10px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;font-size:12px;"></div>' +
+      '<input id="adminCheckinCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" style="margin-top:14px;width:100%;padding:14px;font-size:24px;font-family:monospace;letter-spacing:8px;text-align:center;border:2px solid #e2e8f0;border-radius:12px;box-sizing:border-box;" autocomplete="off" />' +
     '</div>',
     [
       { label: 'Cancel', class: 'btn-secondary', value: null },
       { label: 'Confirm Arrival', class: 'btn-primary', value: '__confirm__' }
-    ]
+    ],
+    { allowHtml: true }
   );
 
-  if (!code || code === null) return;
+  if (!choice || choice === null) return;
 
+  // Read the code AFTER the modal resolves. The input element is
+  // still in the DOM even though the modal is no longer visible,
+  // because showModal() only toggles the .active class — it does not
+  // clear innerHTML.
   const enteredCode = String(document.getElementById('adminCheckinCode')?.value || '').trim();
+
   if (!/^\d{6}$/.test(enteredCode)) {
-    await showAlert('Invalid Code', 'The code must be exactly 6 digits.');
+    await showAlert('Invalid Code', 'The code must be exactly 6 digits. Please click Confirm Arrival again and re-enter the code.');
     return;
   }
 
