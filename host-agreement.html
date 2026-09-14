@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <script src="/csrf-auto.js"></script>
+  <script src="/guest-session.js"></script>
   <style>
     :root {
       --primary: #0F382E;
@@ -44,6 +45,21 @@
     .policy-content { opacity: 1 !important; transform: none !important; }
   </style>
 </head>
+  
+<script>
+  let lastToggleTime = 0;
+  window.toggleMobileMenu = function() {
+    const now = Date.now();
+    if (now - lastToggleTime < 300) return;
+    lastToggleTime = now;
+    const nav = document.getElementById('mobileNav');
+    if (nav) {
+      nav.classList.toggle('open');
+      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+    }
+  };
+</script>
+  
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
 
@@ -315,6 +331,23 @@
     © 2026 Kundasang Homestay. All rights reserved.
   </div>
 </footer>
+  
   <script src="/footer-weather.js"></script>
+  <script>
+  function logoutGuest() {
+    if (window.GuestSession) {
+      window.GuestSession.logoutGuest();
+      return;
+    }
+    if (!confirm('Logout?')) return;
+    try { localStorage.removeItem('kd_guest'); } catch (e) {}
+    window.location.href = '/';
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+      window.GuestSession.updateNavDOM();
+    }
+  });
+</script>
 </body>
 </html>
