@@ -475,7 +475,7 @@ body {
     <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
       <img src="/logo.svg" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
       <div class="font-poppins font-800 text-[20px] md:text-[22px] tracking-[-0.5px] text-[#212121] leading-none">
-        KUNDASANG<span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay</span>
+        KUNDASANG<span class="font-600 text-[#212121]/60 text-[16px] md:text-[18px]"> • Homestay.my</span>
         <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">ADMIN • CHIP Auto</div>
       </div>
     </div>
@@ -500,7 +500,10 @@ body {
 
       <div class="flex items-center gap-3 flex-wrap mt-2 animate-on-scroll">
       <button onclick="forceSync()" class="btn-accent" style="padding:8px 18px; font-size:11px;">🔄 Force Sync (Cloud)</button>
-      <a href="/admin-payouts.html" class="btn-primary" style="padding:8px 18px; font-size:11px; background:#0F382E;" target="_blank">💸 Manual Payout Queue</a>
+        <a href="/admin-payouts.html" class="btn-primary" style="padding:8px 18px; font-size:11px; background:#0F382E; position:relative; display:inline-block;" target="_blank">
+        💸 Manual Payout Queue
+        <span id="payoutQueueBadge" class="hidden" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;min-width:18px;text-align:center;line-height:1.4;">0</span>
+      </a>
       <div id="cacheStatus" class="text-xs text-zinc-500 hidden">Using cached data – last updated: <span id="cacheTimestamp"></span></div>
     </div>
 
@@ -1191,6 +1194,25 @@ async function fetchErrorsCount() {
     updateErrorsBadge(0);
   }
 }
+  
+async function fetchPayoutQueueCount() {
+  try {
+    const res = await fetchWithAuth(API_BASE + '/admin-manual-payouts', { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.success || !data.summary) return;
+    const count = Number(data.summary.pendingCount || 0);
+    const badge = document.getElementById('payoutQueueBadge');
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : String(count);
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  } catch (e) { /* silent */ }
+}
+window.fetchPayoutQueueCount = fetchPayoutQueueCount;  
 
 async function renderErrorsTab() {
   const listEl = document.getElementById('errorsList');
@@ -1357,6 +1379,7 @@ function renderAdmin(){
   }
   approvedDiv.innerHTML = safeHTML(approvedHtml);
   fetchEarnings();
+  fetchPayoutQueueCount();
   attachAdminEventListeners();
 }
 
@@ -1683,8 +1706,9 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
   pageBookings.forEach(b => {
     const status = b.status || "Paid - Awaiting Check-in";
     const statusLower = status.toLowerCase();
-    const isAwaiting = statusLower.includes("awaiting");
-    const isCompleted = statusLower.includes("completed") || statusLower.includes("payout");
+    const isManualPending = b.manualPayoutPending === true;
+    const isAwaiting = !isManualPending && statusLower.includes("awaiting");
+    const isCompleted = !isManualPending && (statusLower.includes("completed") || statusLower.includes("payout"));
     const isCancelled = statusLower.includes("cancelled");
     const isRefundPending = (/refund pending|refund_pending/i.test(status)) ||
                             (isCancelled && !b.chip_refund_id && (b.refund_error || b.refund_attempted_at));
@@ -1692,19 +1716,32 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
     const nights = b.nights || calculateNights(b.checkin, b.checkout);
     const checkin = b.checkin || "", checkout = b.checkout || "", total = b.total || 0;
     const base = b.base || 0, fee = b.fee || 0, youReceive = b.youReceive || fee;
-    let badgeClass = isCancelled ? 'bg-gray-100 text-gray-600' : isAwaiting ? 'bg-yellow-100 text-yellow-800' : isCompleted ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800';
-    let badgeText = isRefundPending ? '⏳ Refund Pending' : (isCancelled ? '❌ Cancelled' : isAwaiting ? '🟡 Awaiting Check-in' : isCompleted ? '✅ Completed' : '💳 Paid');
-    let btns = "";
+    let badgeClass = isCancelled ? 'bg-gray-100 text-gray-600'
+      : isManualPending ? 'bg-amber-100 text-amber-800'
+      : isAwaiting ? 'bg-yellow-100 text-yellow-800'
+      : isCompleted ? 'bg-green-100 text-green-800'
+      : 'bg-blue-100 text-blue-800';
+
+    let badgeText = isRefundPending ? '⏳ Refund Pending'
+      : isCancelled ? '❌ Cancelled'
+      : isManualPending ? '⏳ Payout Queued — Manual'
+      : isAwaiting ? '🟡 Awaiting Check-in'
+      : isCompleted ? '✅ Completed'
+      : '💳 Paid';
+     let btns = "";
     if (isAwaiting) {
-      btns += `<span class="text-[11px] text-zinc-500 italic px-2">Awaiting host check-in</span>`;
+      btns += `<button class="booking-action-btn px-3 py-1.5 bg-[#0F382E] text-white rounded-full text-[11px] uppercase font-700" data-action="adminConfirmArrival" data-id="${escapeHtml(b.id)}">✓ Confirm Arrival</button>`;
     }
-    if (b.payoutFailedAttempt && !b.payoutSuccessDate) {
+    if (isManualPending) {
+      btns += `<span class="text-[11px] text-amber-700 italic px-2">Queued for manual payout — pay from bank app, then record in Manual Payout Queue</span>`;
+    }
+    if (b.payoutFailedAttempt && !b.payoutSuccessDate && !isManualPending) {
       btns += `<button class="booking-action-btn px-3 py-1.5 bg-yellow-500 text-white rounded-full text-[11px] uppercase font-700" data-action="retryPayout" data-id="${escapeHtml(b.id)}">🔁 RETRY PAYOUT</button>`;
     }
     if (isRefundPending) {
       btns += `<button class="booking-action-btn px-3 py-1.5 bg-yellow-500 text-white rounded-full text-[11px] uppercase font-700" data-action="retryRefund" data-id="${escapeHtml(b.id)}">🔁 RETRY REFUND</button>`;
     }
-    if (!isCompleted && !isCancelled) {
+    if (!isCompleted && !isCancelled && !isManualPending && !isAwaiting) {
       btns += `<button class="booking-action-btn px-3 py-1.5 bg-green-600 text-white rounded-full text-[11px] uppercase font-600" data-action="updateBookingStatus" data-id="${escapeHtml(b.id)}" data-status="Completed">COMPLETE</button>`;
     }
 
@@ -1743,6 +1780,9 @@ function bookingActionHandler(e) {
   e.preventDefault();
 
   switch (action) {
+    case 'adminConfirmArrival':
+      adminConfirmArrival(id);
+      break;
     case 'retryPayout':
       retryPayout(id);
       break;
@@ -1769,6 +1809,88 @@ function bookingActionHandler(e) {
       break;
   }
 }
+
+// ============================================================
+// Admin check-in.
+//
+// Backup path for when a host cannot use their own dashboard to
+// confirm a guest's arrival. Prompts for the guest's 6-digit check-in
+// code, verifies it server-side, then either queues the booking for
+// manual payout (PAYOUT_MODE=manual) or fires CHIP Send (auto mode).
+// ============================================================
+async function adminConfirmArrival(bookingId) {
+  const booking = bookings.find(b => String(b.id) === String(bookingId));
+  if (!booking) {
+    await showAlert('Error', 'Booking not found.');
+    return;
+  }
+
+  // Prompt for the 6-digit code
+  const code = await showModal(
+    'Admin Confirm Arrival',
+    '<div style="text-align:left;line-height:1.6;">' +
+      '<p>Booking <strong>' + escapeHtml(bookingId) + '</strong></p>' +
+      '<p style="font-size:13px;color:#4b5563;margin-top:8px;">Guest: <strong>' + escapeHtml(booking.guestName || 'Guest') + '</strong></p>' +
+      '<p style="font-size:13px;color:#6b7280;margin-top:12px;">Ask the host or the guest for the <strong>6-digit check-in code</strong> that was emailed to the guest, and enter it below.</p>' +
+      '<input id="adminCheckinCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" style="margin-top:14px;width:100%;padding:14px;font-size:24px;font-family:monospace;letter-spacing:8px;text-align:center;border:2px solid #e2e8f0;border-radius:12px;" autocomplete="off" />' +
+      '<div id="adminCheckinError" style="display:none;margin-top:10px;padding:10px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;font-size:12px;"></div>' +
+    '</div>',
+    [
+      { label: 'Cancel', class: 'btn-secondary', value: null },
+      { label: 'Confirm Arrival', class: 'btn-primary', value: '__confirm__' }
+    ]
+  );
+
+  if (!code || code === null) return;
+
+  const enteredCode = String(document.getElementById('adminCheckinCode')?.value || '').trim();
+  if (!/^\d{6}$/.test(enteredCode)) {
+    await showAlert('Invalid Code', 'The code must be exactly 6 digits.');
+    return;
+  }
+
+  const finalConfirm = await showConfirm(
+    'Confirm Check-in',
+    'Mark booking <strong>' + escapeHtml(bookingId) + '</strong> as checked in? This will queue the host payout.'
+  );
+  if (!finalConfirm) return;
+
+  try {
+    const res = await fetchWithAuth(API_BASE + '/admin-checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ bookingId, checkinCode: enteredCode })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      await showAlert('Check-in Failed', data.error || 'Could not process check-in.');
+      return;
+    }
+
+    let msg = '<div style="text-align:left;line-height:1.6;">';
+    msg += '<p>✓ Check-in recorded for <strong>' + escapeHtml(bookingId) + '</strong>.</p>';
+    if (data.manualQueue) {
+      msg += '<p style="margin-top:10px;padding:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:13px;color:#92400e;">';
+      msg += 'The host payout of <strong>RM ' + Number(data.payoutAmount || 0).toFixed(2) + '</strong> has been added to the Manual Payout Queue.';
+      msg += '<br><br>Open the queue, transfer the money from your bank app, and record the reference.';
+      msg += '</p>';
+    } else if (data.simulation) {
+      msg += '<p style="margin-top:10px;color:#1e40af;">Simulated payout recorded.</p>';
+    } else {
+      msg += '<p style="margin-top:10px;">Payout sent via CHIP Send.</p>';
+    }
+    msg += '</div>';
+
+    await showAlert('Check-in Confirmed', msg);
+    await fetchCloudData();
+    renderAdmin();
+  } catch (e) {
+    await showAlert('Network Error', 'Could not reach the server: ' + e.message);
+  }
+}
+window.adminConfirmArrival = adminConfirmArrival;
 
 function populateBookingFilter() {
   const select = document.getElementById('bookingFilterHomestay');
