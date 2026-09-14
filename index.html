@@ -1296,10 +1296,11 @@ if (list.length === 0) {
 
     const box = document.getElementById("detailPriceBox");
     if (box) {
-      const roomName = selectedRoom ? selectedRoom.name : 'Unit';
+      const roomName = selectedRoom ? selectedRoom.name : '';
+      const priceLabel = selectedRoom ? 'Room price' : 'Homestay price';
       box.innerHTML = safeHTML(`
         <div class="text-xs space-y-1.5 font-poppins">
-          <div class="flex justify-between"><span>Room price (${nights} night${nights === 1 ? '' : 's'})</span><span>RM${p.base.toFixed(2)}</span></div>
+          <div class="flex justify-between"><span>${priceLabel} (${nights} night${nights === 1 ? '' : 's'})</span><span>RM${p.base.toFixed(2)}</span></div>
           <div class="flex justify-between"><span>Service Fee</span><span>RM${p.combinedFee.toFixed(2)}</span></div>
           <div class="flex justify-between font-bold text-sm text-[#0F382E] border-t pt-2 mt-2"><span>Total</span><span>RM${p.total.toFixed(2)}</span></div>
         </div>
@@ -1398,9 +1399,10 @@ if (list.length === 0) {
     if (summaryEl) {
       const roomName = window._bookingRoom ? window._bookingRoom.name : '';
       const roomLine = roomName ? roomName + ' — ' : '';
+      const priceLabel = window._bookingRoom ? 'Room price' : 'Homestay price';
       summaryEl.innerHTML = safeHTML(`
         <div class="font-bold text-[#0F382E]">${selectedHomestay.name}</div>
-        <div class="mt-2 text-xs flex justify-between"><span>${roomLine}Room price (${nights} night${nights === 1 ? '' : 's'})</span><span class="font-semibold">RM${p.base.toFixed(2)}</span></div>
+        <div class="mt-2 text-xs flex justify-between"><span>${roomLine}${priceLabel} (${nights} night${nights === 1 ? '' : 's'})</span><span class="font-semibold">RM${p.base.toFixed(2)}</span></div>
         <div class="text-xs flex justify-between"><span>Service Fee</span><span class="font-semibold">RM${p.combinedFee.toFixed(2)}</span></div>
         <div class="text-sm font-bold flex justify-between border-t pt-2 mt-2 text-[#0F382E]"><span>Total</span><span>RM${p.total.toFixed(2)}</span></div>
       `);
