@@ -117,6 +117,18 @@ async function enforceCSRFGate(request, env) {
   } catch (_) {
     ok = false;
   }
+  
+  if (!ok) {
+    try {
+      const owner = await getOwnerSession(request, env);
+      if (owner && owner.ownerId) {
+        ok = await validateCSRFToken(token, String(owner.ownerId), env);
+      }
+    } catch (_) {
+      // ignore
+    }
+  }
+
   if (!ok) {
     return csrfFailure(
       'CSRF_INVALID',
@@ -124,7 +136,6 @@ async function enforceCSRFGate(request, env) {
     );
   }
   return null;
-}
 
 // ---------------------------------------------------------------------------
 // Error logging (unchanged)
