@@ -99,6 +99,7 @@ async function sendCheckinEmail(booking, env) {
   const base = Number(booking.base || 0);
   const fee = Number(booking.fee || 0);
   const gatewayFee = Number(booking.gatewayFee || 0);
+  const combinedFee = fee + gatewayFee;
   const total = Number(booking.total || 0);
 
   const emailHtml = `
