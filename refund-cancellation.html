@@ -11,6 +11,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="stylesheet" href="styles.css" />
   <script src="/csrf-auto.js"></script>
+  <script src="/guest-session.js"></script>
 </head>
   
 <script>
@@ -139,9 +140,6 @@
 
     <div class="card p-8 md:p-12">
 
-      <!-- ============================================================ -->
-      <!-- TWO-COLUMN REFUND SUMMARY — the two cases at a glance -->
-      <!-- ============================================================ -->
       <div class="policy-section">
         <h2 class="font-poppins font-700 text-[20px] text-[#212121] flex items-center gap-3">
           <span class="text-[#D4A373] text-2xl">📋</span> Refund at a Glance
@@ -257,15 +255,15 @@
             <tbody class="text-zinc-700">
               <tr class="border-b border-black/5">
                 <td class="p-3 font-semibold text-green-800">🟢 Host cancelled</td>
-                <td class="p-3 text-right">RM 279.00</td>
-                <td class="p-3 text-right font-bold text-green-700">RM 279.00</td>
+                <td class="p-3 text-right">RM 278.50</td>
+                <td class="p-3 text-right font-bold text-green-700">RM 278.50</td>
                 <td class="p-3 text-right text-zinc-400">RM 0.00</td>
               </tr>
               <tr>
                 <td class="p-3 font-semibold text-amber-800">🟡 You asked to cancel</td>
-                <td class="p-3 text-right">RM 279.00</td>
+                <td class="p-3 text-right">RM 278.50</td>
                 <td class="p-3 text-right font-bold text-amber-700">RM 249.00</td>
-                <td class="p-3 text-right text-zinc-500">RM 30.00</td>
+                <td class="p-3 text-right text-zinc-500">RM 29.50</td>
               </tr>
             </tbody>
           </table>
@@ -337,5 +335,21 @@
   </div>
 </footer>
 <script src="/footer-weather.js"></script>
+<script>
+  function logoutGuest() {
+    if (window.GuestSession) {
+      window.GuestSession.logoutGuest();
+      return;
+    }
+    if (!confirm('Logout?')) return;
+    try { localStorage.removeItem('kd_guest'); } catch (e) {}
+    window.location.href = '/';
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+      window.GuestSession.updateNavDOM();
+    }
+  });
+</script>
 </body>
 </html>
