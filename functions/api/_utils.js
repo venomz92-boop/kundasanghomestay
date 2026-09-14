@@ -846,22 +846,58 @@ export async function finalizePaidBooking(db, bookingId) {
 //
 // Best-effort — a failure never rolls back the payout.
 // ============================================================
+// ============================================================
+// Host payout statement email.
+//
+// This is the SINGLE source of truth for every payout email the
+// platform sends. Three modes are supported by the payoutInfo flag:
+//
+//   1. CHIP Send payout      (no flags)          → "Sent to your bank via CHIP Send"
+//   2. Simulated payout      (isSimulation: true) → [TEST] banner
+//   3. Manual bank transfer  (isManual: true)     → "Sent via bank transfer"
+//
+// [THIS REVISION]
+// The template was rewritten to be simpler and cleaner. It shows the
+// room price and net amount only — no gateway fee line, no service fee
+// line, no breakdown of what the guest paid. The host sees exactly two
+// numbers: what the room cost, and what landed in their bank. This
+// matches CHIP's rule that merchants cannot show a separate gateway fee
+// line to recipients, and it removes a source of host confusion about
+// where their money went.
+//
+// Arguments:
+//   booking    — the booking object
+//   homestay   — the homestay object (needs ownerEmail, ownerName,
+//                name, ownerBank, ownerBankAccount)
+//   payoutInfo — {
+//                  amount,       required, the payout amount
+//                  payoutId,     optional, CHIP Send ID or internal ref
+//                  reference,    required, the human-visible reference
+//                  paidAt,       optional, ISO timestamp
+//                  isSimulation, optional, adds [TEST] banner
+//                  isManual,     optional, marks this as a manual transfer
+//                }
+//   env        — Cloudflare env
+//
+// Best-effort. A failure never rolls back the payout.
+// ============================================================
 export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
   if (!homestay || !homestay.ownerEmail) {
     return { sent: false, error: 'No host email on file' };
   }
   const safe = (s) => String(s || '').replace(/[<>]/g, '');
   const isSimulation = !!payoutInfo.isSimulation;
+  const isManual = !!payoutInfo.isManual;
 
   const ownerName = safe(homestay.ownerName || 'Host');
   const homestayName = safe(homestay.name || 'your property');
   const payoutAmount = Number(payoutInfo.amount || 0).toFixed(2);
-  const total = Number(booking.total || 0).toFixed(2);
-  const fee = Number(booking.fee || 0).toFixed(2);
-  const gatewayFee = Number(booking.gatewayFee || 0).toFixed(2);
+  const nights = Number(booking.nights) || 1;
+  const roomTotal = Number(booking.base || payoutInfo.amount || 0).toFixed(2);
   const ref = safe(payoutInfo.reference || `KDH-${booking.id}`);
   const payoutId = safe(payoutInfo.payoutId || 'N/A');
   const paidAtIso = payoutInfo.paidAt || new Date().toISOString();
+
   const paidAt = (() => {
     try {
       return new Date(paidAtIso).toLocaleString('en-MY', {
@@ -876,20 +912,24 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
   const bankMasked = acct.length >= 4 ? '****' + acct.slice(-4) : 'N/A';
   const bankName = safe(homestay.ownerBank || 'Bank');
 
+  const methodLabel = isManual
+    ? 'Bank transfer (manual)'
+    : (isSimulation ? 'Simulated (test)' : 'CHIP Send');
+
   const testBanner = isSimulation ? `
     <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;padding:16px;margin-bottom:20px;text-align:center;">
-      <div style="font-size:13px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:1.5px;">⚠️ Test Email — Simulated Payout</div>
+      <div style="font-size:13px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:1.5px;">&#9888;&#65039; Test Email — Simulated Payout</div>
       <div style="font-size:12px;color:#78350f;margin-top:6px;line-height:1.5;">
-        This receipt was generated in <strong>simulation mode</strong>.<br>
+        This statement was generated in <strong>simulation mode</strong>.<br>
         No real money was transferred to any bank account.
       </div>
     </div>
   ` : '';
 
-  const headerSubtitle = isSimulation ? 'Payout Receipt — TEST' : 'Payout Receipt';
+  const headerSubtitle = isSimulation ? 'Payout Statement — TEST' : 'Payout Statement';
 
   const html = `
-    <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;background:#f8f5f0;padding:20px;">
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f8f5f0;padding:20px;">
       <div style="background:#ffffff;padding:30px;border-radius:16px;border:1px solid #e5e7eb;">
 
         ${testBanner}
@@ -901,78 +941,70 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
 
         <h2 style="color:#0F382E;margin-top:0;font-size:18px;">Hello ${ownerName},</h2>
         <p style="color:#4b5563;font-size:14px;line-height:1.6;">
-          A payout for a completed guest stay at <strong>${homestayName}</strong> has been ${isSimulation ? 'simulated (test)' : 'sent to your bank account via CHIP Send'}.
+          A payout for a completed guest stay at <strong>${homestayName}</strong> has been ${isSimulation ? 'simulated (test)' : 'sent to your bank account'}.
         </p>
 
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin:22px 0;text-align:center;">
-          <div style="font-size:11px;color:#166534;text-transform:uppercase;letter-spacing:1px;font-weight:700;">${isSimulation ? 'Amount (simulated)' : 'Amount Received'}</div>
+          <div style="font-size:11px;color:#166534;text-transform:uppercase;letter-spacing:1px;font-weight:700;">${isSimulation ? 'Amount (simulated)' : 'Amount Transferred'}</div>
           <div style="font-size:32px;font-weight:800;color:#0F382E;margin:6px 0;">RM ${payoutAmount}</div>
-          <div style="font-size:12px;color:#166534;">${isSimulation ? 'Simulated payout — no funds moved' : `Sent to ${bankName} ${bankMasked}`}</div>
+          <div style="font-size:12px;color:#166534;">${isSimulation ? 'Simulated payout — no funds moved' : `To ${bankName} ${bankMasked}`}</div>
         </div>
 
-        <div style="font-size:13px;color:#4b5563;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Payout Details</div>
+        <table style="width:100%;font-size:14px;border-collapse:collapse;margin:24px 0;color:#374151;">
+          <tr>
+            <td style="padding:10px 0;color:#6b7280;">Room price (${nights} night${nights === 1 ? '' : 's'})</td>
+            <td style="padding:10px 0;text-align:right;">RM ${roomTotal}</td>
+          </tr>
+          <tr>
+            <td colspan="2" style="border-top:1px solid #e5e7eb;padding:0;"></td>
+          </tr>
+          <tr>
+            <td style="padding:14px 0 0 0;font-weight:700;color:#0F382E;font-size:15px;">Net amount transferred to you</td>
+            <td style="padding:14px 0 0 0;text-align:right;font-weight:800;color:#0F382E;font-size:17px;">RM ${payoutAmount}</td>
+          </tr>
+        </table>
+
+        <div style="font-size:12px;color:#4b5563;margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Payout Details</div>
         <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:20px;color:#374151;">
           <tr>
-            <td style="padding:7px 0;color:#6b7280;">Reference</td>
-            <td style="padding:7px 0;text-align:right;font-family:'Courier New',monospace;font-weight:700;">${ref}</td>
+            <td style="padding:6px 0;color:#6b7280;">Reference</td>
+            <td style="padding:6px 0;text-align:right;font-family:'Courier New',monospace;font-weight:700;">${ref}</td>
           </tr>
           <tr>
-            <td style="padding:7px 0;color:#6b7280;">${isSimulation ? 'Simulation ID' : 'CHIP Send ID'}</td>
-            <td style="padding:7px 0;text-align:right;font-family:'Courier New',monospace;">${payoutId}</td>
+            <td style="padding:6px 0;color:#6b7280;">Method</td>
+            <td style="padding:6px 0;text-align:right;">${methodLabel}</td>
           </tr>
           <tr>
-            <td style="padding:7px 0;color:#6b7280;">Date</td>
-            <td style="padding:7px 0;text-align:right;">${paidAt}</td>
+            <td style="padding:6px 0;color:#6b7280;">Date</td>
+            <td style="padding:6px 0;text-align:right;">${paidAt}</td>
           </tr>
         </table>
 
-        <div style="font-size:13px;color:#4b5563;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Booking Details</div>
+        <div style="font-size:12px;color:#4b5563;margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Booking Details</div>
         <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:20px;color:#374151;">
           <tr>
-            <td style="padding:7px 0;color:#6b7280;">Booking ID</td>
-            <td style="padding:7px 0;text-align:right;font-family:'Courier New',monospace;">${safe(booking.id)}</td>
+            <td style="padding:6px 0;color:#6b7280;">Booking ID</td>
+            <td style="padding:6px 0;text-align:right;font-family:'Courier New',monospace;">${safe(booking.id)}</td>
           </tr>
           <tr>
-            <td style="padding:7px 0;color:#6b7280;">Guest</td>
-            <td style="padding:7px 0;text-align:right;">${safe(booking.guestName || 'Guest')}</td>
+            <td style="padding:6px 0;color:#6b7280;">Guest</td>
+            <td style="padding:6px 0;text-align:right;">${safe(booking.guestName || 'Guest')}</td>
           </tr>
           <tr>
-            <td style="padding:7px 0;color:#6b7280;">Check-in</td>
-            <td style="padding:7px 0;text-align:right;">${safe(booking.checkin)}</td>
+            <td style="padding:6px 0;color:#6b7280;">Check-in</td>
+            <td style="padding:6px 0;text-align:right;">${safe(booking.checkin)}</td>
           </tr>
           <tr>
-            <td style="padding:7px 0;color:#6b7280;">Check-out</td>
-            <td style="padding:7px 0;text-align:right;">${safe(booking.checkout)} (${safe(booking.nights)} night${Number(booking.nights) === 1 ? '' : 's'})</td>
+            <td style="padding:6px 0;color:#6b7280;">Check-out</td>
+            <td style="padding:6px 0;text-align:right;">${safe(booking.checkout)}</td>
           </tr>
         </table>
 
-        <div style="font-size:13px;color:#4b5563;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Payment Breakdown</div>
-        <table style="width:100%;font-size:13px;border-collapse:collapse;color:#374151;">
-          <tr>
-            <td style="padding:7px 0;color:#6b7280;">Guest paid in total</td>
-            <td style="padding:7px 0;text-align:right;">RM ${total}</td>
-          </tr>
-          <tr>
-            <td style="padding:7px 0;color:#6b7280;">Platform commission (11%)</td>
-            <td style="padding:7px 0;text-align:right;color:#b91c1c;">− RM ${fee}</td>
-          </tr>
-          <tr>
-            <td style="padding:7px 0;color:#6b7280;">Payment gateway fee</td>
-            <td style="padding:7px 0;text-align:right;color:#b91c1c;">− RM ${gatewayFee}</td>
-          </tr>
-          <tr style="border-top:2px solid #0F382E;">
-            <td style="padding:10px 0;font-weight:700;color:#0F382E;">${isSimulation ? 'Simulated payout' : 'Your payout'}</td>
-            <td style="padding:10px 0;text-align:right;font-weight:800;color:#0F382E;font-size:15px;">RM ${payoutAmount}</td>
-          </tr>
-        </table>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;font-size:12px;color:#475569;line-height:1.6;margin-top:20px;">
+          If you don't see this amount in your bank account within 1 business day, please reply to this email or contact us at <a href="mailto:support@kundasanghomestay.my" style="color:#0F382E;font-weight:600;">support@kundasanghomestay.my</a> quoting the reference number above.
+        </div>
 
-        <p style="font-size:12px;color:#6b7280;margin-top:22px;line-height:1.6;border-top:1px solid #e5e7eb;padding-top:16px;">
-          ${isSimulation
-            ? 'This is a test email sent from a sandbox environment. No action is needed.'
-            : 'Keep this email for your book-keeping. If you have any questions about this payout, reply to this email or contact us at <a href="mailto:support@kundasanghomestay.my" style="color:#0F382E;">support@kundasanghomestay.my</a>.'}
-        </p>
-
-        <p style="font-size:12px;color:#9ca3af;text-align:center;margin-bottom:0;">
+        <p style="font-size:12px;color:#9ca3af;text-align:center;margin-top:24px;margin-bottom:0;">
           © ${new Date().getFullYear()} Kundasang Homestay
         </p>
 
@@ -981,8 +1013,8 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
   `;
 
   const subject = isSimulation
-    ? `[TEST] Payout Receipt — RM ${payoutAmount} for Booking ${booking.id}`
-    : `Payout Receipt — RM ${payoutAmount} for Booking ${booking.id}`;
+    ? `[TEST] Payout Statement — RM ${payoutAmount} for Booking ${booking.id}`
+    : `Payout Statement — RM ${payoutAmount} for Booking ${booking.id}`;
 
   try {
     if (env.RESEND_API_KEY) {
