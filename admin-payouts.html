@@ -484,6 +484,28 @@ async function confirmMarkPaid() {
   }
 }
 
+function formatCsvDate(iso) {
+  if (!iso) return '';
+  try {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    var parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kuala_Lumpur',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    }).formatToParts(d);
+    var get = function (type) {
+      for (var i = 0; i < parts.length; i++) {
+        if (parts[i].type === type) return parts[i].value;
+      }
+      return '';
+    };
+    return get('year') + '-' + get('month') + '-' + get('day') + ' ' + get('hour') + ':' + get('minute');
+  } catch (e) {
+    return String(iso);
+  }
+}
+
 function exportCsv() {
   if (!latestData || !latestData.history || latestData.history.length === 0) {
     showAlert('No Data', 'There is no payout history to export yet.');
@@ -491,12 +513,12 @@ function exportCsv() {
   }
 
   var rows = [
-    ['Date Paid', 'Booking ID', 'Host Name', 'Host Email', 'Homestay', 'Amount (RM)', 'Transfer Reference', 'Notes']
+    ['Date Paid (MYT)', 'Booking ID', 'Host Name', 'Host Email', 'Homestay', 'Amount (RM)', 'Transfer Reference', 'Notes']
   ];
 
-  latestData.history.forEach(function(h) {
+  latestData.history.forEach(function (h) {
     rows.push([
-      h.paidAt || '',
+      formatCsvDate(h.paidAt),
       h.bookingId || '',
       h.hostName || '',
       h.hostEmail || '',
@@ -507,17 +529,19 @@ function exportCsv() {
     ]);
   });
 
-  var csv = rows.map(function(r) {
-    return r.map(function(cell) {
+  var csv = rows.map(function (r) {
+    return r.map(function (cell) {
       var s = String(cell == null ? '' : cell);
-      if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+      if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1 || s.indexOf('\r') !== -1) {
         return '"' + s.replace(/"/g, '""') + '"';
       }
       return s;
     }).join(',');
-  }).join('\n');
+  }).join('\r\n');
 
-  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  // UTF-8 BOM keeps Excel from mangling names with special characters.
+  // CRLF line endings open correctly in both Excel (Windows) and Numbers (Mac).
+  var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   var today = new Date().toISOString().slice(0, 10);
