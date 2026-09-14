@@ -11,9 +11,9 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="stylesheet" href="styles.css" />
   <script src="/csrf-auto.js"></script>
+  <script src="/guest-session.js"></script>
 </head>
   
-<!-- ===== EARLY FUNCTION DEFINITION ===== -->
 <script>
   let lastToggleTime = 0;
   window.toggleMobileMenu = function() {
@@ -28,11 +28,9 @@
   };
 </script>
 
-<!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
 
-    <!-- Logo & Brand -->
     <a href="/" class="flex items-center gap-3 shrink-0 group">
       <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
       <div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
@@ -41,23 +39,19 @@
       </div>
     </a>
 
-    <!-- Desktop Primary Nav -->
     <nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
       <a href="/" class="setsail-nav-link" data-nav="home">Home</a>
       <a href="/about.html" class="setsail-nav-link" data-nav="about">About Us</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
     </nav>
 
-    <!-- Desktop Actions -->
     <div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
 
-      <!-- Guest state: logged out -->
       <div id="guestNav" class="flex items-center gap-2">
         <a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
         <a href="/register.html" class="header-pill header-pill-accent">Register</a>
       </div>
 
-      <!-- Guest state: logged in -->
       <div id="guestProfileNav" class="hidden items-center gap-3">
         <a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
         <div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
@@ -67,12 +61,10 @@
         </div>
       </div>
 
-      <!-- Primary CTA — always visible -->
       <a href="/owner-register.html" class="btn-primary" style="padding:11px 22px; font-size:11px;">List Your Homestay</a>
 
     </div>
 
-    <!-- Mobile Menu Button -->
     <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
       <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
@@ -91,16 +83,13 @@
   </div>
 </header>
 
-<!-- ===== MOBILE NAV ===== -->
 <div id="mobileNav">
   <div class="p-4">
 
-    <!-- DISCOVER -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
     <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
 
-    <!-- FOR HOSTS -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">For Hosts</div>
 
     <a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
@@ -120,7 +109,6 @@
       <a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a>
     </div>
 
-    <!-- ACCOUNT -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
 
     <div id="mGuestNav" class="space-y-2.5 px-1">
@@ -261,5 +249,21 @@
   </div>
 </footer>
 <script src="/footer-weather.js"></script>
+<script>
+  function logoutGuest() {
+    if (window.GuestSession) {
+      window.GuestSession.logoutGuest();
+      return;
+    }
+    if (!confirm('Logout?')) return;
+    try { localStorage.removeItem('kd_guest'); } catch (e) {}
+    window.location.href = '/';
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+      window.GuestSession.updateNavDOM();
+    }
+  });
+</script>
 </body>
 </html>
