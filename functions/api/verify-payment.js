@@ -118,20 +118,16 @@ async function sendCheckinEmail(booking, env) {
           <div><strong>Homestay:</strong> ${booking.homestay}</div>
           <div><strong>Check-in:</strong> ${booking.checkin} &nbsp;|&nbsp; <strong>Check-out:</strong> ${booking.checkout} &nbsp;|&nbsp; <strong>Nights:</strong> ${booking.nights}</div>
         </div>
-        <div style="font-size: 13px; margin-bottom: 16px;">
+          <div style="font-size: 13px; margin-bottom: 16px;">
           <div style="display: flex; justify-content: space-between; padding: 4px 0;">
-            <span>Base price (RM ${(base / (booking.nights || 1)).toFixed(2)} × ${booking.nights} nights)</span>
+            <span>Price (RM ${(base / (booking.nights || 1)).toFixed(2)} × ${booking.nights} nights)</span>
             <span>RM ${base.toFixed(2)}</span>
           </div>
           <div style="display: flex; justify-content: space-between; padding: 4px 0; color: #4b5563;">
             <span>Service Fee</span>
-            <span>RM ${fee.toFixed(2)}</span>
+            <span>RM ${combinedFee.toFixed(2)}</span>
           </div>
-          <div style="display: flex; justify-content: space-between; padding: 4px 0; color: #4b5563;">
-            <span>Gateway fee</span>
-            <span>RM ${gatewayFee.toFixed(2)}</span>
-          </div>
-        </div>
+        </div>        
         <div style="border-top: 2px solid #0F382E; padding-top: 12px; font-size: 16px; font-weight: 700; color: #0F382E; display: flex; justify-content: space-between; margin-bottom: 16px;">
           <span>Total paid</span>
           <span>RM ${total.toFixed(2)}</span>
