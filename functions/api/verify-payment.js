@@ -95,56 +95,130 @@ async function tryAutoRefundLatePaymentLocked(db, bookingId, env) {
 }
 
 async function sendCheckinEmail(booking, env) {
-  const receiptNo = `RCP-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${booking.id.slice(-6)}`;
+  const receiptNo = `RCP-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(booking.id || '').slice(-6)}`;
   const base = Number(booking.base || 0);
   const fee = Number(booking.fee || 0);
   const gatewayFee = Number(booking.gatewayFee || 0);
-  const combinedFee = fee + gatewayFee;
+  const combinedFee = Math.round((fee + gatewayFee) * 100) / 100;
   const total = Number(booking.total || 0);
+  const nights = Number(booking.nights) || 1;
+  const nightLabel = nights === 1 ? 'night' : 'nights';
+  const pricePerNight = nights > 0 ? base / nights : base;
+  const safe = (s) => String(s || '').replace(/[<>]/g, '');
 
-  const emailHtml = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f5f0; padding: 20px; border-radius: 16px;">
-      <div style="background: #ffffff; padding: 30px; border-radius: 16px; border: 1px solid #e5e7eb;">
-        <div style="text-align: center; border-bottom: 2px solid #0F382E; padding-bottom: 16px; margin-bottom: 20px;">
-          <div style="font-size: 24px; font-weight: 800; color: #0F382E;">Kundasang Homestay</div>
-          <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">Official Receipt</div>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 12px;">
-          <div><strong>Receipt No.:</strong> ${receiptNo}</div>
-          <div><strong>Booking ID:</strong> ${booking.id}</div>
-        </div>
-        <div style="font-size: 13px; margin-bottom: 16px; border-bottom: 1px dashed #d1d5db; padding-bottom: 12px;">
-          <div><strong>Guest:</strong> ${booking.guestName || 'Guest'}</div>
-          <div><strong>Homestay:</strong> ${booking.homestay}</div>
-          <div><strong>Check-in:</strong> ${booking.checkin} &nbsp;|&nbsp; <strong>Check-out:</strong> ${booking.checkout} &nbsp;|&nbsp; <strong>Nights:</strong> ${booking.nights}</div>
-        </div>
-          <div style="font-size: 13px; margin-bottom: 16px;">
-          <div style="display: flex; justify-content: space-between; padding: 4px 0;">
-            <span>Price (RM ${(base / (booking.nights || 1)).toFixed(2)} × ${booking.nights} nights)</span>
-            <span>RM ${base.toFixed(2)}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 4px 0; color: #4b5563;">
-            <span>Service Fee</span>
-            <span>RM ${combinedFee.toFixed(2)}</span>
-          </div>
-        </div>        
-        <div style="border-top: 2px solid #0F382E; padding-top: 12px; font-size: 16px; font-weight: 700; color: #0F382E; display: flex; justify-content: space-between; margin-bottom: 16px;">
-          <span>Total paid</span>
-          <span>RM ${total.toFixed(2)}</span>
-        </div>
-        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; text-align: center; margin-bottom: 16px;">
-          <div style="font-size: 20px; font-weight: 700; color: #0F382E;">
-            🏔️ Your 6-digit check-in code: <span style="color: #0F382E;">${booking.checkinCode}</span>
-          </div>
-          <div style="font-size: 12px; color: #166534; margin-top: 4px;">Please keep this code safe. You will need to share it with the host upon arrival.</div>
-        </div>
-        <div style="text-align: center; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 12px;">
-          Payment via CHIP FPX • Status: Completed<br>
-          © ${new Date().getFullYear()} Kundasang Homestay
-        </div>
-      </div>
-    </div>
-  `;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<title>Your Receipt</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f8f5f0;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8f5f0;">
+  <tr>
+    <td align="center" style="padding:24px 16px;">
+
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;border:1px solid #e5e7eb;">
+
+        <tr>
+          <td style="padding:36px 32px 28px 32px;">
+
+            <!-- Header -->
+            <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #0F382E;">
+              <div style="font-size:22px;font-weight:800;color:#0F382E;letter-spacing:-0.3px;line-height:1.2;">Kundasang Homestay</div>
+              <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:2px;margin-top:6px;">Official Receipt</div>
+            </div>
+
+            <!-- IDs — stacked, no wrap -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
+              <tr>
+                <td style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;padding-bottom:4px;">Booking ID</td>
+              </tr>
+              <tr>
+                <td style="font-family:'Courier New',Consolas,monospace;font-size:17px;font-weight:700;color:#dc2626;padding-bottom:16px;letter-spacing:0.5px;word-break:break-all;">${safe(booking.id)}</td>
+              </tr>
+              <tr>
+                <td style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;padding-bottom:4px;">Receipt No.</td>
+              </tr>
+              <tr>
+                <td style="font-family:'Courier New',Consolas,monospace;font-size:13px;color:#4b5563;letter-spacing:0.4px;word-break:break-all;">${receiptNo}</td>
+              </tr>
+            </table>
+
+            <!-- Stay details -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:28px;">
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;width:110px;vertical-align:top;">Guest</td>
+                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${safe(booking.guestName) || 'Guest'}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;vertical-align:top;">Homestay</td>
+                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${safe(booking.homestay)}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;vertical-align:top;">Check-in</td>
+                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${safe(booking.checkin)}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;vertical-align:top;">Check-out</td>
+                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${safe(booking.checkout)}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;vertical-align:top;">Nights</td>
+                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${nights} ${nightLabel}</td>
+              </tr>
+            </table>
+
+            <!-- Price breakdown -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:28px;">
+              <tr>
+                <td colspan="2" style="border-top:1px dashed #d1d5db;padding-top:20px;"></td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;">Price (RM ${pricePerNight.toFixed(2)} &times; ${nights} ${nightLabel})</td>
+                <td style="padding:8px 0;font-size:13px;color:#212121;text-align:right;font-weight:600;font-family:'Courier New',monospace;">RM ${base.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;">Service Fee</td>
+                <td style="padding:8px 0;font-size:13px;color:#212121;text-align:right;font-weight:600;font-family:'Courier New',monospace;">RM ${combinedFee.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td colspan="2" style="border-top:2px solid #0F382E;padding-top:14px;"></td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0 0 0;font-size:15px;font-weight:700;color:#0F382E;">Total paid</td>
+                <td style="padding:6px 0 0 0;font-size:19px;font-weight:800;color:#0F382E;text-align:right;font-family:'Courier New',monospace;">RM ${total.toFixed(2)}</td>
+              </tr>
+            </table>
+
+            <!-- Check-in code — the visual hero -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:32px;">
+              <tr>
+                <td style="background-color:#f0fdf4;border:2px solid #86efac;border-radius:14px;padding:24px 20px;text-align:center;">
+                  <div style="font-size:11px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Your Check-in Code</div>
+                  <div style="font-family:'Courier New',Consolas,monospace;font-size:38px;font-weight:800;color:#0F382E;letter-spacing:10px;line-height:1;padding-left:10px;">${safe(booking.checkinCode)}</div>
+                  <div style="font-size:12px;color:#166534;margin-top:16px;line-height:1.6;">Share this 6-digit code with the host when you arrive.<br>Do not share it with anyone else.</div>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Footer -->
+            <div style="text-align:center;font-size:11px;color:#9ca3af;margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;line-height:1.7;">
+              Payment processed via CHIP FPX<br>
+              &copy; ${new Date().getFullYear()} Kundasang Homestay
+            </div>
+
+          </td>
+        </tr>
+
+      </table>
+
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
 
   let emailSent = false;
   let emailError = null;
@@ -158,7 +232,7 @@ async function sendCheckinEmail(booking, env) {
           from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
           to: booking.guestEmail,
           subject: `Your Receipt ${receiptNo} – Check-in Code`,
-          html: emailHtml
+          html
         })
       });
       emailSent = res.ok;
@@ -175,7 +249,7 @@ async function sendCheckinEmail(booking, env) {
           personalizations: [{ to: [{ email: booking.guestEmail }] }],
           from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
           subject: `Your Receipt ${receiptNo} – Check-in Code`,
-          content: [{ type: 'text/html', value: emailHtml }]
+          content: [{ type: 'text/html', value: html }]
         })
       });
       emailSent = res.ok;
@@ -189,6 +263,7 @@ async function sendCheckinEmail(booking, env) {
 
   return { emailSent, emailError };
 }
+
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
