@@ -139,20 +139,100 @@ async function tryAutoRefundLatePaymentLocked(db, bookingId, env) {
 }
 
 async function sendCheckinEmail(booking, env) {
-  const emailHtml = `
-    <h2>Hello ${booking.guestName || 'Guest'},</h2>
-    <p>Your booking at <strong>${booking.homestay}</strong> is confirmed!</p>
-    <p><strong>Booking ID:</strong> ${booking.id}</p>
-    <p><strong>Check-in:</strong> ${booking.checkin}</p>
-    <p><strong>Check-out:</strong> ${booking.checkout}</p>
-    <p><strong>Nights:</strong> ${booking.nights}</p>
-    <p><strong>Total Paid:</strong> RM ${Number(booking.total).toFixed(2)}</p>
-    <p style="font-size:20px; font-weight:bold; background:#f0fdf4; padding:10px; border-radius:8px; border:1px solid #bbf7d0; display:inline-block;">
-      Your 6-digit check-in code: <span style="color:#0F382E;">${booking.checkinCode}</span>
-    </p>
-    <p><strong>Please keep this code safe.</strong> You will need to share it with the host when you arrive. Do not share it with anyone else.</p>
-    <p>— Kundasang Homestay Team</p>
-  `;
+  const nights = Number(booking.nights) || 1;
+  const nightLabel = nights === 1 ? 'night' : 'nights';
+  const safe = (s) => String(s || '').replace(/[<>]/g, '');
+  const total = Number(booking.total || 0);
+
+  const emailHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<title>Your Check-in Code</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f8f5f0;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8f5f0;">
+  <tr>
+    <td align="center" style="padding:24px 16px;">
+
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;border:1px solid #e5e7eb;">
+
+        <tr>
+          <td style="padding:36px 32px 28px 32px;">
+
+            <!-- Header -->
+            <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #0F382E;">
+              <div style="font-size:22px;font-weight:800;color:#0F382E;letter-spacing:-0.3px;line-height:1.2;">Kundasang Homestay</div>
+              <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:2px;margin-top:6px;">Booking Confirmed</div>
+            </div>
+
+            <!-- Greeting -->
+            <p style="font-size:14px;color:#212121;line-height:1.6;margin-top:24px;margin-bottom:16px;">
+              Hello ${safe(booking.guestName) || 'Guest'},
+            </p>
+            <p style="font-size:14px;color:#4b5563;line-height:1.6;margin:0 0 24px 0;">
+              Your booking at <strong style="color:#212121;">${safe(booking.homestay)}</strong> is confirmed and paid.
+            </p>
+
+            <!-- Booking summary -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8f5f0;border-radius:12px;">
+              <tr>
+                <td style="padding:16px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td style="padding:5px 0;font-size:12px;color:#6b7280;width:100px;">Booking ID</td>
+                      <td style="padding:5px 0;font-size:13px;color:#212121;font-weight:700;font-family:'Courier New',monospace;">${safe(booking.id)}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:5px 0;font-size:12px;color:#6b7280;">Check-in</td>
+                      <td style="padding:5px 0;font-size:13px;color:#212121;font-weight:600;">${safe(booking.checkin)}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:5px 0;font-size:12px;color:#6b7280;">Check-out</td>
+                      <td style="padding:5px 0;font-size:13px;color:#212121;font-weight:600;">${safe(booking.checkout)}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:5px 0;font-size:12px;color:#6b7280;">Nights</td>
+                      <td style="padding:5px 0;font-size:13px;color:#212121;font-weight:600;">${nights} ${nightLabel}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:5px 0;font-size:12px;color:#6b7280;">Total Paid</td>
+                      <td style="padding:5px 0;font-size:13px;color:#0F382E;font-weight:700;font-family:'Courier New',monospace;">RM ${total.toFixed(2)}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Check-in code — the visual hero -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:32px;">
+              <tr>
+                <td style="background-color:#f0fdf4;border:2px solid #86efac;border-radius:14px;padding:24px 20px;text-align:center;">
+                  <div style="font-size:11px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Your Check-in Code</div>
+                  <div style="font-family:'Courier New',Consolas,monospace;font-size:38px;font-weight:800;color:#0F382E;letter-spacing:10px;line-height:1;padding-left:10px;">${safe(booking.checkinCode)}</div>
+                  <div style="font-size:12px;color:#166534;margin-top:16px;line-height:1.6;">Share this 6-digit code with the host when you arrive.<br>Do not share it with anyone else.</div>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Footer -->
+            <div style="text-align:center;font-size:11px;color:#9ca3af;margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;line-height:1.7;">
+              Payment processed via CHIP FPX<br>
+              &copy; ${new Date().getFullYear()} Kundasang Homestay
+            </div>
+
+          </td>
+        </tr>
+
+      </table>
+
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
 
   let emailSent = false;
   let emailError = null;
