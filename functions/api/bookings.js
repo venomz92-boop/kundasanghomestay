@@ -4,7 +4,13 @@
 //       images (IC, bank QR, PBT license) from Cloudinary on success.
 //   (2) On reject, all property + room photos are also destroyed, and the
 //       orphaned bank-QR entry in kd_homestays is removed.
-//   (3) deleteOwner now ALSO removes the account from kd_owners.
+//   (3) deleteOwner now ALSO removes the account from kd_owners AND
+//       destroys every Cloudinary image (IC, bank QR, PBT, property cover,
+//       room photos) belonging to every listing that owner had — approved
+//       or pending. Previously these files were orphaned in Cloudinary
+//       forever, which is a PDPA 2010 problem and a slow storage bill.
+//       The audit log and API response now report exactly how many images
+//       were destroyed vs failed.
 //   (4) removeApprovedHomestay destroys Cloudinary images and cleans the
 //       orphaned kd_homestays row.
 //   (5) updateHomestays clears chip_bank_account_id on bank-detail change.
@@ -1606,6 +1612,17 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ---- Admin: deleteOwner ----
+    // [THIS REVISION]
+    // Now collects every Cloudinary public ID (IC scan, bank QR, PBT
+    // license, property cover photo, and each room photo) from every
+    // listing being removed — approved AND pending — and destroys them
+    // after the database write. This closes the PDPA gap where an
+    // admin-initiated owner deletion left private documents (IC scans,
+    // bank QR codes) sitting in Cloudinary forever.
+    //
+    // The audit log and the API response now report exactly how many
+    // images were destroyed vs failed, so an admin can see at a glance
+    // whether the cleanup succeeded.
     if (action === "deleteOwner") {
       const ownerId = body.ownerId ? String(body.ownerId) : '';
       const email = body.email ? String(body.email).toLowerCase().trim() : '';
@@ -1658,6 +1675,15 @@ export async function onRequestPost({ request, env }) {
       const removedApproved = approved.filter(matches);
       const removedPending = pending.filter(matches);
 
+      // [THIS REVISION] Collect every Cloudinary public ID from every
+      // listing being removed, before we drop the references.
+      const allPublicIds = new Set();
+      for (const h of [...removedApproved, ...removedPending]) {
+        const ids = collectAllImagePublicIds(h);
+        for (const pid of ids) allPublicIds.add(pid);
+      }
+      const publicIdsList = [...allPublicIds];
+
       approved = approved.filter(h => !matches(h));
       pending = pending.filter(h => !matches(h));
       allHomes = allHomes.filter(h => !matches(h));
@@ -1692,11 +1718,28 @@ export async function onRequestPost({ request, env }) {
         try { await invalidateOwnerSessionsForHomestay(db, h.id); } catch (_) {}
       }
 
+      // [THIS REVISION] Destroy every collected Cloudinary image.
+      // Best-effort: a Cloudinary failure NEVER rolls back the DB delete,
+      // because the DB delete is the legally-required action. The report
+      // tells the admin what leaked so they can clean up manually if needed.
+      let destroyReport = { attempted: 0, succeeded: 0, failed: 0, failedIds: [] };
+      if (publicIdsList.length > 0) {
+        for (const pid of publicIdsList) {
+          const r = await destroyCloudinaryImage(pid, env);
+          destroyReport.attempted++;
+          if (r.success) destroyReport.succeeded++;
+          else {
+            destroyReport.failed++;
+            destroyReport.failedIds.push(pid);
+          }
+        }
+      }
+
       await logAction({
         db,
         action: 'owner_deleted',
         admin: 'admin',
-        details: `Deleted owner (id=${ownerId}, email=${email}) — removed ${removedApproved.length} approved + ${removedPending.length} pending homestays + ${removedOwnersCount} owner account(s)`,
+        details: `Deleted owner (id=${ownerId}, email=${email}) — removed ${removedApproved.length} approved + ${removedPending.length} pending homestays + ${removedOwnersCount} owner account(s). Cloudinary destroy: ${destroyReport.succeeded}/${destroyReport.attempted} images removed${destroyReport.failed > 0 ? ` (${destroyReport.failed} failed — see failedPublicIds)` : ''}.`,
         ip: clientIP,
         userId: email || ownerId
       });
@@ -1708,7 +1751,11 @@ export async function onRequestPost({ request, env }) {
           pending: removedPending.length
         },
         removedOwnerAccounts: removedOwnersCount,
-        removedIds: [...targetIds]
+        removedIds: [...targetIds],
+        imagesDeleted: destroyReport.succeeded,
+        imagesAttempted: destroyReport.attempted,
+        imagesFailed: destroyReport.failed,
+        failedPublicIds: destroyReport.failedIds.length > 0 ? destroyReport.failedIds : undefined
       }, 200, request);
     }
 
