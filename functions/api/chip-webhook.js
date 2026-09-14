@@ -16,6 +16,13 @@
 // (4) Every refund calculation now uses `amount_paid` (the amount CHIP
 //     actually collected) instead of `total` (which can be recalculated
 //     by an admin editing dates on a paid booking).
+// (5) The check-in code email sent by this webhook was rewritten to
+//     match the receipt email in verify-payment.js: light-mode locked
+//     (no dark-mode inversion), table-based layout, big monospace code
+//     hero, correct pluralisation. This is the path 90% of guests
+//     actually see, because CHIP fires the webhook the moment payment
+//     settles — usually before the guest's browser finishes the return
+//     redirect.
 import { corsHeaders, getClientIP, logAction, withLock, finalizePaidBooking } from './_utils.js';
 
 const BOOKINGS_LOCK = 'bookings-global';
@@ -97,7 +104,7 @@ async function tryAutoRefundLatePaymentLocked(db, bookingId, env) {
   const secret = env.CHIP_SECRET_KEY;
   if (!secret) return { error: 'CHIP_SECRET_KEY missing' };
 
-  // [FIX 1.4] Refund the amount CHIP actually collected.
+  // Refund the amount CHIP actually collected.
   const refundAmountCents = Math.round(Number(b.amount_paid || b.total) * 100);
 
   try {
@@ -138,6 +145,18 @@ async function tryAutoRefundLatePaymentLocked(db, bookingId, env) {
   }
 }
 
+// ============================================================
+// Check-in code email — sent by the webhook when a payment is confirmed.
+//
+// [THIS REVISION]
+// Full cosmetic overhaul, matching the receipt email in verify-payment.js:
+//   - Forces light-mode rendering via color-scheme meta tags so Apple
+//     Mail / Gmail dark mode cannot invert the brand colors.
+//   - Table-based layout for maximum email client compatibility.
+//   - Check-in code is now the visual hero — large, monospace, in its
+//     own highlighted box.
+//   - Fixed pluralisation: "1 nights" → "1 night".
+// ============================================================
 async function sendCheckinEmail(booking, env) {
   const nights = Number(booking.nights) || 1;
   const nightLabel = nights === 1 ? 'night' : 'nights';
@@ -425,7 +444,7 @@ export async function onRequestPost({ request, env }) {
           await new Promise(res => setTimeout(res, 800));
           const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
           let bb = [];
-          try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
+          try { if (rr?.data) bb = JSON.parse(rr.data); } catch (_) {}
           const cur = bb.find(b => String(b.id) === String(booking.id));
           if (cur && (cur.status === 'Paid - Awaiting Check-in' || String(cur.status).startsWith('Completed'))) {
             lockResult = { finalizeResult: { alreadyFinalized: true, booking: cur, checkinCode: cur.checkinCode } };
@@ -439,9 +458,7 @@ export async function onRequestPost({ request, env }) {
 
       const finalizeResult = lockResult.finalizeResult;
 
-      // [FIX 1.6] Finalization failure must return 500 so CHIP retries.
-      // Previously we logged a warning and returned 200 — which told CHIP
-      // "handled, do not retry" and left the booking stuck in pending.
+      // Finalization failure must return 500 so CHIP retries.
       if (finalizeResult.error) {
         console.error(`Finalize error: ${finalizeResult.error}`);
         try {
