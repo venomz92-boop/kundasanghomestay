@@ -45,7 +45,6 @@
     .policy-content { opacity: 1 !important; transform: none !important; }
   </style>
 </head>
-  
 <script>
   let lastToggleTime = 0;
   window.toggleMobileMenu = function() {
@@ -59,7 +58,6 @@
     }
   };
 </script>
-  
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
   <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
 
@@ -331,23 +329,22 @@
     © 2026 Kundasang Homestay. All rights reserved.
   </div>
 </footer>
-  
   <script src="/footer-weather.js"></script>
   <script>
-  function logoutGuest() {
-    if (window.GuestSession) {
-      window.GuestSession.logoutGuest();
-      return;
+    function logoutGuest() {
+      if (window.GuestSession) {
+        window.GuestSession.logoutGuest();
+        return;
+      }
+      if (!confirm('Logout?')) return;
+      try { localStorage.removeItem('kd_guest'); } catch (e) {}
+      window.location.href = '/';
     }
-    if (!confirm('Logout?')) return;
-    try { localStorage.removeItem('kd_guest'); } catch (e) {}
-    window.location.href = '/';
-  }
-  document.addEventListener('DOMContentLoaded', function () {
-    if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
-      window.GuestSession.updateNavDOM();
-    }
-  });
-</script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+        window.GuestSession.updateNavDOM();
+      }
+    });
+  </script>
 </body>
 </html>
