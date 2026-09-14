@@ -1,4 +1,10 @@
 // /api/resend-code.js – With CSRF + rate limiting + paid-only guard
+//
+// [THIS REVISION]
+// The check-in code email was rewritten to match the receipt email in
+// verify-payment.js and the webhook email in chip-webhook.js:
+// light-mode locked (no dark-mode inversion), table-based layout, big
+// monospace code hero, correct pluralisation.
 import {
   corsHeaders,
   jsonResponse,
@@ -42,8 +48,6 @@ export async function onRequestPost({ request, env }) {
 
     // ===== PAID-ONLY GUARD =====
     // Only paid bookings are allowed to request a check-in code.
-    // Unpaid bookings have no code yet, and we must not generate one
-    // before payment succeeds (otherwise guests could get the code for free).
     const status = String(booking.status || '');
     const isPaid = status === 'Paid - Awaiting Check-in' ||
                    status.startsWith('Completed');
@@ -63,7 +67,6 @@ export async function onRequestPost({ request, env }) {
     await recordRateLimit(db, clientIP, actionKey);
 
     // At this point booking is paid, so checkinCode MUST exist.
-    // If it somehow doesn't, flag a bug rather than silently generating one.
     if (!booking.checkinCode) {
       console.error(`Paid booking ${bookingId} has no checkinCode – this indicates a finalization bug`);
       return jsonResponse({
@@ -73,6 +76,19 @@ export async function onRequestPost({ request, env }) {
 
     const code = booking.checkinCode;
 
+    // ============================================================
+    // Check-in code email — resent on guest request.
+    //
+    // [THIS REVISION]
+    // Full cosmetic overhaul, matching the receipt email in
+    // verify-payment.js and the webhook email in chip-webhook.js:
+    //   - Forces light-mode rendering via color-scheme meta tags so
+    //     dark-mode clients cannot invert the brand colors.
+    //   - Table-based layout for email client compatibility.
+    //   - Check-in code is the visual hero — large, monospace, in its
+    //     own highlighted box.
+    //   - Fixed pluralisation: "1 nights" → "1 night".
+    // ============================================================
     const safe = (s) => String(s || '').replace(/[<>]/g, '');
     const resendNights = Number(booking.nights) || 1;
     const resendNightLabel = resendNights === 1 ? 'night' : 'nights';
@@ -179,7 +195,7 @@ export async function onRequestPost({ request, env }) {
           body: JSON.stringify({
             from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
             to: booking.guestEmail,
-            subject: 'Your Check‑in Code',
+            subject: 'Your Check-in Code',
             html: emailHtml
           })
         });
@@ -196,7 +212,7 @@ export async function onRequestPost({ request, env }) {
           body: JSON.stringify({
             personalizations: [{ to: [{ email: booking.guestEmail }] }],
             from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
-            subject: 'Your Check‑in Code',
+            subject: 'Your Check-in Code',
             content: [{ type: 'text/html', value: emailHtml }]
           })
         });
@@ -222,7 +238,7 @@ export async function onRequestPost({ request, env }) {
       success: true,
       emailSent: emailSent,
       message: emailSent
-        ? 'Check‑in code resent to your email.'
+        ? 'Check-in code resent to your email.'
         : `Failed to send email: ${emailError || 'unknown error'}. Please contact support.`
     }, 200, request);
 
