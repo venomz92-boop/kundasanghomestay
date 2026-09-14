@@ -11,7 +11,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="stylesheet" href="styles.css" />
   <script src="/csrf-auto.js"></script>
- 
+  <script src="/guest-session.js"></script>
 </head>
 <script>
   let lastToggleTime = 0;
@@ -180,7 +180,7 @@
               To cancel, please contact the host directly — guests cannot cancel through the platform, as last-minute cancellations leave hosts with empty rooms they cannot resell. If the host accepts, you receive the <strong>base nightly rate minus RM 1.00</strong>; the RM 1.00 covers the payment processor's refund fee. The service fee and gateway fee are retained by the platform.
             </p>
             <p class="text-[12px] text-amber-800 mt-3 leading-relaxed italic">
-              Example: Paid RM 279.00 → receive RM 249.00. Retained: RM 30.00.
+              Example: Paid RM 278.50 → receive RM 249.00. Retained: RM 29.50.
             </p>
           </div>
         </div>
@@ -302,5 +302,21 @@
   </div>
 </footer>
 <script src="/footer-weather.js"></script>
+<script>
+  function logoutGuest() {
+    if (window.GuestSession) {
+      window.GuestSession.logoutGuest();
+      return;
+    }
+    if (!confirm('Logout?')) return;
+    try { localStorage.removeItem('kd_guest'); } catch (e) {}
+    window.location.href = '/';
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+      window.GuestSession.updateNavDOM();
+    }
+  });
+</script>
 </body>
 </html>
