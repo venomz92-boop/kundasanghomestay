@@ -1,7 +1,16 @@
 // /api/reset-password.js
-import { corsHeaders, hashPassword, jsonResponse, invalidateOwnerSessions } from './_utils.js';
+//
+// [THIS REVISION]
+// Added enforceHttps() at the top of onRequestPost, matching every other
+// mutating endpoint. The root middleware already forces HTTPS, so this is
+// defensive consistency rather than a live fix — but consistency is what
+// stops the next bug.
+import { corsHeaders, hashPassword, jsonResponse, invalidateOwnerSessions, enforceHttps } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
+  const redirect = enforceHttps(request);
+  if (redirect) return redirect;
+
   try {
     const { token, password } = await request.json();
     if (!token || typeof password !== 'string' || password.length < 8) {
