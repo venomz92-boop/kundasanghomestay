@@ -120,25 +120,27 @@
   <div id="loginSection" class="max-w-md mx-auto card p-6 md:p-10 mt-10 animate-on-scroll">
     <h2 class="text-2xl font-bold font-poppins text-[#212121]">Host Console</h2>
     <p class="text-xs text-zinc-500 mt-1">Authenticate using your registered WhatsApp number.</p>
-    <div class="mt-6 space-y-4">
-      <div>
-        <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-500 mb-1">WhatsApp Number</label>
-        <input id="ownerWhatsapp" type="tel" placeholder="e.g. 0123456789" class="form-input text-sm" />
+    <form id="ownerLoginForm" onsubmit="event.preventDefault(); ownerLogin();">
+      <div class="mt-6 space-y-4">
+        <div>
+          <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-500 mb-1">WhatsApp Number</label>
+          <input id="ownerWhatsapp" type="tel" placeholder="e.g. 0123456789" class="form-input text-sm" />
+        </div>
+        <div>
+          <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-500 mb-1">Dashboard Password</label>
+          <input id="ownerPassword" type="password" placeholder="Password" class="form-input text-sm" />
+        </div>
       </div>
-      <div>
-        <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-500 mb-1">Dashboard Password</label>
-        <input id="ownerPassword" type="password" placeholder="Password" class="form-input text-sm" />
+      <div class="text-right mt-2.5">
+        <button type="button" onclick="openOwnerForgotPassword()" class="text-xs text-purple-600 font-semibold hover:underline">Forgot Access Password?</button>
       </div>
-    </div>
-    <div class="text-right mt-2.5">
-      <button onclick="openOwnerForgotPassword()" class="text-xs text-purple-600 font-semibold hover:underline">Forgot Access Password?</button>
-    </div>
-    <button onclick="ownerLogin()" class="btn-primary w-full mt-6 py-3.5">Enter Dashboard</button>
+      <button type="submit" class="btn-primary w-full mt-6 py-3.5">Enter Dashboard</button>
+    </form>
     <div id="loginError" class="text-red-600 text-xs mt-3 hidden text-center p-2.5 bg-red-50 border border-red-200 rounded-xl"></div>
 
     <div class="mt-5 pt-5 border-t border-black/5 text-center">
       <p class="text-[11px] text-zinc-500 leading-relaxed">Never received the verification email, or the link expired?</p>
-      <button onclick="openResendVerification()" class="mt-2 text-xs text-[#0F382E] font-bold hover:underline">✉️ Resend verification email</button>
+      <button type="button" onclick="openResendVerification()" class="mt-2 text-xs text-[#0F382E] font-bold hover:underline">✉️ Resend verification email</button>
     </div>
   </div>
 
