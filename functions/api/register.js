@@ -9,6 +9,13 @@
 // phone. This breaks the "can't login (unverified) AND can't re-register
 // (email exists)" dead-end. Verified accounts still get the same generic
 // rejection as before.
+//
+// [THIS REVISION]
+// sendVerificationEmail now supports BOTH Resend and SendGrid, matching
+// every other email-sending file in the codebase. Previously it only
+// checked RESEND_API_KEY, so a SendGrid-only deployment silently failed
+// to deliver guest verification emails — which meant no guest could
+// verify their email and therefore no guest could log in.
 import { corsHeaders, getClientIP, enforceHttps, hashPassword, createSignedToken, jsonResponse, parseJSONSafely, logAction, checkRateLimit, recordRateLimit } from './_utils.js';
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
@@ -23,13 +30,14 @@ async function sendVerificationEmail(email, name, url, env) {
     <p>This link expires in 24 hours.</p>
     <p>If you did not create an account, please ignore this email.</p>`;
 
-  try {
-    if (env.RESEND_API_KEY) {
+  // ---- Resend (preferred) ----
+  if (env.RESEND_API_KEY) {
+    try {
       const r = await fetch('https://api.resend.com/emails', {
         method: 'POST',
-        headers: { 
-          'Authorization': 'Bearer ' + env.RESEND_API_KEY, 
-          'Content-Type': 'application/json' 
+        headers: {
+          'Authorization': 'Bearer ' + env.RESEND_API_KEY,
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
@@ -41,18 +49,47 @@ async function sendVerificationEmail(email, name, url, env) {
       let data = null;
       try { data = await r.json(); } catch (_) { data = {}; }
       if (r.ok) {
-        console.log(`✅ Verification email sent to ${email} (ID: ${data.id || 'n/a'})`);
+        console.log(`✅ Verification email sent via Resend to ${email} (ID: ${data.id || 'n/a'})`);
         return true;
-      } else {
-        console.error(`❌ Resend error:`, data);
-        return false;
       }
+      console.error(`❌ Resend error (HTTP ${r.status}):`, data);
+      // fall through to SendGrid if configured
+    } catch (e) {
+      console.error('Resend send error:', e.message);
+      // fall through to SendGrid if configured
     }
-  } catch (e) {
-    console.error('Email send error:', e.message);
-    return false;
   }
-  console.warn('No email provider configured (RESEND_API_KEY missing).');
+
+  // ---- SendGrid (fallback) ----
+  if (env.SENDGRID_API_KEY) {
+    try {
+      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.SENDGRID_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email }] }],
+          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
+          subject: 'Verify Your Email - Kundasang Homestay',
+          content: [{ type: 'text/html', value: html }]
+        })
+      });
+      if (r.ok) {
+        console.log(`✅ Verification email sent via SendGrid to ${email}`);
+        return true;
+      }
+      const txt = await r.text().catch(() => '');
+      console.error(`❌ SendGrid error (HTTP ${r.status}): ${txt.slice(0, 200)}`);
+      return false;
+    } catch (e) {
+      console.error('SendGrid send error:', e.message);
+      return false;
+    }
+  }
+
+  console.warn('No email provider configured (RESEND_API_KEY and SENDGRID_API_KEY are both missing).');
   return false;
 }
 
@@ -73,6 +110,14 @@ export async function onRequestPost({ request, env }) {
     if (!env.DB) {
       console.error('❌ REGISTER FAIL: D1 binding "DB" is not configured.');
       return jsonResponse({ error: 'Server configuration error' }, 500, request);
+    }
+    if (!env.RESEND_API_KEY && !env.SENDGRID_API_KEY) {
+      console.error('❌ REGISTER FAIL: Neither RESEND_API_KEY nor SENDGRID_API_KEY is set. Verification emails cannot be delivered.');
+      return jsonResponse(
+        { error: 'Email service is temporarily unavailable. Please contact support@kundasanghomestay.my' },
+        503,
+        request
+      );
     }
 
     const clientIP = getClientIP(request);
@@ -162,11 +207,6 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ---- New account ------------------------------------------------
-    // ---- The line that most likely caused the 500 in the previous revision:
-    // hashPassword() runs PBKDF2 which is CPU-heavy. If PBKDF2_ITERATIONS is
-    // set too high for your Cloudflare plan, this line is killed mid-run and
-    // the browser sees a bare 500. The default in _utils.js is now 100,000,
-    // which works on every plan.
     const hashed = await hashPassword(password, env);
 
     const newGuest = {
@@ -204,7 +244,7 @@ export async function onRequestPost({ request, env }) {
       db,
       action: 'guest_registered',
       admin: 'public',
-      details: `Guest ${newGuest.id} registered (email: ${newGuest.email})`,
+      details: `Guest ${newGuest.id} registered (email: ${newGuest.email}, verification email sent: ${emailSent})`,
       ip: clientIP,
       userId: newGuest.id
     });
@@ -216,9 +256,9 @@ export async function onRequestPost({ request, env }) {
     const responseData = {
       success: true,
       guest: safeGuest,
-      message: emailSent 
+      message: emailSent
         ? 'Registration successful. Please check your email to verify your account before logging in. You can close this window now.'
-        : 'Registration successful, but verification email could not be sent. Please contact support.',
+        : 'Registration successful, but verification email could not be sent. Please use the "Resend verification" button on the login page or contact support.',
     };
 
     return new Response(
