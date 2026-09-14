@@ -7,15 +7,21 @@
 # This file must sit at the ROOT of the folder Cloudflare serves as your
 # site.
 #
-# CHANGELOG (this revision):
+# CHANGELOG:
 #   - Added https://cdn.jsdelivr.net to script-src (landing page loads
 #     Alpine.js from there).
 #   - Added 'unsafe-eval' to script-src (Alpine.js standard build uses
 #     Function() declarations internally, which CSP blocks without it).
 #     Only landingpage.html uses Alpine. Every other page is unaffected.
+#   - Added https://images.unsplash.com to img-src. Ten pages use an
+#     onerror fallback for /logo.png that points at Unsplash. Without
+#     this domain in img-src, any page where logo.png fails to load
+#     (CDN hiccup, missing asset, ad-blocker) shows a broken image
+#     instead of the fallback, which damages the brand on a page users
+#     are about to trust with money.
 
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia https://static.cloudflareinsights.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com https://res.cloudinary.com https://theculturetrip.com https://*.theculturetrip.com; connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia https://api.resend.com https://api.sendgrid.com https://api.cloudinary.com https://api.open-meteo.com https://cloudflareinsights.com; frame-src 'self' https://gate.chip-in.asia; base-uri 'self'; form-action 'self' https://gate.chip-in.asia;
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia https://static.cloudflareinsights.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://upload.wikimedia.org https://images.unsplash.com https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com https://res.cloudinary.com https://theculturetrip.com https://*.theculturetrip.com; connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia https://api.resend.com https://api.sendgrid.com https://api.cloudinary.com https://api.open-meteo.com https://cloudflareinsights.com; frame-src 'self' https://gate.chip-in.asia; base-uri 'self'; form-action 'self' https://gate.chip-in.asia;
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
