@@ -14,6 +14,26 @@
 //            and their HttpOnly SameSite=Lax cookie).
 //   3. Catch and log any 5xx response or uncaught error to the
 //      kd_errors store, so the admin panel can display them.
+//
+// [THIS REVISION]
+// Added an owner-session fallback to the CSRF gate. Scenario that
+// broke without it:
+//
+//   1. User logs in as a guest. Browser receives guest_token cookie.
+//   2. User registers as a host and verifies email. Browser receives
+//      owner_token cookie. Guest cookie is still present.
+//   3. User visits /list.html or /owner.html. csrf-auto.js sends an
+//      OWNER CSRF token on every mutating request (it picks the token
+//      type from the URL path).
+//   4. The gate above picks the guest session first because it checks
+//      guest before owner. It then validates the owner token against
+//      the guest user ID → mismatch → 403 CSRF_INVALID.
+//
+// The fallback below tries the owner session if the guest session
+// check fails. The token is still signed with SESSION_SECRET and
+// still carries a userId inside it, so a guest token cannot
+// impersonate an owner or vice versa — we only accept the token if
+// it matches one of the two sessions the browser actually holds.
 
 import {
   getGuestSession,
@@ -91,41 +111,45 @@ async function enforceCSRFGate(request, env) {
     );
   }
 
-  let userId = null;
+  // ---- 3. Resolve the caller's session(s) --------------------------------
+  let guestUserId = null;
   try {
     const guest = await getGuestSession(request, env);
-    if (guest && guest.userId) userId = String(guest.userId);
+    if (guest && guest.userId) guestUserId = String(guest.userId);
   } catch (_) {}
 
-  if (!userId) {
-    try {
-      const owner = await getOwnerSession(request, env);
-      if (owner && owner.ownerId) userId = String(owner.ownerId);
-    } catch (_) {}
-  }
+  let ownerUserId = null;
+  try {
+    const owner = await getOwnerSession(request, env);
+    if (owner && owner.ownerId) ownerUserId = String(owner.ownerId);
+  } catch (_) {}
 
-  if (!userId) {
+  if (!guestUserId && !ownerUserId) {
     return csrfFailure(
       'CSRF_NO_SESSION',
       'No active session for CSRF validation.'
     );
   }
 
+  // ---- 4. Try the token against whichever session(s) are present ---------
+  // Previously this only checked the guest session first and stopped there.
+  // Now we try BOTH sessions so a user who holds two cookies (guest +
+  // owner) is not locked out of host-only pages.
   let ok = false;
-  try {
-    ok = await validateCSRFToken(token, userId, env);
-  } catch (_) {
-    ok = false;
-  }
-  
-  if (!ok) {
+
+  if (guestUserId) {
     try {
-      const owner = await getOwnerSession(request, env);
-      if (owner && owner.ownerId) {
-        ok = await validateCSRFToken(token, String(owner.ownerId), env);
-      }
+      ok = await validateCSRFToken(token, guestUserId, env);
     } catch (_) {
-      // ignore
+      ok = false;
+    }
+  }
+
+  if (!ok && ownerUserId) {
+    try {
+      ok = await validateCSRFToken(token, ownerUserId, env);
+    } catch (_) {
+      ok = false;
     }
   }
 
@@ -136,6 +160,7 @@ async function enforceCSRFGate(request, env) {
     );
   }
   return null;
+}
 
 // ---------------------------------------------------------------------------
 // Error logging (unchanged)
