@@ -856,12 +856,41 @@
 
    document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
+      // Locked progress modal (payment in flight) — never close it.
       if (_modalLocked) return;
+
+      // Detail modal (homestay detail view) — hidden via .hidden class.
+      var dModal = document.getElementById('detailModal');
+      if (dModal && !dModal.classList.contains('hidden')) {
+        dModal.classList.add('hidden');
+        document.body.style.overflow = '';
+        return;
+      }
+
+      // Booking modal (guest info form) — hidden via .hidden class.
+      var bModal = document.getElementById('bookingModal');
+      if (bModal && !bModal.classList.contains('hidden')) {
+        bModal.classList.add('hidden');
+        document.body.style.overflow = '';
+        return;
+      }
+
+      // Custom modal (alerts, prompts) — hidden via .active class.
       closeModal();
+
+      // Thank you / receipt modal.
       var tModal = document.getElementById('thankyouModal');
-      if (tModal && tModal.classList.contains('active')) tModal.classList.remove('active');
+      if (tModal && tModal.classList.contains('active')) {
+        tModal.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+
+      // Payment failed modal.
       var fModal = document.getElementById('paymentFailedModal');
-      if (fModal && fModal.classList.contains('active')) fModal.classList.remove('active');
+      if (fModal && fModal.classList.contains('active')) {
+        fModal.classList.remove('active');
+        document.body.style.overflow = '';
+      }
     }
   });
 
