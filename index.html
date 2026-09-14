@@ -810,6 +810,29 @@
     });
   }
 
+    // ---- Locked modal: shows progress, cannot be closed by the user ----
+  var _modalLocked = false;
+
+  function showLockedModal(title, message) {
+    _modalLocked = true;
+    var overlay = document.getElementById('customModal');
+    document.getElementById('modalTitle').textContent = title || 'Please wait…';
+    document.getElementById('modalBody').innerHTML = typeof message === 'string' ? message : '';
+    document.getElementById('modalFooter').innerHTML = '';
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function updateLockedModal(title, message) {
+    if (title) document.getElementById('modalTitle').textContent = title;
+    if (message) document.getElementById('modalBody').innerHTML = message;
+  }
+
+  function unlockAndCloseModal() {
+    _modalLocked = false;
+    closeModal();
+  }
+  
   function closeModal() {
     var overlay = document.getElementById('customModal');
     if (overlay) overlay.classList.remove('active');
@@ -831,8 +854,9 @@
     ]);
   }
 
-  document.addEventListener('keydown', function(e) {
+   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
+      if (_modalLocked) return;
       closeModal();
       var tModal = document.getElementById('thankyouModal');
       if (tModal && tModal.classList.contains('active')) tModal.classList.remove('active');
@@ -1418,7 +1442,6 @@ if (list.length === 0) {
       showAlert("Login Required", "Please log in to complete your booking.").then(function(){ window.location.href='/login.html'; });
       return;
     }
-    // Double-check TTL — GuestSession may have flagged expiry.
     if (window.GuestSession && !window.GuestSession.isGuestSessionValid()) {
       showAlert("Session Expired", "Your session has expired. Please log in again.");
       logoutGuest();
@@ -1453,7 +1476,7 @@ if (list.length === 0) {
     var guestPhone = document.getElementById("guestPhone").value.trim();
     var ci = document.getElementById("bookingCheckin").value;
     var co = document.getElementById("bookingCheckout").value;
-    
+
     if (!guestName || !guestEmail || !guestPhone) {
       showAlert("Incomplete Information", "Please provide your Name, Email, and WhatsApp number.");
       return;
@@ -1462,16 +1485,41 @@ if (list.length === 0) {
       showAlert("Booking Error", "Please select a valid homestay.");
       return;
     }
-    
+
+    // Disable the button so a double-click can't fire two bookings.
+    var payBtn = document.querySelector('#bookingModal button[onclick="processPayment()"]');
+    if (payBtn) {
+      payBtn.disabled = true;
+      payBtn.style.opacity = '0.5';
+      payBtn.style.cursor = 'not-allowed';
+    }
+
+    var restoreBtn = function () {
+      if (payBtn) {
+        payBtn.disabled = false;
+        payBtn.style.opacity = '';
+        payBtn.style.cursor = '';
+      }
+    };
+
+    // Locked progress modal — step 1.
+    showLockedModal(
+      'Preparing Payment…',
+      '<div style="text-align:center;padding:18px 0;">' +
+        '<div style="font-size:34px;margin-bottom:14px;">💳</div>' +
+        '<div style="font-size:14px;color:#4b5563;line-height:1.65;">Creating your booking and preparing your FPX payment.<br><strong>Please wait — do not close this page.</strong></div>' +
+      '</div>'
+    );
+
     var bookingId = "KDH-" + crypto.randomUUID().slice(0,8).toUpperCase();
     var roomId = window._bookingRoom ? window._bookingRoom.id : null;
-    var draft = { 
-      id: bookingId, 
-      homestayId: selectedHomestay.id, 
-      checkin: ci, 
-      checkout: co, 
-      guestId: currentGuest.id, 
-      roomId: roomId 
+    var draft = {
+      id: bookingId,
+      homestayId: selectedHomestay.id,
+      checkin: ci,
+      checkout: co,
+      guestId: currentGuest.id,
+      roomId: roomId
     };
     window.lastCreatedBooking = draft;
 
@@ -1479,18 +1527,19 @@ if (list.length === 0) {
       var headers = {
         'Content-Type': 'application/json',
         'X-CSRF-Token': csrfToken
-        // No Authorization header — the HttpOnly cookie authenticates us.
       };
-      
+
       var createRes = await fetch(API_BASE + '/bookings', {
         method: 'POST',
         headers: headers,
         credentials: 'include',
         body: JSON.stringify({ action: 'createPublicBooking', booking: draft, guestId: currentGuest.id })
       });
-      
+
       var created = await createRes.json();
       if (!createRes.ok || !created.success) {
+        unlockAndCloseModal();
+        restoreBtn();
         if (createRes.status === 401) {
           showAlert("Session Expired", "Your session has expired. Please log in again.");
           logoutGuest();
@@ -1499,10 +1548,19 @@ if (list.length === 0) {
         showAlert('Booking Error', created.error || 'Could not create booking.');
         return;
       }
-      
+
       var booking = created.booking;
       window.lastCreatedBooking = booking;
       sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
+
+      // Step 2 — talking to CHIP.
+      updateLockedModal(
+        'Connecting to CHIP…',
+        '<div style="text-align:center;padding:18px 0;">' +
+          '<div style="font-size:34px;margin-bottom:14px;">🔐</div>' +
+          '<div style="font-size:14px;color:#4b5563;line-height:1.65;">Opening a secure payment session with CHIP FPX.<br><strong>Please wait — do not close this page.</strong></div>' +
+        '</div>'
+      );
 
       var payRes = await fetch(API_BASE + '/chip-create', {
         method: 'POST',
@@ -1513,17 +1571,35 @@ if (list.length === 0) {
         credentials: 'include',
         body: JSON.stringify({ bookingId: booking.id })
       });
-      
+
       var payment = await payRes.json();
       if (!payRes.ok || !payment.success) {
+        unlockAndCloseModal();
+        restoreBtn();
         showAlert('Payment Setup Error', payment.error || 'Unable to create the payment bill. Your booking remains pending payment; please retry later.');
         return;
       }
-      
+
+      // Step 3 — about to redirect.
+      updateLockedModal(
+        'Redirecting to FPX…',
+        '<div style="text-align:center;padding:18px 0;">' +
+          '<div style="font-size:34px;margin-bottom:14px;">✅</div>' +
+          '<div style="font-size:14px;color:#4b5563;line-height:1.65;">You are being taken to your bank\'s secure payment page now.</div>' +
+        '</div>'
+      );
+
       localStorage.setItem('kd_guest_pending_payment', JSON.stringify(booking));
-      window.location.href = payment.url;
-      
+
+      // Small delay so the guest sees the final step before the page
+      // navigates. The modal stays visible during the redirect.
+      setTimeout(function () {
+        window.location.href = payment.url;
+      }, 500);
+
     } catch (e) {
+      unlockAndCloseModal();
+      restoreBtn();
       showAlert('Network Error', 'Could not connect to the booking server. Please try again.');
     }
   }
