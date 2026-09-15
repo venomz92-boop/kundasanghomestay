@@ -236,7 +236,6 @@
     text-decoration: none;
   }
 
-  /* Row-level actions (on-screen only) */
   .row-actions {
     margin-top: 10px;
     padding-top: 10px;
@@ -401,47 +400,89 @@
     .info-grid { grid-template-columns: 88px 1fr; }
   }
 
+  /* ============================================================
+   * PRINT
+   * ============================================================ */
   @media print {
     @page { size: A4; margin: 12mm; }
     body { background: #fff !important; }
+
+    /* Generic: anything marked .no-print never prints */
     .no-print { display: none !important; }
-    .report-wrap {
+
+    /* --- Normal report print (NOT printing the receipt) --- */
+    body:not(.printing-receipt) .report-wrap {
       max-width: 100% !important;
       margin: 0 !important;
       padding: 0 !important;
     }
-    .report-doc {
+    body:not(.printing-receipt) .report-doc {
       box-shadow: none !important;
       border: none !important;
       border-radius: 0 !important;
       padding: 0 !important;
     }
-    .payout-row { page-break-inside: avoid; break-inside: avoid; }
-    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    a { color: var(--brand) !important; }
-    .receipt-cell img { max-width: 110px; max-height: 140px; }
-    .report-logo { width: 56px; height: 56px; }
-  }
-
-  /* When printing ONLY the receipt modal, hide everything else */
-  @media print {
-    body.printing-receipt > *:not(#receiptModal) { display: none !important; }
-    body.printing-receipt #receiptModal {
-      position: static !important;
-      background: #fff !important;
-      padding: 0 !important;
-      backdrop-filter: none !important;
-      overflow: visible !important;
+    body:not(.printing-receipt) .payout-row {
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
+    body:not(.printing-receipt) a { color: var(--brand) !important; }
+    body:not(.printing-receipt) .receipt-cell img { max-width: 110px; max-height: 140px; }
+    body:not(.printing-receipt) .report-logo { width: 56px; height: 56px; }
+
+    /* --- Receipt-only print --- */
+    /* Hide every direct child of body EXCEPT the modal. */
+    body.printing-receipt > *:not(#receiptModal) { display: none !important; }
+
+    /* Force the modal visible and in normal flow. This must override
+     * the .hidden / inline styles that the modal normally carries. */
+    body.printing-receipt #receiptModal {
+      display: block !important;
+      position: static !important;
+      inset: auto !important;
+      top: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      left: auto !important;
+      width: 100% !important;
+      height: auto !important;
+      max-width: 100% !important;
+      background: #ffffff !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: visible !important;
+      z-index: auto !important;
+    }
+
     body.printing-receipt #receiptModal > div {
       box-shadow: none !important;
       margin: 0 !important;
       border-radius: 0 !important;
       max-width: 100% !important;
-      background: #fff !important;
+      width: 100% !important;
+      background: #ffffff !important;
+      border: none !important;
+      overflow: visible !important;
     }
+
+    /* The modal's button bar is hidden from print */
     body.printing-receipt #receiptModal .no-print { display: none !important; }
-    body.printing-receipt #receiptModal img { max-width: 260px !important; }
+
+    /* Receipt image sizing on paper */
+    body.printing-receipt #receiptModal img {
+      max-width: 260px !important;
+      height: auto !important;
+    }
+
+    /* Keep receipt content together on one page if possible */
+    body.printing-receipt #receiptBody > div {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>
 </head>
@@ -554,11 +595,14 @@
   </div>
 </div>
 
-<!-- ================= Payout Statement modal ================= -->
-<div id="receiptModal" class="no-print fixed inset-0 z-[110] hidden bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
+<!-- ================= Payout Statement modal =================
+     NOTE: no `no-print` on this outer wrapper — we need the modal
+     itself to be printable when we print only the receipt. The
+     inner button bar carries `no-print` so it disappears on paper. -->
+<div id="receiptModal" class="fixed inset-0 z-[110] hidden bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
   <div class="max-w-[640px] mx-auto bg-white rounded-2xl shadow-2xl mt-4 sm:mt-8 mb-6 sm:mb-10 overflow-hidden">
 
-    <div class="flex items-center justify-between gap-2 p-3 sm:p-4 border-b border-zinc-100">
+    <div class="no-print flex items-center justify-between gap-2 p-3 sm:p-4 border-b border-zinc-100">
       <h3 class="font-poppins font-700 text-[14px] sm:text-[16px] text-[#212121]">Payout Statement — Record</h3>
       <div class="flex gap-2 shrink-0">
         <button onclick="printReceipt()" class="btn-primary" style="padding:7px 14px; font-size:11px; background:#0F382E; white-space:nowrap;">🖨️ Print / Save PDF</button>
@@ -890,7 +934,7 @@ function renderReceiptHtml(h) {
     '</div>';
 }
 
-/* Close modal when clicking on the dark overlay */
+/* Close modal when clicking the dark overlay */
 document.getElementById('receiptModal').addEventListener('click', function(e) {
   if (e.target === this) closeReceiptModal();
 });
