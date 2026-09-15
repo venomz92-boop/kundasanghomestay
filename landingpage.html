@@ -273,37 +273,51 @@
             color: var(--text-muted);
         }
 
+        /* ── Founder Note (Option A: warm, photo-left, no dark overlay) ── */
         .founder-note-wrap {
             background: #FFFFFF;
             border-radius: var(--radius-md);
             border: 1px solid rgba(212, 163, 115, 0.25);
             box-shadow: var(--shadow-soft);
             overflow: hidden;
+            padding: 28px;
         }
-        .founder-photo-banner {
-            position: relative;
+        .founder-note-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+            align-items: center;
+        }
+        .founder-note-photo {
             width: 100%;
+            max-width: 320px;
+            margin: 0 auto;
             aspect-ratio: 4 / 3;
+            border-radius: 18px;
             overflow: hidden;
-            background: #0F1E16;
+            border: 4px solid var(--gold);
+            box-shadow: 0 12px 36px rgba(15, 30, 22, 0.15);
         }
-        .founder-photo-banner img {
-            display: block;
+        .founder-note-photo img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            object-position: center 35%;
+            object-position: center 30%;
+            display: block;
         }
-        .founder-photo-overlay {
-            position: absolute;
-            left: 0; right: 0; bottom: 0;
-            padding: 32px 32px 26px 32px;
-            background: linear-gradient(0deg, rgba(15, 30, 22, 0.92) 0%, rgba(15, 30, 22, 0.55) 50%, rgba(15, 30, 22, 0) 100%);
-        }
-        .founder-note-body { padding: 36px 36px 40px 36px; }
         @media (min-width: 768px) {
-            .founder-photo-banner { aspect-ratio: 16 / 9; }
-            .founder-photo-overlay { padding: 40px 44px 32px 44px; }
+            .founder-note-wrap {
+                padding: 40px;
+            }
+            .founder-note-grid {
+                grid-template-columns: 280px 1fr;
+                gap: 44px;
+            }
+            .founder-note-photo {
+                aspect-ratio: 4 / 5;
+                max-width: none;
+                margin: 0;
+            }
         }
 
         .faq-item {
@@ -422,7 +436,6 @@
             }
             .faq-question { font-size: 14px; padding: 14px 0; }
             .step-badge { width: 48px; height: 48px; font-size: 18px; }
-            .founder-note-body { padding: 26px 22px 32px 22px; }
         }
 
         [x-cloak] { display: none !important; }
@@ -582,7 +595,7 @@
             </div>
         </section>
 
-        <!-- ── 3. HOW IT WORKS (merged) ── -->
+        <!-- ── 3. HOW IT WORKS ── -->
         <section class="max-w-[1100px] mx-auto px-4 py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="text-center mb-14">
                 <div class="inline-flex items-center gap-2 bg-[#D4A373]/10 text-[#1E3328] px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border border-[#D4A373]/20">
@@ -593,7 +606,6 @@
                 <p class="text-[15px] text-[#5A6B60] mt-2 max-w-2xl mx-auto">Dari pendaftaran sehingga bayaran masuk ke akaun bank anda — 6 langkah sahaja.</p>
             </div>
 
-            <!-- Mobile stack -->
             <div class="md:hidden flex flex-col gap-4">
                 <template x-for="(step, index) in steps" :key="index">
                     <div class="card-soft p-5 text-center">
@@ -604,7 +616,6 @@
                 </template>
             </div>
 
-            <!-- Desktop grid -->
             <div class="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <template x-for="(step, index) in steps" :key="index">
                     <div class="card-soft p-7 text-center group">
@@ -615,12 +626,10 @@
                 </template>
             </div>
 
-            <!-- Important note -->
             <div class="mt-12 text-center bg-[#1E3328]/5 border border-[#1E3328]/10 rounded-2xl p-6 md:p-8 max-w-3xl mx-auto">
                 <p class="text-[14px] text-[#1E3328] font-medium leading-relaxed">💡 <strong>Penting:</strong> Platform <span class="text-[#D4A373]">tidak memegang</span> wang anda. Wang disimpan oleh CHIP dan hanya dilepaskan ke akaun bank anda selepas check‑in disahkan.</p>
             </div>
 
-            <!-- Documents required (folded from old Proses Pendaftaran) -->
             <div class="mt-10 max-w-3xl mx-auto">
                 <div class="bg-white p-7 md:p-8 rounded-2xl border border-[#D4A373]/20 shadow-sm">
                     <h4 class="font-serif font-bold text-[18px] text-[#1E3328]">📄 Dokumen yang Diperlukan</h4>
@@ -639,46 +648,39 @@
             </div>
         </section>
 
-        <!-- ── 4. FOUNDER'S NOTE ── -->
+        <!-- ── 4. FOUNDER'S NOTE (Option A) ── -->
         <section class="bg-[#F8F5F0] py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[900px] mx-auto px-4">
                 <div class="founder-note-wrap">
-                    <div class="founder-photo-banner">
-                        <img src="/founder.jpg" alt="Nick, pengasas Kundasang Homestay, di Ranau Sabah" />
-                        <div class="founder-photo-overlay">
-                            <div class="font-serif font-bold text-[26px] md:text-[30px] text-white leading-none">Nick</div>
-                            <div class="text-[11px] uppercase tracking-[0.22em] text-[#D4A373] mt-2 font-semibold">Pengasas</div>
-                            <div class="text-[12px] text-white/60 mt-1">Nick's Creations · RNU20183012</div>
+                    <div class="founder-note-grid">
+
+                        <div class="founder-note-photo">
+                            <img src="/founder.jpg" alt="Nick, pengasas Kundasang Homestay, di Ranau Sabah" />
                         </div>
-                    </div>
-                    <div class="founder-note-body">
-                        <div class="font-serif italic text-[#A67C52] text-[24px] leading-none mb-2" style="font-family:'DM Serif Display', serif;">Nota Daripada Pengasas</div>
-                        <h2 class="font-serif font-bold text-[22px] md:text-[26px] text-[#1E3328] tracking-[-0.5px] leading-tight">Kenapa Saya Bina Platform Ini</h2>
-                        <div class="w-[48px] h-[3px] bg-[#D4A373] mt-4 mb-5 rounded-full"></div>
-                        <div class="text-[14px] text-[#5A6B60] leading-[1.85] space-y-3">
-                            <p>Saya Nick, anak kelahiran Ranau, Sabah.</p>
-                            <p>Saya bina Kundasang Homestay sebab saya nampak <strong class="text-[#1E3328]">dua masalah</strong> di kawasan kita.</p>
-                            <p><strong class="text-[#1E3328]">Pertama:</strong> Pelancong takut datang. Banyak kes homestay palsu, pemindahan wang di luar sistem, dan tuan rumah yang tidak disahkan.</p>
-                            <p><strong class="text-[#1E3328]">Kedua:</strong> Pengusaha tempatan terpaksa bayar komisen tinggi kepada platform asing yang tidak faham komuniti kita.</p>
-                            <p>Saya fikir: kenapa kita tak boleh bina platform sendiri? Platform yang jaga pelancong, jaga pengusaha, dan dibina oleh orang tempatan.</p>
-                            <p>Itulah Kundasang Homestay.</p>
-                            <p>Kami perniagaan kecil. Bukan syarikat besar dari luar negara. Bila anda WhatsApp kami, anda bercakap terus dengan orang yang membina platform ini.</p>
-                            <p class="font-semibold text-[#1E3328] pt-3 border-t border-[#1E3328]/10 mt-4">Saya nak pengusaha homestay Kundasang berjaya. Kalau anda berjaya, kami berjaya.</p>
+
+                        <div>
+                            <div class="font-serif italic text-[#A67C52] text-[22px] leading-none mb-2" style="font-family:'DM Serif Display', serif;">Dari Nick, Ranau</div>
+                            <div class="w-[44px] h-[3px] bg-[#D4A373] mb-5 rounded-full"></div>
+                            <div class="text-[15px] text-[#5A6B60] leading-[1.85] space-y-4">
+                                <p>Saya bina Kundasang Homestay sebab dua perkara: pelancong risau kena tipu, dan pengusaha tempatan terpaksa bayar komisen tinggi kepada platform luar.</p>
+                                <p>Saya fikir — kenapa tak kita bina sendiri?</p>
+                                <p>Kalau ada apa‑apa, WhatsApp saya terus. Saya orang tempatan. Saya jawab sendiri.</p>
+                            </div>
+                            <div class="mt-6 pt-5 border-t border-[#1E3328]/10">
+                                <div class="font-serif font-bold text-[#1E3328] text-[16px]">— Nick</div>
+                                <div class="text-[12px] text-[#5A6B60] mt-0.5">Nick's Creations · RNU20183012</div>
+                            </div>
                         </div>
-                        <div class="mt-5 text-[13px] text-[#5A6B60]">
-                            <div class="font-serif font-bold text-[#1E3328] text-[16px]">— Nick</div>
-                            <div class="text-[11px] mt-0.5">Nick's Creations · RNU20183012</div>
-                        </div>
+
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- ── 5. WHY CHOOSE + STATS + NICK'S CARD (merged) ── -->
+        <!-- ── 5. WHY CHOOSE + STATS + NICK'S CARD ── -->
         <section class="py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
 
-                <!-- Stats strip -->
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-16">
                     <div class="text-center bg-white rounded-2xl border border-[#1E3328]/6 p-5 md:p-6">
                         <div class="font-serif font-bold text-[36px] md:text-[44px] text-[#0F382E] leading-none">0%</div>
@@ -698,7 +700,6 @@
                     </div>
                 </div>
 
-                <!-- Section heading -->
                 <div class="text-center mb-14">
                     <div class="inline-flex items-center gap-2 bg-[#D4A373]/10 text-[#1E3328] px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border border-[#D4A373]/20">
                         <span class="w-2 h-2 bg-[#D4A373] rounded-full"></span>
@@ -708,7 +709,6 @@
                     <p class="text-[15px] text-[#5A6B60] mt-2 max-w-2xl mx-auto">Kami faham cabaran pengusaha tempatan. Inilah sebabnya kami berbeza.</p>
                 </div>
 
-                <!-- 6 benefit items -->
                 <div class="grid md:grid-cols-2 gap-5">
                     <template x-for="(item, idx) in whyChoose" :key="idx">
                         <div class="flex gap-4 items-start p-5 rounded-xl hover:bg-[#D4A373]/5 transition-colors border border-transparent hover:border-[#D4A373]/20">
@@ -721,13 +721,10 @@
                     </template>
                 </div>
 
-                <!-- Nick's Creations trust card -->
                 <div class="mt-14 card-soft p-8 md:p-10 bg-white border-2 border-[#D4A373]/20">
                     <div class="grid md:grid-cols-3 gap-8 items-center">
                         <div class="text-center md:text-left">
-                            <div class="w-24 h-24 rounded-full bg-[#1E3328] flex items-center justify-center text-[#F8F5F0] text-3xl font-serif font-bold mx-auto md:mx-0 border-4 border-[#D4A373]">
-                                NC
-                            </div>
+                            <img src="/founder.jpg" alt="Nick, pengasas Nick's Creations" class="w-24 h-24 rounded-full object-cover object-center border-4 border-[#D4A373] mx-auto md:mx-0" />
                             <h3 class="font-serif font-bold text-[24px] text-[#1E3328] mt-4">Nick's Creations</h3>
                             <div class="inline-block bg-[#D4A373]/10 text-[#1E3328] text-[11px] font-bold px-4 py-1 rounded-full border border-[#D4A373]/30 mt-1">
                                 🏢 No Lesen : RNU20183012
