@@ -460,69 +460,90 @@
 
     body.printing-receipt #receiptModal .no-print { display: none !important; }
 
-    body.printing-receipt #receiptBody { padding: 0 !important; }
+    body.printing-receipt #receiptBody {
+      padding: 0 !important;
+      /* Use the full printable A4 height */
+      min-height: 277mm;
+    }
 
+    /* === The receipt wrapper becomes a flex column that fills the
+     *     full A4 height and distributes sections with equal gaps
+     *     between them. This eliminates the blank space at the bottom. === */
     body.printing-receipt .rcpt-wrapper {
-      font-size: 10.5px !important;
-      line-height: 1.3 !important;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 277mm;
+      font-size: 11px !important;
+      line-height: 1.4 !important;
+      box-sizing: border-box;
+    }
+
+    /* Zero out inline margins so space-between controls all gaps */
+    body.printing-receipt .rcpt-wrapper > * {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
     }
 
     body.printing-receipt .rcpt-header {
-      padding-bottom: 5px !important;
-      margin-bottom: 8px !important;
+      padding-bottom: 8px !important;
+      border-bottom-width: 2px !important;
     }
-    body.printing-receipt .rcpt-header .rcpt-brand { font-size: 15px !important; }
+    body.printing-receipt .rcpt-header .rcpt-brand { font-size: 17px !important; }
     body.printing-receipt .rcpt-header .rcpt-subtitle {
-      font-size: 8.5px !important;
-      margin-top: 1px !important;
-      letter-spacing: 1px !important;
+      font-size: 9.5px !important;
+      margin-top: 3px !important;
+      letter-spacing: 1.2px !important;
     }
 
     body.printing-receipt .rcpt-greeting {
-      font-size: 10.5px !important;
-      margin-bottom: 8px !important;
-      line-height: 1.35 !important;
+      font-size: 11.5px !important;
+      line-height: 1.5 !important;
     }
 
     body.printing-receipt .rcpt-amount-box {
-      padding: 8px 12px !important;
-      margin-bottom: 8px !important;
-      border-radius: 8px !important;
+      padding: 14px 16px !important;
+      border-radius: 10px !important;
     }
-    body.printing-receipt .rcpt-amount-label { font-size: 8.5px !important; }
+    body.printing-receipt .rcpt-amount-label { font-size: 9.5px !important; }
     body.printing-receipt .rcpt-amount-value {
-      font-size: 20px !important;
-      margin: 2px 0 !important;
+      font-size: 26px !important;
+      margin: 4px 0 !important;
     }
-    body.printing-receipt .rcpt-amount-sub { font-size: 9.5px !important; }
+    body.printing-receipt .rcpt-amount-sub { font-size: 11px !important; }
 
-    body.printing-receipt .rcpt-section-label {
-      font-size: 8.5px !important;
-      margin-bottom: 3px !important;
-      letter-spacing: 0.7px !important;
+    body.printing-receipt .rcpt-details-block .rcpt-section-label {
+      font-size: 9.5px !important;
+      margin-bottom: 6px !important;
+      letter-spacing: 0.9px !important;
     }
 
     body.printing-receipt .rcpt-details-table {
-      font-size: 10px !important;
-      margin-bottom: 6px !important;
+      font-size: 11px !important;
+      margin-bottom: 0 !important;
     }
-    body.printing-receipt .rcpt-details-table td { padding: 2.5px 0 !important; }
+    body.printing-receipt .rcpt-details-table td { padding: 4px 0 !important; }
 
     body.printing-receipt .rcpt-notes {
-      padding: 5px 9px !important;
-      margin-top: 6px !important;
-      font-size: 9.5px !important;
+      padding: 8px 12px !important;
+      font-size: 10.5px !important;
       border-radius: 6px !important;
     }
 
-    /* === Bigger receipt image on A4 — 155mm tall, ~1.5x previous size === */
+    /* Receipt image: moderate size, centered */
     body.printing-receipt .rcpt-img-block {
-      margin-top: 8px !important;
-      padding-top: 6px !important;
+      padding-top: 10px !important;
+      border-top: 1px dashed #e5e7eb !important;
       text-align: center;
     }
+    body.printing-receipt .rcpt-img-block .rcpt-section-label {
+      text-align: left;
+      font-size: 9.5px !important;
+      margin-bottom: 8px !important;
+      letter-spacing: 0.9px !important;
+    }
     body.printing-receipt .rcpt-img-block img {
-      max-height: 155mm !important;
+      max-height: 105mm !important;
       max-width: 100% !important;
       width: auto !important;
       height: auto !important;
@@ -532,17 +553,18 @@
     }
 
     body.printing-receipt .rcpt-confirm {
-      margin-top: 8px !important;
-      padding: 7px 9px !important;
-      font-size: 9.5px !important;
+      padding: 10px 12px !important;
+      font-size: 10.5px !important;
       border-radius: 6px !important;
+      line-height: 1.5 !important;
     }
 
     body.printing-receipt .rcpt-footer {
-      margin-top: 8px !important;
-      padding-top: 6px !important;
-      font-size: 8px !important;
-      line-height: 1.35 !important;
+      padding-top: 10px !important;
+      border-top: 1px solid #e5e7eb !important;
+      font-size: 8.5px !important;
+      line-height: 1.5 !important;
+      text-align: center !important;
     }
 
     body.printing-receipt .rcpt-wrapper > div {
@@ -976,13 +998,15 @@ function renderReceiptHtml(h) {
         '<div class="rcpt-amount-sub" style="font-size:12px;color:#166534;">To ' + bank + ' ' + bankMasked + '</div>' +
       '</div>' +
 
-      '<div class="rcpt-section-label" style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Payout Details</div>' +
-      '<table class="rcpt-details-table" style="width:100%;font-size:12.5px;border-collapse:collapse;margin-bottom:16px;color:#374151;">' +
-        '<tr><td style="padding:5px 0;color:#6b7280;">Reference</td><td style="padding:5px 0;text-align:right;font-family:\'Courier New\',monospace;font-weight:700;">' + ref + '</td></tr>' +
-        '<tr><td style="padding:5px 0;color:#6b7280;">Method</td><td style="padding:5px 0;text-align:right;">' + escapeHtml(methodTxt) + '</td></tr>' +
-        '<tr><td style="padding:5px 0;color:#6b7280;">Date paid</td><td style="padding:5px 0;text-align:right;">' + formatDT(h.paidAt) + '</td></tr>' +
-        '<tr><td style="padding:5px 0;color:#6b7280;">Booking ID</td><td style="padding:5px 0;text-align:right;font-family:\'Courier New\',monospace;">' + safe(h.bookingId || '—') + '</td></tr>' +
-      '</table>' +
+      '<div class="rcpt-details-block">' +
+        '<div class="rcpt-section-label" style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Payout Details</div>' +
+        '<table class="rcpt-details-table" style="width:100%;font-size:12.5px;border-collapse:collapse;margin-bottom:16px;color:#374151;">' +
+          '<tr><td style="padding:5px 0;color:#6b7280;">Reference</td><td style="padding:5px 0;text-align:right;font-family:\'Courier New\',monospace;font-weight:700;">' + ref + '</td></tr>' +
+          '<tr><td style="padding:5px 0;color:#6b7280;">Method</td><td style="padding:5px 0;text-align:right;">' + escapeHtml(methodTxt) + '</td></tr>' +
+          '<tr><td style="padding:5px 0;color:#6b7280;">Date paid</td><td style="padding:5px 0;text-align:right;">' + formatDT(h.paidAt) + '</td></tr>' +
+          '<tr><td style="padding:5px 0;color:#6b7280;">Booking ID</td><td style="padding:5px 0;text-align:right;font-family:\'Courier New\',monospace;">' + safe(h.bookingId || '—') + '</td></tr>' +
+        '</table>' +
+      '</div>' +
 
       notesBlock +
       receiptImgBlock +
