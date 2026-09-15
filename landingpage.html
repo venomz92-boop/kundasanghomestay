@@ -348,34 +348,46 @@
             color: var(--text-muted);
         }
 
-        /* ── Testimonial ── */
-        .testimonial-card {
+        /* ── Founder Note ── */
+        .founder-note-wrap {
             background: #FFFFFF;
             border-radius: var(--radius-md);
-            padding: 32px 28px;
-            border: 1px solid rgba(15, 30, 22, 0.04);
+            border: 1px solid rgba(212, 163, 115, 0.25);
             box-shadow: var(--shadow-soft);
-            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        .founder-photo-banner {
             position: relative;
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            overflow: hidden;
+            background: #0F1E16;
         }
-        .testimonial-card::before {
-            content: '"';
+        .founder-photo-banner img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 35%;
+        }
+        .founder-photo-overlay {
             position: absolute;
-            top: 8px;
-            right: 24px;
-            font-family: "DM Serif Display", serif;
-            font-size: 72px;
-            color: rgba(212, 163, 115, 0.15);
-            line-height: 1;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 32px 32px 26px 32px;
+            background: linear-gradient(0deg, rgba(15, 30, 22, 0.92) 0%, rgba(15, 30, 22, 0.55) 50%, rgba(15, 30, 22, 0) 100%);
         }
-        .testimonial-card:hover {
-            box-shadow: var(--shadow-elevated);
-            transform: translateY(-4px);
+        .founder-note-body {
+            padding: 36px 36px 40px 36px;
         }
-        .testimonial-card .stars {
-            color: var(--gold);
-            letter-spacing: 2px;
-            font-size: 14px;
+        @media (min-width: 768px) {
+            .founder-photo-banner {
+                aspect-ratio: 16 / 9;
+            }
+            .founder-photo-overlay {
+                padding: 40px 44px 32px 44px;
+            }
         }
 
         /* ── FAQ ── */
@@ -513,6 +525,9 @@
                 height: 48px;
                 font-size: 18px;
             }
+            .founder-note-body {
+                padding: 26px 22px 32px 22px;
+            }
         }
 
         [x-cloak] {
@@ -569,15 +584,15 @@
                     <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
                         <div class="leading-none">
                     <div class="font-serif font-bold text-[18px] md:text-[22px] tracking-[-0.5px] text-white">
-                        KUNDASANG<span class="font-400 text-white/40 text-[14px] md:text-[18px]"> • Homestay.my</span>
+                        KUNDASANG<span class="font-normal text-white/40 text-[14px] md:text-[18px]"> • Homestay.my</span>
                     </div>
-                <div class="font-500 text-[9px] tracking-[2.5px] uppercase text-white/30 mt-0.5">Stay • Connect • Belong</div>
+                <div class="font-medium text-[9px] tracking-[2.5px] uppercase text-white/30 mt-0.5">Stay • Connect • Belong</div>
             </div>
                 </a>
                 <nav class="hidden md:flex items-center gap-10">
-                    <a href="/" class="text-[13px] font-600 text-white/60 hover:text-white transition-colors relative after:absolute after:bottom-[-3px] after:left-0 after:w-0 after:h-[2px] after:bg-[#D4A373] after:transition-all hover:after:w-full">Utama</a>
-                    <a href="/owner-register.html" class="text-[13px] font-600 text-white/60 hover:text-white transition-colors relative after:absolute after:bottom-[-3px] after:left-0 after:w-0 after:h-[2px] after:bg-[#D4A373] after:transition-all hover:after:w-full">Daftar Homestay</a>
-                    <a href="/about.html" class="text-[13px] font-600 text-white/60 hover:text-white transition-colors relative after:absolute after:bottom-[-3px] after:left-0 after:w-0 after:h-[2px] after:bg-[#D4A373] after:transition-all hover:after:w-full">Tentang</a>
+                    <a href="/" class="text-[13px] font-semibold text-white/60 hover:text-white transition-colors relative after:absolute after:bottom-[-3px] after:left-0 after:w-0 after:h-[2px] after:bg-[#D4A373] after:transition-all hover:after:w-full">Utama</a>
+                    <a href="/owner-register.html" class="text-[13px] font-semibold text-white/60 hover:text-white transition-colors relative after:absolute after:bottom-[-3px] after:left-0 after:w-0 after:h-[2px] after:bg-[#D4A373] after:transition-all hover:after:w-full">Daftar Homestay</a>
+                    <a href="/about.html" class="text-[13px] font-semibold text-white/60 hover:text-white transition-colors relative after:absolute after:bottom-[-3px] after:left-0 after:w-0 after:h-[2px] after:bg-[#D4A373] after:transition-all hover:after:w-full">Tentang</a>
                     <a href="/owner.html" class="btn-primary" style="padding:10px 28px;font-size:10px;min-height:40px;">🔑 Log Masuk Pengusaha</a>
                 </nav>
                 <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="md:hidden p-2 -mr-2 hover:bg-white/5 rounded-full transition-colors">
@@ -626,22 +641,26 @@
                             <div class="flex items-center gap-3 mb-4">
                                 <div class="w-10 h-10 rounded-full bg-[#D4A373]/20 flex items-center justify-center text-xl">🏠</div>
                                 <div>
-                                    <div class="font-semibold text-white text-sm">Homestay Kundasang</div>
-                                    <div class="text-[11px] text-white/50">⭐ 4.9 · 128 ulasan</div>
+                                    <div class="font-semibold text-white text-sm">Kundasang Homestay</div>
+                                    <div class="text-[11px] text-white/50">Platform untuk pengusaha tempatan</div>
                                 </div>
                             </div>
                             <div class="space-y-3 text-sm">
                                 <div class="flex justify-between border-b border-white/8 pb-2">
-                                    <span class="text-white/50">Harga semalam</span>
-                                    <span class="font-semibold text-white">RM 250</span>
+                                    <span class="text-white/50">Komisen daripada anda</span>
+                                    <span class="font-semibold text-[#D4A373]">0%</span>
                                 </div>
                                 <div class="flex justify-between border-b border-white/8 pb-2">
-                                    <span class="text-white/50">Tempahan</span>
-                                    <span class="font-semibold text-[#D4A373]">✓ 12 tempahan</span>
+                                    <span class="text-white/50">Bayaran ke bank anda</span>
+                                    <span class="font-semibold text-white">100%</span>
+                                </div>
+                                <div class="flex justify-between border-b border-white/8 pb-2">
+                                    <span class="text-white/50">Kelulusan pendaftaran</span>
+                                    <span class="font-semibold text-white">24–48 jam</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-white/50">Status</span>
-                                    <span class="inline-flex items-center gap-1 text-[#D4A373]"><span class="w-2 h-2 bg-[#D4A373] rounded-full"></span> Aktif</span>
+                                    <span class="text-white/50">Status pendaftaran</span>
+                                    <span class="inline-flex items-center gap-1 text-[#D4A373]"><span class="w-2 h-2 bg-[#D4A373] rounded-full"></span> Dibuka</span>
                                 </div>
                             </div>
                             <div class="mt-4 pt-4 border-t border-white/8 flex items-center justify-between text-[11px] text-white/30">
@@ -935,30 +954,39 @@
             </div>
         </section>
 
-        <!-- ── TESTIMONIALS ── -->
-        <section class="max-w-[1100px] mx-auto px-4 py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
-            <div class="text-center mb-16">
-                <div class="inline-flex items-center gap-2 bg-[#D4A373]/10 text-[#1E3328] px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border border-[#D4A373]/20">
-                    <span class="w-2 h-2 bg-[#D4A373] rounded-full"></span>
-                    Testimoni
-                </div>
-                <h2 class="font-serif font-bold text-[30px] md:text-[40px] text-[#1E3328] tracking-[-0.5px] mt-3">Apa Kata Pengusaha Lain?</h2>
-                <p class="text-[15px] text-[#5A6B60] mt-2 max-w-2xl mx-auto">Dengarkan pengalaman sebenar dari pengusaha homestay yang telah menyertai platform kami.</p>
-            </div>
-            <div class="grid md:grid-cols-3 gap-6">
-                <template x-for="(t, idx) in testimonials" :key="idx">
-                    <div class="testimonial-card">
-                        <div class="stars" x-text="'★'.repeat(5)"></div>
-                        <p class="text-[14px] text-[#1E3328]/80 mt-3 leading-relaxed italic" x-text="t.text"></p>
-                        <div class="flex items-center gap-3 mt-4 pt-4 border-t border-[#1E3328]/8">
-                            <div class="w-10 h-10 rounded-full bg-[#D4A373]/10 flex items-center justify-center text-[#1E3328] font-serif font-bold text-sm" x-text="t.name.charAt(0)"></div>
-                            <div>
-                                <div class="font-semibold text-[14px] text-[#1E3328]" x-text="t.name"></div>
-                                <div class="text-[12px] text-[#5A6B60]" x-text="t.role"></div>
-                            </div>
-                        </div>
+        <!-- ── FOUNDER'S NOTE ── -->
+        <section class="max-w-[900px] mx-auto px-4 py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
+            <div class="founder-note-wrap">
+
+                <div class="founder-photo-banner">
+                    <img src="/founder.jpg" alt="Nick, pengasas Kundasang Homestay, di Ranau Sabah" />
+                    <div class="founder-photo-overlay">
+                        <div class="font-serif font-bold text-[26px] md:text-[30px] text-white leading-none">Nick</div>
+                        <div class="text-[11px] uppercase tracking-[0.22em] text-[#D4A373] mt-2 font-semibold">Pengasas</div>
+                        <div class="text-[12px] text-white/60 mt-1">Nick's Creations · RNU20183012</div>
                     </div>
-                </template>
+                </div>
+
+                <div class="founder-note-body">
+                    <div class="font-serif italic text-[#A67C52] text-[24px] leading-none mb-2" style="font-family:'DM Serif Display', serif;">Nota Daripada Pengasas</div>
+                    <h2 class="font-serif font-bold text-[22px] md:text-[26px] text-[#1E3328] tracking-[-0.5px] leading-tight">Kenapa Saya Bina Platform Ini</h2>
+                    <div class="w-[48px] h-[3px] bg-[#D4A373] mt-4 mb-5 rounded-full"></div>
+                    <div class="text-[14px] text-[#5A6B60] leading-[1.85] space-y-3">
+                        <p>Saya Nick, anak kelahiran Ranau, Sabah.</p>
+                        <p>Saya bina Kundasang Homestay sebab saya nampak <strong class="text-[#1E3328]">dua masalah</strong> di kawasan kita.</p>
+                        <p><strong class="text-[#1E3328]">Pertama:</strong> Pelancong takut datang. Banyak kes homestay palsu, pemindahan wang di luar sistem, dan tuan rumah yang tidak disahkan.</p>
+                        <p><strong class="text-[#1E3328]">Kedua:</strong> Pengusaha tempatan terpaksa bayar komisen tinggi kepada platform asing yang tidak faham komuniti kita.</p>
+                        <p>Saya fikir: kenapa kita tak boleh bina platform sendiri? Platform yang jaga pelancong, jaga pengusaha, dan dibina oleh orang tempatan.</p>
+                        <p>Itulah Kundasang Homestay.</p>
+                        <p>Kami perniagaan kecil. Bukan syarikat besar dari luar negara. Bila anda WhatsApp kami, anda bercakap terus dengan orang yang membina platform ini.</p>
+                        <p class="font-semibold text-[#1E3328] pt-3 border-t border-[#1E3328]/10 mt-4">Saya nak pengusaha homestay Kundasang berjaya. Kalau anda berjaya, kami berjaya.</p>
+                    </div>
+                    <div class="mt-5 text-[13px] text-[#5A6B60]">
+                        <div class="font-serif font-bold text-[#1E3328] text-[16px]">— Nick</div>
+                        <div class="text-[11px] mt-0.5">Nick's Creations · RNU20183012</div>
+                    </div>
+                </div>
+
             </div>
         </section>
 
@@ -1070,7 +1098,7 @@
                 <p class="text-white/60 text-[14px] md:text-[16px] mt-3 leading-relaxed max-w-lg mx-auto">Isi borang ringkas, hantar dokumen, dan mula terima tempahan dari pelancong yang sah.</p>
                 <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
                     <a href="/owner-register.html" class="btn-secondary text-sm md:text-base px-8 py-4">📋 Daftar Sekarang – PERCUMA</a>
-                    <a href="https://wa.me/60165833713?text=listingkdsg" target="_blank" class="btn-primary" style="background:#25D366;border:none;padding:14px 32px;color:white;">💬 Tanya di WhatsApp</a>
+                    <a href="https://wa.me/60165833713?text=Hi%2C%20saya%20berminat%20nak%20daftar%20homestay.%20Boleh%20tanya%20lebih%20lanjut%3F" target="_blank" class="btn-primary" style="background:#25D366;border:none;padding:14px 32px;color:white;">💬 Tanya di WhatsApp</a>
                 </div>
                 <p class="text-white/20 text-[11px] mt-5">* Sebarang masalah, hubungi kami terus.</p>
             </div>
@@ -1082,7 +1110,7 @@
                 <div>
                     <div class="flex items-center gap-3">
                         <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
-                        <div class="font-serif font-bold text-[18px] text-white">KUNDASANG<span class="font-400 text-white/40"> • Homestay.my</span></div>
+                        <div class="font-serif font-bold text-[18px] text-white">KUNDASANG<span class="font-normal text-white/40"> • Homestay.my</span></div>
                     </div>
                     <p class="text-[13px] leading-[1.6] mt-4 text-white/40 max-w-[260px]">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
                     <div class="mt-4 pt-4 border-t border-white/10">
@@ -1093,7 +1121,7 @@
                     </div>
                 </div>
                 <div>
-                    <div class="font-700 text-[11px] uppercase tracking-[0.12em] text-white/40 mb-4">Quick Links</div>
+                    <div class="font-bold text-[11px] uppercase tracking-[0.12em] text-white/40 mb-4">Quick Links</div>
                     <div class="space-y-2 text-[13px]">
                         <a href="/" class="hover:text-white block transition-colors">Browse Homestays</a>
                         <a href="/owner-register.html" class="hover:text-white block transition-colors">Host Registration</a>
@@ -1112,7 +1140,7 @@
                     </div>
                 </div>
                 <div>
-                    <div class="font-700 text-[11px] uppercase tracking-[0.12em] text-white/40 mb-4">Trust & Safety</div>
+                    <div class="font-bold text-[11px] uppercase tracking-[0.12em] text-white/40 mb-4">Trust & Safety</div>
                     <div class="space-y-2 text-[13px] text-white/40">
                         <div>✓ Host Physical Verification</div>
                         <div>✓ CHIP FPX Online Protection</div>
@@ -1120,11 +1148,11 @@
                     </div>
                 </div>
                 <div>
-                    <div class="font-700 text-[11px] uppercase tracking-[0.12em] text-white/40 mb-4">Kundasang Weather</div>
+                    <div class="font-bold text-[11px] uppercase tracking-[0.12em] text-white/40 mb-4">Kundasang Weather</div>
                     <p class="text-[12px] text-white/40">Average temperature: 18°C – 23°C. Remember to bring warm jackets!</p>
                 </div>
             </div>
-            <div class="border-t border-white/10 py-6 text-center text-[10px] tracking-[0.15em] uppercase font-600 text-white/20">
+            <div class="border-t border-white/10 py-6 text-center text-[10px] tracking-[0.15em] uppercase font-semibold text-white/20">
                 © 2026 Kundasang Homestay. All rights reserved.
             </div>
         </footer>
@@ -1173,12 +1201,6 @@
                     { number: '24-48', label: 'Jam kelulusan' },
                     { number: '10K+', label: 'Perniagaan percaya CHIP' },
                     { number: '100%', label: 'Bayaran penuh ke bank anda' }
-                ],
-
-                testimonials: [
-                    { name: 'Azlan bin Bakar', role: 'Pengusaha Homestay, Kundasang', text: 'Saya suka platform ini kerana tiada potongan daripada harga penginapan saya. Tetamu bayar yuran, saya dapat full! Sangat membantu.' },
-                    { name: 'Siti Aishah', role: 'Tuan Rumah, Pekan Kundasang', text: 'Proses pendaftaran sangat mudah dan cepat. Dalam masa 2 hari homestay saya dah dipaparkan. Terima kasih Kundasang Homestay!' },
-                    { name: 'Mohd Ridzuan', role: 'Pengusaha Homestay, Mesilau', text: 'CHIP memang terbaik. Saya rasa selamat kerana wang tetamu disimpan dalam akaun amanah. Baru 3 bulan, dah 15 tempahan!' }
                 ],
 
                 faqData: [
