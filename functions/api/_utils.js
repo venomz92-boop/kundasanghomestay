@@ -20,6 +20,12 @@
 //      This removes the misreading where a host might think the platform
 //      took money out of their payout, when in fact those amounts were
 //      charged to the guest on top of the nightly rate.
+//  (7) NEW: The payout email now embeds the bank transfer receipt
+//      image (when payoutInfo.receiptUrl is provided). This lets the
+//      host double-check the transfer reference, recipient, and amount
+//      straight from the email. The image links to the full-size
+//      original on Cloudinary. Simulation emails skip the receipt.
+//      Callers that don't pass receiptUrl see no change.
 
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
@@ -831,22 +837,6 @@ export async function finalizePaidBooking(db, bookingId) {
 }
 
 // ============================================================
-// Host payout receipt email.
-// Sent after a successful CHIP Send payout to the host.
-//
-// Arguments:
-//   booking    — the booking object
-//   homestay   — the homestay object (name, ownerName, ownerEmail,
-//                ownerBank, ownerBankAccount)
-//   payoutInfo — { amount, payoutId, reference, paidAt, isSimulation }
-//                When isSimulation is true, the subject gets a [TEST]
-//                prefix and a bright banner is drawn at the top of the
-//                email body.
-//   env        — Cloudflare env
-//
-// Best-effort — a failure never rolls back the payout.
-// ============================================================
-// ============================================================
 // Host payout statement email.
 //
 // This is the SINGLE source of truth for every payout email the
@@ -857,13 +847,11 @@ export async function finalizePaidBooking(db, bookingId) {
 //   3. Manual bank transfer  (isManual: true)     → "Sent via bank transfer"
 //
 // [THIS REVISION]
-// The template was rewritten to be simpler and cleaner. It shows the
-// room price and net amount only — no gateway fee line, no service fee
-// line, no breakdown of what the guest paid. The host sees exactly two
-// numbers: what the room cost, and what landed in their bank. This
-// matches CHIP's rule that merchants cannot show a separate gateway fee
-// line to recipients, and it removes a source of host confusion about
-// where their money went.
+// The email now embeds the bank transfer receipt image (from
+// Cloudinary) when payoutInfo.receiptUrl is present. The image is
+// served via a lightweight Cloudinary transform (w_600,q_auto,f_auto)
+// so the email loads quickly on mobile, and clicks through to the
+// full-resolution original. Simulation emails skip the receipt.
 //
 // Arguments:
 //   booking    — the booking object
@@ -876,11 +864,26 @@ export async function finalizePaidBooking(db, bookingId) {
 //                  paidAt,       optional, ISO timestamp
 //                  isSimulation, optional, adds [TEST] banner
 //                  isManual,     optional, marks this as a manual transfer
+//                  receiptUrl,   optional, Cloudinary URL of the bank receipt
 //                }
 //   env        — Cloudflare env
 //
 // Best-effort. A failure never rolls back the payout.
 // ============================================================
+
+function cloudinaryEmailUrl(url) {
+  // Insert a lightweight transform for email delivery: 600px wide,
+  // auto quality, auto format (WebP when supported). Falls back to
+  // the raw URL if the pattern doesn't match, so it never breaks.
+  if (!url) return '';
+  const idx = url.indexOf('/upload/');
+  if (idx === -1) return url;
+  const after = url.slice(idx + 8);
+  const m = after.match(/^(v\d+\/)/);
+  if (!m) return url;
+  return url.slice(0, idx + 8) + 'w_600,q_auto,f_auto/' + m[1] + after.slice(m[1].length);
+}
+
 export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
   if (!homestay || !homestay.ownerEmail) {
     return { sent: false, error: 'No host email on file' };
@@ -927,6 +930,24 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
   ` : '';
 
   const headerSubtitle = isSimulation ? 'Payout Statement — TEST' : 'Payout Statement';
+
+  // ----- Bank transfer receipt block (only for real payouts) -----
+  const rawReceiptUrl = String(payoutInfo.receiptUrl || '').trim();
+  const showReceipt = rawReceiptUrl && !isSimulation;
+  const emailReceiptUrl = showReceipt ? cloudinaryEmailUrl(rawReceiptUrl) : '';
+
+  const receiptBlock = showReceipt ? `
+    <div style="margin-top:28px;padding-top:20px;border-top:1px dashed #d1d5db;">
+      <div style="font-size:11px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Bank Transfer Receipt (Proof of Payment)</div>
+      <a href="${safe(rawReceiptUrl)}" style="text-decoration:none;display:block;">
+        <img src="${safe(emailReceiptUrl)}" alt="Bank transfer receipt"
+             style="display:block;width:100%;max-width:480px;height:auto;border:1px solid #e5e7eb;border-radius:8px;background:#ffffff;margin:0 auto;" />
+      </a>
+      <div style="font-size:11px;color:#6b7280;text-align:center;margin-top:10px;">
+        Click the receipt to view the full-size image.
+      </div>
+    </div>
+  ` : '';
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f8f5f0;padding:20px;">
@@ -999,6 +1020,8 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
             <td style="padding:6px 0;text-align:right;">${safe(booking.checkout)}</td>
           </tr>
         </table>
+
+        ${receiptBlock}
 
         <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;font-size:12px;color:#475569;line-height:1.6;margin-top:20px;">
           If you don't see this amount in your bank account within 1 business day, please reply to this email or contact us at <a href="mailto:support@kundasanghomestay.my" style="color:#0F382E;font-weight:600;">support@kundasanghomestay.my</a> quoting the reference number above.
