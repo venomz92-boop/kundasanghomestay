@@ -108,13 +108,31 @@
             backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: var(--radius-md);
-            padding: 32px;
+            padding: 28px;
             transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
         }
         .card-elevated:hover {
             background: rgba(255, 255, 255, 0.06);
             border-color: rgba(255, 255, 255, 0.15);
             transform: translateY(-6px);
+        }
+        @media (min-width: 768px) {
+            .card-elevated { padding: 32px; }
+        }
+
+        .founder-photo-hero {
+            border-radius: 14px;
+            overflow: hidden;
+            border: 2px solid rgba(212, 163, 115, 0.4);
+            aspect-ratio: 4 / 3;
+            background: #0F1E16;
+        }
+        .founder-photo-hero img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 30%;
+            display: block;
         }
 
         .card-soft {
@@ -271,53 +289,6 @@
         .compare-table .pill-dark {
             background: rgba(15, 30, 22, 0.08);
             color: var(--text-muted);
-        }
-
-        /* ── Founder Note (Option A: warm, photo-left, no dark overlay) ── */
-        .founder-note-wrap {
-            background: #FFFFFF;
-            border-radius: var(--radius-md);
-            border: 1px solid rgba(212, 163, 115, 0.25);
-            box-shadow: var(--shadow-soft);
-            overflow: hidden;
-            padding: 28px;
-        }
-        .founder-note-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 24px;
-            align-items: center;
-        }
-        .founder-note-photo {
-            width: 100%;
-            max-width: 320px;
-            margin: 0 auto;
-            aspect-ratio: 4 / 3;
-            border-radius: 18px;
-            overflow: hidden;
-            border: 4px solid var(--gold);
-            box-shadow: 0 12px 36px rgba(15, 30, 22, 0.15);
-        }
-        .founder-note-photo img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center 30%;
-            display: block;
-        }
-        @media (min-width: 768px) {
-            .founder-note-wrap {
-                padding: 40px;
-            }
-            .founder-note-grid {
-                grid-template-columns: 280px 1fr;
-                gap: 44px;
-            }
-            .founder-note-photo {
-                aspect-ratio: 4 / 5;
-                max-width: none;
-                margin: 0;
-            }
         }
 
         .faq-item {
@@ -495,11 +466,11 @@
             </div>
         </header>
 
-        <!-- ── 1. HERO ── -->
+        <!-- ── 1. HERO (with Founder Section embedded) ── -->
         <section class="hero-section text-white scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="hero-mountains"></div>
-            <div class="hero-content max-w-[1100px] mx-auto px-4 py-20 md:py-28 lg:py-32 w-full">
-                <div class="grid lg:grid-cols-5 gap-14 items-center">
+            <div class="hero-content max-w-[1100px] mx-auto px-4 py-16 md:py-24 lg:py-28 w-full">
+                <div class="grid lg:grid-cols-5 gap-10 lg:gap-14 items-center">
                     <div class="lg:col-span-3 text-center lg:text-left">
                         <div class="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/10 px-4 py-1.5 rounded-full text-[10px] font-semibold text-white/80 mb-6 tracking-wider uppercase">
                             <span class="w-2 h-2 bg-[#D4A373] rounded-full"></span>
@@ -534,36 +505,26 @@
                             <span class="flex items-center gap-1.5">🆔 Pengesahan ID Teliti</span>
                         </div>
                     </div>
-                    <div class="lg:col-span-2 hidden lg:block">
+
+                    <!-- ── FOUNDER SECTION (in hero right column) ── -->
+                    <div class="lg:col-span-2">
                         <div class="card-elevated">
-                            <div class="flex items-center gap-3 mb-4">
-                                <div class="w-10 h-10 rounded-full bg-[#D4A373]/20 flex items-center justify-center text-xl">🏠</div>
-                                <div>
-                                    <div class="font-semibold text-white text-sm">Kundasang Homestay</div>
-                                    <div class="text-[11px] text-white/50">Platform untuk pengusaha tempatan</div>
-                                </div>
+                            <div class="founder-photo-hero">
+                                <img src="/founder.jpg" alt="Nick, pengasas Kundasang Homestay, di Ranau Sabah" />
                             </div>
-                            <div class="space-y-3 text-sm">
-                                <div class="flex justify-between border-b border-white/8 pb-2">
-                                    <span class="text-white/50">Komisen daripada anda</span>
-                                    <span class="font-semibold text-[#D4A373]">0%</span>
-                                </div>
-                                <div class="flex justify-between border-b border-white/8 pb-2">
-                                    <span class="text-white/50">Bayaran ke bank anda</span>
-                                    <span class="font-semibold text-white">100%</span>
-                                </div>
-                                <div class="flex justify-between border-b border-white/8 pb-2">
-                                    <span class="text-white/50">Kelulusan pendaftaran</span>
-                                    <span class="font-semibold text-white">24–48 jam</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-white/50">Status pendaftaran</span>
-                                    <span class="inline-flex items-center gap-1 text-[#D4A373]"><span class="w-2 h-2 bg-[#D4A373] rounded-full"></span> Dibuka</span>
-                                </div>
+
+                            <div class="font-serif italic text-[#D4A373] text-[17px] md:text-[18px] leading-snug mt-5">Pengasas Kundasang Homestay.my — Nick</div>
+
+                            <div class="w-10 h-[2px] bg-[#D4A373]/50 my-4 rounded-full"></div>
+
+                            <div class="text-[13px] text-white/65 leading-[1.75] space-y-3">
+                                <p>Saya bina Kundasang Homestay sebab dua perkara: pelancong risau kena tipu, dan pengusaha tempatan terpaksa bayar komisen tinggi kepada platform luar.</p>
+                                <p>Saya fikir — kenapa tak kita bina sendiri?</p>
+                                <p>Kalau ada apa‑apa, WhatsApp saya terus. Saya orang tempatan. Saya jawab sendiri.</p>
                             </div>
-                            <div class="mt-4 pt-4 border-t border-white/8 flex items-center justify-between text-[11px] text-white/30">
-                                <span>✅ Disahkan oleh admin</span>
-                                <span>🛡️ Dilindungi CHIP</span>
+
+                            <div class="mt-5 pt-4 border-t border-white/10 text-[11px] text-white/40">
+                                Nick's Creations · RNU20183012
                             </div>
                         </div>
                     </div>
@@ -648,37 +609,8 @@
             </div>
         </section>
 
-        <!-- ── 4. FOUNDER'S NOTE (Option A) ── -->
+        <!-- ── 4. WHY CHOOSE + STATS + NICK'S CARD ── -->
         <section class="bg-[#F8F5F0] py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
-            <div class="max-w-[900px] mx-auto px-4">
-                <div class="founder-note-wrap">
-                    <div class="founder-note-grid">
-
-                        <div class="founder-note-photo">
-                            <img src="/founder.jpg" alt="Nick, pengasas Kundasang Homestay, di Ranau Sabah" />
-                        </div>
-
-                        <div>
-                            <div class="font-serif italic text-[#A67C52] text-[22px] leading-none mb-2" style="font-family:'DM Serif Display', serif;">Dari Nick, Ranau</div>
-                            <div class="w-[44px] h-[3px] bg-[#D4A373] mb-5 rounded-full"></div>
-                            <div class="text-[15px] text-[#5A6B60] leading-[1.85] space-y-4">
-                                <p>Saya bina Kundasang Homestay sebab dua perkara: pelancong risau kena tipu, dan pengusaha tempatan terpaksa bayar komisen tinggi kepada platform luar.</p>
-                                <p>Saya fikir — kenapa tak kita bina sendiri?</p>
-                                <p>Kalau ada apa‑apa, WhatsApp saya terus. Saya orang tempatan. Saya jawab sendiri.</p>
-                            </div>
-                            <div class="mt-6 pt-5 border-t border-[#1E3328]/10">
-                                <div class="font-serif font-bold text-[#1E3328] text-[16px]">— Nick</div>
-                                <div class="text-[12px] text-[#5A6B60] mt-0.5">Nick's Creations · RNU20183012</div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ── 5. WHY CHOOSE + STATS + NICK'S CARD ── -->
-        <section class="py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
 
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-16">
@@ -742,8 +674,8 @@
             </div>
         </section>
 
-        <!-- ── 6. COMPARISON TABLE ── -->
-        <section class="bg-[#F8F5F0] py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
+        <!-- ── 5. COMPARISON TABLE ── -->
+        <section class="py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="text-center mb-14">
                     <div class="inline-flex items-center gap-2 bg-[#D4A373]/10 text-[#1E3328] px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border border-[#D4A373]/20">
@@ -787,8 +719,8 @@
             </div>
         </section>
 
-        <!-- ── 7. CHIP SECTION ── -->
-        <section class="py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
+        <!-- ── 6. CHIP SECTION ── -->
+        <section class="bg-[#F8F5F0] py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="text-center mb-14">
                     <div class="inline-flex items-center gap-2 bg-[#D4A373]/10 text-[#1E3328] px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border border-[#D4A373]/20">
@@ -840,8 +772,8 @@
             </div>
         </section>
 
-        <!-- ── 8. FAQ ── -->
-        <section id="faq" class="bg-[#F8F5F0] py-20 md:py-24 scroll-mt-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
+        <!-- ── 7. FAQ ── -->
+        <section id="faq" class="py-20 md:py-24 scroll-mt-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[900px] mx-auto px-4">
                 <div class="text-center mb-14">
                     <div class="inline-flex items-center gap-2 bg-[#D4A373]/10 text-[#1E3328] px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border border-[#D4A373]/20">
@@ -865,7 +797,7 @@
             </div>
         </section>
 
-        <!-- ── 9. FINAL CTA ── -->
+        <!-- ── 8. FINAL CTA ── -->
         <section class="bg-[#1E3328] text-white py-20 md:py-24 text-center scroll-fade relative overflow-hidden" x-intersect.once="$el.classList.add('visible')">
             <div class="absolute top-[-50%] left-[-20%] w-[400px] h-[400px] rounded-full bg-[#D4A373]/5 blur-3xl pointer-events-none"></div>
             <div class="absolute bottom-[-50%] right-[-20%] w-[400px] h-[400px] rounded-full bg-[#D4A373]/5 blur-3xl pointer-events-none"></div>
@@ -881,7 +813,7 @@
             </div>
         </section>
 
-        <!-- ── 10. FOOTER ── -->
+        <!-- ── 9. FOOTER ── -->
         <footer class="bg-[#0F1E16] text-white/50 border-t border-white/6">
             <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
                 <div>
