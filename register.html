@@ -264,7 +264,7 @@
 <script>
   
 // =============================================================
-// CUSTOM MODAL SYSTEM (same as login)
+// CUSTOM MODAL SYSTEM
 // =============================================================
 function showModal(title, message, buttons) {
   return new Promise((resolve) => {
@@ -321,7 +321,7 @@ document.getElementById('customModal').addEventListener('click', function(e) {
 });
 
 // =============================================================
-// GUEST SYSTEM (same)
+// GUEST SYSTEM
 // =============================================================
 const API_BASE = "/api";
 let currentGuest = null;
@@ -367,7 +367,7 @@ function logoutGuest() {
 }
 
 // =============================================================
-// REGISTER HANDLER — auto-login edition
+// REGISTER HANDLER — auto-login + return-to-booking
 //
 // On success the server:
 //   - creates the account
@@ -375,10 +375,11 @@ function logoutGuest() {
 //   - returns the guest profile + CSRF token + expiresIn
 //
 // The client then:
-//   - saves the profile and CSRF token locally (NO session token —
-//     that lives only in the HttpOnly cookie)
-//   - shows a welcome message
-//   - redirects to the homepage so the guest can resume booking
+//   - saves profile + CSRF token locally
+//   - checks sessionStorage for a pending booking intent
+//   - if found, returns to /?resume_booking=1 so index.html can
+//     reopen the booking modal exactly where the guest left off
+//   - if not, redirects to the homepage as before
 // =============================================================
 async function handleRegister(e) {
   e.preventDefault();
@@ -419,7 +420,7 @@ async function handleRegister(e) {
         } catch (e) {}
       }
 
-      // Persist the CSRF token (safe to expose — it is NOT a session credential).
+      // Persist the CSRF token (safe — NOT a session credential).
       if (data.csrfToken) {
         try { localStorage.setItem('kd_csrf_token', data.csrfToken); } catch (e) {}
       }
@@ -427,8 +428,20 @@ async function handleRegister(e) {
       currentGuest = data.guest;
       renderGuestNav();
 
+      // Return-to-booking: if the guest was mid-booking when they
+      // clicked Register, send them straight back to that listing.
+      let hasPendingIntent = false;
+      try {
+        hasPendingIntent = !!sessionStorage.getItem('kd_pending_booking_intent');
+      } catch (e) {}
+
       await showAlert('Welcome', data.message || 'Your account is ready. Happy travels!');
-      window.location.href = '/';
+
+      if (hasPendingIntent) {
+        window.location.href = '/?resume_booking=1';
+      } else {
+        window.location.href = '/';
+      }
     } else {
       errorEl.textContent = data.error || 'Registration failed. Please try again.';
       errorEl.classList.remove('hidden');
