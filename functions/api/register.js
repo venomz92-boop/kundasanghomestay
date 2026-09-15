@@ -1,22 +1,33 @@
 // /api/register.js — Guest registration.
-// Plain English: this file now LOGS the real error message when a
-// registration fails, so you can see it in the Cloudflare log viewer
-// instead of guessing. Nothing else changed.
-//
-// FIX #8 (option a): if someone re-registers with an email that exists
-// but is NOT yet verified, we resend the verification email using the
-// original stored account — we do NOT overwrite their password / name /
-// phone. This breaks the "can't login (unverified) AND can't re-register
-// (email exists)" dead-end. Verified accounts still get the same generic
-// rejection as before.
 //
 // [THIS REVISION]
-// sendVerificationEmail now supports BOTH Resend and SendGrid, matching
-// every other email-sending file in the codebase. Previously it only
-// checked RESEND_API_KEY, so a SendGrid-only deployment silently failed
-// to deliver guest verification emails — which meant no guest could
-// verify their email and therefore no guest could log in.
-import { corsHeaders, getClientIP, enforceHttps, hashPassword, createSignedToken, jsonResponse, parseJSONSafely, logAction, checkRateLimit, recordRateLimit } from './_utils.js';
+//  (1) Auto-login. On successful registration, the server issues the
+//      session cookie and CSRF token in the SAME response. The guest
+//      does not have to go to /login.html and type their password
+//      again. They land back on the site already logged in.
+//
+//  (2) Verification email still sends, but is now a soft nudge — it no
+//      longer gates login or booking. Its purpose is:
+//         - a written record that we communicated with the guest
+//           (useful for PDPA and for CHIP compliance)
+//         - an optional security step the guest can do at any time
+//      If the email provider is down, registration still succeeds.
+//
+//  (3) Existing-email handling simplified. Since unverified guests can
+//      now log in normally, the old "resend verification to a stuck
+//      account" path is no longer needed. If the email is already
+//      registered, we tell the guest to log in or use Forgot Password.
+//
+//  (4) Removed the "no email provider configured → 503 fail" check.
+//      Registration must not depend on email delivery.
+import {
+  corsHeaders, getClientIP, enforceHttps, hashPassword, createSignedToken,
+  generateCSRFToken, cookieHeader, jsonResponse, parseJSONSafely, logAction,
+  checkRateLimit, recordRateLimit
+} from './_utils.js';
+
+const GUEST_TTL_MS      = 2 * 60 * 60 * 1000;  // 2 hours
+const GUEST_TTL_SECONDS = GUEST_TTL_MS / 1000;
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 function validatePhone(phone) { const d = String(phone).replace(/\D/g, ''); return d.length >= 10 && d.length <= 12; }
@@ -25,7 +36,8 @@ function clean(s, max = 200) { return String(s || '').replace(/[<>]/g, '').trim(
 async function sendVerificationEmail(email, name, url, env) {
   const html = `<h2>Hello ${String(name || 'Guest').replace(/[<>]/g, '')}</h2>
     <p>Thank you for registering at Kundasang Homestay.</p>
-    <p>Please verify your email address by clicking the link below:</p>
+    <p>Your account is already active — you can book and pay right away.</p>
+    <p>Verifying your email is optional, but it secures your account and helps us reach you about your bookings:</p>
     <p><a href="${url}">Verify Email</a></p>
     <p>This link expires in 24 hours.</p>
     <p>If you did not create an account, please ignore this email.</p>`;
@@ -89,7 +101,7 @@ async function sendVerificationEmail(email, name, url, env) {
     }
   }
 
-  console.warn('No email provider configured (RESEND_API_KEY and SENDGRID_API_KEY are both missing).');
+  console.warn('No email provider configured (RESEND_API_KEY and SENDGRID_API_KEY are both missing). Verification email skipped — registration still succeeded.');
   return false;
 }
 
@@ -111,14 +123,8 @@ export async function onRequestPost({ request, env }) {
       console.error('❌ REGISTER FAIL: D1 binding "DB" is not configured.');
       return jsonResponse({ error: 'Server configuration error' }, 500, request);
     }
-    if (!env.RESEND_API_KEY && !env.SENDGRID_API_KEY) {
-      console.error('❌ REGISTER FAIL: Neither RESEND_API_KEY nor SENDGRID_API_KEY is set. Verification emails cannot be delivered.');
-      return jsonResponse(
-        { error: 'Email service is temporarily unavailable. Please contact support@kundasanghomestay.my' },
-        503,
-        request
-      );
-    }
+    // [THIS REVISION] Removed the "no email provider → 503 fail" check.
+    // Registration succeeds even if email delivery is unavailable.
 
     const clientIP = getClientIP(request);
     const db = env.DB;
@@ -152,58 +158,15 @@ export async function onRequestPost({ request, env }) {
     try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
 
     // ---- Existing account check ----------------------------------------
-    // FIX #8 (option a): an account may already exist for this email.
-    //  - If it is verified: they should log in, not re-register. Return the
-    //    same generic rejection as before (no account-existence leak).
-    //  - If it is UNVERIFIED: the guest is otherwise dead-ended (cannot log
-    //    in because unverified; cannot re-register because email exists).
-    //    We idempotently resend the verification email using the ORIGINAL
-    //    stored account. We deliberately do NOT overwrite their stored
-    //    password / name / phone — that would let anyone who knows the
-    //    email take over an unverified account by submitting a new one.
+    // [THIS REVISION] Simplified. Since unverified accounts can now log
+    // in normally, there is no dead-end to escape. If the email is
+    // already registered, direct the guest to log in or reset.
     const existingIndex = guests.findIndex(g => String(g.email || '').toLowerCase() === email);
     if (existingIndex !== -1) {
-      const existing = guests[existingIndex];
-
-      if (existing.verified === true) {
-        return jsonResponse(
-          { error: 'Registration failed. Please check your details or try again.' },
-          400,
-          request
-        );
-      }
-
-      // Resend verification email for the existing unverified account.
-      const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
-      const resendToken = await createSignedToken({
-        type: 'email_verification',
-        userId: existing.id,
-        email: existing.email
-      }, env, 24 * 60 * 60 * 1000);
-      const resendUrl = `${domain}/api/verify-email?token=${encodeURIComponent(resendToken)}`;
-
-      const resendSent = await sendVerificationEmail(existing.email, existing.name, resendUrl, env);
-
-      await logAction({
-        db,
-        action: 'guest_verification_resent',
-        admin: 'public',
-        details: `Verification resent for unverified guest ${existing.id} (email: ${existing.email}, sent: ${resendSent})`,
-        ip: clientIP,
-        userId: existing.id
-      });
-
       await recordRateLimit(db, clientIP, 'register');
-
-      const resendMessage = resendSent
-        ? 'A fresh verification link has been emailed to this address. Please check your inbox (and your spam folder), then click the link to activate your account.'
-        : 'We found an unverified account for this email, but could not send the verification email right now. Please wait a few minutes and try again, or contact support.';
-
-      return jsonResponse(
-        { success: true, resent: true, message: resendMessage },
-        200,
-        request
-      );
+      return jsonResponse({
+        error: 'This email is already registered. Please log in instead. If you cannot remember your password, use "Forgot Password" on the login page.'
+      }, 400, request);
     }
 
     // ---- New account ------------------------------------------------
@@ -229,7 +192,7 @@ export async function onRequestPost({ request, env }) {
       .bind('kd_guests', JSON.stringify(guests))
       .run();
 
-    // ===== SEND VERIFICATION EMAIL (best effort) =====
+    // ===== SEND VERIFICATION EMAIL (best effort, non-blocking) =====
     const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
     const verifyToken = await createSignedToken({
       type: 'email_verification',
@@ -238,13 +201,31 @@ export async function onRequestPost({ request, env }) {
     }, env, 24 * 60 * 60 * 1000);
     const verifyUrl = `${domain}/api/verify-email?token=${encodeURIComponent(verifyToken)}`;
 
-    const emailSent = await sendVerificationEmail(newGuest.email, newGuest.name, verifyUrl, env);
+    let emailSent = false;
+    try {
+      emailSent = await sendVerificationEmail(newGuest.email, newGuest.name, verifyUrl, env);
+    } catch (mailErr) {
+      console.error('Verification email threw unexpectedly:', mailErr.message);
+      emailSent = false;
+    }
+
+    // ===== ISSUE SESSION (auto-login) =====
+    const sessionVersion = newGuest.sessionVersion || 1;
+    const sessionToken = await createSignedToken({
+      type: 'guest',
+      userId: String(newGuest.id),
+      email: newGuest.email,
+      passwordVersion: newGuest.passwordVersion || 1,
+      sessionVersion: sessionVersion
+    }, env, GUEST_TTL_MS);
+
+    const csrfToken = await generateCSRFToken(newGuest.id, env);
 
     await logAction({
       db,
       action: 'guest_registered',
       admin: 'public',
-      details: `Guest ${newGuest.id} registered (email: ${newGuest.email}, verification email sent: ${emailSent})`,
+      details: `Guest ${newGuest.id} registered (email: ${newGuest.email}, auto-logged in, verification email sent: ${emailSent})`,
       ip: clientIP,
       userId: newGuest.id
     });
@@ -256,9 +237,11 @@ export async function onRequestPost({ request, env }) {
     const responseData = {
       success: true,
       guest: safeGuest,
+      csrfToken,
+      expiresIn: GUEST_TTL_SECONDS,
       message: emailSent
-        ? 'Registration successful. Please check your email to verify your account before logging in. You can close this window now.'
-        : 'Registration successful, but verification email could not be sent. Please use the "Resend verification" button on the login page or contact support.',
+        ? 'Welcome to Kundasang Homestay! Your account is ready. We also sent a verification link to your email — verifying is optional but recommended for account security.'
+        : 'Welcome to Kundasang Homestay! Your account is ready.'
     };
 
     return new Response(
@@ -266,7 +249,8 @@ export async function onRequestPost({ request, env }) {
       {
         status: 200,
         headers: {
-          ...corsHeaders(request)
+          ...corsHeaders(request),
+          'Set-Cookie': cookieHeader('guest_token', sessionToken, GUEST_TTL_SECONDS)
         }
       }
     );
