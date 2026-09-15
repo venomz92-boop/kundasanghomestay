@@ -20,12 +20,27 @@
 //      This removes the misreading where a host might think the platform
 //      took money out of their payout, when in fact those amounts were
 //      charged to the guest on top of the nightly rate.
-//  (7) NEW: The payout email now embeds the bank transfer receipt
-//      image (when payoutInfo.receiptUrl is provided). This lets the
-//      host double-check the transfer reference, recipient, and amount
-//      straight from the email. The image links to the full-size
-//      original on Cloudinary. Simulation emails skip the receipt.
-//      Callers that don't pass receiptUrl see no change.
+//  (7) The payout email embeds the bank transfer receipt image (when
+//      payoutInfo.receiptUrl is provided). The image links to the
+//      full-size original on Cloudinary. Simulation emails skip the
+//      receipt. Callers that don't pass receiptUrl see no change.
+//
+// [LATEST REVISION]
+//  (8) Receipt block hardened against image-blocking email clients
+//      (iOS Mail "Protect Mail Activity", Gmail, Outlook). Changes:
+//        - Alt text now includes the payout amount, e.g.
+//          "Bank Transfer Receipt — RM 55.00", so a blocked image
+//          still shows a meaningful label to the host.
+//        - Both the image and the new button open in a new tab
+//          (target="_blank" rel="noopener").
+//        - A prominent green "View Full-Size Receipt →" button is
+//          rendered BELOW the image, always visible, so the host
+//          has a guaranteed way to open the receipt even when
+//          images are blocked.
+//        - A small helper caption tells the host what to do if
+//          they cannot see the image.
+//      No other behaviour changed. Payouts, CHIP flow, and admin
+//      logic are untouched.
 
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
@@ -847,11 +862,20 @@ export async function finalizePaidBooking(db, bookingId) {
 //   3. Manual bank transfer  (isManual: true)     → "Sent via bank transfer"
 //
 // [THIS REVISION]
-// The email now embeds the bank transfer receipt image (from
-// Cloudinary) when payoutInfo.receiptUrl is present. The image is
-// served via a lightweight Cloudinary transform (w_600,q_auto,f_auto)
-// so the email loads quickly on mobile, and clicks through to the
+// The email embeds the bank transfer receipt image (from Cloudinary)
+// when payoutInfo.receiptUrl is present. The image is served via a
+// lightweight Cloudinary transform (w_600,q_auto,f_auto) so the
+// email loads quickly on mobile, and clicks through to the
 // full-resolution original. Simulation emails skip the receipt.
+//
+// To defend against email clients that block remote images by
+// default (iOS Mail "Protect Mail Activity", Gmail, Outlook), the
+// receipt block also includes:
+//   - Alt text carrying the payout amount, so a blocked image
+//     still shows a meaningful label.
+//   - A prominent green "View Full-Size Receipt →" button below
+//     the image, always visible, opening in a new tab.
+//   - A short helper caption for hosts whose inbox hides images.
 //
 // Arguments:
 //   booking    — the booking object
@@ -932,19 +956,28 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
   const headerSubtitle = isSimulation ? 'Payout Statement — TEST' : 'Payout Statement';
 
   // ----- Bank transfer receipt block (only for real payouts) -----
+  //
+  // Hardened against image-blocking email clients. The image is
+  // wrapped in an anchor so tapping it opens the full-size original.
+  // Alt text carries the payout amount so a blocked image still
+  // communicates what it is. A prominent green button below the
+  // image guarantees a working path even when images are blocked.
   const rawReceiptUrl = String(payoutInfo.receiptUrl || '').trim();
   const showReceipt = rawReceiptUrl && !isSimulation;
   const emailReceiptUrl = showReceipt ? cloudinaryEmailUrl(rawReceiptUrl) : '';
 
   const receiptBlock = showReceipt ? `
     <div style="margin-top:28px;padding-top:20px;border-top:1px dashed #d1d5db;">
-      <div style="font-size:11px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Bank Transfer Receipt (Proof of Payment)</div>
-      <a href="${safe(rawReceiptUrl)}" style="text-decoration:none;display:block;">
-        <img src="${safe(emailReceiptUrl)}" alt="Bank transfer receipt"
+      <div style="font-size:11px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;text-align:center;">Bank Transfer Receipt (Proof of Payment)</div>
+      <a href="${safe(rawReceiptUrl)}" target="_blank" rel="noopener" style="text-decoration:none;display:block;">
+        <img src="${safe(emailReceiptUrl)}" alt="Bank Transfer Receipt — RM ${payoutAmount}"
              style="display:block;width:100%;max-width:480px;height:auto;border:1px solid #e5e7eb;border-radius:8px;background:#ffffff;margin:0 auto;" />
       </a>
-      <div style="font-size:11px;color:#6b7280;text-align:center;margin-top:10px;">
-        Click the receipt to view the full-size image.
+      <div style="text-align:center;margin-top:16px;">
+        <a href="${safe(rawReceiptUrl)}" target="_blank" rel="noopener" style="display:inline-block;background:#0F382E;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 26px;border-radius:8px;letter-spacing:0.3px;">View Full-Size Receipt &rarr;</a>
+      </div>
+      <div style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px;line-height:1.5;">
+        Image not showing above? Tap the button to open the receipt in your browser.
       </div>
     </div>
   ` : '';
