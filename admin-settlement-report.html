@@ -428,7 +428,7 @@
     body:not(.printing-receipt) .receipt-cell img { max-width: 110px; max-height: 140px; }
     body:not(.printing-receipt) .report-logo { width: 56px; height: 56px; }
 
-    /* --- Receipt-only print (compressed to fit one page) --- */
+    /* --- Receipt-only print --- */
     body.printing-receipt > *:not(#receiptModal) { display: none !important; }
 
     body.printing-receipt #receiptModal {
@@ -460,10 +460,7 @@
 
     body.printing-receipt #receiptModal .no-print { display: none !important; }
 
-    /* Receipt body — compress everything for one page */
-    body.printing-receipt #receiptBody {
-      padding: 0 !important;
-    }
+    body.printing-receipt #receiptBody { padding: 0 !important; }
 
     body.printing-receipt .rcpt-wrapper {
       font-size: 11px !important;
@@ -474,9 +471,7 @@
       padding-bottom: 6px !important;
       margin-bottom: 10px !important;
     }
-    body.printing-receipt .rcpt-header .rcpt-brand {
-      font-size: 16px !important;
-    }
+    body.printing-receipt .rcpt-header .rcpt-brand { font-size: 16px !important; }
     body.printing-receipt .rcpt-header .rcpt-subtitle {
       font-size: 9px !important;
       margin-top: 2px !important;
@@ -511,9 +506,7 @@
       font-size: 10.5px !important;
       margin-bottom: 8px !important;
     }
-    body.printing-receipt .rcpt-details-table td {
-      padding: 3px 0 !important;
-    }
+    body.printing-receipt .rcpt-details-table td { padding: 3px 0 !important; }
 
     body.printing-receipt .rcpt-notes {
       padding: 6px 10px !important;
@@ -522,17 +515,19 @@
       border-radius: 6px !important;
     }
 
+    /* === THE ONLY BIG CHANGE: bigger receipt image on A4 === */
     body.printing-receipt .rcpt-img-block {
       margin-top: 10px !important;
       padding-top: 8px !important;
     }
     body.printing-receipt .rcpt-img-block img {
-      max-height: 180px !important;
+      max-height: 105mm !important;   /* A4-native: fits one page with room to spare */
       max-width: 100% !important;
       width: auto !important;
       height: auto !important;
       object-fit: contain !important;
       border-radius: 6px !important;
+      display: block !important;
     }
 
     body.printing-receipt .rcpt-confirm {
@@ -549,7 +544,6 @@
       line-height: 1.4 !important;
     }
 
-    /* Keep sections from splitting awkwardly */
     body.printing-receipt .rcpt-wrapper > div {
       page-break-inside: avoid;
       break-inside: avoid;
