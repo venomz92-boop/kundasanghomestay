@@ -12,26 +12,16 @@
 <script src="/csrf-auto.js"></script>
 <style>
   html, body {
-    width: 100%;
-    max-width: 100vw;
-    overflow-x: hidden;
-    overflow-x: clip;
+    width: 100%; max-width: 100vw;
+    overflow-x: hidden; overflow-x: clip;
   }
   body { font-family: "Poppins", sans-serif; background: #F8F5F0; }
-
-  .page-shell {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-    overflow-x: clip;
-  }
+  .page-shell { width: 100%; max-width: 100%; overflow-x: hidden; overflow-x: clip; }
 
   .payout-card {
-    background: #fff;
-    border-radius: 16px;
+    background: #fff; border-radius: 16px;
     border: 1px solid rgba(0,0,0,0.06);
-    padding: 20px;
-    transition: box-shadow 0.2s ease;
+    padding: 20px; transition: box-shadow 0.2s ease;
   }
   .payout-card:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
   .payout-card.urgent { border-left: 4px solid #dc2626; }
@@ -39,45 +29,29 @@
   .payout-card.fresh { border-left: 4px solid #16a34a; }
 
   .bank-field {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 8px 12px;
-    background: #F8F5F0;
-    border-radius: 10px;
-    margin-bottom: 6px;
-    font-size: 13px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 8px 12px; background: #F8F5F0;
+    border-radius: 10px; margin-bottom: 6px; font-size: 13px;
   }
   .bank-field .label { color: #6b7280; font-weight: 500; flex-shrink: 0; }
   .bank-field .value {
-    font-family: 'Courier New', monospace;
-    font-weight: 700;
-    color: #0F382E;
-    word-break: break-all;
-    min-width: 0;
+    font-family: 'Courier New', monospace; font-weight: 700;
+    color: #0F382E; word-break: break-all; min-width: 0;
   }
   .copy-btn {
     background: #0F382E; color: #fff; border: none;
     padding: 4px 10px; border-radius: 999px; font-size: 10px;
     font-weight: 700; text-transform: uppercase; cursor: pointer;
-    transition: background 0.2s;
-    flex-shrink: 0;
+    transition: background 0.2s; flex-shrink: 0;
   }
   .copy-btn:hover { background: #1a4d3e; }
   .copy-btn.copied { background: #16a34a; }
 
   .method-option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    border: 2px solid #e2e8f0;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    flex: 1;
-    min-width: 0;
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border: 2px solid #e2e8f0;
+    border-radius: 12px; cursor: pointer;
+    transition: all 0.15s ease; flex: 1; min-width: 0;
   }
   .method-option:hover { border-color: #cbd5e1; background: #f8fafc; }
   .method-option.selected { border-color: #0F382E; background: #f0fdf4; }
@@ -86,28 +60,28 @@
   .method-option .method-desc { font-size: 11px; color: #6b7280; margin-top: 1px; }
 
   .receipt-drop {
-    border: 2px dashed #cbd5e1;
-    background: #fafafa;
-    padding: 20px;
-    text-align: center;
-    cursor: pointer;
-    border-radius: 12px;
-    transition: all 0.15s ease;
+    border: 2px dashed #cbd5e1; background: #fafafa;
+    padding: 20px; text-align: center; cursor: pointer;
+    border-radius: 12px; transition: all 0.15s ease;
   }
   .receipt-drop:hover { border-color: #0F382E; background: #f0fdf4; }
   .receipt-drop.uploading { opacity: 0.6; pointer-events: none; }
 
-  /* Table wrapper — contain:inline-size prevents the wide table from
-   * leaking its width to ancestors on Safari. Only renders on md+. */
   .table-scroll {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    contain: inline-size;
+    display: block; width: 100%; max-width: 100%;
+    overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch; contain: inline-size;
   }
+
+  /* Receipt modal trigger button — small link-style */
+  .rcpt-link {
+    color: #0F382E; font-weight: 700; font-size: 11px;
+    background: #f0fdf4; border: 1px solid #bbf7d0;
+    padding: 3px 8px; border-radius: 999px;
+    cursor: pointer; white-space: nowrap;
+    display: inline-block;
+  }
+  .rcpt-link:hover { background: #dcfce7; }
 
   @media (max-width: 640px) {
     .payout-card { padding: 14px; border-radius: 14px; }
@@ -118,11 +92,33 @@
     .method-option .method-label { font-size: 12px; }
     .method-option .method-desc { font-size: 10px; }
   }
-
   @media (max-width: 400px) {
     .bank-field { flex-direction: column; align-items: flex-start; gap: 4px; }
     .bank-field .value { font-size: 12px; width: 100%; }
     .bank-field .copy-btn { align-self: flex-end; margin-top: -20px; }
+  }
+
+  /* ---------- PRINT: only print the receipt modal ---------- */
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    body.printing-receipt > *:not(#receiptModal) { display: none !important; }
+    body.printing-receipt #receiptModal {
+      position: static !important;
+      background: #fff !important;
+      padding: 0 !important;
+      backdrop-filter: none !important;
+      overflow: visible !important;
+    }
+    body.printing-receipt #receiptModal > div {
+      box-shadow: none !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+      max-width: 100% !important;
+      background: #fff !important;
+    }
+    body.printing-receipt #receiptModal .no-print { display: none !important; }
+    body.printing-receipt #receiptModal img { max-width: 260px !important; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>
 </head>
@@ -201,6 +197,7 @@
   </div>
 </div>
 
+<!-- ================= Mark as Paid modal ================= -->
 <div id="markPaidModal" class="fixed inset-0 z-[100] hidden bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
   <div class="max-w-[540px] mx-auto bg-white rounded-2xl shadow-2xl mt-4 sm:mt-8 mb-6 sm:mb-10 overflow-hidden">
     <div class="p-4 sm:p-6">
@@ -266,6 +263,23 @@
         <button id="markPaidConfirmBtn" onclick="confirmMarkPaid()" class="flex-1 btn-primary py-3 text-xs sm:text-sm" disabled style="opacity:0.5; cursor:not-allowed;">Upload receipt to confirm</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ================= Payout Statement (Receipt) modal ================= -->
+<div id="receiptModal" class="fixed inset-0 z-[110] hidden bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
+  <div class="max-w-[640px] mx-auto bg-white rounded-2xl shadow-2xl mt-4 sm:mt-8 mb-6 sm:mb-10 overflow-hidden">
+
+    <div class="flex items-center justify-between gap-2 p-3 sm:p-4 border-b border-zinc-100 no-print">
+      <h3 class="font-poppins font-700 text-[14px] sm:text-[16px] text-[#212121]">Payout Statement — Record</h3>
+      <div class="flex gap-2 shrink-0">
+        <button onclick="printReceipt()" class="btn-primary" style="padding:7px 14px; font-size:11px; background:#0F382E; white-space:nowrap;">🖨️ Print / Save PDF</button>
+        <button onclick="closeReceiptModal()" class="btn-outline" style="padding:7px 14px; font-size:11px; white-space:nowrap;">Close</button>
+      </div>
+    </div>
+
+    <div id="receiptBody" class="p-4 sm:p-8"></div>
+
   </div>
 </div>
 
@@ -337,23 +351,20 @@ function fmtDate(iso) {
   } catch (e) { return iso; }
 }
 
-function fmtDateShort(iso) {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleString('en-MY', {
-      timeZone: 'Asia/Kuala_Lumpur',
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit', hour12: true
-    });
-  } catch (e) { return iso; }
-}
-
 function methodLabel(m) { return m === 'bank_qr' ? 'Bank QR' : 'Manual Transfer'; }
+function methodLabelLong(m) { return m === 'bank_qr' ? 'Bank transfer (DuitNow QR)' : 'Bank transfer (manual)'; }
 
 function openPrintReport() {
-  var w = null;
-  try { w = window.open('/admin-settlement-report.html', '_blank'); } catch (e) { w = null; }
-  if (!w) window.location.href = '/admin-settlement-report.html';
+  // Open in a new tab. Some browsers return null even when the tab
+  // opened successfully when 'noopener' is set — which used to cause
+  // a second navigation via the fallback. We now open without the
+  // feature flag and null out the opener manually.
+  var w = window.open('/admin-settlement-report.html', '_blank');
+  if (w) {
+    try { w.opener = null; } catch (e) {}
+  } else {
+    window.location.href = '/admin-settlement-report.html';
+  }
 }
 
 function updateConfirmButtonState() {
@@ -502,7 +513,7 @@ function renderHistory(items) {
     return;
   }
 
-  // ---- Mobile card view (renders on <md screens) ----
+  // ---- Mobile cards ----
   var mobileCards = items.map(function(h) {
     var hostReceipt = h.emailSent
       ? '<span class="text-emerald-700 font-semibold">✓ Sent</span>'
@@ -520,7 +531,7 @@ function renderHistory(items) {
           '</div>' +
           '<div class="text-right shrink-0">' +
             '<div class="text-base font-bold text-[#0F382E]">' + fmtMoney(h.amount) + '</div>' +
-            '<div class="text-[10px] text-zinc-500 mt-0.5">' + fmtDateShort(h.paidAt) + '</div>' +
+            '<div class="text-[10px] text-zinc-500 mt-0.5">' + fmtDate(h.paidAt) + '</div>' +
           '</div>' +
         '</div>' +
         '<div class="grid grid-cols-2 gap-y-2 gap-x-3 text-[11px] pt-2 border-t border-zinc-100">' +
@@ -529,10 +540,13 @@ function renderHistory(items) {
           '<div><span class="text-zinc-500">Host receipt:</span> ' + hostReceipt + '</div>' +
           '<div>' + receiptLink + '</div>' +
         '</div>' +
+        '<div class="mt-3 pt-3 border-t border-zinc-100">' +
+          '<button class="rcpt-link" onclick="openReceiptModal(\'' + escapeHtml(h.bookingId) + '\')">📧 View Payout Statement</button>' +
+        '</div>' +
       '</div>';
   }).join('');
 
-  // ---- Desktop table view (renders on md+ screens only) ----
+  // ---- Desktop table ----
   var desktopRows = items.map(function(h) {
     var receiptCell = h.receiptUrl
       ? '<a href="' + escapeHtml(h.receiptUrl) + '" target="_blank" rel="noopener" class="text-[#0F382E] font-semibold hover:underline">📎 View</a>'
@@ -550,6 +564,7 @@ function renderHistory(items) {
         '<td class="p-3 text-[11px]">' + hostReceiptCell + '</td>' +
         '<td class="p-3 text-[11px]">' + receiptCell + '</td>' +
         '<td class="p-3 text-[11px] text-zinc-500">' + fmtDate(h.paidAt) + '</td>' +
+        '<td class="p-3 text-[11px]"><button class="rcpt-link" onclick="openReceiptModal(\'' + escapeHtml(h.bookingId) + '\')">📧 Receipt</button></td>' +
       '</tr>';
   }).join('');
 
@@ -557,7 +572,7 @@ function renderHistory(items) {
     '<div class="md:hidden space-y-3">' + mobileCards + '</div>' +
     '<div class="hidden md:block card p-0 overflow-hidden">' +
       '<div class="table-scroll" style="display:block;width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;contain:inline-size;">' +
-        '<table class="w-full" style="min-width:640px;">' +
+        '<table class="w-full" style="min-width:820px;">' +
           '<thead class="bg-zinc-50 border-b border-zinc-100">' +
             '<tr>' +
               '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Booking ID</th>' +
@@ -568,6 +583,7 @@ function renderHistory(items) {
               '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Host Receipt</th>' +
               '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Bank Receipt</th>' +
               '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Date Paid</th>' +
+              '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Actions</th>' +
             '</tr>' +
           '</thead>' +
           '<tbody>' + desktopRows + '</tbody>' +
@@ -589,6 +605,98 @@ function copyToClipboard(btn, text, showFeedback) {
   }
 }
 
+/* ===================== Payout Statement (Receipt) modal ===================== */
+function openReceiptModal(bookingId) {
+  if (!latestData || !latestData.history) return;
+  var h = latestData.history.find(function(x) { return String(x.bookingId) === String(bookingId); });
+  if (!h) { showAlert('Error', 'Payout record not found. Please refresh the page.'); return; }
+  document.getElementById('receiptBody').innerHTML = renderReceiptHtml(h);
+  document.getElementById('receiptModal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeReceiptModal() {
+  document.getElementById('receiptModal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function printReceipt() {
+  document.body.classList.add('printing-receipt');
+  setTimeout(function() {
+    window.print();
+    setTimeout(function() {
+      document.body.classList.remove('printing-receipt');
+    }, 800);
+  }, 50);
+}
+
+function renderReceiptHtml(h) {
+  var safe = escapeHtml;
+  var bank = safe(h.hostBank || 'Bank');
+  var acct = String(h.hostAccount || '').replace(/[^0-9]/g, '');
+  var bankMasked = acct.length >= 4 ? '****' + acct.slice(-4) : 'N/A';
+  var ref = safe(h.reference || '—');
+  var amount = Number(h.amount || 0).toFixed(2);
+  var methodTxt = methodLabelLong(h.method);
+
+  var sentLine = h.emailSent
+    ? 'This Payout Statement was emailed to <strong>' + safe(h.hostEmail || 'the host') + '</strong> on ' + fmtDate(h.emailSentAt) + '.'
+    : '<span style="color:#b91c1c;font-weight:700;">\u26A0\uFE0F The Payout Statement email could not be delivered to the host. This record is for internal audit only.</span>';
+
+  var receiptImgBlock = h.receiptUrl
+    ? '<div style="margin-top:22px;padding-top:16px;border-top:1px dashed #e5e7eb;">' +
+        '<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Bank Transfer Receipt (Proof of Payment)</div>' +
+        '<img src="' + escapeHtml(h.receiptUrl) + '" alt="Bank receipt" style="max-width:100%;max-height:400px;border-radius:8px;border:1px solid #e5e7eb;display:block;" />' +
+      '</div>'
+    : '';
+
+  var notesBlock = h.notes
+    ? '<div style="margin-top:16px;padding:10px 12px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;font-size:11px;color:#78350f;line-height:1.5;"><strong>Notes:</strong> ' + safe(h.notes) + '</div>'
+    : '';
+
+  return '' +
+    '<div style="font-family:Poppins,Arial,sans-serif;color:#212121;font-size:13px;line-height:1.5;">' +
+
+      '<div style="text-align:center;border-bottom:2px solid #0F382E;padding-bottom:14px;margin-bottom:20px;">' +
+        '<div style="font-size:20px;font-weight:800;color:#0F382E;letter-spacing:-0.3px;">Kundasang Homestay</div>' +
+        '<div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;">Payout Statement</div>' +
+      '</div>' +
+
+      '<div style="font-size:13.5px;color:#374151;line-height:1.6;margin-bottom:18px;">' +
+        'Hello <strong>' + safe(h.hostName || 'Host') + '</strong>,<br>' +
+        'A payout for a completed guest stay at <strong>' + safe(h.homestayName || 'your property') + '</strong> has been sent to your bank account.' +
+      '</div>' +
+
+      '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:18px;text-align:center;margin-bottom:20px;">' +
+        '<div style="font-size:10px;color:#166534;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Amount Transferred</div>' +
+        '<div style="font-size:28px;font-weight:800;color:#0F382E;margin:6px 0;">RM ' + amount + '</div>' +
+        '<div style="font-size:12px;color:#166534;">To ' + bank + ' ' + bankMasked + '</div>' +
+      '</div>' +
+
+      '<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Payout Details</div>' +
+      '<table style="width:100%;font-size:12.5px;border-collapse:collapse;margin-bottom:16px;color:#374151;">' +
+        '<tr><td style="padding:5px 0;color:#6b7280;">Reference</td><td style="padding:5px 0;text-align:right;font-family:\'Courier New\',monospace;font-weight:700;">' + ref + '</td></tr>' +
+        '<tr><td style="padding:5px 0;color:#6b7280;">Method</td><td style="padding:5px 0;text-align:right;">' + escapeHtml(methodTxt) + '</td></tr>' +
+        '<tr><td style="padding:5px 0;color:#6b7280;">Date paid</td><td style="padding:5px 0;text-align:right;">' + fmtDate(h.paidAt) + '</td></tr>' +
+        '<tr><td style="padding:5px 0;color:#6b7280;">Booking ID</td><td style="padding:5px 0;text-align:right;font-family:\'Courier New\',monospace;">' + safe(h.bookingId || '—') + '</td></tr>' +
+      '</table>' +
+
+      notesBlock +
+      receiptImgBlock +
+
+      '<div style="margin-top:22px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:11.5px;color:#475569;line-height:1.6;">' +
+        sentLine +
+      '</div>' +
+
+      '<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center;line-height:1.6;">' +
+        'Kundasang Homestay \u2022 Operated by NICK\'S CREATIONS (RNU20183012)<br>' +
+        '\u00A9 ' + new Date().getFullYear() + ' Kundasang Homestay' +
+      '</div>' +
+
+    '</div>';
+}
+
+/* ===================== Mark as Paid modal ===================== */
 function openMarkPaidModal(bookingId) {
   if (!latestData) return;
   var p = (latestData.pending || []).find(function(x) { return String(x.bookingId) === String(bookingId); });
@@ -683,14 +791,10 @@ async function confirmMarkPaid() {
       '<div style="margin-top:12px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;font-size:12px;color:#166534;">' +
         '<div style="font-weight:700;margin-bottom:6px;">📧 Host Official Receipt</div>' +
         (data.emailSent
-          ? '<div>Payout Statement emailed to <strong>' + escapeHtml(data.hostEmail || 'the host') + '</strong>. This is your proof the host was notified.</div>'
-          : '<div style="color:#991b1b;">⚠️ Email could not be sent to the host (' + escapeHtml(data.emailError || 'unknown error') + '). Contact the host manually and note this for CHIP review.</div>') +
+          ? '<div>Payout Statement emailed to <strong>' + escapeHtml(data.hostEmail || 'the host') + '</strong>.</div>'
+          : '<div style="color:#991b1b;">⚠️ Email could not be sent to the host (' + escapeHtml(data.emailError || 'unknown error') + ').</div>') +
       '</div>' +
-      '<div style="margin-top:8px;padding:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;font-size:12px;color:#1e40af;">' +
-        '<div style="font-weight:700;margin-bottom:6px;">📎 Platform Payment Receipt</div>' +
-        '<div>Bank receipt saved. ' + receiptLink + '</div>' +
-      '</div>' +
-      '<p style="margin-top:12px;font-size:11px;color:#6b7280;">Both receipts are now recorded. They will appear in your next settlement report for CHIP.</p>' +
+      '<p style="margin-top:12px;font-size:11px;color:#6b7280;">Open the row\'s 📧 Receipt button anytime to view or print the Payout Statement for CHIP.</p>' +
       '</div>';
     await showAlert('Payout Recorded', msg);
     await loadData();
@@ -770,9 +874,11 @@ function exportCsv() {
 document.getElementById('markPaidModal').addEventListener('click', function(e) {
   if (e.target === this) closeMarkPaidModal();
 });
-
+document.getElementById('receiptModal').addEventListener('click', function(e) {
+  if (e.target === this) closeReceiptModal();
+});
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeMarkPaidModal(); closeModal(); }
+  if (e.key === 'Escape') { closeMarkPaidModal(); closeReceiptModal(); closeModal(); }
 });
 
 loadData();
