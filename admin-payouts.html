@@ -44,6 +44,27 @@
   }
   .copy-btn:hover { background: #1a4d3e; }
   .copy-btn.copied { background: #16a34a; }
+
+  /* Payment method selector in Mark as Paid modal */
+  .method-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex: 1;
+  }
+  .method-option:hover { border-color: #cbd5e1; background: #f8fafc; }
+  .method-option.selected {
+    border-color: #0F382E;
+    background: #f0fdf4;
+  }
+  .method-option input[type="radio"] { margin: 0; }
+  .method-option .method-label { font-weight: 700; font-size: 13px; color: #212121; }
+  .method-option .method-desc { font-size: 11px; color: #6b7280; margin-top: 1px; }
 </style>
 </head>
 <body>
@@ -78,6 +99,22 @@
     <div class="mb-8">
       <h1 class="font-poppins font-700 text-[28px] text-[#212121]">Manual Payout Queue</h2>
       <p class="text-sm text-zinc-500 mt-1">Pay hosts from your bank app, then record the reference here. The host receives a Payout Statement email automatically.</p>
+    </div>
+
+    <!-- ===== CHIP COMPLIANCE INFO ===== -->
+    <div class="mb-6 p-5 rounded-2xl border border-blue-200 bg-blue-50">
+      <div class="flex items-start gap-3">
+        <div class="text-2xl leading-none">📧</div>
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-[14px] text-blue-900">The Payout Statement email IS your CHIP compliance receipt</div>
+          <p class="text-[12px] text-blue-800 mt-1 leading-relaxed">
+            Every time you click <strong>Mark as Paid</strong>, the host receives an automatic email containing the amount, booking ID, masked bank account, and your transfer reference. <strong>Do not delete these emails.</strong> They are the receipts CHIP will ask for when reviewing your Send API application.
+          </p>
+          <p class="text-[11px] text-blue-700 mt-2 leading-relaxed">
+            <strong>What to send CHIP at review:</strong> (1) the CSV export below, (2) your bank statement for the same period, (3) one sample Payout Statement email, (4) a short cover note explaining that guests paid via CHIP Collect and hosts were paid manually via DuitNow.
+          </p>
+        </div>
+      </div>
     </div>
 
     <!-- Summary cards -->
@@ -131,6 +168,24 @@
       </div>
 
       <div id="markPaidSummary" class="bg-[#F8F5F0] rounded-xl p-4 text-sm space-y-2 mb-4"></div>
+
+      <label class="block text-xs font-bold text-zinc-600 mb-2">How did you pay? *</label>
+      <div class="flex gap-3 mb-4">
+        <label class="method-option" data-method="bank_qr">
+          <input type="radio" name="markPaidMethod" value="bank_qr" />
+          <div>
+            <div class="method-label">Bank QR (DuitNow)</div>
+            <div class="method-desc">Scanned via bank app</div>
+          </div>
+        </label>
+        <label class="method-option selected" data-method="manual_transfer">
+          <input type="radio" name="markPaidMethod" value="manual_transfer" checked />
+          <div>
+            <div class="method-label">Manual Transfer</div>
+            <div class="method-desc">Typed account &amp; amount</div>
+          </div>
+        </label>
+      </div>
 
       <label class="block text-xs font-bold text-zinc-600 mb-1">Bank Transfer Reference *</label>
       <input id="markPaidReference" type="text" placeholder="e.g. DUITNOW-20260914-00123" class="form-input text-sm" maxlength="100" />
@@ -219,6 +274,10 @@ function fmtDate(iso) {
   } catch (e) { return iso; }
 }
 
+function methodLabel(m) {
+  return m === 'bank_qr' ? 'Bank QR' : 'Manual Transfer';
+}
+
 async function loadData() {
   try {
     var res = await fetch(API_BASE + '/admin-manual-payouts', {
@@ -277,8 +336,6 @@ function renderPending(items) {
       urgencyLabel = p.daysWaiting + ' day' + (p.daysWaiting === 1 ? '' : 's') + ' waiting';
     }
 
-    var acct = String(p.accountNumber || '');
-    var acctMasked = acct.length >= 4 ? '****' + acct.slice(-4) : acct;
     var fullBankLine = p.bankName + ' — ' + p.accountNumber + ' — ' + p.accountHolder;
 
     return '' +
@@ -349,6 +406,7 @@ function renderHistory(items) {
         '<td class="p-3 text-xs">' + escapeHtml(h.hostName) + '</td>' +
         '<td class="p-3 text-xs">' + escapeHtml(h.homestayName) + '</td>' +
         '<td class="p-3 text-xs font-bold text-[#0F382E]">' + fmtMoney(h.amount) + '</td>' +
+        '<td class="p-3 text-[11px]">' + escapeHtml(methodLabel(h.method)) + '</td>' +
         '<td class="p-3 text-[11px] font-mono">' + escapeHtml(h.reference) + '</td>' +
         '<td class="p-3 text-[11px] text-zinc-500">' + fmtDate(h.paidAt) + '</td>' +
       '</tr>';
@@ -363,6 +421,7 @@ function renderHistory(items) {
             '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Host</th>' +
             '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Homestay</th>' +
             '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Amount</th>' +
+            '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Method</th>' +
             '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Reference</th>' +
             '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Date Paid</th>' +
           '</tr>' +
@@ -404,6 +463,14 @@ function openMarkPaidModal(bookingId) {
   document.getElementById('markPaidNotes').value = '';
   document.getElementById('markPaidError').classList.add('hidden');
 
+  // Reset the payment method to default (manual_transfer)
+  document.querySelectorAll('input[name="markPaidMethod"]').forEach(function(radio) {
+    radio.checked = (radio.value === 'manual_transfer');
+  });
+  document.querySelectorAll('.method-option').forEach(function(opt) {
+    opt.classList.toggle('selected', opt.dataset.method === 'manual_transfer');
+  });
+
   document.getElementById('markPaidSummary').innerHTML = '' +
     '<div class="flex justify-between"><span class="text-zinc-500">Homestay</span><span class="font-semibold">' + escapeHtml(p.homestayName) + '</span></div>' +
     '<div class="flex justify-between"><span class="text-zinc-500">Host</span><span class="font-semibold">' + escapeHtml(p.hostName) + '</span></div>' +
@@ -422,11 +489,25 @@ function closeMarkPaidModal() {
   currentMarkPaidId = null;
 }
 
+// Toggle visual "selected" state on the payment method options
+document.querySelectorAll('.method-option').forEach(function(opt) {
+  opt.addEventListener('click', function() {
+    document.querySelectorAll('.method-option').forEach(function(o) {
+      o.classList.remove('selected');
+    });
+    opt.classList.add('selected');
+    var radio = opt.querySelector('input[type="radio"]');
+    if (radio) radio.checked = true;
+  });
+});
+
 async function confirmMarkPaid() {
   if (!currentMarkPaidId) return;
 
   var reference = document.getElementById('markPaidReference').value.trim();
   var notes = document.getElementById('markPaidNotes').value.trim();
+  var methodEl = document.querySelector('input[name="markPaidMethod"]:checked');
+  var paymentMethod = methodEl ? methodEl.value : 'manual_transfer';
   var errEl = document.getElementById('markPaidError');
 
   if (!reference) {
@@ -448,7 +529,8 @@ async function confirmMarkPaid() {
       body: JSON.stringify({
         bookingId: currentMarkPaidId,
         reference: reference,
-        notes: notes
+        notes: notes,
+        paymentMethod: paymentMethod
       })
     });
 
@@ -467,10 +549,11 @@ async function confirmMarkPaid() {
     var msg = '<div style="text-align:left;line-height:1.6;">' +
       '<p>✓ Payout recorded for <strong>' + data.bookingId + '</strong>.</p>' +
       '<p style="margin-top:8px;">Amount: <strong>' + fmtMoney(data.amount) + '</strong></p>' +
+      '<p>Method: <strong>' + methodLabel(data.method) + '</strong></p>' +
       '<p>Reference: <code>' + escapeHtml(data.reference) + '</code></p>' +
       '<p style="margin-top:12px;padding:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;color:#166534;">' +
         (data.emailSent
-          ? '📧 Payout Statement email sent to host.'
+          ? '📧 Payout Statement email sent to host. This email is your CHIP compliance receipt — do not delete it.'
           : '⚠️ Email could not be sent: ' + (data.emailError || 'unknown error') + '. Contact the host manually.') +
       '</p></div>';
 
@@ -513,7 +596,7 @@ function exportCsv() {
   }
 
   var rows = [
-    ['Date Paid (MYT)', 'Booking ID', 'Host Name', 'Host Email', 'Homestay', 'Amount (RM)', 'Transfer Reference', 'Notes']
+    ['Date Paid (MYT)', 'Booking ID', 'Host Name', 'Host Email', 'Homestay', 'Amount (RM)', 'Method', 'Transfer Reference', 'Notes']
   ];
 
   latestData.history.forEach(function (h) {
@@ -524,6 +607,7 @@ function exportCsv() {
       h.hostEmail || '',
       h.homestayName || '',
       Number(h.amount || 0).toFixed(2),
+      methodLabel(h.method),
       h.reference || '',
       h.notes || ''
     ]);
