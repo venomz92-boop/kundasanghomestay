@@ -125,7 +125,7 @@
             <li><strong>Platform Payment Receipt</strong> — the bank transfer receipt you upload (screenshot from your bank app showing the reference, recipient, and amount).</li>
           </ul>
           <p class="text-[11px] text-blue-700 mt-3 leading-relaxed">
-            <strong>What to send CHIP at review:</strong> (1) the CSV export below, (2) your bank statement for the same period, (3) one sample Payout Statement email, (4) a short cover note explaining that guests paid via CHIP Collect and hosts were paid manually via DuitNow.
+            <strong>What to send CHIP at review:</strong> (1) the <strong>Print Report (PDF)</strong> below — a signed statement with embedded receipts, (2) your bank statement for the same period, (3) one sample Payout Statement email, (4) a short cover note explaining that guests paid via CHIP Collect and hosts were paid manually via DuitNow.
           </p>
         </div>
       </div>
@@ -159,9 +159,12 @@
     </div>
 
     <div>
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h2 class="font-poppins font-700 text-[18px] text-[#212121]">Payout History</h2>
-        <button onclick="exportCsv()" class="btn-outline" style="padding:6px 14px; font-size:10px;">📥 Export Settlement Report (CSV for CHIP)</button>
+        <div class="flex gap-2 flex-wrap">
+          <button onclick="exportCsv()" class="btn-outline" style="padding:8px 16px; font-size:11px;">📥 Export CSV</button>
+          <button onclick="openPrintReport()" class="btn-primary" style="padding:8px 16px; font-size:11px; background:#0F382E;">🖨️ Print Report (PDF for CHIP)</button>
+        </div>
       </div>
       <div id="historyList" class="card p-0 overflow-hidden"></div>
     </div>
@@ -309,6 +312,10 @@ function fmtDate(iso) {
 
 function methodLabel(m) {
   return m === 'bank_qr' ? 'Bank QR' : 'Manual Transfer';
+}
+
+function openPrintReport() {
+  window.open('/admin-settlement-report.html', '_blank', 'noopener');
 }
 
 function updateConfirmButtonState() {
@@ -793,9 +800,6 @@ function exportCsv() {
 
   var rows = [];
 
-  // Row 1: Single-line title + metadata, all in ONE cell so it
-  // overflows cleanly across the sheet instead of looking scattered
-  // across separate columns.
   rows.push([
     'KUNDASANG HOMESTAY — HOST SETTLEMENT REPORT' +
     '  |  Generated: ' + generatedAt + ' MYT' +
@@ -804,11 +808,8 @@ function exportCsv() {
     '  |  Total Amount: RM ' + totalAmount.toFixed(2)
   ]);
 
-  // Row 2: Blank separator.
   rows.push([]);
 
-  // Row 3: Column headers — kept short so they fit default Excel
-  // column widths without being truncated.
   rows.push([
     'Date Paid (MYT)',
     'Booking ID',
@@ -825,7 +826,6 @@ function exportCsv() {
     'Notes'
   ]);
 
-  // Rows 4+: Data.
   latestData.history.forEach(function (h) {
     rows.push([
       formatCsvDate(h.paidAt),
@@ -844,8 +844,6 @@ function exportCsv() {
     ]);
   });
 
-  // Trailing blank + TOTAL row so CHIP can eyeball the sum without
-  // having to highlight the column themselves.
   rows.push([]);
   rows.push([
     '',
@@ -863,13 +861,10 @@ function exportCsv() {
     ''
   ]);
 
-  // Assemble CSV.
   var csv = rows.map(function (r) {
     return r.map(csvCell).join(',');
   }).join('\r\n');
 
-  // UTF-8 BOM keeps Excel from mangling names with special characters.
-  // CRLF line endings open correctly in both Excel (Windows) and Numbers (Mac).
   var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
