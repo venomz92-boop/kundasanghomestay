@@ -6,18 +6,26 @@
 //
 // GET  — list pending payouts + recent history.
 // POST — mark a booking as paid. Records the transfer reference, the
-//        payment method (bank QR or manual transfer), fires the host
-//        Payout Statement email, updates the booking status, logs
-//        the action. Idempotent.
+//        payment method (bank QR or manual transfer), and the URL of
+//        the uploaded bank receipt. Fires the host Payout Statement
+//        email. Updates the booking status. Idempotent.
 //
 // [THIS REVISION]
-// POST now accepts an optional `paymentMethod` field, either
-// 'bank_qr' or 'manual_transfer'. It's stored on the booking as
-// `manualPayoutMethod` and returned in the payout history so the CSV
-// export shows which method was used for each transfer. This helps
-// match payouts against bank statement lines during CHIP's compliance
-// review (DuitNow QR transfers look different on a bank statement
-// than manual transfers).
+// POST now requires a `receiptUrl` — the Cloudinary URL of a bank
+// transfer receipt (screenshot from the bank app). This is CHIP's
+// "proof of payment" evidence and is stored on the booking as
+// `manualPayoutReceiptUrl` and `manualPayoutReceiptPublicId`.
+//
+// The Payout Statement email is now sent INSIDE the lock so the
+// email result (sent / failed + timestamp) is written to the booking
+// in the same atomic write as the payment details. This makes the
+// CSV export a complete audit trail: every row shows both the host
+// receipt email status AND the bank receipt URL.
+//
+// The CSV export (built client-side in admin-payouts.html) now emits
+// two evidence columns:
+//   - Host Official Receipt — timestamp the host was notified
+//   - Platform Payment Receipt — URL of the bank receipt image
 import {
   corsHeaders,
   getClientIP,
@@ -33,8 +41,6 @@ import {
 const BOOKINGS_LOCK = 'bookings-global';
 const HISTORY_LIMIT = 200;
 
-// Whitelist of accepted payment methods. Anything else gets coerced
-// to 'manual_transfer' so the field is never empty.
 const VALID_PAYMENT_METHODS = new Set(['bank_qr', 'manual_transfer']);
 const DEFAULT_PAYMENT_METHOD = 'manual_transfer';
 
@@ -58,7 +64,6 @@ export async function onRequestGet({ request, env }) {
   let bookings = [];
   try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
 
-  // ---- Pending queue: anything queued for manual payout ----
   const pendingRaw = bookings.filter(b => b && b.manualPayoutPending === true);
 
   const pending = pendingRaw.map(b => {
@@ -86,9 +91,8 @@ export async function onRequestGet({ request, env }) {
       queuedAt,
       daysWaiting
     };
-  }).sort((a, b) => new Date(a.queuedAt).getTime() - new Date(b.queuedAt).getTime()); // oldest first
+  }).sort((a, b) => new Date(a.queuedAt).getTime() - new Date(b.queuedAt).getTime());
 
-  // ---- History: bookings that already have a manual payout reference ----
   const historyRaw = bookings.filter(b => b && b.manualPayoutReference);
 
   const history = historyRaw.map(b => ({
@@ -96,17 +100,23 @@ export async function onRequestGet({ request, env }) {
     homestayName: b.manualPayoutHomestayName || b.homestay || '',
     hostName: b.manualPayoutHostName || '',
     hostEmail: b.manualPayoutHostEmail || '',
+    hostBank: b.manualPayoutBankName || '',
+    hostAccount: b.manualPayoutAccountNumber || '',
     amount: Number(b.manualPayoutAmount || b.base || 0),
     reference: b.manualPayoutReference || '',
     method: VALID_PAYMENT_METHODS.has(b.manualPayoutMethod)
       ? b.manualPayoutMethod
       : DEFAULT_PAYMENT_METHOD,
+    receiptUrl: b.manualPayoutReceiptUrl || '',
+    receiptPublicId: b.manualPayoutReceiptPublicId || '',
+    emailSent: b.manualPayoutEmailSent === true,
+    emailSentAt: b.manualPayoutEmailSentAt || '',
+    emailError: b.manualPayoutEmailError || '',
     notes: b.manualPayoutNotes || '',
     paidAt: b.manualPayoutCompletedAt || '',
     paidBy: b.manualPayoutCompletedBy || 'admin'
   })).sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime()).slice(0, HISTORY_LIMIT);
 
-  // ---- Summary ----
   const now = Date.now();
   const oneDayAgo = now - 86400000;
   const sevenDaysAgo = now - 7 * 86400000;
@@ -150,9 +160,26 @@ export async function onRequestPost({ request, env }) {
   const notes = String(body.notes || '').trim().slice(0, 300);
   const rawMethod = String(body.paymentMethod || '').toLowerCase().trim();
   const paymentMethod = VALID_PAYMENT_METHODS.has(rawMethod) ? rawMethod : DEFAULT_PAYMENT_METHOD;
+  const receiptUrl = String(body.receiptUrl || '').trim();
+  const receiptPublicId = String(body.receiptPublicId || '').trim();
 
   if (!bookingId) return jsonResponse({ error: 'Missing bookingId' }, 400, request);
   if (!reference) return jsonResponse({ error: 'Transfer reference is required' }, 400, request);
+  if (!receiptUrl) {
+    return jsonResponse({
+      error: 'Bank receipt is required. Please upload the transfer receipt from your bank app before confirming.',
+      code: 'RECEIPT_REQUIRED'
+    }, 400, request);
+  }
+
+  // Sanity check: the URL should look like a Cloudinary URL under our
+  // account. We do not reject based on this, but we log a warning so we
+  // notice if the admin tool ever gets compromised and starts posting
+  // arbitrary URLs.
+  const looksLikeCloudinary = /^https:\/\/res\.cloudinary\.com\//.test(receiptUrl);
+  if (!looksLikeCloudinary) {
+    console.warn('admin-manual-payouts: receiptUrl does not look like a Cloudinary URL:', receiptUrl.slice(0, 120));
+  }
 
   const clientIP = getClientIP(request);
 
@@ -182,7 +209,10 @@ export async function onRequestPost({ request, env }) {
       const nowIso = new Date().toISOString();
       const ownerAmount = Number(booking.manualPayoutAmount || booking.base || 0);
 
-      bookings[idx] = {
+      // Build a temporary booking object with the payment details so the
+      // email helper sees the fresh state. We don't save it yet — the
+      // write below saves everything together.
+      const updatedBooking = {
         ...booking,
         status: 'Completed - Payout Success (Manual)',
         manualPayoutPending: false,
@@ -190,6 +220,8 @@ export async function onRequestPost({ request, env }) {
         manualPayoutCompletedBy: 'admin',
         manualPayoutMethod: paymentMethod,
         manualPayoutReference: reference,
+        manualPayoutReceiptUrl: receiptUrl,
+        manualPayoutReceiptPublicId: receiptPublicId || null,
         manualPayoutNotes: notes,
         payoutSuccess: true,
         payoutSuccessDate: nowIso,
@@ -198,12 +230,62 @@ export async function onRequestPost({ request, env }) {
         ownerPayoutId: reference
       };
 
+      // Send the Payout Statement email INSIDE the lock so the email
+      // result is saved in the same write as the payment details.
+      // Without this, a crash between the payment save and the email
+      // send would lose the email-sent timestamp and weaken the audit
+      // trail CHIP relies on.
+      const homestayForEmail = {
+        ownerEmail: updatedBooking.manualPayoutHostEmail || '',
+        ownerName: updatedBooking.manualPayoutHostName || 'Host',
+        name: updatedBooking.manualPayoutHomestayName || updatedBooking.homestay || 'your property',
+        ownerBank: updatedBooking.manualPayoutBankName || '',
+        ownerBankAccount: updatedBooking.manualPayoutAccountNumber || ''
+      };
+
+      let emailReport = { sent: false, error: 'not attempted' };
+      try {
+        emailReport = await sendHostPayoutEmail(
+          updatedBooking,
+          homestayForEmail,
+          {
+            amount: ownerAmount,
+            payoutId: reference,
+            reference,
+            paidAt: nowIso,
+            isManual: true
+          },
+          env
+        );
+      } catch (mailErr) {
+        console.error('Manual payout email error:', mailErr.message);
+        emailReport = { sent: false, error: mailErr.message };
+      }
+
+      if (emailReport.sent) {
+        updatedBooking.manualPayoutEmailSent = true;
+        updatedBooking.manualPayoutEmailSentAt = nowIso;
+        delete updatedBooking.manualPayoutEmailError;
+      } else {
+        updatedBooking.manualPayoutEmailSent = false;
+        updatedBooking.manualPayoutEmailSentAt = null;
+        updatedBooking.manualPayoutEmailError = emailReport.error || 'unknown';
+      }
+
+      bookings[idx] = updatedBooking;
+
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_bookings', JSON.stringify(bookings))
         .run();
 
-      return { success: true, booking: bookings[idx], ownerAmount, nowIso };
-    }, 30000);
+      return {
+        success: true,
+        booking: updatedBooking,
+        ownerAmount,
+        nowIso,
+        emailReport
+      };
+    }, 60000);
   } catch (lockErr) {
     if (lockErr.message && lockErr.message.includes('in progress')) {
       return jsonResponse({ error: 'Another operation is in progress. Please try again.' }, 429, request);
@@ -218,45 +300,16 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ success: true, alreadyPaid: true, message: result.message }, 200, request);
   }
 
-  // ---- Fire the Payout Statement email ----
-  const b = result.booking;
-  const homestayForEmail = {
-    ownerEmail: b.manualPayoutHostEmail || '',
-    ownerName: b.manualPayoutHostName || 'Host',
-    name: b.manualPayoutHomestayName || b.homestay || 'your property',
-    ownerBank: b.manualPayoutBankName || '',
-    ownerBankAccount: b.manualPayoutAccountNumber || ''
-  };
-
-  let emailReport = { sent: false, error: 'not attempted' };
-  try {
-    emailReport = await sendHostPayoutEmail(
-      b,
-      homestayForEmail,
-      {
-        amount: result.ownerAmount,
-        payoutId: reference,
-        reference,
-        paidAt: result.nowIso,
-        isManual: true
-      },
-      env
-    );
-  } catch (mailErr) {
-    console.error('Manual payout email error:', mailErr.message);
-    emailReport = { sent: false, error: mailErr.message };
-  }
-
   const methodLabel = paymentMethod === 'bank_qr' ? 'Bank QR (DuitNow)' : 'Manual bank transfer';
 
   await logAction({
     db,
     action: 'manual_payout_recorded',
     admin: 'admin',
-    details: `Manual payout for ${bookingId} recorded. RM${result.ownerAmount.toFixed(2)} → ${homestayForEmail.ownerName} (${homestayForEmail.ownerBank}). Method: ${methodLabel}. Reference: ${reference}${notes ? '. Notes: ' + notes : ''}. Email: ${emailReport.sent ? 'sent' : 'failed — ' + (emailReport.error || 'unknown')}.`,
+    details: `Manual payout for ${bookingId} recorded. RM${result.ownerAmount.toFixed(2)} → ${result.booking.manualPayoutHostName || 'host'} (${result.booking.manualPayoutBankName || ''}). Method: ${methodLabel}. Reference: ${reference}. Receipt: ${receiptPublicId || 'uploaded (no public id returned)'}${notes ? '. Notes: ' + notes : ''}. Email: ${result.emailReport.sent ? 'sent' : 'failed — ' + (result.emailReport.error || 'unknown')}.`,
     ip: clientIP,
-    userId: homestayForEmail.ownerEmail,
-    homestayId: b.homestayId
+    userId: result.booking.manualPayoutHostEmail || '',
+    homestayId: result.booking.homestayId
   });
 
   return jsonResponse({
@@ -266,8 +319,10 @@ export async function onRequestPost({ request, env }) {
     method: paymentMethod,
     amount: result.ownerAmount,
     paidAt: result.nowIso,
-    emailSent: emailReport.sent,
-    emailError: emailReport.sent ? undefined : emailReport.error
+    receiptUrl,
+    hostEmail: result.booking.manualPayoutHostEmail || '',
+    emailSent: result.emailReport.sent,
+    emailError: result.emailReport.sent ? undefined : result.emailReport.error
   }, 200, request);
 }
 
