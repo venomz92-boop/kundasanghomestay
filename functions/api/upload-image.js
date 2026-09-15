@@ -1,6 +1,20 @@
 // /api/upload-image.js — now requires an authenticated session (guest,
 // owner, or admin) before accepting an upload. Keeps the same IP rate
 // limit, 5MB cap, and MIME whitelist. Same response shape on success.
+//
+// [THIS REVISION]
+// The Cloudinary target folder is now configurable via an optional
+// `folder` form field. It is validated against a whitelist of known
+// folders so a malicious caller cannot push files into arbitrary
+// Cloudinary paths under our account. If `folder` is missing or
+// unrecognised, the file lands in the default `kundasang-homestay/rooms`
+// folder — which is what every existing caller already assumes.
+//
+// New folder added:
+//   - kundasang-homestay/payout-receipts  — bank transfer receipts
+//     uploaded by admin when recording a manual host payout. These are
+//     the "proof of payment" evidence CHIP asks for during the Send
+//     API compliance review.
 import {
   corsHeaders,
   getClientIP,
@@ -10,6 +24,13 @@ import {
   getOwnerSession,
   verifyAdminAuth
 } from './_utils.js';
+
+const DEFAULT_FOLDER = 'kundasang-homestay/rooms';
+const ALLOWED_FOLDERS = new Set([
+  'kundasang-homestay/rooms',
+  'kundasang-homestay/verification',
+  'kundasang-homestay/payout-receipts'
+]);
 
 async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
@@ -32,9 +53,6 @@ function arrayBufferToBase64(buffer) {
 
 export async function onRequestPost({ request, env }) {
   try {
-    // ============================================================
-    // C2: REQUIRE AUTHENTICATION — guest, owner, OR admin
-    // ============================================================
     const guest = await getGuestSession(request, env);
     const owner = guest ? null : await getOwnerSession(request, env);
     const isAdmin = (guest || owner) ? false : await verifyAdminAuth(request, env);
@@ -49,9 +67,6 @@ export async function onRequestPost({ request, env }) {
     const clientIP = getClientIP(request);
     const db = env.DB;
 
-    // ============================================================
-    // IP-based rate limit: 20 uploads per hour
-    // ============================================================
     if (db) {
       const rateOk = await checkRateLimit(db, clientIP, 'upload_image', 20, 60 * 60);
       if (!rateOk) {
@@ -65,6 +80,12 @@ export async function onRequestPost({ request, env }) {
 
     const formData = await request.formData();
     const file = formData.get('image');
+    const requestedFolder = String(formData.get('folder') || '').trim();
+
+    // Validate folder against the whitelist. Anything unexpected falls
+    // back to the default. This prevents a caller from writing files
+    // into arbitrary Cloudinary paths under our account.
+    const folder = ALLOWED_FOLDERS.has(requestedFolder) ? requestedFolder : DEFAULT_FOLDER;
 
     if (!file) {
       return new Response(JSON.stringify({ error: 'No file provided' }), {
@@ -113,8 +134,6 @@ export async function onRequestPost({ request, env }) {
     const base64 = arrayBufferToBase64(buffer);
 
     const timestamp = Math.floor(Date.now() / 1000);
-    const folder = 'kundasang-homestay/rooms';
-
     const signatureString = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
     const signature = await sha256(signatureString);
 
@@ -150,7 +169,8 @@ export async function onRequestPost({ request, env }) {
       JSON.stringify({
         success: true,
         url: data.secure_url,
-        publicId: data.public_id
+        publicId: data.public_id,
+        folder: folder
       }),
       { headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
     );
