@@ -367,7 +367,18 @@ function logoutGuest() {
 }
 
 // =============================================================
-// REGISTER HANDLER (UPDATED to use server message)
+// REGISTER HANDLER — auto-login edition
+//
+// On success the server:
+//   - creates the account
+//   - sets the guest_token HttpOnly cookie (session)
+//   - returns the guest profile + CSRF token + expiresIn
+//
+// The client then:
+//   - saves the profile and CSRF token locally (NO session token —
+//     that lives only in the HttpOnly cookie)
+//   - shows a welcome message
+//   - redirects to the homepage so the guest can resume booking
 // =============================================================
 async function handleRegister(e) {
   e.preventDefault();
@@ -382,37 +393,48 @@ async function handleRegister(e) {
     return;
   }
   if (password.length < 8) {
-  errorEl.textContent = 'Password must be at least 8 characters.';
-  errorEl.classList.remove('hidden');
-  return;
+    errorEl.textContent = 'Password must be at least 8 characters.';
+    errorEl.classList.remove('hidden');
+    return;
   }
   errorEl.classList.add('hidden');
   try {
     const res = await fetch(API_BASE + '/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ name, email, phone, password })
     });
     const data = await res.json();
-   
-if (data.success) {
-  renderGuestNav();
-  // FIX #8 (option a): the API may return success because it re-sent a
-  // verification email for an already-existing UNVERIFIED account
-  // (data.resent === true). Distinguish the modal title so the user
-  // isn't confused by "Registration Successful" when they were
-  // already registered.
-  const title = data.resent ? 'Verification Email Resent' : 'Registration Successful';
-  await showAlert(title, data.message);
-  window.location.href = '/login.html';
-}
-    
-    else {
+
+    if (data.success && data.guest) {
+      // Persist the profile locally for UI state.
+      if (window.GuestSession && typeof window.GuestSession.setSession === 'function') {
+        window.GuestSession.setSession(data.guest, data.expiresIn);
+      } else {
+        try {
+          localStorage.setItem('kd_guest', JSON.stringify(data.guest));
+          const ttl = Number(data.expiresIn) || 7200;
+          localStorage.setItem('kd_guest_expires_at', String(Date.now() + ttl * 1000));
+        } catch (e) {}
+      }
+
+      // Persist the CSRF token (safe to expose — it is NOT a session credential).
+      if (data.csrfToken) {
+        try { localStorage.setItem('kd_csrf_token', data.csrfToken); } catch (e) {}
+      }
+
+      currentGuest = data.guest;
+      renderGuestNav();
+
+      await showAlert('Welcome', data.message || 'Your account is ready. Happy travels!');
+      window.location.href = '/';
+    } else {
       errorEl.textContent = data.error || 'Registration failed. Please try again.';
       errorEl.classList.remove('hidden');
     }
   } catch(e) {
-    errorEl.textContent = 'Network error: ' + e.message;
+    errorEl.textContent = 'Network error: ' + (e.message || 'Please check your connection.');
     errorEl.classList.remove('hidden');
   }
 }
