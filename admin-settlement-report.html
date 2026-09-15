@@ -254,16 +254,17 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* ---------- Combined signature block (single column) ---------- */
+  /* ---------- Signature block ----------
+   * Single horizontal line above "Prepared by". No section divider.
+   * Line width capped at 340px so it reads as a signature line, not
+   * a page-wide rule. */
   .signature-block {
-    margin-top: 36px;
-    padding-top: 22px;
-    border-top: 1px solid var(--line);
+    margin-top: 28px;
     max-width: 340px;
   }
   .sig-line {
-    border-bottom: 1px solid var(--text);
-    height: 34px;
+    border-top: 1px solid var(--text);
+    height: 0;
     margin-bottom: 8px;
   }
   .sig-label {
@@ -364,11 +365,9 @@
     .total-row .val { font-size: 18px; }
 
     .signature-block {
-      margin-top: 26px;
-      padding-top: 16px;
+      margin-top: 22px;
       max-width: 100%;
     }
-    .sig-line { height: 32px; }
 
     .doc-footer { font-size: 9px; margin-top: 24px; padding-top: 12px; }
 
@@ -503,7 +502,7 @@
       <div class="sig-line"></div>
       <div class="sig-label">Prepared by</div>
       <div class="sig-name">
-      NICK'S CREATIONS
+        Nick — NICK'S CREATIONS
         <span class="dot">·</span>
         <span class="date" id="sigDate">—</span>
       </div>
