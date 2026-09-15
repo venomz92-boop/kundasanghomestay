@@ -845,6 +845,85 @@
   }
 
   // =============================================================
+  // [RETURN-TO-BOOKING] Pending intent helpers
+  // =============================================================
+  var PENDING_INTENT_KEY = 'kd_pending_booking_intent';
+
+  function savePendingBookingIntent() {
+    if (!selectedHomestay) return;
+    try {
+      var ci = (document.getElementById('detailCheckin') || {}).value
+            || (document.getElementById('checkin') || {}).value
+            || '';
+      var co = (document.getElementById('detailCheckout') || {}).value
+            || (document.getElementById('checkout') || {}).value
+            || '';
+      var roomSelect = document.getElementById('roomSelect');
+      var roomId = roomSelect ? roomSelect.value : null;
+      var intent = {
+        homestayId: selectedHomestay.id,
+        checkin: ci,
+        checkout: co,
+        roomId: roomId || null,
+        savedAt: new Date().toISOString()
+      };
+      sessionStorage.setItem(PENDING_INTENT_KEY, JSON.stringify(intent));
+    } catch (e) {}
+  }
+
+  function restorePendingBookingIntent() {
+    // Runs after homestays load. Only fires when the URL says so.
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('resume_booking') !== '1') return;
+
+    var intentRaw = null;
+    try { intentRaw = sessionStorage.getItem(PENDING_INTENT_KEY); } catch (e) {}
+    try { sessionStorage.removeItem(PENDING_INTENT_KEY); } catch (e) {}
+
+    // Clean the URL so a refresh doesn't re-trigger.
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    if (!intentRaw) return;
+    var intent;
+    try { intent = JSON.parse(intentRaw); } catch (e) { return; }
+    if (!intent || !intent.homestayId) return;
+
+    var homestay = homestays.find(function(h) { return String(h.id) === String(intent.homestayId); });
+    if (!homestay) return;
+
+    // Drop the intent's dates into the homepage search inputs so the
+    // detail modal picks them up as its defaults.
+    var ciEl = document.getElementById('checkin');
+    var coEl = document.getElementById('checkout');
+    if (ciEl && intent.checkin) ciEl.value = intent.checkin;
+    if (coEl && intent.checkout) coEl.value = intent.checkout;
+
+    // Open the detail modal (sets up room select, price, calendar).
+    openDetail(homestay.id);
+
+    // Restore room selection if one was chosen.
+    if (intent.roomId) {
+      var roomSelect = document.getElementById('roomSelect');
+      if (roomSelect) {
+        roomSelect.value = intent.roomId;
+        try {
+          roomSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        } catch (e) {
+          // Fallback for older browsers.
+          var evt = document.createEvent('HTMLEvents');
+          evt.initEvent('change', true, false);
+          roomSelect.dispatchEvent(evt);
+        }
+      }
+    }
+
+    // Reopen the booking modal with everything pre-filled.
+    openBooking();
+  }
+
+  // =============================================================
   // MODAL SYSTEM
   // =============================================================
   function showModal(title, message, buttons) {
@@ -928,7 +1007,6 @@
       // Locked progress modal (payment in flight) — never close it.
       if (_modalLocked) return;
 
-      // Detail modal (homestay detail view) — hidden via .hidden class.
       var dModal = document.getElementById('detailModal');
       if (dModal && !dModal.classList.contains('hidden')) {
         dModal.classList.add('hidden');
@@ -936,7 +1014,6 @@
         return;
       }
 
-      // Booking modal (guest info form) — hidden via .hidden class.
       var bModal = document.getElementById('bookingModal');
       if (bModal && !bModal.classList.contains('hidden')) {
         bModal.classList.add('hidden');
@@ -944,17 +1021,14 @@
         return;
       }
 
-      // Custom modal (alerts, prompts) — hidden via .active class.
       closeModal();
 
-      // Thank you / receipt modal.
       var tModal = document.getElementById('thankyouModal');
       if (tModal && tModal.classList.contains('active')) {
         tModal.classList.remove('active');
         document.body.style.overflow = '';
       }
 
-      // Payment failed modal.
       var fModal = document.getElementById('paymentFailedModal');
       if (fModal && fModal.classList.contains('active')) {
         fModal.classList.remove('active');
@@ -1100,7 +1174,6 @@
 
   // =============================================================
   // GUEST SESSION SYSTEM
-  // Cookie-based — no session token ever lives in localStorage.
   // =============================================================
   var currentGuest = null;
   if (window.GuestSession && window.GuestSession.isGuestSessionValid()) {
@@ -1111,12 +1184,10 @@
   }
 
   function renderGuestNav() {
-    // Delegate to GuestSession — it owns the nav DOM now.
     if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
       window.GuestSession.updateNavDOM();
       return;
     }
-    // Fallback (only if GuestSession failed to load).
     var loginNav = document.getElementById("guestNav");
     var profileNav = document.getElementById("guestProfileNav");
     var mLoginNav = document.getElementById("mGuestNav");
@@ -1453,19 +1524,30 @@ if (list.length === 0) {
 
   // =============================================================
   // OPEN BOOKING
+  //
+  // [RETURN-TO-BOOKING] When the guest is not logged in, the popup
+  // now offers BOTH Sign In and Register. Whichever they click, we
+  // save the booking intent to sessionStorage before redirecting so
+  // the flow can resume on the other side.
   // =============================================================
   function openBooking() {
     if (!currentGuest) {
-      showModal("Login Required", 
-        "Please create a guest account to book this homestay.",
+      showModal("Sign In Required", 
+        "Please sign in or create a free account to complete your booking. It only takes 30 seconds — and your booking picks up right where you left off.",
         [
-          { label: 'Cancel', class: 'btn-secondary', value: false },
-          { label: 'Register Now →', class: 'btn-primary', value: true }
+          { label: 'Cancel', class: 'btn-secondary', value: 'cancel' },
+          { label: 'Sign In', class: 'btn-outline', value: 'login' },
+          { label: 'Register Now →', class: 'btn-primary', value: 'register' }
         ]
       ).then(function(result) {
-        if (result) {
+        if (result === 'register') {
+          savePendingBookingIntent();
           window.location.href = '/register.html';
+        } else if (result === 'login') {
+          savePendingBookingIntent();
+          window.location.href = '/login.html';
         }
+        // result === 'cancel' → do nothing
       });
       return;
     }
@@ -1534,8 +1616,7 @@ if (list.length === 0) {
   }
 
   // =============================================================
-  // PROCESS PAYMENT — cookie-only, no Bearer token, all POSTs
-  // carry credentials so the HttpOnly session cookie rides along.
+  // PROCESS PAYMENT
   // =============================================================
   async function processPayment() {
     if (!currentGuest || !currentGuest.id) {
@@ -1586,7 +1667,6 @@ if (list.length === 0) {
       return;
     }
 
-    // Disable the button so a double-click can't fire two bookings.
     var payBtn = document.querySelector('#bookingModal button[onclick="processPayment()"]');
     if (payBtn) {
       payBtn.disabled = true;
@@ -1602,7 +1682,6 @@ if (list.length === 0) {
       }
     };
 
-    // Locked progress modal — step 1.
     showLockedModal(
       'Preparing Payment…',
       '<div style="text-align:center;padding:18px 0;">' +
@@ -1653,7 +1732,6 @@ if (list.length === 0) {
       window.lastCreatedBooking = booking;
       sessionStorage.setItem('kd_pending_booking', JSON.stringify(booking));
 
-      // Step 2 — talking to CHIP.
       updateLockedModal(
         'Connecting to CHIP…',
         '<div style="text-align:center;padding:18px 0;">' +
@@ -1680,7 +1758,6 @@ if (list.length === 0) {
         return;
       }
 
-      // Step 3 — about to redirect.
       updateLockedModal(
         'Redirecting to FPX…',
         '<div style="text-align:center;padding:18px 0;">' +
@@ -1691,8 +1768,6 @@ if (list.length === 0) {
 
       localStorage.setItem('kd_guest_pending_payment', JSON.stringify(booking));
 
-      // Small delay so the guest sees the final step before the page
-      // navigates. The modal stays visible during the redirect.
       setTimeout(function () {
         window.location.href = payment.url;
       }, 500);
@@ -1715,12 +1790,10 @@ if (list.length === 0) {
 
   if (!bookingId) return;
 
-  // Clean URL so a refresh doesn't re-trigger
   if (window.history && window.history.replaceState) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  // ---- Case 1: user returned from CHIP with success_redirect ----
   if (paymentReturn === '1') {
     showModal(
       'Verifying Payment…',
@@ -1733,9 +1806,8 @@ if (list.length === 0) {
 
     let verified = false;
     let verifiedBooking = null;
-    let terminalStatus = null;   // 'refunded' | 'cancelled' | 'expired' | 'failed' | null
+    let terminalStatus = null;
 
-    // Poll up to 5 times, 2s apart (~10s total)
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
         const res = await fetch(API_BASE + '/verify-payment', {
@@ -1760,7 +1832,6 @@ if (list.length === 0) {
       await new Promise(r => setTimeout(r, 2000));
     }
 
-    // Close the checking modal
     const checkOverlay = document.getElementById('customModal');
     if (checkOverlay) checkOverlay.classList.remove('active');
 
@@ -1805,7 +1876,6 @@ if (list.length === 0) {
       return;
     }
 
-    // Still pending after 10s
     showModal(
       'Payment Still Processing',
       'Your payment is being processed by CHIP.<br><br>' +
@@ -1821,7 +1891,6 @@ if (list.length === 0) {
     return;
   }
 
-  // ---- Case 2: user cancelled or payment failed ----
   if (params.get('payment') === 'cancel' || params.get('payment') === 'failed' || statusId === '3') {
     let csrf = localStorage.getItem('kd_csrf_token');
     if (!csrf) {
@@ -1893,7 +1962,6 @@ if (list.length === 0) {
     return;
   }
 
-  // ---- Case 3: other status ----
   showModal(
     'Payment Status',
     'Your payment is being processed.<br><br>Booking ID: <strong>' + bookingId +
@@ -2004,22 +2072,8 @@ if (list.length === 0) {
     
   // =============================================================
   // INITIALIZATION
-  //
-  // [FIX #5] Before rendering the guest nav, probe the server for the
-  // current session. Previously the nav trusted localStorage alone, so an
-  // expired cookie would leave the user seeing a phantom "logged in"
-  // header until they tried to book and got a 401.
-  //
-  // Behaviour:
-  //  - Server says authenticated  → adopt the server profile as truth.
-  //  - Server says not logged in  → clear local state so the header is
-  //                                 consistent with reality.
-  //  - Network error              → leave local state alone (offline
-  //                                 users shouldn't be logged out just
-  //                                 because the probe failed).
   // =============================================================
   (async function init() {
-    // ---- [FIX #5] Reconcile session state with the server ----
     try {
       const sessionRes = await fetch('/api/guest-session', {
         credentials: 'include',
@@ -2034,7 +2088,6 @@ if (list.length === 0) {
             window.GuestSession.setSession(currentGuest);
           }
         } else {
-          // Server explicitly says "not authenticated" — clear the phantom.
           currentGuest = null;
           try { localStorage.removeItem('kd_guest'); } catch (e) {}
           try { localStorage.removeItem('kd_csrf_token'); } catch (e) {}
@@ -2044,8 +2097,6 @@ if (list.length === 0) {
         }
       }
     } catch (e) {
-      // Network failure — leave local state alone so offline users still
-      // see their name in the header.
       console.warn('Session probe failed; using local guest state.', e.message);
     }
 
@@ -2106,6 +2157,11 @@ if (list.length === 0) {
               renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
             }
           }
+
+          // [RETURN-TO-BOOKING] If the guest just logged in / registered
+          // after clicking Book Now, restore their intent now that
+          // listings are loaded.
+          restorePendingBookingIntent();
         })
         .catch(function(err) {
           var grid = document.getElementById("homestayGrid");
