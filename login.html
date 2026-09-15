@@ -324,12 +324,10 @@
   }
 
   function renderGuestNav() {
-    // GuestSession owns the DOM updates now; this hook just runs it.
     if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
       window.GuestSession.updateNavDOM();
       return;
     }
-    // Fallback if GuestSession failed to load for any reason.
     var loginNav = document.getElementById("guestNav");
     var profileNav = document.getElementById("guestProfileNav");
     var mLoginNav = document.getElementById("mGuestNav");
@@ -355,9 +353,12 @@
 
   /* ============================================================
    * LOGIN HANDLER — cookie-based.
-   * The server no longer returns the session token; the HttpOnly
-   * cookie is set automatically via Set-Cookie. We only persist
-   * the guest profile + expiry timestamp locally for the UI.
+   *
+   * [THIS REVISION] After a successful login, check whether the
+   * guest arrived here from a "Book Now" attempt. If so, return to
+   * /?resume_booking=1 so index.html can reopen the booking modal
+   * with the listing and dates pre-filled. Otherwise, keep the old
+   * behaviour of sending the guest to /mybookings.html.
    * ============================================================ */
   async function handleLogin(e) {
     e.preventDefault();
@@ -393,11 +394,9 @@
       if (data.success && data.guest) {
         currentGuest = data.guest;
 
-        // Persist guest profile + TTL. NO TOKEN — the cookie carries it.
         if (window.GuestSession && typeof window.GuestSession.setSession === 'function') {
           window.GuestSession.setSession(data.guest, data.expiresIn);
         } else {
-          // Fallback if GuestSession failed to load.
           try {
             localStorage.setItem('kd_guest', JSON.stringify(data.guest));
             var ttl = Number(data.expiresIn) || 7200;
@@ -405,16 +404,27 @@
           } catch (e) {}
         }
 
-        // CSRF token is still returned in the body — that's fine to
-        // keep in JS because it is not a session credential.
         if (data.csrfToken) {
           try { localStorage.setItem('kd_csrf_token', data.csrfToken); } catch (e) {}
         }
 
         renderGuestNav();
 
+        // Return-to-booking: if there's a pending intent, go back to
+        // the listing the guest was trying to book. Otherwise default
+        // to the bookings page.
+        let hasPendingIntent = false;
+        try {
+          hasPendingIntent = !!sessionStorage.getItem('kd_pending_booking_intent');
+        } catch (e) {}
+
         await showAlert('Login Successful', 'You have been logged in successfully. Your session will expire in 2 hours.');
-        window.location.href = '/mybookings.html';
+
+        if (hasPendingIntent) {
+          window.location.href = '/?resume_booking=1';
+        } else {
+          window.location.href = '/mybookings.html';
+        }
       } else {
         errorEl.textContent = data.error || 'Login failed. Please try again.';
         errorEl.classList.remove('hidden');
