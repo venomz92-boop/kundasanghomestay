@@ -45,7 +45,6 @@
   .copy-btn:hover { background: #1a4d3e; }
   .copy-btn.copied { background: #16a34a; }
 
-  /* Payment method selector in Mark as Paid modal */
   .method-option {
     display: flex;
     align-items: center;
@@ -65,6 +64,18 @@
   .method-option input[type="radio"] { margin: 0; }
   .method-option .method-label { font-weight: 700; font-size: 13px; color: #212121; }
   .method-option .method-desc { font-size: 11px; color: #6b7280; margin-top: 1px; }
+
+  .receipt-drop {
+    border: 2px dashed #cbd5e1;
+    background: #fafafa;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: all 0.15s ease;
+  }
+  .receipt-drop:hover { border-color: #0F382E; background: #f0fdf4; }
+  .receipt-drop.uploading { opacity: 0.6; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -97,20 +108,24 @@
   <div id="mainContent" class="hidden">
 
     <div class="mb-8">
-      <h1 class="font-poppins font-700 text-[28px] text-[#212121]">Manual Payout Queue</h2>
-      <p class="text-sm text-zinc-500 mt-1">Pay hosts from your bank app, then record the reference here. The host receives a Payout Statement email automatically.</p>
+      <h1 class="font-poppins font-700 text-[28px] text-[#212121]">Manual Payout Queue</h1>
+      <p class="text-sm text-zinc-500 mt-1">Pay hosts from your bank app, then upload the bank receipt and record the reference here. The host receives a Payout Statement email automatically.</p>
     </div>
 
-    <!-- ===== CHIP COMPLIANCE INFO ===== -->
+    <!-- ===== CHIP COMPLIANCE EVIDENCE ===== -->
     <div class="mb-6 p-5 rounded-2xl border border-blue-200 bg-blue-50">
       <div class="flex items-start gap-3">
-        <div class="text-2xl leading-none">📧</div>
+        <div class="text-2xl leading-none">📋</div>
         <div class="flex-1 min-w-0">
-          <div class="font-bold text-[14px] text-blue-900">The Payout Statement email IS your CHIP compliance receipt</div>
+          <div class="font-bold text-[14px] text-blue-900">CHIP compliance evidence is captured automatically</div>
           <p class="text-[12px] text-blue-800 mt-1 leading-relaxed">
-            Every time you click <strong>Mark as Paid</strong>, the host receives an automatic email containing the amount, booking ID, masked bank account, and your transfer reference. <strong>Do not delete these emails.</strong> They are the receipts CHIP will ask for when reviewing your Send API application.
+            Every payout you record captures <strong>two independent proofs</strong>:
           </p>
-          <p class="text-[11px] text-blue-700 mt-2 leading-relaxed">
+          <ul class="text-[12px] text-blue-800 mt-2 space-y-1 list-disc pl-5 leading-relaxed">
+            <li><strong>Host Official Receipt</strong> — the Payout Statement email sent to the host confirming their payout, with the transfer reference and amount.</li>
+            <li><strong>Platform Payment Receipt</strong> — the bank transfer receipt you upload (screenshot from your bank app showing the reference, recipient, and amount).</li>
+          </ul>
+          <p class="text-[11px] text-blue-700 mt-3 leading-relaxed">
             <strong>What to send CHIP at review:</strong> (1) the CSV export below, (2) your bank statement for the same period, (3) one sample Payout Statement email, (4) a short cover note explaining that guests paid via CHIP Collect and hosts were paid manually via DuitNow.
           </p>
         </div>
@@ -160,7 +175,7 @@
 
 <!-- ===== MARK AS PAID MODAL ===== -->
 <div id="markPaidModal" class="fixed inset-0 z-[100] hidden bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-  <div class="max-w-[500px] mx-auto bg-white rounded-2xl shadow-2xl mt-10 mb-10 overflow-hidden">
+  <div class="max-w-[540px] mx-auto bg-white rounded-2xl shadow-2xl mt-8 mb-10 overflow-hidden">
     <div class="p-6">
       <div class="flex items-center justify-between mb-4">
         <h3 class="font-poppins font-700 text-[20px] text-[#212121]">Mark as Paid</h3>
@@ -188,20 +203,40 @@
       </div>
 
       <label class="block text-xs font-bold text-zinc-600 mb-1">Bank Transfer Reference *</label>
-      <input id="markPaidReference" type="text" placeholder="e.g. DUITNOW-20260914-00123" class="form-input text-sm" maxlength="100" />
+      <input id="markPaidReference" type="text" placeholder="e.g. 799936816M" class="form-input text-sm" maxlength="100" />
+
+      <div class="mt-4">
+        <label class="block text-xs font-bold text-zinc-600 mb-1">Bank Receipt *</label>
+        <div class="text-[11px] text-zinc-500 mb-2">Upload the receipt from your bank app — the screenshot showing the reference, recipient name, and amount. This is your <strong>Platform Payment Receipt</strong> proof for CHIP.</div>
+
+        <div id="receiptDropZone" class="receipt-drop" onclick="document.getElementById('receiptFile').click()">
+          <svg class="mx-auto h-10 w-10 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          <div class="text-xs text-zinc-600 mt-2 font-semibold">Click to upload bank receipt</div>
+          <div class="text-[10px] text-zinc-400 mt-1">JPG, PNG up to 5MB</div>
+        </div>
+        <input id="receiptFile" type="file" accept="image/*" class="hidden" onchange="handleReceiptUpload(this)" />
+
+        <div id="receiptPreview" class="mt-3 hidden">
+          <div class="text-[11px] font-semibold text-emerald-700 mb-2">✓ Receipt uploaded — proof of payment captured</div>
+          <img id="receiptImg" class="w-full max-h-[280px] object-contain rounded-xl border border-zinc-200 bg-zinc-50" alt="Bank receipt preview" />
+          <button type="button" onclick="removeReceipt()" class="mt-2 text-xs text-red-600 font-semibold hover:underline">Remove and upload a different receipt</button>
+        </div>
+      </div>
 
       <label class="block text-xs font-bold text-zinc-600 mb-1 mt-4">Notes (optional)</label>
       <textarea id="markPaidNotes" rows="2" placeholder="Any notes about this transfer..." class="form-input text-sm resize-none" maxlength="300"></textarea>
 
       <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 leading-relaxed">
-        ⚠️ The host receives a Payout Statement email the moment you click Confirm. Make sure you have already sent the money in your bank app before confirming.
+        ⚠️ Confirm only after the money has already left your bank account. The host receives a Payout Statement email the moment you click Confirm. Your uploaded receipt is saved as your CHIP compliance evidence.
       </div>
 
       <div id="markPaidError" class="hidden mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700"></div>
 
       <div class="flex gap-3 mt-6">
         <button onclick="closeMarkPaidModal()" class="flex-1 btn-outline py-3">Cancel</button>
-        <button id="markPaidConfirmBtn" onclick="confirmMarkPaid()" class="flex-1 btn-primary py-3">Confirm Payout</button>
+        <button id="markPaidConfirmBtn" onclick="confirmMarkPaid()" class="flex-1 btn-primary py-3" disabled style="opacity:0.5; cursor:not-allowed;">Upload receipt to confirm</button>
       </div>
     </div>
   </div>
@@ -225,6 +260,11 @@
 var API_BASE = '/api';
 var currentMarkPaidId = null;
 var latestData = null;
+
+// Receipt upload state
+var receiptUploading = false;
+var currentReceiptUrl = null;
+var currentReceiptPublicId = null;
 
 function escapeHtml(s) {
   return String(s == null ? '' : s)
@@ -276,6 +316,94 @@ function fmtDate(iso) {
 
 function methodLabel(m) {
   return m === 'bank_qr' ? 'Bank QR' : 'Manual Transfer';
+}
+
+function updateConfirmButtonState() {
+  var btn = document.getElementById('markPaidConfirmBtn');
+  if (!btn) return;
+
+  if (receiptUploading) {
+    btn.disabled = true;
+    btn.textContent = 'Uploading receipt…';
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    return;
+  }
+
+  if (!currentReceiptUrl) {
+    btn.disabled = true;
+    btn.textContent = 'Upload receipt to confirm';
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    return;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Confirm Payout';
+  btn.style.opacity = '';
+  btn.style.cursor = '';
+}
+
+async function handleReceiptUpload(input) {
+  var file = input.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    await showAlert('Invalid File', 'Please upload an image file (JPG or PNG).');
+    input.value = '';
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    await showAlert('File Too Large', 'Receipt must be under 5MB. Try screenshotting at a smaller size or cropping.');
+    input.value = '';
+    return;
+  }
+
+  receiptUploading = true;
+  updateConfirmButtonState();
+
+  var dropZone = document.getElementById('receiptDropZone');
+  if (dropZone) dropZone.classList.add('uploading');
+
+  try {
+    var formData = new FormData();
+    formData.append('image', file);
+    formData.append('folder', 'kundasang-homestay/payout-receipts');
+
+    var res = await fetch(API_BASE + '/upload-image', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include'
+    });
+    var data = await res.json();
+
+    if (res.ok && data.url) {
+      currentReceiptUrl = data.url;
+      currentReceiptPublicId = data.publicId || null;
+      document.getElementById('receiptImg').src = data.url;
+      document.getElementById('receiptPreview').classList.remove('hidden');
+      if (dropZone) dropZone.classList.add('hidden');
+    } else {
+      await showAlert('Upload Failed', data.error || 'Could not upload receipt. Please try again.');
+    }
+  } catch (e) {
+    await showAlert('Network Error', 'Could not reach the server: ' + e.message);
+  } finally {
+    receiptUploading = false;
+    if (dropZone) dropZone.classList.remove('uploading');
+    updateConfirmButtonState();
+    input.value = '';
+  }
+}
+
+function removeReceipt() {
+  currentReceiptUrl = null;
+  currentReceiptPublicId = null;
+  document.getElementById('receiptPreview').classList.add('hidden');
+  document.getElementById('receiptImg').src = '';
+  var dropZone = document.getElementById('receiptDropZone');
+  if (dropZone) dropZone.classList.remove('hidden');
+  updateConfirmButtonState();
 }
 
 async function loadData() {
@@ -400,14 +528,23 @@ function renderHistory(items) {
   }
 
   var rows = items.map(function(h) {
+    var receiptCell = h.receiptUrl
+      ? '<a href="' + escapeHtml(h.receiptUrl) + '" target="_blank" rel="noopener" class="text-[#0F382E] font-semibold hover:underline">📎 View</a>'
+      : '<span class="text-zinc-400">—</span>';
+
+    var hostReceiptCell = h.emailSent
+      ? '<span class="text-emerald-700 font-semibold" title="Sent to ' + escapeHtml(h.hostEmail) + ' at ' + fmtDate(h.emailSentAt) + '">✓ Sent</span>'
+      : '<span class="text-red-600 font-semibold" title="' + escapeHtml(h.emailError || 'Failed') + '">✗ Failed</span>';
+
     return '' +
       '<tr class="border-b border-zinc-100 hover:bg-zinc-50">' +
         '<td class="p-3 text-xs font-mono">' + escapeHtml(h.bookingId) + '</td>' +
         '<td class="p-3 text-xs">' + escapeHtml(h.hostName) + '</td>' +
-        '<td class="p-3 text-xs">' + escapeHtml(h.homestayName) + '</td>' +
         '<td class="p-3 text-xs font-bold text-[#0F382E]">' + fmtMoney(h.amount) + '</td>' +
         '<td class="p-3 text-[11px]">' + escapeHtml(methodLabel(h.method)) + '</td>' +
         '<td class="p-3 text-[11px] font-mono">' + escapeHtml(h.reference) + '</td>' +
+        '<td class="p-3 text-[11px]">' + hostReceiptCell + '</td>' +
+        '<td class="p-3 text-[11px]">' + receiptCell + '</td>' +
         '<td class="p-3 text-[11px] text-zinc-500">' + fmtDate(h.paidAt) + '</td>' +
       '</tr>';
   }).join('');
@@ -419,10 +556,11 @@ function renderHistory(items) {
           '<tr>' +
             '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Booking ID</th>' +
             '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Host</th>' +
-            '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Homestay</th>' +
             '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Amount</th>' +
             '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Method</th>' +
             '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Reference</th>' +
+            '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Host Receipt</th>' +
+            '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Bank Receipt</th>' +
             '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Date Paid</th>' +
           '</tr>' +
         '</thead>' +
@@ -459,9 +597,20 @@ function openMarkPaidModal(bookingId) {
   }
 
   currentMarkPaidId = bookingId;
+  currentReceiptUrl = null;
+  currentReceiptPublicId = null;
+  receiptUploading = false;
+
   document.getElementById('markPaidReference').value = '';
   document.getElementById('markPaidNotes').value = '';
   document.getElementById('markPaidError').classList.add('hidden');
+
+  // Reset the receipt UI
+  document.getElementById('receiptPreview').classList.add('hidden');
+  document.getElementById('receiptImg').src = '';
+  document.getElementById('receiptDropZone').classList.remove('hidden');
+  document.getElementById('receiptDropZone').classList.remove('uploading');
+  document.getElementById('receiptFile').value = '';
 
   // Reset the payment method to default (manual_transfer)
   document.querySelectorAll('input[name="markPaidMethod"]').forEach(function(radio) {
@@ -474,10 +623,12 @@ function openMarkPaidModal(bookingId) {
   document.getElementById('markPaidSummary').innerHTML = '' +
     '<div class="flex justify-between"><span class="text-zinc-500">Homestay</span><span class="font-semibold">' + escapeHtml(p.homestayName) + '</span></div>' +
     '<div class="flex justify-between"><span class="text-zinc-500">Host</span><span class="font-semibold">' + escapeHtml(p.hostName) + '</span></div>' +
+    '<div class="flex justify-between"><span class="text-zinc-500">Host Email</span><span class="font-semibold break-all text-right ml-2">' + escapeHtml(p.hostEmail || '—') + '</span></div>' +
     '<div class="flex justify-between"><span class="text-zinc-500">Bank</span><span class="font-semibold">' + escapeHtml(p.bankName) + '</span></div>' +
     '<div class="flex justify-between"><span class="text-zinc-500">Account</span><span class="font-mono font-semibold">' + escapeHtml(p.accountNumber) + '</span></div>' +
     '<div class="flex justify-between border-t border-black/5 pt-2 mt-2"><span class="text-zinc-500">Amount</span><span class="text-lg font-bold text-[#0F382E]">' + fmtMoney(p.amount) + '</span></div>';
 
+  updateConfirmButtonState();
   document.getElementById('markPaidModal').classList.remove('hidden');
   setTimeout(function() {
     document.getElementById('markPaidReference').focus();
@@ -487,6 +638,9 @@ function openMarkPaidModal(bookingId) {
 function closeMarkPaidModal() {
   document.getElementById('markPaidModal').classList.add('hidden');
   currentMarkPaidId = null;
+  currentReceiptUrl = null;
+  currentReceiptPublicId = null;
+  receiptUploading = false;
 }
 
 // Toggle visual "selected" state on the payment method options
@@ -510,8 +664,16 @@ async function confirmMarkPaid() {
   var paymentMethod = methodEl ? methodEl.value : 'manual_transfer';
   var errEl = document.getElementById('markPaidError');
 
+  errEl.classList.add('hidden');
+
   if (!reference) {
     errEl.textContent = 'Transfer reference is required. Copy it from your bank app.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  if (!currentReceiptUrl) {
+    errEl.textContent = 'Bank receipt is required. Upload the receipt image from your bank app.';
     errEl.classList.remove('hidden');
     return;
   }
@@ -530,7 +692,9 @@ async function confirmMarkPaid() {
         bookingId: currentMarkPaidId,
         reference: reference,
         notes: notes,
-        paymentMethod: paymentMethod
+        paymentMethod: paymentMethod,
+        receiptUrl: currentReceiptUrl,
+        receiptPublicId: currentReceiptPublicId
       })
     });
 
@@ -546,16 +710,29 @@ async function confirmMarkPaid() {
 
     closeMarkPaidModal();
 
+    var receiptLink = currentReceiptUrl
+      ? '<a href="' + escapeHtml(currentReceiptUrl) + '" target="_blank" rel="noopener" style="color:#0F382E;font-weight:700;text-decoration:underline;">View receipt</a>'
+      : '';
+
     var msg = '<div style="text-align:left;line-height:1.6;">' +
-      '<p>✓ Payout recorded for <strong>' + data.bookingId + '</strong>.</p>' +
-      '<p style="margin-top:8px;">Amount: <strong>' + fmtMoney(data.amount) + '</strong></p>' +
-      '<p>Method: <strong>' + methodLabel(data.method) + '</strong></p>' +
-      '<p>Reference: <code>' + escapeHtml(data.reference) + '</code></p>' +
-      '<p style="margin-top:12px;padding:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;color:#166534;">' +
+      '<p style="font-size:15px;font-weight:700;color:#0F382E;">✓ Payout recorded for ' + escapeHtml(data.bookingId) + '</p>' +
+      '<div style="margin-top:12px;padding:12px;background:#f8f5f0;border-radius:10px;font-size:13px;">' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#6b7280;">Amount</span><strong>' + fmtMoney(data.amount) + '</strong></div>' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#6b7280;">Method</span><strong>' + methodLabel(data.method) + '</strong></div>' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#6b7280;">Reference</span><code style="font-weight:700;">' + escapeHtml(data.reference) + '</code></div>' +
+      '</div>' +
+      '<div style="margin-top:12px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;font-size:12px;color:#166534;">' +
+        '<div style="font-weight:700;margin-bottom:6px;">📧 Host Official Receipt</div>' +
         (data.emailSent
-          ? '📧 Payout Statement email sent to host. This email is your CHIP compliance receipt — do not delete it.'
-          : '⚠️ Email could not be sent: ' + (data.emailError || 'unknown error') + '. Contact the host manually.') +
-      '</p></div>';
+          ? '<div>Payout Statement emailed to <strong>' + escapeHtml(data.hostEmail || 'the host') + '</strong>. This is your proof the host was notified.</div>'
+          : '<div style="color:#991b1b;">⚠️ Email could not be sent to the host (' + escapeHtml(data.emailError || 'unknown error') + '). Contact the host manually and note this for CHIP review.</div>') +
+      '</div>' +
+      '<div style="margin-top:8px;padding:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;font-size:12px;color:#1e40af;">' +
+        '<div style="font-weight:700;margin-bottom:6px;">📎 Platform Payment Receipt</div>' +
+        '<div>Bank receipt saved. ' + receiptLink + '</div>' +
+      '</div>' +
+      '<p style="margin-top:12px;font-size:11px;color:#6b7280;">Both receipts are now recorded. They will appear in your next CSV export for CHIP.</p>' +
+      '</div>';
 
     await showAlert('Payout Recorded', msg);
     await loadData();
@@ -595,8 +772,25 @@ function exportCsv() {
     return;
   }
 
+  // 13-column settlement report. Order chosen so the two CHIP compliance
+  // evidence columns (Host Official Receipt + Platform Payment Receipt)
+  // sit side-by-side just before the notes.
   var rows = [
-    ['Date Paid (MYT)', 'Booking ID', 'Host Name', 'Host Email', 'Homestay', 'Amount (RM)', 'Method', 'Transfer Reference', 'Notes']
+    [
+      'Date Paid (MYT)',
+      'Booking ID',
+      'Host Name',
+      'Host Email',
+      'Homestay',
+      'Host Bank',
+      'Host Account No.',
+      'Amount (RM)',
+      'Method',
+      'Transfer Reference',
+      'Host Official Receipt (Email Sent At, MYT)',
+      'Platform Payment Receipt (URL)',
+      'Notes'
+    ]
   ];
 
   latestData.history.forEach(function (h) {
@@ -606,9 +800,13 @@ function exportCsv() {
       h.hostName || '',
       h.hostEmail || '',
       h.homestayName || '',
+      h.hostBank || '',
+      h.hostAccount || '',
       Number(h.amount || 0).toFixed(2),
       methodLabel(h.method),
       h.reference || '',
+      h.emailSent ? formatCsvDate(h.emailSentAt) : 'FAILED',
+      h.receiptUrl || '',
       h.notes || ''
     ]);
   });
@@ -630,7 +828,7 @@ function exportCsv() {
   var a = document.createElement('a');
   var today = new Date().toISOString().slice(0, 10);
   a.href = url;
-  a.download = 'kundasang-manual-payouts-' + today + '.csv';
+  a.download = 'kundasang-settlement-report-' + today + '.csv';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
