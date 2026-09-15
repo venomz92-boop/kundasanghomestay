@@ -404,13 +404,11 @@
    * PRINT
    * ============================================================ */
   @media print {
-    @page { size: A4; margin: 12mm; }
+    @page { size: A4; margin: 10mm; }
     body { background: #fff !important; }
-
-    /* Generic: anything marked .no-print never prints */
     .no-print { display: none !important; }
 
-    /* --- Normal report print (NOT printing the receipt) --- */
+    /* --- Normal report print --- */
     body:not(.printing-receipt) .report-wrap {
       max-width: 100% !important;
       margin: 0 !important;
@@ -430,20 +428,13 @@
     body:not(.printing-receipt) .receipt-cell img { max-width: 110px; max-height: 140px; }
     body:not(.printing-receipt) .report-logo { width: 56px; height: 56px; }
 
-    /* --- Receipt-only print --- */
-    /* Hide every direct child of body EXCEPT the modal. */
+    /* --- Receipt-only print (compressed to fit one page) --- */
     body.printing-receipt > *:not(#receiptModal) { display: none !important; }
 
-    /* Force the modal visible and in normal flow. This must override
-     * the .hidden / inline styles that the modal normally carries. */
     body.printing-receipt #receiptModal {
       display: block !important;
       position: static !important;
       inset: auto !important;
-      top: auto !important;
-      right: auto !important;
-      bottom: auto !important;
-      left: auto !important;
       width: 100% !important;
       height: auto !important;
       max-width: 100% !important;
@@ -467,17 +458,99 @@
       overflow: visible !important;
     }
 
-    /* The modal's button bar is hidden from print */
     body.printing-receipt #receiptModal .no-print { display: none !important; }
 
-    /* Receipt image sizing on paper */
-    body.printing-receipt #receiptModal img {
-      max-width: 260px !important;
-      height: auto !important;
+    /* Receipt body — compress everything for one page */
+    body.printing-receipt #receiptBody {
+      padding: 0 !important;
     }
 
-    /* Keep receipt content together on one page if possible */
-    body.printing-receipt #receiptBody > div {
+    body.printing-receipt .rcpt-wrapper {
+      font-size: 11px !important;
+      line-height: 1.35 !important;
+    }
+
+    body.printing-receipt .rcpt-header {
+      padding-bottom: 6px !important;
+      margin-bottom: 10px !important;
+    }
+    body.printing-receipt .rcpt-header .rcpt-brand {
+      font-size: 16px !important;
+    }
+    body.printing-receipt .rcpt-header .rcpt-subtitle {
+      font-size: 9px !important;
+      margin-top: 2px !important;
+      letter-spacing: 1px !important;
+    }
+
+    body.printing-receipt .rcpt-greeting {
+      font-size: 11px !important;
+      margin-bottom: 10px !important;
+      line-height: 1.4 !important;
+    }
+
+    body.printing-receipt .rcpt-amount-box {
+      padding: 10px 12px !important;
+      margin-bottom: 10px !important;
+      border-radius: 8px !important;
+    }
+    body.printing-receipt .rcpt-amount-label { font-size: 9px !important; }
+    body.printing-receipt .rcpt-amount-value {
+      font-size: 22px !important;
+      margin: 2px 0 !important;
+    }
+    body.printing-receipt .rcpt-amount-sub { font-size: 10px !important; }
+
+    body.printing-receipt .rcpt-section-label {
+      font-size: 9px !important;
+      margin-bottom: 4px !important;
+      letter-spacing: 0.8px !important;
+    }
+
+    body.printing-receipt .rcpt-details-table {
+      font-size: 10.5px !important;
+      margin-bottom: 8px !important;
+    }
+    body.printing-receipt .rcpt-details-table td {
+      padding: 3px 0 !important;
+    }
+
+    body.printing-receipt .rcpt-notes {
+      padding: 6px 10px !important;
+      margin-top: 8px !important;
+      font-size: 10px !important;
+      border-radius: 6px !important;
+    }
+
+    body.printing-receipt .rcpt-img-block {
+      margin-top: 10px !important;
+      padding-top: 8px !important;
+    }
+    body.printing-receipt .rcpt-img-block img {
+      max-height: 180px !important;
+      max-width: 100% !important;
+      width: auto !important;
+      height: auto !important;
+      object-fit: contain !important;
+      border-radius: 6px !important;
+    }
+
+    body.printing-receipt .rcpt-confirm {
+      margin-top: 10px !important;
+      padding: 8px 10px !important;
+      font-size: 10px !important;
+      border-radius: 6px !important;
+    }
+
+    body.printing-receipt .rcpt-footer {
+      margin-top: 10px !important;
+      padding-top: 8px !important;
+      font-size: 8.5px !important;
+      line-height: 1.4 !important;
+    }
+
+    /* Keep sections from splitting awkwardly */
+    body.printing-receipt .rcpt-wrapper > div {
       page-break-inside: avoid;
       break-inside: avoid;
     }
@@ -595,10 +668,7 @@
   </div>
 </div>
 
-<!-- ================= Payout Statement modal =================
-     NOTE: no `no-print` on this outer wrapper — we need the modal
-     itself to be printable when we print only the receipt. The
-     inner button bar carries `no-print` so it disappears on paper. -->
+<!-- ================= Payout Statement modal ================= -->
 <div id="receiptModal" class="fixed inset-0 z-[110] hidden bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
   <div class="max-w-[640px] mx-auto bg-white rounded-2xl shadow-2xl mt-4 sm:mt-8 mb-6 sm:mb-10 overflow-hidden">
 
@@ -882,37 +952,37 @@ function renderReceiptHtml(h) {
     : '<span style="color:#b91c1c;font-weight:700;">\u26A0\uFE0F The Payout Statement email could not be delivered to the host. This record is for internal audit only.</span>';
 
   var receiptImgBlock = h.receiptUrl
-    ? '<div style="margin-top:22px;padding-top:16px;border-top:1px dashed #e5e7eb;">' +
-        '<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Bank Transfer Receipt (Proof of Payment)</div>' +
+    ? '<div class="rcpt-img-block" style="margin-top:22px;padding-top:16px;border-top:1px dashed #e5e7eb;">' +
+        '<div class="rcpt-section-label" style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Bank Transfer Receipt (Proof of Payment)</div>' +
         '<img src="' + escapeHtml(h.receiptUrl) + '" alt="Bank receipt" style="max-width:100%;max-height:400px;border-radius:8px;border:1px solid #e5e7eb;display:block;" />' +
       '</div>'
     : '';
 
   var notesBlock = h.notes
-    ? '<div style="margin-top:16px;padding:10px 12px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;font-size:11px;color:#78350f;line-height:1.5;"><strong>Notes:</strong> ' + safe(h.notes) + '</div>'
+    ? '<div class="rcpt-notes" style="margin-top:16px;padding:10px 12px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;font-size:11px;color:#78350f;line-height:1.5;"><strong>Notes:</strong> ' + safe(h.notes) + '</div>'
     : '';
 
   return '' +
-    '<div style="font-family:Poppins,Arial,sans-serif;color:#212121;font-size:13px;line-height:1.5;">' +
+    '<div class="rcpt-wrapper" style="font-family:Poppins,Arial,sans-serif;color:#212121;font-size:13px;line-height:1.5;">' +
 
-      '<div style="text-align:center;border-bottom:2px solid #0F382E;padding-bottom:14px;margin-bottom:20px;">' +
-        '<div style="font-size:20px;font-weight:800;color:#0F382E;letter-spacing:-0.3px;">Kundasang Homestay</div>' +
-        '<div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;">Payout Statement</div>' +
+      '<div class="rcpt-header" style="text-align:center;border-bottom:2px solid #0F382E;padding-bottom:14px;margin-bottom:20px;">' +
+        '<div class="rcpt-brand" style="font-size:20px;font-weight:800;color:#0F382E;letter-spacing:-0.3px;">Kundasang Homestay</div>' +
+        '<div class="rcpt-subtitle" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;">Payout Statement</div>' +
       '</div>' +
 
-      '<div style="font-size:13.5px;color:#374151;line-height:1.6;margin-bottom:18px;">' +
+      '<div class="rcpt-greeting" style="font-size:13.5px;color:#374151;line-height:1.6;margin-bottom:18px;">' +
         'Hello <strong>' + safe(h.hostName || 'Host') + '</strong>,<br>' +
         'A payout for a completed guest stay at <strong>' + safe(h.homestayName || 'your property') + '</strong> has been sent to your bank account.' +
       '</div>' +
 
-      '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:18px;text-align:center;margin-bottom:20px;">' +
-        '<div style="font-size:10px;color:#166534;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Amount Transferred</div>' +
-        '<div style="font-size:28px;font-weight:800;color:#0F382E;margin:6px 0;">RM ' + amount + '</div>' +
-        '<div style="font-size:12px;color:#166534;">To ' + bank + ' ' + bankMasked + '</div>' +
+      '<div class="rcpt-amount-box" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:18px;text-align:center;margin-bottom:20px;">' +
+        '<div class="rcpt-amount-label" style="font-size:10px;color:#166534;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Amount Transferred</div>' +
+        '<div class="rcpt-amount-value" style="font-size:28px;font-weight:800;color:#0F382E;margin:6px 0;">RM ' + amount + '</div>' +
+        '<div class="rcpt-amount-sub" style="font-size:12px;color:#166534;">To ' + bank + ' ' + bankMasked + '</div>' +
       '</div>' +
 
-      '<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Payout Details</div>' +
-      '<table style="width:100%;font-size:12.5px;border-collapse:collapse;margin-bottom:16px;color:#374151;">' +
+      '<div class="rcpt-section-label" style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Payout Details</div>' +
+      '<table class="rcpt-details-table" style="width:100%;font-size:12.5px;border-collapse:collapse;margin-bottom:16px;color:#374151;">' +
         '<tr><td style="padding:5px 0;color:#6b7280;">Reference</td><td style="padding:5px 0;text-align:right;font-family:\'Courier New\',monospace;font-weight:700;">' + ref + '</td></tr>' +
         '<tr><td style="padding:5px 0;color:#6b7280;">Method</td><td style="padding:5px 0;text-align:right;">' + escapeHtml(methodTxt) + '</td></tr>' +
         '<tr><td style="padding:5px 0;color:#6b7280;">Date paid</td><td style="padding:5px 0;text-align:right;">' + formatDT(h.paidAt) + '</td></tr>' +
@@ -922,11 +992,11 @@ function renderReceiptHtml(h) {
       notesBlock +
       receiptImgBlock +
 
-      '<div style="margin-top:22px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:11.5px;color:#475569;line-height:1.6;">' +
+      '<div class="rcpt-confirm" style="margin-top:22px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:11.5px;color:#475569;line-height:1.6;">' +
         sentLine +
       '</div>' +
 
-      '<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center;line-height:1.6;">' +
+      '<div class="rcpt-footer" style="margin-top:20px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center;line-height:1.6;">' +
         'Kundasang Homestay \u2022 Operated by NICK\'S CREATIONS (RNU20183012)<br>' +
         '\u00A9 ' + new Date().getFullYear() + ' Kundasang Homestay' +
       '</div>' +
