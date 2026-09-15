@@ -26,6 +26,13 @@
 // two evidence columns:
 //   - Host Official Receipt — timestamp the host was notified
 //   - Platform Payment Receipt — URL of the bank receipt image
+//
+// [LATEST REVISION]
+// The `receiptUrl` is now passed through to `sendHostPayoutEmail` so
+// the host's Payout Statement email embeds the actual bank receipt
+// image below the booking details. This gives the host a complete
+// self-contained record: amount, reference, transfer details, AND
+// the proof-of-transfer image — all in one email.
 import {
   corsHeaders,
   getClientIP,
@@ -253,7 +260,8 @@ export async function onRequestPost({ request, env }) {
             payoutId: reference,
             reference,
             paidAt: nowIso,
-            isManual: true
+            isManual: true,
+            receiptUrl: receiptUrl
           },
           env
         );
