@@ -12,6 +12,7 @@
 <script src="/csrf-auto.js"></script>
 <style>
   body { font-family: "Poppins", sans-serif; background: #F8F5F0; }
+
   .payout-card {
     background: #fff;
     border-radius: 16px;
@@ -23,6 +24,7 @@
   .payout-card.urgent { border-left: 4px solid #dc2626; }
   .payout-card.aging { border-left: 4px solid #f59e0b; }
   .payout-card.fresh { border-left: 4px solid #16a34a; }
+
   .bank-field {
     display: flex;
     align-items: center;
@@ -34,13 +36,20 @@
     margin-bottom: 6px;
     font-size: 13px;
   }
-  .bank-field .label { color: #6b7280; font-weight: 500; }
-  .bank-field .value { font-family: 'Courier New', monospace; font-weight: 700; color: #0F382E; }
+  .bank-field .label { color: #6b7280; font-weight: 500; flex-shrink: 0; }
+  .bank-field .value {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    color: #0F382E;
+    word-break: break-all;
+    min-width: 0;
+  }
   .copy-btn {
     background: #0F382E; color: #fff; border: none;
     padding: 4px 10px; border-radius: 999px; font-size: 10px;
     font-weight: 700; text-transform: uppercase; cursor: pointer;
     transition: background 0.2s;
+    flex-shrink: 0;
   }
   .copy-btn:hover { background: #1a4d3e; }
   .copy-btn.copied { background: #16a34a; }
@@ -55,13 +64,14 @@
     cursor: pointer;
     transition: all 0.15s ease;
     flex: 1;
+    min-width: 0;
   }
   .method-option:hover { border-color: #cbd5e1; background: #f8fafc; }
   .method-option.selected {
     border-color: #0F382E;
     background: #f0fdf4;
   }
-  .method-option input[type="radio"] { margin: 0; }
+  .method-option input[type="radio"] { margin: 0; flex-shrink: 0; }
   .method-option .method-label { font-weight: 700; font-size: 13px; color: #212121; }
   .method-option .method-desc { font-size: 11px; color: #6b7280; margin-top: 1px; }
 
@@ -76,75 +86,123 @@
   }
   .receipt-drop:hover { border-color: #0F382E; background: #f0fdf4; }
   .receipt-drop.uploading { opacity: 0.6; pointer-events: none; }
+
+  /* ============================================================
+   * MOBILE / SMALL SCREEN
+   * Tightens spacing so nothing forces a horizontal scroll and
+   * nothing looks "desktop on a phone".
+   * ============================================================ */
+  @media (max-width: 640px) {
+    .payout-card { padding: 14px; border-radius: 14px; }
+
+    .bank-field {
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+    .bank-field .value { font-size: 12px; }
+    .bank-field .copy-btn { padding: 3px 9px; font-size: 9px; }
+
+    .method-option {
+      padding: 10px 12px;
+      border-radius: 10px;
+    }
+    .method-option .method-label { font-size: 12px; }
+    .method-option .method-desc { font-size: 10px; }
+
+    /* History table: tighter cells so more fits before scrolling */
+    #historyList table th,
+    #historyList table td {
+      padding: 8px 8px !important;
+    }
+    #historyList table td { font-size: 11px !important; }
+  }
+
+  @media (max-width: 400px) {
+    .bank-field {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+    .bank-field .value {
+      font-size: 12px;
+      width: 100%;
+    }
+    .bank-field .copy-btn {
+      align-self: flex-end;
+      margin-top: -20px;
+    }
+  }
 </style>
 </head>
 <body>
 
-<header class="h-[72px] bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
-  <div class="max-w-[1200px] mx-auto h-full px-6 flex items-center justify-between">
-    <a href="/admin.html" class="flex items-center gap-3">
-      <img src="/logo.svg" alt="Kundasang Homestay" class="w-11 h-11" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
-      <div class="font-poppins font-800 text-[18px] tracking-[-0.5px] text-[#212121] leading-none">
-        KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px]"> • Homestay</span>
-        <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Manual Payout Queue</div>
+<header class="h-[64px] sm:h-[72px] bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
+  <div class="max-w-[1200px] mx-auto h-full px-3 sm:px-6 flex items-center justify-between gap-2">
+    <a href="/admin.html" class="flex items-center gap-2 sm:gap-3 min-w-0">
+      <img src="/logo.svg" alt="Kundasang Homestay" class="w-9 h-9 sm:w-11 sm:h-11 shrink-0" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
+      <div class="font-poppins font-800 text-[14px] sm:text-[18px] tracking-[-0.5px] text-[#212121] leading-none min-w-0">
+        KUNDASANG<span class="font-600 text-[#212121]/60 text-[12px] sm:text-[15px] hidden sm:inline"> • Homestay</span>
+        <div class="font-500 text-[9px] sm:text-[10px] tracking-[1.5px] sm:tracking-[2px] uppercase text-[#212121]/50 mt-1 truncate">Payout Queue</div>
       </div>
     </a>
-    <div class="flex items-center gap-3">
-      <a href="/admin.html" class="btn-outline" style="padding:8px 18px; font-size:11px;">← Back to Admin</a>
-      <button onclick="loadData()" class="btn-primary" style="padding:8px 18px; font-size:11px;">🔄 Refresh</button>
+    <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
+      <a href="/admin.html" class="btn-outline" style="padding:7px 11px; font-size:10px; white-space:nowrap;">← Admin</a>
+      <button onclick="loadData()" class="btn-primary" style="padding:7px 11px; font-size:10px; white-space:nowrap;">🔄 Refresh</button>
     </div>
   </div>
 </header>
 
-<div class="max-w-[1200px] mx-auto px-5 py-8">
+<div class="max-w-[1200px] mx-auto px-3 sm:px-5 py-5 sm:py-8">
 
-  <div id="authError" class="hidden max-w-[400px] mx-auto card p-8 text-center mt-16">
+  <div id="authError" class="hidden max-w-[400px] mx-auto card p-6 sm:p-8 text-center mt-10 sm:mt-16">
     <div class="text-4xl mb-3">🔒</div>
-    <h2 class="font-bold text-xl">Admin Login Required</h2>
+    <h2 class="font-bold text-lg sm:text-xl">Admin Login Required</h2>
     <p class="text-sm text-zinc-500 mt-2">You need to log in as admin to view this page.</p>
     <a href="/admin.html" class="btn-primary inline-block mt-5">Go to Admin Login</a>
   </div>
 
   <div id="mainContent" class="hidden">
 
-    <div class="mb-8">
-      <h1 class="font-poppins font-700 text-[28px] text-[#212121]">Manual Payout Queue</h1>
-      <p class="text-sm text-zinc-500 mt-1">Pay hosts from your bank app, then upload the bank receipt and record the reference here. The host receives a Payout Statement email automatically.</p>
+    <div class="mb-6 sm:mb-8">
+      <h1 class="font-poppins font-700 text-[22px] sm:text-[28px] text-[#212121]">Manual Payout Queue</h1>
+      <p class="text-xs sm:text-sm text-zinc-500 mt-1">Pay hosts from your bank app, then upload the bank receipt and record the reference here. The host receives a Payout Statement email automatically.</p>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-      <div class="card p-5">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Pending Payouts</div>
-        <div id="metricPendingCount" class="text-3xl font-bold mt-1 text-[#212121]">0</div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+      <div class="card p-3 sm:p-5">
+        <div class="text-[9px] sm:text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Pending Payouts</div>
+        <div id="metricPendingCount" class="text-xl sm:text-3xl font-bold mt-1 text-[#212121]">0</div>
       </div>
-      <div class="card p-5">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Total Owed</div>
-        <div id="metricPendingAmount" class="text-3xl font-bold mt-1 text-[#0F382E]">RM 0.00</div>
+      <div class="card p-3 sm:p-5">
+        <div class="text-[9px] sm:text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Total Owed</div>
+        <div id="metricPendingAmount" class="text-xl sm:text-3xl font-bold mt-1 text-[#0F382E]">RM 0.00</div>
       </div>
-      <div class="card p-5">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Paid Today</div>
-        <div id="metricPaidToday" class="text-3xl font-bold mt-1 text-emerald-600">0</div>
+      <div class="card p-3 sm:p-5">
+        <div class="text-[9px] sm:text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Paid Today</div>
+        <div id="metricPaidToday" class="text-xl sm:text-3xl font-bold mt-1 text-emerald-600">0</div>
       </div>
-      <div class="card p-5">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Paid This Week</div>
-        <div id="metricPaidWeek" class="text-3xl font-bold mt-1 text-emerald-600">RM 0.00</div>
+      <div class="card p-3 sm:p-5">
+        <div class="text-[9px] sm:text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Paid This Week</div>
+        <div id="metricPaidWeek" class="text-xl sm:text-3xl font-bold mt-1 text-emerald-600">RM 0.00</div>
       </div>
     </div>
 
-    <div class="mb-10">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="font-poppins font-700 text-[18px] text-[#212121]">Pending Payouts</h2>
-        <span class="text-xs text-zinc-500">Oldest first — pay these in order</span>
+    <div class="mb-8 sm:mb-10">
+      <div class="flex items-center justify-between mb-3 sm:mb-4 flex-wrap gap-2">
+        <h2 class="font-poppins font-700 text-[16px] sm:text-[18px] text-[#212121]">Pending Payouts</h2>
+        <span class="text-[10px] sm:text-xs text-zinc-500">Oldest first — pay these in order</span>
       </div>
-      <div id="pendingList" class="space-y-4"></div>
+      <div id="pendingList" class="space-y-3 sm:space-y-4"></div>
     </div>
 
     <div>
-      <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <h2 class="font-poppins font-700 text-[18px] text-[#212121]">Payout History</h2>
+      <div class="flex items-center justify-between mb-3 sm:mb-4 gap-2 flex-wrap">
+        <h2 class="font-poppins font-700 text-[16px] sm:text-[18px] text-[#212121]">Payout History</h2>
         <div class="flex gap-2 flex-wrap">
-          <button onclick="exportCsv()" class="btn-outline" style="padding:8px 16px; font-size:11px;">📥 Export CSV</button>
-          <button onclick="openPrintReport()" class="btn-primary" style="padding:8px 16px; font-size:11px; background:#0F382E;">🖨️ Print Report (PDF for CHIP)</button>
+          <button onclick="exportCsv()" class="btn-outline" style="padding:7px 12px; font-size:10px; white-space:nowrap;">📥 CSV</button>
+          <button onclick="openPrintReport()" class="btn-primary" style="padding:7px 12px; font-size:10px; white-space:nowrap; background:#0F382E;">🖨️ Print PDF</button>
         </div>
       </div>
       <div id="historyList" class="card p-0 overflow-hidden"></div>
@@ -153,18 +211,18 @@
   </div>
 </div>
 
-<div id="markPaidModal" class="fixed inset-0 z-[100] hidden bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-  <div class="max-w-[540px] mx-auto bg-white rounded-2xl shadow-2xl mt-8 mb-10 overflow-hidden">
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="font-poppins font-700 text-[20px] text-[#212121]">Mark as Paid</h3>
-        <button onclick="closeMarkPaidModal()" class="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center hover:bg-zinc-200">✕</button>
+<div id="markPaidModal" class="fixed inset-0 z-[100] hidden bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
+  <div class="max-w-[540px] mx-auto bg-white rounded-2xl shadow-2xl mt-4 sm:mt-8 mb-6 sm:mb-10 overflow-hidden">
+    <div class="p-4 sm:p-6">
+      <div class="flex items-center justify-between mb-3 sm:mb-4">
+        <h3 class="font-poppins font-700 text-[17px] sm:text-[20px] text-[#212121]">Mark as Paid</h3>
+        <button onclick="closeMarkPaidModal()" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-zinc-100 flex items-center justify-center hover:bg-zinc-200 shrink-0">✕</button>
       </div>
 
-      <div id="markPaidSummary" class="bg-[#F8F5F0] rounded-xl p-4 text-sm space-y-2 mb-4"></div>
+      <div id="markPaidSummary" class="bg-[#F8F5F0] rounded-xl p-3 sm:p-4 text-xs sm:text-sm space-y-2 mb-4"></div>
 
       <label class="block text-xs font-bold text-zinc-600 mb-2">How did you pay? *</label>
-      <div class="flex gap-3 mb-4">
+      <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4">
         <label class="method-option" data-method="bank_qr">
           <input type="radio" name="markPaidMethod" value="bank_qr" />
           <div>
@@ -213,9 +271,9 @@
 
       <div id="markPaidError" class="hidden mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700"></div>
 
-      <div class="flex gap-3 mt-6">
-        <button onclick="closeMarkPaidModal()" class="flex-1 btn-outline py-3">Cancel</button>
-        <button id="markPaidConfirmBtn" onclick="confirmMarkPaid()" class="flex-1 btn-primary py-3" disabled style="opacity:0.5; cursor:not-allowed;">Upload receipt to confirm</button>
+      <div class="flex gap-2 sm:gap-3 mt-5 sm:mt-6">
+        <button onclick="closeMarkPaidModal()" class="flex-1 btn-outline py-3 text-xs sm:text-sm">Cancel</button>
+        <button id="markPaidConfirmBtn" onclick="confirmMarkPaid()" class="flex-1 btn-primary py-3 text-xs sm:text-sm" disabled style="opacity:0.5; cursor:not-allowed;">Upload receipt to confirm</button>
       </div>
     </div>
   </div>
@@ -296,9 +354,6 @@ function methodLabel(m) {
 }
 
 function openPrintReport() {
-  // Try to open in a new tab. If the browser blocks the popup
-  // (some mobile browsers do), fall back to navigating in the
-  // same tab so the button never silently fails.
   var w = null;
   try {
     w = window.open('/admin-settlement-report.html', '_blank', 'noopener');
@@ -460,19 +515,19 @@ function renderPending(items) {
 
     return '' +
       '<div class="payout-card ' + urgencyClass + '">' +
-        '<div class="flex flex-wrap justify-between gap-4 items-start mb-3">' +
-          '<div class="flex-1 min-w-[220px]">' +
-            '<div class="font-poppins font-700 text-[17px] text-[#212121]">' + escapeHtml(p.homestayName) + '</div>' +
-            '<div class="text-xs text-zinc-500 mt-1">Booking <span class="font-mono font-bold text-red-600">' + escapeHtml(p.bookingId) + '</span></div>' +
-            '<div class="text-xs text-zinc-500 mt-0.5">Guest: <strong>' + escapeHtml(p.guestName) + '</strong></div>' +
-            '<div class="text-xs text-zinc-500 mt-0.5">' + escapeHtml(p.checkin) + ' → ' + escapeHtml(p.checkout) + ' (' + p.nights + ' night' + (p.nights === 1 ? '' : 's') + ')</div>' +
+        '<div class="flex flex-wrap justify-between gap-3 sm:gap-4 items-start mb-3">' +
+          '<div class="flex-1 min-w-[140px] sm:min-w-[220px]">' +
+            '<div class="font-poppins font-700 text-[15px] sm:text-[17px] text-[#212121]">' + escapeHtml(p.homestayName) + '</div>' +
+            '<div class="text-[11px] sm:text-xs text-zinc-500 mt-1">Booking <span class="font-mono font-bold text-red-600">' + escapeHtml(p.bookingId) + '</span></div>' +
+            '<div class="text-[11px] sm:text-xs text-zinc-500 mt-0.5">Guest: <strong>' + escapeHtml(p.guestName) + '</strong></div>' +
+            '<div class="text-[11px] sm:text-xs text-zinc-500 mt-0.5">' + escapeHtml(p.checkin) + ' → ' + escapeHtml(p.checkout) + ' (' + p.nights + ' night' + (p.nights === 1 ? '' : 's') + ')</div>' +
             '<div class="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ' +
               (urgencyClass === 'urgent' ? 'bg-red-100 text-red-700' : urgencyClass === 'aging' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700') +
               '">' + escapeHtml(urgencyLabel) + '</div>' +
           '</div>' +
-          '<div class="text-right">' +
-            '<div class="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Amount to Pay</div>' +
-            '<div class="text-2xl font-bold text-[#0F382E] mt-1">' + fmtMoney(p.amount) + '</div>' +
+          '<div class="text-right shrink-0">' +
+            '<div class="text-[9px] sm:text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Amount to Pay</div>' +
+            '<div class="text-xl sm:text-2xl font-bold text-[#0F382E] mt-1">' + fmtMoney(p.amount) + '</div>' +
           '</div>' +
         '</div>' +
 
@@ -498,11 +553,11 @@ function renderPending(items) {
         '</div>' +
 
         '<div class="flex gap-2 flex-wrap mt-4">' +
-          '<button class="btn-outline flex-1 md:flex-none" style="padding:10px 20px; font-size:11px;" ' +
+          '<button class="btn-outline flex-1 md:flex-none" style="padding:10px 16px; font-size:11px; white-space:nowrap;" ' +
             'onclick="copyToClipboard(this, \'' + escapeHtml(fullBankLine) + '\', true)">' +
             '📋 Copy All Bank Details' +
           '</button>' +
-          '<button class="btn-primary flex-1 md:flex-none" style="padding:10px 20px; font-size:11px; background:#16a34a;" ' +
+          '<button class="btn-primary flex-1 md:flex-none" style="padding:10px 16px; font-size:11px; white-space:nowrap; background:#16a34a;" ' +
             'onclick="openMarkPaidModal(\'' + escapeHtml(p.bookingId) + '\')">' +
             '✓ Mark as Paid' +
           '</button>' +
@@ -543,7 +598,7 @@ function renderHistory(items) {
 
   list.innerHTML = '' +
     '<div class="overflow-x-auto">' +
-      '<table class="w-full">' +
+      '<table class="w-full" style="min-width:640px;">' +
         '<thead class="bg-zinc-50 border-b border-zinc-100">' +
           '<tr>' +
             '<th class="text-left p-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Booking ID</th>' +
@@ -611,12 +666,12 @@ function openMarkPaidModal(bookingId) {
   });
 
   document.getElementById('markPaidSummary').innerHTML = '' +
-    '<div class="flex justify-between"><span class="text-zinc-500">Homestay</span><span class="font-semibold">' + escapeHtml(p.homestayName) + '</span></div>' +
-    '<div class="flex justify-between"><span class="text-zinc-500">Host</span><span class="font-semibold">' + escapeHtml(p.hostName) + '</span></div>' +
-    '<div class="flex justify-between"><span class="text-zinc-500">Host Email</span><span class="font-semibold break-all text-right ml-2">' + escapeHtml(p.hostEmail || '—') + '</span></div>' +
-    '<div class="flex justify-between"><span class="text-zinc-500">Bank</span><span class="font-semibold">' + escapeHtml(p.bankName) + '</span></div>' +
-    '<div class="flex justify-between"><span class="text-zinc-500">Account</span><span class="font-mono font-semibold">' + escapeHtml(p.accountNumber) + '</span></div>' +
-    '<div class="flex justify-between border-t border-black/5 pt-2 mt-2"><span class="text-zinc-500">Amount</span><span class="text-lg font-bold text-[#0F382E]">' + fmtMoney(p.amount) + '</span></div>';
+    '<div class="flex justify-between gap-3"><span class="text-zinc-500 shrink-0">Homestay</span><span class="font-semibold text-right break-words">' + escapeHtml(p.homestayName) + '</span></div>' +
+    '<div class="flex justify-between gap-3"><span class="text-zinc-500 shrink-0">Host</span><span class="font-semibold text-right break-words">' + escapeHtml(p.hostName) + '</span></div>' +
+    '<div class="flex justify-between gap-3"><span class="text-zinc-500 shrink-0">Host Email</span><span class="font-semibold break-all text-right">' + escapeHtml(p.hostEmail || '—') + '</span></div>' +
+    '<div class="flex justify-between gap-3"><span class="text-zinc-500 shrink-0">Bank</span><span class="font-semibold text-right break-words">' + escapeHtml(p.bankName) + '</span></div>' +
+    '<div class="flex justify-between gap-3"><span class="text-zinc-500 shrink-0">Account</span><span class="font-mono font-semibold text-right break-all">' + escapeHtml(p.accountNumber) + '</span></div>' +
+    '<div class="flex justify-between gap-3 border-t border-black/5 pt-2 mt-2"><span class="text-zinc-500 shrink-0">Amount</span><span class="text-lg font-bold text-[#0F382E]">' + fmtMoney(p.amount) + '</span></div>';
 
   updateConfirmButtonState();
   document.getElementById('markPaidModal').classList.remove('hidden');
