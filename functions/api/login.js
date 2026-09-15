@@ -5,11 +5,16 @@
 // fine to expose to JS).
 //
 // [THIS REVISION]
-// The dummy record used for timing-equalisation now matches the real
-// iteration count. Before this change the dummy used 600,000 iterations
-// while real records used 100,000 — an attacker could tell whether an
-// email existed by measuring response time. The dummy is now built at
-// request time from the same PBKDF2_ITERATIONS value real records use.
+// Removed the email-verification gate. Unverified accounts can now log
+// in. Verification is still tracked (user.verified) and the response
+// includes a `verified` field so future UI can nudge unverified guests,
+// but it does NOT block login. Rationale: for a brand-new platform with
+// no reputation, forcing an email round-trip before login lost more
+// guests than it protected. The payment itself (via FPX from a real bank
+// account) is a stronger identity signal than an email click.
+//
+// The dummy record used for timing-equalisation still matches the real
+// iteration count, so response time does not leak whether an email exists.
 import {
   corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword,
   createSignedToken, generateCSRFToken, cookieHeader, jsonResponse,
@@ -91,9 +96,9 @@ export async function onRequestPost({ request, env }) {
         .bind('kd_guests', JSON.stringify(guests)).run();
     }
 
-    if (user.verified !== true) {
-      return jsonResponse({ error: 'Please verify your email first.' }, 401, request);
-    }
+    // [THIS REVISION] Removed the email-verification gate that used to
+    // live here. Unverified accounts may log in. Verification status is
+    // still reported back in the response so the UI can nudge later.
 
     const sessionVersion = user.sessionVersion || 0;
 
@@ -111,6 +116,7 @@ export async function onRequestPost({ request, env }) {
     return new Response(JSON.stringify({
       success: true,
       guest: safeUser,
+      verified: user.verified === true,
       csrfToken,
       expiresIn: GUEST_TTL_SECONDS,
       message: 'Login successful'
