@@ -11,11 +11,20 @@
 // Credentials come from Cloudflare env vars:
 //   ADMIN_BASIC_USER
 //   ADMIN_BASIC_PASS
+//
+// [THIS REVISION]
+// Removed /api/admin-logout from the protected list. That endpoint only
+// clears the admin cookie; it exposes nothing sensitive. Keeping it
+// behind Basic Auth caused the browser to re-prompt for credentials
+// every time an admin clicked Logout (because the logout request itself
+// hit the 401 + WWW-Authenticate wall). The worst anyone can do by
+// calling this endpoint is log themselves out, which they can already
+// do by clearing their cookies. Removing it makes Logout a clean
+// single-step action while keeping the real admin surface protected.
 
 const PROTECTED_EXACT_PATHS = new Set([
   '/admin.html',
   '/api/admin-login',
-  '/api/admin-logout',
   '/api/payout',
   '/api/retry-payout',
   '/api/withdraw'
