@@ -112,25 +112,6 @@
       <p class="text-sm text-zinc-500 mt-1">Pay hosts from your bank app, then upload the bank receipt and record the reference here. The host receives a Payout Statement email automatically.</p>
     </div>
 
-    <div class="mb-6 p-5 rounded-2xl border border-blue-200 bg-blue-50">
-      <div class="flex items-start gap-3">
-        <div class="text-2xl leading-none">📋</div>
-        <div class="flex-1 min-w-0">
-          <div class="font-bold text-[14px] text-blue-900">CHIP compliance evidence is captured automatically</div>
-          <p class="text-[12px] text-blue-800 mt-1 leading-relaxed">
-            Every payout you record captures <strong>two independent proofs</strong>:
-          </p>
-          <ul class="text-[12px] text-blue-800 mt-2 space-y-1 list-disc pl-5 leading-relaxed">
-            <li><strong>Host Official Receipt</strong> — the Payout Statement email sent to the host confirming their payout, with the transfer reference and amount.</li>
-            <li><strong>Platform Payment Receipt</strong> — the bank transfer receipt you upload (screenshot from your bank app showing the reference, recipient, and amount).</li>
-          </ul>
-          <p class="text-[11px] text-blue-700 mt-3 leading-relaxed">
-            <strong>What to send CHIP at review:</strong> (1) the <strong>Print Report (PDF)</strong> below — a signed statement with embedded receipts, (2) your bank statement for the same period, (3) one sample Payout Statement email, (4) a short cover note explaining that guests paid via CHIP Collect and hosts were paid manually via DuitNow.
-          </p>
-        </div>
-      </div>
-    </div>
-
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
       <div class="card p-5">
         <div class="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Pending Payouts</div>
@@ -315,7 +296,18 @@ function methodLabel(m) {
 }
 
 function openPrintReport() {
-  window.open('/admin-settlement-report.html', '_blank', 'noopener');
+  // Try to open in a new tab. If the browser blocks the popup
+  // (some mobile browsers do), fall back to navigating in the
+  // same tab so the button never silently fails.
+  var w = null;
+  try {
+    w = window.open('/admin-settlement-report.html', '_blank', 'noopener');
+  } catch (e) {
+    w = null;
+  }
+  if (!w) {
+    window.location.href = '/admin-settlement-report.html';
+  }
 }
 
 function updateConfirmButtonState() {
