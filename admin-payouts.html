@@ -757,8 +757,8 @@ function formatCsvDate(iso) {
 }
 
 // Excel-safe: prefix a value with a tab so Excel treats it as text.
-// Without this, a 12-digit account number is auto-converted to
-// scientific notation (5.60269E+11) by Excel's CSV importer.
+// Without this, a long bank account number is auto-converted to
+// scientific notation (5.60269E+11), and leading zeros get stripped.
 function asTextValue(v) {
   var s = String(v == null ? '' : v);
   if (s === '') return '';
@@ -793,48 +793,39 @@ function exportCsv() {
 
   var rows = [];
 
-  // Row 1: Report title banner
-  rows.push(['KUNDASANG HOMESTAY — HOST SETTLEMENT REPORT']);
-
-  // Row 2: Metadata (dates, operator, totals) — spread across columns
-  // so the information is readable without breaking the column grid.
+  // Row 1: Single-line title + metadata, all in ONE cell so it
+  // overflows cleanly across the sheet instead of looking scattered
+  // across separate columns.
   rows.push([
-    'Generated: ' + generatedAt + ' MYT',
-    '',
-    '',
-    "Operator: NICK'S CREATIONS (RNU20183012)",
-    '',
-    '',
-    '',
-    'Total Payouts: ' + totalPayouts,
-    '',
-    'Total Amount: RM ' + totalAmount.toFixed(2),
-    '',
-    '',
-    ''
+    'KUNDASANG HOMESTAY — HOST SETTLEMENT REPORT' +
+    '  |  Generated: ' + generatedAt + ' MYT' +
+    "  |  Operator: NICK'S CREATIONS (RNU20183012)" +
+    '  |  Total Payouts: ' + totalPayouts +
+    '  |  Total Amount: RM ' + totalAmount.toFixed(2)
   ]);
 
-  // Row 3: Blank separator
+  // Row 2: Blank separator.
   rows.push([]);
 
-  // Row 4: Column headers
+  // Row 3: Column headers — kept short so they fit default Excel
+  // column widths without being truncated.
   rows.push([
     'Date Paid (MYT)',
     'Booking ID',
     'Host Name',
     'Host Email',
     'Homestay',
-    'Host Bank',
-    'Host Account No.',
+    'Bank',
+    'Account No.',
     'Amount (RM)',
     'Method',
-    'Transfer Reference',
-    'Host Official Receipt (Email Sent At, MYT)',
-    'Platform Payment Receipt (URL)',
+    'Reference',
+    'Host Receipt Sent',
+    'Bank Receipt URL',
     'Notes'
   ]);
 
-  // Row 5+: Data
+  // Rows 4+: Data.
   latestData.history.forEach(function (h) {
     rows.push([
       formatCsvDate(h.paidAt),
@@ -853,7 +844,26 @@ function exportCsv() {
     ]);
   });
 
-  // Assemble CSV
+  // Trailing blank + TOTAL row so CHIP can eyeball the sum without
+  // having to highlight the column themselves.
+  rows.push([]);
+  rows.push([
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    'TOTAL',
+    totalAmount.toFixed(2),
+    '',
+    '',
+    '',
+    '',
+    ''
+  ]);
+
+  // Assemble CSV.
   var csv = rows.map(function (r) {
     return r.map(csvCell).join(',');
   }).join('\r\n');
