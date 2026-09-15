@@ -5,9 +5,19 @@
 // period.
 //
 // GET  — list pending payouts + recent history.
-// POST — mark a booking as paid. Records the transfer reference, fires the
-//        host Payout Statement email, updates the booking status, logs
+// POST — mark a booking as paid. Records the transfer reference, the
+//        payment method (bank QR or manual transfer), fires the host
+//        Payout Statement email, updates the booking status, logs
 //        the action. Idempotent.
+//
+// [THIS REVISION]
+// POST now accepts an optional `paymentMethod` field, either
+// 'bank_qr' or 'manual_transfer'. It's stored on the booking as
+// `manualPayoutMethod` and returned in the payout history so the CSV
+// export shows which method was used for each transfer. This helps
+// match payouts against bank statement lines during CHIP's compliance
+// review (DuitNow QR transfers look different on a bank statement
+// than manual transfers).
 import {
   corsHeaders,
   getClientIP,
@@ -22,6 +32,11 @@ import {
 
 const BOOKINGS_LOCK = 'bookings-global';
 const HISTORY_LIMIT = 200;
+
+// Whitelist of accepted payment methods. Anything else gets coerced
+// to 'manual_transfer' so the field is never empty.
+const VALID_PAYMENT_METHODS = new Set(['bank_qr', 'manual_transfer']);
+const DEFAULT_PAYMENT_METHOD = 'manual_transfer';
 
 async function requireAdmin(request, env) {
   const ok = await verifyAdminAuth(request, env);
@@ -83,6 +98,9 @@ export async function onRequestGet({ request, env }) {
     hostEmail: b.manualPayoutHostEmail || '',
     amount: Number(b.manualPayoutAmount || b.base || 0),
     reference: b.manualPayoutReference || '',
+    method: VALID_PAYMENT_METHODS.has(b.manualPayoutMethod)
+      ? b.manualPayoutMethod
+      : DEFAULT_PAYMENT_METHOD,
     notes: b.manualPayoutNotes || '',
     paidAt: b.manualPayoutCompletedAt || '',
     paidBy: b.manualPayoutCompletedBy || 'admin'
@@ -130,6 +148,8 @@ export async function onRequestPost({ request, env }) {
   const bookingId = String(body.bookingId || '').trim();
   const reference = String(body.reference || '').trim().slice(0, 100);
   const notes = String(body.notes || '').trim().slice(0, 300);
+  const rawMethod = String(body.paymentMethod || '').toLowerCase().trim();
+  const paymentMethod = VALID_PAYMENT_METHODS.has(rawMethod) ? rawMethod : DEFAULT_PAYMENT_METHOD;
 
   if (!bookingId) return jsonResponse({ error: 'Missing bookingId' }, 400, request);
   if (!reference) return jsonResponse({ error: 'Transfer reference is required' }, 400, request);
@@ -168,6 +188,7 @@ export async function onRequestPost({ request, env }) {
         manualPayoutPending: false,
         manualPayoutCompletedAt: nowIso,
         manualPayoutCompletedBy: 'admin',
+        manualPayoutMethod: paymentMethod,
         manualPayoutReference: reference,
         manualPayoutNotes: notes,
         payoutSuccess: true,
@@ -226,11 +247,13 @@ export async function onRequestPost({ request, env }) {
     emailReport = { sent: false, error: mailErr.message };
   }
 
+  const methodLabel = paymentMethod === 'bank_qr' ? 'Bank QR (DuitNow)' : 'Manual bank transfer';
+
   await logAction({
     db,
     action: 'manual_payout_recorded',
     admin: 'admin',
-    details: `Manual payout for ${bookingId} recorded. RM${result.ownerAmount.toFixed(2)} → ${homestayForEmail.ownerName} (${homestayForEmail.ownerBank}). Reference: ${reference}${notes ? '. Notes: ' + notes : ''}. Email: ${emailReport.sent ? 'sent' : 'failed — ' + (emailReport.error || 'unknown')}.`,
+    details: `Manual payout for ${bookingId} recorded. RM${result.ownerAmount.toFixed(2)} → ${homestayForEmail.ownerName} (${homestayForEmail.ownerBank}). Method: ${methodLabel}. Reference: ${reference}${notes ? '. Notes: ' + notes : ''}. Email: ${emailReport.sent ? 'sent' : 'failed — ' + (emailReport.error || 'unknown')}.`,
     ip: clientIP,
     userId: homestayForEmail.ownerEmail,
     homestayId: b.homestayId
@@ -240,6 +263,7 @@ export async function onRequestPost({ request, env }) {
     success: true,
     bookingId,
     reference,
+    method: paymentMethod,
     amount: result.ownerAmount,
     paidAt: result.nowIso,
     emailSent: emailReport.sent,
