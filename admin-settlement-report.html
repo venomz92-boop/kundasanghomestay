@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<title>Statement of Host Settlements — Kundasang Homestay</title>
+<meta name="robots" content="noindex, nofollow" />
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+<script src="/csrf-auto.js"></script>
+<style>
+  :root {
+    --brand: #0F382E;
+    --brand-light: #1a4d3e;
+    --text: #212121;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --bg: #F8F5F0;
+  }
+  body { font-family: "Poppins", sans-serif; background: var(--bg); color: var(--text); }
+
+  /* Controls */
+  .controls-bar {
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+    padding: 14px 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+  .controls-bar label { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .controls-bar input[type="date"] {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #fff;
+  }
+  .ctrl-btn {
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .ctrl-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+  .ctrl-btn.primary {
+    background: var(--brand);
+    color: #fff;
+    border-color: var(--brand);
+  }
+  .ctrl-btn.primary:hover { background: var(--brand-light); }
+
+  /* Report document */
+  .report-wrap {
+    max-width: 820px;
+    margin: 32px auto 60px;
+    padding: 0 24px;
+  }
+  .report-doc {
+    background: #fff;
+    padding: 48px 56px;
+    border-radius: 16px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.06);
+    border: 1px solid rgba(0,0,0,0.05);
+  }
+
+  /* Letterhead */
+  .letterhead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    padding-bottom: 18px;
+    border-bottom: 2px solid var(--brand);
+    margin-bottom: 24px;
+  }
+  .letterhead .brand-name {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--brand);
+    letter-spacing: -0.3px;
+    line-height: 1.1;
+  }
+  .letterhead .brand-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.55;
+  }
+  .letterhead .logo-box {
+    width: 56px; height: 56px;
+    border-radius: 12px;
+    background: var(--brand);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  /* Title */
+  .doc-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--brand);
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+  .doc-subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  /* Summary */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+  .summary-cell {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+  }
+  .summary-cell .lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .summary-cell .val {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Cover note */
+  .cover-note {
+    font-size: 12px;
+    color: #374151;
+    line-height: 1.7;
+    background: #f8fafc;
+    border-left: 3px solid var(--brand);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 26px;
+  }
+
+  /* Payout rows */
+  .rows-heading {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    color: var(--brand);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 4px;
+  }
+  .payout-row {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .receipt-cell img {
+    width: 130px;
+    height: auto;
+    max-height: 170px;
+    object-fit: contain;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #fafafa;
+    display: block;
+    cursor: zoom-in;
+  }
+  .receipt-cell .no-receipt {
+    width: 130px;
+    height: 120px;
+    border: 2px dashed var(--line);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    padding: 8px;
+    line-height: 1.4;
+  }
+  .info-cell { min-width: 0; }
+  .info-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+    border-bottom: 1px dashed #eef1f5;
+  }
+  .info-header .row-num {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .info-header .booking-id {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--brand);
+  }
+  .info-header .paid-at {
+    font-size: 11px;
+    color: var(--muted);
+    flex: 1;
+    text-align: right;
+  }
+  .info-header .amount {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--brand);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .info-line {
+    font-size: 11.5px;
+    color: #374151;
+    line-height: 1.6;
+    margin-bottom: 2px;
+  }
+  .info-line .mono {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+  }
+  .info-line a {
+    color: var(--brand);
+    text-decoration: underline;
+    word-break: break-all;
+  }
+  .info-line.small {
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+
+  /* Total */
+  .total-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: 18px;
+    padding: 18px 0;
+    border-top: 2px solid var(--brand);
+    margin-top: 4px;
+  }
+  .total-row .lbl {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    color: var(--brand);
+  }
+  .total-row .val {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--brand);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Signature */
+  .signature-block {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+  .sig-line {
+    border-bottom: 1px solid var(--text);
+    height: 40px;
+    margin-bottom: 6px;
+  }
+  .sig-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .sig-name {
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 700;
+    margin-top: 2px;
+  }
+
+  /* Footer */
+  .doc-footer {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.7;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  /* Print rules */
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    body { background: #fff !important; }
+    .no-print { display: none !important; }
+    .report-wrap {
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    .report-doc {
+      box-shadow: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      padding: 0 !important;
+    }
+    .payout-row {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    * {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    a { color: var(--brand) !important; }
+    .receipt-cell img {
+      max-width: 110px;
+      max-height: 140px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header class="no-print h-[72px] bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
+  <div class="max-w-[1200px] mx-auto h-full px-6 flex items-center justify-between">
+    <a href="/admin.html" class="flex items-center gap-3">
+      <img src="/logo.svg" alt="Kundasang Homestay" class="w-11 h-11" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
+      <div class="font-poppins font-800 text-[18px] tracking-[-0.5px] text-[#212121] leading-none">
+        KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px]"> • Homestay</span>
+        <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Settlement Report</div>
+      </div>
+    </a>
+    <div class="flex items-center gap-3">
+      <a href="/admin-payouts.html" class="btn-outline" style="padding:8px 18px; font-size:11px;">← Back to Payout Queue</a>
+    </div>
+  </div>
+</header>
+
+<div class="controls-bar no-print">
+  <div class="flex items-center gap-2">
+    <label for="dateFrom">From</label>
+    <input type="date" id="dateFrom" onchange="renderReport()" />
+  </div>
+  <div class="flex items-center gap-2">
+    <label for="dateTo">To</label>
+    <input type="date" id="dateTo" onchange="renderReport()" />
+  </div>
+  <div class="flex items-center gap-2 ml-2">
+    <button class="ctrl-btn" onclick="setRange('this-month')">This Month</button>
+    <button class="ctrl-btn" onclick="setRange('last-month')">Last Month</button>
+    <button class="ctrl-btn" onclick="setRange('all')">All Time</button>
+  </div>
+  <div class="flex-1" style="min-width:12px;"></div>
+  <button class="ctrl-btn primary" onclick="window.print()">🖨️ Print / Save as PDF</button>
+</div>
+
+<div id="authError" class="no-print hidden max-w-[400px] mx-auto card p-8 text-center mt-16">
+  <div class="text-4xl mb-3">🔒</div>
+  <h2 class="font-bold text-xl">Admin Login Required</h2>
+  <p class="text-sm text-zinc-500 mt-2">You need to log in as admin to view this page.</p>
+  <a href="/admin.html" class="btn-primary inline-block mt-5">Go to Admin Login</a>
+</div>
+
+<div id="loadingState" class="no-print text-center py-16 text-zinc-500 text-sm">Loading payouts…</div>
+
+<div id="reportWrap" class="report-wrap hidden">
+  <div class="report-doc" id="reportDoc">
+
+    <div class="letterhead">
+      <div>
+        <div class="brand-name">KUNDASANG HOMESTAY</div>
+        <div class="brand-sub">
+          Operated by NICK'S CREATIONS (RNU20183012)<br>
+          kundasanghomestay.my
+        </div>
+      </div>
+      <div class="logo-box">KH</div>
+    </div>
+
+    <div class="doc-title">Statement of Host Settlements</div>
+    <div class="doc-subtitle" id="periodText">—</div>
+
+    <div class="summary-grid">
+      <div class="summary-cell">
+        <div class="lbl">Total Payouts</div>
+        <div class="val" id="totalCount">0</div>
+      </div>
+      <div class="summary-cell">
+        <div class="lbl">Total Amount</div>
+        <div class="val" id="totalAmount">RM 0.00</div>
+      </div>
+      <div class="summary-cell">
+        <div class="lbl">Generated At</div>
+        <div class="val" id="generatedAt" style="font-size:11px;">—</div>
+      </div>
+    </div>
+
+    <div class="cover-note">
+      This statement lists all <strong>manual host payouts</strong> made by Kundasang Homestay via bank transfer (DuitNow / FPX outbound) during the period shown above. Guest payments were collected through <strong>CHIP Collect (FPX)</strong>. Each payout below includes a link to the corresponding bank transfer receipt as proof of payment. Hosts received an automated Payout Statement email confirming each settlement.
+    </div>
+
+    <div class="rows-heading">Payout Records</div>
+    <div id="payoutRows"></div>
+
+    <div class="total-row">
+      <span class="lbl">Total</span>
+      <span class="val" id="totalAmountBottom">RM 0.00</span>
+    </div>
+
+    <div class="signature-block">
+      <div>
+        <div class="sig-line"></div>
+        <div class="sig-label">Prepared by</div>
+        <div class="sig-name">Nick — NICK'S CREATIONS</div>
+      </div>
+      <div>
+        <div class="sig-line"></div>
+        <div class="sig-label">Date</div>
+        <div class="sig-name" id="sigDate">—</div>
+      </div>
+    </div>
+
+    <div class="doc-footer">
+      Kundasang Homestay • Operated by NICK'S CREATIONS (RNU20183012) • kundasanghomestay.my<br>
+      This is a system-generated statement. Bank transfer receipts are linked per payout record above.
+    </div>
+
+  </div>
+</div>
+
+<script>
+var API_BASE = '/api';
+var allHistory = [];
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function methodLabel(m) {
+  return m === 'bank_qr' ? 'Bank QR (DuitNow)' : 'Manual Transfer';
+}
+
+function toInputDate(d) {
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+
+function parseMYTStart(dstr) {
+  return new Date(dstr + 'T00:00:00+08:00').getTime();
+}
+function parseMYTEnd(dstr) {
+  return new Date(dstr + 'T23:59:59+08:00').getTime();
+}
+
+function formatDateHuman(dstr) {
+  if (!dstr) return '—';
+  try {
+    var d = new Date(dstr + 'T00:00:00+08:00');
+    return d.toLocaleDateString('en-MY', {
+      timeZone: 'Asia/Kuala_Lumpur',
+      day: '2-digit', month: 'short', year: 'numeric'
+    });
+  } catch (e) { return dstr; }
+}
+
+function formatDT(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('en-MY', {
+      timeZone: 'Asia/Kuala_Lumpur',
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
+  } catch (e) { return iso; }
+}
+
+// Insert Cloudinary transformation for thumbnail. Falls back to the
+// original URL if the URL doesn't match the expected /upload/vNNN/
+// pattern, so it can never break the image.
+function thumbUrl(url, w, h) {
+  if (!url) return '';
+  var idx = url.indexOf('/upload/');
+  if (idx === -1) return url;
+  var after = url.slice(idx + 8);
+  var m = after.match(/^(v\d+\/)/);
+  if (!m) return url;
+  return url.slice(0, idx + 8) + 'w_' + w + ',h_' + h + ',c_fit,q_auto,f_auto/' + m[1] + after.slice(m[1].length);
+}
+
+function truncateUrl(url, max) {
+  max = max || 80;
+  var s = String(url || '');
+  if (s.length <= max) return s;
+  return s.slice(0, max - 3) + '...';
+}
+
+function setRange(preset) {
+  var now = new Date();
+  var y = now.getFullYear();
+  var m = now.getMonth();
+
+  if (preset === 'this-month') {
+    setDates(new Date(y, m, 1), new Date(y, m + 1, 0));
+  } else if (preset === 'last-month') {
+    setDates(new Date(y, m - 1, 1), new Date(y, m, 0));
+  } else if (preset === 'all') {
+    if (allHistory.length === 0) {
+      setDates(new Date(y, m, 1), new Date(y, m + 1, 0));
+    } else {
+      var times = allHistory.map(function(h) { return new Date(h.paidAt).getTime(); })
+        .filter(function(t) { return !isNaN(t); });
+      if (times.length === 0) {
+        setDates(new Date(y, m, 1), new Date(y, m + 1, 0));
+      } else {
+        setDates(new Date(Math.min.apply(null, times)), new Date(Math.max.apply(null, times)));
+      }
+    }
+  }
+  renderReport();
+}
+
+function setDates(fromD, toD) {
+  document.getElementById('dateFrom').value = toInputDate(fromD);
+  document.getElementById('dateTo').value = toInputDate(toD);
+}
+
+async function loadData() {
+  try {
+    var res = await fetch(API_BASE + '/admin-manual-payouts', {
+      credentials: 'include',
+      cache: 'no-store'
+    });
+
+    if (res.status === 401) {
+      document.getElementById('authError').classList.remove('hidden');
+      document.getElementById('loadingState').classList.add('hidden');
+      return;
+    }
+
+    var data = await res.json();
+    if (!data.success) {
+      document.getElementById('loadingState').textContent = 'Error: ' + (data.error || 'Could not load payouts.');
+      return;
+    }
+
+    allHistory = Array.isArray(data.history) ? data.history : [];
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('reportWrap').classList.remove('hidden');
+
+    setRange('this-month');
+  } catch (e) {
+    document.getElementById('loadingState').textContent = 'Network error: ' + e.message;
+  }
+}
+
+function renderReport() {
+  var from = document.getElementById('dateFrom').value;
+  var to = document.getElementById('dateTo').value;
+  if (!from || !to) return;
+
+  var fromTs = parseMYTStart(from);
+  var toTs = parseMYTEnd(to);
+
+  var filtered = allHistory.filter(function(h) {
+    var t = new Date(h.paidAt).getTime();
+    if (isNaN(t)) return false;
+    return t >= fromTs && t <= toTs;
+  });
+
+  // Oldest first — chronological order for a statement.
+  filtered.sort(function(a, b) {
+    return new Date(a.paidAt) - new Date(b.paidAt);
+  });
+
+  var total = filtered.reduce(function(s, h) { return s + (Number(h.amount) || 0); }, 0);
+  var now = new Date();
+
+  document.getElementById('periodText').textContent =
+    formatDateHuman(from) + '  –  ' + formatDateHuman(to);
+
+  document.getElementById('totalCount').textContent = filtered.length;
+  document.getElementById('totalAmount').textContent = 'RM ' + total.toFixed(2);
+  document.getElementById('totalAmountBottom').textContent = 'RM ' + total.toFixed(2);
+  document.getElementById('generatedAt').textContent = formatDT(now.toISOString());
+  document.getElementById('sigDate').textContent = formatDateHuman(toInputDate(now));
+
+  var rowsEl = document.getElementById('payoutRows');
+
+  if (filtered.length === 0) {
+    rowsEl.innerHTML = '<div class="empty-state">No payouts were recorded in this period.</div>';
+    return;
+  }
+
+  rowsEl.innerHTML = filtered.map(function(h, i) { return renderRow(h, i + 1); }).join('');
+
+  // Attach image error fallbacks: if the Cloudinary thumbnail fails
+  // for any reason, swap in the original full-size URL so the image
+  // still appears.
+  var imgs = rowsEl.querySelectorAll('img.receipt-thumb');
+  for (var i = 0; i < imgs.length; i++) {
+    (function(img) {
+      img.addEventListener('error', function() {
+        var orig = img.getAttribute('data-original');
+        if (orig && img.src !== orig) {
+          img.src = orig;
+        }
+      });
+    })(imgs[i]);
+  }
+}
+
+function renderRow(h, rowNum) {
+  var hostLine = h.hostName || '—';
+  if (h.homestayName) hostLine += '  —  ' + h.homestayName;
+
+  var receiptHtml = '';
+  if (h.receiptUrl) {
+    var thumb = thumbUrl(h.receiptUrl, 360, 480);
+    receiptHtml =
+      '<div class="receipt-cell">' +
+        '<a href="' + escapeHtml(h.receiptUrl) + '" target="_blank" rel="noopener">' +
+          '<img class="receipt-thumb" src="' + escapeHtml(thumb) + '" ' +
+               'data-original="' + escapeHtml(h.receiptUrl) + '" ' +
+               'alt="Bank receipt" />' +
+        '</a>' +
+      '</div>';
+  } else {
+    receiptHtml =
+      '<div class="receipt-cell">' +
+        '<div class="no-receipt">No receipt<br>attached</div>' +
+      '</div>';
+  }
+
+  var emailLine = h.emailSent
+    ? 'Sent ' + formatDT(h.emailSentAt)
+    : '<span style="color:#dc2626;font-weight:700;">FAILED — verify manually</span>';
+
+  var urlLine = h.receiptUrl
+    ? '<div class="info-line small"><strong>Bank receipt URL:</strong> ' +
+        '<a href="' + escapeHtml(h.receiptUrl) + '" target="_blank" rel="noopener">' +
+          escapeHtml(truncateUrl(h.receiptUrl, 90)) +
+        '</a>' +
+      '</div>'
+    : '';
+
+  var notesLine = h.notes
+    ? '<div class="info-line small"><strong>Notes:</strong> ' + escapeHtml(h.notes) + '</div>'
+    : '';
+
+  return '' +
+    '<div class="payout-row">' +
+      receiptHtml +
+      '<div class="info-cell">' +
+        '<div class="info-header">' +
+          '<span class="row-num">#' + rowNum + '</span>' +
+          '<span class="booking-id">' + escapeHtml(h.bookingId || '—') + '</span>' +
+          '<span class="paid-at">' + formatDT(h.paidAt) + '</span>' +
+          '<span class="amount">RM ' + Number(h.amount || 0).toFixed(2) + '</span>' +
+        '</div>' +
+        '<div class="info-line"><strong>Host:</strong> ' + escapeHtml(hostLine) + '</div>' +
+        '<div class="info-line"><strong>Bank:</strong> ' + escapeHtml(h.hostBank || '—') +
+          '  •  <strong>Account:</strong> <span class="mono">' + escapeHtml(h.hostAccount || '—') + '</span></div>' +
+        '<div class="info-line"><strong>Method:</strong> ' + escapeHtml(methodLabel(h.method)) +
+          '  •  <strong>Reference:</strong> <span class="mono">' + escapeHtml(h.reference || '—') + '</span></div>' +
+        '<div class="info-line small"><strong>Host Payout Statement email:</strong> ' + emailLine + '</div>' +
+        urlLine +
+        notesLine +
+      '</div>' +
+    '</div>';
+}
+
+loadData();
+</script>
+
+</body>
+</html>
