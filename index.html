@@ -28,6 +28,39 @@
   
   <script src="https://gate.chip-in.asia/api/v1/checkout.js" async id="chip-sdk"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
+
+  <style>
+    /* Explore Kundasang — description strip below the accordion gallery */
+    .ag-description {
+      min-height: 80px;
+      transition: opacity 0.22s ease;
+    }
+    .ag-description.fading {
+      opacity: 0;
+    }
+    .ag-description .ag-desc-title {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: #212121;
+      letter-spacing: -0.3px;
+      margin: 0;
+    }
+    .ag-description .ag-desc-text {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 400;
+      font-size: 13.5px;
+      color: rgba(33,33,33,0.65);
+      line-height: 1.65;
+      max-width: 640px;
+      margin: 6px auto 0;
+    }
+    @media (max-width: 640px) {
+      .ag-description { min-height: 96px; }
+      .ag-description .ag-desc-title { font-size: 16px; }
+      .ag-description .ag-desc-text { font-size: 12.5px; }
+    }
+  </style>
   
 </head>
 <body>
@@ -366,6 +399,16 @@
       <!-- Items rendered by JS -->
     </div>
   </div>
+
+  <!-- Description strip + CTA — updates when the active tile changes -->
+  <div class="max-w-[820px] mx-auto px-6 mt-8 text-center">
+    <div id="agDescription" class="ag-description" aria-live="polite">
+      <!-- Filled by JS -->
+    </div>
+    <button type="button" onclick="document.getElementById('homePage')?.scrollIntoView({behavior:'smooth'})" class="mt-6 btn-primary" style="padding:14px 28px; font-size:12px; letter-spacing:1.5px;">
+      Browse Homestays →
+    </button>
+  </div>
 </section>
 
 <!-- ===== ACCORDION GALLERY SCRIPT ===== -->
@@ -375,35 +418,57 @@
     { 
       image: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjkSvgFVVrdYAgkSktuGggZXhn-aZ8rUVqDxtQ4-nr0TB0MSv0lA73cIf1I7d7fW_KSjVbRwyvy5rU4GNgSUroglJKHhjcQmUR_Jh6cXE7zT6EdED7ub7popAXHn7CMM_SnASVJIhlIo3ry/s1600/MountKinabalu.jpgw=800&h=600&fit=crop', 
       label: 'Mount Kinabalu Peak', 
-      alt: 'Mount Kinabalu Peak'
+      alt: 'Mount Kinabalu Peak',
+      desc: 'The iconic 4,095m Sabah summit. Best seen at sunrise before the clouds roll in.'
     },
     { 
       image: 'https://i.ibb.co/LfwBK5f/Image-s63vfws63vfws63v.jpg?w=800&h=600&fit=crop', 
       label: 'Sosodikon Hill', 
-      alt: 'Sosodikon Hill'
+      alt: 'Sosodikon Hill',
+      desc: 'Short hilltop walk near Kundasang town. Panoramic valley and Mount Kinabalu views.'
     },
     { 
       image: 'https://www.clladventureborneo.com/wp-content/uploads/2025/09/dairy-farm-kundasang.webp?w=800&h=600&fit=crop', 
       label: 'Desa Cattle Farm', 
-      alt: 'Desa Cattle Farm'
+      alt: 'Desa Cattle Farm',
+      desc: 'A working dairy farm in the highlands. Fresh milk, grazing cows, and a Kinabalu backdrop.'
     },
     { 
       image: 'https://lh3.googleusercontent.com/gps-cs-s/AHRPTWniaVakOLxjICOwm8MvL-5nK-NHZ8gccOQiKG3YEjyWSonAcfqDPsw3jekF7LOxrBj5ueCfcLggV6EmiNQfQ1DT7vpdz0FKS5rZDRYer4-S6ldsQCScZduQu4CQqjDI7mzXBf4e?w=800&h=600&fit=crop', 
       label: 'Hounon Ridge Farmstay & Camping', 
-      alt: 'Hounon Ridge Farmstay & Camping'
+      alt: 'Hounon Ridge Farmstay & Camping',
+      desc: 'A ridge-top farmstay and campsite. Sunsets and cloud-sea views over the Kundasang valley.'
     },
     { 
       image: 'https://explorekundasang.com/wp-content/uploads/elementor/thumbs/maragang-by-Mas-Light-rakd450ifen9wot91yr978c4pkz9rnvalzg0yi0ewg.webp?w=800&h=600&fit=crop', 
       label: 'Maragang Hill', 
-      alt: 'Maragang Hill'
+      alt: 'Maragang Hill',
+      desc: 'Short uphill trail above Kundasang. Popular for sunrise hikes and clear morning views of the peak.'
     }
   ];
 
   const container = document.getElementById('accordionGallery');
+  const descEl = document.getElementById('agDescription');
   if (!container) return;
 
   let activeIndex = 2;
   let isAnimating = false;
+  let descTimer = null;
+
+  function updateDescription(index) {
+    if (!descEl) return;
+    const item = galleryItems[index];
+    if (!item) return;
+    if (descTimer) clearTimeout(descTimer);
+    descEl.classList.add('fading');
+    descTimer = setTimeout(function() {
+      descEl.innerHTML =
+        '<p class="ag-desc-title">' + item.label + '</p>' +
+        '<p class="ag-desc-text">' + (item.desc || '') + '</p>';
+      descEl.classList.remove('fading');
+      descTimer = null;
+    }, 180);
+  }
 
   container.innerHTML = '';
   
@@ -422,7 +487,7 @@
     el.innerHTML = `
       <span class="ag-media-wrap">
         <span class="ag-media">
-          <img src="${item.image}" alt="${item.alt || item.label}" draggable="false" />
+          <img src="${item.image}" alt="${item.alt || item.label}" draggable="false" loading="lazy" decoding="async" />
         </span>
         <span class="ag-overlay" aria-hidden="true"></span>
       </span>
@@ -496,6 +561,8 @@
     
     const isMobileView = window.innerWidth <= 768;
     const tilt = isMobileView ? 3 : 8;
+    
+    updateDescription(index);
     
     requestAnimationFrame(function() {
       for (let i = 0; i < items.length; i++) {
@@ -593,6 +660,8 @@
       
       item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
     }
+
+    updateDescription(activeIndex);
   }
 
   requestAnimationFrame(function() {
