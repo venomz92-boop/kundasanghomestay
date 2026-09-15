@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <title>Manual Payout Queue - Kundasang Homestays</title>
 <meta name="robots" content="noindex, nofollow" />
@@ -11,7 +11,19 @@
 <link rel="stylesheet" href="styles.css" />
 <script src="/csrf-auto.js"></script>
 <style>
+  html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
   body { font-family: "Poppins", sans-serif; background: #F8F5F0; }
+
+  /* The main content wrapper. This is the safety net: it clips
+   * anything that tries to make the page wider than the screen.
+   * iOS Safari (Chrome & Safari) both respect this. */
+  .page-shell {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
 
   .payout-card {
     background: #fff;
@@ -87,10 +99,19 @@
   .receipt-drop:hover { border-color: #0F382E; background: #f0fdf4; }
   .receipt-drop.uploading { opacity: 0.6; pointer-events: none; }
 
+  /* Table scroll container — set inline in the HTML too, but this
+   * provides a CSS-level guarantee for every browser. */
+  .table-scroll {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
   /* ============================================================
    * MOBILE / SMALL SCREEN
-   * Tightens spacing so nothing forces a horizontal scroll and
-   * nothing looks "desktop on a phone".
    * ============================================================ */
   @media (max-width: 640px) {
     .payout-card { padding: 14px; border-radius: 14px; }
@@ -111,7 +132,6 @@
     .method-option .method-label { font-size: 12px; }
     .method-option .method-desc { font-size: 10px; }
 
-    /* History table: tighter cells so more fits before scrolling */
     #historyList table th,
     #historyList table td {
       padding: 8px 8px !important;
@@ -148,13 +168,13 @@
       </div>
     </a>
     <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
-      <a href="/admin.html" class="btn-outline" style="padding:7px 11px; font-size:10px; white-space:nowrap;">← Admin</a>
-      <button onclick="loadData()" class="btn-primary" style="padding:7px 11px; font-size:10px; white-space:nowrap;">🔄 Refresh</button>
+      <a href="/admin.html" class="btn-outline" style="padding:7px 10px; font-size:10px; white-space:nowrap;">← Admin</a>
+      <button onclick="loadData()" class="btn-primary" style="padding:7px 10px; font-size:10px; white-space:nowrap;">🔄 Refresh</button>
     </div>
   </div>
 </header>
 
-<div class="max-w-[1200px] mx-auto px-3 sm:px-5 py-5 sm:py-8">
+<div class="page-shell max-w-[1200px] mx-auto px-3 sm:px-5 py-5 sm:py-8">
 
   <div id="authError" class="hidden max-w-[400px] mx-auto card p-6 sm:p-8 text-center mt-10 sm:mt-16">
     <div class="text-4xl mb-3">🔒</div>
@@ -517,7 +537,7 @@ function renderPending(items) {
       '<div class="payout-card ' + urgencyClass + '">' +
         '<div class="flex flex-wrap justify-between gap-3 sm:gap-4 items-start mb-3">' +
           '<div class="flex-1 min-w-[140px] sm:min-w-[220px]">' +
-            '<div class="font-poppins font-700 text-[15px] sm:text-[17px] text-[#212121]">' + escapeHtml(p.homestayName) + '</div>' +
+            '<div class="font-poppins font-700 text-[15px] sm:text-[17px] text-[#212121] break-words">' + escapeHtml(p.homestayName) + '</div>' +
             '<div class="text-[11px] sm:text-xs text-zinc-500 mt-1">Booking <span class="font-mono font-bold text-red-600">' + escapeHtml(p.bookingId) + '</span></div>' +
             '<div class="text-[11px] sm:text-xs text-zinc-500 mt-0.5">Guest: <strong>' + escapeHtml(p.guestName) + '</strong></div>' +
             '<div class="text-[11px] sm:text-xs text-zinc-500 mt-0.5">' + escapeHtml(p.checkin) + ' → ' + escapeHtml(p.checkout) + ' (' + p.nights + ' night' + (p.nights === 1 ? '' : 's') + ')</div>' +
@@ -596,8 +616,10 @@ function renderHistory(items) {
       '</tr>';
   }).join('');
 
+  // Bulletproof horizontal scroll: explicit inline styles that iOS
+  // Safari cannot misinterpret, plus a CSS class with the same rules.
   list.innerHTML = '' +
-    '<div class="overflow-x-auto">' +
+    '<div class="table-scroll" style="display:block;width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;">' +
       '<table class="w-full" style="min-width:640px;">' +
         '<thead class="bg-zinc-50 border-b border-zinc-100">' +
           '<tr>' +
@@ -810,18 +832,12 @@ function formatCsvDate(iso) {
   }
 }
 
-// Excel-safe: prefix a value with a tab so Excel treats it as text.
-// Without this, a long bank account number is auto-converted to
-// scientific notation (5.60269E+11), and leading zeros get stripped.
 function asTextValue(v) {
   var s = String(v == null ? '' : v);
   if (s === '') return '';
   return '\t' + s;
 }
 
-// Escape a single CSV cell. Quotes the cell if it contains any
-// characters that would break CSV parsing (commas, quotes, newlines,
-// or the leading tab we use for text-preservation).
 function csvCell(v) {
   var s = String(v == null ? '' : v);
   if (s === '') return '';
