@@ -39,6 +39,7 @@
     font-size: 13px;
     font-family: inherit;
     background: #fff;
+    color: var(--text);
   }
   .ctrl-btn {
     padding: 7px 14px;
@@ -97,18 +98,12 @@
     margin-top: 6px;
     line-height: 1.55;
   }
-  .letterhead .logo-box {
-    width: 56px; height: 56px;
-    border-radius: 12px;
-    background: var(--brand);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 20px;
-    letter-spacing: 0.5px;
+  .report-logo {
+    width: 64px;
+    height: 64px;
     flex-shrink: 0;
+    object-fit: contain;
+    display: block;
   }
 
   /* Title */
@@ -218,6 +213,7 @@
     padding-bottom: 6px;
     margin-bottom: 6px;
     border-bottom: 1px dashed #eef1f5;
+    flex-wrap: wrap;
   }
   .info-header .row-num {
     font-size: 10px;
@@ -332,7 +328,107 @@
     font-size: 13px;
   }
 
-  /* Print rules */
+  /* ============================================================
+   * MOBILE / SMALL SCREEN (screen only, not print)
+   * ============================================================ */
+  @media screen and (max-width: 700px) {
+    .report-wrap { padding: 0 12px; margin: 16px auto 32px; }
+    .report-doc { padding: 22px 18px; border-radius: 12px; }
+
+    .letterhead {
+      flex-direction: row;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 14px;
+      margin-bottom: 18px;
+    }
+    .report-logo { width: 48px; height: 48px; }
+    .letterhead .brand-name { font-size: 16px; }
+    .letterhead .brand-sub { font-size: 10px; margin-top: 4px; }
+
+    .doc-title { font-size: 19px; }
+    .doc-subtitle { font-size: 12px; margin-bottom: 16px; }
+
+    .summary-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .summary-cell { padding: 10px 12px; }
+    .summary-cell .lbl { font-size: 9px; letter-spacing: 0.5px; }
+    .summary-cell .val { font-size: 14px; }
+
+    .cover-note { font-size: 11px; padding: 10px 12px; margin-bottom: 20px; }
+
+    .payout-row {
+      grid-template-columns: 1fr;
+      gap: 12px;
+      padding: 14px 0;
+    }
+    .receipt-cell img {
+      width: 100%;
+      max-width: 240px;
+      max-height: 260px;
+      margin: 0 auto;
+    }
+    .receipt-cell .no-receipt {
+      width: 100%;
+      max-width: 240px;
+      height: 100px;
+      margin: 0 auto;
+    }
+    .info-header {
+      row-gap: 4px;
+      column-gap: 8px;
+      padding-bottom: 8px;
+    }
+    .info-header .paid-at {
+      text-align: left;
+      flex-basis: 100%;
+      order: 3;
+    }
+    .info-header .amount { margin-left: auto; }
+    .info-line { font-size: 11px; }
+    .info-line.small { font-size: 10px; }
+
+    .total-row { padding: 14px 0; gap: 12px; }
+    .total-row .lbl { font-size: 11px; letter-spacing: 1px; }
+    .total-row .val { font-size: 18px; }
+
+    .signature-block {
+      grid-template-columns: 1fr;
+      gap: 20px;
+      margin-top: 28px;
+      padding-top: 18px;
+    }
+    .sig-line { height: 36px; }
+
+    .doc-footer { font-size: 9px; margin-top: 24px; padding-top: 12px; }
+
+    .controls-bar {
+      padding: 10px 12px;
+      gap: 8px;
+    }
+    .controls-bar label { font-size: 11px; }
+    .controls-bar input[type="date"] {
+      font-size: 12px;
+      padding: 5px 8px;
+      width: 100%;
+      max-width: 150px;
+    }
+    .ctrl-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+    }
+  }
+
+  @media screen and (max-width: 380px) {
+    .summary-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ============================================================
+   * PRINT (A4) — overrides screen layout for the actual PDF
+   * ============================================================ */
   @media print {
     @page { size: A4; margin: 12mm; }
     body { background: #fff !important; }
@@ -361,22 +457,23 @@
       max-width: 110px;
       max-height: 140px;
     }
+    .report-logo { width: 56px; height: 56px; }
   }
 </style>
 </head>
 <body>
 
 <header class="no-print h-[72px] bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
-  <div class="max-w-[1200px] mx-auto h-full px-6 flex items-center justify-between">
-    <a href="/admin.html" class="flex items-center gap-3">
-      <img src="/logo.svg" alt="Kundasang Homestay" class="w-11 h-11" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
-      <div class="font-poppins font-800 text-[18px] tracking-[-0.5px] text-[#212121] leading-none">
-        KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px]"> • Homestay</span>
+  <div class="max-w-[1200px] mx-auto h-full px-4 sm:px-6 flex items-center justify-between">
+    <a href="/admin.html" class="flex items-center gap-3 min-w-0">
+      <img src="/logo.png" alt="Kundasang Homestay" class="w-11 h-11 shrink-0" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
+      <div class="font-poppins font-800 text-[16px] sm:text-[18px] tracking-[-0.5px] text-[#212121] leading-none min-w-0">
+        KUNDASANG<span class="font-600 text-[#212121]/60 text-[14px] sm:text-[15px]"> • Homestay</span>
         <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Settlement Report</div>
       </div>
     </a>
-    <div class="flex items-center gap-3">
-      <a href="/admin-payouts.html" class="btn-outline" style="padding:8px 18px; font-size:11px;">← Back to Payout Queue</a>
+    <div class="flex items-center gap-3 shrink-0">
+      <a href="/admin-payouts.html" class="btn-outline" style="padding:8px 14px; font-size:11px; white-space:nowrap;">← Back</a>
     </div>
   </div>
 </header>
@@ -390,7 +487,7 @@
     <label for="dateTo">To</label>
     <input type="date" id="dateTo" onchange="renderReport()" />
   </div>
-  <div class="flex items-center gap-2 ml-2">
+  <div class="flex items-center gap-2 ml-2 flex-wrap">
     <button class="ctrl-btn" onclick="setRange('this-month')">This Month</button>
     <button class="ctrl-btn" onclick="setRange('last-month')">Last Month</button>
     <button class="ctrl-btn" onclick="setRange('all')">All Time</button>
@@ -412,14 +509,17 @@
   <div class="report-doc" id="reportDoc">
 
     <div class="letterhead">
-      <div>
+      <div style="min-width:0;">
         <div class="brand-name">KUNDASANG HOMESTAY</div>
         <div class="brand-sub">
           Operated by NICK'S CREATIONS (RNU20183012)<br>
           kundasanghomestay.my
         </div>
       </div>
-      <div class="logo-box">KH</div>
+      <img src="/logo.png"
+           alt="Kundasang Homestay"
+           class="report-logo"
+           onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'" />
     </div>
 
     <div class="doc-title">Statement of Host Settlements</div>
