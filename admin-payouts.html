@@ -112,7 +112,6 @@
       <p class="text-sm text-zinc-500 mt-1">Pay hosts from your bank app, then upload the bank receipt and record the reference here. The host receives a Payout Statement email automatically.</p>
     </div>
 
-    <!-- ===== CHIP COMPLIANCE EVIDENCE ===== -->
     <div class="mb-6 p-5 rounded-2xl border border-blue-200 bg-blue-50">
       <div class="flex items-start gap-3">
         <div class="text-2xl leading-none">📋</div>
@@ -132,7 +131,6 @@
       </div>
     </div>
 
-    <!-- Summary cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
       <div class="card p-5">
         <div class="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Pending Payouts</div>
@@ -152,7 +150,6 @@
       </div>
     </div>
 
-    <!-- Pending queue -->
     <div class="mb-10">
       <div class="flex items-center justify-between mb-4">
         <h2 class="font-poppins font-700 text-[18px] text-[#212121]">Pending Payouts</h2>
@@ -161,11 +158,10 @@
       <div id="pendingList" class="space-y-4"></div>
     </div>
 
-    <!-- History -->
     <div>
       <div class="flex items-center justify-between mb-4">
         <h2 class="font-poppins font-700 text-[18px] text-[#212121]">Payout History</h2>
-        <button onclick="exportCsv()" class="btn-outline" style="padding:6px 14px; font-size:10px;">📥 Export CSV for CHIP</button>
+        <button onclick="exportCsv()" class="btn-outline" style="padding:6px 14px; font-size:10px;">📥 Export Settlement Report (CSV for CHIP)</button>
       </div>
       <div id="historyList" class="card p-0 overflow-hidden"></div>
     </div>
@@ -173,7 +169,6 @@
   </div>
 </div>
 
-<!-- ===== MARK AS PAID MODAL ===== -->
 <div id="markPaidModal" class="fixed inset-0 z-[100] hidden bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
   <div class="max-w-[540px] mx-auto bg-white rounded-2xl shadow-2xl mt-8 mb-10 overflow-hidden">
     <div class="p-6">
@@ -242,7 +237,6 @@
   </div>
 </div>
 
-<!-- ===== CUSTOM MODAL ===== -->
 <div id="customModal" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-header">
@@ -261,7 +255,6 @@ var API_BASE = '/api';
 var currentMarkPaidId = null;
 var latestData = null;
 
-// Receipt upload state
 var receiptUploading = false;
 var currentReceiptUrl = null;
 var currentReceiptPublicId = null;
@@ -605,14 +598,12 @@ function openMarkPaidModal(bookingId) {
   document.getElementById('markPaidNotes').value = '';
   document.getElementById('markPaidError').classList.add('hidden');
 
-  // Reset the receipt UI
   document.getElementById('receiptPreview').classList.add('hidden');
   document.getElementById('receiptImg').src = '';
   document.getElementById('receiptDropZone').classList.remove('hidden');
   document.getElementById('receiptDropZone').classList.remove('uploading');
   document.getElementById('receiptFile').value = '';
 
-  // Reset the payment method to default (manual_transfer)
   document.querySelectorAll('input[name="markPaidMethod"]').forEach(function(radio) {
     radio.checked = (radio.value === 'manual_transfer');
   });
@@ -643,7 +634,6 @@ function closeMarkPaidModal() {
   receiptUploading = false;
 }
 
-// Toggle visual "selected" state on the payment method options
 document.querySelectorAll('.method-option').forEach(function(opt) {
   opt.addEventListener('click', function() {
     document.querySelectorAll('.method-option').forEach(function(o) {
@@ -708,11 +698,11 @@ async function confirmMarkPaid() {
       return;
     }
 
-    closeMarkPaidModal();
-
     var receiptLink = currentReceiptUrl
       ? '<a href="' + escapeHtml(currentReceiptUrl) + '" target="_blank" rel="noopener" style="color:#0F382E;font-weight:700;text-decoration:underline;">View receipt</a>'
       : '';
+
+    closeMarkPaidModal();
 
     var msg = '<div style="text-align:left;line-height:1.6;">' +
       '<p style="font-size:15px;font-weight:700;color:#0F382E;">✓ Payout recorded for ' + escapeHtml(data.bookingId) + '</p>' +
@@ -731,7 +721,7 @@ async function confirmMarkPaid() {
         '<div style="font-weight:700;margin-bottom:6px;">📎 Platform Payment Receipt</div>' +
         '<div>Bank receipt saved. ' + receiptLink + '</div>' +
       '</div>' +
-      '<p style="margin-top:12px;font-size:11px;color:#6b7280;">Both receipts are now recorded. They will appear in your next CSV export for CHIP.</p>' +
+      '<p style="margin-top:12px;font-size:11px;color:#6b7280;">Both receipts are now recorded. They will appear in your next settlement report for CHIP.</p>' +
       '</div>';
 
     await showAlert('Payout Recorded', msg);
@@ -766,59 +756,106 @@ function formatCsvDate(iso) {
   }
 }
 
+// Excel-safe: prefix a value with a tab so Excel treats it as text.
+// Without this, a 12-digit account number is auto-converted to
+// scientific notation (5.60269E+11) by Excel's CSV importer.
+function asTextValue(v) {
+  var s = String(v == null ? '' : v);
+  if (s === '') return '';
+  return '\t' + s;
+}
+
+// Escape a single CSV cell. Quotes the cell if it contains any
+// characters that would break CSV parsing (commas, quotes, newlines,
+// or the leading tab we use for text-preservation).
+function csvCell(v) {
+  var s = String(v == null ? '' : v);
+  if (s === '') return '';
+  if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 ||
+      s.indexOf('\n') !== -1 || s.indexOf('\r') !== -1 ||
+      s.indexOf('\t') !== -1) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
 function exportCsv() {
   if (!latestData || !latestData.history || latestData.history.length === 0) {
     showAlert('No Data', 'There is no payout history to export yet.');
     return;
   }
 
-  // 13-column settlement report. Order chosen so the two CHIP compliance
-  // evidence columns (Host Official Receipt + Platform Payment Receipt)
-  // sit side-by-side just before the notes.
-  var rows = [
-    [
-      'Date Paid (MYT)',
-      'Booking ID',
-      'Host Name',
-      'Host Email',
-      'Homestay',
-      'Host Bank',
-      'Host Account No.',
-      'Amount (RM)',
-      'Method',
-      'Transfer Reference',
-      'Host Official Receipt (Email Sent At, MYT)',
-      'Platform Payment Receipt (URL)',
-      'Notes'
-    ]
-  ];
+  var generatedAt = formatCsvDate(new Date().toISOString());
+  var totalPayouts = latestData.history.length;
+  var totalAmount = latestData.history.reduce(function(s, h) {
+    return s + (Number(h.amount) || 0);
+  }, 0);
 
+  var rows = [];
+
+  // Row 1: Report title banner
+  rows.push(['KUNDASANG HOMESTAY — HOST SETTLEMENT REPORT']);
+
+  // Row 2: Metadata (dates, operator, totals) — spread across columns
+  // so the information is readable without breaking the column grid.
+  rows.push([
+    'Generated: ' + generatedAt + ' MYT',
+    '',
+    '',
+    "Operator: NICK'S CREATIONS (RNU20183012)",
+    '',
+    '',
+    '',
+    'Total Payouts: ' + totalPayouts,
+    '',
+    'Total Amount: RM ' + totalAmount.toFixed(2),
+    '',
+    '',
+    ''
+  ]);
+
+  // Row 3: Blank separator
+  rows.push([]);
+
+  // Row 4: Column headers
+  rows.push([
+    'Date Paid (MYT)',
+    'Booking ID',
+    'Host Name',
+    'Host Email',
+    'Homestay',
+    'Host Bank',
+    'Host Account No.',
+    'Amount (RM)',
+    'Method',
+    'Transfer Reference',
+    'Host Official Receipt (Email Sent At, MYT)',
+    'Platform Payment Receipt (URL)',
+    'Notes'
+  ]);
+
+  // Row 5+: Data
   latestData.history.forEach(function (h) {
     rows.push([
       formatCsvDate(h.paidAt),
-      h.bookingId || '',
+      asTextValue(h.bookingId || ''),
       h.hostName || '',
       h.hostEmail || '',
       h.homestayName || '',
       h.hostBank || '',
-      h.hostAccount || '',
+      asTextValue(h.hostAccount || ''),
       Number(h.amount || 0).toFixed(2),
       methodLabel(h.method),
-      h.reference || '',
+      asTextValue(h.reference || ''),
       h.emailSent ? formatCsvDate(h.emailSentAt) : 'FAILED',
       h.receiptUrl || '',
       h.notes || ''
     ]);
   });
 
+  // Assemble CSV
   var csv = rows.map(function (r) {
-    return r.map(function (cell) {
-      var s = String(cell == null ? '' : cell);
-      if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1 || s.indexOf('\r') !== -1) {
-        return '"' + s.replace(/"/g, '""') + '"';
-      }
-      return s;
-    }).join(',');
+    return r.map(csvCell).join(',');
   }).join('\r\n');
 
   // UTF-8 BOM keeps Excel from mangling names with special characters.
