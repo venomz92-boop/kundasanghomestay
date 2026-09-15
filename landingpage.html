@@ -104,7 +104,6 @@
             flex-shrink: 0;
         }
 
-        /* ── Card with solid dark background so text stays readable over hero gradient ── */
         .card-elevated {
             background: linear-gradient(180deg, rgba(30, 51, 40, 0.94) 0%, rgba(15, 30, 22, 0.97) 100%);
             backdrop-filter: blur(16px);
@@ -425,10 +424,8 @@
 
     <div x-data="landingPageApp()" x-init="init()" x-cloak class="flex flex-col min-h-screen">
 
-        <!-- ── Mobile Overlay ── -->
         <div class="mobile-overlay" :class="{ 'open': isMobileMenuOpen }" @click="isMobileMenuOpen = false"></div>
 
-        <!-- ── Mobile Drawer ── -->
         <div class="mobile-drawer" :class="{ 'open': isMobileMenuOpen }">
             <div class="flex justify-between items-center pb-5 border-b border-[#1E3328]/10">
                 <span class="font-serif font-bold text-[#1E3328] text-lg">Menu</span>
@@ -445,7 +442,6 @@
             </div>
         </div>
 
-        <!-- ── Header ── -->
         <header class="h-[72px] md:h-[80px] bg-[#0F1E16]/95 backdrop-blur-lg sticky top-0 z-50 border-b border-white/6 transition-shadow duration-300" :class="{ 'shadow-sm': scrolled }">
             <div class="max-w-[1300px] mx-auto h-full px-4 lg:px-8 flex items-center justify-between">
                 <a href="/" class="flex items-center gap-3 group">
@@ -469,7 +465,6 @@
             </div>
         </header>
 
-        <!-- ── 1. HERO (with Founder Section embedded) ── -->
         <section class="hero-section text-white scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="hero-mountains"></div>
             <div class="hero-content max-w-[1100px] mx-auto px-4 py-16 md:py-24 lg:py-28 w-full">
@@ -509,7 +504,6 @@
                         </div>
                     </div>
 
-                    <!-- ── FOUNDER SECTION (in hero right column) ── -->
                     <div class="lg:col-span-2">
                         <div class="card-elevated">
                             <div class="founder-photo-hero">
@@ -521,8 +515,8 @@
                             <div class="w-10 h-[2px] bg-[#D4A373]/50 my-4 rounded-full"></div>
 
                             <div class="text-[13px] text-white/75 leading-[1.75] space-y-3">
-                                <p>Saya bina Kundasang Homestay sebab dua perkara: <br>Pelancong risau kena tipu, dan pengusaha tempatan terpaksa bayar komisen tinggi kepada platform luar.</p>
-                                <p>Saya fikir — kenapa kita tidak bina platform sendiri ?</p>
+                                <p>Saya bina Kundasang Homestay sebab dua perkara: pelancong risau kena tipu, dan pengusaha tempatan terpaksa bayar komisen tinggi kepada platform luar.</p>
+                                <p>Saya fikir — kenapa tak kita bina sendiri?</p>
                                 <p>Kalau ada apa‑apa, WhatsApp saya terus. Saya orang tempatan. Saya jawab sendiri.</p>
                             </div>
 
@@ -535,7 +529,6 @@
             </div>
         </section>
 
-        <!-- ── 2. TRUST BAR ── -->
         <section class="bg-[#F8F5F0] border-b border-[#1E3328]/6 py-4 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="flex flex-wrap items-center justify-center gap-6 md:gap-12 text-center">
@@ -559,7 +552,6 @@
             </div>
         </section>
 
-        <!-- ── 3. HOW IT WORKS ── -->
         <section class="max-w-[1100px] mx-auto px-4 py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="text-center mb-14">
                 <div class="inline-flex items-center gap-2 bg-[#D4A373]/10 text-[#1E3328] px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border border-[#D4A373]/20">
@@ -612,7 +604,6 @@
             </div>
         </section>
 
-        <!-- ── 4. WHY CHOOSE + STATS + NICK'S CARD ── -->
         <section class="bg-[#F8F5F0] py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
 
@@ -679,7 +670,7 @@
             </div>
         </section>
 
-        <!-- ── 5. COMPARISON TABLE ── -->
+        <!-- ── COMPARISON (table on desktop, cards on mobile) ── -->
         <section class="py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="text-center mb-14">
@@ -691,7 +682,8 @@
                     <p class="text-[15px] text-[#5A6B60] mt-2 max-w-2xl mx-auto">Kami percaya pada ketelusan. Inilah perbezaan sebenar antara kami dan platform lain.</p>
                 </div>
 
-                <div class="card-soft overflow-hidden border-0 shadow-sm">
+                <!-- Desktop table -->
+                <div class="hidden md:block card-soft overflow-hidden border-0 shadow-sm">
                     <div class="overflow-x-auto">
                         <table class="compare-table">
                             <thead>
@@ -717,6 +709,91 @@
                     </div>
                 </div>
 
+                <!-- Mobile cards -->
+                <div class="md:hidden space-y-3">
+
+                    <div class="bg-white rounded-xl border border-[#1E3328]/8 shadow-sm overflow-hidden">
+                        <div class="px-3.5 py-2 bg-[#1E3328] text-white text-[11px] font-bold uppercase tracking-wider">Pendaftaran</div>
+                        <div class="grid grid-cols-2 divide-x divide-[#1E3328]/6">
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#D4A373] mb-1">Kami</div><div class="text-[12.5px] font-bold text-[#2A7A5A]">✅ PERCUMA</div></div>
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#5A6B60]/70 mb-1">Lain</div><div class="text-[12.5px] font-bold text-[#2A7A5A]">✅ PERCUMA</div></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-[#1E3328]/8 shadow-sm overflow-hidden">
+                        <div class="px-3.5 py-2 bg-[#1E3328] text-white text-[11px] font-bold uppercase tracking-wider">Yuran Bulanan</div>
+                        <div class="grid grid-cols-2 divide-x divide-[#1E3328]/6">
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#D4A373] mb-1">Kami</div><div class="text-[12.5px] font-bold text-[#2A7A5A]">✅ PERCUMA</div></div>
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#5A6B60]/70 mb-1">Lain</div><div class="text-[12.5px] font-bold text-[#2A7A5A]">✅ PERCUMA</div></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-[#1E3328]/8 shadow-sm overflow-hidden">
+                        <div class="px-3.5 py-2 bg-[#1E3328] text-white text-[11px] font-bold uppercase tracking-wider">Komisen dari harga penginapan</div>
+                        <div class="grid grid-cols-2 divide-x divide-[#1E3328]/6">
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#D4A373] mb-1">Kami</div><div class="text-[12.5px] font-bold text-[#2A7A5A]">✅ 0%</div></div>
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#5A6B60]/70 mb-1">Lain</div><div class="text-[12.5px] font-bold text-[#B14A4A]">❌ 10% – 25%</div></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-[#1E3328]/8 shadow-sm overflow-hidden">
+                        <div class="px-3.5 py-2 bg-[#1E3328] text-white text-[11px] font-bold uppercase tracking-wider">Siapa bayar komisen?</div>
+                        <div class="grid grid-cols-2 divide-x divide-[#1E3328]/6">
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#D4A373] mb-1">Kami</div><div class="text-[12.5px] font-bold text-[#2A7A5A]">✅ Tetamu</div></div>
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#5A6B60]/70 mb-1">Lain</div><div class="text-[12.5px] font-bold text-[#B14A4A]">❌ Tuan rumah</div></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-[#1E3328]/8 shadow-sm overflow-hidden">
+                        <div class="px-3.5 py-2 bg-[#1E3328] text-white text-[11px] font-bold uppercase tracking-wider">Yuran Tetamu</div>
+                        <div class="grid grid-cols-2 divide-x divide-[#1E3328]/6">
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#D4A373] mb-1">Kami</div><div class="text-[12.5px] font-bold text-[#2A7A5A]">✅ Transparent</div></div>
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#5A6B60]/70 mb-1">Lain</div><div class="text-[12.5px] font-bold text-[#B14A4A]">❌ Tersembunyi</div></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-[#1E3328]/8 shadow-sm overflow-hidden">
+                        <div class="px-3.5 py-2 bg-[#1E3328] text-white text-[11px] font-bold uppercase tracking-wider">Wang booking disimpan oleh</div>
+                        <div class="grid grid-cols-2 divide-x divide-[#1E3328]/6">
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#D4A373] mb-1">Kami</div><div class="text-[12.5px] font-bold text-[#2A7A5A]">✅ CHIP</div></div>
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#5A6B60]/70 mb-1">Lain</div><div class="text-[12.5px] font-bold text-[#B14A4A]">❌ Platform sendiri</div></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-[#1E3328]/8 shadow-sm overflow-hidden">
+                        <div class="px-3.5 py-2 bg-[#1E3328] text-white text-[11px] font-bold uppercase tracking-wider">Pengesahan ID pengusaha</div>
+                        <div class="grid grid-cols-2 divide-x divide-[#1E3328]/6">
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#D4A373] mb-1">Kami</div><div class="text-[12.5px] font-bold text-[#2A7A5A]">✅ Teliti</div></div>
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#5A6B60]/70 mb-1">Lain</div><div class="text-[12.5px] font-bold text-[#B14A4A]">❌ Asas sahaja</div></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-[#1E3328]/8 shadow-sm overflow-hidden">
+                        <div class="px-3.5 py-2 bg-[#1E3328] text-white text-[11px] font-bold uppercase tracking-wider">Yuran tersembunyi</div>
+                        <div class="grid grid-cols-2 divide-x divide-[#1E3328]/6">
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#D4A373] mb-1">Kami</div><div class="text-[12.5px] font-bold text-[#2A7A5A]">✅ Tiada</div></div>
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#5A6B60]/70 mb-1">Lain</div><div class="text-[12.5px] font-bold text-[#B14A4A]">❌ Ada</div></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-[#1E3328]/8 shadow-sm overflow-hidden">
+                        <div class="px-3.5 py-2 bg-[#1E3328] text-white text-[11px] font-bold uppercase tracking-wider">Tetamu hubungi tuan rumah direct</div>
+                        <div class="grid grid-cols-2 divide-x divide-[#1E3328]/6">
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#D4A373] mb-1">Kami</div><div class="text-[12.5px] font-bold text-[#2A7A5A]">✅ Ya</div></div>
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#5A6B60]/70 mb-1">Lain</div><div class="text-[12.5px] font-bold text-[#B14A4A]">❌ Tidak</div></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-[#1E3328]/8 shadow-sm overflow-hidden">
+                        <div class="px-3.5 py-2 bg-[#1E3328] text-white text-[11px] font-bold uppercase tracking-wider">Dikhas untuk pengusaha tempatan</div>
+                        <div class="grid grid-cols-2 divide-x divide-[#1E3328]/6">
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#D4A373] mb-1">Kami</div><div class="text-[12.5px] font-bold text-[#2A7A5A]">✅ Ya</div></div>
+                            <div class="px-3.5 py-3"><div class="text-[10px] font-bold uppercase text-[#5A6B60]/70 mb-1">Lain</div><div class="text-[12.5px] font-bold text-[#B14A4A]">❌ Platform global</div></div>
+                        </div>
+                    </div>
+
+                </div>
+
                 <div class="mt-12 text-center">
                     <p class="text-[15px] text-[#5A6B60]">📊 <strong>Rumusannya:</strong> Kami bukan sekadar platform – kami adalah <span class="text-[#1E3328] font-semibold">rakan kongsi</span> untuk pengusaha homestay Kundasang.</p>
                     <a href="/owner-register.html" class="btn-secondary mt-6 text-sm md:text-base px-10 py-4">📋 Saya Nak Daftar Sekarang</a>
@@ -724,7 +801,6 @@
             </div>
         </section>
 
-        <!-- ── 6. CHIP SECTION ── -->
         <section class="bg-[#F8F5F0] py-20 md:py-24 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[1100px] mx-auto px-4">
                 <div class="text-center mb-14">
@@ -777,7 +853,6 @@
             </div>
         </section>
 
-        <!-- ── 7. FAQ ── -->
         <section id="faq" class="py-20 md:py-24 scroll-mt-20 scroll-fade" x-intersect.once="$el.classList.add('visible')">
             <div class="max-w-[900px] mx-auto px-4">
                 <div class="text-center mb-14">
@@ -802,7 +877,6 @@
             </div>
         </section>
 
-        <!-- ── 8. FINAL CTA ── -->
         <section class="bg-[#1E3328] text-white py-20 md:py-24 text-center scroll-fade relative overflow-hidden" x-intersect.once="$el.classList.add('visible')">
             <div class="absolute top-[-50%] left-[-20%] w-[400px] h-[400px] rounded-full bg-[#D4A373]/5 blur-3xl pointer-events-none"></div>
             <div class="absolute bottom-[-50%] right-[-20%] w-[400px] h-[400px] rounded-full bg-[#D4A373]/5 blur-3xl pointer-events-none"></div>
@@ -818,7 +892,6 @@
             </div>
         </section>
 
-        <!-- ── 9. FOOTER ── -->
         <footer class="bg-[#0F1E16] text-white/50 border-t border-white/6">
             <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
                 <div>
@@ -868,7 +941,6 @@
             </div>
         </footer>
 
-        <!-- ── FLOATING BAR ── -->
         <div class="floating-bar" :class="{ 'hidden-bar': hideFloatingBar }">
             <a href="/owner-register.html" class="btn-secondary w-full text-center">📋 Daftar Sekarang – PERCUMA</a>
         </div>
