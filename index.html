@@ -36,110 +36,119 @@
       background: #FAF7F2;
       -webkit-font-smoothing: antialiased;
       line-height: 1.6;
+      overflow-x: hidden;
     }
 
-    /* ---------- HERO ---------- */
-    .hero {
-      position: relative;
-      height: 88vh;
-      min-height: 540px;
+    /* --- Animated Background --- */
+    .bg-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
       overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 2rem;
     }
-    .hero img {
+    .bg-blob {
       position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      z-index: 0;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.4;
+      animation: float 20s infinite ease-in-out;
     }
-    .hero::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(
-        180deg,
-        rgba(20, 15, 10, 0.35) 0%,
-        rgba(20, 15, 10, 0.15) 42%,
-        rgba(20, 15, 10, 0.68) 100%
-      );
-      z-index: 1;
+    .bg-blob-1 {
+      width: 500px; height: 500px;
+      background: rgba(212, 163, 115, 0.4);
+      top: -150px; left: -150px;
+      animation-delay: 0s;
     }
-    .hero-inner {
-      position: relative;
-      z-index: 2;
-      max-width: 760px;
-      color: #ffffff;
+    .bg-blob-2 {
+      width: 400px; height: 400px;
+      background: rgba(15, 56, 46, 0.25);
+      bottom: -100px; right: -100px;
+      animation-delay: -7s;
     }
-    .eyebrow {
-      font-family: 'Poppins', sans-serif;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.78);
-      margin: 0 0 22px;
+    .bg-blob-3 {
+      width: 300px; height: 300px;
+      background: rgba(166, 124, 82, 0.3);
+      top: 50%; left: 50%;
+      animation-delay: -14s;
     }
-    .headline {
-      font-family: 'Fraunces', Georgia, serif;
-      font-weight: 500;
-      font-size: clamp(38px, 7vw, 68px);
-      line-height: 1.05;
-      letter-spacing: -0.02em;
-      margin: 0 0 24px;
-    }
-    .headline em {
-      font-style: italic;
-      font-weight: 400;
-    }
-    .script {
-      font-family: 'Satisfy', cursive;
-      font-size: clamp(20px, 3vw, 26px);
-      color: #F5D5A8;
-      margin: 0;
-      line-height: 1.3;
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(40px, -30px) scale(1.1); }
+      66% { transform: translate(-30px, 20px) scale(0.95); }
     }
 
-    /* ---------- NOTE ---------- */
-    .note {
-      max-width: 620px;
-      margin: 0 auto;
-      padding: 72px 24px 80px;
+    /* --- Main Card --- */
+    .card {
+      position: relative;
+      max-width: 680px;
+      margin: 3rem auto;
+      padding: 4rem 3rem;
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 32px;
+      box-shadow: 
+        0 4px 6px -1px rgba(0, 0, 0, 0.02),
+        0 20px 40px -10px rgba(15, 56, 46, 0.08);
+      z-index: 1;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 1s ease-out 0.2s forwards;
     }
-    .note-label {
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- Content --- */
+    .eyebrow {
+      display: inline-block;
       font-size: 11px;
       font-weight: 600;
       letter-spacing: 4px;
       text-transform: uppercase;
       color: #A67C52;
-      margin: 0 0 22px;
+      margin: 0 0 24px;
+      padding: 6px 14px;
+      background: rgba(212, 163, 115, 0.15);
+      border-radius: 999px;
     }
-    .note h2 {
+
+    .headline {
       font-family: 'Fraunces', Georgia, serif;
       font-weight: 500;
-      font-style: italic;
-      font-size: clamp(22px, 3.2vw, 28px);
-      line-height: 1.35;
-      letter-spacing: -0.01em;
+      font-size: clamp(36px, 6vw, 56px);
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      margin: 0 0 20px;
       color: #1a1a1a;
-      margin: 0 0 28px;
     }
+    .headline em {
+      font-style: italic;
+      font-weight: 400;
+      color: #0F382E;
+    }
+
+    .script-accent {
+      font-family: 'Satisfy', cursive;
+      font-size: clamp(20px, 3vw, 26px);
+      color: #A67C52;
+      margin: 0 0 36px;
+      line-height: 1.3;
+    }
+
     .note p {
       font-size: 15.5px;
-      line-height: 1.75;
+      line-height: 1.8;
       color: #3a3a3a;
-      margin: 0 0 18px;
+      margin: 0 0 20px;
     }
+
     .signature {
       font-family: 'Satisfy', cursive;
-      font-size: 24px;
+      font-size: 28px;
       color: #0F382E;
-      margin: 30px 0 6px;
+      margin: 36px 0 8px;
       line-height: 1;
     }
     .sig-role {
@@ -150,22 +159,25 @@
       margin: 0;
       font-weight: 500;
     }
+
     .divider {
       border: 0;
-      border-top: 1px solid rgba(15, 56, 46, 0.14);
+      border-top: 1px solid rgba(15, 56, 46, 0.12);
       margin: 40px 0 32px;
     }
+
     .contact-label {
       font-size: 13.5px;
       color: #5a5a5a;
-      margin: 0 0 16px;
+      margin: 0 0 20px;
       line-height: 1.65;
     }
+
     .btn-wa {
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      padding: 14px 26px;
+      padding: 16px 32px;
       background: #0F382E;
       color: #ffffff;
       font-family: 'Poppins', sans-serif;
@@ -174,19 +186,20 @@
       letter-spacing: 0.02em;
       text-decoration: none;
       border-radius: 999px;
-      transition: background 0.2s ease, transform 0.15s ease;
+      transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+      box-shadow: 0 4px 14px rgba(15, 56, 46, 0.25);
     }
     .btn-wa:hover {
       background: #1a4d3e;
-      transform: translateY(-1px);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(15, 56, 46, 0.35);
     }
     .btn-wa svg { flex-shrink: 0; }
 
-    /* ---------- FOOTER ---------- */
+    /* --- Footer --- */
     footer {
-      border-top: 1px solid rgba(15, 56, 46, 0.1);
-      padding: 22px 24px 26px;
       text-align: center;
+      padding: 2rem 1rem 3rem;
     }
     footer p {
       font-size: 10.5px;
@@ -197,43 +210,53 @@
       font-weight: 500;
     }
 
-    @media (max-width: 480px) {
-      .hero { height: 82vh; min-height: 500px; }
-      .note { padding: 56px 22px 64px; }
-      .btn-wa { padding: 13px 22px; font-size: 13.5px; }
+    @media (max-width: 640px) {
+      .card {
+        margin: 1.5rem 1rem;
+        padding: 3rem 1.75rem;
+        border-radius: 24px;
+      }
+      .btn-wa {
+        padding: 14px 24px;
+        font-size: 13.5px;
+        width: 100%;
+        justify-content: center;
+      }
     }
   </style>
 </head>
 <body>
 
-<section class="hero">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu at sunrise" />
-  <div class="hero-inner">
-    <p class="eyebrow">Kundasang Homestay</p>
-    <h1 class="headline">We're still<br /><em>building this.</em></h1>
-    <p class="script">from up here in the highlands</p>
+<!-- Animated background -->
+<div class="bg-canvas" aria-hidden="true">
+  <div class="bg-blob bg-blob-1"></div>
+  <div class="bg-blob bg-blob-2"></div>
+  <div class="bg-blob bg-blob-3"></div>
+</div>
+
+<main class="card">
+  <span class="eyebrow">Kundasang Homestay</span>
+
+  <h1 class="headline">We're still<br /><em>building this.</em></h1>
+
+  <p class="script-accent">from up here in the highlands</p>
+
+  <div class="note">
+    <p>
+      Every home on here, I'll have walked through myself. Kundasang Homestay is a small platform I'm building from Ranau, for the people who actually live up here and rent out rooms. No middlemen. No commission. Just honest rooms with honest views.
+    </p>
+
+    <p>
+      It's not ready yet. I'm still walking door to door and meeting hosts, getting each place right before it goes online. When it's ready, I'll say so here.
+    </p>
+
+    <p>
+      If you'd like to be told when we open — or you run a homestay in Kundasang and want to talk — send me a message. I answer every one myself.
+    </p>
+
+    <p class="signature">— Nick</p>
+    <p class="sig-role">NICK'S CREATIONS · Ranau, Sabah</p>
   </div>
-</section>
-
-<main class="note">
-  <p class="note-label">A short note</p>
-
-  <h2>Every home on here, I'll have walked through myself.</h2>
-
-  <p>
-    Kundasang Homestay is a small platform I'm building from Ranau, for the people who actually live up here and rent out rooms. No middlemen. No commission. Just honest rooms with honest views.
-  </p>
-
-  <p>
-    It's not ready yet. I'm still walking door to door and meeting hosts, getting each place right before it goes online. When it's ready, I'll say so here.
-  </p>
-
-  <p>
-    If you'd like to be told when we open — or you run a homestay in Kundasang and want to talk — send me a message. I answer every one myself.
-  </p>
-
-  <p class="signature">— Nick</p>
-  <p class="sig-role">NICK'S CREATIONS · Ranau, Sabah</p>
 
   <hr class="divider" />
 
