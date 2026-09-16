@@ -62,6 +62,20 @@
 </head>
 <body>
 
+<!-- ===== CUSTOM MODAL ===== -->
+<div id="customModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modalTitle">Notice</h3>
+      <button onclick="closeModal()" class="modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">Message</div>
+    <div class="modal-footer" id="modalFooter">
+      <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
+    </div>
+  </div>
+</div>
+
 <script>
   let lastToggleTime = 0;
   window.toggleMobileMenu = function() {
@@ -508,6 +522,89 @@
     }
   }
 })();
+</script>
+
+<!-- ===== MODAL SYSTEM SCRIPT ===== -->
+<script>
+  function showModal(title, message, buttons) {
+    return new Promise(function(resolve) {
+      var overlay = document.getElementById('customModal');
+      var titleEl = document.getElementById('modalTitle');
+      var bodyEl = document.getElementById('modalBody');
+      var footerEl = document.getElementById('modalFooter');
+      titleEl.textContent = title || 'Notice';
+      bodyEl.innerHTML = typeof message === 'string' ? message : '';
+      footerEl.innerHTML = '';
+      buttons.forEach(function(btn) {
+        var el = document.createElement('button');
+        el.textContent = btn.label;
+        el.className = 'btn ' + (btn.class || 'btn-primary');
+        el.onclick = function() {
+          overlay.classList.remove('active');
+          document.body.style.overflow = '';
+          if (btn.value !== undefined) resolve(btn.value);
+          else resolve(true);
+        };
+        footerEl.appendChild(el);
+      });
+      overlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    });
+  }
+
+  function closeModal() {
+    var overlay = document.getElementById('customModal');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  function modalConfirm() {
+    var overlay = document.getElementById('customModal');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  function showAlert(title, message) {
+    return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
+  }
+
+  // Styled confirm dialog — used by guest-session.js for the logout prompt.
+  function showConfirm(title, message) {
+    return showModal(title, message, [
+      { label: 'Cancel', class: 'btn-secondary', value: false },
+      { label: 'Confirm', class: 'btn-primary', value: true }
+    ]);
+  }
+  window.showConfirm = showConfirm;
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      var overlay = document.getElementById('customModal');
+      if (overlay && overlay.classList.contains('active')) {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    }
+  });
+
+  document.getElementById('customModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  });
+
+  // Close the mobile nav when clicking outside of it.
+  document.addEventListener('click', function(e) {
+    var nav = document.getElementById('mobileNav');
+    var btn = document.getElementById('mobileMenuBtn');
+    if (!nav || !btn) return;
+    if (nav.classList.contains('open') &&
+        !nav.contains(e.target) &&
+        !btn.contains(e.target)) {
+      nav.classList.remove('open');
+    }
+  });
 </script>
 
 <!-- ===== FOOTER ===== -->
