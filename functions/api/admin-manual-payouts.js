@@ -10,29 +10,18 @@
 //        the uploaded bank receipt. Fires the host Payout Statement
 //        email. Updates the booking status. Idempotent.
 //
-// [THIS REVISION]
-// POST now requires a `receiptUrl` — the Cloudinary URL of a bank
-// transfer receipt (screenshot from the bank app). This is CHIP's
-// "proof of payment" evidence and is stored on the booking as
-// `manualPayoutReceiptUrl` and `manualPayoutReceiptPublicId`.
-//
-// The Payout Statement email is now sent INSIDE the lock so the
-// email result (sent / failed + timestamp) is written to the booking
-// in the same atomic write as the payment details. This makes the
-// CSV export a complete audit trail: every row shows both the host
-// receipt email status AND the bank receipt URL.
-//
-// The CSV export (built client-side in admin-payouts.html) now emits
-// two evidence columns:
-//   - Host Official Receipt — timestamp the host was notified
-//   - Platform Payment Receipt — URL of the bank receipt image
-//
-// [LATEST REVISION]
-// The `receiptUrl` is now passed through to `sendHostPayoutEmail` so
-// the host's Payout Statement email embeds the actual bank receipt
-// image below the booking details. This gives the host a complete
-// self-contained record: amount, reference, transfer details, AND
-// the proof-of-transfer image — all in one email.
+// [THIS REVISION — 16 Sept 2026]
+//   (1) GET now exposes `hostWhatsapp` on every pending item and every
+//       history row. The admin panel uses this to render a "Notify Host
+//       on WhatsApp" button, so non-technical hosts who miss the email
+//       still get told about their payout.
+//   (2) POST now fires a second email — a [PAYOUT-RECORD] message to
+//       support@kundasanghomestay.my — after the payout statement goes
+//       out. A Google Apps Script watches that inbox and auto-files the
+//       receipt + metadata into Google Drive, which is our audit trail
+//       for CHIP's 3-month manual-payout review. Fire-and-forget: a
+//       failure here never blocks the payout record.
+
 import {
   corsHeaders,
   getClientIP,
@@ -42,7 +31,8 @@ import {
   jsonResponse,
   parseJSONSafely,
   withLock,
-  sendHostPayoutEmail
+  sendHostPayoutEmail,
+  sendPayoutRecordEmail
 } from './_utils.js';
 
 const BOOKINGS_LOCK = 'bookings-global';
@@ -91,6 +81,10 @@ export async function onRequestGet({ request, env }) {
       amount: Number(b.manualPayoutAmount || b.base || 0),
       hostName: b.manualPayoutHostName || '',
       hostEmail: b.manualPayoutHostEmail || '',
+      // [NEW] Host WhatsApp — for the "Notify Host on WhatsApp" button
+      // in the admin panel. Prefers the snapshot taken when the booking
+      // entered the queue, falls back to the booking's own ownerWhatsapp.
+      hostWhatsapp: b.manualPayoutHostWhatsapp || b.ownerWhatsapp || '',
       bankName: b.manualPayoutBankName || '',
       bankCode: b.manualPayoutBankCode || '',
       accountNumber: b.manualPayoutAccountNumber || '',
@@ -107,6 +101,7 @@ export async function onRequestGet({ request, env }) {
     homestayName: b.manualPayoutHomestayName || b.homestay || '',
     hostName: b.manualPayoutHostName || '',
     hostEmail: b.manualPayoutHostEmail || '',
+    hostWhatsapp: b.manualPayoutHostWhatsapp || b.ownerWhatsapp || '',
     hostBank: b.manualPayoutBankName || '',
     hostAccount: b.manualPayoutAccountNumber || '',
     amount: Number(b.manualPayoutAmount || b.base || 0),
@@ -119,6 +114,8 @@ export async function onRequestGet({ request, env }) {
     emailSent: b.manualPayoutEmailSent === true,
     emailSentAt: b.manualPayoutEmailSentAt || '',
     emailError: b.manualPayoutEmailError || '',
+    driveRecordSent: b.manualPayoutDriveRecordSent === true,
+    driveRecordError: b.manualPayoutDriveRecordError || '',
     notes: b.manualPayoutNotes || '',
     paidAt: b.manualPayoutCompletedAt || '',
     paidBy: b.manualPayoutCompletedBy || 'admin'
@@ -179,10 +176,6 @@ export async function onRequestPost({ request, env }) {
     }, 400, request);
   }
 
-  // Sanity check: the URL should look like a Cloudinary URL under our
-  // account. We do not reject based on this, but we log a warning so we
-  // notice if the admin tool ever gets compromised and starts posting
-  // arbitrary URLs.
   const looksLikeCloudinary = /^https:\/\/res\.cloudinary\.com\//.test(receiptUrl);
   if (!looksLikeCloudinary) {
     console.warn('admin-manual-payouts: receiptUrl does not look like a Cloudinary URL:', receiptUrl.slice(0, 120));
@@ -216,9 +209,6 @@ export async function onRequestPost({ request, env }) {
       const nowIso = new Date().toISOString();
       const ownerAmount = Number(booking.manualPayoutAmount || booking.base || 0);
 
-      // Build a temporary booking object with the payment details so the
-      // email helper sees the fresh state. We don't save it yet — the
-      // write below saves everything together.
       const updatedBooking = {
         ...booking,
         status: 'Completed - Payout Success (Manual)',
@@ -239,9 +229,6 @@ export async function onRequestPost({ request, env }) {
 
       // Send the Payout Statement email INSIDE the lock so the email
       // result is saved in the same write as the payment details.
-      // Without this, a crash between the payment save and the email
-      // send would lose the email-sent timestamp and weaken the audit
-      // trail CHIP relies on.
       const homestayForEmail = {
         ownerEmail: updatedBooking.manualPayoutHostEmail || '',
         ownerName: updatedBooking.manualPayoutHostName || 'Host',
@@ -280,6 +267,42 @@ export async function onRequestPost({ request, env }) {
         updatedBooking.manualPayoutEmailError = emailReport.error || 'unknown';
       }
 
+      // [NEW] Fire the [PAYOUT-RECORD] email so the Drive automation
+      // can file it. Fire-and-forget: if this fails, the payout record
+      // is still saved and the host is still paid. The failure only
+      // shows up in the admin panel (driveRecordSent=false) so you can
+      // re-file manually if needed.
+      let driveRecordReport = { sent: false, error: 'not attempted' };
+      try {
+        driveRecordReport = await sendPayoutRecordEmail(
+          updatedBooking,
+          {
+            amount: ownerAmount,
+            reference,
+            paidAt: nowIso,
+            method: paymentMethod,
+            receiptUrl,
+            hostName: updatedBooking.manualPayoutHostName || '',
+            hostEmail: updatedBooking.manualPayoutHostEmail || '',
+            hostWhatsapp: updatedBooking.manualPayoutHostWhatsapp || updatedBooking.ownerWhatsapp || '',
+            homestayName: updatedBooking.manualPayoutHomestayName || updatedBooking.homestay || ''
+          },
+          env
+        );
+      } catch (driveErr) {
+        console.error('Payout record email error:', driveErr.message);
+        driveRecordReport = { sent: false, error: driveErr.message };
+      }
+
+      if (driveRecordReport.sent) {
+        updatedBooking.manualPayoutDriveRecordSent = true;
+        updatedBooking.manualPayoutDriveRecordSentAt = nowIso;
+        delete updatedBooking.manualPayoutDriveRecordError;
+      } else {
+        updatedBooking.manualPayoutDriveRecordSent = false;
+        updatedBooking.manualPayoutDriveRecordError = driveRecordReport.error || 'unknown';
+      }
+
       bookings[idx] = updatedBooking;
 
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
@@ -291,7 +314,8 @@ export async function onRequestPost({ request, env }) {
         booking: updatedBooking,
         ownerAmount,
         nowIso,
-        emailReport
+        emailReport,
+        driveRecordReport
       };
     }, 60000);
   } catch (lockErr) {
@@ -314,7 +338,7 @@ export async function onRequestPost({ request, env }) {
     db,
     action: 'manual_payout_recorded',
     admin: 'admin',
-    details: `Manual payout for ${bookingId} recorded. RM${result.ownerAmount.toFixed(2)} → ${result.booking.manualPayoutHostName || 'host'} (${result.booking.manualPayoutBankName || ''}). Method: ${methodLabel}. Reference: ${reference}. Receipt: ${receiptPublicId || 'uploaded (no public id returned)'}${notes ? '. Notes: ' + notes : ''}. Email: ${result.emailReport.sent ? 'sent' : 'failed — ' + (result.emailReport.error || 'unknown')}.`,
+    details: `Manual payout for ${bookingId} recorded. RM${result.ownerAmount.toFixed(2)} → ${result.booking.manualPayoutHostName || 'host'} (${result.booking.manualPayoutBankName || ''}). Method: ${methodLabel}. Reference: ${reference}. Receipt: ${receiptPublicId || 'uploaded (no public id returned)'}${notes ? '. Notes: ' + notes : ''}. Host email: ${result.emailReport.sent ? 'sent' : 'failed — ' + (result.emailReport.error || 'unknown')}. Drive record: ${result.driveRecordReport.sent ? 'sent' : 'failed — ' + (result.driveRecordReport.error || 'unknown')}.`,
     ip: clientIP,
     userId: result.booking.manualPayoutHostEmail || '',
     homestayId: result.booking.homestayId
@@ -330,7 +354,9 @@ export async function onRequestPost({ request, env }) {
     receiptUrl,
     hostEmail: result.booking.manualPayoutHostEmail || '',
     emailSent: result.emailReport.sent,
-    emailError: result.emailReport.sent ? undefined : result.emailReport.error
+    emailError: result.emailReport.sent ? undefined : result.emailReport.error,
+    driveRecordSent: result.driveRecordReport.sent,
+    driveRecordError: result.driveRecordReport.sent ? undefined : result.driveRecordReport.error
   }, 200, request);
 }
 
