@@ -7,7 +7,7 @@
   <title>Things to Do in Kundasang - Places to See | Kundasang Homestay</title>
   <meta name="title" content="Things to Do in Kundasang - Places to See Near Mount Kinabalu" />
   <meta name="description" content="A practical guide to Kundasang, Sabah — Mount Kinabalu, Sosodikon Hill, Desa Cattle Farm, Hounon Ridge, Maragang Hill. Best times, distances, difficulty, and where to stay near each." />
-  <meta name="keywords" content="things to do in Kundasang, places to see Kundasang, Sosodikon Hill, Desa Cattle Farm, Maragang Hill, Hounon Ridge, Mount Kinabalu viewpoint, Kundasang itinerary" />
+  <meta name="keywords" content="things to do in Kundasang, places to see Kundasang, Sosodikon Hill, Desa Cattle Farm, Maragang Hill, Hounon Ridge, Mount Kinabalu viewpoint, climb Mount Kinabalu, Kundasang itinerary" />
   <meta name="robots" content="index, follow" />
 
   <meta property="og:type" content="website" />
@@ -194,6 +194,46 @@
     .spot-cta:hover {
       background: #1a4d3e;
       transform: translateY(-1px);
+    }
+
+    /* ============================================================
+       Mount Kinabalu — two-mode card
+       Viewing vs climbing, clearly separated.
+       ============================================================ */
+    .kinabalu-modes {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin: 14px 0 16px;
+    }
+    .kinabalu-mode {
+      background: #F8F5F0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(0,0,0,0.04);
+    }
+    .kinabalu-mode-label {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 800;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #0F382E;
+      margin-bottom: 6px;
+    }
+    .kinabalu-mode-label.climb {
+      color: #A67C52;
+    }
+    .kinabalu-mode p {
+      font-family: 'Poppins', sans-serif;
+      font-size: 12px;
+      color: rgba(33,33,33,0.7);
+      line-height: 1.6;
+      margin: 0;
+    }
+    .kinabalu-mode p strong {
+      color: #212121;
+      font-weight: 700;
     }
 
     .itinerary-grid {
@@ -675,28 +715,46 @@
   // and the cards never drift out of sync.
   //
   // [THIS REVISION]
-  // Facts verified against Sabah Tourism Board, Trip.com, and
-  // recent visitor reviews (2025). Corrections applied:
-  //   - Sosodikon: RM5 entry confirmed, 5 km / 10-15 min drive
-  //   - Desa Farm: RM5 entry, pre-book online required
-  //   - Maragang: RM85/pax package, 20-30 min drive, 1.5-3 hr hike
-  //   - Mount Kinabalu: best 6-9 AM viewing window
+  // The Mount Kinabalu entry has been corrected. Previously it
+  // presented the mountain as a simple viewpoint in Kundasang.
+  // In reality:
+  //   - VIEWING the mountain from Kundasang is free, easy, and
+  //     what most guests do.
+  //   - CLIMBING the mountain is a separate 2-day expedition that
+  //     starts at Timpohon Gate (Kinabalu Park HQ), about 6 km
+  //     from Kundasang. It requires a permit (RM100 Malaysian /
+  //     RM400 international), a licensed guide, and months of
+  //     advance booking.
+  // Both activities are shown on the same card, clearly labelled.
   // ============================================================
 
   var SPOTS = [
     {
       id: 'kinabalu',
       number: '01',
-      label: 'Mount Kinabalu Peak',
+      label: 'Mount Kinabalu',
       shortLabel: 'Mount Kinabalu',
-      tag: 'Iconic viewpoint',
+      tag: 'View or climb',
       image: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjkSvgFVVrdYAgkSktuGggZXhn-aZ8rUVqDxtQ4-nr0TB0MSv0lA73cIf1I7d7fW_KSjVbRwyvy5rU4GNgSUroglJKHhjcQmUR_Jh6cXE7zT6EdED7ub7popAXHn7CMM_SnASVJIhlIo3ry/s1600/MountKinabalu.jpg',
-      desc: 'The iconic 4,095m Sabah summit. Best seen at sunrise before the clouds roll in.',
-      summary: 'You don\'t climb it from Kundasang — but you see it every clear morning from almost anywhere in town. The mountain is the reason Kundasang exists. The clearest views are between 6:00 and 9:00 AM, before the clouds cover the peak.',
-      bestTime: '6:00–9:00 AM',
-      distance: 'Seen from anywhere in town',
-      difficulty: 'Viewpoint — no hike',
-      entry: 'Free',
+      desc: 'The iconic 4,095m Sabah summit. View it from Kundasang, or climb it from Kinabalu Park HQ.',
+      summary: 'The mountain is the reason Kundasang exists. Most guests view it from town — free, easy, and stunning at sunrise. A smaller number climb it, which is a completely different undertaking: a 2-day expedition starting 6 km away at Kinabalu Park HQ.',
+      // Two-mode breakdown for the card
+      modes: [
+        {
+          label: 'View from Kundasang',
+          type: 'view',
+          text: 'Free. Visible from almost anywhere in town. Best between <strong>6:00 and 9:00 AM</strong> before the clouds cover the peak. Your homestay balcony is usually the best seat.'
+        },
+        {
+          label: 'Climb the mountain',
+          type: 'climb',
+          text: 'A 2-day, 1-night expedition starting at <strong>Timpohon Gate</strong>, Kinabalu Park HQ (6 km / 10–15 min from Kundasang). Permit required: <strong>RM100</strong> Malaysian adult, <strong>RM400</strong> international. Limited to 153 climbers per day. Book months in advance.'
+        }
+      ],
+      bestTime: 'View: 6–9 AM · Climb: Mar–Aug',
+      distance: 'View: anywhere in town · Climb: 6 km to Park HQ',
+      difficulty: 'View: none · Climb: strenuous, 2 days',
+      entry: 'View: Free · Climb: RM100–RM400',
       area: 'Bundu Tuhan'
     },
     {
@@ -1011,6 +1069,51 @@
 
     var html = '';
     SPOTS.forEach(function(s) {
+      var bodyHtml = '';
+
+      // Build the two-mode block for Mount Kinabalu, or the standard
+      // facts list for every other spot.
+      if (s.modes && s.modes.length > 0) {
+        var modesHtml = '<div class="kinabalu-modes">';
+        s.modes.forEach(function(m) {
+          modesHtml +=
+            '<div class="kinabalu-mode">' +
+              '<div class="kinabalu-mode-label' + (m.type === 'climb' ? ' climb' : '') + '">' + m.label + '</div>' +
+              '<p>' + m.text + '</p>' +
+            '</div>';
+        });
+        modesHtml += '</div>';
+
+        bodyHtml =
+          '<h3>' + s.label + '</h3>' +
+          '<span class="spot-tag">' + s.tag + '</span>' +
+          '<p class="spot-summary">' + s.summary + '</p>' +
+          modesHtml +
+          '<dl class="spot-facts">' +
+            '<div><dt>Best time</dt><dd>' + s.bestTime + '</dd></div>' +
+            '<div><dt>Distance</dt><dd>' + s.distance + '</dd></div>' +
+            '<div><dt>Difficulty</dt><dd>' + s.difficulty + '</dd></div>' +
+            '<div><dt>Entry / permit</dt><dd>' + s.entry + '</dd></div>' +
+          '</dl>' +
+          '<a href="/?location=' + areaToQuery(s.area) + '#homePage" class="spot-cta">' +
+            'Stay near here →' +
+          '</a>';
+      } else {
+        bodyHtml =
+          '<h3>' + s.label + '</h3>' +
+          '<span class="spot-tag">' + s.tag + '</span>' +
+          '<p class="spot-summary">' + s.summary + '</p>' +
+          '<dl class="spot-facts">' +
+            '<div><dt>Best time</dt><dd>' + s.bestTime + '</dd></div>' +
+            '<div><dt>From town</dt><dd>' + s.distance + '</dd></div>' +
+            '<div><dt>Difficulty</dt><dd>' + s.difficulty + '</dd></div>' +
+            '<div><dt>Entry</dt><dd>' + s.entry + '</dd></div>' +
+          '</dl>' +
+          '<a href="/?location=' + areaToQuery(s.area) + '#homePage" class="spot-cta">' +
+            'Stay near here →' +
+          '</a>';
+      }
+
       html +=
         '<article class="spot-card">' +
           '<div class="spot-image-wrap">' +
@@ -1019,18 +1122,7 @@
             '<span class="spot-number">' + s.number + '</span>' +
           '</div>' +
           '<div class="spot-body">' +
-            '<h3>' + s.label + '</h3>' +
-            '<span class="spot-tag">' + s.tag + '</span>' +
-            '<p class="spot-summary">' + s.summary + '</p>' +
-            '<dl class="spot-facts">' +
-              '<div><dt>Best time</dt><dd>' + s.bestTime + '</dd></div>' +
-              '<div><dt>From town</dt><dd>' + s.distance + '</dd></div>' +
-              '<div><dt>Difficulty</dt><dd>' + s.difficulty + '</dd></div>' +
-              '<div><dt>Entry</dt><dd>' + s.entry + '</dd></div>' +
-            '</dl>' +
-            '<a href="/?location=' + areaToQuery(s.area) + '#homePage" class="spot-cta">' +
-              'Stay near here →' +
-            '</a>' +
+            bodyHtml +
           '</div>' +
         '</article>';
     });
