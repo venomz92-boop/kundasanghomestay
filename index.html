@@ -60,11 +60,71 @@
       .ag-description .ag-desc-text { font-size: 12.5px; }
     }
 
-    /* [THIS REVISION] When a guest arrives at /#homePage from an
-       explore.html "Stay near here" link, offset the scroll position
-       so the sticky header doesn't cover the listings heading. */
+    /* When a guest arrives at /#homePage from an explore.html
+       "Stay near here" link, offset the scroll position so the sticky
+       header doesn't cover the listings heading. */
     #homePage {
       scroll-margin-top: 90px;
+    }
+
+    /* ============================================================
+       CALENDAR — proper two-tap range picking
+       These rules override the base calendar styles from styles.css.
+       Check-in and check-out are dark green; the range is light green.
+       Clickable dates have a pointer cursor and a hover highlight.
+       ============================================================ */
+    .calendar-day {
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    }
+    .calendar-day.clickable {
+      cursor: pointer;
+      user-select: none;
+    }
+    .calendar-day.clickable:hover {
+      background: #dbeafe !important;
+      border-color: #3b82f6 !important;
+      color: #1e3a8a !important;
+      transform: scale(1.08);
+    }
+    .calendar-day.selected-start,
+    .calendar-day.selected-end {
+      background: #0F382E !important;
+      border-color: #0F382E !important;
+      color: #ffffff !important;
+      font-weight: 800 !important;
+      transform: scale(1.05);
+      box-shadow: 0 2px 8px rgba(15, 56, 46, 0.35);
+    }
+    .calendar-day.in-range {
+      background: #d1fae5 !important;
+      border-color: #86efac !important;
+      color: #065f46 !important;
+      font-weight: 600 !important;
+    }
+
+    .calendar-pick-hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 11px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 10px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #166534;
+      margin-bottom: 8px;
+      line-height: 1.35;
+    }
+    .calendar-pick-hint .hint-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .calendar-pick-hint.complete {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+      color: #065f46;
     }
   </style>
   
@@ -1223,7 +1283,6 @@
           <span class="text-[10px] text-[#0F382E] font-600">Tap a date to pick</span>
         </div>
         <div id="detailAvailabilityCalendar" class="mt-3"></div>
-        <div class="text-[10px] text-zinc-500 mt-2 leading-relaxed">Tap any green date to set check-in, then tap a later date to set check-out. Red dates are already booked.</div>
       </div>
 
       <div class="mt-6 grid grid-cols-2 gap-3">
@@ -1246,6 +1305,18 @@
     }
     
     document.getElementById("detailModal").classList.remove("hidden");
+
+    // Reset the calendar's pick phase so a fresh open always starts
+    // at "pick check-in". Without this, reopening the modal after
+    // setting a full range would leave the calendar stuck in
+    // "pick check-out" mode.
+    var calContainer = document.getElementById('detailAvailabilityCalendar');
+    if (calContainer) {
+      calContainer._pickPhase = 'checkin';
+      calContainer._currentMonth = null;
+      calContainer._currentYear = null;
+    }
+
     renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
     updateDetailPrice();
   }
@@ -1773,7 +1844,20 @@
   window.goToMyBookingsFromFailed = goToMyBookingsFromFailed;
 
   // =============================================================
-  // CALENDAR — READ-ONLY STATES + TAPPABLE DATE PICKING
+  // CALENDAR — proper two-tap range picking
+  //
+  // How it works:
+  //   - On modal open, the container resets to _pickPhase = 'checkin'.
+  //   - First tap on a clickable date → sets check-in, defaults
+  //     check-out to +1 night, and switches _pickPhase to 'checkout'.
+  //   - Second tap:
+  //       * if the tapped date is AFTER check-in → sets check-out,
+  //         then switches _pickPhase back to 'checkin' for a fresh range.
+  //       * if the tapped date is ON OR BEFORE check-in → treats it
+  //         as a new check-in (same as the first tap).
+  //   - A hint text above the calendar always tells the user what the
+  //     next tap will do.
+  //   - Blocked and past dates are not clickable.
   // =============================================================
   function renderAvailabilityCalendar(homestay, containerId) {
     var container = document.getElementById(containerId);
@@ -1783,6 +1867,10 @@
     var today = new Date();
     today.setHours(0, 0, 0, 0);
     var todayIso = dateToIso(today);
+
+    if (!container._pickPhase) {
+      container._pickPhase = 'checkin';
+    }
 
     if (!container._currentMonth) {
       var existingCi = document.getElementById('detailCheckin')?.value || '';
@@ -1810,7 +1898,25 @@
       var startDay = new Date(year, month, 1).getDay();
       var sel = getSelection();
 
+      // Hint text reflects what the next tap will do.
+      var hintText;
+      var hintClass = 'calendar-pick-hint';
+      if (container._pickPhase === 'checkin') {
+        if (sel.ci && sel.co) {
+          hintText = 'Tap a date to start a new selection. Currently: <strong>' + sel.ci + '</strong> → <strong>' + sel.co + '</strong>';
+          hintClass += ' complete';
+        } else {
+          hintText = 'Tap a green date to set your <strong>check-in</strong>.';
+        }
+      } else {
+        hintText = 'Now tap a later green date to set your <strong>check-out</strong>.';
+      }
+
       var html = `
+        <div class="${hintClass}">
+          <span class="hint-icon">📍</span>
+          <span>${hintText}</span>
+        </div>
         <div class="flex items-center justify-between mb-1.5">
           <button type="button" class="calendar-nav-btn" data-dir="-1" style="width:26px;height:26px;font-size:14px;">‹</button>
           <span class="calendar-month-label" style="font-size:13px;font-weight:700;">${monthLabel}</span>
@@ -1884,41 +1990,52 @@
         }
 
         var dayEl = e.target.closest('.calendar-day[data-iso]');
-        if (dayEl && dayEl.dataset.iso) {
-          e.preventDefault();
-          var iso = dayEl.dataset.iso;
-          var ciEl = document.getElementById('detailCheckin');
-          var coEl = document.getElementById('detailCheckout');
-          if (!ciEl || !coEl) return;
+        if (!dayEl || !dayEl.dataset.iso) return;
 
-          var currentCi = ciEl.value || '';
-          var currentCo = coEl.value || '';
+        e.preventDefault();
+        var iso = dayEl.dataset.iso;
+        var ciEl = document.getElementById('detailCheckin');
+        var coEl = document.getElementById('detailCheckout');
+        if (!ciEl || !coEl) return;
 
-          if (!currentCi || (currentCi && currentCo)) {
+        var currentCi = ciEl.value || '';
+        var currentCo = coEl.value || '';
+
+        if (container._pickPhase === 'checkin') {
+          // First tap — set check-in, default check-out to +1 night,
+          // then move to check-out phase.
+          ciEl.value = iso;
+          var next = new Date(iso + 'T00:00:00');
+          next.setDate(next.getDate() + 1);
+          coEl.value = dateToIso(next);
+          container._pickPhase = 'checkout';
+        } else {
+          // Second tap.
+          if (currentCi && iso > currentCi) {
+            // Valid check-out — later than check-in.
+            coEl.value = iso;
+            // Ready for a brand-new range on the next tap.
+            container._pickPhase = 'checkin';
+          } else {
+            // Earlier than or equal to check-in — treat as a new
+            // check-in (same behaviour as first tap).
             ciEl.value = iso;
-            var next = new Date(iso + 'T00:00:00');
-            next.setDate(next.getDate() + 1);
-            coEl.value = dateToIso(next);
-          } else if (currentCi && !currentCo) {
-            if (iso > currentCi) {
-              coEl.value = iso;
-            } else {
-              ciEl.value = iso;
-              var next2 = new Date(iso + 'T00:00:00');
-              next2.setDate(next2.getDate() + 1);
-              coEl.value = dateToIso(next2);
-            }
+            var next2 = new Date(iso + 'T00:00:00');
+            next2.setDate(next2.getDate() + 1);
+            coEl.value = dateToIso(next2);
+            container._pickPhase = 'checkout';
           }
-
-          var homeCi = document.getElementById('checkin');
-          var homeCo = document.getElementById('checkout');
-          if (homeCi) homeCi.value = ciEl.value;
-          if (homeCo) homeCo.value = coEl.value;
-
-          updateDetailPrice();
-          renderMonth();
-          return;
         }
+
+        // Keep the homepage search inputs in sync so the grid filter
+        // reflects what the guest picked in the modal.
+        var homeCi = document.getElementById('checkin');
+        var homeCo = document.getElementById('checkout');
+        if (homeCi) homeCi.value = ciEl.value;
+        if (homeCo) homeCo.value = coEl.value;
+
+        updateDetailPrice();
+        renderMonth();
       });
       container._listenerAttached = true;
     }
