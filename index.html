@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kundasang Homestay</title>
-  <meta name="description" content="A small homestay platform being built from Kundasang, Sabah. Opening soon." />
+  <meta name="description" content="A locally-run homestay platform in Kundasang, Sabah. Opening soon." />
   <meta name="robots" content="noindex" />
 
   <!-- PWA -->
@@ -39,42 +39,31 @@
       overflow-x: hidden;
     }
 
-    /* --- Animated Background --- */
+    /* --- Full-bleed background photo --- */
     .bg-canvas {
       position: fixed;
       inset: 0;
       z-index: -2;
       overflow: hidden;
+      background: #2a2620; /* fallback while image loads */
     }
-    .bg-blob {
+    .bg-canvas img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center 40%;
+      display: block;
+    }
+    .bg-canvas::after {
+      content: '';
       position: absolute;
-      border-radius: 50%;
-      filter: blur(80px);
-      opacity: 0.4;
-      animation: float 20s infinite ease-in-out;
-    }
-    .bg-blob-1 {
-      width: 500px; height: 500px;
-      background: rgba(212, 163, 115, 0.4);
-      top: -150px; left: -150px;
-      animation-delay: 0s;
-    }
-    .bg-blob-2 {
-      width: 400px; height: 400px;
-      background: rgba(15, 56, 46, 0.25);
-      bottom: -100px; right: -100px;
-      animation-delay: -7s;
-    }
-    .bg-blob-3 {
-      width: 300px; height: 300px;
-      background: rgba(166, 124, 82, 0.3);
-      top: 50%; left: 50%;
-      animation-delay: -14s;
-    }
-    @keyframes float {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      33% { transform: translate(40px, -30px) scale(1.1); }
-      66% { transform: translate(-30px, 20px) scale(0.95); }
+      inset: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(20, 15, 10, 0.35) 0%,
+        rgba(20, 15, 10, 0.20) 45%,
+        rgba(20, 15, 10, 0.55) 100%
+      );
     }
 
     /* --- Main Card --- */
@@ -83,14 +72,14 @@
       max-width: 680px;
       margin: 3rem auto;
       padding: 4rem 3rem;
-      background: rgba(255, 255, 255, 0.75);
+      background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.7);
       border-radius: 32px;
       box-shadow: 
-        0 4px 6px -1px rgba(0, 0, 0, 0.02),
-        0 20px 40px -10px rgba(15, 56, 46, 0.08);
+        0 4px 6px -1px rgba(0, 0, 0, 0.06),
+        0 30px 60px -12px rgba(15, 56, 46, 0.35);
       z-index: 1;
       opacity: 0;
       transform: translateY(20px);
@@ -117,10 +106,10 @@
     .headline {
       font-family: 'Fraunces', Georgia, serif;
       font-weight: 500;
-      font-size: clamp(36px, 6vw, 56px);
-      line-height: 1.05;
+      font-size: clamp(34px, 5.6vw, 52px);
+      line-height: 1.08;
       letter-spacing: -0.02em;
-      margin: 0 0 20px;
+      margin: 0 0 18px;
       color: #1a1a1a;
     }
     .headline em {
@@ -205,9 +194,10 @@
       font-size: 10.5px;
       letter-spacing: 2px;
       text-transform: uppercase;
-      color: #9a9a9a;
+      color: rgba(255, 255, 255, 0.85);
       margin: 0;
-      font-weight: 500;
+      font-weight: 600;
+      text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
     }
 
     @media (max-width: 640px) {
@@ -222,36 +212,37 @@
         width: 100%;
         justify-content: center;
       }
+      .bg-canvas img {
+        object-position: center 35%;
+      }
     }
   </style>
 </head>
 <body>
 
-<!-- Animated background -->
+<!-- Full-bleed background photo -->
 <div class="bg-canvas" aria-hidden="true">
-  <div class="bg-blob bg-blob-1"></div>
-  <div class="bg-blob bg-blob-2"></div>
-  <div class="bg-blob bg-blob-3"></div>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="" />
 </div>
 
 <main class="card">
   <span class="eyebrow">Kundasang Homestay</span>
 
-  <h1 class="headline">We're still<br /><em>building this.</em></h1>
+  <h1 class="headline">We're getting ready<br /><em>for you.</em></h1>
 
-  <p class="script-accent">from up here in the highlands</p>
+  <p class="script-accent">see you in the highlands</p>
 
   <div class="note">
     <p>
-      Every home on here, I'll have walked through myself. Kundasang Homestay is a small platform I'm building from Ranau, for the people who actually live up here and rent out rooms. No middlemen. No commission. Just honest rooms with honest views.
+      Kundasang Homestay is a locally-run platform built from the highlands — for travellers who want a real mountain stay, and for the families who open their homes to you.
     </p>
 
     <p>
-      It's not ready yet. I'm still walking door to door and meeting hosts, getting each place right before it goes online. When it's ready, I'll say so here.
+      Every property here is visited in person before it goes online. Every host is someone we've met ourselves. Payments go through CHIP — Malaysia's trusted FPX gateway — and we don't take a single sen in commission from our hosts, so more of every booking stays with the family who owns the home.
     </p>
 
     <p>
-      If you'd like to be told when we open — or you run a homestay in Kundasang and want to talk — send me a message. I answer every one myself.
+      We're putting the final touches together now. When we open, we'll announce it here first. If you'd like to be among the first to know — or you just want to say hello — send us a message. We answer every one personally.
     </p>
 
     <p class="signature">— Nick</p>
@@ -260,7 +251,7 @@
 
   <hr class="divider" />
 
-  <p class="contact-label">The fastest way to reach me is WhatsApp:</p>
+  <p class="contact-label">The fastest way to reach us is WhatsApp:</p>
 
   <a class="btn-wa"
      href="https://wa.me/60165833713?text=Hi%20Nick%2C%20I%20saw%20the%20Kundasang%20Homestay%20site."
@@ -269,7 +260,7 @@
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
     </svg>
-    Send me a WhatsApp
+    Send us a WhatsApp
   </a>
 </main>
 
