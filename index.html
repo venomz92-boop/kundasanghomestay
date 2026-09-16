@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   
   <!-- Primary Meta Tags -->
   <title>Kundasang Homestay - Platform for Locals</title>
@@ -26,39 +26,41 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <script src="https://gate.chip-in.asia/api/v1/checkout.js" async id="chip-sdk"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
 
   <style>
-    /* Explore Kundasang — description strip below the accordion gallery */
-    .ag-description {
-      min-height: 80px;
-      transition: opacity 0.22s ease;
+    /* Interactive availability calendar — selection states */
+    .calendar-day.clickable {
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
     }
-    .ag-description.fading {
-      opacity: 0;
+    .calendar-day.clickable:hover {
+      background: rgba(15, 56, 46, 0.15) !important;
     }
-    .ag-description .ag-desc-title {
-      font-family: 'Poppins', sans-serif;
+    .calendar-day.selected-start,
+    .calendar-day.selected-end {
+      background: #0F382E !important;
+      color: #ffffff !important;
       font-weight: 700;
-      font-size: 18px;
-      color: #212121;
-      letter-spacing: -0.3px;
-      margin: 0;
     }
-    .ag-description .ag-desc-text {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 400;
-      font-size: 13.5px;
-      color: rgba(33,33,33,0.65);
-      line-height: 1.65;
-      max-width: 640px;
-      margin: 6px auto 0;
+    .calendar-day.in-range {
+      background: rgba(15, 56, 46, 0.14) !important;
+      color: #0F382E;
     }
-    @media (max-width: 640px) {
-      .ag-description { min-height: 96px; }
-      .ag-description .ag-desc-title { font-size: 16px; }
-      .ag-description .ag-desc-text { font-size: 12.5px; }
+    .calendar-day.booked,
+    .calendar-day.past {
+      cursor: not-allowed;
+    }
+    /* Sticky footer fix for the detail modal */
+    #detailModal .detail-card {
+      max-height: calc(100vh - 4rem);
+      display: flex;
+      flex-direction: column;
+    }
+    @media (max-width: 768px) {
+      #detailModal .detail-card {
+        max-height: calc(100vh - 1.5rem);
+      }
     }
   </style>
   
@@ -96,6 +98,7 @@
     <!-- Desktop Primary Nav -->
     <nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
       <a href="/" class="setsail-nav-link" data-nav="home">Home</a>
+      <a href="/explore.html" class="setsail-nav-link" data-nav="explore">Explore</a>
       <a href="/about.html" class="setsail-nav-link" data-nav="about">About Us</a>
       <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
     </nav>
@@ -150,6 +153,7 @@
     <!-- DISCOVER -->
     <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
     <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+    <a href="/explore.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🗺️ Explore Kundasang</a>
     <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
 
     <!-- FOR HOSTS -->
@@ -213,7 +217,7 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
           <div>
             <label class="block text-[10px] md:text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Area / Location</label>
-            <select id="filterLocation" class="form-select text-sm w-full">
+            <select id="filterLocation" class="form-select text-sm w-full" onchange="renderGrid()">
               <option value="all">📍 All Kundasang Areas</option>
               <option value="Bundu Tuhan">Bundu Tuhan</option>
               <option value="Desa">Near Desa Cattle Farm</option>
@@ -249,23 +253,59 @@
     <p class="font-poppins text-[13px] text-[#212121]/60 max-w-[540px] mx-auto mt-3 leading-[1.6]">Every property is inspected. Zero booking scams with integrated FPX direct settlement.</p>
     
     <div class="mt-4 flex items-center justify-center gap-2 flex-wrap">
-      <div id="pendingInfo" class="text-[11px] bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full hidden font-600 text-amber-800">Pending: <span id="pendingCount">0</span> waiting approval</div>
       <div class="text-[11px] bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full font-600 text-emerald-800 flex items-center gap-1">
         <span>🔒 CHIP FPX Protected</span>
       </div>
     </div>
   </div>
 
+  <!-- Pending-booking banner for logged-in returning guests — filled by JS -->
+  <div id="pendingBookingBanner" class="hidden mb-8"></div>
+
   <div id="homestayGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
     <!-- Homestays will be rendered here -->
   </div>
 </main>
 
+<!-- ===== HOW IT WORKS ===== -->
+<section class="w-full py-16 md:py-20 bg-white border-t border-black/5">
+  <div class="max-w-[1000px] mx-auto px-6 lg:px-8">
+    <div class="text-center mb-10 animate-on-scroll">
+      <div class="font-satisfy text-[#A67C52] text-[30px] leading-none">Booking Made Simple</div>
+      <h2 class="font-poppins font-700 text-[32px] md:text-[38px] text-[#212121] tracking-[-0.8px] mt-1">How It Works</h2>
+      <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
+      <p class="font-poppins text-[13px] text-[#212121]/60 max-w-[540px] mx-auto mt-3 leading-[1.6]">Three steps from browsing to check-in. No credit card required — pay from your Malaysian bank account.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+      <div class="bg-[#F8F5F0] rounded-2xl p-6 md:p-7 text-center border border-black/[0.04]">
+        <div class="w-14 h-14 rounded-full bg-[#0F382E] text-white flex items-center justify-center font-poppins font-800 text-[20px] mx-auto mb-4">1</div>
+        <h3 class="font-poppins font-700 text-[18px] text-[#212121]">Pick your stay</h3>
+        <p class="font-poppins text-[13px] text-[#212121]/65 leading-[1.7] mt-2">Browse handpicked, verified homestays. Compare prices, see availability, and choose your dates.</p>
+      </div>
+      <div class="bg-[#F8F5F0] rounded-2xl p-6 md:p-7 text-center border border-black/[0.04]">
+        <div class="w-14 h-14 rounded-full bg-[#0F382E] text-white flex items-center justify-center font-poppins font-800 text-[20px] mx-auto mb-4">2</div>
+        <h3 class="font-poppins font-700 text-[18px] text-[#212121]">Pay securely via FPX</h3>
+        <p class="font-poppins text-[13px] text-[#212121]/65 leading-[1.7] mt-2">Pay directly from your bank account through CHIP — Malaysia's trusted payment gateway. No card needed.</p>
+      </div>
+      <div class="bg-[#F8F5F0] rounded-2xl p-6 md:p-7 text-center border border-black/[0.04]">
+        <div class="w-14 h-14 rounded-full bg-[#0F382E] text-white flex items-center justify-center font-poppins font-800 text-[20px] mx-auto mb-4">3</div>
+        <h3 class="font-poppins font-700 text-[18px] text-[#212121]">Check in with your code</h3>
+        <p class="font-poppins text-[13px] text-[#212121]/65 leading-[1.7] mt-2">We email you a 6-digit check-in code. Show it to your host on arrival. That's it — enjoy your stay.</p>
+      </div>
+    </div>
+
+    <p class="font-poppins text-[12px] text-center text-[#212121]/50 mt-8">
+      Questions? Email <a href="mailto:support@kundasanghomestay.my" class="text-[#0F382E] font-600 underline">support@kundasanghomestay.my</a>
+    </p>
+  </div>
+</section>
+
 <!-- ===== DETAIL MODAL ===== -->
 <div id="detailModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm p-3 md:p-5 overflow-y-auto">
-  <div class="max-w-[900px] mx-auto card overflow-hidden mt-6 md:mt-10">
-    <div id="detailContent" class="p-5 md:p-6"></div>
-    <div class="p-5 border-t flex flex-col md:flex-row justify-between items-center gap-3 bg-zinc-50">
+  <div class="detail-card max-w-[900px] mx-auto card overflow-hidden mt-6 md:mt-10">
+    <div id="detailContent" class="p-5 md:p-6 overflow-y-auto flex-1"></div>
+    <div class="p-5 border-t flex flex-col md:flex-row justify-between items-center gap-3 bg-zinc-50 shrink-0">
       <button onclick="closeDetail()" class="btn-outline w-full md:w-auto">Back</button>
       <div class="flex gap-3 w-full md:w-auto justify-end">
         <button onclick="openBooking()" class="btn-primary w-full md:w-auto">Book Now</button>
@@ -326,13 +366,16 @@
         <div id="receiptTotalRow" class="flex justify-between"><span class="text-zinc-500">Total Paid:</span><span id="thankyouTotal" class="font-bold text-emerald-800 text-base">-</span></div>
       </div>
 
-      <p class="text-[12px] text-red-600 mt-4 leading-relaxed font-medium">
-        Please screenshot this for check-in reference &amp; check your email for the check‑in code you'll need upon arrival. Tap below to send the official booking confirmation directly to the homestay host via WhatsApp.
+      <p class="text-[12px] text-zinc-600 mt-4 leading-relaxed">
+        We've emailed your 6-digit check-in code. Screenshot this receipt for your records. You can always find this booking under <strong>My Bookings</strong>.
       </p>
     </div>
     <div class="modal-footer justify-center bg-zinc-50 flex-col sm:flex-row gap-2 border-t px-6 py-4">
+      <button onclick="viewMyBookingsFromThankYou()" class="btn-primary w-full sm:w-auto bg-[#0F382E] hover:bg-[#1a4d3e]">
+        View My Bookings →
+      </button>
       <button onclick="whatsappOwnerFromThankYou()" class="btn-whatsapp w-full sm:w-auto justify-center">
-        💬 Send Receipt to Host on WhatsApp
+        💬 Send to Host
       </button>
     </div>
   </div>
@@ -345,10 +388,10 @@
       <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">😞</div>
       <div class="font-poppins font-800 text-[22px] text-red-700">Payment Not Completed</div>
       <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
-        Your payment didn't go through this time. No worries — you can try again in <strong>5 minutes. Your booking dates will be blocked for awhile.</strong>
+        Your payment didn't go through this time. No worries — you can try again in <strong>5 minutes. Your booking dates will be held for a while.</strong>
       </p>
       <p class="text-sm text-zinc-600 mt-1 leading-relaxed">
-        Simply go to your <strong>My Bookings</strong> page and click the <strong>Retry Payment</strong> button next to this booking.
+        Tap below to open <strong>My Bookings</strong>, then hit <strong>Retry Payment</strong> next to this booking.
       </p>
       
       <div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
@@ -357,13 +400,13 @@
         <div id="failedTotalRow" class="flex justify-between"><span class="text-zinc-500">Total:</span><span id="failedTotal" class="font-bold text-red-800 text-base">-</span></div>
       </div>
 
-      <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
-        💡 <strong>Why wait 5 minutes?</strong> CHIP requires a cooldown period before you can create a new bill for the same booking.<br>This prevents duplicate charges.
+      <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 text-left">
+        💡 <strong>Why wait 5 minutes?</strong> CHIP requires a cooldown period before you can create a new bill for the same booking. This prevents duplicate charges.
       </div>
     </div>
     <div class="modal-footer justify-center bg-zinc-50 flex-col sm:flex-row gap-2 border-t px-6 py-4">
-      <button onclick="closePaymentFailedModal()" class="btn-primary w-full sm:w-auto bg-[#0F382E] hover:bg-[#1a4d3e]">
-        OK, I understand
+      <button onclick="goToMyBookingsFromFailed()" class="btn-primary w-full sm:w-auto bg-[#0F382E] hover:bg-[#1a4d3e]">
+        Go to My Bookings →
       </button>
     </div>
   </div>
@@ -383,345 +426,6 @@
   </div>
 </div>
 
-<!-- ===== ACCORDION GALLERY ===== -->
-<section class="w-full py-16 bg-[#F8F5F0]">
-  <div class="max-w-[1300px] mx-auto px-6 lg:px-8">
-    <div class="text-center mb-10">
-      <div class="font-satisfy text-[#A67C52] text-[30px] leading-none">Explore Kundasang</div>
-      <h2 class="font-poppins font-700 text-[32px] md:text-[38px] text-[#212121] tracking-[-0.8px] mt-1">Places to See in Kundasang</h2>
-      <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
-      <p class="font-poppins text-[13px] text-[#212121]/60 max-w-[540px] mx-auto mt-3 leading-[1.6]">Hover or tap to explore the beauty of Kundasang and Mount Kinabalu.</p>
-    </div>
-  </div>
-
-  <div class="w-full px-0">
-    <div id="accordionGallery" class="accordion-gallery w-full max-w-full" style="height: 460px; --gap: 10px; --radius: 0px;">
-      <!-- Items rendered by JS -->
-    </div>
-  </div>
-
-  <!-- Description strip + CTA — updates when the active tile changes -->
-  <div class="max-w-[820px] mx-auto px-6 mt-8 text-center">
-    <div id="agDescription" class="ag-description" aria-live="polite">
-      <!-- Filled by JS -->
-    </div>
-    <button type="button" onclick="document.getElementById('homePage')?.scrollIntoView({behavior:'smooth'})" class="mt-6 btn-primary" style="padding:14px 28px; font-size:12px; letter-spacing:1.5px;">
-      Browse Homestays →
-    </button>
-  </div>
-</section>
-
-<!-- ===== ACCORDION GALLERY SCRIPT ===== -->
-<script>
-(function() {
-  const galleryItems = [
-    { 
-      image: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjkSvgFVVrdYAgkSktuGggZXhn-aZ8rUVqDxtQ4-nr0TB0MSv0lA73cIf1I7d7fW_KSjVbRwyvy5rU4GNgSUroglJKHhjcQmUR_Jh6cXE7zT6EdED7ub7popAXHn7CMM_SnASVJIhlIo3ry/s1600/MountKinabalu.jpgw=800&h=600&fit=crop', 
-      label: 'Mount Kinabalu Peak', 
-      alt: 'Mount Kinabalu Peak',
-      desc: 'The iconic 4,095m Sabah summit. Best seen at sunrise before the clouds roll in.'
-    },
-    { 
-      image: 'https://i.ibb.co/LfwBK5f/Image-s63vfws63vfws63v.jpg?w=800&h=600&fit=crop', 
-      label: 'Sosodikon Hill', 
-      alt: 'Sosodikon Hill',
-      desc: 'Short hilltop walk near Kundasang town. Panoramic valley and Mount Kinabalu views.'
-    },
-    { 
-      image: 'https://www.clladventureborneo.com/wp-content/uploads/2025/09/dairy-farm-kundasang.webp?w=800&h=600&fit=crop', 
-      label: 'Desa Cattle Farm', 
-      alt: 'Desa Cattle Farm',
-      desc: 'A working dairy farm in the highlands. Fresh milk, grazing cows, and a Kinabalu backdrop.'
-    },
-    { 
-      image: 'https://lh3.googleusercontent.com/gps-cs-s/AHRPTWniaVakOLxjICOwm8MvL-5nK-NHZ8gccOQiKG3YEjyWSonAcfqDPsw3jekF7LOxrBj5ueCfcLggV6EmiNQfQ1DT7vpdz0FKS5rZDRYer4-S6ldsQCScZduQu4CQqjDI7mzXBf4e?w=800&h=600&fit=crop', 
-      label: 'Hounon Ridge Farmstay & Camping', 
-      alt: 'Hounon Ridge Farmstay & Camping',
-      desc: 'A ridge-top farmstay and campsite. Sunsets and cloud-sea views over the Kundasang valley.'
-    },
-    { 
-      image: 'https://explorekundasang.com/wp-content/uploads/elementor/thumbs/maragang-by-Mas-Light-rakd450ifen9wot91yr978c4pkz9rnvalzg0yi0ewg.webp?w=800&h=600&fit=crop', 
-      label: 'Maragang Hill', 
-      alt: 'Maragang Hill',
-      desc: 'Short uphill trail above Kundasang. Popular for sunrise hikes and clear morning views of the peak.'
-    }
-  ];
-
-  const container = document.getElementById('accordionGallery');
-  const descEl = document.getElementById('agDescription');
-  if (!container) return;
-
-  let activeIndex = 2;
-  let isAnimating = false;
-  let descTimer = null;
-
-  function updateDescription(index) {
-    if (!descEl) return;
-    const item = galleryItems[index];
-    if (!item) return;
-    if (descTimer) clearTimeout(descTimer);
-    descEl.classList.add('fading');
-    descTimer = setTimeout(function() {
-      descEl.innerHTML =
-        '<p class="ag-desc-title">' + item.label + '</p>' +
-        '<p class="ag-desc-text">' + (item.desc || '') + '</p>';
-      descEl.classList.remove('fading');
-      descTimer = null;
-    }, 180);
-  }
-
-  container.innerHTML = '';
-  
-  galleryItems.forEach((item, index) => {
-    const el = document.createElement('div');
-    el.className = 'ag-item';
-    if (index === activeIndex) el.classList.add('active');
-    el.style.setProperty('--ag-dim', index === activeIndex ? '0' : '0.35');
-    el.setAttribute('role', 'listitem');
-    el.setAttribute('tabindex', '0');
-    el.setAttribute('aria-label', item.label);
-    if (index === activeIndex) el.setAttribute('aria-current', 'true');
-    
-    const number = String(index + 1).padStart(2, '0');
-    
-    el.innerHTML = `
-      <span class="ag-media-wrap">
-        <span class="ag-media">
-          <img src="${item.image}" alt="${item.alt || item.label}" draggable="false" loading="lazy" decoding="async" />
-        </span>
-        <span class="ag-overlay" aria-hidden="true"></span>
-      </span>
-      <span class="ag-number">${number}</span>
-      <span class="ag-label-wrap" aria-hidden="true">
-        <span class="ag-bar"></span>
-        <span class="ag-label">${item.label}</span>
-      </span>
-    `;
-
-    el._media = el.querySelector('.ag-media');
-
-    el.addEventListener('click', function(e) {
-      e.preventDefault();
-      if (!isAnimating) {
-        setActive(index);
-      }
-    });
-
-    let hoverTimeout = null;
-    el.addEventListener('mouseenter', function() {
-      if (window.innerWidth > 768) {
-        if (hoverTimeout) return;
-        hoverTimeout = setTimeout(function() {
-          if (!isAnimating) {
-            setActive(index);
-          }
-          hoverTimeout = null;
-        }, 10);
-      }
-    });
-
-    el.addEventListener('focus', function() {
-      if (!isAnimating) {
-        setActive(index);
-      }
-    });
-
-    el.addEventListener('keydown', function(e) {
-      const count = galleryItems.length;
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        const next = (index + 1) % count;
-        if (!isAnimating) {
-          setActive(next);
-          container.children[next]?.focus();
-        }
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prev = (index - 1 + count) % count;
-        if (!isAnimating) {
-          setActive(prev);
-          container.children[prev]?.focus();
-        }
-      }
-    });
-
-    container.appendChild(el);
-  });
-
-  const items = container.querySelectorAll('.ag-item');
-  const count = items.length;
-  const expandRatio = 0.52;
-  const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
-
-  function setActive(index) {
-    if (isAnimating || activeIndex === index) return;
-    
-    isAnimating = true;
-    activeIndex = index;
-    
-    const isMobileView = window.innerWidth <= 768;
-    const tilt = isMobileView ? 3 : 8;
-    
-    updateDescription(index);
-    
-    requestAnimationFrame(function() {
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const isActive = i === index;
-        
-        if (isActive) {
-          item.classList.add('active');
-          item.setAttribute('aria-current', 'true');
-          item.style.zIndex = '2';
-        } else {
-          item.classList.remove('active');
-          item.removeAttribute('aria-current');
-          item.style.zIndex = '1';
-        }
-        
-        item.style.setProperty('--ag-dim', isActive ? '0' : '0.35');
-        
-        const rot = isActive ? 0 : (i < index ? tilt : -tilt);
-        
-        if (isMobileView) {
-          if (isActive) {
-            item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
-            item.setAttribute('data-tilt', '');
-          } else {
-            item.style.transform = `rotateX(${rot}deg) translateY(${i < index ? 2 : -2}px) scale(0.99)`;
-            item.setAttribute('data-tilt', i < index ? 'up' : 'down');
-          }
-        } else {
-          item.style.transform = `rotateY(${rot}deg)`;
-        }
-        
-        const media = item._media;
-        if (media) {
-          media.style.transform = 'translate(-50%, -50%) scale(1)';
-          if (isActive) {
-            media.style.filter = 'grayscale(0) brightness(1)';
-          } else {
-            media.style.filter = 'grayscale(0.9) brightness(0.7)';
-          }
-        }
-        
-        item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
-      }
-    });
-    
-    setTimeout(function() {
-      isAnimating = false;
-    }, 550);
-  }
-
-  function initGallery() {
-    const isMobileView = window.innerWidth <= 768;
-    const tilt = isMobileView ? 3 : 8;
-    
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const isActive = i === activeIndex;
-      
-      if (isActive) {
-        item.classList.add('active');
-        item.setAttribute('aria-current', 'true');
-        item.style.zIndex = '2';
-      } else {
-        item.classList.remove('active');
-        item.removeAttribute('aria-current');
-        item.style.zIndex = '1';
-      }
-      
-      item.style.setProperty('--ag-dim', isActive ? '0' : '0.35');
-      
-      const rot = isActive ? 0 : (i < activeIndex ? tilt : -tilt);
-      
-      if (isMobileView) {
-        if (isActive) {
-          item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
-          item.setAttribute('data-tilt', '');
-        } else {
-          item.style.transform = `rotateX(${rot}deg) translateY(${i < activeIndex ? 2 : -2}px) scale(0.99)`;
-          item.setAttribute('data-tilt', i < activeIndex ? 'up' : 'down');
-        }
-      } else {
-        item.style.transform = isActive ? 'rotateY(0deg)' : `rotateY(${rot}deg)`;
-      }
-      
-      const media = item._media;
-      if (media) {
-        media.style.transform = 'translate(-50%, -50%) scale(1)';
-        if (isActive) {
-          media.style.filter = 'grayscale(0) brightness(1)';
-        } else {
-          media.style.filter = 'grayscale(0.9) brightness(0.7)';
-        }
-      }
-      
-      item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
-    }
-
-    updateDescription(activeIndex);
-  }
-
-  requestAnimationFrame(function() {
-    initGallery();
-  });
-
-  window.addEventListener('load', function() {
-    requestAnimationFrame(function() {
-      initGallery();
-    });
-  });
-
-  let resizeTimer;
-  window.addEventListener('resize', function() {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function() {
-      requestAnimationFrame(function() {
-        const isMobileView = window.innerWidth <= 768;
-        const tilt = isMobileView ? 3 : 8;
-        
-        for (let i = 0; i < items.length; i++) {
-          const item = items[i];
-          const isActive = i === activeIndex;
-          const rot = isActive ? 0 : (i < activeIndex ? tilt : -tilt);
-          
-          if (isMobileView) {
-            if (isActive) {
-              item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
-              item.setAttribute('data-tilt', '');
-            } else {
-              item.style.transform = `rotateX(${rot}deg) translateY(${i < activeIndex ? 2 : -2}px) scale(0.99)`;
-              item.setAttribute('data-tilt', i < activeIndex ? 'up' : 'down');
-            }
-          } else {
-            item.style.transform = isActive ? 'rotateY(0deg)' : `rotateY(${rot}deg)`;
-          }
-          
-          const media = item._media;
-          if (media) {
-            media.style.transform = 'translate(-50%, -50%) scale(1)';
-            if (isActive) {
-              media.style.filter = 'grayscale(0) brightness(1)';
-            } else {
-              media.style.filter = 'grayscale(0.9) brightness(0.7)';
-            }
-          }
-        }
-      });
-    }, 150);
-  });
-
-  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  if (prefersReduced.matches) {
-    for (let i = 0; i < items.length; i++) {
-      items[i].style.transition = 'none';
-    }
-  }
-})();
-</script>
-  
 <!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
   <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
@@ -742,6 +446,7 @@
       <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
       <div class="space-y-2 text-[13px] font-poppins">
         <a href="/" class="hover:text-white block">Browse Homestays</a>
+        <a href="/explore.html" class="hover:text-white block">Explore Kundasang</a>
         <a href="/owner-register.html" class="hover:text-white block">Host Registration</a>
         <a href="/about.html" class="hover:text-white block">About Us</a>
         <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
@@ -1069,6 +774,15 @@
     window.location.href = '/mybookings.html';
   }
 
+  // [NEW] Primary path out of the thank-you modal — always works,
+  // does not require WhatsApp.
+  function viewMyBookingsFromThankYou() {
+    var overlay = document.getElementById('thankyouModal');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = '';
+    window.location.href = '/mybookings.html';
+  }
+
   function whatsappOwnerFromThankYou() {
     var bookingId = document.getElementById('thankyouBookingId')?.textContent || lastBookingId;
     var booking = lastBookingDetails || bookings.find(function(b) { return String(b.id) === String(bookingId); }) || window.lastCreatedBooking;
@@ -1139,6 +853,15 @@
     var overlay = document.getElementById('paymentFailedModal');
     if (overlay) overlay.classList.remove('active');
     document.body.style.overflow = '';
+  }
+
+  // [NEW] Primary path out of the payment-failed modal — closes the
+  // loop and takes the guest straight to where the retry button lives.
+  function goToMyBookingsFromFailed() {
+    var overlay = document.getElementById('paymentFailedModal');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = '';
+    window.location.href = '/mybookings.html';
   }
 
   // =============================================================
@@ -1322,30 +1045,46 @@
       list = list.filter(function(h) { return isHomestayAvailableForRange(h, checkinVal, checkoutVal).available; });
     }
 
-if (list.length === 0) {
-  grid.innerHTML = safeHTML('' +
-    '<div class="col-span-3 text-center py-16">' +
-      '<div class="text-zinc-500 font-poppins">No homestays available yet. Check back soon or <a href="/owner-register.html" class="text-[#8B6239] font-semibold underline">list your property</a>.</div>' +
-      '<button id="resetFiltersBtn" class="mt-4 btn-outline">Reset Filters</button>' +
-    '</div>' +
-  '');
-  var resetBtn = document.getElementById('resetFiltersBtn');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', function () {
-      var ci = document.getElementById('checkin');
-      var co = document.getElementById('checkout');
-      var fl = document.getElementById('filterLocation');
-      if (ci) ci.value = '';
-      if (co) co.value = '';
-      if (fl) fl.value = 'all';
-      renderGrid();
-    });
-  }
-  return;
-}
+    if (list.length === 0) {
+      // Two different empty states:
+      //   - with filters on  → "no matches, try different filters"
+      //   - with no filters  → "we're still onboarding hosts"
+      var hasActiveFilters = (loc !== 'all') || !!(checkinVal && checkoutVal);
+      var emptyHtml;
+      if (hasActiveFilters) {
+        emptyHtml =
+          '<div class="col-span-3 text-center py-16">' +
+            '<div class="text-4xl mb-3">🔍</div>' +
+            '<div class="text-zinc-700 font-poppins font-600 text-[16px]">No homestays match your filters.</div>' +
+            '<div class="text-zinc-500 font-poppins text-[13px] mt-2 max-w-md mx-auto leading-relaxed">Try a different area or different dates — most of our hosts have availability on other days.</div>' +
+            '<button id="resetFiltersBtn" class="mt-5 btn-outline">Reset Filters</button>' +
+          '</div>';
+      } else {
+        emptyHtml =
+          '<div class="col-span-3 text-center py-16">' +
+            '<div class="text-4xl mb-3">🏔️</div>' +
+            '<div class="text-zinc-700 font-poppins font-600 text-[16px]">Our first homestays are being verified.</div>' +
+            '<div class="text-zinc-500 font-poppins text-[13px] mt-2 max-w-md mx-auto leading-relaxed">We physically inspect every property before it goes live. Check back soon — or if you own a homestay in Kundasang, <a href="/owner-register.html" class="text-[#0F382E] font-semibold underline">list it here</a>.</div>' +
+          '</div>';
+      }
+      grid.innerHTML = safeHTML(emptyHtml);
+
+      var resetBtn = document.getElementById('resetFiltersBtn');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function () {
+          var ci = document.getElementById('checkin');
+          var co = document.getElementById('checkout');
+          var fl = document.getElementById('filterLocation');
+          if (ci) ci.value = '';
+          if (co) co.value = '';
+          if (fl) fl.value = 'all';
+          renderGrid();
+        });
+      }
+      return;
+    }
 
     grid.innerHTML = safeHTML(list.map(function(h) {
-      var blocked = getAllBlockedDatesForHomestay(h);
       return '' +
         '<article class="group bg-white rounded-2xl shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden" data-id="' + h.id + '">' +
           '<div class="h-[240px] w-full relative overflow-hidden bg-zinc-100">' +
@@ -1354,7 +1093,6 @@ if (list.length === 0) {
               '<span class="font-poppins font-700 text-[11px] text-[#212121]">' + (h.rating ? h.rating.toFixed(1) + ' ★' : 'New') + '</span>' +
             '</div>' +
             (h.verified ? '<div class="absolute top-4 left-[76px] bg-[#D4A373] text-[#0F382E] text-[10px] px-2.5 py-1 rounded-full font-700 uppercase tracking-wider shadow-sm">Verified</div>' : '') +
-            '<div class="absolute bottom-3 left-3 bg-black/75 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-full font-500">🔒 Direct FPX Protection</div>' +
           '</div>' +
           '<div class="p-5 flex flex-col flex-1">' +
             '<div class="flex justify-between items-start gap-2">' +
@@ -1380,8 +1118,54 @@ if (list.length === 0) {
     if (article) {
       var id = article.getAttribute('data-id');
       if (id) {
-        openDetail(parseInt(id));
+        openDetail(isNaN(parseInt(id)) ? id : parseInt(id));
       }
+    }
+  }
+
+  // =============================================================
+  // PENDING BOOKING BANNER (for logged-in returning guests)
+  //
+  // Runs after the guest session is confirmed. Fetches the guest's
+  // own bookings and, if any are unpaid or failed, shows a strip
+  // above the listings pointing them at My Bookings.
+  // =============================================================
+  async function checkPendingBookingBanner() {
+    if (!currentGuest || !currentGuest.id) return;
+    var wrap = document.getElementById('pendingBookingBanner');
+    if (!wrap) return;
+
+    try {
+      var res = await fetch(API_BASE + '/bookings?t=' + Date.now(), {
+        credentials: 'include',
+        cache: 'no-store'
+      });
+      if (!res.ok) return;
+      var data = await res.json();
+      if (!data || !Array.isArray(data.bookings)) return;
+
+      var pending = data.bookings.filter(function(b) {
+        var s = String(b.status || '').toLowerCase();
+        return s === 'pending payment' || s === 'payment failed';
+      });
+      if (pending.length === 0) return;
+
+      var count = pending.length;
+      var label = count === 1 ? '1 booking awaiting payment' : count + ' bookings awaiting payment';
+
+      wrap.innerHTML = safeHTML(
+        '<div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 md:p-5 flex flex-col md:flex-row items-start md:items-center gap-3">' +
+          '<div class="text-2xl">⏳</div>' +
+          '<div class="flex-1 min-w-0">' +
+            '<div class="font-poppins font-700 text-[14px] text-amber-900">You have ' + label + '</div>' +
+            '<div class="text-[12px] text-amber-800 mt-0.5 leading-relaxed">Complete it now to secure your dates before they are released.</div>' +
+          '</div>' +
+          '<a href="/mybookings.html" class="btn-primary whitespace-nowrap shrink-0" style="padding:10px 20px; font-size:11px;">Complete Booking →</a>' +
+        '</div>'
+      );
+      wrap.classList.remove('hidden');
+    } catch (e) {
+      // Silent — banner is best-effort.
     }
   }
 
@@ -1389,7 +1173,7 @@ if (list.length === 0) {
   // DETAIL MODAL
   // =============================================================
   function openDetail(id) {
-    selectedHomestay = homestays.find(h => h.id === id) || pendingHomestays.find(h => h.id === id);
+    selectedHomestay = homestays.find(h => String(h.id) === String(id)) || pendingHomestays.find(h => String(h.id) === String(id));
     if (!selectedHomestay) return;
 
     const defaultCi = document.getElementById("checkin")?.value || dateToIso(new Date(Date.now() + 86400000));
@@ -1428,8 +1212,12 @@ if (list.length === 0) {
       </div>
 
       <div class="mt-4 bg-zinc-50 border p-4 rounded-2xl">
-        <h4 class="font-bold text-xs uppercase tracking-wider text-zinc-700">Check Availability</h4>
+        <div class="flex items-center justify-between">
+          <h4 class="font-bold text-xs uppercase tracking-wider text-zinc-700">Check Availability</h4>
+          <span class="text-[10px] text-[#0F382E] font-600">Tap a date to pick</span>
+        </div>
         <div id="detailAvailabilityCalendar" class="mt-3"></div>
+        <div class="text-[10px] text-zinc-500 mt-2 leading-relaxed">Tap any green date to set check-in, then tap a later date to set check-out. Red dates are already booked.</div>
       </div>
 
       <div class="mt-6 grid grid-cols-2 gap-3">
@@ -1526,7 +1314,7 @@ if (list.length === 0) {
   // OPEN BOOKING
   //
   // [RETURN-TO-BOOKING] When the guest is not logged in, the popup
-  // now offers BOTH Sign In and Register. Whichever they click, we
+  // offers BOTH Sign In and Register. Whichever they click, we
   // save the booking intent to sessionStorage before redirecting so
   // the flow can resume on the other side.
   // =============================================================
@@ -1975,9 +1763,17 @@ if (list.length === 0) {
   window.showThankYouModal = showThankYouModal;
   window.showPaymentFailedModal = showPaymentFailedModal;
   window.handlePaymentReturn = handlePaymentReturn;
+  window.viewMyBookingsFromThankYou = viewMyBookingsFromThankYou;
+  window.goToMyBookingsFromFailed = goToMyBookingsFromFailed;
 
   // =============================================================
-  // CALENDAR EMBED – READ-ONLY
+  // CALENDAR — READ-ONLY STATES + TAPPABLE DATE PICKING
+  //
+  // [THIS REVISION]
+  // The calendar is now interactive. Tapping a green (available)
+  // date fills the detailCheckin / detailCheckout inputs and
+  // re-renders the calendar to show the selection. Red (booked)
+  // and grey (past) dates are not tappable.
   // =============================================================
   function renderAvailabilityCalendar(homestay, containerId) {
     var container = document.getElementById(containerId);
@@ -1989,8 +1785,23 @@ if (list.length === 0) {
     var todayIso = dateToIso(today);
 
     if (!container._currentMonth) {
-      container._currentMonth = today.getMonth();
-      container._currentYear = today.getFullYear();
+      // Show the month of the existing check-in date if one is set,
+      // otherwise show the current month.
+      var existingCi = document.getElementById('detailCheckin')?.value || '';
+      if (existingCi && /^\d{4}-\d{2}-\d{2}$/.test(existingCi)) {
+        var ciDate = new Date(existingCi + 'T00:00:00');
+        container._currentMonth = ciDate.getMonth();
+        container._currentYear = ciDate.getFullYear();
+      } else {
+        container._currentMonth = today.getMonth();
+        container._currentYear = today.getFullYear();
+      }
+    }
+
+    function getSelection() {
+      var ci = (document.getElementById('detailCheckin')?.value) || '';
+      var co = (document.getElementById('detailCheckout')?.value) || '';
+      return { ci: ci, co: co };
     }
 
     function renderMonth() {
@@ -1999,6 +1810,7 @@ if (list.length === 0) {
       var monthLabel = new Date(year, month, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
       var daysInMonth = new Date(year, month + 1, 0).getDate();
       var startDay = new Date(year, month, 1).getDay();
+      var sel = getSelection();
 
       var html = `
         <div class="flex items-center justify-between mb-1.5">
@@ -2026,14 +1838,22 @@ if (list.length === 0) {
         var isBlocked = blocked.indexOf(iso) !== -1;
         var isPast = d < today;
         var isToday = iso === todayIso;
+        var clickable = !isPast && !isBlocked;
 
         var cls = "calendar-day";
         if (isPast) cls += " past";
         else if (isBlocked) cls += " booked";
         else cls += " available";
         if (isToday) cls += " today";
+        if (clickable) cls += " clickable";
+        if (sel.ci && iso === sel.ci) cls += " selected-start";
+        else if (sel.co && iso === sel.co) cls += " selected-end";
+        else if (sel.ci && sel.co && iso > sel.ci && iso < sel.co) cls += " in-range";
 
-        html += `<div class="${cls}" style="font-size:9px;cursor:default;" title="${iso}${isBlocked ? ' (Booked)' : isPast ? ' (Past)' : ' (Available)'}">${day}</div>`;
+        var clickableAttr = clickable ? ' data-iso="' + iso + '"' : '';
+        var titleText = iso + (isBlocked ? ' (Booked)' : isPast ? ' (Past)' : ' (Tap to select)');
+
+        html += `<div class="${cls}"${clickableAttr} style="font-size:9px;" title="${titleText}">${day}</div>`;
       }
 
       html += '</div></div>';
@@ -2051,6 +1871,7 @@ if (list.length === 0) {
 
     if (!container._listenerAttached) {
       container.addEventListener('click', function(e) {
+        // Nav buttons (prev / next month)
         var navEl = e.target.closest('.calendar-nav-btn');
         if (navEl && navEl.dataset.dir !== undefined) {
           e.preventDefault();
@@ -2062,6 +1883,52 @@ if (list.length === 0) {
           container._currentMonth = newMonth;
           container._currentYear = newYear;
           renderMonth();
+          return;
+        }
+
+        // Date selection
+        var dayEl = e.target.closest('.calendar-day[data-iso]');
+        if (dayEl && dayEl.dataset.iso) {
+          e.preventDefault();
+          var iso = dayEl.dataset.iso;
+          var ciEl = document.getElementById('detailCheckin');
+          var coEl = document.getElementById('detailCheckout');
+          if (!ciEl || !coEl) return;
+
+          var currentCi = ciEl.value || '';
+          var currentCo = coEl.value || '';
+
+          if (!currentCi || (currentCi && currentCo)) {
+            // No check-in, or a complete selection already exists →
+            // start a fresh selection with this date as check-in.
+            ciEl.value = iso;
+            // Auto-set checkout to the next day so the price
+            // immediately shows something sensible.
+            var next = new Date(iso + 'T00:00:00');
+            next.setDate(next.getDate() + 1);
+            coEl.value = dateToIso(next);
+          } else if (currentCi && !currentCo) {
+            if (iso > currentCi) {
+              coEl.value = iso;
+            } else {
+              // Tapped earlier than the current check-in → restart.
+              ciEl.value = iso;
+              var next2 = new Date(iso + 'T00:00:00');
+              next2.setDate(next2.getDate() + 1);
+              coEl.value = dateToIso(next2);
+            }
+          }
+
+          // Also update the homepage search inputs so the two stay in
+          // sync if the guest goes back.
+          var homeCi = document.getElementById('checkin');
+          var homeCo = document.getElementById('checkout');
+          if (homeCi) homeCi.value = ciEl.value;
+          if (homeCo) homeCo.value = coEl.value;
+
+          updateDetailPrice();
+          renderMonth();
+          return;
         }
       });
       container._listenerAttached = true;
@@ -2151,7 +2018,7 @@ if (list.length === 0) {
           renderGrid();
           if (selectedHomestay) {
             var detailId = selectedHomestay.id;
-            var updated = homestays.find(function(h) { return h.id === detailId; });
+            var updated = homestays.find(function(h) { return String(h.id) === String(detailId); });
             if (updated) {
               selectedHomestay = updated;
               renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
@@ -2174,6 +2041,9 @@ if (list.length === 0) {
           }
         });
     }
+
+    // [NEW] Returning-guest banner — only fires if logged in.
+    checkPendingBookingBanner();
 
     handlePaymentReturn();
   })();
