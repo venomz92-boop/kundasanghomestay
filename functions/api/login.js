@@ -1,8 +1,7 @@
-// /api/login.js — Plain English: guest login. The session token is NO
-// LONGER returned in the JSON body — it only lives in the HttpOnly cookie
-// which JavaScript cannot read. This protects guests if a malicious script
-// ever gets onto the page. The CSRF token is still returned (that one is
-// fine to expose to JS).
+// /api/login.js — Plain English: guest login. The session token lives only
+// in the HttpOnly cookie which JavaScript cannot read. This protects guests
+// if a malicious script ever gets onto the page. The CSRF token is still
+// returned (that one is fine to expose to JS).
 //
 // [THIS REVISION]
 // Removed the email-verification gate. Unverified accounts can now log
@@ -13,6 +12,14 @@
 // guests than it protected. The payment itself (via FPX from a real bank
 // account) is a stronger identity signal than an email click.
 //
+// [LATEST REVISION]
+// Guest session length changed from 2 hours to 30 days. Two hours was
+// too aggressive for a booking platform where the decision to book
+// often spans a day or two. Guests were being logged out mid-flow
+// between browsing and paying. 30 days matches what guests already
+// expect from Grab, Shopee, Airbnb, Booking.com, etc. The cookie is
+// HttpOnly + Secure + SameSite=Lax, so this is not a security downgrade.
+//
 // The dummy record used for timing-equalisation still matches the real
 // iteration count, so response time does not leak whether an email exists.
 import {
@@ -21,7 +28,7 @@ import {
   checkRateLimit, recordRateLimit, parseJSONSafely
 } from './_utils.js';
 
-const GUEST_TTL_MS      = 2 * 60 * 60 * 1000;  // 2 hours
+const GUEST_TTL_MS      = 30 * 24 * 60 * 60 * 1000;  // 30 days
 const GUEST_TTL_SECONDS = GUEST_TTL_MS / 1000;
 
 // Dummy record used to equalize response time when the email is unknown.
@@ -95,10 +102,6 @@ export async function onRequestPost({ request, env }) {
       await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
         .bind('kd_guests', JSON.stringify(guests)).run();
     }
-
-    // [THIS REVISION] Removed the email-verification gate that used to
-    // live here. Unverified accounts may log in. Verification status is
-    // still reported back in the response so the UI can nudge later.
 
     const sessionVersion = user.sessionVersion || 0;
 
