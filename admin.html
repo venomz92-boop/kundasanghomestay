@@ -918,11 +918,18 @@ function renderAvailabilityCalendar(h, containerId) {
 async function fetchCloudData(){
   if(!CLOUD_ENABLED) return false;
   try{
+    // [THIS REVISION]
+    // &view=admin tells /api/bookings.js to skip the guest branch even
+    // if the browser also holds a guest_token cookie (e.g. because the
+    // same browser was used to test a guest booking). Without this
+    // param, the guest branch would fire first and return an empty
+    // admin payload, which looked like a login failure.
     const url = API_BASE + "/bookings"
       + "?limit=99999"
       + "&approvedLimit=99999"
       + "&pendingLimit=99999"
-      + "&guestsLimit=99999";
+      + "&guestsLimit=99999"
+      + "&view=admin";
     const res = await fetchWithAuth(url, {cache:"no-store"});
 
     if (res.status === 401) {
@@ -950,6 +957,13 @@ async function fetchCloudData(){
       data.demoOverrides !== undefined;
 
     if (!isAdminResponse) {
+      // [DIAGNOSTIC] If you ever see this in the browser console, the
+      // response was a guest or public payload, not an admin one.
+      // Almost always means the admin_token cookie was missing or
+      // stale. The fix is to reload /admin.html and log in again.
+      try {
+        console.warn('[admin.html] Non-admin response from /api/bookings. Payload keys:', Object.keys(data || {}));
+      } catch (_) {}
       ADMIN_LOGGED_IN = false;
       const loginEl = document.getElementById("adminLogin");
       const dashEl = document.getElementById("adminDashboard");
