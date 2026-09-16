@@ -29,38 +29,42 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
 
   <style>
-    /* Interactive availability calendar — selection states */
-    .calendar-day.clickable {
-      cursor: pointer;
-      transition: background 0.15s ease, color 0.15s ease;
+    /* Explore Kundasang — description strip below the accordion gallery */
+    .ag-description {
+      min-height: 80px;
+      transition: opacity 0.22s ease;
     }
-    .calendar-day.clickable:hover {
-      background: rgba(15, 56, 46, 0.15) !important;
+    .ag-description.fading {
+      opacity: 0;
     }
-    .calendar-day.selected-start,
-    .calendar-day.selected-end {
-      background: #0F382E !important;
-      color: #ffffff !important;
+    .ag-description .ag-desc-title {
+      font-family: 'Poppins', sans-serif;
       font-weight: 700;
+      font-size: 18px;
+      color: #212121;
+      letter-spacing: -0.3px;
+      margin: 0;
     }
-    .calendar-day.in-range {
-      background: rgba(15, 56, 46, 0.14) !important;
-      color: #0F382E;
+    .ag-description .ag-desc-text {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 400;
+      font-size: 13.5px;
+      color: rgba(33,33,33,0.65);
+      line-height: 1.65;
+      max-width: 640px;
+      margin: 6px auto 0;
     }
-    .calendar-day.booked,
-    .calendar-day.past {
-      cursor: not-allowed;
+    @media (max-width: 640px) {
+      .ag-description { min-height: 96px; }
+      .ag-description .ag-desc-title { font-size: 16px; }
+      .ag-description .ag-desc-text { font-size: 12.5px; }
     }
-    /* Sticky footer fix for the detail modal */
-    #detailModal .detail-card {
-      max-height: calc(100vh - 4rem);
-      display: flex;
-      flex-direction: column;
-    }
-    @media (max-width: 768px) {
-      #detailModal .detail-card {
-        max-height: calc(100vh - 1.5rem);
-      }
+
+    /* [THIS REVISION] When a guest arrives at /#homePage from an
+       explore.html "Stay near here" link, offset the scroll position
+       so the sticky header doesn't cover the listings heading. */
+    #homePage {
+      scroll-margin-top: 90px;
     }
   </style>
   
@@ -707,6 +711,8 @@
     ]);
   }
 
+  window.showConfirm = showConfirm;
+
    document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
       // Locked progress modal (payment in flight) — never close it.
@@ -774,7 +780,7 @@
     window.location.href = '/mybookings.html';
   }
 
-  // [NEW] Primary path out of the thank-you modal — always works,
+  // Primary path out of the thank-you modal — always works,
   // does not require WhatsApp.
   function viewMyBookingsFromThankYou() {
     var overlay = document.getElementById('thankyouModal');
@@ -855,7 +861,7 @@
     document.body.style.overflow = '';
   }
 
-  // [NEW] Primary path out of the payment-failed modal — closes the
+  // Primary path out of the payment-failed modal — closes the
   // loop and takes the guest straight to where the retry button lives.
   function goToMyBookingsFromFailed() {
     var overlay = document.getElementById('paymentFailedModal');
@@ -1313,10 +1319,10 @@
   // =============================================================
   // OPEN BOOKING
   //
-  // [RETURN-TO-BOOKING] When the guest is not logged in, the popup
-  // offers BOTH Sign In and Register. Whichever they click, we
-  // save the booking intent to sessionStorage before redirecting so
-  // the flow can resume on the other side.
+  // When the guest is not logged in, the popup offers BOTH Sign In
+  // and Register. Whichever they click, we save the booking intent
+  // to sessionStorage before redirecting so the flow can resume on
+  // the other side.
   // =============================================================
   function openBooking() {
     if (!currentGuest) {
@@ -1768,12 +1774,6 @@
 
   // =============================================================
   // CALENDAR — READ-ONLY STATES + TAPPABLE DATE PICKING
-  //
-  // [THIS REVISION]
-  // The calendar is now interactive. Tapping a green (available)
-  // date fills the detailCheckin / detailCheckout inputs and
-  // re-renders the calendar to show the selection. Red (booked)
-  // and grey (past) dates are not tappable.
   // =============================================================
   function renderAvailabilityCalendar(homestay, containerId) {
     var container = document.getElementById(containerId);
@@ -1785,8 +1785,6 @@
     var todayIso = dateToIso(today);
 
     if (!container._currentMonth) {
-      // Show the month of the existing check-in date if one is set,
-      // otherwise show the current month.
       var existingCi = document.getElementById('detailCheckin')?.value || '';
       if (existingCi && /^\d{4}-\d{2}-\d{2}$/.test(existingCi)) {
         var ciDate = new Date(existingCi + 'T00:00:00');
@@ -1871,7 +1869,6 @@
 
     if (!container._listenerAttached) {
       container.addEventListener('click', function(e) {
-        // Nav buttons (prev / next month)
         var navEl = e.target.closest('.calendar-nav-btn');
         if (navEl && navEl.dataset.dir !== undefined) {
           e.preventDefault();
@@ -1886,7 +1883,6 @@
           return;
         }
 
-        // Date selection
         var dayEl = e.target.closest('.calendar-day[data-iso]');
         if (dayEl && dayEl.dataset.iso) {
           e.preventDefault();
@@ -1899,11 +1895,7 @@
           var currentCo = coEl.value || '';
 
           if (!currentCi || (currentCi && currentCo)) {
-            // No check-in, or a complete selection already exists →
-            // start a fresh selection with this date as check-in.
             ciEl.value = iso;
-            // Auto-set checkout to the next day so the price
-            // immediately shows something sensible.
             var next = new Date(iso + 'T00:00:00');
             next.setDate(next.getDate() + 1);
             coEl.value = dateToIso(next);
@@ -1911,7 +1903,6 @@
             if (iso > currentCi) {
               coEl.value = iso;
             } else {
-              // Tapped earlier than the current check-in → restart.
               ciEl.value = iso;
               var next2 = new Date(iso + 'T00:00:00');
               next2.setDate(next2.getDate() + 1);
@@ -1919,8 +1910,6 @@
             }
           }
 
-          // Also update the homepage search inputs so the two stay in
-          // sync if the guest goes back.
           var homeCi = document.getElementById('checkin');
           var homeCo = document.getElementById('checkout');
           if (homeCi) homeCi.value = ciEl.value;
@@ -1979,6 +1968,32 @@
     var checkoutInput = document.getElementById('checkout');
     if (checkinInput) checkinInput.value = dateToIso(tomorrow);
     if (checkoutInput) checkoutInput.value = dateToIso(dayAfter);
+
+    // ============================================================
+    // [EXPLORE → HOMEPAGE] Read ?location= from the URL and pre-apply
+    // the location filter.
+    //
+    // explore.html "Stay near here" links send guests here with e.g.
+    // /?location=Desa or /?location=Bundu+Tuhan. URLSearchParams
+    // decodes the '+' back to a space, so the value should match one
+    // of the dropdown options exactly. We match case-insensitively
+    // anyway, so a hand-edited lowercase URL still works.
+    // ============================================================
+    try {
+      var locParams = new URLSearchParams(window.location.search);
+      var locParam = locParams.get('location');
+      if (locParam) {
+        var locSelect = document.getElementById('filterLocation');
+        if (locSelect) {
+          for (var li = 0; li < locSelect.options.length; li++) {
+            if (locSelect.options[li].value.toLowerCase() === locParam.toLowerCase()) {
+              locSelect.value = locSelect.options[li].value;
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {}
 
     homestays = [];
     selectedHomestay = null;
@@ -2042,7 +2057,7 @@
         });
     }
 
-    // [NEW] Returning-guest banner — only fires if logged in.
+    // Returning-guest banner — only fires if logged in.
     checkPendingBookingBanner();
 
     handlePaymentReturn();
