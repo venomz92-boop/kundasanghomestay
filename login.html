@@ -293,6 +293,15 @@
     return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
   }
 
+  // Styled confirm dialog — used by guest-session.js for the logout prompt.
+  function showConfirm(title, message) {
+    return showModal(title, message, [
+      { label: 'Cancel', class: 'btn-secondary', value: false },
+      { label: 'Confirm', class: 'btn-primary', value: true }
+    ]);
+  }
+  window.showConfirm = showConfirm;
+
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
       var overlay = document.getElementById('customModal');
@@ -354,7 +363,6 @@
   /* ============================================================
    * LOGIN HANDLER — cookie-based.
    *
-   * [THIS REVISION]
    * The success popup no longer mentions a session duration. The
    * server currently issues a 30-day guest session, but the exact
    * number is a server-side policy that may change, so we keep the
