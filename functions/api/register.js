@@ -20,13 +20,19 @@
 //
 //  (4) Removed the "no email provider configured → 503 fail" check.
 //      Registration must not depend on email delivery.
+//
+// [LATEST REVISION]
+// Guest session length changed from 2 hours to 30 days, matching the
+// change in login.js. A newly-registered guest should not have to
+// re-login the next morning just to finish a booking they started the
+// night before.
 import {
   corsHeaders, getClientIP, enforceHttps, hashPassword, createSignedToken,
   generateCSRFToken, cookieHeader, jsonResponse, parseJSONSafely, logAction,
   checkRateLimit, recordRateLimit
 } from './_utils.js';
 
-const GUEST_TTL_MS      = 2 * 60 * 60 * 1000;  // 2 hours
+const GUEST_TTL_MS      = 30 * 24 * 60 * 60 * 1000;  // 30 days
 const GUEST_TTL_SECONDS = GUEST_TTL_MS / 1000;
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
