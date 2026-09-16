@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  
+  <title>Explore Kundasang - Places to See | Kundasang Homestay</title>
+  <meta name="title" content="Explore Kundasang - Places to See Near Mount Kinabalu" />
+  <meta name="description" content="Discover the best places to see in Kundasang, Sabah — Mount Kinabalu, Sosodikon Hill, Desa Cattle Farm, Hounon Ridge, and Maragang Hill. Plan your stay with us." />
+  <meta name="keywords" content="Kundasang places to see, Sosodikon Hill, Desa Cattle Farm, Maragang Hill, Hounon Ridge, Mount Kinabalu, Kundasang attractions" />
+  <meta name="robots" content="index, follow" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://kundasanghomestay.my/explore.html" />
+  <meta property="og:title" content="Explore Kundasang - Places to See" />
+  <meta property="og:description" content="The best spots in Kundasang, from sunrise at Mount Kinabalu to the dairy farms and hilltop trails." />
+  <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" />
+  
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="animations.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="/guest-session.js"></script>
+  <script src="/csrf-auto.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
+
+  <style>
+    /* Explore Kundasang — description strip below the accordion gallery */
+    .ag-description {
+      min-height: 80px;
+      transition: opacity 0.22s ease;
+    }
+    .ag-description.fading {
+      opacity: 0;
+    }
+    .ag-description .ag-desc-title {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: #212121;
+      letter-spacing: -0.3px;
+      margin: 0;
+    }
+    .ag-description .ag-desc-text {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 400;
+      font-size: 13.5px;
+      color: rgba(33,33,33,0.65);
+      line-height: 1.65;
+      max-width: 640px;
+      margin: 6px auto 0;
+    }
+    @media (max-width: 640px) {
+      .ag-description { min-height: 96px; }
+      .ag-description .ag-desc-title { font-size: 16px; }
+      .ag-description .ag-desc-text { font-size: 12.5px; }
+    }
+  </style>
+</head>
+<body>
+
+<script>
+  let lastToggleTime = 0;
+  window.toggleMobileMenu = function() {
+    const now = Date.now();
+    if (now - lastToggleTime < 300) return;
+    lastToggleTime = now;
+    const nav = document.getElementById('mobileNav');
+    if (nav) {
+      nav.classList.toggle('open');
+      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+    }
+  };
+</script>
+
+<!-- ===== HEADER ===== -->
+<header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
+  <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
+
+    <a href="/" class="flex items-center gap-3 shrink-0 group">
+      <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+      <div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
+        KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px] md:text-[17px]"> • Homestay.my</span>
+        <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Stay • Connect • Belong</div>
+      </div>
+    </a>
+
+    <nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
+      <a href="/" class="setsail-nav-link" data-nav="home">Home</a>
+      <a href="/explore.html" class="setsail-nav-link" data-nav="explore">Explore</a>
+      <a href="/about.html" class="setsail-nav-link" data-nav="about">About Us</a>
+      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
+    </nav>
+
+    <div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
+      <div id="guestNav" class="flex items-center gap-2">
+        <a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
+        <a href="/register.html" class="header-pill header-pill-accent">Register</a>
+      </div>
+      <div id="guestProfileNav" class="hidden items-center gap-3">
+        <a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
+        <div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
+          <div id="guestAvatar" class="w-8 h-8 rounded-full bg-[#D4A373] text-[#0F382E] flex items-center justify-center text-xs font-bold">G</div>
+          <span id="guestNameNav" class="text-xs font-600 max-w-[90px] truncate">Guest</span>
+          <button onclick="logoutGuest()" class="ml-1 text-[10px] opacity-70 hover:opacity-100 uppercase tracking-wider transition-opacity">Logout</button>
+        </div>
+      </div>
+      <a href="/owner-register.html" class="btn-primary" style="padding:11px 22px; font-size:11px;">List Your Homestay</a>
+    </div>
+
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
+      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+
+    <script>
+      (function() {
+        var btn = document.getElementById('mobileMenuBtn');
+        if (btn) {
+          btn.removeEventListener('click', window.toggleMobileMenu);
+          btn.removeEventListener('touchstart', window.toggleMobileMenu);
+          btn.addEventListener('click', window.toggleMobileMenu);
+          btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
+        }
+      })();
+    </script>
+  </div>
+</header>
+
+<!-- ===== MOBILE NAV ===== -->
+<div id="mobileNav">
+  <div class="p-4">
+    <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
+    <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+    <a href="/explore.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🗺️ Explore Kundasang</a>
+    <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
+
+    <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">For Hosts</div>
+    <a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
+      <div style="display:flex; align-items:center; gap:12px; padding:14px 14px; border-radius:14px; background:#F8F5F0; border:1px solid rgba(212,163,115,0.35);">
+        <div style="width:40px; height:40px; border-radius:999px; background:#0F382E; color:#ffffff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px;">🏡</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:Poppins, sans-serif; font-weight:700; font-size:13px; color:#212121; line-height:1.2;">List Your Homestay</div>
+          <div style="font-family:Poppins, sans-serif; font-weight:500; font-size:10.5px; color:rgba(33,33,33,0.55); margin-top:2px;">Earn from your property</div>
+        </div>
+      </div>
+    </a>
+    <div class="px-1 pt-1"><a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a></div>
+
+    <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
+    <div id="mGuestNav" class="space-y-2.5 px-1">
+      <a href="/login.html" class="guest-btn guest-btn-primary block text-center">Sign In</a>
+      <a href="/register.html" class="guest-btn block text-center">Create Account</a>
+    </div>
+    <div id="mGuestProfileNav" class="hidden space-y-2 px-1">
+      <div class="profile-card">
+        <div id="mGuestAvatar" class="avatar">G</div>
+        <div class="info">
+          <div id="mGuestNameNav" class="name">Guest</div>
+          <div class="sub">Verified guest</div>
+        </div>
+        <button onclick="logoutGuest()" class="logout-btn">Logout</button>
+      </div>
+      <a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PAGE INTRO ===== -->
+<section class="w-full bg-[#F8F5F0] pt-14 pb-6">
+  <div class="max-w-[900px] mx-auto px-6 text-center">
+    <div class="font-satisfy text-[#A67C52] text-[30px] leading-none">Explore Kundasang</div>
+    <h1 class="font-poppins font-700 text-[34px] md:text-[46px] text-[#212121] tracking-[-1px] mt-2 leading-tight">Places to See in Kundasang</h1>
+    <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-4 rounded-full"></div>
+    <p class="font-poppins text-[14px] text-[#212121]/65 max-w-[600px] mx-auto mt-4 leading-[1.7]">
+      Kundasang sits at the foot of Mount Kinabalu — a cool highland town with dairy farms, hilltop lookouts, and misty mornings. Here are the five places our guests ask about most.
+    </p>
+  </div>
+</section>
+
+<!-- ===== ACCORDION GALLERY ===== -->
+<section class="w-full pb-10 bg-[#F8F5F0]">
+  <div class="w-full px-0 mt-6">
+    <div id="accordionGallery" class="accordion-gallery w-full max-w-full" style="height: 460px; --gap: 10px; --radius: 0px;">
+      <!-- Items rendered by JS -->
+    </div>
+  </div>
+
+  <!-- Description strip + CTA -->
+  <div class="max-w-[820px] mx-auto px-6 mt-8 text-center">
+    <div id="agDescription" class="ag-description" aria-live="polite">
+      <!-- Filled by JS -->
+    </div>
+    <a href="/" class="mt-6 btn-primary inline-block" style="padding:14px 28px; font-size:12px; letter-spacing:1.5px;">
+      Browse Homestays →
+    </a>
+  </div>
+</section>
+
+<!-- ===== ACCORDION GALLERY SCRIPT ===== -->
+<script>
+(function() {
+  const galleryItems = [
+    { 
+      image: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjkSvgFVVrdYAgkSktuGggZXhn-aZ8rUVqDxtQ4-nr0TB0MSv0lA73cIf1I7d7fW_KSjVbRwyvy5rU4GNgSUroglJKHhjcQmUR_Jh6cXE7zT6EdED7ub7popAXHn7CMM_SnASVJIhlIo3ry/s1600/MountKinabalu.jpgw=800&h=600&fit=crop', 
+      label: 'Mount Kinabalu Peak', 
+      alt: 'Mount Kinabalu Peak',
+      desc: 'The iconic 4,095m Sabah summit. Best seen at sunrise before the clouds roll in.'
+    },
+    { 
+      image: 'https://i.ibb.co/LfwBK5f/Image-s63vfws63vfws63v.jpg?w=800&h=600&fit=crop', 
+      label: 'Sosodikon Hill', 
+      alt: 'Sosodikon Hill',
+      desc: 'Short hilltop walk near Kundasang town. Panoramic valley and Mount Kinabalu views.'
+    },
+    { 
+      image: 'https://www.clladventureborneo.com/wp-content/uploads/2025/09/dairy-farm-kundasang.webp?w=800&h=600&fit=crop', 
+      label: 'Desa Cattle Farm', 
+      alt: 'Desa Cattle Farm',
+      desc: 'A working dairy farm in the highlands. Fresh milk, grazing cows, and a Kinabalu backdrop.'
+    },
+    { 
+      image: 'https://lh3.googleusercontent.com/gps-cs-s/AHRPTWniaVakOLxjICOwm8MvL-5nK-NHZ8gccOQiKG3YEjyWSonAcfqDPsw3jekF7LOxrBj5ueCfcLggV6EmiNQfQ1DT7vpdz0FKS5rZDRYer4-S6ldsQCScZduQu4CQqjDI7mzXBf4e?w=800&h=600&fit=crop', 
+      label: 'Hounon Ridge Farmstay & Camping', 
+      alt: 'Hounon Ridge Farmstay & Camping',
+      desc: 'A ridge-top farmstay and campsite. Sunsets and cloud-sea views over the Kundasang valley.'
+    },
+    { 
+      image: 'https://explorekundasang.com/wp-content/uploads/elementor/thumbs/maragang-by-Mas-Light-rakd450ifen9wot91yr978c4pkz9rnvalzg0yi0ewg.webp?w=800&h=600&fit=crop', 
+      label: 'Maragang Hill', 
+      alt: 'Maragang Hill',
+      desc: 'Short uphill trail above Kundasang. Popular for sunrise hikes and clear morning views of the peak.'
+    }
+  ];
+
+  const container = document.getElementById('accordionGallery');
+  const descEl = document.getElementById('agDescription');
+  if (!container) return;
+
+  let activeIndex = 2;
+  let isAnimating = false;
+  let descTimer = null;
+
+  function updateDescription(index) {
+    if (!descEl) return;
+    const item = galleryItems[index];
+    if (!item) return;
+    if (descTimer) clearTimeout(descTimer);
+    descEl.classList.add('fading');
+    descTimer = setTimeout(function() {
+      descEl.innerHTML =
+        '<p class="ag-desc-title">' + item.label + '</p>' +
+        '<p class="ag-desc-text">' + (item.desc || '') + '</p>';
+      descEl.classList.remove('fading');
+      descTimer = null;
+    }, 180);
+  }
+
+  container.innerHTML = '';
+  
+  galleryItems.forEach((item, index) => {
+    const el = document.createElement('div');
+    el.className = 'ag-item';
+    if (index === activeIndex) el.classList.add('active');
+    el.style.setProperty('--ag-dim', index === activeIndex ? '0' : '0.35');
+    el.setAttribute('role', 'listitem');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', item.label);
+    if (index === activeIndex) el.setAttribute('aria-current', 'true');
+    
+    const number = String(index + 1).padStart(2, '0');
+    
+    el.innerHTML = `
+      <span class="ag-media-wrap">
+        <span class="ag-media">
+          <img src="${item.image}" alt="${item.alt || item.label}" draggable="false" loading="lazy" decoding="async" />
+        </span>
+        <span class="ag-overlay" aria-hidden="true"></span>
+      </span>
+      <span class="ag-number">${number}</span>
+      <span class="ag-label-wrap" aria-hidden="true">
+        <span class="ag-bar"></span>
+        <span class="ag-label">${item.label}</span>
+      </span>
+    `;
+
+    el._media = el.querySelector('.ag-media');
+
+    el.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (!isAnimating) {
+        setActive(index);
+      }
+    });
+
+    let hoverTimeout = null;
+    el.addEventListener('mouseenter', function() {
+      if (window.innerWidth > 768) {
+        if (hoverTimeout) return;
+        hoverTimeout = setTimeout(function() {
+          if (!isAnimating) {
+            setActive(index);
+          }
+          hoverTimeout = null;
+        }, 10);
+      }
+    });
+
+    el.addEventListener('focus', function() {
+      if (!isAnimating) {
+        setActive(index);
+      }
+    });
+
+    el.addEventListener('keydown', function(e) {
+      const count = galleryItems.length;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = (index + 1) % count;
+        if (!isAnimating) {
+          setActive(next);
+          container.children[next]?.focus();
+        }
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = (index - 1 + count) % count;
+        if (!isAnimating) {
+          setActive(prev);
+          container.children[prev]?.focus();
+        }
+      }
+    });
+
+    container.appendChild(el);
+  });
+
+  const items = container.querySelectorAll('.ag-item');
+  const count = items.length;
+  const expandRatio = 0.52;
+  const grow = count > 1 ? (expandRatio * (count - 1)) / (1 - expandRatio) : 1;
+
+  function setActive(index) {
+    if (isAnimating || activeIndex === index) return;
+    
+    isAnimating = true;
+    activeIndex = index;
+    
+    const isMobileView = window.innerWidth <= 768;
+    const tilt = isMobileView ? 3 : 8;
+    
+    updateDescription(index);
+    
+    requestAnimationFrame(function() {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const isActive = i === index;
+        
+        if (isActive) {
+          item.classList.add('active');
+          item.setAttribute('aria-current', 'true');
+          item.style.zIndex = '2';
+        } else {
+          item.classList.remove('active');
+          item.removeAttribute('aria-current');
+          item.style.zIndex = '1';
+        }
+        
+        item.style.setProperty('--ag-dim', isActive ? '0' : '0.35');
+        
+        const rot = isActive ? 0 : (i < index ? tilt : -tilt);
+        
+        if (isMobileView) {
+          if (isActive) {
+            item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
+            item.setAttribute('data-tilt', '');
+          } else {
+            item.style.transform = `rotateX(${rot}deg) translateY(${i < index ? 2 : -2}px) scale(0.99)`;
+            item.setAttribute('data-tilt', i < index ? 'up' : 'down');
+          }
+        } else {
+          item.style.transform = `rotateY(${rot}deg)`;
+        }
+        
+        const media = item._media;
+        if (media) {
+          media.style.transform = 'translate(-50%, -50%) scale(1)';
+          if (isActive) {
+            media.style.filter = 'grayscale(0) brightness(1)';
+          } else {
+            media.style.filter = 'grayscale(0.9) brightness(0.7)';
+          }
+        }
+        
+        item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
+      }
+    });
+    
+    setTimeout(function() {
+      isAnimating = false;
+    }, 550);
+  }
+
+  function initGallery() {
+    const isMobileView = window.innerWidth <= 768;
+    const tilt = isMobileView ? 3 : 8;
+    
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const isActive = i === activeIndex;
+      
+      if (isActive) {
+        item.classList.add('active');
+        item.setAttribute('aria-current', 'true');
+        item.style.zIndex = '2';
+      } else {
+        item.classList.remove('active');
+        item.removeAttribute('aria-current');
+        item.style.zIndex = '1';
+      }
+      
+      item.style.setProperty('--ag-dim', isActive ? '0' : '0.35');
+      
+      const rot = isActive ? 0 : (i < activeIndex ? tilt : -tilt);
+      
+      if (isMobileView) {
+        if (isActive) {
+          item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
+          item.setAttribute('data-tilt', '');
+        } else {
+          item.style.transform = `rotateX(${rot}deg) translateY(${i < activeIndex ? 2 : -2}px) scale(0.99)`;
+          item.setAttribute('data-tilt', i < activeIndex ? 'up' : 'down');
+        }
+      } else {
+        item.style.transform = isActive ? 'rotateY(0deg)' : `rotateY(${rot}deg)`;
+      }
+      
+      const media = item._media;
+      if (media) {
+        media.style.transform = 'translate(-50%, -50%) scale(1)';
+        if (isActive) {
+          media.style.filter = 'grayscale(0) brightness(1)';
+        } else {
+          media.style.filter = 'grayscale(0.9) brightness(0.7)';
+        }
+      }
+      
+      item.style.flex = isActive ? `${grow} 1 0` : '1 1 0';
+    }
+
+    updateDescription(activeIndex);
+  }
+
+  requestAnimationFrame(function() {
+    initGallery();
+  });
+
+  window.addEventListener('load', function() {
+    requestAnimationFrame(function() {
+      initGallery();
+    });
+  });
+
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      requestAnimationFrame(function() {
+        const isMobileView = window.innerWidth <= 768;
+        const tilt = isMobileView ? 3 : 8;
+        
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const isActive = i === activeIndex;
+          const rot = isActive ? 0 : (i < activeIndex ? tilt : -tilt);
+          
+          if (isMobileView) {
+            if (isActive) {
+              item.style.transform = 'translateY(-2px) rotateX(0deg) scale(1.01)';
+              item.setAttribute('data-tilt', '');
+            } else {
+              item.style.transform = `rotateX(${rot}deg) translateY(${i < activeIndex ? 2 : -2}px) scale(0.99)`;
+              item.setAttribute('data-tilt', i < activeIndex ? 'up' : 'down');
+            }
+          } else {
+            item.style.transform = isActive ? 'rotateY(0deg)' : `rotateY(${rot}deg)`;
+          }
+          
+          const media = item._media;
+          if (media) {
+            media.style.transform = 'translate(-50%, -50%) scale(1)';
+            if (isActive) {
+              media.style.filter = 'grayscale(0) brightness(1)';
+            } else {
+              media.style.filter = 'grayscale(0.9) brightness(0.7)';
+            }
+          }
+        }
+      });
+    }, 150);
+  });
+
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (prefersReduced.matches) {
+    for (let i = 0; i < items.length; i++) {
+      items[i].style.transition = 'none';
+    }
+  }
+})();
+</script>
+
+<!-- ===== FOOTER ===== -->
+<footer class="bg-[#212121] text-white/70 mt-20">
+  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+    <div>
+      <div class="flex items-center gap-3">
+        <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+        <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay.my</span></div>
+      </div>
+      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
+      <div class="mt-4 pt-4 border-t border-white/10">
+        <p class="text-[11px] text-white/40 font-poppins">
+          <strong class="text-white/60">Company:</strong> NICK'S CREATIONS<br>
+          <strong class="text-white/60">Business License:</strong> RNU20183012
+        </p>
+      </div>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
+      <div class="space-y-2 text-[13px] font-poppins">
+        <a href="/" class="hover:text-white block">Browse Homestays</a>
+        <a href="/explore.html" class="hover:text-white block">Explore Kundasang</a>
+        <a href="/owner-register.html" class="hover:text-white block">Host Registration</a>
+        <a href="/about.html" class="hover:text-white block">About Us</a>
+        <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
+        <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
+        <a href="/booking-policy.html" class="hover:text-white block">Booking Policy</a>
+        <a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
+        <a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
+        <a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
+        <a href="https://www.facebook.com/kundasanghomestaymy/" target="_blank" rel="noopener noreferrer" class="hover:text-white block">
+          <svg class="inline w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+          </svg>
+          Facebook Page
+        </a>
+      </div>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
+      <div class="space-y-2 text-[13px] font-poppins">
+        <div>✓ Host Physical Verification</div>
+        <div>✓ CHIP FPX Online Protection</div>
+        <div>✓ Verified Host Policy</div>
+      </div>
+    </div>
+    <div>
+      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
+      <div id="kdWeatherWidget" class="kd-weather-widget">
+        <div class="kd-weather-loading">Loading live weather…</div>
+      </div>
+    </div>
+  </div>
+  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
+    © 2026 Kundasang Homestay. All rights reserved.
+  </div>
+</footer>
+
+<script src="animations.js"></script>
+<script src="/footer-weather.js"></script>
+</body>
+</html>
