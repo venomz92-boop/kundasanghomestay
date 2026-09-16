@@ -270,16 +270,6 @@ function safeHTML(html) {
   });
 }
 
-/* ============================================================
- * Guest CSRF token — always fetch fresh with ?type=guest.
- *
- * [THIS REVISION]
- * The shared key "kd_csrf_token" could previously hold an owner
- * token from a previous session, which then failed every guest
- * CSRF check. Now we always ask for a guest-scoped token and
- * store it under its own key. Existing guest-side helpers that
- * read "kd_csrf_token" are kept for backward compatibility.
- * ============================================================ */
 async function fetchGuestCsrfToken() {
   try {
     const res = await fetch('/api/csrf-token?type=guest', {
@@ -556,9 +546,36 @@ function loadMyBookings() {
       return;
     }
 
+    // ============================================================
+    // [SECURITY — 17 Sept 2026]
+    // Belt-and-suspenders filter. The server already restricts the
+    // guest branch to the caller's own bookings, but if a session
+    // collision (both admin_token and guest_token present, guest
+    // check failing) ever causes the server to fall through to the
+    // admin branch, we must not display the leaked records.
+    // We keep only bookings whose guestId matches the currently
+    // logged-in guest. Anything else is dropped and logged so the
+    // admin is alerted that a session mismatch happened.
+    // ============================================================
+    var currentGuestId = currentGuest && currentGuest.id ? String(currentGuest.id) : null;
+    var filteredBookings = serverBookings.filter(function(b) {
+      if (!currentGuestId) return false;
+      return String(b.guestId || '') === currentGuestId;
+    });
+
+    var leakedCount = serverBookings.length - filteredBookings.length;
+    if (leakedCount > 0) {
+      console.error(
+        '[SECURITY] Server returned ' + leakedCount + ' booking(s) that do not belong to the logged-in guest. ' +
+        'These were filtered out client-side. This indicates a session collision — likely both admin and guest ' +
+        'cookies were present. Clearing the admin cookie on guest login should prevent it, but if you see this ' +
+        'message after the latest deploy, report it with the current URL and time.'
+      );
+    }
+
     var displayGuest = currentGuest || { name: 'Guest', email: '' };
     renderGuestNav();
-    myBookings = serverBookings;
+    myBookings = filteredBookings;
 
     if (currentGuest && currentGuest.id) {
       try { localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings)); } catch (e) {}
@@ -573,8 +590,8 @@ function loadMyBookings() {
   })
   .catch(function(err) {
     console.error('loadMyBookings failed:', err);
-    if (currentGuest) {
-      var cached = localStorage.getItem('kd_guest_bookings_' + (currentGuest.id || 'unknown'));
+    if (currentGuest && currentGuest.id) {
+      var cached = localStorage.getItem('kd_guest_bookings_' + currentGuest.id);
       if (cached) {
         try {
           myBookings = JSON.parse(cached);
@@ -795,14 +812,6 @@ async function resendCode(bookingId) {
   } catch(e) { showAlert('Error', 'Network error. Please try again.'); }
 }
 
-/* ============================================================
- * DELETE MY ACCOUNT — PDPA self-service deletion.
- *
- * [THIS REVISION]
- * Always fetches a fresh guest-scoped CSRF token right before the
- * request. Fixes the mirror of the owner-side bug: a stale owner
- * token in localStorage would have blocked guest delete.
- * ============================================================ */
 function openDeleteAccountModal() {
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
@@ -873,7 +882,6 @@ async function deleteMyAccount() {
   const inputs = await openDeleteAccountModal();
   if (!inputs) return;
 
-  // Always fetch a FRESH guest-scoped token.
   const token = await fetchGuestCsrfToken();
   if (!token) {
     await showAlert(
@@ -955,9 +963,7 @@ window.deleteMyAccount = deleteMyAccount;
     return;
   }
 
-  // Prefetch a fresh guest-scoped CSRF token.
   fetchGuestCsrfToken();
-
   loadMyBookings();
 })();
 </script>
