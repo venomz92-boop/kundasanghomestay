@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Poppins:wght@400;500;600&family=Satisfy&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Poppins:wght@400;500;600&family=Satisfy&display=swap" rel="stylesheet" />
 
   <script>
     // Payment returns from CHIP must land on the real site, not here.
@@ -32,28 +32,27 @@
     html, body { margin: 0; padding: 0; }
     body {
       font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+      background: #14110d;
       color: #ffffff;
-      background: #1a1713;
       -webkit-font-smoothing: antialiased;
-      line-height: 1.6;
-      min-height: 100vh;
+      line-height: 1.5;
       overflow-x: hidden;
     }
 
     /* ============================================================
-       HERO — full-bleed photo, text directly on top
+       HERO — full-bleed photo, text block in the lower-left
        ============================================================ */
     .hero {
       position: relative;
       min-height: 100vh;
+      min-height: 100dvh;
+      width: 100%;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 5rem 1.5rem 6rem;
+      align-items: flex-end;
       overflow: hidden;
     }
 
-    /* Background photo */
+    /* --- Background photo --- */
     .hero-bg {
       position: absolute;
       inset: 0;
@@ -63,61 +62,48 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      object-position: center 38%;
+      object-position: 62% 42%;
       display: block;
     }
-
-    /* Readability scrim — three stops, darkest where text sits */
+    /* Diagonal left-to-right scrim protects the left-aligned text.
+       Vertical scrim softens top and bottom edges. */
     .hero-bg::after {
       content: '';
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(
-          ellipse 90% 60% at 50% 50%,
-          rgba(15, 12, 8, 0.55) 0%,
-          rgba(15, 12, 8, 0.35) 45%,
-          rgba(15, 12, 8, 0.15) 100%
+        linear-gradient(
+          100deg,
+          rgba(10, 8, 5, 0.78) 0%,
+          rgba(10, 8, 5, 0.58) 35%,
+          rgba(10, 8, 5, 0.24) 65%,
+          rgba(10, 8, 5, 0.08) 100%
         ),
         linear-gradient(
           180deg,
-          rgba(15, 12, 8, 0.55) 0%,
-          rgba(15, 12, 8, 0.30) 30%,
-          rgba(15, 12, 8, 0.35) 70%,
-          rgba(15, 12, 8, 0.75) 100%
+          rgba(10, 8, 5, 0.40) 0%,
+          rgba(10, 8, 5, 0.06) 22%,
+          rgba(10, 8, 5, 0.10) 65%,
+          rgba(10, 8, 5, 0.55) 100%
         );
     }
 
-    /* Content */
-    .hero-content {
+    /* --- Text block --- */
+    .hero-body {
       position: relative;
       z-index: 2;
-      max-width: 760px;
       width: 100%;
-      text-align: center;
-      opacity: 0;
-      transform: translateY(24px);
-      animation: fadeUp 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 90px 60px 9vh;
+    }
+    .card {
+      max-width: 620px;
+      animation: fadeUp 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
     }
     @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(26px); }
       to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Soft dark panel behind the text — the readability insurance */
-    .hero-content::before {
-      content: '';
-      position: absolute;
-      inset: -3rem -2.5rem;
-      z-index: -1;
-      background: radial-gradient(
-        ellipse at center,
-        rgba(10, 8, 5, 0.45) 0%,
-        rgba(10, 8, 5, 0.28) 45%,
-        rgba(10, 8, 5, 0) 78%
-      );
-      border-radius: 50%;
-      filter: blur(28px);
-      pointer-events: none;
     }
 
     /* Eyebrow label */
@@ -125,11 +111,10 @@
       display: inline-block;
       font-size: 11px;
       font-weight: 600;
-      letter-spacing: 4.5px;
+      letter-spacing: 4px;
       text-transform: uppercase;
       color: #F5D5A8;
-      margin: 0 0 28px;
-      padding: 0;
+      margin: 0 0 22px;
       text-shadow: 0 1px 12px rgba(0, 0, 0, 0.65);
     }
 
@@ -137,14 +122,14 @@
     .headline {
       font-family: 'Fraunces', Georgia, serif;
       font-weight: 400;
-      font-size: clamp(40px, 7.5vw, 76px);
-      line-height: 1.02;
-      letter-spacing: -0.025em;
-      margin: 0 0 24px;
+      font-size: clamp(38px, 5.4vw, 64px);
+      line-height: 1.04;
+      letter-spacing: -0.028em;
+      margin: 0 0 14px;
       color: #ffffff;
       text-shadow:
-        0 2px 20px rgba(0, 0, 0, 0.55),
-        0 1px 4px rgba(0, 0, 0, 0.4);
+        0 2px 22px rgba(0, 0, 0, 0.55),
+        0 1px 4px rgba(0, 0, 0, 0.35);
     }
     .headline em {
       font-style: italic;
@@ -152,271 +137,154 @@
       color: #F5D5A8;
     }
 
-    /* Lede paragraph */
-    .lede {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 400;
-      font-size: clamp(14.5px, 1.6vw, 17px);
-      line-height: 1.7;
-      color: rgba(255, 255, 255, 0.92);
-      max-width: 540px;
-      margin: 0 auto 40px;
+    /* Script accent line */
+    .script-accent {
+      font-family: 'Satisfy', cursive;
+      font-size: clamp(19px, 2.2vw, 24px);
+      color: #F5D5A8;
+      margin: 0 0 26px;
+      line-height: 1.2;
+      text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6);
+    }
+
+    /* Body copy */
+    .note p {
+      font-size: clamp(13.5px, 1.15vw, 14.5px);
+      line-height: 1.72;
+      color: rgba(255, 255, 255, 0.9);
+      margin: 0 0 14px;
+      max-width: 560px;
       text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
     }
 
-    /* CTA button */
-    .btn-wa {
+    /* Signature */
+    .signature {
+      font-family: 'Satisfy', cursive;
+      font-size: 26px;
+      color: #F5D5A8;
+      margin: 24px 0 6px;
+      line-height: 1;
+      text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6);
+    }
+    .sig-role {
+      font-size: 10.5px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.6);
+      margin: 0 0 30px;
+      font-weight: 500;
+      text-shadow: 0 1px 10px rgba(0, 0, 0, 0.65);
+    }
+
+    /* WhatsApp CTA */
+    .btn-hero {
       display: inline-flex;
       align-items: center;
-      gap: 11px;
-      padding: 17px 34px;
+      gap: 10px;
+      padding: 16px 28px;
       background: #ffffff;
-      color: #0F382E;
+      color: #14110d;
       font-family: 'Poppins', sans-serif;
+      font-weight: 600;
       font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.01em;
       text-decoration: none;
-      border-radius: 999px;
-      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
-      box-shadow:
-        0 10px 30px rgba(0, 0, 0, 0.35),
-        0 2px 6px rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     }
-    .btn-wa:hover {
+    .btn-hero:hover {
       background: #F5D5A8;
       transform: translateY(-2px);
-      box-shadow:
-        0 14px 36px rgba(0, 0, 0, 0.4),
-        0 2px 8px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
     }
-    .btn-wa svg { flex-shrink: 0; }
-
-    /* Script signature overlay — small, in the corner */
-    .sig-corner {
-      position: absolute;
-      bottom: 26px;
-      left: 0;
-      right: 0;
-      text-align: center;
-      z-index: 2;
-      font-family: 'Satisfy', cursive;
-      font-size: 22px;
-      color: rgba(255, 255, 255, 0.85);
-      text-shadow: 0 1px 10px rgba(0, 0, 0, 0.65);
-      pointer-events: none;
-    }
-    .sig-corner small {
-      display: block;
-      font-family: 'Poppins', sans-serif;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 2.5px;
-      text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.55);
-      margin-top: 4px;
-      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
-    }
-
-    /* ============================================================
-       TRUST STRIP — below the fold, on warm paper
-       ============================================================ */
-    .trust {
-      background: #FAF7F2;
-      color: #1a1a1a;
-      padding: 5rem 1.5rem 6rem;
-    }
-    .trust-inner {
-      max-width: 880px;
-      margin: 0 auto;
-      text-align: center;
-    }
-    .trust-label {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 4.5px;
-      text-transform: uppercase;
-      color: #A67C52;
-      margin: 0 0 40px;
-    }
-    .trust-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 2.5rem;
-      text-align: left;
-    }
-    .trust-item h3 {
-      font-family: 'Fraunces', Georgia, serif;
-      font-weight: 500;
-      font-size: 19px;
-      line-height: 1.3;
-      letter-spacing: -0.01em;
-      color: #0F382E;
-      margin: 0 0 10px;
-    }
-    .trust-item p {
-      font-size: 14px;
-      line-height: 1.7;
-      color: #4a4a4a;
-      margin: 0;
-    }
-    .trust-rule {
-      width: 48px;
-      height: 3px;
-      background: linear-gradient(90deg, #D4A373, #0F382E);
-      border-radius: 999px;
-      margin: 0 0 18px;
-    }
-
-    .closing {
-      margin-top: 5rem;
-      padding-top: 3rem;
-      border-top: 1px solid rgba(15, 56, 46, 0.12);
-    }
-    .closing p {
-      font-family: 'Fraunces', Georgia, serif;
-      font-style: italic;
-      font-weight: 400;
-      font-size: clamp(19px, 2.6vw, 24px);
-      line-height: 1.4;
-      color: #1a1a1a;
-      max-width: 620px;
-      margin: 0 auto 28px;
-    }
-    .closing .signature {
-      font-family: 'Satisfy', cursive;
-      font-size: 28px;
-      color: #0F382E;
-      margin: 0 0 6px;
-      line-height: 1;
-    }
-    .closing .sig-role {
-      font-size: 11px;
-      letter-spacing: 2.5px;
-      text-transform: uppercase;
-      color: #8a8a8a;
-      margin: 0;
-      font-weight: 500;
-    }
-
-    /* Footer */
-    footer {
-      background: #FAF7F2;
-      text-align: center;
-      padding: 0 1rem 3rem;
-    }
-    footer p {
-      font-size: 10.5px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: #9a9a9a;
-      margin: 0;
-      font-weight: 500;
-    }
+    .btn-hero svg { flex-shrink: 0; }
 
     /* ============================================================
        RESPONSIVE
        ============================================================ */
-    @media (max-width: 720px) {
+    @media (max-width: 900px) {
+      .hero-body {
+        padding: 70px 32px 8vh;
+      }
+    }
+
+    @media (max-width: 640px) {
       .hero {
-        padding: 4rem 1.25rem 5rem;
-        min-height: 92vh;
+        align-items: flex-start;
+        padding-top: 60px;
       }
-      .hero-bg img { object-position: center 32%; }
-      .eyebrow { letter-spacing: 3.5px; margin-bottom: 22px; }
-      .lede { max-width: 100%; }
-      .btn-wa {
-        padding: 15px 26px;
-        font-size: 13.5px;
+      .hero-body {
+        padding: 0 24px 56px;
+      }
+      .hero-bg img {
+        object-position: 68% 38%;
+      }
+      .headline {
+        font-size: clamp(34px, 10vw, 46px);
+      }
+      .note p {
+        max-width: 100%;
+        font-size: 14px;
+      }
+      .btn-hero {
         width: 100%;
-        max-width: 320px;
         justify-content: center;
+        padding: 15px 24px;
       }
-      .sig-corner {
-        bottom: 18px;
-        font-size: 19px;
-      }
-      .trust { padding: 4rem 1.25rem 4.5rem; }
-      .trust-grid {
-        grid-template-columns: 1fr;
-        gap: 2.5rem;
-        text-align: center;
-      }
-      .trust-rule { margin: 0 auto 18px; }
-      .closing { margin-top: 3.5rem; padding-top: 2.5rem; }
     }
   </style>
 </head>
 <body>
 
-<!-- ============ HERO ============ -->
 <section class="hero">
-  <div class="hero-bg">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu at sunrise" />
+
+  <!-- Background photo -->
+  <div class="hero-bg" aria-hidden="true">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="" />
   </div>
 
-  <div class="hero-content">
-    <p class="eyebrow">Kundasang · Sabah</p>
+  <!-- Text block, lower-left -->
+  <div class="hero-body">
+    <div class="card">
 
-    <h1 class="headline">
-      We're getting ready<br /><em>for you.</em>
-    </h1>
+      <span class="eyebrow">Kundasang Homestay</span>
 
-    <p class="lede">
-      A locally-run platform for real mountain stays — built from the highlands, for travellers and the families who open their homes to you.
-    </p>
+      <h1 class="headline">We're getting ready<br /><em>for you.</em></h1>
 
-    <a class="btn-wa"
-       href="https://wa.me/60165833713text=Hi%20Nick%2C%20I%20saw%20the%20Kundasang%20Homestay%20site."
-       target="_blank"
-       rel="noopener">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-      </svg>
-      Send us a WhatsApp
-    </a>
-  </div>
+      <p class="script-accent">see you in the highlands</p>
 
-  <div class="sig-corner">
-    — Nick
-    <small>NICK'S CREATIONS · Ranau, Sabah</small>
-  </div>
-</section>
+      <div class="note">
+        <p>
+          Kundasang Homestay is a locally-run platform built from the highlands — for travellers who want a real mountain stay, and for the families who open their homes to you.
+        </p>
 
-<!-- ============ TRUST STRIP ============ -->
-<section class="trust">
-  <div class="trust-inner">
-    <p class="trust-label">Why you can trust us</p>
+        <p>
+          Every property here is visited in person before it goes online. Every host is someone we've met ourselves. Payments go through CHIP — Malaysia's trusted FPX gateway — and we don't take a single sen in commission from our hosts, so more of every booking stays with the family who owns the home.
+        </p>
 
-    <div class="trust-grid">
-      <div class="trust-item">
-        <div class="trust-rule"></div>
-        <h3>Visited in person</h3>
-        <p>Every property is seen with our own eyes before it goes online. No stock photos, no surprises.</p>
+        <p>
+          We're putting the final touches together now. When we open, we'll announce it here first. If you'd like to be among the first to know — or you just want to say hello — send us a message. We answer every one personally.
+        </p>
       </div>
-      <div class="trust-item">
-        <div class="trust-rule"></div>
-        <h3>Payments via CHIP</h3>
-        <p>Malaysia's trusted FPX gateway handles every ringgit. Secure, traceable, and settled directly.</p>
-      </div>
-      <div class="trust-item">
-        <div class="trust-rule"></div>
-        <h3>Zero host commission</h3>
-        <p>We don't take a single sen from our hosts — so more of every booking stays with the family.</p>
-      </div>
-    </div>
 
-    <div class="closing">
-      <p>When we open, we'll announce it here first. If you'd like to be among the first to know — or you just want to say hello, we answer every message personally.</p>
       <p class="signature">— Nick</p>
       <p class="sig-role">NICK'S CREATIONS · Ranau, Sabah</p>
+
+      <a class="btn-hero"
+         href="https://wa.me/60165833713?text=Hi%20Nick%2C%20I%20saw%20the%20Kundasang%20Homestay%20site."
+         target="_blank"
+         rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+        </svg>
+        Send us a WhatsApp
+      </a>
+
     </div>
   </div>
-</section>
 
-<footer>
-  <p>© 2026 NICK'S CREATIONS · RNU20183012</p>
-</footer>
+</section>
 
 </body>
 </html>
