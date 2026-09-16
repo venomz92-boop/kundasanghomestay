@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kundasang Homestay</title>
+  <meta name="description" content="A small homestay platform being built from Kundasang, Sabah. Opening soon." />
+  <meta name="robots" content="noindex" />
+
+  <!-- PWA -->
+  <link rel="manifest" href="/site.webmanifest" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+  <meta name="theme-color" content="#0F382E" />
+  <meta name="apple-mobile-web-app-title" content="Kundasang" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Poppins:wght@400;500;600&family=Satisfy&display=swap" rel="stylesheet" />
+
+  <script>
+    // Payment returns from CHIP must land on the real site, not here.
+    (function () {
+      var qs = window.location.search;
+      if (/[?&](booking|order_id|payment_return)=/.test(qs)) {
+        window.location.replace('/index1.html' + qs);
+      }
+    })();
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+      color: #1a1a1a;
+      background: #FAF7F2;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+    }
+
+    /* ---------- HERO ---------- */
+    .hero {
+      position: relative;
+      height: 88vh;
+      min-height: 540px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+    .hero img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(20, 15, 10, 0.35) 0%,
+        rgba(20, 15, 10, 0.15) 42%,
+        rgba(20, 15, 10, 0.68) 100%
+      );
+      z-index: 1;
+    }
+    .hero-inner {
+      position: relative;
+      z-index: 2;
+      max-width: 760px;
+      color: #ffffff;
+    }
+    .eyebrow {
+      font-family: 'Poppins', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.78);
+      margin: 0 0 22px;
+    }
+    .headline {
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 500;
+      font-size: clamp(38px, 7vw, 68px);
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      margin: 0 0 24px;
+    }
+    .headline em {
+      font-style: italic;
+      font-weight: 400;
+    }
+    .script {
+      font-family: 'Satisfy', cursive;
+      font-size: clamp(20px, 3vw, 26px);
+      color: #F5D5A8;
+      margin: 0;
+      line-height: 1.3;
+    }
+
+    /* ---------- NOTE ---------- */
+    .note {
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 72px 24px 80px;
+    }
+    .note-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #A67C52;
+      margin: 0 0 22px;
+    }
+    .note h2 {
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 500;
+      font-style: italic;
+      font-size: clamp(22px, 3.2vw, 28px);
+      line-height: 1.35;
+      letter-spacing: -0.01em;
+      color: #1a1a1a;
+      margin: 0 0 28px;
+    }
+    .note p {
+      font-size: 15.5px;
+      line-height: 1.75;
+      color: #3a3a3a;
+      margin: 0 0 18px;
+    }
+    .signature {
+      font-family: 'Satisfy', cursive;
+      font-size: 24px;
+      color: #0F382E;
+      margin: 30px 0 6px;
+      line-height: 1;
+    }
+    .sig-role {
+      font-size: 11px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: #8a8a8a;
+      margin: 0;
+      font-weight: 500;
+    }
+    .divider {
+      border: 0;
+      border-top: 1px solid rgba(15, 56, 46, 0.14);
+      margin: 40px 0 32px;
+    }
+    .contact-label {
+      font-size: 13.5px;
+      color: #5a5a5a;
+      margin: 0 0 16px;
+      line-height: 1.65;
+    }
+    .btn-wa {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 26px;
+      background: #0F382E;
+      color: #ffffff;
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-decoration: none;
+      border-radius: 999px;
+      transition: background 0.2s ease, transform 0.15s ease;
+    }
+    .btn-wa:hover {
+      background: #1a4d3e;
+      transform: translateY(-1px);
+    }
+    .btn-wa svg { flex-shrink: 0; }
+
+    /* ---------- FOOTER ---------- */
+    footer {
+      border-top: 1px solid rgba(15, 56, 46, 0.1);
+      padding: 22px 24px 26px;
+      text-align: center;
+    }
+    footer p {
+      font-size: 10.5px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #9a9a9a;
+      margin: 0;
+      font-weight: 500;
+    }
+
+    @media (max-width: 480px) {
+      .hero { height: 82vh; min-height: 500px; }
+      .note { padding: 56px 22px 64px; }
+      .btn-wa { padding: 13px 22px; font-size: 13.5px; }
+    }
+  </style>
+</head>
+<body>
+
+<section class="hero">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu at sunrise" />
+  <div class="hero-inner">
+    <p class="eyebrow">Kundasang Homestay</p>
+    <h1 class="headline">We're still<br /><em>building this.</em></h1>
+    <p class="script">from up here in the highlands</p>
+  </div>
+</section>
+
+<main class="note">
+  <p class="note-label">A short note</p>
+
+  <h2>Every home on here, I'll have walked through myself.</h2>
+
+  <p>
+    Kundasang Homestay is a small platform I'm building from Ranau, for the people who actually live up here and rent out rooms. No middlemen. No commission. Just honest rooms with honest views.
+  </p>
+
+  <p>
+    It's not ready yet. I'm still walking door to door and meeting hosts, getting each place right before it goes online. When it's ready, I'll say so here.
+  </p>
+
+  <p>
+    If you'd like to be told when we open — or you run a homestay in Kundasang and want to talk — send me a message. I answer every one myself.
+  </p>
+
+  <p class="signature">— Nick</p>
+  <p class="sig-role">NICK'S CREATIONS · Ranau, Sabah</p>
+
+  <hr class="divider" />
+
+  <p class="contact-label">The fastest way to reach me is WhatsApp:</p>
+
+  <a class="btn-wa"
+     href="https://wa.me/60165833713?text=Hi%20Nick%2C%20I%20saw%20the%20Kundasang%20Homestay%20site."
+     target="_blank"
+     rel="noopener">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+    </svg>
+    Send me a WhatsApp
+  </a>
+</main>
+
+<footer>
+  <p>© 2026 NICK'S CREATIONS · RNU20183012</p>
+</footer>
+
+</body>
+</html>
