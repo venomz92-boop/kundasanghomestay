@@ -25,6 +25,16 @@
 //       previous attempt left an unclear state (refund_attempted_at set
 //       but chip_refund_id missing).
 //   (8) approveHomestay sends an approval notification email to the host.
+//
+// [THIS REVISION — 16 Sept 2026]
+//   (9) GET handler: the GUEST branch now runs BEFORE the ADMIN branch.
+//       Root cause of the "new guest sees every booking" bug: when a
+//       browser has BOTH an admin_token cookie (from a previous admin
+//       session) AND a guest_token cookie (from a fresh guest register),
+//       the old code let admin win, so the guest got the full admin
+//       payload. Guests must win when a guest session is present.
+//       An escape hatch `?view=admin` (only honoured when isAdmin is
+//       also true) lets an admin panel force the admin view if needed.
 import {
   corsHeaders,
   getClientIP,
@@ -446,6 +456,33 @@ export async function onRequestGet({ request, env }) {
     const limit = parseInt(url.searchParams.get('limit')) || DEFAULT_PAGE_SIZE;
     const offset = (page - 1) * limit;
 
+    // ============ GUEST BRANCH (runs FIRST) ============
+    //
+    // [THIS REVISION] Moved above the admin branch. Reason: when a
+    // browser holds BOTH an admin_token cookie (from a previous admin
+    // session) and a guest_token cookie (from a fresh guest register/
+    // login), the old order let admin win and the guest saw the entire
+    // platform's bookings. Guest intent must win when a guest session
+    // is present.
+    //
+    // Escape hatch: an admin panel can force the admin branch by
+    // calling this endpoint with `?view=admin`. That param is ignored
+    // unless the request is ALSO authentically admin-authenticated,
+    // so a guest cannot use it to escalate.
+    const forceAdminView = url.searchParams.get('view') === 'admin' && isAdmin;
+
+    if (!forceAdminView && guestSession && guestSession.type === 'guest') {
+      const mine = bookings.filter(b => String(b.guestId) === String(guestSession.userId));
+      const paginated = mine.slice(offset, offset + limit);
+      return jsonResponse({
+        bookings: paginated,
+        total: mine.length,
+        page,
+        limit,
+        totalPages: Math.ceil(mine.length / limit)
+      }, 200, request, { 'Cache-Control': 'no-store' });
+    }
+
     // ============ ADMIN BRANCH ============
     if (isAdmin) {
       const paginated = bookings.slice(offset, offset + limit);
@@ -527,19 +564,6 @@ export async function onRequestGet({ request, env }) {
         guestsPage,
         guestsLimit,
         owners
-      }, 200, request, { 'Cache-Control': 'no-store' });
-    }
-
-    // ============ GUEST BRANCH ============
-    if (guestSession && guestSession.type === 'guest') {
-      const mine = bookings.filter(b => String(b.guestId) === String(guestSession.userId));
-      const paginated = mine.slice(offset, offset + limit);
-      return jsonResponse({
-        bookings: paginated,
-        total: mine.length,
-        page,
-        limit,
-        totalPages: Math.ceil(mine.length / limit)
       }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
