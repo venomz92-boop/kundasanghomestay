@@ -1,40 +1,24 @@
-// /api/login.js — Plain English: guest login. The session token lives only
-// in the HttpOnly cookie which JavaScript cannot read. This protects guests
-// if a malicious script ever gets onto the page. The CSRF token is still
-// returned (that one is fine to expose to JS).
+// /api/login.js — Guest login.
 //
-// [THIS REVISION]
-// Removed the email-verification gate. Unverified accounts can now log
-// in. Verification is still tracked (user.verified) and the response
-// includes a `verified` field so future UI can nudge unverified guests,
-// but it does NOT block login. Rationale: for a brand-new platform with
-// no reputation, forcing an email round-trip before login lost more
-// guests than it protected. The payment itself (via FPX from a real bank
-// account) is a stronger identity signal than an email click.
-//
-// [LATEST REVISION]
-// Guest session length changed from 2 hours to 30 days. Two hours was
-// too aggressive for a booking platform where the decision to book
-// often spans a day or two. Guests were being logged out mid-flow
-// between browsing and paying. 30 days matches what guests already
-// expect from Grab, Shopee, Airbnb, Booking.com, etc. The cookie is
-// HttpOnly + Secure + SameSite=Lax, so this is not a security downgrade.
-//
-// The dummy record used for timing-equalisation still matches the real
-// iteration count, so response time does not leak whether an email exists.
+// [THIS REVISION — 17 Sept 2026]
+// When a guest logs in, the `admin_token` cookie is now explicitly
+// cleared in the response. Root cause of a real leak: a browser that
+// had an admin session (from a prior /admin.html login) and then
+// logged in as a guest would hold BOTH cookies. If the guest session
+// check on /api/bookings ever failed (e.g. session version bump,
+// signature mismatch), the server fell through to the admin branch
+// and returned the entire platform's bookings to the guest page,
+// which then displayed them. Killing the admin cookie on guest login
+// removes the ambiguity: one browser, one identity.
 import {
   corsHeaders, getClientIP, enforceHttps, hashPassword, verifyPassword,
-  createSignedToken, generateCSRFToken, cookieHeader, jsonResponse,
-  checkRateLimit, recordRateLimit, parseJSONSafely
+  createSignedToken, generateCSRFToken, cookieHeader, clearCookieHeader,
+  jsonResponse, checkRateLimit, recordRateLimit, parseJSONSafely
 } from './_utils.js';
 
 const GUEST_TTL_MS      = 30 * 24 * 60 * 60 * 1000;  // 30 days
 const GUEST_TTL_SECONDS = GUEST_TTL_MS / 1000;
 
-// Dummy record used to equalize response time when the email is unknown.
-// MUST use the SAME algorithm string as freshly-created records so PBKDF2
-// burns the same CPU. Built at request time from env, so if you set
-// PBKDF2_ITERATIONS in Cloudflare the dummy follows automatically.
 const DUMMY_PASSWORD = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 const DUMMY_SALT = 'AAAAAAAAAAAAAAAAAAAAAA';
 
@@ -80,10 +64,6 @@ export async function onRequestPost({ request, env }) {
 
     const user = guests.find(g => String(g.email || '').toLowerCase() === cleanEmail);
 
-    // ---- TIMING-SAFE PATH ----
-    // Always run PBKDF2, even when email is unknown, so response time
-    // does not leak whether the account exists. The dummy uses the same
-    // iteration count as real records (via makeDummyRecord).
     const recordToCheck = user || makeDummyRecord(env);
     const verified = await verifyPassword(cleanPassword, recordToCheck, env);
 
@@ -116,6 +96,14 @@ export async function onRequestPost({ request, env }) {
     const csrfToken = await generateCSRFToken(user.id, env);
     const { password: _, salt: __, ...safeUser } = user;
 
+    // Build headers with TWO Set-Cookie directives:
+    //   1. Set the new guest_token.
+    //   2. Clear the admin_token so this browser can no longer be
+    //      mistaken for an admin. Prevents the session-collision leak.
+    const headers = new Headers(corsHeaders(request));
+    headers.append('Set-Cookie', cookieHeader('guest_token', session, GUEST_TTL_SECONDS));
+    headers.append('Set-Cookie', clearCookieHeader('admin_token'));
+
     return new Response(JSON.stringify({
       success: true,
       guest: safeUser,
@@ -125,10 +113,7 @@ export async function onRequestPost({ request, env }) {
       message: 'Login successful'
     }), {
       status: 200,
-      headers: {
-        ...corsHeaders(request),
-        'Set-Cookie': cookieHeader('guest_token', session, GUEST_TTL_SECONDS)
-      }
+      headers
     });
   } catch (e) {
     console.error('Login error:', e.message, e.stack);
