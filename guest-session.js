@@ -1,6 +1,14 @@
 /* /guest-session.js — BROWSER FILE (main folder, next to index.html).
  * Plain English: "logged in" = we have your guest record saved.
  * The server is the real judge of whether the cookie is valid.
+ *
+ * [THIS REVISION]
+ * The logout confirmation now uses the page's styled showConfirm()
+ * modal when it's available, so the dialog matches the site's design
+ * instead of showing the browser's native confirm(). If the page
+ * doesn't define showConfirm() (e.g. login.html, register.html,
+ * explore.html), it falls back to the native dialog so the logout
+ * button still works everywhere.
  */
 (function () {
   'use strict';
@@ -87,9 +95,41 @@
     }
   }
 
+  /* ============================================================
+   * Confirmation helper.
+   *
+   * Prefers the page's styled showConfirm() when present. Some
+   * pages (login.html, register.html, explore.html) don't define
+   * one — they fall back to the native browser confirm() so the
+   * logout button still works there.
+   *
+   * Always resolves to a plain boolean. Never throws.
+   * ============================================================ */
+  function confirmLogout() {
+    var title = 'Logout';
+    var message = 'Are you sure you want to logout?';
+
+    if (typeof window.showConfirm === 'function') {
+      try {
+        var result = window.showConfirm(title, message);
+        if (result && typeof result.then === 'function') {
+          return result
+            .then(function (v) { return v === true; })
+            .catch(function () { return window.confirm(message); });
+        }
+        return Promise.resolve(result === true);
+      } catch (e) {
+        return Promise.resolve(window.confirm(message));
+      }
+    }
+
+    return Promise.resolve(window.confirm(message));
+  }
+
   async function logoutGuest(skipConfirm) {
     if (!skipConfirm) {
-      if (!window.confirm('Are you sure you want to logout?')) return;
+      var ok = await confirmLogout();
+      if (!ok) return;
     }
     try {
       await fetch('/api/logout', {
