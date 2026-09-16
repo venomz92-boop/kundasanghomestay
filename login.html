@@ -354,11 +354,18 @@
   /* ============================================================
    * LOGIN HANDLER — cookie-based.
    *
-   * [THIS REVISION] After a successful login, check whether the
-   * guest arrived here from a "Book Now" attempt. If so, return to
-   * /?resume_booking=1 so index.html can reopen the booking modal
-   * with the listing and dates pre-filled. Otherwise, keep the old
-   * behaviour of sending the guest to /mybookings.html.
+   * [THIS REVISION]
+   * The success popup no longer mentions a session duration. The
+   * server currently issues a 30-day guest session, but the exact
+   * number is a server-side policy that may change, so we keep the
+   * message generic. Clean and professional beats an exact figure
+   * that can drift out of date.
+   *
+   * Return-to-booking still applies: if the guest arrived here from
+   * a "Book Now" attempt, send them back to /?resume_booking=1 so
+   * index.html can reopen the booking modal with the listing and
+   * dates pre-filled. Otherwise, keep the default /mybookings.html
+   * destination.
    * ============================================================ */
   async function handleLogin(e) {
     e.preventDefault();
@@ -418,7 +425,7 @@
           hasPendingIntent = !!sessionStorage.getItem('kd_pending_booking_intent');
         } catch (e) {}
 
-        await showAlert('Login Successful', 'You have been logged in successfully. Your session will expire in 2 hours.');
+        await showAlert('Login Successful', 'Welcome back! You are now signed in.');
 
         if (hasPendingIntent) {
           window.location.href = '/?resume_booking=1';
