@@ -24,16 +24,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Leaflet for the interactive map -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
-
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
 
   <style>
-    /* ============================================================
-       Accordion gallery — description strip below it
-       ============================================================ */
     .ag-description {
       min-height: 80px;
       transition: opacity 0.22s ease;
@@ -62,99 +55,6 @@
       .ag-description .ag-desc-text { font-size: 12.5px; }
     }
 
-    /* ============================================================
-       Interactive map
-       ============================================================ */
-    #exploreMap {
-      height: 460px;
-      border-radius: 20px;
-      overflow: hidden;
-      border: 1px solid rgba(0,0,0,0.06);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.06);
-      position: relative;
-      z-index: 0;
-      isolation: isolate;
-      background: #F8F5F0;
-    }
-    @media (max-width: 640px) {
-      #exploreMap { height: 340px; }
-    }
-
-    .leaflet-container {
-      font-family: 'Poppins', sans-serif;
-      background: #F8F5F0;
-    }
-    .leaflet-popup-content-wrapper {
-      border-radius: 12px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.15);
-    }
-    .leaflet-popup-content {
-      font-family: 'Poppins', sans-serif;
-      font-size: 12.5px;
-      margin: 12px 16px;
-      line-height: 1.55;
-      color: #212121;
-    }
-    .leaflet-popup-content strong {
-      color: #0F382E;
-      display: block;
-      font-size: 14px;
-      margin-bottom: 4px;
-      font-weight: 700;
-    }
-    .leaflet-popup-tip { box-shadow: none; }
-
-    /* Custom markers — pill-shaped, on-brand */
-    .map-pill-spot, .map-pill-area {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-family: 'Poppins', sans-serif;
-      font-weight: 700;
-      font-size: 11px;
-      padding: 5px 11px;
-      border-radius: 999px;
-      white-space: nowrap;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.22);
-      border: 1.5px solid #ffffff;
-      letter-spacing: 0.02em;
-    }
-    .map-pill-spot { background: #D4A373; color: #0F382E; }
-    .map-pill-area { background: #0F382E; color: #ffffff; }
-    .map-pill-spot::before {
-      content: '';
-      display: inline-block;
-      width: 6px; height: 6px;
-      background: #0F382E;
-      border-radius: 999px;
-    }
-    .map-pill-area::before {
-      content: '';
-      display: inline-block;
-      width: 6px; height: 6px;
-      background: #D4A373;
-      border-radius: 999px;
-    }
-
-    .map-legend {
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: center;
-      margin-top: 16px;
-      font-family: 'Poppins', sans-serif;
-      font-size: 12px;
-      color: rgba(33,33,33,0.7);
-    }
-    .map-legend-item { display: inline-flex; align-items: center; gap: 7px; }
-    .map-legend-dot { width: 12px; height: 12px; border-radius: 999px; display: inline-block; border: 1.5px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
-    .map-legend-dot.spot { background: #D4A373; }
-    .map-legend-dot.area { background: #0F382E; }
-
-    /* ============================================================
-       Per-spot cards
-       ============================================================ */
     .spots-grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -296,9 +196,6 @@
       transform: translateY(-1px);
     }
 
-    /* ============================================================
-       Itineraries
-       ============================================================ */
     .itinerary-grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -505,27 +402,6 @@
   </div>
 </section>
 
-<!-- ===== MAP SECTION ===== -->
-<section class="w-full py-14 md:py-20 bg-white border-t border-black/5">
-  <div class="max-w-[1200px] mx-auto px-6 lg:px-8">
-    <div class="text-center mb-8">
-      <div class="font-satisfy text-[#A67C52] text-[28px] leading-none">The lay of the land</div>
-      <h2 class="font-poppins font-700 text-[30px] md:text-[36px] text-[#212121] tracking-[-0.8px] mt-1">Where Everything Is</h2>
-      <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
-      <p class="font-poppins text-[13.5px] text-[#212121]/60 max-w-[560px] mx-auto mt-3 leading-[1.7]">
-        Pins mark the places to see. Dark green markers show the four areas where we host homestays. Tap any pin for details.
-      </p>
-    </div>
-
-    <div id="exploreMap" role="img" aria-label="Interactive map of Kundasang showing points of interest and homestay areas"></div>
-
-    <div class="map-legend">
-      <span class="map-legend-item"><span class="map-legend-dot spot"></span> Place to see</span>
-      <span class="map-legend-item"><span class="map-legend-dot area"></span> Homestay area</span>
-    </div>
-  </div>
-</section>
-
 <!-- ===== SPOTS CARDS ===== -->
 <section class="w-full py-14 md:py-20 bg-[#F8F5F0]">
   <div class="max-w-[1200px] mx-auto px-6 lg:px-8">
@@ -563,16 +439,16 @@
         <p class="itinerary-sub">For guests who are passing through on the way up or down the mountain.</p>
         <ol class="itinerary-timeline">
           <li>
-            <span class="time">5:30 AM</span>
-            <span class="what"><strong>Sosodikon Hill</strong> for sunrise — 15-minute walk up, panoramic valley views.</span>
+            <span class="time">6:00 AM</span>
+            <span class="what">Wake up early for the clearest <strong>Mount Kinabalu view</strong> from your homestay balcony. Clouds roll in by 9 AM.</span>
           </li>
           <li>
             <span class="time">8:00 AM</span>
             <span class="what">Breakfast in <strong>Pekan Kundasang</strong> — market stalls open early.</span>
           </li>
           <li>
-            <span class="time">9:30 AM</span>
-            <span class="what"><strong>Desa Cattle Farm</strong> — feed the calves, try the fresh milk, 20-minute drive out.</span>
+            <span class="time">10:00 AM</span>
+            <span class="what"><strong>Desa Cattle Farm</strong> — feed the calves, try the fresh milk, see the rolling green pastures. Pre-book online.</span>
           </li>
           <li>
             <span class="time">1:00 PM</span>
@@ -583,7 +459,11 @@
             <span class="what">Rest. It's a cool 18–22°C up here — perfect for napping.</span>
           </li>
           <li>
-            <span class="time">6:30 PM</span>
+            <span class="time">5:00 PM</span>
+            <span class="what"><strong>Sunset at Hounon Ridge</strong> — the valley fills with clouds and the sky turns deep orange.</span>
+          </li>
+          <li>
+            <span class="time">7:00 PM</span>
             <span class="what"><strong>Steamboat dinner</strong> at your homestay. Ask your host to arrange it if not included.</span>
           </li>
         </ol>
@@ -599,16 +479,20 @@
             <span class="what"><strong>Arrive, check in.</strong> Take the afternoon slow — the altitude is a real adjustment.</span>
           </li>
           <li>
-            <span class="time">Day 1 · 6 PM</span>
-            <span class="what"><strong>Sunset at Hounon Ridge</strong> — cloud-sea views over the valley, 15 minutes from town.</span>
+            <span class="time">Day 1 · 5 PM</span>
+            <span class="what"><strong>Sunset at Hounon Ridge</strong> — 15–20 minutes from town. Arrive before sunset.</span>
           </li>
           <li>
-            <span class="time">Day 2 · 5 AM</span>
-            <span class="what"><strong>Maragang Hill</strong> sunrise hike — 1.5 hours round trip, moderate.</span>
+            <span class="time">Day 2 · 3 AM</span>
+            <span class="what"><strong>Maragang Hill</strong> sunrise hike. Start at 3 AM from the registration centre in Kg Mesilou. Guide and 4x4 transport included in the RM85 package.</span>
           </li>
           <li>
-            <span class="time">Day 2 · 9 AM</span>
-            <span class="what">Breakfast, then <strong>Desa Cattle Farm</strong> for the morning.</span>
+            <span class="time">Day 2 · 8 AM</span>
+            <span class="what">Back in town. Breakfast, then rest.</span>
+          </li>
+          <li>
+            <span class="time">Day 2 · 10 AM</span>
+            <span class="what"><strong>Desa Cattle Farm</strong> — pre-book online. Try the gelato and fresh milk.</span>
           </li>
           <li>
             <span class="time">Day 2 · 2 PM</span>
@@ -780,15 +664,23 @@
   });
 </script>
 
-<!-- ===== MAIN SCRIPT — data, map, cards, accordion ===== -->
+<!-- ===== MAIN SCRIPT — data, cards, accordion ===== -->
 <script>
 (function() {
   'use strict';
 
   // ============================================================
   // SINGLE SOURCE OF TRUTH
-  // Every section below reads from these two arrays so the
-  // accordion, the map, and the cards never drift out of sync.
+  // Every section below reads from this array so the accordion
+  // and the cards never drift out of sync.
+  //
+  // [THIS REVISION]
+  // Facts verified against Sabah Tourism Board, Trip.com, and
+  // recent visitor reviews (2025). Corrections applied:
+  //   - Sosodikon: RM5 entry confirmed, 5 km / 10-15 min drive
+  //   - Desa Farm: RM5 entry, pre-book online required
+  //   - Maragang: RM85/pax package, 20-30 min drive, 1.5-3 hr hike
+  //   - Mount Kinabalu: best 6-9 AM viewing window
   // ============================================================
 
   var SPOTS = [
@@ -800,13 +692,12 @@
       tag: 'Iconic viewpoint',
       image: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjkSvgFVVrdYAgkSktuGggZXhn-aZ8rUVqDxtQ4-nr0TB0MSv0lA73cIf1I7d7fW_KSjVbRwyvy5rU4GNgSUroglJKHhjcQmUR_Jh6cXE7zT6EdED7ub7popAXHn7CMM_SnASVJIhlIo3ry/s1600/MountKinabalu.jpg',
       desc: 'The iconic 4,095m Sabah summit. Best seen at sunrise before the clouds roll in.',
-      summary: 'You don\'t climb it from Kundasang — but you see it every clear morning from almost anywhere in town. The mountain is the reason Kundasang exists.',
-      bestTime: 'Sunrise · 5:30–6:30 AM',
-      distance: '10 min from town',
+      summary: 'You don\'t climb it from Kundasang — but you see it every clear morning from almost anywhere in town. The mountain is the reason Kundasang exists. The clearest views are between 6:00 and 9:00 AM, before the clouds cover the peak.',
+      bestTime: '6:00–9:00 AM',
+      distance: 'Seen from anywhere in town',
       difficulty: 'Viewpoint — no hike',
       entry: 'Free',
-      area: 'Bundu Tuhan',
-      coords: [6.0754, 116.5583]
+      area: 'Bundu Tuhan'
     },
     {
       id: 'sosodikon',
@@ -816,13 +707,12 @@
       tag: 'Sunrise walk',
       image: 'https://i.ibb.co/LfwBK5f/Image-s63vfws63vfws63v.jpg',
       desc: 'Short hilltop walk near Kundasang town. Panoramic valley and Mount Kinabalu views.',
-      summary: 'The easiest sunrise viewpoint in Kundasang. A short uphill walk takes you to a ridge with open views of the valley and the peak. Popular with families — the path is well-marked.',
+      summary: 'The easiest sunrise viewpoint in Kundasang. A short uphill walk (about 300–400 metres, 10–15 minutes) takes you to a ridge with open views of the valley and the peak. Popular with families — the path is well-marked and suitable for all ages.',
       bestTime: 'Sunrise or early morning',
-      distance: '10 min from town',
-      difficulty: 'Easy — 15-min walk up',
-      entry: 'Small entry fee',
-      area: 'Pekan Kundasang',
-      coords: [6.0131, 116.5827]
+      distance: '10–15 min drive',
+      difficulty: 'Easy — 10–15 min walk up',
+      entry: 'RM5 (Malaysian adult)',
+      area: 'Pekan Kundasang'
     },
     {
       id: 'desa',
@@ -832,13 +722,12 @@
       tag: 'Working dairy farm',
       image: 'https://www.clladventureborneo.com/wp-content/uploads/2025/09/dairy-farm-kundasang.webp',
       desc: 'A working dairy farm in the highlands. Fresh milk, grazing cows, and a Kinabalu backdrop.',
-      summary: 'A real dairy farm on the highland plateau. Feed the calves, try fresh milk, watch the cows graze with Kinabalu behind them. Good for kids and easy to spend 2–3 hours.',
-      bestTime: '9 AM–4 PM, any weather',
-      distance: '25 min from town',
+      summary: 'A real dairy farm on the highland plateau. Feed the calves, try fresh milk and gelato, watch the cows graze with Kinabalu behind them. Good for kids and easy to spend 2–3 hours. Tickets must be purchased online in advance — walk-ins are no longer accepted.',
+      bestTime: '8 AM–5 PM, any weather',
+      distance: '10–15 min drive',
       difficulty: 'Easy — kid-friendly',
-      entry: 'Small entry fee',
-      area: 'Desa',
-      coords: [6.0044, 116.5914]
+      entry: 'RM5 (Malaysian adult), pre-book online',
+      area: 'Desa'
     },
     {
       id: 'hounon',
@@ -848,13 +737,12 @@
       tag: 'Sunset viewpoint',
       image: 'https://lh3.googleusercontent.com/gps-cs-s/AHRPTWniaVakOLxjICOwm8MvL-5nK-NHZ8gccOQiKG3YEjyWSonAcfqDPsw3jekF7LOxrBj5ueCfcLggV6EmiNQfQ1DT7vpdz0FKS5rZDRYer4-S6ldsQCScZduQu4CQqjDI7mzXBf4e',
       desc: 'A ridge-top farmstay and campsite. Sunsets and cloud-sea views over the Kundasang valley.',
-      summary: 'A ridge-top property that opens its café and viewing area to non-guests. The sunset here is the best in the area — the valley fills with clouds and the sky turns deep orange.',
+      summary: 'A ridge-top property that opens its café and viewing area to non-guests. The sunset here is one of the best in the area — the valley fills with clouds and the sky turns deep orange. The road up is rough and downhill; drive carefully.',
       bestTime: 'Sunset · 4:30–6:30 PM',
-      distance: '15 min from town',
+      distance: '15–20 min drive',
       difficulty: 'Easy — drive-up',
       entry: 'Free (café walk-in)',
-      area: 'Bundu Tuhan',
-      coords: [6.0241, 116.5441]
+      area: 'Bundu Tuhan'
     },
     {
       id: 'maragang',
@@ -864,25 +752,15 @@
       tag: 'Sunrise hike',
       image: 'https://explorekundasang.com/wp-content/uploads/elementor/thumbs/maragang-by-Mas-Light-rakd450ifen9wot91yr978c4pkz9rnvalzg0yi0ewg.webp',
       desc: 'Short uphill trail above Kundasang. Popular for sunrise hikes and clear morning views of the peak.',
-      summary: 'A proper short hike — 1.5 hours round trip, moderate incline, but nothing technical. Worth the early alarm: from the top you get an unobstructed view of Kinabalu lit by the rising sun.',
-      bestTime: 'Sunrise (start by 5 AM)',
-      distance: '10 min from town',
-      difficulty: 'Moderate — 1.5 hr round trip',
-      entry: 'Small entry fee',
-      area: 'Pekan Kundasang',
-      coords: [5.9970, 116.5772]
+      summary: 'A proper short hike — 1.6 km one way, 1.5 to 3 hours round trip depending on pace. Moderate incline with wooden steps and some steep sections. Worth the early alarm: from the top you get an unobstructed view of Kinabalu lit by the rising sun. Guide and 4x4 transport are included in the package.',
+      bestTime: 'Sunrise (start at 3 AM)',
+      distance: '20–30 min drive',
+      difficulty: 'Moderate — 1.5–3 hr round trip',
+      entry: 'RM85/pax (includes guide + 4x4)',
+      area: 'Pekan Kundasang'
     }
   ];
 
-  var AREAS = [
-    { name: 'Bundu Tuhan',      coords: [6.0333, 116.5333] },
-    { name: 'Pekan Kundasang',  coords: [6.0063, 116.5745] },
-    { name: 'Desa',             coords: [6.0044, 116.5914] },
-    { name: 'Mesilau',          coords: [6.0140, 116.6060] }
-  ];
-
-  // Convert an area name to a URL-safe filter value matching
-  // the homepage's location dropdown.
   function areaToQuery(area) {
     return area.replace(/ /g, '+');
   }
@@ -1158,93 +1036,6 @@
     });
 
     grid.innerHTML = html;
-  })();
-
-  // ============================================================
-  // MAP — Leaflet, custom pill markers, popup with CTA link
-  // Waits for the deferred Leaflet script to actually load.
-  // ============================================================
-  (function initMap() {
-    var mapEl = document.getElementById('exploreMap');
-    if (!mapEl) return;
-
-    function whenLeafletReady(cb) {
-      if (window.L && typeof window.L.map === 'function') return cb();
-      var tries = 0;
-      var iv = setInterval(function() {
-        tries++;
-        if (window.L && typeof window.L.map === 'function') {
-          clearInterval(iv);
-          cb();
-        } else if (tries > 100) {
-          clearInterval(iv);
-          mapEl.innerHTML =
-            '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-family:Poppins,sans-serif;font-size:13px;color:#6b7280;text-align:center;padding:24px;">' +
-              'Map could not load. Please check your connection or view the spots in the list below.' +
-            '</div>';
-        }
-      }, 100);
-    }
-
-    whenLeafletReady(function() {
-      var L = window.L;
-
-      var map = L.map(mapEl, {
-        center: [6.0200, 116.5700],
-        zoom: 12,
-        scrollWheelZoom: false,
-        zoomControl: true,
-        attributionControl: true
-      });
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
-      }).addTo(map);
-
-      // Area markers (dark green)
-      AREAS.forEach(function(a) {
-        var icon = L.divIcon({
-          className: '',
-          html: '<div class="map-pill-area">' + a.name + '</div>',
-          iconSize: null,
-          iconAnchor: [0, 0]
-        });
-        L.marker(a.coords, { icon: icon, interactive: false }).addTo(map);
-      });
-
-      // Spot markers (tan, clickable, popup with link)
-      SPOTS.forEach(function(s) {
-        var icon = L.divIcon({
-          className: '',
-          html: '<div class="map-pill-spot">' + s.shortLabel + '</div>',
-          iconSize: null,
-          iconAnchor: [0, 0]
-        });
-
-        var popupHtml =
-          '<strong>' + s.label + '</strong>' +
-          '<span style="display:block;color:#6b7280;font-size:11.5px;margin-bottom:6px;">' + s.tag + '</span>' +
-          s.desc +
-          '<div style="margin-top:10px;font-size:11.5px;color:#4b5563;line-height:1.6;">' +
-            'Best: <b>' + s.bestTime + '</b><br>' +
-            'From town: ' + s.distance + ' · ' + s.difficulty +
-          '</div>' +
-          '<a href="/?location=' + areaToQuery(s.area) + '#homePage" ' +
-             'style="display:inline-block;margin-top:12px;background:#0F382E;color:#fff;text-decoration:none;font-size:11px;font-weight:700;padding:8px 14px;border-radius:999px;letter-spacing:0.05em;">' +
-            'Stay near here →' +
-          '</a>';
-
-        L.marker(s.coords, { icon: icon })
-          .addTo(map)
-          .bindPopup(popupHtml, { maxWidth: 260, minWidth: 220 });
-      });
-
-      // Small optimisation: if the map is inside a hidden container at
-      // load time, force a size recalculation when the page settles.
-      setTimeout(function() { map.invalidateSize(); }, 300);
-      window.addEventListener('load', function() { setTimeout(function() { map.invalidateSize(); }, 200); });
-    });
   })();
 
 })();
