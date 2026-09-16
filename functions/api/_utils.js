@@ -1,20 +1,16 @@
 // SHARED HELPERS — full drop-in replacement.
 //
-// [THIS REVISION]
-// CSP cleaned up. Every domain that was added for the removed
-// explore map (Leaflet, OpenStreetMap tiles), the old hotlinked
-// explore images (i.ibb.co, clladventureborneo, blogger,
-// lh3.googleusercontent, explorekundasang, borneoecotours,
-// mountkinabalu), and unused experiments (theculturetrip) has
-// been removed.
+// [THIS REVISION — 16 Sept 2026]
+//   (1) sendHostPayoutEmail now includes a "Chat with us on WhatsApp"
+//       button when env.SUPPORT_WHATSAPP is set. If unset, the button
+//       is silently omitted (existing behaviour).
+//   (2) New helper sendPayoutRecordEmail() — fires a structured
+//       [PAYOUT-RECORD] email to support@kundasanghomestay.my after
+//       each manual payout. A Google Apps Script watches that inbox
+//       and files the receipt + metadata into Google Drive, giving
+//       CHIP-compliant records without manual filing.
 //
-// Also added images.unsplash.com to img-src. The header and
-// footer logos have an onerror fallback pointing to Unsplash,
-// but Unsplash was not whitelisted, so the fallback silently
-// failed whenever the primary logo did not load. Fixed.
-//
-// No functional changes to any helper. Behaviour is identical
-// to the previous revision.
+// All other helpers are unchanged.
 
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
@@ -906,6 +902,18 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
     </div>
   ` : '';
 
+  // ----- Optional WhatsApp support button -----
+  const supportWhatsappNumber = String(env?.SUPPORT_WHATSAPP || '').replace(/[^0-9]/g, '');
+  const whatsappMsg = `Hi, I'm ${ownerName} from ${homestayName}. I have a question about my payout of RM ${payoutAmount} (Ref: ${ref}).`;
+  const supportWhatsappBlock = supportWhatsappNumber && !isSimulation
+    ? `<div style="text-align:center;margin-top:24px;">
+         <a href="https://wa.me/${supportWhatsappNumber}?text=${encodeURIComponent(whatsappMsg)}"
+            style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 26px;border-radius:8px;letter-spacing:0.3px;">
+           &#128172; Chat with us on WhatsApp
+         </a>
+       </div>`
+    : '';
+
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f8f5f0;padding:20px;">
       <div style="background:#ffffff;padding:30px;border-radius:16px;border:1px solid #e5e7eb;">
@@ -984,6 +992,8 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
           If you don't see this amount in your bank account within 1 business day, please reply to this email or contact us at <a href="mailto:support@kundasanghomestay.my" style="color:#0F382E;font-weight:600;">support@kundasanghomestay.my</a> quoting the reference number above.
         </div>
 
+        ${supportWhatsappBlock}
+
         <p style="font-size:12px;color:#9ca3af;text-align:center;margin-top:24px;margin-bottom:0;">
           © ${new Date().getFullYear()} Kundasang Homestay
         </p>
@@ -1025,6 +1035,110 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
           from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
           subject,
           content: [{ type: 'text/html', value: html }]
+        })
+      });
+      return { sent: r.ok, error: r.ok ? null : 'SendGrid API error' };
+    }
+    return { sent: false, error: 'No email provider configured' };
+  } catch (e) {
+    return { sent: false, error: e.message };
+  }
+}
+
+// ============================================================
+// Payout record email — fires after every manual payout.
+//
+// Purpose: create a structured, machine-readable record that a
+// Google Apps Script watches for. The script files the receipt and
+// metadata into a Drive folder, so the platform has CHIP-compliant
+// 3-month payout records without any manual filing.
+//
+// The Apps Script matches on:
+//   - Subject starting with "[PAYOUT-RECORD]"
+//   - Fields on individual lines: "Field Name: value"
+//   - A "Receipt: <url>" line pointing to a Cloudinary image
+//
+// Recipient is env.PAYOUT_RECORDS_EMAIL, falling back to
+// support@kundasanghomestay.my. If Cloudflare Email Routing forwards
+// that address to your personal Gmail, the script will see it there.
+// If you want direct delivery (bypassing forwarding), set
+// PAYOUT_RECORDS_EMAIL to your Gmail address.
+// ============================================================
+
+export async function sendPayoutRecordEmail(booking, payoutInfo, env) {
+  const to = env.PAYOUT_RECORDS_EMAIL || 'support@kundasanghomestay.my';
+  const safe = (s) => String(s || '').replace(/[<>]/g, '').trim();
+  const amount = Number(payoutInfo.amount || 0).toFixed(2);
+  const hostName = safe(payoutInfo.hostName || 'Host');
+
+  const subject = `[PAYOUT-RECORD] ${safe(booking.id)} - RM${amount} - ${hostName}`;
+
+  // The body is plain text with one field per line. The Apps Script
+  // parses it with per-field regexes. Do not reformat without also
+  // updating the parser.
+  const lines = [
+    `Booking ID: ${safe(booking.id)}`,
+    `Host: ${hostName}`,
+    `Host Email: ${safe(payoutInfo.hostEmail || '')}`,
+    `Host WhatsApp: ${safe(payoutInfo.hostWhatsapp || '')}`,
+    `Homestay: ${safe(payoutInfo.homestayName || '')}`,
+    `Guest: ${safe(booking.guestName || '')}`,
+    `Check-in: ${safe(booking.checkin || '')}`,
+    `Check-out: ${safe(booking.checkout || '')}`,
+    `Amount: ${amount}`,
+    `Payout Date: ${safe(payoutInfo.paidAt || new Date().toISOString())}`,
+    `Method: ${safe(payoutInfo.method || 'manual_transfer')}`,
+    `Bank Ref: ${safe(payoutInfo.reference || '')}`,
+    `Receipt: ${safe(payoutInfo.receiptUrl || '')}`
+  ];
+  const textBody = lines.join('\n');
+
+  // Also send an HTML version so the email renders nicely if opened
+  // in a browser. The Apps Script strips tags and preserves line
+  // breaks (it converts <br> and </p> back to newlines).
+  const htmlBody =
+    '<div style="font-family:monospace;font-size:13px;line-height:1.6;white-space:pre-wrap;">' +
+    lines.map(l => l.replace(/&/g, '&amp;').replace(/</g, '&lt;')).join('<br>\n') +
+    '</div>';
+
+  try {
+    if (env.RESEND_API_KEY) {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.RESEND_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
+          to,
+          subject,
+          html: htmlBody,
+          text: textBody
+        })
+      });
+      if (!r.ok) {
+        let msg = 'Resend API error';
+        try { const d = await r.json(); if (d?.message) msg = d.message; } catch (_) {}
+        return { sent: false, error: msg };
+      }
+      return { sent: true };
+    }
+    if (env.SENDGRID_API_KEY) {
+      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.SENDGRID_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: to }] }],
+          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
+          subject,
+          content: [
+            { type: 'text/plain', value: textBody },
+            { type: 'text/html', value: htmlBody }
+          ]
         })
       });
       return { sent: r.ok, error: r.ok ? null : 'SendGrid API error' };
