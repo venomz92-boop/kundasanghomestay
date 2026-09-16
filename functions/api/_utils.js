@@ -1,14 +1,20 @@
 // SHARED HELPERS — full drop-in replacement.
 //
 // [THIS REVISION]
-// CSP updated to allow Leaflet and OpenStreetMap tiles, which the
-// new /explore.html page uses for its interactive map.
-//   script-src  + https://unpkg.com
-//   style-src   + https://unpkg.com
-//   img-src     + https://unpkg.com  https://*.tile.openstreetmap.org
-//   connect-src + https://*.tile.openstreetmap.org
-// Nothing else in the CSP changed. All previous allow-list entries
-// stay as they were.
+// CSP cleaned up. Every domain that was added for the removed
+// explore map (Leaflet, OpenStreetMap tiles), the old hotlinked
+// explore images (i.ibb.co, clladventureborneo, blogger,
+// lh3.googleusercontent, explorekundasang, borneoecotours,
+// mountkinabalu), and unused experiments (theculturetrip) has
+// been removed.
+//
+// Also added images.unsplash.com to img-src. The header and
+// footer logos have an onerror fallback pointing to Unsplash,
+// but Unsplash was not whitelisted, so the fallback silently
+// failed whenever the primary logo did not load. Fixed.
+//
+// No functional changes to any helper. Behaviour is identical
+// to the previous revision.
 
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
@@ -361,11 +367,11 @@ export function corsHeaders(request) {
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     'Content-Security-Policy': [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia https://static.cloudflareinsights.com https://unpkg.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
+      "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia https://static.cloudflareinsights.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
-      "img-src 'self' data: blob: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com https://res.cloudinary.com https://theculturetrip.com https://*.theculturetrip.com https://unpkg.com https://*.tile.openstreetmap.org",
-      "connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia https://api.resend.com https://api.sendgrid.com https://api.cloudinary.com https://api.open-meteo.com https://cloudflareinsights.com https://*.tile.openstreetmap.org",
+      "img-src 'self' data: blob: https://*.wikimedia.org https://images.unsplash.com https://res.cloudinary.com",
+      "connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia https://api.resend.com https://api.sendgrid.com https://api.cloudinary.com https://api.open-meteo.com https://cloudflareinsights.com",
       "frame-src 'self' https://gate.chip-in.asia",
       "base-uri 'self'",
       "form-action 'self' https://gate.chip-in.asia"
