@@ -1,13 +1,16 @@
-// /api/admin-login.js — Plain English: this file now hashes BOTH the
-// password you typed and the real admin password with SHA-256 first, then
-// compares the two 32-byte digests in constant time. This hides how long
-// the real password is from anyone trying to guess it. Everything else
-// (cookie, token, rate limiting) is unchanged.
+// /api/admin-login.js — Admin login.
+//
+// [THIS REVISION — 17 Sept 2026]
+// When an admin logs in, the `guest_token` cookie is now explicitly
+// cleared in the response. Mirror of the guest-login fix: one browser,
+// one identity. Prevents the same class of session-collision leak in
+// the other direction (a guest cookie leaking into an admin page).
 import {
   corsHeaders,
   getClientIP,
   enforceHttps,
   cookieHeader,
+  clearCookieHeader,
   jsonResponse,
   checkRateLimit,
   recordRateLimit,
@@ -17,9 +20,6 @@ import {
 
 const ADMIN_TTL_SECONDS = 8 * 60 * 60; // 8 hours
 
-// H6: SHA-256 both inputs and constant-time compare the fixed-length
-// digests. This removes the previous length-based early return, which
-// leaked the admin password length via timing.
 async function sha256Bytes(str) {
   const data = new TextEncoder().encode(str);
   const digest = await crypto.subtle.digest('SHA-256', data);
@@ -64,7 +64,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Server configuration error. Please contact support.' }, 500, request);
     }
 
-    // H6: hash-then-compare-in-constant-time.
     const [inputDigest, expectedDigest] = await Promise.all([
       sha256Bytes(password),
       sha256Bytes(adminPass)
@@ -75,10 +74,17 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
 
-    // Signed, expiring token — cannot be replayed after 8 hours
     const token = await createAdminToken({ type: 'admin', role: 'owner' }, env);
 
     console.log(`Admin login successful (IP: ${clientIP})`);
+
+    // Build headers with TWO Set-Cookie directives:
+    //   1. Set the new admin_token.
+    //   2. Clear the guest_token so this browser is unambiguously
+    //      an admin session, not a guest session.
+    const headers = new Headers(corsHeaders(request));
+    headers.append('Set-Cookie', cookieHeader('admin_token', token, ADMIN_TTL_SECONDS));
+    headers.append('Set-Cookie', clearCookieHeader('guest_token'));
 
     return new Response(JSON.stringify({
       success: true,
@@ -87,11 +93,7 @@ export async function onRequestPost({ request, env }) {
       message: 'Login successful'
     }), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Set-Cookie': cookieHeader('admin_token', token, ADMIN_TTL_SECONDS),
-        ...corsHeaders(request)
-      }
+      headers
     });
   } catch (e) {
     console.error('Admin login error:', e.message);
