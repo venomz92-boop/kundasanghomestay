@@ -1,46 +1,14 @@
 // SHARED HELPERS — full drop-in replacement.
 //
 // [THIS REVISION]
-//  (1) finalizePaidBooking stores `amount_paid`.
-//  (2) finalizePaidBooking refuses to finalize if the guest account no
-//      longer exists.
-//  (3) chipSendPayout validates the bank code against CHIP Send's known
-//      SWIFT/BIC list and refuses before calling CHIP.
-//  (4) getOwnerHomestayIdsFresh(db, owner) resolves an owner's homestay
-//      IDs by matching WhatsApp in kd_approved / kd_pending.
-//  (5) sendHostPayoutEmail(booking, homestay, payoutInfo, env) sends a
-//      payout receipt to the host after a successful CHIP Send transfer.
-//      When payoutInfo.isSimulation is true, the subject line gets a
-//      [TEST] prefix and a yellow banner is drawn at the top of the
-//      email body.
-//  (6) Wording change in the Payment Breakdown table of the receipt:
-//      "Guest paid" became "Guest paid in total", "Service fee (11%)"
-//      became "Platform commission (11%)", "Gateway fee" became
-//      "Payment gateway fee", and "You received" became "Your payout".
-//      This removes the misreading where a host might think the platform
-//      took money out of their payout, when in fact those amounts were
-//      charged to the guest on top of the nightly rate.
-//  (7) The payout email embeds the bank transfer receipt image (when
-//      payoutInfo.receiptUrl is provided). The image links to the
-//      full-size original on Cloudinary. Simulation emails skip the
-//      receipt. Callers that don't pass receiptUrl see no change.
-//
-// [LATEST REVISION]
-//  (8) Receipt block hardened against image-blocking email clients
-//      (iOS Mail "Protect Mail Activity", Gmail, Outlook). Changes:
-//        - Alt text now includes the payout amount, e.g.
-//          "Bank Transfer Receipt — RM 55.00", so a blocked image
-//          still shows a meaningful label to the host.
-//        - Both the image and the new button open in a new tab
-//          (target="_blank" rel="noopener").
-//        - A prominent green "View Full-Size Receipt →" button is
-//          rendered BELOW the image, always visible, so the host
-//          has a guaranteed way to open the receipt even when
-//          images are blocked.
-//        - A small helper caption tells the host what to do if
-//          they cannot see the image.
-//      No other behaviour changed. Payouts, CHIP flow, and admin
-//      logic are untouched.
+// CSP updated to allow Leaflet and OpenStreetMap tiles, which the
+// new /explore.html page uses for its interactive map.
+//   script-src  + https://unpkg.com
+//   style-src   + https://unpkg.com
+//   img-src     + https://unpkg.com  https://*.tile.openstreetmap.org
+//   connect-src + https://*.tile.openstreetmap.org
+// Nothing else in the CSP changed. All previous allow-list entries
+// stay as they were.
 
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
@@ -393,11 +361,11 @@ export function corsHeaders(request) {
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     'Content-Security-Policy': [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia https://static.cloudflareinsights.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia https://static.cloudflareinsights.com https://unpkg.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
       "font-src 'self' https://fonts.gstatic.com data:",
-      "img-src 'self' data: blob: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com https://res.cloudinary.com https://theculturetrip.com https://*.theculturetrip.com",
-      "connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia https://api.resend.com https://api.sendgrid.com https://api.cloudinary.com https://api.open-meteo.com https://cloudflareinsights.com",
+      "img-src 'self' data: blob: https://upload.wikimedia.org https://i.ibb.co https://www.clladventureborneo.com https://blogger.googleusercontent.com https://lh3.googleusercontent.com https://explorekundasang.com https://res.cloudinary.com https://theculturetrip.com https://*.theculturetrip.com https://unpkg.com https://*.tile.openstreetmap.org",
+      "connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia https://api.resend.com https://api.sendgrid.com https://api.cloudinary.com https://api.open-meteo.com https://cloudflareinsights.com https://*.tile.openstreetmap.org",
       "frame-src 'self' https://gate.chip-in.asia",
       "base-uri 'self'",
       "form-action 'self' https://gate.chip-in.asia"
@@ -853,52 +821,9 @@ export async function finalizePaidBooking(db, bookingId) {
 
 // ============================================================
 // Host payout statement email.
-//
-// This is the SINGLE source of truth for every payout email the
-// platform sends. Three modes are supported by the payoutInfo flag:
-//
-//   1. CHIP Send payout      (no flags)          → "Sent to your bank via CHIP Send"
-//   2. Simulated payout      (isSimulation: true) → [TEST] banner
-//   3. Manual bank transfer  (isManual: true)     → "Sent via bank transfer"
-//
-// [THIS REVISION]
-// The email embeds the bank transfer receipt image (from Cloudinary)
-// when payoutInfo.receiptUrl is present. The image is served via a
-// lightweight Cloudinary transform (w_600,q_auto,f_auto) so the
-// email loads quickly on mobile, and clicks through to the
-// full-resolution original. Simulation emails skip the receipt.
-//
-// To defend against email clients that block remote images by
-// default (iOS Mail "Protect Mail Activity", Gmail, Outlook), the
-// receipt block also includes:
-//   - Alt text carrying the payout amount, so a blocked image
-//     still shows a meaningful label.
-//   - A prominent green "View Full-Size Receipt →" button below
-//     the image, always visible, opening in a new tab.
-//   - A short helper caption for hosts whose inbox hides images.
-//
-// Arguments:
-//   booking    — the booking object
-//   homestay   — the homestay object (needs ownerEmail, ownerName,
-//                name, ownerBank, ownerBankAccount)
-//   payoutInfo — {
-//                  amount,       required, the payout amount
-//                  payoutId,     optional, CHIP Send ID or internal ref
-//                  reference,    required, the human-visible reference
-//                  paidAt,       optional, ISO timestamp
-//                  isSimulation, optional, adds [TEST] banner
-//                  isManual,     optional, marks this as a manual transfer
-//                  receiptUrl,   optional, Cloudinary URL of the bank receipt
-//                }
-//   env        — Cloudflare env
-//
-// Best-effort. A failure never rolls back the payout.
 // ============================================================
 
 function cloudinaryEmailUrl(url) {
-  // Insert a lightweight transform for email delivery: 600px wide,
-  // auto quality, auto format (WebP when supported). Falls back to
-  // the raw URL if the pattern doesn't match, so it never breaks.
   if (!url) return '';
   const idx = url.indexOf('/upload/');
   if (idx === -1) return url;
@@ -955,13 +880,6 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
 
   const headerSubtitle = isSimulation ? 'Payout Statement — TEST' : 'Payout Statement';
 
-  // ----- Bank transfer receipt block (only for real payouts) -----
-  //
-  // Hardened against image-blocking email clients. The image is
-  // wrapped in an anchor so tapping it opens the full-size original.
-  // Alt text carries the payout amount so a blocked image still
-  // communicates what it is. A prominent green button below the
-  // image guarantees a working path even when images are blocked.
   const rawReceiptUrl = String(payoutInfo.receiptUrl || '').trim();
   const showReceipt = rawReceiptUrl && !isSimulation;
   const emailReceiptUrl = showReceipt ? cloudinaryEmailUrl(rawReceiptUrl) : '';
