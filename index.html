@@ -68,25 +68,26 @@
       filter: brightness(0.88) contrast(1.05);
     }
 
-    /* Deeper radial scrim + vertical falloff.
-       This is now doing ALL the work for readability. */
+    /* Single scrim. Darker where the text sits, brighter at the
+       edges so the mountain still reads. No text-shadows anywhere
+       — this is the only readability layer. */
     .hero-bg::after {
       content: '';
       position: absolute;
       inset: 0;
       background:
         radial-gradient(
-          ellipse 80% 70% at 50% 50%,
-          rgba(8, 6, 4, 0.82) 0%,
-          rgba(8, 6, 4, 0.66) 35%,
-          rgba(8, 6, 4, 0.34) 68%,
-          rgba(8, 6, 4, 0.16) 100%
+          ellipse 78% 68% at 50% 50%,
+          rgba(8, 6, 4, 0.86) 0%,
+          rgba(8, 6, 4, 0.72) 32%,
+          rgba(8, 6, 4, 0.34) 64%,
+          rgba(8, 6, 4, 0.10) 100%
         ),
         linear-gradient(
           180deg,
-          rgba(8, 6, 4, 0.48) 0%,
-          rgba(8, 6, 4, 0.12) 25%,
-          rgba(8, 6, 4, 0.12) 65%,
+          rgba(8, 6, 4, 0.50) 0%,
+          rgba(8, 6, 4, 0.10) 28%,
+          rgba(8, 6, 4, 0.10) 62%,
           rgba(8, 6, 4, 0.58) 100%
         );
     }
@@ -110,23 +111,6 @@
       animation: fadeUp 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
     }
 
-    /* Soft blurred dark cloud behind the text */
-    .card::before {
-      content: '';
-      position: absolute;
-      inset: -60px -50px;
-      z-index: -1;
-      background: radial-gradient(
-        ellipse at center,
-        rgba(8, 6, 4, 0.58) 0%,
-        rgba(8, 6, 4, 0.34) 50%,
-        rgba(8, 6, 4, 0) 82%
-      );
-      border-radius: 50%;
-      filter: blur(38px);
-      pointer-events: none;
-    }
-
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(26px); }
       to { opacity: 1; transform: translateY(0); }
@@ -140,7 +124,7 @@
       margin: 0 auto 18px;
     }
 
-    /* Eyebrow label — whisper of shadow */
+    /* Eyebrow label */
     .eyebrow {
       display: inline-block;
       font-size: 11px;
@@ -149,10 +133,9 @@
       text-transform: uppercase;
       color: #F5D5A8;
       margin: 0 0 22px;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     }
 
-    /* Headline — whisper of shadow */
+    /* Headline */
     .headline {
       font-family: 'Fraunces', Georgia, serif;
       font-weight: 500;
@@ -161,7 +144,6 @@
       letter-spacing: -0.028em;
       margin: 0 0 14px;
       color: #ffffff;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     }
     .headline em {
       font-style: italic;
@@ -169,34 +151,31 @@
       color: #F5D5A8;
     }
 
-    /* Script accent line — whisper of shadow */
+    /* Script accent line */
     .script-accent {
       font-family: 'Satisfy', cursive;
       font-size: clamp(19px, 2.2vw, 24px);
       color: #F5D5A8;
       margin: 0 0 26px;
       line-height: 1.2;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     }
 
-    /* Body copy — whisper of shadow */
+    /* Body copy */
     .note p {
       font-size: clamp(13.5px, 1.15vw, 14.5px);
       line-height: 1.72;
-      color: rgba(255, 255, 255, 0.95);
+      color: rgba(255, 255, 255, 0.97);
       margin: 0 auto 14px;
       max-width: 560px;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     }
 
-    /* Signature — whisper of shadow */
+    /* Signature */
     .signature {
       font-family: 'Satisfy', cursive;
       font-size: 26px;
       color: #F5D5A8;
       margin: 24px 0 6px;
       line-height: 1;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     }
     .sig-role {
       font-size: 10.5px;
@@ -205,7 +184,6 @@
       color: rgba(255, 255, 255, 0.72);
       margin: 0 0 30px;
       font-weight: 600;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     }
 
     /* WhatsApp CTA */
@@ -242,9 +220,6 @@
     @media (max-width: 900px) {
       .hero-body {
         padding: 80px 32px;
-      }
-      .card::before {
-        inset: -40px -30px;
       }
     }
 
