@@ -918,12 +918,6 @@ function renderAvailabilityCalendar(h, containerId) {
 async function fetchCloudData(){
   if(!CLOUD_ENABLED) return false;
   try{
-    // [THIS REVISION]
-    // &view=admin tells /api/bookings.js to skip the guest branch even
-    // if the browser also holds a guest_token cookie (e.g. because the
-    // same browser was used to test a guest booking). Without this
-    // param, the guest branch would fire first and return an empty
-    // admin payload, which looked like a login failure.
     const url = API_BASE + "/bookings"
       + "?limit=99999"
       + "&approvedLimit=99999"
@@ -957,10 +951,6 @@ async function fetchCloudData(){
       data.demoOverrides !== undefined;
 
     if (!isAdminResponse) {
-      // [DIAGNOSTIC] If you ever see this in the browser console, the
-      // response was a guest or public payload, not an admin one.
-      // Almost always means the admin_token cookie was missing or
-      // stale. The fix is to reload /admin.html and log in again.
       try {
         console.warn('[admin.html] Non-admin response from /api/bookings. Payload keys:', Object.keys(data || {}));
       } catch (_) {}
@@ -1862,10 +1852,6 @@ async function adminConfirmArrival(bookingId) {
 
   if (!choice || choice === null) return;
 
-  // Read the code AFTER the modal resolves. The input element is
-  // still in the DOM even though the modal is no longer visible,
-  // because showModal() only toggles the .active class — it does not
-  // clear innerHTML.
   const enteredCode = String(document.getElementById('adminCheckinCode')?.value || '').trim();
 
   if (!/^\d{6}$/.test(enteredCode)) {
@@ -2013,12 +1999,26 @@ async function retryRefund(bookingId) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "retryRefund", id: bookingId })
     });
+    
+    if (res.status === 401) {
+      ADMIN_LOGGED_IN = false;
+      const loginEl = document.getElementById("adminLogin");
+      const dashEl = document.getElementById("adminDashboard");
+      if (loginEl) loginEl.classList.remove("hidden");
+      if (dashEl) dashEl.classList.add("hidden");
+      if (btn) { btn.disabled = false; btn.textContent = origText || '🔁 RETRY REFUND'; }
+      await showAlert(
+        "Session Expired", 
+        "Your admin session has expired or was cleared.\n\nNote: Due to the 'One-browser-one-identity' security rule, if you tested as a guest in this same browser, your admin session was intentionally cleared. Please use an Incognito window for admin tasks."
+      );
+      return;
+    }
+
     const data = await res.json();
 
     if (!res.ok || !data.success) {
       await showAlert("Refund Retry Failed", data.error || data.message || "Unknown error");
-      await fetchCloudData();
-      renderAdmin();
+      if (btn) { btn.disabled = false; btn.textContent = origText || '🔁 RETRY REFUND'; }
       return;
     }
 
@@ -2627,10 +2627,20 @@ async function deleteBooking(id) {
       if (res.status === 404) {
         return;
       }
+      if (res.status === 401) {
+        ADMIN_LOGGED_IN = false;
+        const loginEl = document.getElementById("adminLogin");
+        const dashEl = document.getElementById("adminDashboard");
+        if (loginEl) loginEl.classList.remove("hidden");
+        if (dashEl) dashEl.classList.add("hidden");
+        await showAlert(
+          "Session Expired", 
+          "Your admin session has expired or was cleared.\n\nNote: Due to the 'One-browser-one-identity' security rule, if you tested as a guest in this same browser, your admin session was intentionally cleared. Please use an Incognito window for admin tasks."
+        );
+        return;
+      }
       const data = await res.json();
       await showAlert("Error", "Cloud delete failed: " + (data.error || res.statusText));
-      await fetchCloudData();
-      renderAdmin();
       return;
     }
 
@@ -2639,8 +2649,6 @@ async function deleteBooking(id) {
 
   } catch (e) {
     await showAlert("Error", "Delete error: " + e.message);
-    await fetchCloudData();
-    renderAdmin();
   }
 }
 
