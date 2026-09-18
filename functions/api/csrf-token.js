@@ -18,7 +18,7 @@ import {
   getOwnerSession,
   generateCSRFToken,
   jsonResponse
-} from './_utils.js';
+} from '../lib/index.js';
 
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
