@@ -137,7 +137,7 @@
 </div>
 
 <section class="relative w-full h-[320px] md:h-[400px] overflow-hidden">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu backdrop" class="absolute inset-0 w-full h-full object-cover" />
+  <img src="/images/kinabalu-sunset.jpg" alt="Mount Kinabalu backdrop" class="absolute inset-0 w-full h-full object-cover" loading="lazy" />
   <div class="absolute inset-0 bg-black/35"></div>
   <div class="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20"></div>
   <div class="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
@@ -864,6 +864,7 @@ function restoreDraft() {
       tempPhotos.forEach(url => {
         const img = document.createElement('img');
         img.src = url;
+        img.alt = 'Property photo preview';
         img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
         preview.appendChild(img);
       });

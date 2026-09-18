@@ -12,7 +12,7 @@
   <meta property="og:url" content="https://kundasanghomestay.my/where-to-stay.html" />
   <meta property="og:title" content="Where to Stay in Kundasang: A Local's Guide" />
   <meta property="og:description" content="Pekan Kundasang, Mesilou, Bundu Tuhan, Ranau, Poring — an honest guide to each area, who it suits, and what to check before you book." />
-  <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" />
+  <meta property="og:image" content="https://kundasanghomestay.my/images/kinabalu-sunset.jpg" />
 
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="stylesheet" href="animations.css" />
@@ -172,9 +172,13 @@
     if (now - lastToggleTime < 300) return;
     lastToggleTime = now;
     const nav = document.getElementById('mobileNav');
+    const btn = document.getElementById('mobileMenuBtn');
     if (nav) {
       nav.classList.toggle('open');
-      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+      const isOpen = nav.classList.contains('open');
+      document.body.style.overflow = isOpen ? 'hidden' : '';
+      // Update aria-expanded for screen readers
+      if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     }
   };
 </script>

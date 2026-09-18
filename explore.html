@@ -12,7 +12,7 @@
   <meta property="og:url" content="https://kundasanghomestay.my/explore.html" />
   <meta property="og:title" content="Things to Do in Kundasang - Places to See" />
   <meta property="og:description" content="The five most popular spots in Kundasang, with real planning info: best time, distance, difficulty, and where to stay near each." />
-  <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" />
+  <meta property="og:image" content="https://kundasanghomestay.my/images/kinabalu-sunset.jpg" />
   
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="stylesheet" href="animations.css" />
@@ -416,9 +416,13 @@
     if (now - lastToggleTime < 300) return;
     lastToggleTime = now;
     const nav = document.getElementById('mobileNav');
+    const btn = document.getElementById('mobileMenuBtn');
     if (nav) {
       nav.classList.toggle('open');
-      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+      const isOpen = nav.classList.contains('open');
+      document.body.style.overflow = isOpen ? 'hidden' : '';
+      // Update aria-expanded for screen readers
+      if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     }
   };
 </script>

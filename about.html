@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://kundasanghomestay.my/about.html" />
   <meta property="og:title" content="About Us - Kundasang Homestay" />
   <meta property="og:description" content="A locally built platform connecting travelers with verified Kundasang mountain homestay hosts." />
-  <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" />
+  <meta property="og:image" content="https://kundasanghomestay.my/images/kinabalu-sunset.jpg" />
 
   <script type="application/ld+json">
   {
@@ -63,9 +63,13 @@
     if (now - lastToggleTime < 300) return;
     lastToggleTime = now;
     const nav = document.getElementById('mobileNav');
+    const btn = document.getElementById('mobileMenuBtn');
     if (nav) {
       nav.classList.toggle('open');
-      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+      const isOpen = nav.classList.contains('open');
+      document.body.style.overflow = isOpen ? 'hidden' : '';
+      // Update aria-expanded for screen readers
+      if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     }
   };
 </script>
@@ -174,7 +178,7 @@
 
 <section class="relative w-full overflow-hidden">
   <div class="absolute inset-0 w-full h-full">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu at sunset" class="w-full h-full object-cover" />
+    <img src="/images/kinabalu-sunset.jpg" alt="Mount Kinabalu at sunset" class="w-full h-full object-cover" loading="lazy" />
     <div class="absolute inset-0 bg-black/30"></div>
     <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/30"></div>
   </div>
