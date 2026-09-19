@@ -1936,18 +1936,11 @@
   // =============================================================
   // CALENDAR — proper two-tap range picking
   //
-  // How it works:
-  //   - On modal open, the container resets to _pickPhase = 'checkin'.
-  //   - First tap on a clickable date → sets check-in, defaults
-  //     check-out to +1 night, and switches _pickPhase to 'checkout'.
-  //   - Second tap:
-  //       * if the tapped date is AFTER check-in → sets check-out,
-  //         then switches _pickPhase back to 'checkin' for a fresh range.
-  //       * if the tapped date is ON OR BEFORE check-in → treats it
-  //         as a new check-in (same as the first tap).
-  //   - A hint text above the calendar always tells the user what the
-  //     next tap will do.
-  //   - Blocked and past dates are not clickable.
+  // Updated for cleaner guest UX:
+  // - Removed internal calendar scroll trap.
+  // - Full month is visible naturally.
+  // - Same-day booking is disabled by default.
+  // - Keeps two-tap check-in/check-out behaviour.
   // =============================================================
   function renderAvailabilityCalendar(homestay, containerId) {
     var container = document.getElementById(containerId);
@@ -1957,6 +1950,10 @@
     var today = new Date();
     today.setHours(0, 0, 0, 0);
     var todayIso = dateToIso(today);
+
+    // Fresh-guest safety:
+    // Set this to true only if your hosts accept same-day bookings.
+    var allowSameDayBooking = false;
 
     if (!container._pickPhase) {
       container._pickPhase = 'checkin';
@@ -2008,11 +2005,11 @@
           <span>${hintText}</span>
         </div>
         <div class="flex items-center justify-between mb-1.5">
-          <button type="button" class="calendar-nav-btn" data-dir="-1" style="width:44px;height:44px;font-size:14px;" aria-label="Previous month">‹</button>
+          <button type="button" class="calendar-nav-btn" data-dir="-1" style="width:44px;height:44px;font-size:16px;" aria-label="Previous month">‹</button>
           <span class="calendar-month-label" style="font-size:13px;font-weight:700;">${monthLabel}</span>
-          <button type="button" class="calendar-nav-btn" data-dir="1" style="width:44px;height:44px;font-size:14px;" aria-label="Next month">›</button>
+          <button type="button" class="calendar-nav-btn" data-dir="1" style="width:44px;height:44px;font-size:16px;" aria-label="Next month">›</button>
         </div>
-        <div style="max-height:170px; overflow-y:auto; padding-right:2px;">
+        <div style="padding-right:2px;">
           <div class="calendar-mini mt-0.5" style="gap:1px;">
       `;
 
@@ -2030,7 +2027,10 @@
         d.setHours(0, 0, 0, 0);
         var iso = dateToIso(d);
         var isBlocked = blocked.indexOf(iso) !== -1;
-        var isPast = d < today;
+
+        // If allowSameDayBooking is false, today is treated as past.
+        var isPast = allowSameDayBooking ? d < today : d <= today;
+
         var isToday = iso === todayIso;
         var clickable = !isPast && !isBlocked;
 
@@ -2038,11 +2038,13 @@
         if (isPast) cls += " past";
         else if (isBlocked) {
           cls += " booked";
-          // Add pattern overlay for colorblind accessibility
+          // Pattern overlay for colorblind accessibility.
           cls += " pattern-diagonal";
         } else cls += " available";
+
         if (isToday) cls += " today";
         if (clickable) cls += " clickable";
+
         if (sel.ci && iso === sel.ci) cls += " selected-start";
         else if (sel.co && iso === sel.co) cls += " selected-end";
         else if (sel.ci && sel.co && iso > sel.ci && iso < sel.co) cls += " in-range";
@@ -2110,8 +2112,7 @@
             // Ready for a brand-new range on the next tap.
             container._pickPhase = 'checkin';
           } else {
-            // Earlier than or equal to check-in — treat as a new
-            // check-in (same behaviour as first tap).
+            // Earlier than or equal to check-in — treat as a new check-in.
             ciEl.value = iso;
             var next2 = new Date(iso + 'T00:00:00');
             next2.setDate(next2.getDate() + 1);
