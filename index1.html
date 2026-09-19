@@ -367,7 +367,7 @@
     <!-- Search Box -->
     <div class="w-full max-w-[920px] mt-6 md:mt-8 px-4 md:px-0">
       <div class="bg-white/95 backdrop-blur p-4 md:p-5 rounded-2xl shadow-2xl border border-white/40">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
           <div>
             <label for="filterLocation" class="block text-[10px] md:text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Area / Location</label>
             <select id="filterLocation" class="form-select text-sm w-full" onchange="renderGrid()" aria-label="Area or location filter">
@@ -376,6 +376,17 @@
               <option value="Desa">Near Desa Cattle Farm</option>
               <option value="Mesilau">Mesilau</option>
               <option value="Pekan Kundasang">Pekan Kundasang</option>
+            </select>
+          </div>
+          <div>
+            <label for="filterGuests" class="block text-[10px] md:text-[11px] font-700 uppercase tracking-wider text-zinc-600 mb-1">Guests</label>
+            <select id="filterGuests" class="form-select text-sm w-full" onchange="renderGrid()" aria-label="Number of guests">
+              <option value="1">1 Guest</option>
+              <option value="2" selected>2 Guests</option>
+              <option value="3">3 Guests</option>
+              <option value="4">4 Guests</option>
+              <option value="5">5 Guests</option>
+              <option value="6">6+ Guests</option>
             </select>
           </div>
           <div class="date-picker-wrapper">
@@ -1183,11 +1194,13 @@
   function renderGrid() {
     var grid = document.getElementById("homestayGrid");
     var loc = document.getElementById("filterLocation")?.value || "all";
+    var guests = parseInt(document.getElementById("filterGuests")?.value) || 2;
     var checkinVal = document.getElementById("checkin")?.value;
     var checkoutVal = document.getElementById("checkout")?.value;
     
     var list = homestays.filter(function(h) { return h.approved === true; });
     if (loc !== "all") list = list.filter(function(h) { return h.location && h.location.toLowerCase().indexOf(loc.toLowerCase()) !== -1; });
+    list = list.filter(function(h) { return (h.guests || 2) >= guests; });
 
     if (checkinVal && checkoutVal) {
       list = list.filter(function(h) { return isHomestayAvailableForRange(h, checkinVal, checkoutVal).available; });
@@ -1197,14 +1210,14 @@
       // Two different empty states:
       //   - with filters on  → "no matches, try different filters"
       //   - with no filters  → "we're still onboarding hosts"
-      var hasActiveFilters = (loc !== 'all') || !!(checkinVal && checkoutVal);
+      var hasActiveFilters = (loc !== 'all') || guests > 2 || !!(checkinVal && checkoutVal);
       var emptyHtml;
       if (hasActiveFilters) {
         emptyHtml =
           '<div class="col-span-3 text-center py-16">' +
             '<div class="text-4xl mb-3">🔍</div>' +
             '<div class="text-zinc-700 font-poppins font-600 text-[16px]">No homestays match your filters.</div>' +
-            '<div class="text-zinc-500 font-poppins text-[13px] mt-2 max-w-md mx-auto leading-relaxed">Try a different area or different dates — most of our hosts have availability on other days.</div>' +
+            '<div class="text-zinc-500 font-poppins text-[13px] mt-2 max-w-md mx-auto leading-relaxed">Try a different area, fewer guests, or different dates — most of our hosts have availability on other days.</div>' +
             '<button id="resetFiltersBtn" class="mt-5 btn-outline">Reset Filters</button>' +
           '</div>';
       } else {
@@ -1223,9 +1236,11 @@
           var ci = document.getElementById('checkin');
           var co = document.getElementById('checkout');
           var fl = document.getElementById('filterLocation');
+          var fg = document.getElementById('filterGuests');
           if (ci) ci.value = '';
           if (co) co.value = '';
           if (fl) fl.value = 'all';
+          if (fg) fg.value = '2';
           renderGrid();
         });
       }
