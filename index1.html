@@ -36,7 +36,6 @@ gtag('config', 'G-CG482XVS35');
 <script src="/guest-session.js"></script>
 <script src="/csrf-auto.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
-<!-- Tailwind CDN: Kept for immediate rendering. Compile via PostCSS/Vite for production. -->
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
 <style>
@@ -91,6 +90,9 @@ scroll-margin-top: 90px;
 }
 /* ============================================================
 CALENDAR — proper two-tap range picking
+These rules override the base calendar styles from styles.css.
+Check-in and check-out are dark green; the range is light green.
+Clickable dates have a pointer cursor and a hover highlight.
 ============================================================ */
 .calendar-day {
 transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
@@ -356,7 +358,7 @@ btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
 </div>
 </div>
 </div>
-<!-- Trust Badges with Icons — positive framing -->
+<!-- Trust badges — positive framing with icons -->
 <p class="text-[11px] text-white/90 mt-3 font-500 tracking-wide text-center flex items-center justify-center gap-3 flex-wrap">
 <span class="flex items-center gap-1">🔒 Secure FPX</span> •
 <span class="flex items-center gap-1">✓ Verified Hosts</span> •
@@ -442,6 +444,38 @@ Questions? Email <a href="mailto:support@kundasanghomestay.my" class="text-[#0F3
 <!-- Green reassurance instead of red warning -->
 <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-xs text-emerald-800 mt-3">🔒 Your payment is processed securely through CHIP FPX. We will never ask you to transfer to a personal account.</div>
 <div id="guestDetectedBanner" class="hidden mt-3 bg-green-50 border border-green-200 p-3 rounded-xl text-xs text-green-800"></div>
+<!-- Payment Methods — expandable, no page navigation needed -->
+<div class="mt-3 bg-zinc-50 border border-zinc-200 rounded-xl overflow-hidden">
+<button type="button" onclick="togglePaymentMethods()" class="w-full flex items-center justify-between px-3 py-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition-colors" aria-expanded="false" aria-controls="paymentMethodsDetail">
+<span class="flex items-center gap-1.5">🏦 Accepted Payment Methods</span>
+<svg id="paymentChevron" class="w-4 h-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+</button>
+<div id="paymentMethodsDetail" class="hidden px-3 pb-3">
+<p class="text-[11px] text-zinc-500 mb-2">Pay via FPX through CHIP — Malaysia's trusted payment gateway. All major banks supported:</p>
+<div class="flex flex-wrap gap-1.5">
+<span class="text-[10px] bg-white border border-zinc-200 rounded-md px-2 py-1 font-medium">Maybank2u</span>
+<span class="text-[10px] bg-white border border-zinc-200 rounded-md px-2 py-1 font-medium">CIMB Clicks</span>
+<span class="text-[10px] bg-white border border-zinc-200 rounded-md px-2 py-1 font-medium">Public Bank</span>
+<span class="text-[10px] bg-white border border-zinc-200 rounded-md px-2 py-1 font-medium">RHB Now</span>
+<span class="text-[10px] bg-white border border-zinc-200 rounded-md px-2 py-1 font-medium">Hong Leong</span>
+<span class="text-[10px] bg-white border border-zinc-200 rounded-md px-2 py-1 font-medium">AmBank</span>
+<span class="text-[10px] bg-white border border-zinc-200 rounded-md px-2 py-1 font-medium">Bank Islam</span>
+<span class="text-[10px] bg-white border border-zinc-200 rounded-md px-2 py-1 font-medium">Bank Rakyat</span>
+<span class="text-[10px] bg-white border border-zinc-200 rounded-md px-2 py-1 font-medium">OCBC</span>
+<span class="text-[10px] bg-white border border-zinc-200 rounded-md px-2 py-1 font-medium">UOB</span>
+<span class="text-[10px] bg-white border border-zinc-200 rounded-md px-2 py-1 font-medium">BSN</span>
+<span class="text-[10px] bg-white border border-zinc-200 rounded-md px-2 py-1 font-medium text-zinc-400">+ 7 more</span>
+</div>
+<div class="mt-2 pt-2 border-t border-zinc-100 flex items-center gap-3 text-[10px] text-emerald-700 flex-wrap">
+<span>🔒 SSL Encrypted</span>
+<span>•</span>
+<span>🚫 No card details needed</span>
+<span>•</span>
+<span>✓ Instant confirmation</span>
+</div>
+</div>
+</div>
+<!-- End Payment Methods -->
 <!-- Inline Validation Form -->
 <div class="mt-4 space-y-3">
 <div>
@@ -626,6 +660,7 @@ node.setAttribute('style', safeRules);
 }
 });
 })();
+
 // =============================================================
 // SECURE HELPER
 // =============================================================
@@ -652,6 +687,27 @@ ALLOW_DATA_ATTR: true,
 FORCE_HTTPS: true
 });
 }
+
+// =============================================================
+// PAYMENT METHODS TOGGLE
+// =============================================================
+function togglePaymentMethods() {
+var detail = document.getElementById('paymentMethodsDetail');
+var chevron = document.getElementById('paymentChevron');
+if (!detail) return;
+var isOpen = !detail.classList.contains('hidden');
+if (isOpen) {
+detail.classList.add('hidden');
+if (chevron) chevron.style.transform = '';
+detail.closest('.rounded-xl').querySelector('button').setAttribute('aria-expanded', 'false');
+} else {
+detail.classList.remove('hidden');
+if (chevron) chevron.style.transform = 'rotate(180deg)';
+detail.closest('.rounded-xl').querySelector('button').setAttribute('aria-expanded', 'true');
+}
+}
+window.togglePaymentMethods = togglePaymentMethods;
+
 // =============================================================
 // [RETURN-TO-BOOKING] Pending intent helpers
 // =============================================================
@@ -678,11 +734,13 @@ sessionStorage.setItem(PENDING_INTENT_KEY, JSON.stringify(intent));
 } catch (e) {}
 }
 function restorePendingBookingIntent() {
+// Runs after homestays load. Only fires when the URL says so.
 var urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get('resume_booking') !== '1') return;
 var intentRaw = null;
 try { intentRaw = sessionStorage.getItem(PENDING_INTENT_KEY); } catch (e) {}
 try { sessionStorage.removeItem(PENDING_INTENT_KEY); } catch (e) {}
+// Clean the URL so a refresh doesn't re-trigger.
 if (window.history && window.history.replaceState) {
 window.history.replaceState({}, document.title, window.location.pathname);
 }
@@ -692,11 +750,15 @@ try { intent = JSON.parse(intentRaw); } catch (e) { return; }
 if (!intent || !intent.homestayId) return;
 var homestay = homestays.find(function(h) { return String(h.id) === String(intent.homestayId); });
 if (!homestay) return;
+// Drop the intent's dates into the homepage search inputs so the
+// detail modal picks them up as its defaults.
 var ciEl = document.getElementById('checkin');
 var coEl = document.getElementById('checkout');
 if (ciEl && intent.checkin) ciEl.value = intent.checkin;
 if (coEl && intent.checkout) coEl.value = intent.checkout;
+// Open the detail modal (sets up room select, price, calendar).
 openDetail(homestay.id);
+// Restore room selection if one was chosen.
 if (intent.roomId) {
 var roomSelect = document.getElementById('roomSelect');
 if (roomSelect) {
@@ -704,14 +766,17 @@ roomSelect.value = intent.roomId;
 try {
 roomSelect.dispatchEvent(new Event('change', { bubbles: true }));
 } catch (e) {
+// Fallback for older browsers.
 var evt = document.createEvent('HTMLEvents');
 evt.initEvent('change', true, false);
 roomSelect.dispatchEvent(evt);
 }
 }
 }
+// Reopen the booking modal with everything pre-filled.
 openBooking();
 }
+
 // =============================================================
 // MODAL SYSTEM
 // =============================================================
@@ -743,6 +808,7 @@ overlay.classList.add('active');
 document.body.style.overflow = 'hidden';
 });
 }
+// ---- Locked modal: shows progress, cannot be closed by the user ----
 var _modalLocked = false;
 function showLockedModal(title, message) {
 _modalLocked = true;
@@ -781,6 +847,7 @@ return showModal(title, message, [
 window.showConfirm = showConfirm;
 document.addEventListener('keydown', function(e) {
 if (e.key === 'Escape') {
+// Locked progress modal (payment in flight) — never close it.
 if (_modalLocked) return;
 var dModal = document.getElementById('detailModal');
 if (dModal && !dModal.classList.contains('hidden')) {
@@ -807,6 +874,7 @@ document.body.style.overflow = '';
 }
 }
 });
+
 // =============================================================
 // THANK YOU & RECEIPT MODAL LOGIC
 // =============================================================
@@ -833,6 +901,8 @@ if (overlay) overlay.classList.remove('active');
 document.body.style.overflow = '';
 window.location.href = '/mybookings.html';
 }
+// Primary path out of the thank-you modal — always works,
+// does not require WhatsApp.
 function viewMyBookingsFromThankYou() {
 var overlay = document.getElementById('thankyouModal');
 if (overlay) overlay.classList.remove('active');
@@ -879,6 +949,7 @@ setTimeout(function() {
 window.location.href = '/mybookings.html';
 }, 1500);
 }
+
 // =============================================================
 // PAYMENT FAILED MODAL CONTROLS
 // =============================================================
@@ -900,12 +971,15 @@ var overlay = document.getElementById('paymentFailedModal');
 if (overlay) overlay.classList.remove('active');
 document.body.style.overflow = '';
 }
+// Primary path out of the payment-failed modal — closes the
+// loop and takes the guest straight to where the retry button lives.
 function goToMyBookingsFromFailed() {
 var overlay = document.getElementById('paymentFailedModal');
 if (overlay) overlay.classList.remove('active');
 document.body.style.overflow = '';
 window.location.href = '/mybookings.html';
 }
+
 // =============================================================
 // CSRF HELPER
 // =============================================================
@@ -913,6 +987,7 @@ function getCsrfHeader() {
 var token = localStorage.getItem('kd_csrf_token');
 return token ? { 'X-CSRF-Token': token } : {};
 }
+
 // =============================================================
 // CONFIG & CONSTANTS
 // =============================================================
@@ -923,6 +998,7 @@ paymentProvider: 'CHIP'
 };
 var CLOUD_ENABLED = true;
 var API_BASE = "/api";
+
 // =============================================================
 // DATA STORE
 // =============================================================
@@ -932,6 +1008,7 @@ var homestays = storedApproved.filter(function(h) { return h.approved === true; 
 var bookings = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
 var selectedHomestay = null;
 var availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}");
+
 // =============================================================
 // GUEST SESSION SYSTEM
 // =============================================================
@@ -968,6 +1045,7 @@ if (window.GuestSession) {
 window.GuestSession.logoutGuest();
 }
 }
+
 // =============================================================
 // DATE & PRICING CALCULATORS
 // =============================================================
@@ -1012,6 +1090,7 @@ cur.setDate(cur.getDate() + 1);
 }
 return dates;
 }
+
 // =============================================================
 // BLOCKED DATES
 // =============================================================
@@ -1055,6 +1134,7 @@ blocked = blocked.concat(room.blockedDates);
 var overlap = requestedDates.filter(function(d) { return blocked.indexOf(d) !== -1; });
 return { available: overlap.length === 0, blockedDates: overlap };
 }
+
 // =============================================================
 // HOMESTAY GRID RENDERER
 // =============================================================
@@ -1071,6 +1151,9 @@ if (checkinVal && checkoutVal) {
 list = list.filter(function(h) { return isHomestayAvailableForRange(h, checkinVal, checkoutVal).available; });
 }
 if (list.length === 0) {
+// Two different empty states:
+//   - with filters on  → "no matches, try different filters"
+//   - with no filters  → "we're still onboarding hosts"
 var hasActiveFilters = (loc !== 'all') || guests > 2 || !!(checkinVal && checkoutVal);
 var emptyHtml;
 if (hasActiveFilters) {
@@ -1144,8 +1227,13 @@ openDetail(isNaN(parseInt(id)) ? id : parseInt(id));
 }
 }
 }
+
 // =============================================================
-// PENDING BOOKING BANNER
+// PENDING BOOKING BANNER (for logged-in returning guests)
+//
+// Runs after the guest session is confirmed. Fetches the guest's
+// own bookings and, if any are unpaid or failed, shows a strip
+// above the listings pointing them at My Bookings.
 // =============================================================
 async function checkPendingBookingBanner() {
 if (!currentGuest || !currentGuest.id) return;
@@ -1177,8 +1265,11 @@ wrap.innerHTML = safeHTML(
 '</div>'
 );
 wrap.classList.remove('hidden');
-} catch (e) {}
+} catch (e) {
+// Silent — banner is best-effort.
 }
+}
+
 // =============================================================
 // DETAIL MODAL
 // =============================================================
@@ -1244,6 +1335,10 @@ updateRoomImages();
 setTimeout(updateRoomImages, 100);
 }
 document.getElementById("detailModal").classList.remove("hidden");
+// Reset the calendar's pick phase so a fresh open always starts
+// at "pick check-in". Without this, reopening the modal after
+// setting a full range would leave the calendar stuck in
+// "pick check-out" mode.
 var calContainer = document.getElementById('detailAvailabilityCalendar');
 if (calContainer) {
 calContainer._pickPhase = 'checkin';
@@ -1259,6 +1354,7 @@ document.getElementById("detailModal").classList.add("hidden");
 function closeBooking() {
 document.getElementById("bookingModal").classList.add("hidden");
 }
+
 // =============================================================
 // UPDATE DETAIL PRICE
 // =============================================================
@@ -1288,6 +1384,7 @@ box.innerHTML = safeHTML(`
 <div class="flex justify-between"><span>Service Fee</span><span class="price-tabular">RM${p.combinedFee.toFixed(2)}</span></div>
 <div class="text-[10px] text-zinc-400 -mt-1">Covers secure payment processing & guest support</div>
 <div class="flex justify-between font-bold text-sm text-[#0F382E] border-t pt-2 mt-2"><span>Total</span><span class="price-tabular">RM${p.total.toFixed(2)}</span></div>
+<div class="mt-2 pt-2 border-t border-black/5 flex items-center gap-2 text-[10px] text-zinc-400"><span>🏦 Pay via FPX</span><span>•</span><span>All major MY banks</span></div>
 </div>
 `);
 }
@@ -1311,8 +1408,14 @@ html += `<img src="${img}" class="w-20 h-20 object-cover rounded-lg border borde
 });
 gallery.innerHTML = html;
 }
+
 // =============================================================
 // OPEN BOOKING
+//
+// When the guest is not logged in, the popup offers BOTH Sign In
+// and Register. Whichever they click, we save the booking intent
+// to sessionStorage before redirecting so the flow can resume on
+// the other side.
 // =============================================================
 function openBooking() {
 if (!currentGuest) {
@@ -1331,6 +1434,7 @@ window.location.href = '/register.html';
 savePendingBookingIntent();
 window.location.href = '/login.html';
 }
+// result === 'cancel' → do nothing
 });
 return;
 }
@@ -1361,6 +1465,7 @@ window._bookingRoom = null;
 updateBookingPrice();
 document.getElementById("bookingModal").classList.remove("hidden");
 }
+
 // =============================================================
 // UPDATE BOOKING PRICE
 // =============================================================
@@ -1389,9 +1494,11 @@ summaryEl.innerHTML = safeHTML(`
 <div class="text-sm font-bold flex justify-between border-t pt-2 mt-2 text-[#0F382E]"><span>Total</span><span class="price-tabular">RM${p.total.toFixed(2)}</span></div>
 `);
 }
+// Update Pay Button with exact amount for better UX
 var payBtn = document.getElementById("payFpxBtn");
 if (payBtn && !payBtn.disabled) payBtn.innerHTML = 'Pay RM ' + p.total.toFixed(2) + ' via FPX';
 }
+
 // =============================================================
 // PROCESS PAYMENT (WITH INLINE VALIDATION & LOADING STATE)
 // =============================================================
@@ -1411,8 +1518,8 @@ return;
 }
 // --- INLINE VALIDATION ---
 ['Name', 'Email', 'Phone'].forEach(f => {
-document.getElementById(`err${f}`).classList.add('hidden');
-document.getElementById(`guest${f}`).classList.remove('input-error');
+document.getElementById('err' + f).classList.add('hidden');
+document.getElementById('guest' + f).classList.remove('input-error');
 });
 let hasError = false;
 var guestName = document.getElementById("guestName").value.trim();
@@ -1560,6 +1667,7 @@ restoreBtn();
 showAlert('Network Error', 'Could not connect to the booking server. Please try again.');
 }
 }
+
 // =============================================================
 // HANDLE PAYMENT RETURN
 // =============================================================
@@ -1741,8 +1849,15 @@ window.showPaymentFailedModal = showPaymentFailedModal;
 window.handlePaymentReturn = handlePaymentReturn;
 window.viewMyBookingsFromThankYou = viewMyBookingsFromThankYou;
 window.goToMyBookingsFromFailed = goToMyBookingsFromFailed;
+
 // =============================================================
 // CALENDAR — proper two-tap range picking
+//
+// Updated for cleaner guest UX:
+// - Removed internal calendar scroll trap.
+// - Full month is visible naturally.
+// - Same-day booking is disabled by default.
+// - Keeps two-tap check-in/check-out behaviour.
 // =============================================================
 function renderAvailabilityCalendar(homestay, containerId) {
 var container = document.getElementById(containerId);
@@ -1751,6 +1866,8 @@ var blocked = getAllBlockedDatesForHomestay(homestay);
 var today = new Date();
 today.setHours(0, 0, 0, 0);
 var todayIso = dateToIso(today);
+// Fresh-guest safety:
+// Set this to true only if your hosts accept same-day bookings.
 var allowSameDayBooking = false;
 if (!container._pickPhase) {
 container._pickPhase = 'checkin';
@@ -1778,6 +1895,7 @@ var monthLabel = new Date(year, month, 1).toLocaleString('en-US', { month: 'long
 var daysInMonth = new Date(year, month + 1, 0).getDate();
 var startDay = new Date(year, month, 1).getDay();
 var sel = getSelection();
+// Hint text reflects what the next tap will do.
 var hintText;
 var hintClass = 'calendar-pick-hint';
 if (container._pickPhase === 'checkin') {
@@ -1815,6 +1933,7 @@ var d = new Date(year, month, day);
 d.setHours(0, 0, 0, 0);
 var iso = dateToIso(d);
 var isBlocked = blocked.indexOf(iso) !== -1;
+// If allowSameDayBooking is false, today is treated as past.
 var isPast = allowSameDayBooking ? d < today : d <= today;
 var isToday = iso === todayIso;
 var clickable = !isPast && !isBlocked;
@@ -1822,6 +1941,7 @@ var cls = "calendar-day";
 if (isPast) cls += " past";
 else if (isBlocked) {
 cls += " booked";
+// Pattern overlay for colorblind accessibility.
 cls += " pattern-diagonal";
 } else cls += " available";
 if (isToday) cls += " today";
@@ -1868,16 +1988,22 @@ if (!ciEl || !coEl) return;
 var currentCi = ciEl.value || '';
 var currentCo = coEl.value || '';
 if (container._pickPhase === 'checkin') {
+// First tap — set check-in, default check-out to +1 night,
+// then move to check-out phase.
 ciEl.value = iso;
 var next = new Date(iso + 'T00:00:00');
 next.setDate(next.getDate() + 1);
 coEl.value = dateToIso(next);
 container._pickPhase = 'checkout';
 } else {
+// Second tap.
 if (currentCi && iso > currentCi) {
+// Valid check-out — later than check-in.
 coEl.value = iso;
+// Ready for a brand-new range on the next tap.
 container._pickPhase = 'checkin';
 } else {
+// Earlier than or equal to check-in — treat as a new check-in.
 ciEl.value = iso;
 var next2 = new Date(iso + 'T00:00:00');
 next2.setDate(next2.getDate() + 1);
@@ -1885,6 +2011,8 @@ coEl.value = dateToIso(next2);
 container._pickPhase = 'checkout';
 }
 }
+// Keep the homepage search inputs in sync so the grid filter
+// reflects what the guest picked in the modal.
 var homeCi = document.getElementById('checkin');
 var homeCo = document.getElementById('checkout');
 if (homeCi) homeCi.value = ciEl.value;
@@ -1896,6 +2024,7 @@ container._listenerAttached = true;
 }
 renderMonth();
 }
+
 // =============================================================
 // INITIALIZATION
 // =============================================================
@@ -1937,7 +2066,8 @@ var tomorrowIso = dateToIso(tomorrow);
 var dayAfterIso = dateToIso(dayAfter);
 if (checkinInput) {
 checkinInput.value = tomorrowIso;
-checkinInput.min = tomorrowIso;
+checkinInput.min = tomorrowIso; // Prevent selecting today or past dates
+// Sync checkout min date when checkin changes
 checkinInput.addEventListener('change', function() {
 if(checkoutInput && checkinInput.value) {
 var minCo = new Date(checkinInput.value);
@@ -1953,6 +2083,16 @@ if (checkoutInput) {
 checkoutInput.value = dayAfterIso;
 checkoutInput.min = dateToIso(new Date(tomorrow.getTime() + 86400000));
 }
+// ============================================================
+// [EXPLORE → HOMEPAGE] Read ?location= from the URL and pre-apply
+// the location filter.
+//
+// explore.html "Stay near here" links send guests here with e.g.
+// /?location=Desa or /?location=Bundu+Tuhan. URLSearchParams
+// decodes the '+' back to a space, so the value should match one
+// of the dropdown options exactly. We match case-insensitively
+// anyway, so a hand-edited lowercase URL still works.
+// ============================================================
 try {
 var locParams = new URLSearchParams(window.location.search);
 var locParam = locParams.get('location');
@@ -2023,6 +2163,9 @@ selectedHomestay = updated;
 renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
 }
 }
+// [RETURN-TO-BOOKING] If the guest just logged in / registered
+// after clicking Book Now, restore their intent now that
+// listings are loaded.
 restorePendingBookingIntent();
 })
 .catch(function(err) {
@@ -2036,6 +2179,7 @@ grid.innerHTML = safeHTML(
 }
 });
 }
+// Returning-guest banner — only fires if logged in.
 checkPendingBookingBanner();
 handlePaymentReturn();
 })();
