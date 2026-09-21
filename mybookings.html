@@ -1,238 +1,266 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>My Bookings - Kundasang Homestay</title>
-  <meta name="title" content="My Bookings - Kundasang Homestay" />
-  <meta name="description" content="View and manage your Kundasang homestay bookings. Track reservations, check booking status, and plan your mountain getaway." />
-  <meta name="robots" content="noindex, nofollow" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="animations.css" />
-  <link rel="stylesheet" href="styles.css" />
-  <script src="/guest-session.js"></script>
-  <script src="/csrf-auto.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<title>My Bookings - Kundasang Homestay</title>
+<meta name="title" content="My Bookings - Kundasang Homestay" />
+<meta name="description" content="View and manage your Kundasang homestay bookings. Track reservations, check booking status, and plan your mountain getaway." />
+<meta name="robots" content="noindex, nofollow" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="animations.css" />
+<link rel="stylesheet" href="styles.css" />
+<script src="/guest-session.js"></script>
+<script src="/csrf-auto.js"></script>
+<style>
+/* ============================================================
+MOBILE BOTTOM NAV — Material Design 3 (mobile only)
+Pill indicator behind the active icon; hidden on desktop (lg+).
+============================================================ */
+.bn-item {
+flex: 1 1 0%;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 3px;
+padding: 8px 0 7px;
+text-decoration: none;
+-webkit-tap-highlight-color: transparent;
+}
+.bn-icon-wrap {
+width: 58px;
+height: 32px;
+border-radius: 999px;
+display: flex;
+align-items: center;
+justify-content: center;
+color: rgba(33, 33, 33, 0.55);
+transition: background 0.25s ease, color 0.25s ease;
+}
+.bn-item:active .bn-icon-wrap { background: rgba(15, 56, 46, 0.10); }
+.bn-item svg { width: 21px; height: 21px; }
+.bn-label {
+font-family: 'Poppins', sans-serif;
+font-size: 10.5px;
+font-weight: 600;
+letter-spacing: 0.2px;
+color: rgba(33, 33, 33, 0.55);
+transition: color 0.2s ease;
+}
+.bn-item.bn-active .bn-icon-wrap { background: #0F382E; color: #ffffff; }
+.bn-item.bn-active .bn-label { color: #0F382E; font-weight: 700; }
+/* Hide the bottom bar while the top mobile menu is open */
+body.bn-hidden #mobileBottomNav { display: none; }
+/* Reserve space so the fixed bar never covers page content */
+@media (max-width: 1023.98px) {
+body { padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+}
+</style>
 </head>
-
 <body>
 <div id="customModal" class="modal-overlay">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h3 id="modalTitle">Notice</h3>
-      <button onclick="closeModal()" class="modal-close">✕</button>
-    </div>
-    <div class="modal-body" id="modalBody">Message</div>
-    <div class="modal-footer" id="modalFooter">
-      <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
-    </div>
-  </div>
+<div class="modal-box">
+<div class="modal-header">
+<h3 id="modalTitle">Notice</h3>
+<button onclick="closeModal()" class="modal-close">✕</button>
 </div>
-
+<div class="modal-body" id="modalBody">Message</div>
+<div class="modal-footer" id="modalFooter">
+<button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
+</div>
+</div>
+</div>
 <div id="paymentFailedModal" class="modal-overlay thankyou-modal">
-  <div class="modal-box max-w-[500px]">
-    <div class="modal-body text-center p-6 md:p-8">
-      <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">😞</div>
-      <div class="font-poppins font-800 text-[22px] text-red-700">Payment Not Completed</div>
-      <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
-        No payment was completed. Your booking is saved and your dates are held for <strong>5 minutes</strong>.
-      </p>
-      <p class="text-sm text-zinc-600 mt-1 leading-relaxed">
-        Please retry payment from <strong>My Bookings</strong>. Do not create a new booking for the same dates.
-      </p>
-      <div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
-        <div class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Booking ID:</span><span id="failedBookingId" class="font-bold text-red-600 text-sm font-mono">-</span></div>
-        <div id="failedDatesRow" class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Dates:</span><span id="failedDates" class="font-semibold text-zinc-800">-</span></div>
-        <div id="failedTotalRow" class="flex justify-between"><span class="text-zinc-500">Total:</span><span id="failedTotal" class="font-bold text-red-800 text-base">-</span></div>
-      </div>
-      <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 text-left">
-        💡 <strong>Why the wait?</strong> To prevent duplicate charges, the payment gateway requires a short cooldown period before you can retry.
-      </div>
-    </div>
-    <div class="modal-footer justify-center bg-zinc-50 flex-col sm:flex-row gap-2 border-t px-6 py-4">
-      <button onclick="closePaymentFailedModal()" class="btn-primary w-full sm:w-auto bg-[#0F382E] hover:bg-[#1a4d3e]">
-        OK, I understand
-      </button>
-    </div>
-  </div>
+<div class="modal-box max-w-[500px]">
+<div class="modal-body text-center p-6 md:p-8">
+<div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">😞</div>
+<div class="font-poppins font-800 text-[22px] text-red-700">Payment Not Completed</div>
+<p class="text-sm text-zinc-600 mt-2 leading-relaxed">
+No payment was completed. Your booking is saved and your dates are held for <strong>5 minutes</strong>.
+</p>
+<p class="text-sm text-zinc-600 mt-1 leading-relaxed">
+Please retry payment from <strong>My Bookings</strong> instead — your original booking is still saved.
+</p>
+<div class="bg-[#F8F5F0] rounded-2xl p-4 mt-4 text-left border border-black/5 text-xs space-y-2">
+<div class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Booking ID:</span><span id="failedBookingId" class="font-bold text-red-600 text-sm font-mono">-</span></div>
+<div id="failedDatesRow" class="flex justify-between border-b pb-1.5"><span class="text-zinc-500">Dates:</span><span id="failedDates" class="font-semibold text-zinc-800">-</span></div>
+<div id="failedTotalRow" class="flex justify-between"><span class="text-zinc-500">Total:</span><span id="failedTotal" class="font-bold text-red-800 text-base">-</span></div>
 </div>
-
+<div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 text-left">
+💡 <strong>Why the wait?</strong> To prevent duplicate charges, the payment gateway requires a short cooldown period before you can retry.
+</div>
+</div>
+<div class="modal-footer justify-center bg-zinc-50 flex-col sm:flex-row gap-2 border-t px-6 py-4">
+<button onclick="closePaymentFailedModal()" class="btn-primary w-full sm:w-auto bg-[#0F382E] hover:bg-[#1a4d3e]">
+OK, I understand
+</button>
+</div>
+</div>
+</div>
 <script>
-  let lastToggleTime = 0;
-  window.toggleMobileMenu = function() {
-    const now = Date.now();
-    if (now - lastToggleTime < 300) return;
-    lastToggleTime = now;
-    const nav = document.getElementById('mobileNav');
-    if (nav) {
-      nav.classList.toggle('open');
-      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
-    }
-  };
+let lastToggleTime = 0;
+window.toggleMobileMenu = function() {
+const now = Date.now();
+if (now - lastToggleTime < 300) return;
+lastToggleTime = now;
+const nav = document.getElementById('mobileNav');
+if (nav) {
+nav.classList.toggle('open');
+document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+}
+};
 </script>
-
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
-  <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
-    <a href="/" class="flex items-center gap-3 shrink-0 group" aria-label="Kundasang Homestay Home">
-      <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
-      <div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
-        KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px] md:text-[17px]"> • Homestay.my</span>
-        <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Stay • Connect • Belong</div>
-      </div>
-    </a>
-
-    <nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
-      <a href="/" class="setsail-nav-link" data-nav="home">Home</a>
-      <a href="/explore.html" class="setsail-nav-link" data-nav="explore">Explore</a>
-      <a href="/about.html" class="setsail-nav-link" data-nav="about">About Us</a>
-    </nav>
-
-    <div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
-      <div id="guestNav" class="flex items-center gap-2">
-        <a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
-        <a href="/register.html" class="header-pill header-pill-accent">Register</a>
-      </div>
-      <div id="guestProfileNav" class="hidden items-center gap-3">
-        <a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
-        <div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
-          <div id="guestAvatar" class="w-8 h-8 rounded-full bg-[#D4A373] text-[#0F382E] flex items-center justify-center text-xs font-bold">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
-          </div>
-          <span id="guestNameNav" class="text-xs font-600 max-w-[90px] truncate">Guest</span>
-          <button onclick="logoutGuest()" class="ml-1 text-[10px] opacity-70 hover:opacity-100 uppercase tracking-wider transition-opacity">Logout</button>
-        </div>
-      </div>
-      <a href="/owner-register.html" class="btn-outline" style="padding:11px 22px; font-size:11px;" aria-label="List your homestay on Kundasang Homestay">List Property</a>
-    </div>
-
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation Menu" aria-expanded="false">
-      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-    </button>
-  </div>
-</header>
-
-<div id="mobileNav">
-  <div class="p-4">
-    <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
-    <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
-    <a href="/explore.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🗺️ Explore Kundasang</a>
-    <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
-
-    <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
-    <div id="mGuestNav" class="space-y-2.5 px-1">
-      <a href="/login.html" class="guest-btn guest-btn-primary block text-center">Sign In</a>
-      <a href="/register.html" class="guest-btn block text-center">Create Account</a>
-    </div>
-    <div id="mGuestProfileNav" class="hidden space-y-2 px-1">
-      <div class="profile-card">
-        <div id="mGuestAvatar" class="avatar">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
-        </div>
-        <div class="info">
-          <div id="mGuestNameNav" class="name">Guest</div>
-          <div class="sub">Guest Account</div>
-        </div>
-        <button onclick="logoutGuest()" class="logout-btn">Logout</button>
-      </div>
-      <a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
-    </div>
-  </div>
+<div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
+<a href="/" class="flex items-center gap-3 shrink-0 group" aria-label="Kundasang Homestay Home">
+<img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+<div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
+KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px] md:text-[17px]"> • Homestay.my</span>
+<div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Stay • Connect • Belong</div>
 </div>
-
+</a>
+<nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
+<a href="/" class="setsail-nav-link" data-nav="home">Home</a>
+<a href="/explore.html" class="setsail-nav-link" data-nav="explore">Explore</a>
+<a href="/about.html" class="setsail-nav-link" data-nav="about">About Us</a>
+</nav>
+<div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
+<div id="guestNav" class="flex items-center gap-2">
+<a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
+<a href="/register.html" class="header-pill header-pill-accent">Register</a>
+</div>
+<div id="guestProfileNav" class="hidden items-center gap-3">
+<a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
+<div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
+<div id="guestAvatar" class="w-8 h-8 rounded-full bg-[#D4A373] text-[#0F382E] flex items-center justify-center text-xs font-bold">
+<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+</div>
+<span id="guestNameNav" class="text-xs font-600 max-w-[90px] truncate">Guest</span>
+<button onclick="logoutGuest()" class="ml-1 text-[10px] opacity-70 hover:opacity-100 uppercase tracking-wider transition-opacity">Logout</button>
+</div>
+</div>
+<a href="/owner-register.html" class="btn-outline" style="padding:11px 22px; font-size:11px;" aria-label="List your homestay on Kundasang Homestay">List Property</a>
+</div>
+<button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation Menu" aria-expanded="false">
+<svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+</button>
+</div>
+</header>
+<div id="mobileNav">
+<div class="p-4">
+<div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
+<a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+<a href="/explore.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🗺️ Explore Kundasang</a>
+<a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
+<div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
+<div id="mGuestNav" class="space-y-2.5 px-1">
+<a href="/login.html" class="guest-btn guest-btn-primary block text-center">Sign In</a>
+<a href="/register.html" class="guest-btn block text-center">Create Account</a>
+</div>
+<div id="mGuestProfileNav" class="hidden space-y-2 px-1">
+<div class="profile-card">
+<div id="mGuestAvatar" class="avatar">
+<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+</div>
+<div class="info">
+<div id="mGuestNameNav" class="name">Guest</div>
+<div class="sub">Guest Account</div>
+</div>
+<button onclick="logoutGuest()" class="logout-btn">Logout</button>
+</div>
+<a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
+</div>
+</div>
+</div>
 <main class="flex-1 max-w-[1100px] mx-auto px-4 md:px-6 py-8 md:py-12 w-full">
-  <div id="loadingState" class="text-center py-20 animate-on-scroll">
-    <div class="text-sm text-zinc-400">Loading your bookings...</div>
-  </div>
-
-  <div id="notLoggedIn" class="hidden text-center py-20 animate-on-scroll">
-    <div class="text-6xl mb-4">🔐</div>
-    <h2 class="font-poppins font-700 text-[28px] text-[#212121]">Login Required</h2>
-    <p class="text-sm text-zinc-500 mt-2 max-w-sm mx-auto leading-relaxed">Please log in to your guest account to view your booking history and status.</p>
-    <div class="mt-6 flex gap-3 justify-center flex-wrap">
-      <a href="/login.html" class="btn-primary">Login</a>
-      <a href="/register.html" class="btn-outline">Create Account</a>
-    </div>
-  </div>
-
-  <div id="bookingsView" class="hidden space-y-6">
-    <div class="flex items-center justify-between flex-wrap gap-4 animate-on-scroll">
-      <div>
-        <h1 class="font-poppins font-700 text-[28px] md:text-[32px] text-[#212121]">My Bookings</h1>
-        <p class="text-sm text-zinc-500 mt-0.5">Logged in as <span id="guestNameDisplay" class="font-semibold text-[#0F382E]"></span></p>
-      </div>
-      <button onclick="loadMyBookings()" class="btn-outline flex items-center gap-2">🔄 Refresh</button>
-    </div>
-
-    <div id="bookingsList" class="space-y-4 animate-on-scroll"></div>
-
-    <details class="mt-16 text-center animate-on-scroll">
-      <summary class="text-xs text-zinc-400 hover:text-zinc-600 cursor-pointer inline-block">Account Settings</summary>
-      <div class="mt-4 p-4 border border-zinc-200 rounded-xl bg-zinc-50 inline-block text-left max-w-md mx-auto">
-        <div class="font-poppins font-600 text-[13px] text-zinc-700">Delete My Account</div>
-        <div class="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-          Permanently delete your account and personal details. Past booking records stay in our accounting system, but your name and contact info will be removed.
-        </div>
-        <button onclick="deleteMyAccount()" class="mt-3 text-[11px] uppercase tracking-wider font-700 text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-full transition-all duration-200">
-          Delete Account
-        </button>
-      </div>
-    </details>
-  </div>
+<div id="loadingState" class="text-center py-20 animate-on-scroll">
+<div class="text-sm text-zinc-400">Loading your bookings...</div>
+</div>
+<div id="notLoggedIn" class="hidden text-center py-20 animate-on-scroll">
+<div class="text-6xl mb-4">🔐</div>
+<h2 class="font-poppins font-700 text-[28px] text-[#212121]">Login Required</h2>
+<p class="text-sm text-zinc-500 mt-2 max-w-sm mx-auto leading-relaxed">Please log in to your guest account to view your booking history and status.</p>
+<div class="mt-6 flex gap-3 justify-center flex-wrap">
+<a href="/login.html" class="btn-primary">Login</a>
+<a href="/register.html" class="btn-outline">Create Account</a>
+</div>
+</div>
+<div id="bookingsView" class="hidden space-y-6">
+<div class="flex items-center justify-between flex-wrap gap-4 animate-on-scroll">
+<div>
+<h1 class="font-poppins font-700 text-[28px] md:text-[32px] text-[#212121]">My Bookings</h1>
+<p class="text-sm text-zinc-500 mt-0.5">Logged in as <span id="guestNameDisplay" class="font-semibold text-[#0F382E]"></span></p>
+</div>
+<button onclick="loadMyBookings()" class="btn-outline flex items-center gap-2">🔄 Refresh</button>
+</div>
+<div id="bookingsList" class="space-y-4 animate-on-scroll"></div>
+<details class="mt-16 text-center animate-on-scroll">
+<summary class="text-xs text-zinc-400 hover:text-zinc-600 cursor-pointer inline-block">Account Settings</summary>
+<div class="mt-4 p-4 border border-zinc-200 rounded-xl bg-zinc-50 inline-block text-left max-w-md mx-auto">
+<div class="font-poppins font-600 text-[13px] text-zinc-700">Delete My Account</div>
+<div class="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+Permanently delete your account and personal details. Past booking records stay in our accounting system, but your name and contact info will be removed.
+</div>
+<button onclick="deleteMyAccount()" class="mt-3 text-[11px] uppercase tracking-wider font-700 text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-full transition-all duration-200">
+Delete Account
+</button>
+</div>
+</details>
+</div>
 </main>
-
 <footer class="bg-[#212121] text-white/70 mt-20">
-  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
-    <div>
-      <div class="flex items-center gap-3">
-        <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
-        <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay.my</span></div>
-      </div>
-      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
-      <div class="mt-4 pt-4 border-t border-white/10">
-        <p class="text-[11px] text-white/40 font-poppins">
-          <strong class="text-white/60">Company:</strong> NICK'S CREATIONS<br>
-          <strong class="text-white/60">Business License:</strong> RNU20183012
-        </p>
-      </div>
-    </div>
-    <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
-      <div class="space-y-2 text-[13px] font-poppins">
-        <a href="/" class="hover:text-white block">Browse Homestays</a>
-        <a href="/explore.html" class="hover:text-white block">Explore Kundasang</a>
-        <a href="/about.html" class="hover:text-white block">About Us</a>
-        <a href="/owner-register.html" class="hover:text-white block">Host Registration</a>
-        <a href="/owner.html" class="hover:text-white block">Host Login</a>
-        <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
-        <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
-        <a href="/booking-policy.html" class="hover:text-white block">Booking Policy</a>
-        <a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
-        <a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
-        <a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
-      </div>
-    </div>
-    <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
-      <div class="space-y-2 text-[13px] font-poppins">
-        <div>✓ Host Physical Verification</div>
-        <div>✓ CHIP FPX Online Protection</div>
-        <div>✓ Verified Host Policy</div>
-      </div>
-    </div>
-    <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
-      <div id="kdWeatherWidget" class="kd-weather-widget">
-        <div class="kd-weather-loading">Loading live weather…</div>
-      </div>
-    </div>
-  </div>
-  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
-    © 2026 Kundasang Homestay. All rights reserved.
-  </div>
+<div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+<div>
+<div class="flex items-center gap-3">
+<img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+<div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay.my</span></div>
+</div>
+<p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
+<div class="mt-4 pt-4 border-t border-white/10">
+<p class="text-[11px] text-white/40 font-poppins">
+<strong class="text-white/60">Company:</strong> NICK'S CREATIONS<br>
+<strong class="text-white/60">Business License:</strong> RNU20183012
+</p>
+</div>
+</div>
+<div>
+<div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
+<div class="space-y-2 text-[13px] font-poppins">
+<a href="/" class="hover:text-white block">Browse Homestays</a>
+<a href="/explore.html" class="hover:text-white block">Explore Kundasang</a>
+<a href="/about.html" class="hover:text-white block">About Us</a>
+<a href="/owner-register.html" class="hover:text-white block">Host Registration</a>
+<a href="/owner.html" class="hover:text-white block">Host Login</a>
+<a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
+<a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
+<a href="/booking-policy.html" class="hover:text-white block">Booking Policy</a>
+<a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
+<a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
+<a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
+</div>
+</div>
+<div>
+<div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
+<div class="space-y-2 text-[13px] font-poppins">
+<div>✓ Host Physical Verification</div>
+<div>✓ CHIP FPX Online Protection</div>
+<div>✓ Verified Host Policy</div>
+</div>
+</div>
+<div>
+<div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
+<div id="kdWeatherWidget" class="kd-weather-widget">
+<div class="kd-weather-loading">Loading live weather…</div>
+</div>
+</div>
+</div>
+<div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
+© 2026 Kundasang Homestay. All rights reserved.
+</div>
 </footer>
-
 <!-- ===== MOBILE BOTTOM NAV (Material Design 3 style — mobile only) =====
 Fixed to the bottom of the screen on phones/tablets, hidden on
 desktop (lg:hidden). The active page gets the MD3 pill indicator.
@@ -277,708 +305,707 @@ never blocked by the bar. -->
 </a>
 </div>
 </nav>
-
-  
 <script src="animations.js"></script>
 <script>
 (function() {
-  if (typeof DOMPurify === 'undefined') return;
-  if (window.__kdCssHookInstalled) return;
-  window.__kdCssHookInstalled = true;
-  const DANGEROUS_RULE = /(?:\burl\s*\(|expression\s*\(|\bbehavior\s*:|-moz-binding|@import|javascript\s*:)/i;
-  DOMPurify.addHook('afterSanitizeAttributes', function (node) {
-    if (!node.getAttribute || !node.hasAttribute) return;
-    if (!node.hasAttribute('style')) return;
-    const raw = node.getAttribute('style') || '';
-    if (!raw || !DANGEROUS_RULE.test(raw)) return;
-    const safeRules = raw.split(';').map(r => r.trim()).filter(r => r.length > 0).filter(r => !DANGEROUS_RULE.test(r)).join('; ');
-    if (safeRules.length === 0) node.removeAttribute('style'); else node.setAttribute('style', safeRules);
-  });
+if (typeof DOMPurify === 'undefined') return;
+if (window.__kdCssHookInstalled) return;
+window.__kdCssHookInstalled = true;
+const DANGEROUS_RULE = /(?:\burl\s*\(|expression\s*\(|\bbehavior\s*:|-moz-binding|@import|javascript\s*:)/i;
+DOMPurify.addHook('afterSanitizeAttributes', function (node) {
+if (!node.getAttribute || !node.hasAttribute) return;
+if (!node.hasAttribute('style')) return;
+const raw = node.getAttribute('style') || '';
+if (!raw || !DANGEROUS_RULE.test(raw)) return;
+const safeRules = raw.split(';').map(r => r.trim()).filter(r => r.length > 0).filter(r => !DANGEROUS_RULE.test(r)).join('; ');
+if (safeRules.length === 0) node.removeAttribute('style'); else node.setAttribute('style', safeRules);
+});
 })();
-
 function safeHTML(html) {
-  if (!html) return '';
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['div','span','p','a','img','br','b','i','u','strong','em','h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th','button','input','form','label','select','option','textarea','section','article','header','footer','nav','main','aside','code','pre','blockquote','hr','small','sub','sup','svg','path','canvas','figure','figcaption','cite'],
-    ALLOWED_ATTR: ['id','class','style','href','src','alt','title','rel','target','method','action','type','name','value','placeholder','checked','disabled','readonly','required','multiple','min','max','step','pattern','autocomplete','inputmode','viewBox','fill','stroke','stroke-width','d','aria-*','data-*'],
-    ADD_ATTR: ['target'],
-    ALLOW_DATA_ATTR: true,
-    FORCE_HTTPS: true
-  });
+if (!html) return '';
+return DOMPurify.sanitize(html, {
+ALLOWED_TAGS: ['div','span','p','a','img','br','b','i','u','strong','em','h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th','button','input','form','label','select','option','textarea','section','article','header','footer','nav','main','aside','code','pre','blockquote','hr','small','sub','sup','svg','path','canvas','figure','figcaption','cite'],
+ALLOWED_ATTR: ['id','class','style','href','src','alt','title','rel','target','method','action','type','name','value','placeholder','checked','disabled','readonly','required','multiple','min','max','step','pattern','autocomplete','inputmode','viewBox','fill','stroke','stroke-width','d','aria-*','data-*'],
+ADD_ATTR: ['target'],
+ALLOW_DATA_ATTR: true,
+FORCE_HTTPS: true
+});
 }
-
 async function fetchGuestCsrfToken() {
-  try {
-    const res = await fetch('/api/csrf-token?type=guest', {
-      credentials: 'include',
-      cache: 'no-store'
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data && data.token) {
-      try { localStorage.setItem('kd_csrf_token', data.token); } catch (e) {}
-      try { localStorage.setItem('kd_guest_csrf_token', data.token); } catch (e) {}
-      return data.token;
-    }
-  } catch (e) {}
-  return null;
+try {
+const res = await fetch('/api/csrf-token?type=guest', {
+credentials: 'include',
+cache: 'no-store'
+});
+if (!res.ok) return null;
+const data = await res.json();
+if (data && data.token) {
+try { localStorage.setItem('kd_csrf_token', data.token); } catch (e) {}
+try { localStorage.setItem('kd_guest_csrf_token', data.token); } catch (e) {}
+return data.token;
 }
-
+} catch (e) {}
+return null;
+}
 function getCsrfHeader() {
-  var token = localStorage.getItem('kd_csrf_token');
-  return token ? { 'X-CSRF-Token': token } : {};
+var token = localStorage.getItem('kd_csrf_token');
+return token ? { 'X-CSRF-Token': token } : {};
 }
-
 function showModal(title, message, buttons) {
-  return new Promise(function(resolve) {
-    var overlay = document.getElementById('customModal');
-    document.getElementById('modalTitle').textContent = title || 'Notice';
-    document.getElementById('modalBody').innerHTML = typeof message === 'string' ? message : '';
-    var footerEl = document.getElementById('modalFooter');
-    footerEl.innerHTML = '';
-    buttons.forEach(function(btn) {
-      var el = document.createElement('button');
-      el.textContent = btn.label;
-      el.className = 'btn ' + (btn.class || 'btn-primary');
-      el.onclick = function() {
-        overlay.classList.remove('active');
-        document.body.style.overflow = '';
-        resolve(btn.value !== undefined ? btn.value : true);
-      };
-      footerEl.appendChild(el);
-    });
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  });
+return new Promise(function(resolve) {
+var overlay = document.getElementById('customModal');
+document.getElementById('modalTitle').textContent = title || 'Notice';
+document.getElementById('modalBody').innerHTML = typeof message === 'string' ? message : '';
+var footerEl = document.getElementById('modalFooter');
+footerEl.innerHTML = '';
+buttons.forEach(function(btn) {
+var el = document.createElement('button');
+el.textContent = btn.label;
+el.className = 'btn ' + (btn.class || 'btn-primary');
+el.onclick = function() {
+overlay.classList.remove('active');
+document.body.style.overflow = '';
+resolve(btn.value !== undefined ? btn.value : true);
+};
+footerEl.appendChild(el);
+});
+overlay.classList.add('active');
+document.body.style.overflow = 'hidden';
+});
 }
 function closeModal() {
-  var o = document.getElementById('customModal');
-  if (o) o.classList.remove('active');
-  document.body.style.overflow = '';
+var o = document.getElementById('customModal');
+if (o) o.classList.remove('active');
+document.body.style.overflow = '';
 }
 function modalConfirm() { closeModal(); }
 function showAlert(t, m) { return showModal(t, m, [{ label: 'OK', class: 'btn-primary' }]); }
 function showConfirm(t, m) {
-  return showModal(t, m, [
-    { label: 'Cancel', class: 'btn-secondary', value: false },
-    { label: 'Confirm', class: 'btn-primary', value: true }
-  ]);
+return showModal(t, m, [
+{ label: 'Cancel', class: 'btn-secondary', value: false },
+{ label: 'Confirm', class: 'btn-primary', value: true }
+]);
 }
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    var o = document.getElementById('customModal');
-    if (o && o.classList.contains('active')) { o.classList.remove('active'); document.body.style.overflow = ''; }
-    var f = document.getElementById('paymentFailedModal');
-    if (f && f.classList.contains('active')) { f.classList.remove('active'); document.body.style.overflow = ''; }
-  }
+if (e.key === 'Escape') {
+var o = document.getElementById('customModal');
+if (o && o.classList.contains('active')) { o.classList.remove('active'); document.body.style.overflow = ''; }
+var f = document.getElementById('paymentFailedModal');
+if (f && f.classList.contains('active')) { f.classList.remove('active'); document.body.style.overflow = ''; }
+}
 });
 function showPaymentFailedModal(bookingId, bookingData) {
-  var overlay = document.getElementById('paymentFailedModal');
-  document.getElementById('failedBookingId').textContent = bookingId || 'N/A';
-  document.getElementById('failedDates').textContent = (bookingData?.checkin || '') + ' → ' + (bookingData?.checkout || '') + ' (' + (bookingData?.nights || 1) + 'N)';
-  document.getElementById('failedTotal').textContent = 'RM ' + (parseFloat(bookingData?.total) || 0).toFixed(2);
-  if (overlay) overlay.classList.add('active');
-  document.body.style.overflow = 'hidden';
+var overlay = document.getElementById('paymentFailedModal');
+document.getElementById('failedBookingId').textContent = bookingId || 'N/A';
+document.getElementById('failedDates').textContent = (bookingData?.checkin || '') + ' → ' + (bookingData?.checkout || '') + ' (' + (bookingData?.nights || 1) + 'N)';
+document.getElementById('failedTotal').textContent = 'RM ' + (parseFloat(bookingData?.total) || 0).toFixed(2);
+if (overlay) overlay.classList.add('active');
+document.body.style.overflow = 'hidden';
 }
 function closePaymentFailedModal() {
-  var o = document.getElementById('paymentFailedModal');
-  if (o) o.classList.remove('active');
-  document.body.style.overflow = '';
+var o = document.getElementById('paymentFailedModal');
+if (o) o.classList.remove('active');
+document.body.style.overflow = '';
 }
-
 var API_BASE = "/api";
 var currentGuest = null;
-
 function findLocalGuest() {
-  try {
-    var raw = localStorage.getItem('kd_guest');
-    if (!raw) return null;
-    var g = JSON.parse(raw);
-    if (Array.isArray(g)) g = g.length > 0 ? g[g.length - 1] : null;
-    if (!g) return null;
-    if (g.id || g.email) return g;
-    return null;
-  } catch (e) { return null; }
+try {
+var raw = localStorage.getItem('kd_guest');
+if (!raw) return null;
+var g = JSON.parse(raw);
+if (Array.isArray(g)) g = g.length > 0 ? g[g.length - 1] : null;
+if (!g) return null;
+if (g.id || g.email) return g;
+return null;
+} catch (e) { return null; }
 }
-
 function renderGuestNav() {
-  if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
-    window.GuestSession.updateNavDOM();
-    return;
-  }
-  var loginNav = document.getElementById('guestNav');
-  var profileNav = document.getElementById('guestProfileNav');
-  var mLoginNav = document.getElementById('mGuestNav');
-  var mProfileNav = document.getElementById('mGuestProfileNav');
-  if (currentGuest && (currentGuest.id || currentGuest.email)) {
-    if (loginNav) { loginNav.classList.add('hidden'); loginNav.classList.remove('flex'); }
-    if (profileNav) { profileNav.classList.remove('hidden'); profileNav.classList.add('flex'); }
-    if (mLoginNav) mLoginNav.classList.add('hidden');
-    if (mProfileNav) mProfileNav.classList.remove('hidden');
-  } else {
-    if (loginNav) { loginNav.classList.remove('hidden'); loginNav.classList.add('flex'); }
-    if (profileNav) { profileNav.classList.add('hidden'); profileNav.classList.remove('flex'); }
-    if (mLoginNav) mLoginNav.classList.remove('hidden');
-    if (mProfileNav) mProfileNav.classList.add('hidden');
-  }
+if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+window.GuestSession.updateNavDOM();
+return;
 }
-
+var loginNav = document.getElementById('guestNav');
+var profileNav = document.getElementById('guestProfileNav');
+var mLoginNav = document.getElementById('mGuestNav');
+var mProfileNav = document.getElementById('mGuestProfileNav');
+if (currentGuest && (currentGuest.id || currentGuest.email)) {
+if (loginNav) { loginNav.classList.add('hidden'); loginNav.classList.remove('flex'); }
+if (profileNav) { profileNav.classList.remove('hidden'); profileNav.classList.add('flex'); }
+if (mLoginNav) mLoginNav.classList.add('hidden');
+if (mProfileNav) mProfileNav.classList.remove('hidden');
+} else {
+if (loginNav) { loginNav.classList.remove('hidden'); loginNav.classList.add('flex'); }
+if (profileNav) { profileNav.classList.add('hidden'); profileNav.classList.remove('flex'); }
+if (mLoginNav) mLoginNav.classList.remove('hidden');
+if (mProfileNav) mProfileNav.classList.add('hidden');
+}
+}
 function logoutGuest() {
-  if (window.GuestSession) { window.GuestSession.logoutGuest(); return; }
-  showConfirm('Logout', 'Are you sure you want to logout?').then(function(ok) {
-    if (!ok) return;
-    currentGuest = null;
-    try { localStorage.removeItem('kd_guest'); } catch (e) {}
-    try { fetch('/api/logout', { method: 'POST', credentials: 'include' }); } catch (e) {}
-    renderGuestNav();
-    window.location.href = '/';
-  });
+if (window.GuestSession) { window.GuestSession.logoutGuest(); return; }
+showConfirm('Logout', 'Are you sure you want to logout?').then(function(ok) {
+if (!ok) return;
+currentGuest = null;
+try { localStorage.removeItem('kd_guest'); } catch (e) {}
+try { fetch('/api/logout', { method: 'POST', credentials: 'include' }); } catch (e) {}
+renderGuestNav();
+window.location.href = '/';
+});
 }
-
 var myBookings = [];
 var pendingCheckInterval = null;
 var PENDING_CHECK_INTERVAL_MS = 30000;
 var PENDING_CHECK_MAX_CYCLES = 10;
 var pendingCheckCycles = 0;
-
 function showLoginRequired() {
-  document.getElementById('loadingState').classList.add('hidden');
-  document.getElementById('bookingsView').classList.add('hidden');
-  document.getElementById('notLoggedIn').classList.remove('hidden');
+document.getElementById('loadingState').classList.add('hidden');
+document.getElementById('bookingsView').classList.add('hidden');
+document.getElementById('notLoggedIn').classList.remove('hidden');
 }
-
 function showLoggedInView(guest) {
-  document.getElementById('loadingState').classList.add('hidden');
-  document.getElementById('notLoggedIn').classList.add('hidden');
-  document.getElementById('bookingsView').classList.remove('hidden');
-  var nameDisplay = document.getElementById('guestNameDisplay');
-  if (nameDisplay) nameDisplay.textContent = guest.name || guest.email || 'Guest';
+document.getElementById('loadingState').classList.add('hidden');
+document.getElementById('notLoggedIn').classList.add('hidden');
+document.getElementById('bookingsView').classList.remove('hidden');
+var nameDisplay = document.getElementById('guestNameDisplay');
+if (nameDisplay) nameDisplay.textContent = guest.name || guest.email || 'Guest';
 }
-
 function guestStatusInfo(b) {
-  var s = String(b.status || '').toLowerCase();
-  var hasPayoutDate = !!b.payoutDate;
-  var cancelledByHost = String(b.cancelled_by || '').toLowerCase() === 'host';
-  var isCancelled = cancelledByHost || s.indexOf('cancel') !== -1;
-  var isRefundRelated = s.indexOf('refund') !== -1;
-  var isRefundPending = isRefundRelated && s.indexOf('pending') !== -1;
-  var isRefundComplete = isRefundRelated && !isRefundPending;
-
-  if (isCancelled) {
-    if (isRefundPending) {
-      return { key: 'refund_pending', badgeClass: 'badge-refunded', badgeLabel: 'Cancelled by Host - Refund Processing', note: 'The host cancelled this booking. Your refund is being processed by CHIP and usually completes within a few minutes.', buttons: [] };
-    }
-    if (isRefundComplete) {
-      return { key: 'refunded', badgeClass: 'badge-failed', badgeLabel: 'Cancelled by Host - Refunded', note: 'The host cancelled this booking. A full refund has been processed. It may take 3–7 business days to appear in your bank.', buttons: [] };
-    }
-    return { key: 'cancelled', badgeClass: 'badge-failed', badgeLabel: 'Cancelled by Host', note: '', buttons: [] };
-  }
-
-  if (isRefundComplete) {
-    return { key: 'refunded', badgeClass: 'badge-refunded', badgeLabel: '🔁 Refunded', note: 'A full refund has been processed. It may take 3–7 business days to appear in your bank.', buttons: [] };
-  }
-  if (isRefundPending) {
-    return { key: 'refund_pending', badgeClass: 'badge-refunded', badgeLabel: '💧 Refund Processing', note: 'Your refund is being processed by CHIP. This usually completes within a few minutes.', buttons: [] };
-  }
-  if (s.indexOf('expired') !== -1) {
-    return { key: 'expired', badgeClass: 'badge-cancelled', badgeLabel: 'Expired', note: 'This booking expired before payment was completed. The dates have been released.', buttons: [] };
-  }
-  if (s.indexOf('completed') !== -1 || hasPayoutDate) {
-    return { key: 'completed', badgeClass: 'badge-paid', badgeLabel: '✓ Completed', note: '', buttons: [] };
-  }
-  if (s.indexOf('fail') !== -1) {
-    return { key: 'failed', badgeClass: 'badge-failed', badgeLabel: 'Payment Failed', note: 'Your payment didn\'t go through. Click Retry Payment to try again.', buttons: ['checkStatus', 'retryPayment'] };
-  }
-  if (s.indexOf('paid') !== -1) {
-    return { key: 'paid', badgeClass: 'badge-paid', badgeLabel: '✓ Confirmed — Ready for Stay', note: 'Your booking is confirmed! We\'ve emailed your check-in instructions and host contact details. Have a great trip! 🏔️', buttons: ['resendCode'] };
-  }
-  return { key: 'pending', badgeClass: 'badge-pending', badgeLabel: 'Awaiting Payment', note: 'Complete your payment to confirm this booking.', buttons: ['checkStatus', 'retryPayment'] };
+var s = String(b.status || '').toLowerCase();
+var hasPayoutDate = !!b.payoutDate;
+var cancelledByHost = String(b.cancelled_by || '').toLowerCase() === 'host';
+var isCancelled = cancelledByHost || s.indexOf('cancel') !== -1;
+var isRefundRelated = s.indexOf('refund') !== -1;
+var isRefundPending = isRefundRelated && s.indexOf('pending') !== -1;
+var isRefundComplete = isRefundRelated && !isRefundPending;
+if (isCancelled) {
+if (isRefundPending) {
+return { key: 'refund_pending', badgeClass: 'badge-refunded', badgeLabel: 'Cancelled by Host - Refund Processing', note: 'The host cancelled this booking. Your refund is being processed by CHIP and usually completes within a few minutes.', buttons: [] };
 }
-
+if (isRefundComplete) {
+return { key: 'refunded', badgeClass: 'badge-failed', badgeLabel: 'Cancelled by Host - Refunded', note: 'The host cancelled this booking. A full refund has been processed. It may take 3–7 business days to appear in your bank.', buttons: [] };
+}
+return { key: 'cancelled', badgeClass: 'badge-failed', badgeLabel: 'Cancelled by Host', note: '', buttons: [] };
+}
+if (isRefundComplete) {
+return { key: 'refunded', badgeClass: 'badge-refunded', badgeLabel: '🔁 Refunded', note: 'A full refund has been processed. It may take 3–7 business days to appear in your bank.', buttons: [] };
+}
+if (isRefundPending) {
+return { key: 'refund_pending', badgeClass: 'badge-refunded', badgeLabel: '💧 Refund Processing', note: 'Your refund is being processed by CHIP. This usually completes within a few minutes.', buttons: [] };
+}
+if (s.indexOf('expired') !== -1) {
+return { key: 'expired', badgeClass: 'badge-cancelled', badgeLabel: 'Expired', note: 'This booking expired before payment was completed. The dates have been released.', buttons: [] };
+}
+if (s.indexOf('completed') !== -1 || hasPayoutDate) {
+return { key: 'completed', badgeClass: 'badge-paid', badgeLabel: '✓ Completed', note: '', buttons: [] };
+}
+if (s.indexOf('fail') !== -1) {
+return { key: 'failed', badgeClass: 'badge-failed', badgeLabel: 'Payment Failed', note: 'Your payment didn\'t go through. Click Retry Payment to try again.', buttons: ['checkStatus', 'retryPayment'] };
+}
+if (s.indexOf('paid') !== -1) {
+return { key: 'paid', badgeClass: 'badge-paid', badgeLabel: '✓ Confirmed — Ready for Stay', note: 'Your booking is confirmed! We\'ve emailed your check-in instructions and host contact details. Have a great trip! 🏔️', buttons: ['resendCode'] };
+}
+return { key: 'pending', badgeClass: 'badge-pending', badgeLabel: 'Awaiting Payment', note: 'Complete your payment to confirm this booking.', buttons: ['checkStatus', 'retryPayment'] };
+}
 function buildButtons(actions, id) {
-  var html = '';
-  if (actions.indexOf('resendCode') !== -1) {
-    html += '<button class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition action-btn" data-action="resendCode" data-id="' + id + '">📧 Resend Instructions</button>';
-  }
-  if (actions.indexOf('checkStatus') !== -1) {
-    html += '<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="' + id + '">🔍 Check Payment</button>';
-  }
-  if (actions.indexOf('retryPayment') !== -1) {
-    html += '<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#D4A373;" data-action="retryPayment" data-id="' + id + '">🔄 Retry Payment</button>';
-  }
-  return html;
+var html = '';
+if (actions.indexOf('resendCode') !== -1) {
+html += '<button class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 hover:bg-blue-100 transition action-btn" data-action="resendCode" data-id="' + id + '">📧 Resend Instructions</button>';
 }
-
+if (actions.indexOf('checkStatus') !== -1) {
+html += '<button class="btn-accent action-btn" style="padding:6px 14px; font-size:10px;" data-action="checkStatus" data-id="' + id + '">🔍 Check Payment</button>';
+}
+if (actions.indexOf('retryPayment') !== -1) {
+html += '<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#D4A373;" data-action="retryPayment" data-id="' + id + '">🔄 Retry Payment</button>';
+}
+return html;
+}
 async function checkPaymentStatus(bookingId) {
-  try {
-    const res = await fetch(API_BASE + '/verify-payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ bookingId })
-    });
-    return await res.json();
-  } catch (e) { return { success: false, error: e.message }; }
+try {
+const res = await fetch(API_BASE + '/verify-payment', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ bookingId })
+});
+return await res.json();
+} catch (e) { return { success: false, error: e.message }; }
 }
-
 function isGuestPollable(b) {
-  var info = guestStatusInfo(b);
-  return info.key === 'pending' || info.key === 'failed';
+var info = guestStatusInfo(b);
+return info.key === 'pending' || info.key === 'failed';
 }
-
 async function autoCheckPendingBookings() {
-  if (!currentGuest) return;
-  const pending = myBookings.filter(isGuestPollable);
-  if (pending.length === 0) {
-    if (pendingCheckInterval) { clearInterval(pendingCheckInterval); pendingCheckInterval = null; }
-    return;
-  }
-  if (pendingCheckCycles >= PENDING_CHECK_MAX_CYCLES) {
-    if (pendingCheckInterval) { clearInterval(pendingCheckInterval); pendingCheckInterval = null; }
-    return;
-  }
-  pendingCheckCycles++;
-
-  const b = pending[0];
-  let anyUpdated = false;
-  try {
-    const result = await checkPaymentStatus(b.id);
-    if (result.success && result.booking) {
-      const status = result.booking.status || '';
-      if (status.toLowerCase().includes('paid') || status.toLowerCase().includes('fail')) anyUpdated = true;
-    }
-    if (result.paymentStatus === 'refunded' || result.paymentStatus === 'cancelled' || result.paymentStatus === 'expired' || result.paymentStatus === 'failed') anyUpdated = true;
-  } catch (e) {}
-  if (anyUpdated) loadMyBookings();
+if (!currentGuest) return;
+const pending = myBookings.filter(isGuestPollable);
+if (pending.length === 0) {
+if (pendingCheckInterval) { clearInterval(pendingCheckInterval); pendingCheckInterval = null; }
+return;
+}
+if (pendingCheckCycles >= PENDING_CHECK_MAX_CYCLES) {
+if (pendingCheckInterval) { clearInterval(pendingCheckInterval); pendingCheckInterval = null; }
+return;
+}
+pendingCheckCycles++;
+const b = pending[0];
+let anyUpdated = false;
+try {
+const result = await checkPaymentStatus(b.id);
+if (result.success && result.booking) {
+const status = result.booking.status || '';
+if (status.toLowerCase().includes('paid') || status.toLowerCase().includes('fail')) anyUpdated = true;
+}
+if (result.paymentStatus === 'refunded' || result.paymentStatus === 'cancelled' || result.paymentStatus === 'expired' || result.paymentStatus === 'failed') anyUpdated = true;
+} catch (e) {}
+if (anyUpdated) loadMyBookings();
 }
 function startPendingCheckInterval() {
-  if (pendingCheckInterval) clearInterval(pendingCheckInterval);
-  pendingCheckCycles = 0;
-  autoCheckPendingBookings();
-  pendingCheckInterval = setInterval(autoCheckPendingBookings, PENDING_CHECK_INTERVAL_MS);
+if (pendingCheckInterval) clearInterval(pendingCheckInterval);
+pendingCheckCycles = 0;
+autoCheckPendingBookings();
+pendingCheckInterval = setInterval(autoCheckPendingBookings, PENDING_CHECK_INTERVAL_MS);
 }
-
 function loadMyBookings() {
-  var listDiv = document.getElementById('bookingsList');
-  if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10">Loading your bookings...</div>';
-
-  fetch(API_BASE + '/bookings?t=' + Date.now(), {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    cache: 'no-store',
-    credentials: 'include'
-  })
-  .then(function(res) {
-    if (!res.ok) throw new Error('Server error: ' + res.status);
-    return res.json();
-  })
-  .then(function(data) {
-    var serverBookings = Array.isArray(data.bookings) ? data.bookings : null;
-    if (!serverBookings) {
-      currentGuest = null;
-      try { localStorage.removeItem('kd_guest'); } catch (e) {}
-      if (window.GuestSession) window.GuestSession.clearGuestSession();
-      renderGuestNav();
-      showLoginRequired();
-      return;
-    }
-
-    var currentGuestId = currentGuest && currentGuest.id ? String(currentGuest.id) : null;
-    var filteredBookings = serverBookings.filter(function(b) {
-      if (!currentGuestId) return false;
-      return String(b.guestId || '') === currentGuestId;
-    });
-
-    var leakedCount = serverBookings.length - filteredBookings.length;
-    if (leakedCount > 0) {
-      console.error(
-        '[SECURITY] Server returned ' + leakedCount + ' booking(s) that do not belong to the logged-in guest. ' +
-        'These were filtered out client-side.'
-      );
-    }
-
-    var displayGuest = currentGuest || { name: 'Guest', email: '' };
-    renderGuestNav();
-    myBookings = filteredBookings;
-
-    if (currentGuest && currentGuest.id) {
-      try { localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings)); } catch (e) {}
-    }
-
-    showLoggedInView(displayGuest);
-    renderBookings();
-
-    const pending = myBookings.filter(isGuestPollable);
-    if (pending.length > 0) startPendingCheckInterval();
-    else if (pendingCheckInterval) { clearInterval(pendingCheckInterval); pendingCheckInterval = null; }
-  })
-  .catch(function(err) {
-    console.error('loadMyBookings failed:', err);
-    if (currentGuest && currentGuest.id) {
-      var cached = localStorage.getItem('kd_guest_bookings_' + currentGuest.id);
-      if (cached) {
-        try {
-          myBookings = JSON.parse(cached);
-          showLoggedInView(currentGuest);
-          renderBookings();
-          var notice = document.createElement('div');
-          notice.className = 'text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center mb-4';
-          notice.textContent = '📡 Showing cached bookings. Connect to internet for latest updates.';
-          var listEl = document.getElementById('bookingsList');
-          if (listEl && listEl.parentNode) listEl.parentNode.insertBefore(notice, listEl);
-          return;
-        } catch (e) {}
-      }
-    }
-    showLoginRequired();
-  });
+var listDiv = document.getElementById('bookingsList');
+if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10">Loading your bookings...</div>';
+fetch(API_BASE + '/bookings?t=' + Date.now(), {
+method: 'GET',
+headers: { 'Content-Type': 'application/json' },
+cache: 'no-store',
+credentials: 'include'
+})
+.then(function(res) {
+if (!res.ok) throw new Error('Server error: ' + res.status);
+return res.json();
+})
+.then(function(data) {
+var serverBookings = Array.isArray(data.bookings) ? data.bookings : null;
+if (!serverBookings) {
+currentGuest = null;
+try { localStorage.removeItem('kd_guest'); } catch (e) {}
+if (window.GuestSession) window.GuestSession.clearGuestSession();
+renderGuestNav();
+showLoginRequired();
+return;
 }
-
+var currentGuestId = currentGuest && currentGuest.id ? String(currentGuest.id) : null;
+var filteredBookings = serverBookings.filter(function(b) {
+if (!currentGuestId) return false;
+return String(b.guestId || '') === currentGuestId;
+});
+var leakedCount = serverBookings.length - filteredBookings.length;
+if (leakedCount > 0) {
+console.error(
+'[SECURITY] Server returned ' + leakedCount + ' booking(s) that do not belong to the logged-in guest. ' +
+'These were filtered out client-side.'
+);
+}
+var displayGuest = currentGuest || { name: 'Guest', email: '' };
+renderGuestNav();
+myBookings = filteredBookings;
+if (currentGuest && currentGuest.id) {
+try { localStorage.setItem('kd_guest_bookings_' + currentGuest.id, JSON.stringify(myBookings)); } catch (e) {}
+}
+showLoggedInView(displayGuest);
+renderBookings();
+const pending = myBookings.filter(isGuestPollable);
+if (pending.length > 0) startPendingCheckInterval();
+else if (pendingCheckInterval) { clearInterval(pendingCheckInterval); pendingCheckInterval = null; }
+})
+.catch(function(err) {
+console.error('loadMyBookings failed:', err);
+if (currentGuest && currentGuest.id) {
+var cached = localStorage.getItem('kd_guest_bookings_' + currentGuest.id);
+if (cached) {
+try {
+myBookings = JSON.parse(cached);
+showLoggedInView(currentGuest);
+renderBookings();
+var notice = document.createElement('div');
+notice.className = 'text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center mb-4';
+notice.textContent = '📡 Showing cached bookings. Connect to internet for latest updates.';
+var listEl = document.getElementById('bookingsList');
+if (listEl && listEl.parentNode) listEl.parentNode.insertBefore(notice, listEl);
+return;
+} catch (e) {}
+}
+}
+showLoginRequired();
+});
+}
 function renderBookings() {
-  var listDiv = document.getElementById('bookingsList');
-  if (!listDiv) return;
-
-  if (myBookings.length === 0) {
-    listDiv.innerHTML = safeHTML(
-      '<div class="text-center py-16 space-y-4">' +
-        '<div class="text-6xl">🏔️</div>' +
-        '<h3 class="font-poppins font-700 text-[20px] text-[#212121]">No Bookings Yet</h3>' +
-        '<p class="text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed">You have not made any bookings yet. Explore our verified Kundasang homestays!</p>' +
-        '<a href="/" class="btn-primary inline-block mt-2">Browse Homestays</a>' +
-      '</div>'
-    );
-    return;
-  }
-
-  var sorted = myBookings.slice().sort(function(a, b) {
-    return new Date(b.date || 0) - new Date(a.date || 0);
-  });
-
-  var html = '';
-  sorted.forEach(function(b) {
-    var id = b.id || 'N/A';
-    var homestay = b.homestay || 'Kundasang Homestay';
-    var checkin = b.checkin || 'N/A';
-    var checkout = b.checkout || 'N/A';
-    var nights = b.nights || 1;
-    var total = parseFloat(b.total) || 0;
-
-    var info = guestStatusInfo(b);
-    var buttonsHtml = buildButtons(info.buttons, id);
-    var note = info.note ? '<div class="text-xs text-zinc-500 mt-1">' + info.note + '</div>' : '';
-    
-    var totalLabel = (info.key === 'paid' || info.key === 'completed') ? 'Total paid' : 'Total amount';
-
-    html +=
-      '<div class="card hover:shadow-md transition-all duration-300" data-id="' + id + '">' +
-        '<div class="flex flex-col md:flex-row justify-between gap-4">' +
-          '<div class="flex-1 min-w-0 space-y-2">' +
-            '<h3 class="font-poppins font-700 text-[18px] text-[#212121] leading-tight">' + homestay + '</h3>' +
-            '<div class="text-sm text-zinc-600 space-y-1">' +
-              '<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
-              '<div>💳 ' + totalLabel + ': <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span></div>' +
-              '<div class="inline-block text-sm font-bold text-zinc-600 bg-zinc-100 px-3 py-1 rounded-full border border-zinc-200">Booking ID: <span class="font-mono">' + id + '</span></div>' +
-              note +
-              (buttonsHtml ? '<div class="mt-1 flex flex-wrap gap-2">' + buttonsHtml + '</div>' : '') +
-            '</div>' +
-          '</div>' +
-          '<div class="flex flex-col items-end gap-2 shrink-0"><span class="' + info.badgeClass + '">' + info.badgeLabel + '</span></div>' +
-        '</div>' +
-      '</div>';
-  });
-  listDiv.innerHTML = safeHTML(html);
-  listDiv.removeEventListener('click', bookingActionHandler);
-  listDiv.addEventListener('click', bookingActionHandler);
+var listDiv = document.getElementById('bookingsList');
+if (!listDiv) return;
+if (myBookings.length === 0) {
+listDiv.innerHTML = safeHTML(
+'<div class="text-center py-16 space-y-4">' +
+'<div class="text-6xl">🏔️</div>' +
+'<h3 class="font-poppins font-700 text-[20px] text-[#212121]">No Bookings Yet</h3>' +
+'<p class="text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed">You have not made any bookings yet. Explore our verified Kundasang homestays!</p>' +
+'<a href="/" class="btn-primary inline-block mt-2">Browse Homestays</a>' +
+'</div>'
+);
+return;
 }
-
+var sorted = myBookings.slice().sort(function(a, b) {
+return new Date(b.date || 0) - new Date(a.date || 0);
+});
+var html = '';
+sorted.forEach(function(b) {
+var id = b.id || 'N/A';
+var homestay = b.homestay || 'Kundasang Homestay';
+var checkin = b.checkin || 'N/A';
+var checkout = b.checkout || 'N/A';
+var nights = b.nights || 1;
+var total = parseFloat(b.total) || 0;
+var info = guestStatusInfo(b);
+var buttonsHtml = buildButtons(info.buttons, id);
+var note = info.note ? '<div class="text-xs text-zinc-500 mt-1">' + info.note + '</div>' : '';
+var totalLabel = (info.key === 'paid' || info.key === 'completed') ? 'Total paid' : 'Total amount';
+html +=
+'<div class="card hover:shadow-md transition-all duration-300" data-id="' + id + '">' +
+'<div class="flex flex-col md:flex-row justify-between gap-4">' +
+'<div class="flex-1 min-w-0 space-y-2">' +
+'<h3 class="font-poppins font-700 text-[18px] text-[#212121] leading-tight">' + homestay + '</h3>' +
+'<div class="text-sm text-zinc-600 space-y-1">' +
+'<div>📅 <span class="font-semibold">' + checkin + '</span> → <span class="font-semibold">' + checkout + '</span> <span class="text-zinc-400">(' + nights + ' night' + (nights !== 1 ? 's' : '') + ')</span></div>' +
+'<div>💳 ' + totalLabel + ': <span class="font-bold text-[#0F382E]">RM ' + total.toFixed(2) + '</span></div>' +
+'<div class="inline-block text-sm font-bold text-zinc-600 bg-zinc-100 px-3 py-1 rounded-full border border-zinc-200">Booking ID: <span class="font-mono">' + id + '</span></div>' +
+note +
+(buttonsHtml ? '<div class="mt-1 flex flex-wrap gap-2">' + buttonsHtml + '</div>' : '') +
+'</div>' +
+'</div>' +
+'<div class="flex flex-col items-end gap-2 shrink-0"><span class="' + info.badgeClass + '">' + info.badgeLabel + '</span></div>' +
+'</div>' +
+'</div>';
+});
+listDiv.innerHTML = safeHTML(html);
+listDiv.removeEventListener('click', bookingActionHandler);
+listDiv.addEventListener('click', bookingActionHandler);
+}
 function bookingActionHandler(e) {
-  var btn = e.target.closest('.action-btn');
-  if (!btn) return;
-  var action = btn.dataset.action;
-  var id = btn.dataset.id;
-  if (!action || !id) return;
-  e.preventDefault();
-  if (action === 'checkStatus') manualCheckPayment(id);
-  else if (action === 'retryPayment') retryPaymentFromBookings(id);
-  else if (action === 'resendCode') resendCode(id);
+var btn = e.target.closest('.action-btn');
+if (!btn) return;
+var action = btn.dataset.action;
+var id = btn.dataset.id;
+if (!action || !id) return;
+e.preventDefault();
+if (action === 'checkStatus') manualCheckPayment(id);
+else if (action === 'retryPayment') retryPaymentFromBookings(id);
+else if (action === 'resendCode') resendCode(id);
 }
-
 async function manualCheckPayment(bookingId) {
-  try {
-    const result = await checkPaymentStatus(bookingId);
-
-    if (result.paymentStatus === 'refunded') {
-      await showAlert('Refunded', 'This booking has been refunded. Refunds may take 3–7 business days.');
-      loadMyBookings();
-      return;
-    }
-    if (result.paymentStatus === 'cancelled') {
-      await showAlert('Booking Cancelled', 'This booking was cancelled by the host.');
-      loadMyBookings();
-      return;
-    }
-    if (result.paymentStatus === 'expired') {
-      await showAlert('Booking Expired', 'This booking expired before the payment completed.');
-      loadMyBookings();
-      return;
-    }
-
-    if (result.paymentStatus === 'failed') {
-      showPaymentFailedModal(bookingId, result.booking || { id: bookingId });
-      return;
-    }
-
-    if (result.success && result.booking) {
-      const status = result.booking.status || '';
-      if (status.toLowerCase().includes('completed')) {
-        await showAlert('Stay Completed', 'This stay is already complete.');
-        loadMyBookings();
-        return;
-      }
-      if (status.toLowerCase().includes('paid') && !status.toLowerCase().includes('failed')) {
-        await showAlert('✅ Payment confirmed!', 'Your booking is confirmed — ready for your stay.');
-        loadMyBookings();
-        return;
-      }
-      if (status.toLowerCase().includes('fail')) {
-        showPaymentFailedModal(bookingId, result.booking);
-        return;
-      }
-      await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
-      return;
-    }
-    if (result.retry) {
-      await showAlert('Still Processing', result.message || 'The payment is still being processed. Please try again in a few seconds.');
-      return;
-    }
-    await showAlert('Error', result.error || 'Could not check payment status.');
-  } catch (e) {
-    await showAlert('Error', 'Could not connect to the server.');
-  }
+try {
+const result = await checkPaymentStatus(bookingId);
+if (result.paymentStatus === 'refunded') {
+await showAlert('Refunded', 'This booking has been refunded. Refunds may take 3–7 business days.');
+loadMyBookings();
+return;
 }
-
+if (result.paymentStatus === 'cancelled') {
+await showAlert('Booking Cancelled', 'This booking was cancelled by the host.');
+loadMyBookings();
+return;
+}
+if (result.paymentStatus === 'expired') {
+await showAlert('Booking Expired', 'This booking expired before the payment completed.');
+loadMyBookings();
+return;
+}
+if (result.paymentStatus === 'failed') {
+showPaymentFailedModal(bookingId, result.booking || { id: bookingId });
+return;
+}
+if (result.success && result.booking) {
+const status = result.booking.status || '';
+if (status.toLowerCase().includes('completed')) {
+await showAlert('Stay Completed', 'This stay is already complete.');
+loadMyBookings();
+return;
+}
+if (status.toLowerCase().includes('paid') && !status.toLowerCase().includes('failed')) {
+await showAlert('✅ Payment confirmed!', 'Your booking is confirmed — ready for your stay.');
+loadMyBookings();
+return;
+}
+if (status.toLowerCase().includes('fail')) {
+showPaymentFailedModal(bookingId, result.booking);
+return;
+}
+await showAlert('Still Pending', 'Payment not yet confirmed. Please wait a moment.');
+return;
+}
+if (result.retry) {
+await showAlert('Still Processing', result.message || 'The payment is still being processed. Please try again in a few seconds.');
+return;
+}
+await showAlert('Error', result.error || 'Could not check payment status.');
+} catch (e) {
+await showAlert('Error', 'Could not connect to the server.');
+}
+}
 async function retryPayment(bookingId) {
-  let token = localStorage.getItem('kd_csrf_token');
-  if (!token) {
-    try {
-      const res = await fetch('/api/csrf-token?type=guest', { method: 'GET', credentials: 'include' });
-      const data = await res.json();
-      if (data.token) { localStorage.setItem('kd_csrf_token', data.token); token = data.token; }
-      else throw new Error('No token received');
-    } catch (e) {
-      showModal('Session Expired', 'Your security token is missing. Please log in again.', [{ label: 'Login', class: 'btn-primary', value: 'login' }])
-        .then(function(r) { if (r === 'login') window.location.href = '/login.html'; });
-      return;
-    }
-  }
-  try {
-    const res = await fetch('/api/chip-create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
-      credentials: 'include',
-      body: JSON.stringify({ bookingId })
-    });
-    if (res.status === 401) {
-      if (window.GuestSession) window.GuestSession.clearGuestSession();
-      try { localStorage.removeItem('kd_guest'); } catch (e) {}
-      showModal('Session Expired', 'Your session has expired. Please log in again.', [{ label: 'Login', class: 'btn-primary', value: 'login' }])
-        .then(function(r) { if (r === 'login') window.location.href = '/login.html?expired=1'; });
-      return;
-    }
-    const data = await res.json();
-    if (res.status === 403 && data.error && data.error.includes('token')) {
-      localStorage.removeItem('kd_csrf_token');
-      showModal('Security Error', 'Your session token is invalid. Please log in again.', [{ label: 'Login', class: 'btn-primary', value: 'login' }])
-        .then(function(r) { if (r === 'login') window.location.href = '/login.html'; });
-      return;
-    }
-    if (!res.ok || !data.success) { showAlert('Error', data.error || 'Could not create payment. Please try again.'); return; }
-    if (data.url) window.location.href = data.url;
-    else showAlert('Error', 'Payment URL missing.');
-  } catch (e) { showAlert('Network Error', 'Could not connect to the server. Please try again.'); }
+let token = localStorage.getItem('kd_csrf_token');
+if (!token) {
+try {
+const res = await fetch('/api/csrf-token?type=guest', { method: 'GET', credentials: 'include' });
+const data = await res.json();
+if (data.token) { localStorage.setItem('kd_csrf_token', data.token); token = data.token; }
+else throw new Error('No token received');
+} catch (e) {
+showModal('Session Expired', 'Your security token is missing. Please log in again.', [{ label: 'Login', class: 'btn-primary', value: 'login' }])
+.then(function(r) { if (r === 'login') window.location.href = '/login.html'; });
+return;
+}
+}
+try {
+const res = await fetch('/api/chip-create', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+credentials: 'include',
+body: JSON.stringify({ bookingId })
+});
+if (res.status === 401) {
+if (window.GuestSession) window.GuestSession.clearGuestSession();
+try { localStorage.removeItem('kd_guest'); } catch (e) {}
+showModal('Session Expired', 'Your session has expired. Please log in again.', [{ label: 'Login', class: 'btn-primary', value: 'login' }])
+.then(function(r) { if (r === 'login') window.location.href = '/login.html?expired=1'; });
+return;
+}
+const data = await res.json();
+if (res.status === 403 && data.error && data.error.includes('token')) {
+localStorage.removeItem('kd_csrf_token');
+showModal('Security Error', 'Your session token is invalid. Please log in again.', [{ label: 'Login', class: 'btn-primary', value: 'login' }])
+.then(function(r) { if (r === 'login') window.location.href = '/login.html'; });
+return;
+}
+if (!res.ok || !data.success) { showAlert('Error', data.error || 'Could not create payment. Please try again.'); return; }
+if (data.url) window.location.href = data.url;
+else showAlert('Error', 'Payment URL missing.');
+} catch (e) { showAlert('Network Error', 'Could not connect to the server. Please try again.'); }
 }
 async function retryPaymentFromBookings(bookingId) { await retryPayment(bookingId); }
 window.retryPayment = retryPayment;
 window.retryPaymentFromBookings = retryPaymentFromBookings;
-
 async function resendCode(bookingId) {
-  const booking = myBookings.find(b => String(b.id) === String(bookingId));
-  if (!booking) { showAlert('Error', 'Booking not found.'); return; }
-  try {
-    const res = await fetch(API_BASE + '/resend-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...getCsrfHeader() },
-      credentials: 'include',
-      body: JSON.stringify({ bookingId })
-    });
-    if (res.status === 401) {
-      if (window.GuestSession) window.GuestSession.clearGuestSession();
-      window.location.href = '/login.html?expired=1';
-      return;
-    }
-    const data = await res.json();
-    if (data.success) {
-      if (data.emailSent) showAlert('Instructions Sent', data.message);
-      else showAlert('Your Check‑in Instructions', data.message + '\n\nPlease save these details for check‑in.');
-    } else {
-      showAlert('Error', data.error || 'Failed to resend.');
-    }
-  } catch(e) { showAlert('Error', 'Network error. Please try again.'); }
+const booking = myBookings.find(b => String(b.id) === String(bookingId));
+if (!booking) { showAlert('Error', 'Booking not found.'); return; }
+try {
+const res = await fetch(API_BASE + '/resend-code', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json', ...getCsrfHeader() },
+credentials: 'include',
+body: JSON.stringify({ bookingId })
+});
+if (res.status === 401) {
+if (window.GuestSession) window.GuestSession.clearGuestSession();
+window.location.href = '/login.html?expired=1';
+return;
 }
-
+const data = await res.json();
+if (data.success) {
+if (data.emailSent) showAlert('Instructions Sent', data.message);
+else showAlert('Your Check‑in Instructions', data.message + '\nPlease save these details for check‑in.');
+} else {
+showAlert('Error', data.error || 'Failed to resend.');
+}
+} catch(e) { showAlert('Error', 'Network error. Please try again.'); }
+}
 function openDeleteAccountModal() {
-  return new Promise((resolve) => {
-    const overlay = document.getElementById('customModal');
-    const titleEl = document.getElementById('modalTitle');
-    const bodyEl = document.getElementById('modalBody');
-    const footerEl = document.getElementById('modalFooter');
-
-    titleEl.textContent = 'Delete My Account';
-    bodyEl.innerHTML = `
-      <div style="text-align:left;line-height:1.7;">
-        <p style="color:#b91c1c;font-weight:700;">This action is permanent and cannot be undone.</p>
-        <p>Your account and personal details will be deleted. Past booking records stay in our accounting system, but your name, email, and phone number will be removed from them.</p>
-        <p style="margin-top:14px;">Please enter your password and type <strong>DELETE</strong> (all caps) to confirm.</p>
-        <div style="margin-top:14px;">
-          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Your Password</label>
-          <input id="da-password" type="password" class="form-input" placeholder="Enter your password" style="width:100%;" autocomplete="current-password" />
-        </div>
-        <div style="margin-top:12px;">
-          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Type DELETE to confirm</label>
-          <input id="da-confirm" type="text" class="form-input" placeholder="DELETE" style="width:100%;" autocomplete="off" />
-        </div>
-        <div id="da-error" style="display:none;margin-top:12px;padding:10px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;font-size:12px;"></div>
-      </div>
-    `;
-
-    footerEl.innerHTML = '';
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.onclick = () => { closeModal(); resolve(null); };
-    footerEl.appendChild(cancelBtn);
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = 'Delete My Account';
-    deleteBtn.className = 'btn btn-danger';
-    deleteBtn.onclick = () => {
-      const pwEl = document.getElementById('da-password');
-      const cfEl = document.getElementById('da-confirm');
-      const errEl = document.getElementById('da-error');
-      const pw = pwEl ? pwEl.value : '';
-      const phrase = cfEl ? cfEl.value.trim() : '';
-
-      if (!pw) {
-        errEl.textContent = 'Please enter your password.';
-        errEl.style.display = 'block';
-        return;
-      }
-      if (phrase !== 'DELETE') {
-        errEl.textContent = 'Type DELETE (all caps) to confirm.';
-        errEl.style.display = 'block';
-        return;
-      }
-      closeModal();
-      resolve({ password: pw, confirmPhrase: phrase });
-    };
-    footerEl.appendChild(deleteBtn);
-
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-    setTimeout(() => {
-      const inp = document.getElementById('da-password');
-      if (inp) inp.focus();
-    }, 200);
-  });
+return new Promise((resolve) => {
+const overlay = document.getElementById('customModal');
+const titleEl = document.getElementById('modalTitle');
+const bodyEl = document.getElementById('modalBody');
+const footerEl = document.getElementById('modalFooter');
+titleEl.textContent = 'Delete My Account';
+bodyEl.innerHTML = `
+<div style="text-align:left;line-height:1.7;">
+<p style="color:#b91c1c;font-weight:700;">This action is permanent and cannot be undone.</p>
+<p>Your account and personal details will be deleted. Past booking records stay in our accounting system, but your name, email, and phone number will be removed from them.</p>
+<p style="margin-top:14px;">Please enter your password and type <strong>DELETE</strong> (all caps) to confirm.</p>
+<div style="margin-top:14px;">
+<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Your Password</label>
+<input id="da-password" type="password" class="form-input" placeholder="Enter your password" style="width:100%;" autocomplete="current-password" />
+</div>
+<div style="margin-top:12px;">
+<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Type DELETE to confirm</label>
+<input id="da-confirm" type="text" class="form-input" placeholder="DELETE" style="width:100%;" autocomplete="off" />
+</div>
+<div id="da-error" style="display:none;margin-top:12px;padding:10px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;font-size:12px;"></div>
+</div>
+`;
+footerEl.innerHTML = '';
+const cancelBtn = document.createElement('button');
+cancelBtn.textContent = 'Cancel';
+cancelBtn.className = 'btn btn-secondary';
+cancelBtn.onclick = () => { closeModal(); resolve(null); };
+footerEl.appendChild(cancelBtn);
+const deleteBtn = document.createElement('button');
+deleteBtn.textContent = 'Delete My Account';
+deleteBtn.className = 'btn btn-danger';
+deleteBtn.onclick = () => {
+const pwEl = document.getElementById('da-password');
+const cfEl = document.getElementById('da-confirm');
+const errEl = document.getElementById('da-error');
+const pw = pwEl ? pwEl.value : '';
+const phrase = cfEl ? cfEl.value.trim() : '';
+if (!pw) {
+errEl.textContent = 'Please enter your password.';
+errEl.style.display = 'block';
+return;
 }
-
+if (phrase !== 'DELETE') {
+errEl.textContent = 'Type DELETE (all caps) to confirm.';
+errEl.style.display = 'block';
+return;
+}
+closeModal();
+resolve({ password: pw, confirmPhrase: phrase });
+};
+footerEl.appendChild(deleteBtn);
+overlay.classList.add('active');
+document.body.style.overflow = 'hidden';
+setTimeout(() => {
+const inp = document.getElementById('da-password');
+if (inp) inp.focus();
+}, 200);
+});
+}
 async function deleteMyAccount() {
-  const inputs = await openDeleteAccountModal();
-  if (!inputs) return;
-
-  const token = await fetchGuestCsrfToken();
-  if (!token) {
-    await showAlert(
-      'Session Error',
-      'Your session has expired or you are not logged in. Please log out, then log back in, and try again.'
-    );
-    return;
-  }
-
-  try {
-    const res = await fetch('/api/delete-account', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': token
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        userType: 'guest',
-        password: inputs.password,
-        confirmPhrase: inputs.confirmPhrase
-      })
-    });
-
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok || !data.success) {
-      const errMsg = data.error || 'Could not delete your account. Please try again or contact support@kundasanghomestay.my.';
-      await showAlert('Could Not Delete', errMsg);
-      return;
-    }
-
-    if (window.GuestSession && typeof window.GuestSession.clearGuestSession === 'function') {
-      window.GuestSession.clearGuestSession();
-    }
-    try { localStorage.removeItem('kd_guest'); } catch (e) {}
-    try { localStorage.removeItem('kd_csrf_token'); } catch (e) {}
-    try { localStorage.removeItem('kd_guest_csrf_token'); } catch (e) {}
-
-    await showAlert(
-      'Account Deleted',
-      'Your account has been deleted. A confirmation email has been sent. You will now be logged out.'
-    );
-    window.location.href = '/';
-  } catch (e) {
-    await showAlert('Network Error', 'Could not reach the server. Please check your connection and try again.');
-  }
+const inputs = await openDeleteAccountModal();
+if (!inputs) return;
+const token = await fetchGuestCsrfToken();
+if (!token) {
+await showAlert(
+'Session Error',
+'Your session has expired or you are not logged in. Please log out, then log back in, and try again.'
+);
+return;
 }
-
+try {
+const res = await fetch('/api/delete-account', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+'X-CSRF-Token': token
+},
+credentials: 'include',
+body: JSON.stringify({
+userType: 'guest',
+password: inputs.password,
+confirmPhrase: inputs.confirmPhrase
+})
+});
+const data = await res.json().catch(() => ({}));
+if (!res.ok || !data.success) {
+const errMsg = data.error || 'Could not delete your account. Please try again or contact support@kundasanghomestay.my.';
+await showAlert('Could Not Delete', errMsg);
+return;
+}
+if (window.GuestSession && typeof window.GuestSession.clearGuestSession === 'function') {
+window.GuestSession.clearGuestSession();
+}
+try { localStorage.removeItem('kd_guest'); } catch (e) {}
+try { localStorage.removeItem('kd_csrf_token'); } catch (e) {}
+try { localStorage.removeItem('kd_guest_csrf_token'); } catch (e) {}
+await showAlert(
+'Account Deleted',
+'Your account has been deleted. A confirmation email has been sent. You will now be logged out.'
+);
+window.location.href = '/';
+} catch (e) {
+await showAlert('Network Error', 'Could not reach the server. Please check your connection and try again.');
+}
+}
 window.deleteMyAccount = deleteMyAccount;
-
 (async function init() {
-  currentGuest = findLocalGuest();
-  renderGuestNav();
-
-  var serverSaysLoggedIn = false;
-  try {
-    const res = await fetch('/api/guest-session', { credentials: 'include', cache: 'no-store' });
-    const data = await res.json();
-    if (data.authenticated && data.guest) {
-      currentGuest = data.guest;
-      try { localStorage.setItem('kd_guest', JSON.stringify(currentGuest)); } catch (e) {}
-      if (window.GuestSession && typeof window.GuestSession.setSession === 'function') {
-        window.GuestSession.setSession(currentGuest);
-      }
-      serverSaysLoggedIn = true;
-      renderGuestNav();
-    }
-  } catch (e) {
-    serverSaysLoggedIn = !!currentGuest;
-  }
-
-  if (!serverSaysLoggedIn) {
-    currentGuest = null;
-    try { localStorage.removeItem('kd_guest'); } catch (e) {}
-    if (window.GuestSession) window.GuestSession.clearSession();
-    renderGuestNav();
-    showLoginRequired();
-    return;
-  }
-
-  fetchGuestCsrfToken();
-  loadMyBookings();
+currentGuest = findLocalGuest();
+renderGuestNav();
+var serverSaysLoggedIn = false;
+try {
+const res = await fetch('/api/guest-session', { credentials: 'include', cache: 'no-store' });
+const data = await res.json();
+if (data.authenticated && data.guest) {
+currentGuest = data.guest;
+try { localStorage.setItem('kd_guest', JSON.stringify(currentGuest)); } catch (e) {}
+if (window.GuestSession && typeof window.GuestSession.setSession === 'function') {
+window.GuestSession.setSession(currentGuest);
+}
+serverSaysLoggedIn = true;
+renderGuestNav();
+}
+} catch (e) {
+serverSaysLoggedIn = !!currentGuest;
+}
+if (!serverSaysLoggedIn) {
+currentGuest = null;
+try { localStorage.removeItem('kd_guest'); } catch (e) {}
+if (window.GuestSession) window.GuestSession.clearSession();
+renderGuestNav();
+showLoginRequired();
+return;
+}
+fetchGuestCsrfToken();
+loadMyBookings();
+})();
+</script>
+<script>
+// =============================================================
+// MOBILE BOTTOM NAV — active state + smart Account behaviour
+// Runs last so the nav HTML and GuestSession are both ready.
+// =============================================================
+(function () {
+var nav = document.getElementById('mobileBottomNav');
+if (!nav) return;
+var path = (window.location.pathname || '/').replace(/\/+$/, '') || '/';
+function isHome() {
+return path === '/' || path === '/index.html' || path === '/index1.html';
+}
+function isActive(target) {
+if (target === 'home') return isHome();
+if (target === 'explore') return path === '/explore.html';
+if (target === 'bookings') return path === '/mybookings.html';
+if (target === 'account') return path === '/login.html' || path === '/register.html';
+return false; // 'stays' is a scroll action, never persistent
+}
+nav.querySelectorAll('.bn-item').forEach(function (el) {
+if (isActive(el.getAttribute('data-nav-for'))) el.classList.add('bn-active');
+});
+// Smooth-scroll "Stays" when the guest is already on the homepage.
+var stays = nav.querySelector('[data-nav-for="stays"]');
+if (stays) {
+stays.addEventListener('click', function (e) {
+if (isHome()) {
+e.preventDefault();
+var target = document.getElementById('homePage');
+if (target) target.scrollIntoView({ behavior: 'smooth' });
+}
+});
+}
+// Logged-in guests: "Sign In" becomes "Account" and opens the
+// profile menu instead of sending them to the login page.
+// Reads GuestSession directly so it works even before async init.
+var guest = null;
+try {
+if (window.GuestSession && window.GuestSession.isGuestSessionValid()) guest = window.GuestSession.readGuest();
+} catch (e) {}
+var acc = nav.querySelector('[data-nav-for="account"]');
+if (acc && guest && guest.id) {
+var lbl = acc.querySelector('.bn-label');
+if (lbl) lbl.textContent = 'Account';
+acc.addEventListener('click', function (e) {
+e.preventDefault();
+window.toggleMobileMenu();
+});
+}
+// Hide the bottom bar while the top mobile menu is open so the
+// two never overlap on small screens.
+var origToggle = window.toggleMobileMenu;
+window.toggleMobileMenu = function () {
+origToggle();
+var menu = document.getElementById('mobileNav');
+var open = menu ? menu.classList.contains('open') : false;
+document.body.classList.toggle('bn-hidden', open);
+};
 })();
 </script>
 <script src="/footer-weather.js"></script>
