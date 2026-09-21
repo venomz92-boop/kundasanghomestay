@@ -1104,7 +1104,34 @@ never blocked by the bar. -->
 </a>
 </div>
 </nav>
-
+<!-- ===== SCRIPTS ===== -->
+<script src="animations.js"></script>
+<script>
+// ===== CSS sanitizer hook — strips url()/expression() etc from style attributes =====
+(function() {
+if (typeof DOMPurify === 'undefined') return;
+if (window.__kdCssHookInstalled) return;
+window.__kdCssHookInstalled = true;
+const DANGEROUS_RULE = /(?:\burl\s*\(|expression\s*\(|\bbehavior\s*:|-moz-binding|@import|javascript\s*:)/i;
+DOMPurify.addHook('afterSanitizeAttributes', function (node) {
+if (!node.getAttribute || !node.hasAttribute) return;
+if (!node.hasAttribute('style')) return;
+const raw = node.getAttribute('style') || '';
+if (!raw) return;
+if (!DANGEROUS_RULE.test(raw)) return;
+const safeRules = raw
+.split(';')
+.map(r => r.trim())
+.filter(r => r.length > 0)
+.filter(r => !DANGEROUS_RULE.test(r))
+.join('; ');
+if (safeRules.length === 0) {
+node.removeAttribute('style');
+} else {
+node.setAttribute('style', safeRules);
+}
+});
+})();
   <!-- ===== MODAL SYSTEM SCRIPT ===== -->
   <script>
     function showModal(title, message, buttons) {
