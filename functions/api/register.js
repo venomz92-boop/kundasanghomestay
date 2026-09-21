@@ -26,9 +26,17 @@
 // change in login.js. A newly-registered guest should not have to
 // re-login the next morning just to finish a booking they started the
 // night before.
+//
+// [SESSION COLLISION FIX]
+// When a guest registers, the `admin_token` cookie is now explicitly
+// cleared in the response. This prevents the same class of session-
+// collision leak that was fixed in login.js: a browser that had an
+// admin session (from a prior /admin.html login) and then registers
+// as a guest would hold BOTH cookies. Killing the admin cookie on
+// guest registration removes the ambiguity: one browser, one identity.
 import {
   corsHeaders, getClientIP, enforceHttps, hashPassword, createSignedToken,
-  generateCSRFToken, cookieHeader, jsonResponse, parseJSONSafely, logAction,
+  generateCSRFToken, cookieHeader, clearCookieHeader, jsonResponse, parseJSONSafely, logAction,
   checkRateLimit, recordRateLimit
 } from './_utils.js';
 
@@ -250,14 +258,19 @@ export async function onRequestPost({ request, env }) {
         : 'Welcome to Kundasang Homestay! Your account is ready.'
     };
 
+    // Build headers with TWO Set-Cookie directives:
+    //   1. Set the new guest_token.
+    //   2. Clear the admin_token so this browser can no longer be
+    //      mistaken for an admin. Prevents the session-collision leak.
+    const headers = new Headers(corsHeaders(request));
+    headers.append('Set-Cookie', cookieHeader('guest_token', sessionToken, GUEST_TTL_SECONDS));
+    headers.append('Set-Cookie', clearCookieHeader('admin_token'));
+
     return new Response(
       JSON.stringify(responseData),
       {
         status: 200,
-        headers: {
-          ...corsHeaders(request),
-          'Set-Cookie': cookieHeader('guest_token', sessionToken, GUEST_TTL_SECONDS)
-        }
+        headers
       }
     );
 
