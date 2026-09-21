@@ -1,766 +1,828 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>List Your Property - Kundasang Homestay Host Portal</title>
-  <meta name="title" content="Host Registration - Kundasang Homestay" />
-  <meta name="description" content="List your homestay property in Kundasang, Sabah. Join our verified local host network, earn from your property with zero commission fees." />
-  <meta name="keywords" content="list homestay kundasang, become a host sabah, rent property kundasang, homestay hosting" />
-  <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://kundasanghomestay.my/list.html" />
-
-  <!-- Open Graph -->
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://kundasanghomestay.my/list.html" />
-  <meta property="og:title" content="List Your Property - Kundasang Homestay" />
-  <meta property="og:description" content="Become a host in Kundasang. List your homestay with zero commission and reach travelers seeking authentic mountain stays." />
-  <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" />
-  
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="stylesheet" href="animations.css" />
-  <link rel="stylesheet" href="styles.css" />
-  <script src="/guest-session.js"></script>
-  <script src="/csrf-auto.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>List Your Property - Kundasang Homestay Host Portal</title>
+<meta name="title" content="Host Registration - Kundasang Homestay" />
+<meta name="description" content="List your homestay property in Kundasang, Sabah. Join our verified local host network, earn from your property with zero commission fees." />
+<meta name="keywords" content="list homestay kundasang, become a host sabah, rent property kundasang, homestay hosting" />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href="https://kundasanghomestay.my/list.html" />
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://kundasanghomestay.my/list.html" />
+<meta property="og:title" content="List Your Property - Kundasang Homestay" />
+<meta property="og:description" content="Become a host in Kundasang. List your homestay with zero commission and reach travelers seeking authentic mountain stays." />
+<meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="stylesheet" href="animations.css" />
+<link rel="stylesheet" href="styles.css" />
+<script src="/guest-session.js"></script>
+<script src="/csrf-auto.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+MOBILE BOTTOM NAV — Material Design 3 (mobile only)
+Pill indicator behind the active icon; hidden on desktop (lg+).
+============================================================ */
+.bn-item {
+flex: 1 1 0%;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 3px;
+padding: 8px 0 7px;
+text-decoration: none;
+-webkit-tap-highlight-color: transparent;
+}
+.bn-icon-wrap {
+width: 58px;
+height: 32px;
+border-radius: 999px;
+display: flex;
+align-items: center;
+justify-content: center;
+color: rgba(33, 33, 33, 0.55);
+transition: background 0.25s ease, color 0.25s ease;
+}
+.bn-item:active .bn-icon-wrap { background: rgba(15, 56, 46, 0.10); }
+.bn-item svg { width: 21px; height: 21px; }
+.bn-label {
+font-family: 'Poppins', sans-serif;
+font-size: 10.5px;
+font-weight: 600;
+letter-spacing: 0.2px;
+color: rgba(33, 33, 33, 0.55);
+transition: color 0.2s ease;
+}
+.bn-item.bn-active .bn-icon-wrap { background: #0F382E; color: #ffffff; }
+.bn-item.bn-active .bn-label { color: #0F382E; font-weight: 700; }
+/* Hide the bottom bar while the top mobile menu is open */
+body.bn-hidden #mobileBottomNav { display: none; }
+/* Reserve space so the fixed bar never covers page content */
+@media (max-width: 1023.98px) {
+body { padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+}
+</style>
 </head>
 <body>
-
 <div id="customModal" class="modal-overlay">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h3 id="modalTitle">Notice</h3>
-      <button onclick="closeModal()" class="modal-close">✕</button>
-    </div>
-    <div class="modal-body" id="modalBody">Message</div>
-    <div class="modal-footer" id="modalFooter">
-      <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
-    </div>
-  </div>
+<div class="modal-box">
+<div class="modal-header">
+<h3 id="modalTitle">Notice</h3>
+<button onclick="closeModal()" class="modal-close">✕</button>
 </div>
-
+<div class="modal-body" id="modalBody">Message</div>
+<div class="modal-footer" id="modalFooter">
+<button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
+</div>
+</div>
+</div>
 <script>
-  let lastToggleTime = 0;
-  window.toggleMobileMenu = function() {
-    const now = Date.now();
-    if (now - lastToggleTime < 300) return;
-    lastToggleTime = now;
-    const nav = document.getElementById('mobileNav');
-    if (nav) {
-      nav.classList.toggle('open');
-      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
-    }
-  };
+let lastToggleTime = 0;
+window.toggleMobileMenu = function() {
+const now = Date.now();
+if (now - lastToggleTime < 300) return;
+lastToggleTime = now;
+const nav = document.getElementById('mobileNav');
+if (nav) {
+nav.classList.toggle('open');
+document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+}
+};
 </script>
-
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
-  <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
-    <a href="/" class="flex items-center gap-3 shrink-0 group">
-      <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
-      <div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
-        KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px] md:text-[17px]"> • Homestay.my</span>
-        <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Stay • Connect • Belong</div>
-      </div>
-    </a>
-
-    <nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
-      <a href="/" class="setsail-nav-link" data-nav="home">Home</a>
-      <a href="/about.html" class="setsail-nav-link" data-nav="about">About Us</a>
-      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
-    </nav>
-
-    <div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
-      <div id="guestNav" class="flex items-center gap-2">
-        <a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
-        <a href="/register.html" class="header-pill header-pill-accent">Register</a>
-      </div>
-      <div id="guestProfileNav" class="hidden items-center gap-3">
-        <a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
-        <div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
-          <div id="guestAvatar" class="w-8 h-8 rounded-full bg-[#D4A373] text-[#0F382E] flex items-center justify-center text-xs font-bold">G</div>
-          <span id="guestNameNav" class="text-xs font-600 max-w-[90px] truncate">Guest</span>
-          <button onclick="logoutGuest()" class="ml-1 text-[10px] opacity-70 hover:opacity-100 uppercase tracking-wider transition-opacity">Logout</button>
-        </div>
-      </div>
-      <a href="/owner-register.html" class="btn-primary" style="padding:11px 22px; font-size:11px;">List Your Homestay</a>
-    </div>
-
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
-      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-    </button>
-
-    <script>
-      (function() {
-        var btn = document.getElementById('mobileMenuBtn');
-        if (btn) {
-          btn.removeEventListener('click', window.toggleMobileMenu);
-          btn.removeEventListener('touchstart', window.toggleMobileMenu);
-          btn.addEventListener('click', window.toggleMobileMenu);
-          btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
-        }
-      })();
-    </script>
-  </div>
-</header>
-
-<div id="mobileNav">
-  <div class="p-4">
-    <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
-    <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
-    <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
-
-    <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">For Hosts</div>
-    <a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
-      <div style="display:flex; align-items:center; gap:12px; padding:14px 14px; border-radius:14px; background:#F8F5F0; border:1px solid rgba(212,163,115,0.35); transition: background 0.2s;">
-        <div style="width:40px; height:40px; border-radius:999px; background:#0F382E; color:#ffffff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px;">🏡</div>
-        <div style="flex:1; min-width:0;">
-          <div style="font-family:Poppins, sans-serif; font-weight:700; font-size:13px; color:#212121; line-height:1.2;">List Your Homestay</div>
-          <div style="font-family:Poppins, sans-serif; font-weight:500; font-size:10.5px; color:rgba(33,33,33,0.55); margin-top:2px;">Earn from your property</div>
-        </div>
-        <svg width="16" height="16" fill="none" stroke="rgba(33,33,33,0.35)" stroke-width="2.2" viewBox="0 0 24 24" style="flex-shrink:0;">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-        </svg>
-      </div>
-    </a>
-
-    <div class="px-1 pt-1">
-      <a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a>
-    </div>
-
-    <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
-    <div id="mGuestNav" class="space-y-2.5 px-1">
-      <a href="/login.html" class="guest-btn guest-btn-primary block text-center">Sign In</a>
-      <a href="/register.html" class="guest-btn block text-center">Create Account</a>
-    </div>
-    <div id="mGuestProfileNav" class="hidden space-y-2 px-1">
-      <div class="profile-card">
-        <div id="mGuestAvatar" class="avatar">G</div>
-        <div class="info">
-          <div id="mGuestNameNav" class="name">Guest</div>
-          <div class="sub">Verified guest</div>
-        </div>
-        <button onclick="logoutGuest()" class="logout-btn">Logout</button>
-      </div>
-      <a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
-    </div>
-  </div>
+<div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
+<a href="/" class="flex items-center gap-3 shrink-0 group">
+<img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+<div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
+KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px] md:text-[17px]"> • Homestay.my</span>
+<div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Stay • Connect • Belong</div>
 </div>
-
+</a>
+<nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
+<a href="/" class="setsail-nav-link" data-nav="home">Home</a>
+<a href="/about.html" class="setsail-nav-link" data-nav="about">About Us</a>
+<a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
+</nav>
+<div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
+<div id="guestNav" class="flex items-center gap-2">
+<a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
+<a href="/register.html" class="header-pill header-pill-accent">Register</a>
+</div>
+<div id="guestProfileNav" class="hidden items-center gap-3">
+<a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
+<div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
+<div id="guestAvatar" class="w-8 h-8 rounded-full bg-[#D4A373] text-[#0F382E] flex items-center justify-center text-xs font-bold">G</div>
+<span id="guestNameNav" class="text-xs font-600 max-w-[90px] truncate">Guest</span>
+<button onclick="logoutGuest()" class="ml-1 text-[10px] opacity-70 hover:opacity-100 uppercase tracking-wider transition-opacity">Logout</button>
+</div>
+</div>
+<a href="/owner-register.html" class="btn-primary" style="padding:11px 22px; font-size:11px;">List Your Homestay</a>
+</div>
+<button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
+<svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+</button>
+<script>
+(function() {
+var btn = document.getElementById('mobileMenuBtn');
+if (btn) {
+btn.removeEventListener('click', window.toggleMobileMenu);
+btn.removeEventListener('touchstart', window.toggleMobileMenu);
+btn.addEventListener('click', window.toggleMobileMenu);
+btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
+}
+})();
+</script>
+</div>
+</header>
+<div id="mobileNav">
+<div class="p-4">
+<div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
+<a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+<a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
+<div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">For Hosts</div>
+<a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
+<div style="display:flex; align-items:center; gap:12px; padding:14px 14px; border-radius:14px; background:#F8F5F0; border:1px solid rgba(212,163,115,0.35); transition: background 0.2s;">
+<div style="width:40px; height:40px; border-radius:999px; background:#0F382E; color:#ffffff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px;">🏡</div>
+<div style="flex:1; min-width:0;">
+<div style="font-family:Poppins, sans-serif; font-weight:700; font-size:13px; color:#212121; line-height:1.2;">List Your Homestay</div>
+<div style="font-family:Poppins, sans-serif; font-weight:500; font-size:10.5px; color:rgba(33,33,33,0.55); margin-top:2px;">Earn from your property</div>
+</div>
+<svg width="16" height="16" fill="none" stroke="rgba(33,33,33,0.35)" stroke-width="2.2" viewBox="0 0 24 24" style="flex-shrink:0;">
+<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+</svg>
+</div>
+</a>
+<div class="px-1 pt-1">
+<a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a>
+</div>
+<div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
+<div id="mGuestNav" class="space-y-2.5 px-1">
+<a href="/login.html" class="guest-btn guest-btn-primary block text-center">Sign In</a>
+<a href="/register.html" class="guest-btn block text-center">Create Account</a>
+</div>
+<div id="mGuestProfileNav" class="hidden space-y-2 px-1">
+<div class="profile-card">
+<div id="mGuestAvatar" class="avatar">G</div>
+<div class="info">
+<div id="mGuestNameNav" class="name">Guest</div>
+<div class="sub">Verified guest</div>
+</div>
+<button onclick="logoutGuest()" class="logout-btn">Logout</button>
+</div>
+<a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
+</div>
+</div>
+</div>
 <section class="relative w-full h-[320px] md:h-[400px] overflow-hidden">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu backdrop" class="absolute inset-0 w-full h-full object-cover" />
-  <div class="absolute inset-0 bg-black/35"></div>
-  <div class="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20"></div>
-  <div class="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
-    <div class="font-satisfy text-[#D4A373] text-[30px] md:text-[36px] leading-none mb-2">Grow Your Business</div>
-    <h1 class="font-poppins font-700 text-white text-[34px] md:text-[56px] leading-[1.0] tracking-[-1px] drop-shadow-md">Host In Kundasang</h1>
-    <p class="mt-3 font-poppins font-500 text-white/95 text-[14px] md:text-[16px] max-w-[620px] leading-[1.6]">List your property with Sabah's primary verified homestay system. Keep 100% control of your nights and payouts.</p>
-  </div>
+<img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu backdrop" class="absolute inset-0 w-full h-full object-cover" />
+<div class="absolute inset-0 bg-black/35"></div>
+<div class="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20"></div>
+<div class="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
+<div class="font-satisfy text-[#D4A373] text-[30px] md:text-[36px] leading-none mb-2">Grow Your Business</div>
+<h1 class="font-poppins font-700 text-white text-[34px] md:text-[56px] leading-[1.0] tracking-[-1px] drop-shadow-md">Host In Kundasang</h1>
+<p class="mt-3 font-poppins font-500 text-white/95 text-[14px] md:text-[16px] max-w-[620px] leading-[1.6]">List your property with Sabah's primary verified homestay system. Keep 100% control of your nights and payouts.</p>
+</div>
 </section>
-
 <main class="page-content max-w-[960px] mx-auto px-5 md:px-8 py-14">
-  <div class="text-center mb-12 animate-on-scroll">
-    <h2 class="font-poppins font-700 text-[28px] md:text-[34px] text-[#212121] tracking-[-0.5px]">Register Your Homestay</h2>
-    <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-3 rounded-full mb-4"></div>
-    <p class="font-poppins text-[13px] text-[#212121]/60 max-w-[540px] mx-auto leading-[1.6]">To protect local tourists, all listings start as <span class="text-amber-700 font-600">Pending</span> until physically verified. Live listing approvals take 24 hours.</p>
-    <div class="mt-4 flex items-center justify-center gap-3 flex-wrap text-xs font-semibold">
-      <span class="bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1.5 rounded-full">⏳ Approved within 24 Hours</span>
-      <span class="bg-[#D4A373]/10 text-[#0F382E] border border-[#D4A373]/20 px-3 py-1.5 rounded-full">🔒 AES-256 Local Encryption Secured</span>
-    </div>
-  </div>
-
-  <div id="accountRequiredBanner" class="mb-8 rounded-2xl border border-amber-300 bg-amber-50 p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center gap-4 animate-on-scroll">
-    <div class="text-3xl md:text-4xl leading-none">🔐</div>
-    <div class="flex-1 min-w-0">
-      <div class="font-poppins font-800 text-[15px] md:text-[16px] text-amber-900">A verified host account is required before you can list a property</div>
-      <div class="text-[12px] md:text-[13px] text-amber-800 mt-1 leading-relaxed">
-        This protects guests from fake listings. Create a free host account, verify your email (1 minute), then return here to submit your property details.
-      </div>
-    </div>
-    <div class="flex gap-2 flex-wrap shrink-0">
-      <a href="/owner-register.html" class="btn-primary" style="padding:10px 20px; font-size:11px;">Create Host Account</a>
-      <a href="/owner.html" class="btn-outline" style="padding:10px 20px; font-size:11px;">I already have one</a>
-    </div>
-  </div>
-
-  <div class="card p-6 md:p-10 bg-white shadow-xl animate-on-scroll">
-    <div class="space-y-8">
-      <section class="space-y-4">
-        <div class="flex items-center gap-2 border-b pb-2">
-          <svg class="w-5 h-5 text-[#0F382E]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-          <span class="font-bold text-[16px] text-[#212121]">Host Details</span>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="text-xs font-semibold text-[#212121]">Full Host Name (as in IC / License) *</label>
-            <input id="listOwnerName" type="text" placeholder="e.g. Mohd Ibrahim Bin Ahmad" class="form-input mt-1" />
-          </div>
-          <div>
-            <label class="text-xs font-semibold text-[#212121]">WhatsApp Contact Number *</label>
-            <input id="listWhatsapp" type="tel" placeholder="e.g. 0123456789" class="form-input mt-1" />
-            <span class="text-[10px] text-zinc-500 mt-1 block">For automated guest receipts and direct check-in messages.</span>
-          </div>
-        </div>
-        <div>
-          <label class="text-xs font-semibold text-[#212121]">Active Email Address *</label>
-          <input id="listOwnerEmail" type="email" placeholder="e.g. host@domain.com" class="form-input mt-1" />
-        </div>
-      </section>
-
-      <section class="space-y-4">
-        <div class="flex items-center gap-2 border-b pb-2">
-          <svg class="w-5 h-5 text-[#0F382E]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-          <span class="font-bold text-[16px] text-[#212121]">Property Details</span>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="text-xs font-semibold text-[#212121]">Homestay Display Name *</label>
-            <input id="listHomestayName" type="text" placeholder="e.g. Mesilau Pine View Cabin A" class="form-input mt-1" />
-          </div>
-          <div>
-            <label class="text-xs font-semibold text-[#212121]">Location / Area *</label>
-            <select id="listArea" class="form-select mt-1">
-              <option value="Mesilou">Mesilau</option>
-              <option value="Pekan Kundasang">Pekan Kundasang</option>
-              <option value="Bundu Tuhan">Bundu Tuhan</option>
-              <option value="Kampung Kinasaraban">Kampung Kinasaraban</option>
-              <option value="Kampung Lembah Permai">Kampung Lembah Permai</option>
-              <option value="Kampung Cinta Mata">Kampung Cinta Mata</option>
-              <option value="Kampung Kauluan">Kampung Kauluan</option>
-              <option value="Kampung Sosondoton">Kampung Sosondoton</option>
-            </select>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label class="text-xs font-semibold text-[#212121]">Price per Night (RM) *</label>
-            <input id="listPrice" type="number" placeholder="250" class="form-input mt-1" />
-          </div>
-          <div>
-            <label class="text-xs font-semibold text-[#212121]">Max Guest Capacity *</label>
-            <input id="listGuests" type="number" placeholder="6" class="form-input mt-1" />
-          </div>
-          <div>
-            <label class="text-xs font-semibold text-[#212121]">Total Bedrooms *</label>
-            <input id="listBedrooms" type="number" placeholder="3" class="form-input mt-1" />
-          </div>
-        </div>
-        <div>
-          <label class="text-xs font-semibold text-[#212121]">Property Description *</label>
-          <textarea id="listDescription" rows="4" placeholder="Mention view of Mt Kinabalu, steamboat facilities, water heaters, balcony, or 4x4 road access conditions..." class="form-input mt-1 resize-none"></textarea>
-        </div>
-      </section>
-
-      <section class="space-y-4 mt-8 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
-        <div class="flex items-center gap-2">
-          <svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-          <span class="font-bold text-[16px] text-blue-950">Rooms & Pricing</span>
-          <span class="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full">Multi‑room support</span>
-        </div>
-        <p class="text-xs text-zinc-600">Add each room type separately. You can upload photos for each room.</p>
-        <div id="roomsContainer">
-          <div id="roomsList" class="space-y-3"></div>
-          <button type="button" onclick="addRoom()" class="btn-accent mt-2">+ Add Room</button>
-        </div>
-      </section>
-
-      <section class="space-y-4 border-l-4 border-amber-400 bg-amber-50/50 p-4 rounded-xl">
-        <div class="flex items-center gap-2">
-          <svg class="w-5 h-5 text-amber-800" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <span class="font-bold text-[16px] text-amber-900">Escrow Account Details</span>
-        </div>
-        <p class="text-xs text-zinc-600">Secure booking settlement runs direct. Account details provided must correlate to host legal identity.</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="md:col-span-2">
-            <label class="text-xs font-semibold text-[#212121]">Receiving Bank *</label>
-            <select id="listBankName" class="form-select mt-1">
-              <option value="">Loading banks…</option>
-            </select>
-            <p class="text-[10px] text-zinc-500 mt-1">Only banks supported by CHIP Send are listed. This is the account that will receive your payouts.</p>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div><label class="text-xs font-semibold text-[#212121]">Bank Account Number *</label><input id="listBankAccount" type="text" placeholder="Account Number" class="form-input mt-1" /></div>
-          <div><label class="text-xs font-semibold text-[#212121]">Beneficiary Account Name *</label><input id="listBankHolder" type="text" placeholder="As written in bank statements" class="form-input mt-1" /></div>
-        </div>
-        <div class="mt-4">
-          <label class="text-xs font-semibold text-[#212121]">DuitNow / Bank QR Code Template *</label>
-          <p class="text-[11px] text-zinc-500 mb-2">Upload your bank QR code image so guests can scan directly on success modals.</p>
-          <div class="drop-zone" onclick="document.getElementById('listBankQR').click()">
-            <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-            <p class="text-xs text-zinc-600 mt-2">Click to select DuitNow / Bank QR image</p>
-            <p class="text-[10px] text-zinc-400 mt-1">Accepts JPG, PNG up to 3MB</p>
-          </div>
-          <input id="listBankQR" type="file" accept="image/*" class="hidden" onchange="handleBankQRUpload(this)" />
-          <div id="bankQRPreview" class="mt-4 hidden p-3 bg-zinc-50 border rounded-xl inline-flex flex-col items-center">
-            <img id="bankQRImg" class="w-[140px] h-[140px] object-contain bg-white p-2 border border-zinc-200 rounded-xl" alt="Bank QR template preview" />
-            <button onclick="removeBankQR()" type="button" class="mt-2 text-xs text-red-600 font-semibold hover:underline">Remove Image</button>
-          </div>
-        </div>
-        <label class="flex gap-2.5 mt-4 text-xs select-none cursor-pointer">
-          <input id="listBankConfirm" type="checkbox" class="mt-1" />
-          <span class="text-zinc-700">I confirm that this bank account matches my Host Name as per identification documents.</span>
-        </label>
-      </section>
-
-      <section class="space-y-4">
-        <div class="flex items-center gap-2 border-b pb-2">
-          <svg class="w-5 h-5 text-[#0F382E]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          <span class="font-bold text-[16px] text-[#212121]">Property Gallery</span>
-        </div>
-        <div class="drop-zone" onclick="document.getElementById('listPhotos').click()">
-          <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          <p class="text-xs text-zinc-600 mt-2">Click to select 3-5 high-resolution photos of your property</p>
-          <p class="text-[10px] text-zinc-400 mt-1">Primary photo will represent listing cover thumbnail</p>
-        </div>
-        <input id="listPhotos" type="file" multiple accept="image/*" class="hidden" onchange="handlePhotos(this)" />
-        <div id="photoPreview" class="grid grid-cols-3 md:grid-cols-6 gap-3 mt-4"></div>
-      </section>
-
-      <section class="space-y-4 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
-        <div class="flex items-center gap-2">
-          <svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-          <span class="font-bold text-[16px] text-blue-950">Secure Host Verification</span>
-        </div>
-        <p class="text-xs text-zinc-600">To prevent fraud, submit a photo of your national IC (Front). A persistent security watermark is drawn inside your browser window before raw file transmission.</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div><label class="text-xs font-semibold text-[#212121]">Full Legal Name as in IC *</label><input id="listIcName" type="text" placeholder="As printed in identification card" class="form-input mt-1 uppercase" /></div>
-          <div><label class="text-xs font-semibold text-[#212121]">IC Number (optional)</label><input id="listIcNumber" type="text" placeholder="e.g. 880101-12-1234" class="form-input mt-1" /></div>
-        </div>
-        <div class="mt-4">
-          <label class="text-xs font-semibold text-[#212121]">Upload IC (Selfie with IC) image *</label>
-          <div class="drop-zone" onclick="document.getElementById('listIcFront').click()">
-            <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-            <p class="text-xs text-zinc-600 mt-2">Click to select IC document photo</p>
-            <p class="text-[10px] text-zinc-400 mt-1">Secure client-side watermarks are auto-applied</p>
-          </div>
-          <input id="listIcFront" type="file" accept="image/*" class="hidden" onchange="handleIcFile(this)" />
-          <div id="icPreviewWrap" class="mt-4 hidden space-y-3">
-            <div class="text-xs font-semibold text-zinc-700">Secured Document Preview:</div>
-            <img id="icPreview" class="w-full max-w-[440px] border rounded-xl shadow bg-white" alt="Secure client-side watermark preview" />
-            <div id="icWatermarkInfo" class="text-xs text-green-800 p-3 bg-green-50 border border-green-200 rounded-xl"></div>
-            <button onclick="removeIc()" type="button" class="px-4 py-1.5 border bg-white text-xs text-zinc-700 font-semibold rounded-full hover:bg-zinc-50">Cancel Identification Upload</button>
-          </div>
-          <canvas id="icCanvas" class="hidden"></canvas>
-        </div>
-      </section>
-
-      <section class="space-y-4 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
-        <div class="flex items-center gap-2">
-          <svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-          <span class="font-bold text-[16px] text-blue-950">PBT Trading License</span>
-        </div>
-        <p class="text-xs text-zinc-600">
-          Upload <strong>PBT (Pihak Berkuasa Tempatan)</strong> trading license here. <strong>Not digital PBT.</strong>
-          This adds extra credibility for approval to your listing.
-        </p>
-        <div>
-          <label class="text-xs font-semibold text-[#212121]">Upload License (JPG/PNG)</label>
-          <div class="drop-zone mt-1" onclick="document.getElementById('listPbtLicense').click()">
-            <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <p class="text-xs text-zinc-600 mt-2">Tap to select or take a photo</p>
-          </div>
-          <input id="listPbtLicense" type="file" accept="image/*" capture="environment" class="hidden" onchange="handlePbtLicense(this)" />
-          <div id="pbtPreviewWrap" class="mt-4 hidden space-y-3">
-            <div class="text-xs font-semibold text-zinc-700">License Preview:</div>
-            <img id="pbtPreview" class="w-full max-w-[440px] border rounded-xl shadow bg-white" alt="PBT License preview" />
-            <button onclick="removePbtLicense()" type="button" class="px-4 py-1.5 border bg-white text-xs text-zinc-700 font-semibold rounded-full hover:bg-zinc-50">Remove</button>
-          </div>
-        </div>
-      </section>
-
-      <section id="ownerPasswordSection" class="space-y-4 border-l-4 border-purple-400 bg-purple-50/50 p-4 rounded-xl">
-        <div class="flex items-center gap-2">
-          <svg class="w-5 h-5 text-purple-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m-2 2a2 2 0 002-2m2 0a2 2 0 012 2m3 5a3 3 0 01-3 3H9a3 3 0 01-3-3m9.93 0l-1.977-1.977A1.5 1.5 0 0011.66 11.1l-1.977-1.977M15 7h.01M15 11h.01"/></svg>
-          <span class="font-bold text-[16px] text-purple-950">Verify with Host Account Password</span>
-        </div>
-        <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 leading-relaxed">
-          <strong>🔑 Password must match an existing verified host account.</strong><br>
-          Type the password you used when you <a href="/owner-register.html" class="underline font-semibold">created your host account</a>.
-          If you haven't created one yet, please do that first — the property submission will be rejected without it.
-        </div>
-        <div>
-          <label class="text-xs font-semibold text-[#212121]">Host Account Password *</label>
-          <input id="listOwnerPassword" type="password" placeholder="Your existing host account password" class="form-input mt-1" autocomplete="current-password" />
-        </div>
-      </section>
-
-      <section class="space-y-4 border-l-4 border-emerald-400 bg-emerald-50/50 p-4 rounded-xl">
-        <div class="flex items-center gap-2">
-          <svg class="w-5 h-5 text-emerald-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          <span class="font-bold text-[16px] text-emerald-950">Availability Exclusions</span>
-        </div>
-        <p class="text-xs text-zinc-600 font-poppins">Mark dates that are unavailable (such as personal use, maintenance, or off-site bookings).</p>
-        <div class="flex flex-col md:flex-row gap-3">
-          <input id="listBlockedDateInput" type="date" class="form-input max-w-full md:max-w-xs" />
-          <div class="flex gap-2">
-            <button onclick="addBlockedDate()" type="button" class="btn-primary">+ Block Date</button>
-            <button onclick="addBlockedRange()" type="button" class="btn-outline">Block Range</button>
-          </div>
-        </div>
-        <div id="blockedDatesList" class="mt-3 flex flex-wrap gap-2"></div>
-        <div id="blockedDatesCount" class="text-xs text-zinc-500 font-semibold">0 Dates Blocked</div>
-      </section>
-
-      <section class="space-y-4 border-l-4 border-amber-400 bg-amber-50/50 p-4 rounded-xl mt-6">
-        <div class="flex items-center gap-2">
-          <svg class="w-5 h-5 text-amber-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-          <span class="font-bold text-[16px] text-amber-900">Data Privacy & Consent</span>
-        </div>
-        <p class="text-xs text-zinc-600">
-          Your IC, bank QR, and PBT trading license images are used <strong>only for one‑time verification</strong>.
-          They are <strong>automatically and permanently deleted</strong> from our servers once your listing is approved or rejected.
-          We store only your name, contact details, and bank account information for payout purposes.
-        </p>
-        <label class="flex gap-2.5 text-xs select-none cursor-pointer items-start">
-          <input id="listConsent" type="checkbox" required class="mt-1" />
-          <span class="text-zinc-700">
-            I consent to my data being processed for verification, listing, and payout purposes as described above.
-            <span class="text-red-500">*</span>
-          </span>
-        </label>
-        <label class="flex gap-2.5 text-xs select-none cursor-pointer items-start mt-3">
-          <input id="listHostAgreement" type="checkbox" required class="mt-1" />
-          <span class="text-zinc-700">
-            I have read and agree to the 
-            <a href="/host-agreement.html" target="_blank" rel="noopener noreferrer" class="text-[#0F382E] font-semibold underline hover:text-[#D4A373]">Host Agreement</a>
-            and 
-            <a href="/terms.html" target="_blank" rel="noopener noreferrer" class="text-[#0F382E] font-semibold underline hover:text-[#D4A373]">Terms &amp; Conditions</a>.
-            <span class="text-red-500">*</span>
-          </span>
-        </label>
-      </section>
-
-      <div class="pt-6 space-y-4">
-        <button onclick="submitHomestay()" class="w-full btn-primary py-4 text-sm tracking-widest font-800" id="submitBtn">Submit Homestay Listing for Approval</button>
-        <div id="submitStatus" class="hidden p-4 rounded-xl border text-sm"></div>
-        <p class="text-center text-zinc-400 text-[11px] font-medium leading-relaxed">By compiling this form, you acknowledge our registration policies. IC and financial records are held strictly in compliance with Sabah cyber security frameworks.</p>
-      </div>
-    </div>
-  </div>
+<div class="text-center mb-12 animate-on-scroll">
+<h2 class="font-poppins font-700 text-[28px] md:text-[34px] text-[#212121] tracking-[-0.5px]">Register Your Homestay</h2>
+<div class="w-[48px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-3 rounded-full mb-4"></div>
+<p class="font-poppins text-[13px] text-[#212121]/60 max-w-[540px] mx-auto leading-[1.6]">To protect local tourists, all listings start as <span class="text-amber-700 font-600">Pending</span> until physically verified. Live listing approvals take 24 hours.</p>
+<div class="mt-4 flex items-center justify-center gap-3 flex-wrap text-xs font-semibold">
+<span class="bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1.5 rounded-full">⏳ Approved within 24 Hours</span>
+<span class="bg-[#D4A373]/10 text-[#0F382E] border border-[#D4A373]/20 px-3 py-1.5 rounded-full">🔒 AES-256 Local Encryption Secured</span>
+</div>
+</div>
+<div id="accountRequiredBanner" class="mb-8 rounded-2xl border border-amber-300 bg-amber-50 p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center gap-4 animate-on-scroll">
+<div class="text-3xl md:text-4xl leading-none">🔐</div>
+<div class="flex-1 min-w-0">
+<div class="font-poppins font-800 text-[15px] md:text-[16px] text-amber-900">A verified host account is required before you can list a property</div>
+<div class="text-[12px] md:text-[13px] text-amber-800 mt-1 leading-relaxed">
+This protects guests from fake listings. Create a free host account, verify your email (1 minute), then return here to submit your property details.
+</div>
+</div>
+<div class="flex gap-2 flex-wrap shrink-0">
+<a href="/owner-register.html" class="btn-primary" style="padding:10px 20px; font-size:11px;">Create Host Account</a>
+<a href="/owner.html" class="btn-outline" style="padding:10px 20px; font-size:11px;">I already have one</a>
+</div>
+</div>
+<div class="card p-6 md:p-10 bg-white shadow-xl animate-on-scroll">
+<div class="space-y-8">
+<section class="space-y-4">
+<div class="flex items-center gap-2 border-b pb-2">
+<svg class="w-5 h-5 text-[#0F382E]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+<span class="font-bold text-[16px] text-[#212121]">Host Details</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="text-xs font-semibold text-[#212121]">Full Host Name (as in IC / License) *</label>
+<input id="listOwnerName" type="text" placeholder="e.g. Mohd Ibrahim Bin Ahmad" class="form-input mt-1" />
+</div>
+<div>
+<label class="text-xs font-semibold text-[#212121]">WhatsApp Contact Number *</label>
+<input id="listWhatsapp" type="tel" placeholder="e.g. 0123456789" class="form-input mt-1" />
+<span class="text-[10px] text-zinc-500 mt-1 block">For automated guest receipts and direct check-in messages.</span>
+</div>
+</div>
+<div>
+<label class="text-xs font-semibold text-[#212121]">Active Email Address *</label>
+<input id="listOwnerEmail" type="email" placeholder="e.g. host@domain.com" class="form-input mt-1" />
+</div>
+</section>
+<section class="space-y-4">
+<div class="flex items-center gap-2 border-b pb-2">
+<svg class="w-5 h-5 text-[#0F382E]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+<span class="font-bold text-[16px] text-[#212121]">Property Details</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="text-xs font-semibold text-[#212121]">Homestay Display Name *</label>
+<input id="listHomestayName" type="text" placeholder="e.g. Mesilau Pine View Cabin A" class="form-input mt-1" />
+</div>
+<div>
+<label class="text-xs font-semibold text-[#212121]">Location / Area *</label>
+<select id="listArea" class="form-select mt-1">
+<option value="Mesilou">Mesilau</option>
+<option value="Pekan Kundasang">Pekan Kundasang</option>
+<option value="Bundu Tuhan">Bundu Tuhan</option>
+<option value="Kampung Kinasaraban">Kampung Kinasaraban</option>
+<option value="Kampung Lembah Permai">Kampung Lembah Permai</option>
+<option value="Kampung Cinta Mata">Kampung Cinta Mata</option>
+<option value="Kampung Kauluan">Kampung Kauluan</option>
+<option value="Kampung Sosondoton">Kampung Sosondoton</option>
+</select>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div>
+<label class="text-xs font-semibold text-[#212121]">Price per Night (RM) *</label>
+<input id="listPrice" type="number" placeholder="250" class="form-input mt-1" />
+</div>
+<div>
+<label class="text-xs font-semibold text-[#212121]">Max Guest Capacity *</label>
+<input id="listGuests" type="number" placeholder="6" class="form-input mt-1" />
+</div>
+<div>
+<label class="text-xs font-semibold text-[#212121]">Total Bedrooms *</label>
+<input id="listBedrooms" type="number" placeholder="3" class="form-input mt-1" />
+</div>
+</div>
+<div>
+<label class="text-xs font-semibold text-[#212121]">Property Description *</label>
+<textarea id="listDescription" rows="4" placeholder="Mention view of Mt Kinabalu, steamboat facilities, water heaters, balcony, or 4x4 road access conditions..." class="form-input mt-1 resize-none"></textarea>
+</div>
+</section>
+<section class="space-y-4 mt-8 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
+<div class="flex items-center gap-2">
+<svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+<span class="font-bold text-[16px] text-blue-950">Rooms & Pricing</span>
+<span class="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full">Multi‑room support</span>
+</div>
+<p class="text-xs text-zinc-600">Add each room type separately. You can upload photos for each room.</p>
+<div id="roomsContainer">
+<div id="roomsList" class="space-y-3"></div>
+<button type="button" onclick="addRoom()" class="btn-accent mt-2">+ Add Room</button>
+</div>
+</section>
+<section class="space-y-4 border-l-4 border-amber-400 bg-amber-50/50 p-4 rounded-xl">
+<div class="flex items-center gap-2">
+<svg class="w-5 h-5 text-amber-800" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+<span class="font-bold text-[16px] text-amber-900">Escrow Account Details</span>
+</div>
+<p class="text-xs text-zinc-600">Secure booking settlement runs direct. Account details provided must correlate to host legal identity.</p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="md:col-span-2">
+<label class="text-xs font-semibold text-[#212121]">Receiving Bank *</label>
+<select id="listBankName" class="form-select mt-1">
+<option value="">Loading banks…</option>
+</select>
+<p class="text-[10px] text-zinc-500 mt-1">Only banks supported by CHIP Send are listed. This is the account that will receive your payouts.</p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div><label class="text-xs font-semibold text-[#212121]">Bank Account Number *</label><input id="listBankAccount" type="text" placeholder="Account Number" class="form-input mt-1" /></div>
+<div><label class="text-xs font-semibold text-[#212121]">Beneficiary Account Name *</label><input id="listBankHolder" type="text" placeholder="As written in bank statements" class="form-input mt-1" /></div>
+</div>
+<div class="mt-4">
+<label class="text-xs font-semibold text-[#212121]">DuitNow / Bank QR Code Template *</label>
+<p class="text-[11px] text-zinc-500 mb-2">Upload your bank QR code image so guests can scan directly on success modals.</p>
+<div class="drop-zone" onclick="document.getElementById('listBankQR').click()">
+<svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+<p class="text-xs text-zinc-600 mt-2">Click to select DuitNow / Bank QR image</p>
+<p class="text-[10px] text-zinc-400 mt-1">Accepts JPG, PNG up to 3MB</p>
+</div>
+<input id="listBankQR" type="file" accept="image/*" class="hidden" onchange="handleBankQRUpload(this)" />
+<div id="bankQRPreview" class="mt-4 hidden p-3 bg-zinc-50 border rounded-xl inline-flex flex-col items-center">
+<img id="bankQRImg" class="w-[140px] h-[140px] object-contain bg-white p-2 border border-zinc-200 rounded-xl" alt="Bank QR template preview" />
+<button onclick="removeBankQR()" type="button" class="mt-2 text-xs text-red-600 font-semibold hover:underline">Remove Image</button>
+</div>
+</div>
+<label class="flex gap-2.5 mt-4 text-xs select-none cursor-pointer">
+<input id="listBankConfirm" type="checkbox" class="mt-1" />
+<span class="text-zinc-700">I confirm that this bank account matches my Host Name as per identification documents.</span>
+</label>
+</section>
+<section class="space-y-4">
+<div class="flex items-center gap-2 border-b pb-2">
+<svg class="w-5 h-5 text-[#0F382E]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+<span class="font-bold text-[16px] text-[#212121]">Property Gallery</span>
+</div>
+<div class="drop-zone" onclick="document.getElementById('listPhotos').click()">
+<svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+<p class="text-xs text-zinc-600 mt-2">Click to select 3-5 high-resolution photos of your property</p>
+<p class="text-[10px] text-zinc-400 mt-1">Primary photo will represent listing cover thumbnail</p>
+</div>
+<input id="listPhotos" type="file" multiple accept="image/*" class="hidden" onchange="handlePhotos(this)" />
+<div id="photoPreview" class="grid grid-cols-3 md:grid-cols-6 gap-3 mt-4"></div>
+</section>
+<section class="space-y-4 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
+<div class="flex items-center gap-2">
+<svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+<span class="font-bold text-[16px] text-blue-950">Secure Host Verification</span>
+</div>
+<p class="text-xs text-zinc-600">To prevent fraud, submit a photo of your national IC (Front). A persistent security watermark is drawn inside your browser window before raw file transmission.</p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div><label class="text-xs font-semibold text-[#212121]">Full Legal Name as in IC *</label><input id="listIcName" type="text" placeholder="As printed in identification card" class="form-input mt-1 uppercase" /></div>
+<div><label class="text-xs font-semibold text-[#212121]">IC Number (optional)</label><input id="listIcNumber" type="text" placeholder="e.g. 880101-12-1234" class="form-input mt-1" /></div>
+</div>
+<div class="mt-4">
+<label class="text-xs font-semibold text-[#212121]">Upload IC (Selfie with IC) image *</label>
+<div class="drop-zone" onclick="document.getElementById('listIcFront').click()">
+<svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+<p class="text-xs text-zinc-600 mt-2">Click to select IC document photo</p>
+<p class="text-[10px] text-zinc-400 mt-1">Secure client-side watermarks are auto-applied</p>
+</div>
+<input id="listIcFront" type="file" accept="image/*" class="hidden" onchange="handleIcFile(this)" />
+<div id="icPreviewWrap" class="mt-4 hidden space-y-3">
+<div class="text-xs font-semibold text-zinc-700">Secured Document Preview:</div>
+<img id="icPreview" class="w-full max-w-[440px] border rounded-xl shadow bg-white" alt="Secure client-side watermark preview" />
+<div id="icWatermarkInfo" class="text-xs text-green-800 p-3 bg-green-50 border border-green-200 rounded-xl"></div>
+<button onclick="removeIc()" type="button" class="px-4 py-1.5 border bg-white text-xs text-zinc-700 font-semibold rounded-full hover:bg-zinc-50">Cancel Identification Upload</button>
+</div>
+<canvas id="icCanvas" class="hidden"></canvas>
+</div>
+</section>
+<section class="space-y-4 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
+<div class="flex items-center gap-2">
+<svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+<span class="font-bold text-[16px] text-blue-950">PBT Trading License</span>
+</div>
+<p class="text-xs text-zinc-600">
+Upload <strong>PBT (Pihak Berkuasa Tempatan)</strong> trading license here. <strong>Not digital PBT.</strong>
+This adds extra credibility for approval to your listing.
+</p>
+<div>
+<label class="text-xs font-semibold text-[#212121]">Upload License (JPG/PNG)</label>
+<div class="drop-zone mt-1" onclick="document.getElementById('listPbtLicense').click()">
+<svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+<p class="text-xs text-zinc-600 mt-2">Tap to select or take a photo</p>
+</div>
+<input id="listPbtLicense" type="file" accept="image/*" capture="environment" class="hidden" onchange="handlePbtLicense(this)" />
+<div id="pbtPreviewWrap" class="mt-4 hidden space-y-3">
+<div class="text-xs font-semibold text-zinc-700">License Preview:</div>
+<img id="pbtPreview" class="w-full max-w-[440px] border rounded-xl shadow bg-white" alt="PBT License preview" />
+<button onclick="removePbtLicense()" type="button" class="px-4 py-1.5 border bg-white text-xs text-zinc-700 font-semibold rounded-full hover:bg-zinc-50">Remove</button>
+</div>
+</div>
+</section>
+<section id="ownerPasswordSection" class="space-y-4 border-l-4 border-purple-400 bg-purple-50/50 p-4 rounded-xl">
+<div class="flex items-center gap-2">
+<svg class="w-5 h-5 text-purple-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m-2 2a2 2 0 002-2m2 0a2 2 0 012 2m3 5a3 3 0 01-3 3H9a3 3 0 01-3-3m9.93 0l-1.977-1.977A1.5 1.5 0 0011.66 11.1l-1.977-1.977M15 7h.01M15 11h.01"/></svg>
+<span class="font-bold text-[16px] text-purple-950">Verify with Host Account Password</span>
+</div>
+<div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 leading-relaxed">
+<strong>🔑 Password must match an existing verified host account.</strong><br>
+Type the password you used when you <a href="/owner-register.html" class="underline font-semibold">created your host account</a>.
+If you haven't created one yet, please do that first — the property submission will be rejected without it.
+</div>
+<div>
+<label class="text-xs font-semibold text-[#212121]">Host Account Password *</label>
+<input id="listOwnerPassword" type="password" placeholder="Your existing host account password" class="form-input mt-1" autocomplete="current-password" />
+</div>
+</section>
+<section class="space-y-4 border-l-4 border-emerald-400 bg-emerald-50/50 p-4 rounded-xl">
+<div class="flex items-center gap-2">
+<svg class="w-5 h-5 text-emerald-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+<span class="font-bold text-[16px] text-emerald-950">Availability Exclusions</span>
+</div>
+<p class="text-xs text-zinc-600 font-poppins">Mark dates that are unavailable (such as personal use, maintenance, or off-site bookings).</p>
+<div class="flex flex-col md:flex-row gap-3">
+<input id="listBlockedDateInput" type="date" class="form-input max-w-full md:max-w-xs" />
+<div class="flex gap-2">
+<button onclick="addBlockedDate()" type="button" class="btn-primary">+ Block Date</button>
+<button onclick="addBlockedRange()" type="button" class="btn-outline">Block Range</button>
+</div>
+</div>
+<div id="blockedDatesList" class="mt-3 flex flex-wrap gap-2"></div>
+<div id="blockedDatesCount" class="text-xs text-zinc-500 font-semibold">0 Dates Blocked</div>
+</section>
+<section class="space-y-4 border-l-4 border-amber-400 bg-amber-50/50 p-4 rounded-xl mt-6">
+<div class="flex items-center gap-2">
+<svg class="w-5 h-5 text-amber-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+<span class="font-bold text-[16px] text-amber-900">Data Privacy & Consent</span>
+</div>
+<p class="text-xs text-zinc-600">
+Your IC, bank QR, and PBT trading license images are used <strong>only for one‑time verification</strong>.
+They are <strong>automatically and permanently deleted</strong> from our servers once your listing is approved or rejected.
+We store only your name, contact details, and bank account information for payout purposes.
+</p>
+<label class="flex gap-2.5 text-xs select-none cursor-pointer items-start">
+<input id="listConsent" type="checkbox" required class="mt-1" />
+<span class="text-zinc-700">
+I consent to my data being processed for verification, listing, and payout purposes as described above.
+<span class="text-red-500">*</span>
+</span>
+</label>
+<label class="flex gap-2.5 text-xs select-none cursor-pointer items-start mt-3">
+<input id="listHostAgreement" type="checkbox" required class="mt-1" />
+<span class="text-zinc-700">
+I have read and agree to the
+<a href="/host-agreement.html" target="_blank" rel="noopener noreferrer" class="text-[#0F382E] font-semibold underline hover:text-[#D4A373]">Host Agreement</a>
+and
+<a href="/terms.html" target="_blank" rel="noopener noreferrer" class="text-[#0F382E] font-semibold underline hover:text-[#D4A373]">Terms &amp; Conditions</a>.
+<span class="text-red-500">*</span>
+</span>
+</label>
+</section>
+<div class="pt-6 space-y-4">
+<button onclick="submitHomestay()" class="w-full btn-primary py-4 text-sm tracking-widest font-800" id="submitBtn">Submit Homestay Listing for Approval</button>
+<div id="submitStatus" class="hidden p-4 rounded-xl border text-sm"></div>
+<p class="text-center text-zinc-400 text-[11px] font-medium leading-relaxed">By compiling this form, you acknowledge our registration policies. IC and financial records are held strictly in compliance with Sabah cyber security frameworks.</p>
+</div>
+</div>
+</div>
 </main>
-
 <footer class="bg-[#212121] text-white/70 mt-20">
-  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
-    <div>
-      <div class="flex items-center gap-3">
-        <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
-        <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay.my</span></div>
-      </div>
-      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
-      <div class="mt-4 pt-4 border-t border-white/10">
-        <p class="text-[11px] text-white/40 font-poppins">
-          <strong class="text-white/60">Company:</strong> NICK'S CREATIONS<br>
-          <strong class="text-white/60">Business License:</strong> RNU20183012
-        </p>
-      </div>
-    </div>
-    <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
-      <div class="space-y-2 text-[13px] font-poppins">
-        <a href="/" class="hover:text-white block">Browse Homestays</a>
-        <a href="/list.html" class="hover:text-white block">Host Registration</a>
-        <a href="/about.html" class="hover:text-white block">About Us</a>
-        <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
-        <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
-        <a href="/booking-policy.html" class="hover:text-white block">Booking Policy</a>
-        <a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
-        <a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
-        <a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
-      </div>
-    </div>
-    <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
-      <div class="space-y-2 text-[13px] font-poppins">
-        <div>✓ Host Physical Verification</div>
-        <div>✓ CHIP FPX Online Protection</div>
-        <div>✓ Anti-Scam Booking Guarantee</div>
-      </div>
-    </div>
-    <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
-      <div id="kdWeatherWidget" class="kd-weather-widget">
-        <div class="kd-weather-loading">Loading live weather…</div>
-      </div>
-    </div>
-  </div>
-  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
-    © 2026 Kundasang Homestay. All rights reserved.
-  </div>
+<div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+<div>
+<div class="flex items-center gap-3">
+<img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+<div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay.my</span></div>
+</div>
+<p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
+<div class="mt-4 pt-4 border-t border-white/10">
+<p class="text-[11px] text-white/40 font-poppins">
+<strong class="text-white/60">Company:</strong> NICK'S CREATIONS<br>
+<strong class="text-white/60">Business License:</strong> RNU20183012
+</p>
+</div>
+</div>
+<div>
+<div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
+<div class="space-y-2 text-[13px] font-poppins">
+<a href="/" class="hover:text-white block">Browse Homestays</a>
+<a href="/list.html" class="hover:text-white block">Host Registration</a>
+<a href="/about.html" class="hover:text-white block">About Us</a>
+<a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
+<a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
+<a href="/booking-policy.html" class="hover:text-white block">Booking Policy</a>
+<a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
+<a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
+<a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
+</div>
+</div>
+<div>
+<div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
+<div class="space-y-2 text-[13px] font-poppins">
+<div>✓ Host Physical Verification</div>
+<div>✓ CHIP FPX Online Protection</div>
+<div>✓ Anti-Scam Booking Guarantee</div>
+</div>
+</div>
+<div>
+<div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
+<div id="kdWeatherWidget" class="kd-weather-widget">
+<div class="kd-weather-loading">Loading live weather…</div>
+</div>
+</div>
+</div>
+<div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
+© 2026 Kundasang Homestay. All rights reserved.
+</div>
 </footer>
-
+<!-- ===== MOBILE BOTTOM NAV (Material Design 3 style — mobile only) =====
+Fixed to the bottom of the screen on phones/tablets, hidden on
+desktop (lg:hidden). The active page gets the MD3 pill indicator.
+z-40 keeps it BELOW all modals (z-50) so the booking flow is
+never blocked by the bar. -->
+<nav id="mobileBottomNav" class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-black/5 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]" style="padding-bottom: env(safe-area-inset-bottom, 0px);" aria-label="Mobile bottom navigation">
+<div class="flex items-stretch">
+<!-- 1. Home -->
+<a href="/" class="bn-item" data-nav-for="home">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.8 12 3l9 7.8"/><path d="M5.4 9.6V21h4.8v-6.2h3.6V21h4.8V9.6"/></svg>
+</span>
+<span class="bn-label">Home</span>
+</a>
+<!-- 2. Explore -->
+<a href="/explore.html" class="bn-item" data-nav-for="explore">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M14.9 9.1l-1.7 4.2-4.2 1.7 1.7-4.2z"/></svg>
+</span>
+<span class="bn-label">Explore</span>
+</a>
+<!-- 3. Stays — jumps straight to the listings / search results -->
+<a href="/#homePage" class="bn-item" data-nav-for="stays">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 19v-7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v7"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M12 4v6"/><path d="M2 17h20"/></svg>
+</span>
+<span class="bn-label">Stays</span>
+</a>
+<!-- 4. Bookings -->
+<a href="/mybookings.html" class="bn-item" data-nav-for="bookings">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10.5h17"/></svg>
+</span>
+<span class="bn-label">Bookings</span>
+</a>
+<!-- 5. Account / Sign In — JS swaps behaviour when logged in -->
+<a href="/login.html" class="bn-item" data-nav-for="account">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5c0-3.9 3.4-6 7.5-6s7.5 2.1 7.5 6"/></svg>
+</span>
+<span class="bn-label">Sign In</span>
+</a>
+</div>
+</nav>
 <script src="animations.js"></script>
 <script src="/footer-weather.js"></script>
 <script>
-
 (function() {
-  if (typeof DOMPurify === 'undefined') return;
-  if (window.__kdCssHookInstalled) return;
-  window.__kdCssHookInstalled = true;
-
-  const DANGEROUS_RULE = /(?:\burl\s*\(|expression\s*\(|\bbehavior\s*:|-moz-binding|@import|javascript\s*:)/i;
-
-  DOMPurify.addHook('afterSanitizeAttributes', function (node) {
-    if (!node.getAttribute || !node.hasAttribute) return;
-    if (!node.hasAttribute('style')) return;
-
-    const raw = node.getAttribute('style') || '';
-    if (!raw) return;
-
-    if (!DANGEROUS_RULE.test(raw)) return;
-
-    const safeRules = raw
-      .split(';')
-      .map(r => r.trim())
-      .filter(r => r.length > 0)
-      .filter(r => !DANGEROUS_RULE.test(r))
-      .join('; ');
-
-    if (safeRules.length === 0) {
-      node.removeAttribute('style');
-    } else {
-      node.setAttribute('style', safeRules);
-    }
-  });
+if (typeof DOMPurify === 'undefined') return;
+if (window.__kdCssHookInstalled) return;
+window.__kdCssHookInstalled = true;
+const DANGEROUS_RULE = /(?:\burl\s*\(|expression\s*\(|\bbehavior\s*:|-moz-binding|@import|javascript\s*:)/i;
+DOMPurify.addHook('afterSanitizeAttributes', function (node) {
+if (!node.getAttribute || !node.hasAttribute) return;
+if (!node.hasAttribute('style')) return;
+const raw = node.getAttribute('style') || '';
+if (!raw) return;
+if (!DANGEROUS_RULE.test(raw)) return;
+const safeRules = raw
+.split(';')
+.map(r => r.trim())
+.filter(r => r.length > 0)
+.filter(r => !DANGEROUS_RULE.test(r))
+.join('; ');
+if (safeRules.length === 0) {
+node.removeAttribute('style');
+} else {
+node.setAttribute('style', safeRules);
+}
+});
 })();
-
 function escapeHTML(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+return String(s == null ? '' : s)
+.replace(/&/g, '&amp;')
+.replace(/</g, '&lt;')
+.replace(/>/g, '&gt;')
+.replace(/"/g, '&quot;')
+.replace(/'/g, '&#39;');
 }
-
 function safeHTML(html) {
-  if (!html) return '';
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
-      'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
-      'button','input','form','label','select','option','textarea',
-      'section','article','header','footer','nav','main','aside',
-      'code','pre','blockquote','hr','small','sub','sup','svg','path',
-      'canvas', 'figure', 'figcaption', 'blockquote', 'cite'
-    ],
-    ALLOWED_ATTR: [
-      'id','class','style','href','src','alt','title','rel','target',
-      'method','action','type','name','value','placeholder',
-      'checked','disabled','readonly','required','multiple',
-      'min','max','step','pattern','autocomplete','inputmode',
-      'viewBox','fill','stroke','stroke-width','d','aria-*','data-*'
-    ],
-    ADD_ATTR: ['target'],
-    ALLOW_DATA_ATTR: true,
-    FORCE_HTTPS: true
-  });
+if (!html) return '';
+return DOMPurify.sanitize(html, {
+ALLOWED_TAGS: [
+'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
+'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
+'button','input','form','label','select','option','textarea',
+'section','article','header','footer','nav','main','aside',
+'code','pre','blockquote','hr','small','sub','sup','svg','path',
+'canvas', 'figure', 'figcaption', 'blockquote', 'cite'
+],
+ALLOWED_ATTR: [
+'id','class','style','href','src','alt','title','rel','target',
+'method','action','type','name','value','placeholder',
+'checked','disabled','readonly','required','multiple',
+'min','max','step','pattern','autocomplete','inputmode',
+'viewBox','fill','stroke','stroke-width','d','aria-*','data-*'
+],
+ADD_ATTR: ['target'],
+ALLOW_DATA_ATTR: true,
+FORCE_HTTPS: true
+});
 }
-
 function showModal(title, message, buttons) {
-  return new Promise((resolve) => {
-    const overlay = document.getElementById('customModal');
-    const titleEl = document.getElementById('modalTitle');
-    const bodyEl = document.getElementById('modalBody');
-    const footerEl = document.getElementById('modalFooter');
-    titleEl.textContent = title || 'Notice';
-    bodyEl.innerHTML = typeof message === 'string' ? message : '';
-    footerEl.innerHTML = '';
-    buttons.forEach(btn => {
-      const el = document.createElement('button');
-      el.textContent = btn.label;
-      el.className = `btn ${btn.class || 'btn-primary'}`;
-      el.onclick = () => {
-        overlay.classList.remove('active');
-        document.body.style.overflow = '';
-        if (btn.value !== undefined) resolve(btn.value);
-        else resolve(true);
-      };
-      footerEl.appendChild(el);
-    });
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  });
+return new Promise((resolve) => {
+const overlay = document.getElementById('customModal');
+const titleEl = document.getElementById('modalTitle');
+const bodyEl = document.getElementById('modalBody');
+const footerEl = document.getElementById('modalFooter');
+titleEl.textContent = title || 'Notice';
+bodyEl.innerHTML = typeof message === 'string' ? message : '';
+footerEl.innerHTML = '';
+buttons.forEach(btn => {
+const el = document.createElement('button');
+el.textContent = btn.label;
+el.className = `btn ${btn.class || 'btn-primary'}`;
+el.onclick = () => {
+overlay.classList.remove('active');
+document.body.style.overflow = '';
+if (btn.value !== undefined) resolve(btn.value);
+else resolve(true);
+};
+footerEl.appendChild(el);
+});
+overlay.classList.add('active');
+document.body.style.overflow = 'hidden';
+});
 }
 function closeModal() {
-  const overlay = document.getElementById('customModal');
-  if (overlay) overlay.classList.remove('active');
-  document.body.style.overflow = '';
+const overlay = document.getElementById('customModal');
+if (overlay) overlay.classList.remove('active');
+document.body.style.overflow = '';
 }
 function modalConfirm() { closeModal(); }
 function showAlert(title, message) {
-  return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
+return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
 }
 function showConfirm(title, message) {
-  return showModal(title, message, [
-    { label: 'Cancel', class: 'btn-secondary', value: false },
-    { label: 'Confirm', class: 'btn-primary', value: true }
-  ]);
+return showModal(title, message, [
+{ label: 'Cancel', class: 'btn-secondary', value: false },
+{ label: 'Confirm', class: 'btn-primary', value: true }
+]);
 }
+// ============================================================
+// [FIX] showPrompt is now Escape / backdrop-click safe.
+// Previously, pressing Esc or clicking outside closed the modal
+// WITHOUT resolving the promise, leaving addBlockedRange()
+// awaiting forever (silent hang).
+// ============================================================
 function showPrompt(title, message, defaultValue) {
-  const safeVal = String(defaultValue || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const input = `<input type="text" id="modalInput" value="${safeVal}" placeholder="Enter date here..." />`;
-  return new Promise((resolve) => {
-    const overlay = document.getElementById('customModal');
-    const titleEl = document.getElementById('modalTitle');
-    const bodyEl = document.getElementById('modalBody');
-    const footerEl = document.getElementById('modalFooter');
-    titleEl.textContent = title || 'Configure Date Range';
-    bodyEl.innerHTML = (message || '') + input;
-    footerEl.innerHTML = '';
-    const okBtn = document.createElement('button');
-    okBtn.textContent = 'Block Range';
-    okBtn.className = 'btn btn-primary';
-    okBtn.onclick = () => {
-      const val = document.getElementById('modalInput')?.value || '';
-      overlay.classList.remove('active');
-      document.body.style.overflow = '';
-      resolve(val);
-    };
-    footerEl.appendChild(okBtn);
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.onclick = () => {
-      overlay.classList.remove('active');
-      document.body.style.overflow = '';
-      resolve(null);
-    };
-    footerEl.appendChild(cancelBtn);
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-    setTimeout(() => {
-      const inp = document.getElementById('modalInput');
-      if (inp) inp.focus();
-    }, 200);
-  });
+const safeVal = String(defaultValue || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const input = `<input type="text" id="modalInput" value="${safeVal}" placeholder="Enter date here..." />`;
+return new Promise((resolve) => {
+const overlay = document.getElementById('customModal');
+const titleEl = document.getElementById('modalTitle');
+const bodyEl = document.getElementById('modalBody');
+const footerEl = document.getElementById('modalFooter');
+titleEl.textContent = title || 'Configure Date Range';
+bodyEl.innerHTML = (message || '') + input;
+footerEl.innerHTML = '';
+const finish = (val) => {
+window.__modalCancel = null;
+overlay.classList.remove('active');
+document.body.style.overflow = '';
+resolve(val);
+};
+// Registered so the global Escape / backdrop handlers can cancel cleanly.
+window.__modalCancel = () => finish(null);
+const okBtn = document.createElement('button');
+okBtn.textContent = 'Block Range';
+okBtn.className = 'btn btn-primary';
+okBtn.onclick = () => {
+const val = document.getElementById('modalInput')?.value || '';
+finish(val);
+};
+footerEl.appendChild(okBtn);
+const cancelBtn = document.createElement('button');
+cancelBtn.textContent = 'Cancel';
+cancelBtn.className = 'btn btn-secondary';
+cancelBtn.onclick = () => finish(null);
+footerEl.appendChild(cancelBtn);
+overlay.classList.add('active');
+document.body.style.overflow = 'hidden';
+setTimeout(() => {
+const inp = document.getElementById('modalInput');
+if (inp) inp.focus();
+}, 200);
+});
 }
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeModal(); }
+if (e.key === 'Escape') {
+// [FIX] If a prompt dialog is open, cancel it cleanly instead of
+// closing the modal and orphaning the pending promise.
+if (typeof window.__modalCancel === 'function') { window.__modalCancel(); return; }
+closeModal();
+}
 });
 document.getElementById('customModal').addEventListener('click', function(e) {
-  if (e.target === this) { closeModal(); }
+if (e.target === this) {
+if (typeof window.__modalCancel === 'function') { window.__modalCancel(); return; }
+closeModal();
+}
 });
-
 const API_BASE = "/api";
 let currentGuest = null;
 if (window.GuestSession && window.GuestSession.isGuestSessionValid()) {
-  currentGuest = window.GuestSession.readGuest();
+currentGuest = window.GuestSession.readGuest();
 } else {
-  if (window.GuestSession) window.GuestSession.clearGuestSession();
-  currentGuest = null;
+if (window.GuestSession) window.GuestSession.clearGuestSession();
+currentGuest = null;
 }
-
 function renderGuestNav() {
-  if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
-    window.GuestSession.updateNavDOM();
-    return;
-  }
-  const loginNav = document.getElementById("guestNav");
-  const profileNav = document.getElementById("guestProfileNav");
-  const mLoginNav = document.getElementById("mGuestNav");
-  const mProfileNav = document.getElementById("mGuestProfileNav");
-  if (currentGuest && currentGuest.id) {
-    if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
-    if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
-    if (mLoginNav) mLoginNav.classList.add("hidden");
-    if (mProfileNav) mProfileNav.classList.remove("hidden");
-  } else {
-    if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
-    if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-    if (mLoginNav) mLoginNav.classList.remove("hidden");
-    if (mProfileNav) mProfileNav.classList.add("hidden");
-  }
+if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+window.GuestSession.updateNavDOM();
+return;
 }
+const loginNav = document.getElementById("guestNav");
+const profileNav = document.getElementById("guestProfileNav");
+const mLoginNav = document.getElementById("mGuestNav");
+const mProfileNav = document.getElementById("mGuestProfileNav");
+if (currentGuest && currentGuest.id) {
+if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
+if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
+if (mLoginNav) mLoginNav.classList.add("hidden");
+if (mProfileNav) mProfileNav.classList.remove("hidden");
+} else {
+if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
+if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
+if (mLoginNav) mLoginNav.classList.remove("hidden");
+if (mProfileNav) mProfileNav.classList.add("hidden");
+}
+}
+// [FIX] Fallback logout now uses the styled confirm modal instead
+// of the native browser confirm(), matching every other page.
 function logoutGuest() {
-  if (window.GuestSession) { window.GuestSession.logoutGuest(); return; }
-  if (!confirm("Confirm guest logout?")) return;
-  currentGuest = null;
-  try { localStorage.removeItem('kd_guest'); } catch(e) {}
-  renderGuestNav();
-  window.location.href = '/';
+if (window.GuestSession) { window.GuestSession.logoutGuest(); return; }
+showConfirm('Logout', 'Are you sure you want to logout?').then(function(ok) {
+if (!ok) return;
+currentGuest = null;
+try { localStorage.removeItem('kd_guest'); } catch(e) {}
+renderGuestNav();
+window.location.href = '/';
+});
 }
-
 let CHIP_BANKS = [];
 let CHIP_BANKS_LOADED = false;
-
 async function loadChipBanks() {
-  if (CHIP_BANKS_LOADED) return CHIP_BANKS;
-  try {
-    const res = await fetch('/api/bank-list', { cache: 'default' });
-    const data = await res.json();
-    if (data.success && Array.isArray(data.banks)) {
-      CHIP_BANKS = data.banks;
-      CHIP_BANKS_LOADED = true;
-    }
-  } catch (e) {
-    console.error('Failed to load bank list:', e.message);
-  }
-  return CHIP_BANKS;
+if (CHIP_BANKS_LOADED) return CHIP_BANKS;
+try {
+const res = await fetch('/api/bank-list', { cache: 'default' });
+const data = await res.json();
+if (data.success && Array.isArray(data.banks)) {
+CHIP_BANKS = data.banks;
+CHIP_BANKS_LOADED = true;
 }
-
+} catch (e) {
+console.error('Failed to load bank list:', e.message);
+}
+return CHIP_BANKS;
+}
 function compressImage(file, maxWidth = 800, quality = 0.7) {
-  return new Promise((resolve, reject) => {
-    if (!file || !file.type.startsWith('image/')) {
-      reject(new Error('Not an image file'));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        if (width > maxWidth) {
-          height = height * (maxWidth / width);
-          width = maxWidth;
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = () => reject(new Error('Failed to decode image'));
-      img.src = e.target.result;
-    };
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
-  });
+return new Promise((resolve, reject) => {
+if (!file || !file.type.startsWith('image/')) {
+reject(new Error('Not an image file'));
+return;
 }
-
+const reader = new FileReader();
+reader.onload = (e) => {
+const img = new Image();
+img.onload = () => {
+const canvas = document.createElement('canvas');
+let width = img.width;
+let height = img.height;
+if (width > maxWidth) {
+height = height * (maxWidth / width);
+width = maxWidth;
+}
+canvas.width = width;
+canvas.height = height;
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = true;
+ctx.imageSmoothingQuality = 'high';
+ctx.drawImage(img, 0, 0, width, height);
+resolve(canvas.toDataURL('image/jpeg', quality));
+};
+img.onerror = () => reject(new Error('Failed to decode image'));
+img.src = e.target.result;
+};
+reader.onerror = () => reject(new Error('Failed to read file'));
+reader.readAsDataURL(file);
+});
+}
 function compressImageToBlob(file, maxWidth, quality) {
-  return new Promise((resolve) => {
-    if (!file || !file.type.startsWith('image/')) {
-      resolve(null);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let w = img.width, h = img.height;
-        if (w > maxWidth) { h = h * (maxWidth / w); w = maxWidth; }
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-        canvas.toBlob((blob) => {
-          resolve(blob);
-        }, 'image/jpeg', quality);
-      };
-      img.onerror = () => resolve(null);
-      img.src = e.target.result;
-    };
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
+return new Promise((resolve) => {
+if (!file || !file.type.startsWith('image/')) {
+resolve(null);
+return;
 }
-
+const reader = new FileReader();
+reader.onload = (e) => {
+const img = new Image();
+img.onload = () => {
+const canvas = document.createElement('canvas');
+let w = img.width, h = img.height;
+if (w > maxWidth) { h = h * (maxWidth / w); w = maxWidth; }
+canvas.width = w; canvas.height = h;
+const ctx = canvas.getContext('2d');
+ctx.drawImage(img, 0, 0, w, h);
+canvas.toBlob((blob) => {
+resolve(blob);
+}, 'image/jpeg', quality);
+};
+img.onerror = () => resolve(null);
+img.src = e.target.result;
+};
+reader.onerror = () => resolve(null);
+reader.readAsDataURL(file);
+});
+}
 let tempPhotos = [];
 let tempPhotoPublicIds = [];
 let tempBlockedDates = [];
@@ -773,366 +835,328 @@ let tempBankQROriginalName = "";
 let tempPbtLicense = "";
 let tempPbtPublicId = "";
 let tempRooms = [];
-
 const DRAFT_KEY = 'kd_list_draft_v1';
-
 function saveDraft() {
-  try {
-    const draft = {
-      savedAt: Date.now(),
-      fields: {
-        listOwnerName:      document.getElementById('listOwnerName')?.value || '',
-        listWhatsapp:       document.getElementById('listWhatsapp')?.value || '',
-        listOwnerEmail:     document.getElementById('listOwnerEmail')?.value || '',
-        listHomestayName:   document.getElementById('listHomestayName')?.value || '',
-        listArea:           document.getElementById('listArea')?.value || '',
-        listPrice:          document.getElementById('listPrice')?.value || '',
-        listGuests:         document.getElementById('listGuests')?.value || '',
-        listBedrooms:       document.getElementById('listBedrooms')?.value || '',
-        listDescription:    document.getElementById('listDescription')?.value || '',
-        listBankName:       document.getElementById('listBankName')?.value || '',
-        listBankAccount:    document.getElementById('listBankAccount')?.value || '',
-        listBankHolder:     document.getElementById('listBankHolder')?.value || '',
-        listBankConfirm:    document.getElementById('listBankConfirm')?.checked || false,
-        listIcName:         document.getElementById('listIcName')?.value || '',
-        listIcNumber:       document.getElementById('listIcNumber')?.value || '',
-        listConsent:        document.getElementById('listConsent')?.checked || false,
-        listHostAgreement:  document.getElementById('listHostAgreement')?.checked || false
-      },
-      tempRooms: JSON.parse(JSON.stringify(tempRooms || [])),
-      tempBlockedDates: Array.isArray(tempBlockedDates) ? [...tempBlockedDates] : [],
-      tempPhotos: Array.isArray(tempPhotos) ? [...tempPhotos] : [],
-      tempPhotoPublicIds: Array.isArray(tempPhotoPublicIds) ? [...tempPhotoPublicIds] : [],
-      tempIcWatermarked: tempIcWatermarked || '',
-      tempIcPublicId: tempIcPublicId || '',
-      tempIcOriginalName: tempIcOriginalName || '',
-      tempBankQRWatermarked: tempBankQRWatermarked || '',
-      tempBankQRPublicId: tempBankQRPublicId || '',
-      tempBankQROriginalName: tempBankQROriginalName || '',
-      tempPbtLicense: tempPbtLicense || '',
-      tempPbtPublicId: tempPbtPublicId || ''
-    };
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  } catch (e) { /* storage unavailable — silent */ }
+try {
+const draft = {
+savedAt: Date.now(),
+fields: {
+listOwnerName:      document.getElementById('listOwnerName')?.value || '',
+listWhatsapp:       document.getElementById('listWhatsapp')?.value || '',
+listOwnerEmail:     document.getElementById('listOwnerEmail')?.value || '',
+listHomestayName:   document.getElementById('listHomestayName')?.value || '',
+listArea:           document.getElementById('listArea')?.value || '',
+listPrice:          document.getElementById('listPrice')?.value || '',
+listGuests:         document.getElementById('listGuests')?.value || '',
+listBedrooms:       document.getElementById('listBedrooms')?.value || '',
+listDescription:    document.getElementById('listDescription')?.value || '',
+listBankName:       document.getElementById('listBankName')?.value || '',
+listBankAccount:    document.getElementById('listBankAccount')?.value || '',
+listBankHolder:     document.getElementById('listBankHolder')?.value || '',
+listBankConfirm:    document.getElementById('listBankConfirm')?.checked || false,
+listIcName:         document.getElementById('listIcName')?.value || '',
+listIcNumber:       document.getElementById('listIcNumber')?.value || '',
+listConsent:        document.getElementById('listConsent')?.checked || false,
+listHostAgreement:  document.getElementById('listHostAgreement')?.checked || false
+},
+tempRooms: JSON.parse(JSON.stringify(tempRooms || [])),
+tempBlockedDates: Array.isArray(tempBlockedDates) ? [...tempBlockedDates] : [],
+tempPhotos: Array.isArray(tempPhotos) ? [...tempPhotos] : [],
+tempPhotoPublicIds: Array.isArray(tempPhotoPublicIds) ? [...tempPhotoPublicIds] : [],
+tempIcWatermarked: tempIcWatermarked || '',
+tempIcPublicId: tempIcPublicId || '',
+tempIcOriginalName: tempIcOriginalName || '',
+tempBankQRWatermarked: tempBankQRWatermarked || '',
+tempBankQRPublicId: tempBankQRPublicId || '',
+tempBankQROriginalName: tempBankQROriginalName || '',
+tempPbtLicense: tempPbtLicense || '',
+tempPbtPublicId: tempPbtPublicId || ''
+};
+localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+} catch (e) { /* storage unavailable — silent */ }
 }
-
 function clearDraft() {
-  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
 }
-
 function restoreDraft() {
-  let raw;
-  try { raw = localStorage.getItem(DRAFT_KEY); } catch (e) { return false; }
-  if (!raw) return false;
-
-  let draft;
-  try { draft = JSON.parse(raw); } catch (e) { clearDraft(); return false; }
-  if (!draft || typeof draft !== 'object') { clearDraft(); return false; }
-
-  const f = draft.fields || {};
-  const setVal = (id, val) => {
-    const el = document.getElementById(id);
-    if (el && val !== undefined && val !== null) el.value = val;
-  };
-  const setChk = (id, val) => {
-    const el = document.getElementById(id);
-    if (el) el.checked = !!val;
-  };
-
-  setVal('listOwnerName', f.listOwnerName);
-  setVal('listWhatsapp', f.listWhatsapp);
-  setVal('listOwnerEmail', f.listOwnerEmail);
-  setVal('listHomestayName', f.listHomestayName);
-  setVal('listArea', f.listArea);
-  setVal('listPrice', f.listPrice);
-  setVal('listGuests', f.listGuests);
-  setVal('listBedrooms', f.listBedrooms);
-  setVal('listDescription', f.listDescription);
-  setVal('listBankName', f.listBankName);
-  setVal('listBankAccount', f.listBankAccount);
-  setVal('listBankHolder', f.listBankHolder);
-  setChk('listBankConfirm', f.listBankConfirm);
-  setVal('listIcName', f.listIcName);
-  setVal('listIcNumber', f.listIcNumber);
-  setChk('listConsent', f.listConsent);
-  setChk('listHostAgreement', f.listHostAgreement);
-
-  if (Array.isArray(draft.tempRooms) && draft.tempRooms.length > 0) {
-    tempRooms = draft.tempRooms;
-  }
-  renderRooms();
-
-  if (Array.isArray(draft.tempBlockedDates)) {
-    tempBlockedDates = draft.tempBlockedDates;
-  }
-  renderBlockedDatesList();
-
-  if (Array.isArray(draft.tempPhotos)) {
-    tempPhotos = draft.tempPhotos;
-    tempPhotoPublicIds = Array.isArray(draft.tempPhotoPublicIds) ? draft.tempPhotoPublicIds : [];
-    const preview = document.getElementById('photoPreview');
-    if (preview) {
-      preview.innerHTML = '';
-      tempPhotos.forEach(url => {
-        const img = document.createElement('img');
-        img.src = url;
-        img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
-        preview.appendChild(img);
-      });
-    }
-  }
-
-  if (draft.tempIcWatermarked) {
-    tempIcWatermarked = draft.tempIcWatermarked;
-    tempIcPublicId = draft.tempIcPublicId || '';
-    tempIcOriginalName = draft.tempIcOriginalName || '';
-    const img = document.getElementById('icPreview');
-    if (img) img.src = tempIcWatermarked;
-    const wrap = document.getElementById('icPreviewWrap');
-    if (wrap) wrap.classList.remove('hidden');
-    const info = document.getElementById('icWatermarkInfo');
-    if (info) info.innerHTML = safeHTML('✓ Restored from saved draft');
-  }
-
-  if (draft.tempBankQRWatermarked) {
-    tempBankQRWatermarked = draft.tempBankQRWatermarked;
-    tempBankQRPublicId = draft.tempBankQRPublicId || '';
-    tempBankQROriginalName = draft.tempBankQROriginalName || '';
-    const img = document.getElementById('bankQRImg');
-    if (img) img.src = tempBankQRWatermarked;
-    const wrap = document.getElementById('bankQRPreview');
-    if (wrap) wrap.classList.remove('hidden');
-  }
-
-  if (draft.tempPbtLicense) {
-    tempPbtLicense = draft.tempPbtLicense;
-    tempPbtPublicId = draft.tempPbtPublicId || '';
-    const img = document.getElementById('pbtPreview');
-    if (img) img.src = tempPbtLicense;
-    const wrap = document.getElementById('pbtPreviewWrap');
-    if (wrap) wrap.classList.remove('hidden');
-  }
-
-  return true;
+let raw;
+try { raw = localStorage.getItem(DRAFT_KEY); } catch (e) { return false; }
+if (!raw) return false;
+let draft;
+try { draft = JSON.parse(raw); } catch (e) { clearDraft(); return false; }
+if (!draft || typeof draft !== 'object') { clearDraft(); return false; }
+const f = draft.fields || {};
+const setVal = (id, val) => {
+const el = document.getElementById(id);
+if (el && val !== undefined && val !== null) el.value = val;
+};
+const setChk = (id, val) => {
+const el = document.getElementById(id);
+if (el) el.checked = !!val;
+};
+setVal('listOwnerName', f.listOwnerName);
+setVal('listWhatsapp', f.listWhatsapp);
+setVal('listOwnerEmail', f.listOwnerEmail);
+setVal('listHomestayName', f.listHomestayName);
+setVal('listArea', f.listArea);
+setVal('listPrice', f.listPrice);
+setVal('listGuests', f.listGuests);
+setVal('listBedrooms', f.listBedrooms);
+setVal('listDescription', f.listDescription);
+setVal('listBankName', f.listBankName);
+setVal('listBankAccount', f.listBankAccount);
+setVal('listBankHolder', f.listBankHolder);
+setChk('listBankConfirm', f.listBankConfirm);
+setVal('listIcName', f.listIcName);
+setVal('listIcNumber', f.listIcNumber);
+setChk('listConsent', f.listConsent);
+setChk('listHostAgreement', f.listHostAgreement);
+if (Array.isArray(draft.tempRooms) && draft.tempRooms.length > 0) {
+tempRooms = draft.tempRooms;
 }
-
-function showDraftRestoredToast() {
-  var toast = document.createElement('div');
-  toast.style.cssText =
-    'position:fixed;top:96px;left:50%;transform:translateX(-50%);z-index:99999;' +
-    'background:#0F382E;color:#fff;padding:14px 24px;border-radius:999px;' +
-    'font-family:Poppins,sans-serif;font-size:13px;font-weight:600;' +
-    'box-shadow:0 12px 30px rgba(15,56,46,0.35);display:flex;align-items:center;gap:10px;' +
-    'max-width:calc(100vw - 32px);';
-  toast.innerHTML = '<span style="font-size:18px;">📝</span> Draft restored — your previous listing details are back.';
-  document.body.appendChild(toast);
-  setTimeout(function() {
-    toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(-50%) translateY(-10px)';
-    setTimeout(function() { toast.remove(); }, 400);
-  }, 5000);
-}
-
-function addRoom(name = '', price = '', guests = '', desc = '', images = []) {
-  const id = 'room-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
-  tempRooms.push({ id, name, price, guests, desc, images: images || [], imagePublicIds: [] });
-  renderRooms();
-}
-
-function removeRoom(roomId) {
-  const index = tempRooms.findIndex(r => r.id === roomId);
-  if (index !== -1) {
-    tempRooms.splice(index, 1);
-    renderRooms();
-  }
-}
-
-function renderRooms() {
-  const list = document.getElementById('roomsList');
-  if (!list) return;
-  if (tempRooms.length === 0) {
-    list.innerHTML = safeHTML('<div class="text-xs text-zinc-400 py-2">No rooms added yet. Click "Add Room" to define your room types.</div>');
-    return;
-  }
-  let html = '';
-  tempRooms.forEach((room) => {
-    let imagesHtml = '';
-    if (room.images && room.images.length > 0) {
-      imagesHtml = '<div class="flex flex-wrap gap-1 mt-1">';
-      room.images.forEach((img, imgIdx) => {
-        imagesHtml += `
-          <div class="relative">
-            <img src="${escapeHTML(img)}" class="w-12 h-12 object-cover rounded border border-zinc-200" />
-            <button type="button" data-room-action="remove-img" data-room-id="${escapeHTML(room.id)}" data-img-index="${imgIdx}" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-600">✕</button>
-          </div>
-        `;
-      });
-      imagesHtml += '</div>';
-    }
-
-    html += `
-      <div class="flex flex-wrap items-start gap-3 p-3 bg-white rounded-xl border border-zinc-200">
-        <div class="flex-1 min-w-[200px] space-y-2">
-          <input class="form-input text-sm" placeholder="Room name (e.g. Hibiscus)" value="${escapeHTML(room.name)}" data-room-id="${escapeHTML(room.id)}" data-room-field="name" />
-          <div class="flex flex-wrap gap-2">
-            <input class="form-input flex-1 min-w-[120px] text-sm" placeholder="RM price" type="number" value="${escapeHTML(room.price)}" data-room-id="${escapeHTML(room.id)}" data-room-field="price" />
-            <input class="form-input flex-1 min-w-[100px] text-sm" placeholder="Guests" type="number" value="${escapeHTML(room.guests)}" data-room-id="${escapeHTML(room.id)}" data-room-field="guests" />
-          </div>
-          <input class="form-input text-sm" placeholder="Room description" value="${escapeHTML(room.desc)}" data-room-id="${escapeHTML(room.id)}" data-room-field="desc" />
-          <div class="flex items-center gap-2">
-            <label class="text-xs font-semibold text-zinc-600 cursor-pointer bg-zinc-100 px-3 py-1.5 rounded-full hover:bg-zinc-200 transition">
-              📷 Add Photos
-              <input type="file" accept="image/*" multiple class="hidden" data-room-action="add-img" data-room-id="${escapeHTML(room.id)}" />
-            </label>
-            <span class="text-[10px] text-zinc-400">${room.images ? room.images.length : 0} images</span>
-          </div>
-          ${imagesHtml}
-        </div>
-        <button type="button" data-room-action="remove" data-room-id="${escapeHTML(room.id)}" class="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 bg-red-50 rounded-full">✕</button>
-      </div>
-    `;
-  });
-  list.innerHTML = safeHTML(html);
-}
-
-function updateRoomField(roomId, field, value) {
-  const room = tempRooms.find(r => r.id === roomId);
-  if (room) {
-    room[field] = value;
-  }
-}
-
-async function handleRoomImages(roomId, input) {
-  const files = input.files;
-  if (!files.length) return;
-
-  const roomIndex = tempRooms.findIndex(r => r.id === roomId);
-  if (roomIndex === -1) {
-    await showAlert('Upload Failed', 'Room not found. Please try again.');
-    return;
-  }
-
-  for (const file of files) {
-    try {
-      if (!file.type.startsWith('image/')) continue;
-
-      const compressedBlob = await compressImageToBlob(file, 800, 0.7);
-      if (!compressedBlob) {
-        await showAlert('Upload Failed', `Could not compress ${file.name}. Skipping.`);
-        continue;
-      }
-
-      const formData = new FormData();
-      formData.append('image', compressedBlob, file.name);
-
-      const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
-      const data = await res.json();
-
-      if (res.ok && data.url) {
-        if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
-        if (!tempRooms[roomIndex].imagePublicIds) tempRooms[roomIndex].imagePublicIds = [];
-        tempRooms[roomIndex].images.push(data.url);
-        if (data.publicId) tempRooms[roomIndex].imagePublicIds.push(data.publicId);
-        renderRooms();
-      } else {
-        await showAlert('Upload Failed', data.error || 'Unknown server error');
-      }
-    } catch (err) {
-      await showAlert('Upload Failed', 'Network error or server unavailable. Please try again.');
-    }
-  }
-  input.value = '';
-}
-
-function removeRoomImage(roomId, imageIndex) {
-  const roomIndex = tempRooms.findIndex(r => r.id === roomId);
-  if (roomIndex !== -1 && tempRooms[roomIndex].images) {
-    tempRooms[roomIndex].images.splice(imageIndex, 1);
-    if (tempRooms[roomIndex].imagePublicIds) {
-      tempRooms[roomIndex].imagePublicIds.splice(imageIndex, 1);
-    }
-    renderRooms();
-  }
-}
-
 renderRooms();
-
-document.addEventListener('click', function(e) {
-  const removeImgBtn = e.target.closest('#roomsList [data-room-action="remove-img"]');
-  if (removeImgBtn) {
-    e.preventDefault();
-    const roomId = removeImgBtn.dataset.roomId;
-    const idx = parseInt(removeImgBtn.dataset.imgIndex, 10);
-    if (roomId && !isNaN(idx)) removeRoomImage(roomId, idx);
-    return;
-  }
-  const removeRoomBtn = e.target.closest('#roomsList [data-room-action="remove"]');
-  if (removeRoomBtn) {
-    e.preventDefault();
-    const roomId = removeRoomBtn.dataset.roomId;
-    if (roomId) removeRoom(roomId);
-    return;
-  }
-});
-
-document.addEventListener('input', function(e) {
-  const el = e.target.closest('#roomsList [data-room-field]');
-  if (!el) return;
-  const roomId = el.dataset.roomId;
-  const field = el.dataset.roomField;
-  if (roomId && field) updateRoomField(roomId, field, el.value);
-});
-
-document.addEventListener('change', function(e) {
-  const el = e.target.closest('#roomsList input[type="file"][data-room-action="add-img"]');
-  if (!el) return;
-  const roomId = el.dataset.roomId;
-  if (roomId) handleRoomImages(roomId, el);
-});
-
-async function handlePhotos(input) {
-  const files = input.files;
-  if (!files.length) return;
-  tempPhotos = [];
-  tempPhotoPublicIds = [];
-  const preview = document.getElementById('photoPreview');
-  if (preview) preview.innerHTML = '';
-
-  for (const file of files) {
-    try {
-      if (!file.type.startsWith('image/')) continue;
-
-      const compressedBlob = await compressImageToBlob(file, 1000, 0.8);
-      if (!compressedBlob) {
-        await showAlert('Upload Failed', 'Could not compress ' + file.name);
-        continue;
-      }
-
-      const formData = new FormData();
-      formData.append('image', compressedBlob, file.name);
-
-      const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
-      const data = await res.json();
-
-      if (res.ok && data.url) {
-        tempPhotos.push(data.url);
-        if (data.publicId) tempPhotoPublicIds.push(data.publicId);
-        const img = document.createElement('img');
-        img.src = data.url;
-        img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
-        if (preview) preview.appendChild(img);
-      } else {
-        await showAlert('Upload Failed', data.error || 'Failed to upload ' + file.name);
-      }
-    } catch (e) {
-      await showAlert('Upload Error', e.message || 'Upload failed');
-    }
-  }
-
-  input.value = '';
+if (Array.isArray(draft.tempBlockedDates)) {
+tempBlockedDates = draft.tempBlockedDates;
 }
-
+renderBlockedDatesList();
+if (Array.isArray(draft.tempPhotos)) {
+tempPhotos = draft.tempPhotos;
+tempPhotoPublicIds = Array.isArray(draft.tempPhotoPublicIds) ? draft.tempPhotoPublicIds : [];
+const preview = document.getElementById('photoPreview');
+if (preview) {
+preview.innerHTML = '';
+tempPhotos.forEach(url => {
+const img = document.createElement('img');
+img.src = url;
+img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
+preview.appendChild(img);
+});
+}
+}
+if (draft.tempIcWatermarked) {
+tempIcWatermarked = draft.tempIcWatermarked;
+tempIcPublicId = draft.tempIcPublicId || '';
+tempIcOriginalName = draft.tempIcOriginalName || '';
+const img = document.getElementById('icPreview');
+if (img) img.src = tempIcWatermarked;
+const wrap = document.getElementById('icPreviewWrap');
+if (wrap) wrap.classList.remove('hidden');
+const info = document.getElementById('icWatermarkInfo');
+if (info) info.innerHTML = safeHTML('✓ Restored from saved draft');
+}
+if (draft.tempBankQRWatermarked) {
+tempBankQRWatermarked = draft.tempBankQRWatermarked;
+tempBankQRPublicId = draft.tempBankQRPublicId || '';
+tempBankQROriginalName = draft.tempBankQROriginalName || '';
+const img = document.getElementById('bankQRImg');
+if (img) img.src = tempBankQRWatermarked;
+const wrap = document.getElementById('bankQRPreview');
+if (wrap) wrap.classList.remove('hidden');
+}
+if (draft.tempPbtLicense) {
+tempPbtLicense = draft.tempPbtLicense;
+tempPbtPublicId = draft.tempPbtPublicId || '';
+const img = document.getElementById('pbtPreview');
+if (img) img.src = tempPbtLicense;
+const wrap = document.getElementById('pbtPreviewWrap');
+if (wrap) wrap.classList.remove('hidden');
+}
+return true;
+}
+function showDraftRestoredToast() {
+var toast = document.createElement('div');
+toast.style.cssText =
+'position:fixed;top:96px;left:50%;transform:translateX(-50%);z-index:99999;' +
+'background:#0F382E;color:#fff;padding:14px 24px;border-radius:999px;' +
+'font-family:Poppins,sans-serif;font-size:13px;font-weight:600;' +
+'box-shadow:0 12px 30px rgba(15,56,46,0.35);display:flex;align-items:center;gap:10px;' +
+'max-width:calc(100vw - 32px);';
+toast.innerHTML = '<span style="font-size:18px;">📝</span> Draft restored — your previous listing details are back.';
+document.body.appendChild(toast);
+setTimeout(function() {
+toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+toast.style.opacity = '0';
+toast.style.transform = 'translateX(-50%) translateY(-10px)';
+setTimeout(function() { toast.remove(); }, 400);
+}, 5000);
+}
+function addRoom(name = '', price = '', guests = '', desc = '', images = []) {
+const id = 'room-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+tempRooms.push({ id, name, price, guests, desc, images: images || [], imagePublicIds: [] });
+renderRooms();
+}
+function removeRoom(roomId) {
+const index = tempRooms.findIndex(r => r.id === roomId);
+if (index !== -1) {
+tempRooms.splice(index, 1);
+renderRooms();
+}
+}
+function renderRooms() {
+const list = document.getElementById('roomsList');
+if (!list) return;
+if (tempRooms.length === 0) {
+list.innerHTML = safeHTML('<div class="text-xs text-zinc-400 py-2">No rooms added yet. Click "Add Room" to define your room types.</div>');
+return;
+}
+let html = '';
+tempRooms.forEach((room) => {
+let imagesHtml = '';
+if (room.images && room.images.length > 0) {
+imagesHtml = '<div class="flex flex-wrap gap-1 mt-1">';
+room.images.forEach((img, imgIdx) => {
+imagesHtml += `
+<div class="relative">
+<img src="${escapeHTML(img)}" class="w-12 h-12 object-cover rounded border border-zinc-200" />
+<button type="button" data-room-action="remove-img" data-room-id="${escapeHTML(room.id)}" data-img-index="${imgIdx}" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-600">✕</button>
+</div>
+`;
+});
+imagesHtml += '</div>';
+}
+html += `
+<div class="flex flex-wrap items-start gap-3 p-3 bg-white rounded-xl border border-zinc-200">
+<div class="flex-1 min-w-[200px] space-y-2">
+<input class="form-input text-sm" placeholder="Room name (e.g. Hibiscus)" value="${escapeHTML(room.name)}" data-room-id="${escapeHTML(room.id)}" data-room-field="name" />
+<div class="flex flex-wrap gap-2">
+<input class="form-input flex-1 min-w-[120px] text-sm" placeholder="RM price" type="number" value="${escapeHTML(room.price)}" data-room-id="${escapeHTML(room.id)}" data-room-field="price" />
+<input class="form-input flex-1 min-w-[100px] text-sm" placeholder="Guests" type="number" value="${escapeHTML(room.guests)}" data-room-id="${escapeHTML(room.id)}" data-room-field="guests" />
+</div>
+<input class="form-input text-sm" placeholder="Room description" value="${escapeHTML(room.desc)}" data-room-id="${escapeHTML(room.id)}" data-room-field="desc" />
+<div class="flex items-center gap-2">
+<label class="text-xs font-semibold text-zinc-600 cursor-pointer bg-zinc-100 px-3 py-1.5 rounded-full hover:bg-zinc-200 transition">
+📷 Add Photos
+<input type="file" accept="image/*" multiple class="hidden" data-room-action="add-img" data-room-id="${escapeHTML(room.id)}" />
+</label>
+<span class="text-[10px] text-zinc-400">${room.images ? room.images.length : 0} images</span>
+</div>
+${imagesHtml}
+</div>
+<button type="button" data-room-action="remove" data-room-id="${escapeHTML(room.id)}" class="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 bg-red-50 rounded-full">✕</button>
+</div>
+`;
+});
+list.innerHTML = safeHTML(html);
+}
+function updateRoomField(roomId, field, value) {
+const room = tempRooms.find(r => r.id === roomId);
+if (room) {
+room[field] = value;
+}
+}
+async function handleRoomImages(roomId, input) {
+const files = input.files;
+if (!files.length) return;
+const roomIndex = tempRooms.findIndex(r => r.id === roomId);
+if (roomIndex === -1) {
+await showAlert('Upload Failed', 'Room not found. Please try again.');
+return;
+}
+for (const file of files) {
+try {
+if (!file.type.startsWith('image/')) continue;
+const compressedBlob = await compressImageToBlob(file, 800, 0.7);
+if (!compressedBlob) {
+await showAlert('Upload Failed', `Could not compress ${file.name}. Skipping.`);
+continue;
+}
+const formData = new FormData();
+formData.append('image', compressedBlob, file.name);
+const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
+const data = await res.json();
+if (res.ok && data.url) {
+if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
+if (!tempRooms[roomIndex].imagePublicIds) tempRooms[roomIndex].imagePublicIds = [];
+tempRooms[roomIndex].images.push(data.url);
+if (data.publicId) tempRooms[roomIndex].imagePublicIds.push(data.publicId);
+renderRooms();
+} else {
+await showAlert('Upload Failed', data.error || 'Unknown server error');
+}
+} catch (err) {
+await showAlert('Upload Failed', 'Network error or server unavailable. Please try again.');
+}
+}
+input.value = '';
+}
+function removeRoomImage(roomId, imageIndex) {
+const roomIndex = tempRooms.findIndex(r => r.id === roomId);
+if (roomIndex !== -1 && tempRooms[roomIndex].images) {
+tempRooms[roomIndex].images.splice(imageIndex, 1);
+if (tempRooms[roomIndex].imagePublicIds) {
+tempRooms[roomIndex].imagePublicIds.splice(imageIndex, 1);
+}
+renderRooms();
+}
+}
+renderRooms();
+document.addEventListener('click', function(e) {
+const removeImgBtn = e.target.closest('#roomsList [data-room-action="remove-img"]');
+if (removeImgBtn) {
+e.preventDefault();
+const roomId = removeImgBtn.dataset.roomId;
+const idx = parseInt(removeImgBtn.dataset.imgIndex, 10);
+if (roomId && !isNaN(idx)) removeRoomImage(roomId, idx);
+return;
+}
+const removeRoomBtn = e.target.closest('#roomsList [data-room-action="remove"]');
+if (removeRoomBtn) {
+e.preventDefault();
+const roomId = removeRoomBtn.dataset.roomId;
+if (roomId) removeRoom(roomId);
+return;
+}
+});
+document.addEventListener('input', function(e) {
+const el = e.target.closest('#roomsList [data-room-field]');
+if (!el) return;
+const roomId = el.dataset.roomId;
+const field = el.dataset.roomField;
+if (roomId && field) updateRoomField(roomId, field, el.value);
+});
+document.addEventListener('change', function(e) {
+const el = e.target.closest('#roomsList input[type="file"][data-room-action="add-img"]');
+if (!el) return;
+const roomId = el.dataset.roomId;
+if (roomId) handleRoomImages(roomId, el);
+});
+// ============================================================
+// [FIX] handlePhotos previously RESET tempPhotos on every file
+// selection, silently deleting photos the host had already
+// added. It now APPENDS new photos to the existing list.
+// ============================================================
+async function handlePhotos(input) {
+const files = input.files;
+if (!files.length) return;
+const preview = document.getElementById('photoPreview');
+for (const file of files) {
+try {
+if (!file.type.startsWith('image/')) continue;
+const compressedBlob = await compressImageToBlob(file, 1000, 0.8);
+if (!compressedBlob) {
+await showAlert('Upload Failed', 'Could not compress ' + file.name);
+continue;
+}
+const formData = new FormData();
+formData.append('image', compressedBlob, file.name);
+const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
+const data = await res.json();
+if (res.ok && data.url) {
+tempPhotos.push(data.url);
+if (data.publicId) tempPhotoPublicIds.push(data.publicId);
+const img = document.createElement('img');
+img.src = data.url;
+img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
+if (preview) preview.appendChild(img);
+} else {
+await showAlert('Upload Failed', data.error || 'Failed to upload ' + file.name);
+}
+} catch (e) {
+await showAlert('Upload Error', e.message || 'Upload failed');
+}
+}
+input.value = '';
+}
 // ============================================================
 // IC file handler.
 // [FIXED] Previously this used fetch(watermarkedDataUrl).blob() to
@@ -1145,629 +1169,655 @@ async function handlePhotos(input) {
 // directly with no fetch, no CSP issue.
 // ============================================================
 async function handleIcFile(input) {
-  const file = input.files[0];
-  if (!file) return;
-  if (file.size > 5 * 1024 * 1024) {
-    await showAlert("File Exceeded", "IC attachment too heavy (max 5MB limit).");
-    input.value = "";
-    return;
-  }
-  tempIcOriginalName = file.name;
-
-  try {
-    const compressedDataUrl = await compressImage(file, 1200, 0.85);
-    if (!compressedDataUrl) {
-      await showAlert("Error", "Failed to process image.");
-      return;
-    }
-
-    const img = new Image();
-    img.onload = async function() {
-      const canvas = document.getElementById("icCanvas");
-      const maxW = 1200;
-      let w = img.width, h = img.height;
-      if (w > maxW) { h = h * (maxW / w); w = maxW; }
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, w, h);
-
-      const ownerName = (document.getElementById("listOwnerName")?.value || document.getElementById("listIcName")?.value || "OWNER").toUpperCase();
-      const dateStr = new Date().toISOString().split('T')[0];
-      ctx.save();
-      ctx.globalAlpha = 0.22;
-      ctx.font = "bold " + Math.max(18, w * 0.035) + "px Inter, sans-serif";
-      ctx.fillStyle = "#1e40af";
-      ctx.translate(w / 2, h / 2);
-      ctx.rotate(-0.5);
-      const watermarkText = "KundasangHomestay Verification ONLY";
-      const watermark2 = dateStr + " • " + ownerName;
-      for (let y = -h; y < h; y += 90) {
-        for (let x = -w; x < w; x += 360) {
-          ctx.fillText(watermarkText, x, y);
-          ctx.font = "bold " + Math.max(12, w * 0.02) + "px Inter, sans-serif";
-          ctx.fillText(watermark2, x, y + 22);
-          ctx.font = "bold " + Math.max(18, w * 0.035) + "px Inter, sans-serif";
-        }
-      }
-      ctx.restore();
-      ctx.globalAlpha = 0.85;
-      ctx.fillStyle = "rgba(15,56,46,0.95)";
-      ctx.fillRect(0, h - 36, w, 36);
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = "white";
-      ctx.font = "bold 11px Inter, sans-serif";
-      ctx.fillText("VERIFICATION ONLY • " + dateStr + " • " + ownerName + " • KUNDASANGHOMESTAY.MY", 14, h - 14);
-
-      const watermarkedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
-
-      const preview = document.getElementById("icPreview");
-      if (preview) preview.src = watermarkedDataUrl;
-      const infoBox = document.getElementById("icPreviewWrap");
-      if (infoBox) infoBox.classList.remove("hidden");
-      const label = document.getElementById("icWatermarkInfo");
-      if (label) label.innerHTML = safeHTML("Uploading watermarked IC...");
-
-      try {
-        // FIX: canvas.toBlob() instead of fetch(data:...).blob().
-        const watermarkedBlob = await new Promise((resolve) => {
-          canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.85);
-        });
-
-        if (!watermarkedBlob) {
-          tempIcWatermarked = watermarkedDataUrl;
-          tempIcPublicId = "";
-          if (label) label.innerHTML = safeHTML("⚠️ Could not prepare image for upload. Using local fallback.");
-          return;
-        }
-
-        const formData = new FormData();
-        formData.append('image', watermarkedBlob, 'ic-' + Date.now() + '.jpg');
-
-        const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
-        const data = await res.json();
-
-        if (res.ok && data.url) {
-          tempIcWatermarked = data.url;
-          if (data.publicId) tempIcPublicId = data.publicId;
-          if (label) label.innerHTML = safeHTML("✓ Watermarked & uploaded securely<br>✓ Reference ID: " + (data.publicId || '').split('/').pop());
-        } else {
-          tempIcWatermarked = watermarkedDataUrl;
-          tempIcPublicId = "";
-          if (label) label.innerHTML = safeHTML("⚠️ Cloud upload failed. Using local fallback.");
-        }
-      } catch (err) {
-        tempIcWatermarked = watermarkedDataUrl;
-        tempIcPublicId = "";
-        if (label) label.innerHTML = safeHTML("⚠️ Upload error. Using local fallback.");
-      }
-    };
-    img.src = compressedDataUrl;
-  } catch (e) {
-    await showAlert("Error", "Failed to process IC image.");
-  }
+const file = input.files[0];
+if (!file) return;
+if (file.size > 5 * 1024 * 1024) {
+await showAlert("File Exceeded", "IC attachment too heavy (max 5MB limit).");
+input.value = "";
+return;
 }
-
+tempIcOriginalName = file.name;
+try {
+const compressedDataUrl = await compressImage(file, 1200, 0.85);
+if (!compressedDataUrl) {
+await showAlert("Error", "Failed to process image.");
+return;
+}
+const img = new Image();
+img.onload = async function() {
+const canvas = document.getElementById("icCanvas");
+const maxW = 1200;
+let w = img.width, h = img.height;
+if (w > maxW) { h = h * (maxW / w); w = maxW; }
+canvas.width = w;
+canvas.height = h;
+const ctx = canvas.getContext("2d");
+ctx.drawImage(img, 0, 0, w, h);
+const ownerName = (document.getElementById("listOwnerName")?.value || document.getElementById("listIcName")?.value || "OWNER").toUpperCase();
+const dateStr = new Date().toISOString().split('T')[0];
+ctx.save();
+ctx.globalAlpha = 0.22;
+ctx.font = "bold " + Math.max(18, w * 0.035) + "px Inter, sans-serif";
+ctx.fillStyle = "#1e40af";
+ctx.translate(w / 2, h / 2);
+ctx.rotate(-0.5);
+const watermarkText = "KundasangHomestay Verification ONLY";
+const watermark2 = dateStr + " • " + ownerName;
+for (let y = -h; y < h; y += 90) {
+for (let x = -w; x < w; x += 360) {
+ctx.fillText(watermarkText, x, y);
+ctx.font = "bold " + Math.max(12, w * 0.02) + "px Inter, sans-serif";
+ctx.fillText(watermark2, x, y + 22);
+ctx.font = "bold " + Math.max(18, w * 0.035) + "px Inter, sans-serif";
+}
+}
+ctx.restore();
+ctx.globalAlpha = 0.85;
+ctx.fillStyle = "rgba(15,56,46,0.95)";
+ctx.fillRect(0, h - 36, w, 36);
+ctx.globalAlpha = 1;
+ctx.fillStyle = "white";
+ctx.font = "bold 11px Inter, sans-serif";
+ctx.fillText("VERIFICATION ONLY • " + dateStr + " • " + ownerName + " • KUNDASANGHOMESTAY.MY", 14, h - 14);
+const watermarkedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+const preview = document.getElementById("icPreview");
+if (preview) preview.src = watermarkedDataUrl;
+const infoBox = document.getElementById("icPreviewWrap");
+if (infoBox) infoBox.classList.remove("hidden");
+const label = document.getElementById("icWatermarkInfo");
+if (label) label.innerHTML = safeHTML("Uploading watermarked IC...");
+try {
+// FIX: canvas.toBlob() instead of fetch(data:...).blob().
+const watermarkedBlob = await new Promise((resolve) => {
+canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.85);
+});
+if (!watermarkedBlob) {
+tempIcWatermarked = watermarkedDataUrl;
+tempIcPublicId = "";
+if (label) label.innerHTML = safeHTML("⚠️ Could not prepare image for upload. Using local fallback.");
+return;
+}
+const formData = new FormData();
+formData.append('image', watermarkedBlob, 'ic-' + Date.now() + '.jpg');
+const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
+const data = await res.json();
+if (res.ok && data.url) {
+tempIcWatermarked = data.url;
+if (data.publicId) tempIcPublicId = data.publicId;
+if (label) label.innerHTML = safeHTML("✓ Watermarked & uploaded securely<br>✓ Reference ID: " + (data.publicId || '').split('/').pop());
+} else {
+tempIcWatermarked = watermarkedDataUrl;
+tempIcPublicId = "";
+if (label) label.innerHTML = safeHTML("⚠️ Cloud upload failed. Using local fallback.");
+}
+} catch (err) {
+tempIcWatermarked = watermarkedDataUrl;
+tempIcPublicId = "";
+if (label) label.innerHTML = safeHTML("⚠️ Upload error. Using local fallback.");
+}
+};
+img.src = compressedDataUrl;
+} catch (e) {
+await showAlert("Error", "Failed to process IC image.");
+}
+}
 function removeIc() {
-  tempIcWatermarked = ""; tempIcOriginalName = ""; tempIcPublicId = "";
-  document.getElementById("listIcFront").value = "";
-  document.getElementById("icPreviewWrap").classList.add("hidden");
-  document.getElementById("icPreview").src = "";
+tempIcWatermarked = ""; tempIcOriginalName = ""; tempIcPublicId = "";
+document.getElementById("listIcFront").value = "";
+document.getElementById("icPreviewWrap").classList.add("hidden");
+document.getElementById("icPreview").src = "";
 }
-
 async function handleBankQRUpload(input) {
-  const file = input.files[0];
-  if (!file) return;
-  if (file.size > 3 * 1024 * 1024) {
-    await showAlert("File Exceeded", "QR attachment size exceeded (max 3MB).");
-    input.value = "";
-    return;
-  }
-  tempBankQROriginalName = file.name;
-  try {
-    const compressedBlob = await compressImageToBlob(file, 800, 0.8);
-    if (!compressedBlob) {
-      await showAlert('Upload Failed', 'Could not process QR image.');
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('image', compressedBlob, 'bank-qr-' + Date.now() + '.jpg');
-
-    const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
-    const data = await res.json();
-
-    if (res.ok && data.url) {
-      tempBankQRWatermarked = data.url;
-      if (data.publicId) tempBankQRPublicId = data.publicId;
-      document.getElementById("bankQRImg").src = data.url;
-      document.getElementById("bankQRPreview").classList.remove("hidden");
-    } else {
-      await showAlert('Upload Failed', data.error || 'Could not upload QR image.');
-    }
-  } catch (e) {
-    await showAlert('Upload Error', e.message || 'Upload failed');
-  }
+const file = input.files[0];
+if (!file) return;
+if (file.size > 3 * 1024 * 1024) {
+await showAlert("File Exceeded", "QR attachment size exceeded (max 3MB).");
+input.value = "";
+return;
 }
-
+tempBankQROriginalName = file.name;
+try {
+const compressedBlob = await compressImageToBlob(file, 800, 0.8);
+if (!compressedBlob) {
+await showAlert('Upload Failed', 'Could not process QR image.');
+return;
+}
+const formData = new FormData();
+formData.append('image', compressedBlob, 'bank-qr-' + Date.now() + '.jpg');
+const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
+const data = await res.json();
+if (res.ok && data.url) {
+tempBankQRWatermarked = data.url;
+if (data.publicId) tempBankQRPublicId = data.publicId;
+document.getElementById("bankQRImg").src = data.url;
+document.getElementById("bankQRPreview").classList.remove("hidden");
+} else {
+await showAlert('Upload Failed', data.error || 'Could not upload QR image.');
+}
+} catch (e) {
+await showAlert('Upload Error', e.message || 'Upload failed');
+}
+}
 function removeBankQR() {
-  tempBankQRWatermarked = ""; tempBankQROriginalName = ""; tempBankQRPublicId = "";
-  document.getElementById("listBankQR").value = "";
-  document.getElementById("bankQRPreview").classList.add("hidden");
-  document.getElementById("bankQRImg").src = "";
+tempBankQRWatermarked = ""; tempBankQROriginalName = ""; tempBankQRPublicId = "";
+document.getElementById("listBankQR").value = "";
+document.getElementById("bankQRPreview").classList.add("hidden");
+document.getElementById("bankQRImg").src = "";
 }
-
 async function addBlockedDate() {
-  const input = document.getElementById("listBlockedDateInput");
-  if (!input || !input.value) { await showAlert("Warning", "Select an exclusion date in the calendar input."); return; }
-  const dateStr = input.value;
-  if (tempBlockedDates.includes(dateStr)) return;
-  tempBlockedDates.push(dateStr);
-  tempBlockedDates.sort();
-  renderBlockedDatesList();
-  input.value = "";
+const input = document.getElementById("listBlockedDateInput");
+if (!input || !input.value) { await showAlert("Warning", "Select an exclusion date in the calendar input."); return; }
+const dateStr = input.value;
+if (tempBlockedDates.includes(dateStr)) return;
+tempBlockedDates.push(dateStr);
+tempBlockedDates.sort();
+renderBlockedDatesList();
+input.value = "";
 }
+// ============================================================
+// [FIX] addBlockedRange now validates the end date. Previously an
+// invalid or earlier end date silently added nothing, leaving the
+// host convinced the range was blocked when it was not.
+// ============================================================
 async function addBlockedRange() {
-  const input = document.getElementById("listBlockedDateInput");
-  const start = input ? input.value : "";
-  if (!start) { await showAlert("Warning", "Define start of range using calendar first."); return; }
-  const end = await showPrompt("Define End Date", "Exclude until date (Inclusive) - YYYY-MM-DD:", start);
-  if (!end) return;
-  let current = new Date(start);
-  const endDate = new Date(end);
-  while (current <= endDate) {
-    const d = current.toISOString().split('T')[0];
-    if (!tempBlockedDates.includes(d)) tempBlockedDates.push(d);
-    current.setDate(current.getDate() + 1);
-  }
-  tempBlockedDates.sort();
-  renderBlockedDatesList();
-  input.value = "";
+const input = document.getElementById("listBlockedDateInput");
+const start = input ? input.value : "";
+if (!start) { await showAlert("Warning", "Define start of range using calendar first."); return; }
+const end = await showPrompt("Define End Date", "Exclude until date (Inclusive) - YYYY-MM-DD:", start);
+if (!end) return;
+const endDate = new Date(end + 'T00:00:00');
+if (isNaN(endDate.getTime())) {
+await showAlert("Invalid Date", "The end date could not be read. Please use the YYYY-MM-DD format, e.g. 2026-10-05.");
+return;
+}
+let current = new Date(start + 'T00:00:00');
+if (endDate < current) {
+await showAlert("Invalid Range", "The end date must be on or after the start date (" + start + ").");
+return;
+}
+while (current <= endDate) {
+const d = current.toISOString().split('T')[0];
+if (!tempBlockedDates.includes(d)) tempBlockedDates.push(d);
+current.setDate(current.getDate() + 1);
+}
+tempBlockedDates.sort();
+renderBlockedDatesList();
+input.value = "";
 }
 function removeBlockedDate(dateStr) {
-  tempBlockedDates = tempBlockedDates.filter(d => d !== dateStr);
-  renderBlockedDatesList();
+tempBlockedDates = tempBlockedDates.filter(d => d !== dateStr);
+renderBlockedDatesList();
 }
 function renderBlockedDatesList() {
-  const listDiv = document.getElementById("blockedDatesList");
-  const countDiv = document.getElementById("blockedDatesCount");
-  if (!listDiv) return;
-  if (tempBlockedDates.length === 0) {
-    listDiv.innerHTML = safeHTML("<span class='text-xs text-zinc-400'>No exclusions marked</span>");
-  } else {
-    listDiv.innerHTML = safeHTML(tempBlockedDates.map(d =>
-      `<span class="blocked-date-chip font-semibold text-xs">${escapeHTML(d)} <button type="button" data-blocked-action="remove" data-blocked-date="${escapeHTML(d)}" class="ml-1 text-red-600 font-bold hover:text-red-900">✕</button></span>`
-    ).join(""));
-  }
-  if (countDiv) countDiv.innerText = `${tempBlockedDates.length} Dates Blocked`;
+const listDiv = document.getElementById("blockedDatesList");
+const countDiv = document.getElementById("blockedDatesCount");
+if (!listDiv) return;
+if (tempBlockedDates.length === 0) {
+listDiv.innerHTML = safeHTML("<span class='text-xs text-zinc-400'>No exclusions marked</span>");
+} else {
+listDiv.innerHTML = safeHTML(tempBlockedDates.map(d =>
+`<span class="blocked-date-chip font-semibold text-xs">${escapeHTML(d)} <button type="button" data-blocked-action="remove" data-blocked-date="${escapeHTML(d)}" class="ml-1 text-red-600 font-bold hover:text-red-900">✕</button></span>`
+).join(""));
 }
-
+if (countDiv) countDiv.innerText = `${tempBlockedDates.length} Dates Blocked`;
+}
 document.addEventListener('click', function(e) {
-  const btn = e.target.closest('#blockedDatesList [data-blocked-action="remove"]');
-  if (!btn) return;
-  e.preventDefault();
-  const date = btn.dataset.blockedDate;
-  if (date) removeBlockedDate(date);
+const btn = e.target.closest('#blockedDatesList [data-blocked-action="remove"]');
+if (!btn) return;
+e.preventDefault();
+const date = btn.dataset.blockedDate;
+if (date) removeBlockedDate(date);
 });
-
 async function handlePbtLicense(input) {
-  const file = input.files[0];
-  if (!file) return;
-  if (file.size > 3 * 1024 * 1024) {
-    await showAlert("File Exceeded", "File size too large (max 3MB).");
-    input.value = "";
-    return;
-  }
-  try {
-    const compressedBlob = await compressImageToBlob(file, 800, 0.7);
-    if (!compressedBlob) {
-      await showAlert('Upload Failed', 'Could not process license image.');
-      return;
-    }
-    const formData = new FormData();
-    formData.append('image', compressedBlob, 'pbt-' + Date.now() + '.jpg');
-    const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
-    const data = await res.json();
-    if (res.ok && data.url) {
-      tempPbtLicense = data.url;
-      if (data.publicId) tempPbtPublicId = data.publicId;
-      document.getElementById("pbtPreview").src = data.url;
-      document.getElementById("pbtPreviewWrap").classList.remove("hidden");
-    } else {
-      await showAlert('Upload Failed', data.error || 'Could not upload license.');
-    }
-  } catch (e) {
-    await showAlert('Upload Error', e.message || 'Upload failed');
-  }
+const file = input.files[0];
+if (!file) return;
+if (file.size > 3 * 1024 * 1024) {
+await showAlert("File Exceeded", "File size too large (max 3MB).");
+input.value = "";
+return;
 }
-
+try {
+const compressedBlob = await compressImageToBlob(file, 800, 0.7);
+if (!compressedBlob) {
+await showAlert('Upload Failed', 'Could not process license image.');
+return;
+}
+const formData = new FormData();
+formData.append('image', compressedBlob, 'pbt-' + Date.now() + '.jpg');
+const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
+const data = await res.json();
+if (res.ok && data.url) {
+tempPbtLicense = data.url;
+if (data.publicId) tempPbtPublicId = data.publicId;
+document.getElementById("pbtPreview").src = data.url;
+document.getElementById("pbtPreviewWrap").classList.remove("hidden");
+} else {
+await showAlert('Upload Failed', data.error || 'Could not upload license.');
+}
+} catch (e) {
+await showAlert('Upload Error', e.message || 'Upload failed');
+}
+}
 function removePbtLicense() {
-  tempPbtLicense = "";
-  tempPbtPublicId = "";
-  document.getElementById("listPbtLicense").value = "";
-  document.getElementById("pbtPreviewWrap").classList.add("hidden");
-  document.getElementById("pbtPreview").src = "";
+tempPbtLicense = "";
+tempPbtPublicId = "";
+document.getElementById("listPbtLicense").value = "";
+document.getElementById("pbtPreviewWrap").classList.add("hidden");
+document.getElementById("pbtPreview").src = "";
 }
-
 async function submitHomestay() {
-  const statusEl = document.getElementById('submitStatus');
-  const submitBtn = document.getElementById('submitBtn');
-  if (statusEl) statusEl.className = 'hidden';
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = '⏳ Submitting...';
-  }
-
-  const resetBtn = () => {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Submit Homestay Listing for Approval';
-    }
-  };
-
-  try {
-    const ownerName = document.getElementById("listOwnerName").value.trim();
-    const rawWhatsapp = document.getElementById("listWhatsapp").value.trim();
-    const whatsapp = rawWhatsapp.replace(/[^0-9]/g, '');
-    const ownerEmail = document.getElementById("listOwnerEmail").value.trim();
-    const homestayName = document.getElementById("listHomestayName").value.trim();
-    const area = document.getElementById("listArea").value;
-    const price = parseInt(document.getElementById("listPrice").value);
-    const numGuests = parseInt(document.getElementById("listGuests").value) || 4;
-    const bedrooms = parseInt(document.getElementById("listBedrooms").value) || 2;
-    const bankName = document.getElementById("listBankName").value;
-    const bankAccount = document.getElementById("listBankAccount").value.trim();
-    const bankHolder = document.getElementById("listBankHolder").value.trim();
-    const description = document.getElementById("listDescription").value.trim();
-    const bankConfirm = document.getElementById("listBankConfirm").checked;
-    const icName = document.getElementById("listIcName").value.trim();
-    const icNumber = document.getElementById("listIcNumber").value.trim();
-    const ownerPassword = document.getElementById("listOwnerPassword").value.trim();
-    const pbtLicense = tempPbtLicense || "";
-
-    let bankCode = '';
-    const bankMatch = CHIP_BANKS.find(b => b.name === bankName);
-    if (bankMatch) {
-      bankCode = bankMatch.code;
-    }
-    if (!bankCode) {
-      await showAlert('Bank Required', 'Please select a bank from the list. The bank code is required for your payouts.');
-      resetBtn();
-      return;
-    }
-
-    const consent = document.getElementById('listConsent').checked;
-    if (!consent) {
-      await showAlert("Consent Required", "Please agree to the data processing consent before submitting.");
-      resetBtn();
-      return;
-    }
-
-    const hostAgreement = document.getElementById('listHostAgreement').checked;
-    if (!hostAgreement) {
-      await showAlert('Agreement Required', 'You must agree to the Host Agreement before submitting your listing.');
-      resetBtn();
-      return;
-    }
-
-    if (!ownerName) { await showAlert("Required Field", "Host full legal name is missing."); resetBtn(); return; }
-    if (!whatsapp) { await showAlert("Required Field", "WhatsApp contact number is missing."); resetBtn(); return; }
-    if (!ownerEmail) { await showAlert("Required Field", "Owner email address is missing."); resetBtn(); return; }
-    if (!homestayName) { await showAlert("Required Field", "Please declare property name."); resetBtn(); return; }
-    if (!price || isNaN(price) || price <= 0) { await showAlert("Required Field", "Price per night must be a valid positive amount."); resetBtn(); return; }
-    if (!bankName) { await showAlert("Required Field", "Choose your receiving bank."); resetBtn(); return; }
-    if (!bankAccount) { await showAlert("Required Field", "Receiving bank account number is required."); resetBtn(); return; }
-    if (!bankHolder) { await showAlert("Required Field", "Recipient account holder name is required."); resetBtn(); return; }
-    if (!icName) { await showAlert("Required Field", "Legal registration name matching IC is required."); resetBtn(); return; }
-    if (!bankConfirm) { await showAlert("Escrow Agreement", "Please consent to Host bank verification checkbox."); resetBtn(); return; }
-    if (tempPhotos.length === 0) { await showAlert("Required Field", "Add at least 1 cover photo of your homestay."); resetBtn(); return; }
-
-    const isAuthenticatedOwner = window._ownerAuth && window._ownerAuth.ownerId;
-    if (!isAuthenticatedOwner && ownerPassword.length < 1) {
-      await showAlert("Host Account Required",
-        "Please enter the password of your existing verified host account. If you don't have one yet, click 'Create Host Account' above and verify your email first.");
-      resetBtn();
-      return;
-    }
-    if (!tempIcWatermarked) { await showAlert("Required Field", "Identity document front upload is mandatory."); resetBtn(); return; }
-
-    const newHome = {
-      id: Date.now(),
-      name: homestayName,
-      location: area,
-      ownerPrice: price,
-      guests: numGuests,
-      bedrooms: bedrooms,
-      image: tempPhotos[0],
-      images: tempPhotos,
-      imagePublicIds: tempPhotoPublicIds,
-      rooms: tempRooms,
-      ownerName: ownerName,
-      whatsapp: whatsapp,
-      ownerEmail: ownerEmail,
-      ownerBank: bankName,
-      ownerBankAccount: bankAccount,
-      bankCode: bankCode,
-      bankHolder: bankHolder,
-      icName: icName,
-      icNumber: icNumber || "",
-      icImage: tempIcWatermarked,
-      icPublicId: tempIcPublicId,
-      icOriginalName: tempIcOriginalName,
-      icUploadDate: new Date().toISOString(),
-      bankQRImage: tempBankQRWatermarked,
-      bankQRPublicId: tempBankQRPublicId,
-      bankQROriginalName: tempBankQROriginalName,
-      pbtLicense: pbtLicense,
-      pbtLicensePublicId: tempPbtPublicId,
-      description: description || "Mountain view cottage.",
-      blockedDates: [...tempBlockedDates],
-      approved: false,
-      verified: false,
-      rating: 0,
-      reviews: 0,
-    };
-
-    if (statusEl) {
-      statusEl.className = 'block p-3 text-xs bg-blue-50 text-blue-700 border rounded-xl mt-3 font-semibold';
-      statusEl.textContent = '⏳ Initializing client-to-cloud security handshake...';
-    }
-
-    const payload = { homestay: newHome };
-    if (isAuthenticatedOwner) {
-      payload.ownerId = window._ownerAuth.ownerId;
-    } else {
-      payload.ownerPassword = ownerPassword;
-    }
-
-    const syncRes = await fetch("/api/pending", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: 'include',
-      body: JSON.stringify(payload)
-    });
-    const syncData = await syncRes.json();
-
-    if (!syncRes.ok) {
-      if (syncData.code === 'OWNER_ACCOUNT_REQUIRED') {
-        saveDraft();
-
-        const hadOwnerSession = !!(window._ownerAuth && window._ownerAuth.ownerId);
-
-        if (hadOwnerSession) {
-          if (statusEl) {
-            statusEl.className = 'block p-3 text-xs bg-amber-50 text-amber-900 border border-amber-300 rounded-xl mt-3 font-semibold';
-            statusEl.textContent = '⏰ Your host session expired — please log in again...';
-          }
-          const goLogin = await showModal(
-            'Session Expired',
-            'Your host login has expired (this happens automatically after a while for security).<br><br>' +
-            'Please log back in to your Host Console to continue submitting this listing.<br><br>' +
-            '<div style="font-size:12px;color:#0f382e;background:#ecfdf5;border:1px solid #a7f3d0;padding:8px 10px;border-radius:8px;">✓ <strong>Your form has been saved.</strong> After you log back in and return to this page, everything will be restored automatically.</div>' +
-            (syncData.hint ? '<div style="font-size:12px;color:#6b7280;margin-top:8px;">' + syncData.hint + '</div>' : ''),
-            [
-              { label: 'Not now', class: 'btn-secondary', value: 'cancel' },
-              { label: 'Log In to Host Console →', class: 'btn-primary', value: 'login' }
-            ]
-          );
-          if (goLogin === 'login') {
-            window.location.href = '/owner.html';
-            return;
-          }
-          resetBtn();
-          if (statusEl) statusEl.className = 'hidden';
-          return;
-        }
-
-        if (statusEl) {
-          statusEl.className = 'block p-3 text-xs bg-amber-50 text-amber-900 border border-amber-300 rounded-xl mt-3 font-semibold';
-          statusEl.textContent = '🔐 Host account required — redirecting you to create one...';
-        }
-        const goCreate = await showModal(
-          'Host Account Required',
-          'To submit a listing you need a <strong>verified host account</strong>.<br><br>' +
-          'This is a one-time step that protects guests from fake listings.<br><br>' +
-          '<div style="font-size:12px;color:#0f382e;background:#ecfdf5;border:1px solid #a7f3d0;padding:8px 10px;border-radius:8px;margin-bottom:8px;">✓ <strong>Your form has been saved.</strong> When you come back to this page after registering, everything will be restored automatically.</div>' +
-          (syncData.hint ? '<div style="font-size:12px;color:#6b7280;margin-top:8px;">' + syncData.hint + '</div>' : ''),
-          [
-            { label: 'Not now', class: 'btn-secondary', value: 'cancel' },
-            { label: 'Create Host Account →', class: 'btn-primary', value: 'create' }
-          ]
-        );
-        if (goCreate === 'create') {
-          window.location.href = '/owner-register.html';
-          return;
-        }
-        resetBtn();
-        if (statusEl) statusEl.className = 'hidden';
-        return;
-      }
-
-      if (syncData.code === 'INVALID_OWNER_PASSWORD') {
-        if (statusEl) {
-          statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
-          statusEl.textContent = '❌ ' + (syncData.error || 'Invalid host password.') + ' Please check the password and try again, or log in via the Host Console.';
-        }
-        await showAlert('Invalid Host Password',
-          'The password you entered does not match any verified host account. Please double-check it, or click "I already have one" above to log into the Host Console.');
-        resetBtn();
-        return;
-      }
-
-      if (syncData.code === 'INVALID_BANK_CODE') {
-        if (statusEl) {
-          statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
-          statusEl.textContent = '❌ ' + (syncData.error || 'Invalid bank code.');
-        }
-        await showAlert('Invalid Bank', syncData.error || 'The selected bank is not supported. Please pick another from the list.');
-        resetBtn();
-        return;
-      }
-
-      const errMsg = syncData.error || 'Server error';
-      const hint = syncData.hint ? ' ' + syncData.hint : '';
-      if (statusEl) {
-        statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
-        statusEl.textContent = '❌ ' + errMsg + hint;
-      }
-      if (syncData.code === 'ALREADY_APPROVED' || syncData.code === 'ALREADY_PENDING') {
-        await showAlert('Listing Already On File', errMsg + hint);
-      }
-      throw new Error(errMsg);
-    }
-
-    if (statusEl) {
-      statusEl.className = 'block p-3 text-xs bg-emerald-50 text-emerald-800 border rounded-xl mt-3 font-semibold';
-      statusEl.textContent = '✓ Secure cloud storage synchronized successfully!';
-    }
-
-    clearDraft();
-
-    await showAlert("Listing Staged", `"${homestayName}" has been queued for admin approval.\n\nYou can log in to your dashboard panel at Host Login once verification has concluded.`);
-    window.location.href = "/";
-
-  } catch(err) {
-    if (statusEl) {
-      statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
-      statusEl.textContent = '⚠️ Operation Interrupted: ' + err.message;
-    }
-    resetBtn();
-  } finally {
-    if (submitBtn && submitBtn.disabled) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Submit Homestay Listing for Approval';
-    }
-  }
+const statusEl = document.getElementById('submitStatus');
+const submitBtn = document.getElementById('submitBtn');
+if (statusEl) statusEl.className = 'hidden';
+if (submitBtn) {
+submitBtn.disabled = true;
+submitBtn.textContent = '⏳ Submitting...';
 }
-
+const resetBtn = () => {
+if (submitBtn) {
+submitBtn.disabled = false;
+submitBtn.textContent = 'Submit Homestay Listing for Approval';
+}
+};
+try {
+const ownerName = document.getElementById("listOwnerName").value.trim();
+const rawWhatsapp = document.getElementById("listWhatsapp").value.trim();
+const whatsapp = rawWhatsapp.replace(/[^0-9]/g, '');
+const ownerEmail = document.getElementById("listOwnerEmail").value.trim();
+const homestayName = document.getElementById("listHomestayName").value.trim();
+const area = document.getElementById("listArea").value;
+const price = parseInt(document.getElementById("listPrice").value);
+const numGuests = parseInt(document.getElementById("listGuests").value) || 4;
+const bedrooms = parseInt(document.getElementById("listBedrooms").value) || 2;
+const bankName = document.getElementById("listBankName").value;
+const bankAccount = document.getElementById("listBankAccount").value.trim();
+const bankHolder = document.getElementById("listBankHolder").value.trim();
+const description = document.getElementById("listDescription").value.trim();
+const bankConfirm = document.getElementById("listBankConfirm").checked;
+const icName = document.getElementById("listIcName").value.trim();
+const icNumber = document.getElementById("listIcNumber").value.trim();
+const ownerPassword = document.getElementById("listOwnerPassword").value.trim();
+const pbtLicense = tempPbtLicense || "";
+let bankCode = '';
+const bankMatch = CHIP_BANKS.find(b => b.name === bankName);
+if (bankMatch) {
+bankCode = bankMatch.code;
+}
+if (!bankCode) {
+await showAlert('Bank Required', 'Please select a bank from the list. The bank code is required for your payouts.');
+resetBtn();
+return;
+}
+const consent = document.getElementById('listConsent').checked;
+if (!consent) {
+await showAlert("Consent Required", "Please agree to the data processing consent before submitting.");
+resetBtn();
+return;
+}
+const hostAgreement = document.getElementById('listHostAgreement').checked;
+if (!hostAgreement) {
+await showAlert('Agreement Required', 'You must agree to the Host Agreement before submitting your listing.');
+resetBtn();
+return;
+}
+if (!ownerName) { await showAlert("Required Field", "Host full legal name is missing."); resetBtn(); return; }
+if (!whatsapp) { await showAlert("Required Field", "WhatsApp contact number is missing."); resetBtn(); return; }
+if (!ownerEmail) { await showAlert("Required Field", "Owner email address is missing."); resetBtn(); return; }
+if (!homestayName) { await showAlert("Required Field", "Please declare property name."); resetBtn(); return; }
+if (!price || isNaN(price) || price <= 0) { await showAlert("Required Field", "Price per night must be a valid positive amount."); resetBtn(); return; }
+if (!bankName) { await showAlert("Required Field", "Choose your receiving bank."); resetBtn(); return; }
+if (!bankAccount) { await showAlert("Required Field", "Receiving bank account number is required."); resetBtn(); return; }
+if (!bankHolder) { await showAlert("Required Field", "Recipient account holder name is required."); resetBtn(); return; }
+if (!icName) { await showAlert("Required Field", "Legal registration name matching IC is required."); resetBtn(); return; }
+if (!bankConfirm) { await showAlert("Escrow Agreement", "Please consent to Host bank verification checkbox."); resetBtn(); return; }
+if (tempPhotos.length === 0) { await showAlert("Required Field", "Add at least 1 cover photo of your homestay."); resetBtn(); return; }
+const isAuthenticatedOwner = window._ownerAuth && window._ownerAuth.ownerId;
+if (!isAuthenticatedOwner && ownerPassword.length < 1) {
+await showAlert("Host Account Required",
+"Please enter the password of your existing verified host account. If you don't have one yet, click 'Create Host Account' above and verify your email first.");
+resetBtn();
+return;
+}
+if (!tempIcWatermarked) { await showAlert("Required Field", "Identity document front upload is mandatory."); resetBtn(); return; }
+const newHome = {
+id: Date.now(),
+name: homestayName,
+location: area,
+ownerPrice: price,
+guests: numGuests,
+bedrooms: bedrooms,
+image: tempPhotos[0],
+images: tempPhotos,
+imagePublicIds: tempPhotoPublicIds,
+rooms: tempRooms,
+ownerName: ownerName,
+whatsapp: whatsapp,
+ownerEmail: ownerEmail,
+ownerBank: bankName,
+ownerBankAccount: bankAccount,
+bankCode: bankCode,
+bankHolder: bankHolder,
+icName: icName,
+icNumber: icNumber || "",
+icImage: tempIcWatermarked,
+icPublicId: tempIcPublicId,
+icOriginalName: tempIcOriginalName,
+icUploadDate: new Date().toISOString(),
+bankQRImage: tempBankQRWatermarked,
+bankQRPublicId: tempBankQRPublicId,
+bankQROriginalName: tempBankQROriginalName,
+pbtLicense: pbtLicense,
+pbtLicensePublicId: tempPbtPublicId,
+description: description || "Mountain view cottage.",
+blockedDates: [...tempBlockedDates],
+approved: false,
+verified: false,
+rating: 0,
+reviews: 0,
+};
+if (statusEl) {
+statusEl.className = 'block p-3 text-xs bg-blue-50 text-blue-700 border rounded-xl mt-3 font-semibold';
+statusEl.textContent = '⏳ Initializing client-to-cloud security handshake...';
+}
+const payload = { homestay: newHome };
+if (isAuthenticatedOwner) {
+payload.ownerId = window._ownerAuth.ownerId;
+} else {
+payload.ownerPassword = ownerPassword;
+}
+const syncRes = await fetch("/api/pending", {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+credentials: 'include',
+body: JSON.stringify(payload)
+});
+const syncData = await syncRes.json();
+if (!syncRes.ok) {
+if (syncData.code === 'OWNER_ACCOUNT_REQUIRED') {
+saveDraft();
+const hadOwnerSession = !!(window._ownerAuth && window._ownerAuth.ownerId);
+if (hadOwnerSession) {
+if (statusEl) {
+statusEl.className = 'block p-3 text-xs bg-amber-50 text-amber-900 border border-amber-300 rounded-xl mt-3 font-semibold';
+statusEl.textContent = '⏰ Your host session expired — please log in again...';
+}
+const goLogin = await showModal(
+'Session Expired',
+'Your host login has expired (this happens automatically after a while for security).<br><br>' +
+'Please log back in to your Host Console to continue submitting this listing.<br><br>' +
+'<div style="font-size:12px;color:#0f382e;background:#ecfdf5;border:1px solid #a7f3d0;padding:8px 10px;border-radius:8px;">✓ <strong>Your form has been saved.</strong> After you log back in and return to this page, everything will be restored automatically.</div>' +
+(syncData.hint ? '<div style="font-size:12px;color:#6b7280;margin-top:8px;">' + syncData.hint + '</div>' : ''),
+[
+{ label: 'Not now', class: 'btn-secondary', value: 'cancel' },
+{ label: 'Log In to Host Console →', class: 'btn-primary', value: 'login' }
+]
+);
+if (goLogin === 'login') {
+window.location.href = '/owner.html';
+return;
+}
+resetBtn();
+if (statusEl) statusEl.className = 'hidden';
+return;
+}
+if (statusEl) {
+statusEl.className = 'block p-3 text-xs bg-amber-50 text-amber-900 border border-amber-300 rounded-xl mt-3 font-semibold';
+statusEl.textContent = '🔐 Host account required — redirecting you to create one...';
+}
+const goCreate = await showModal(
+'Host Account Required',
+'To submit a listing you need a <strong>verified host account</strong>.<br><br>' +
+'This is a one-time step that protects guests from fake listings.<br><br>' +
+'<div style="font-size:12px;color:#0f382e;background:#ecfdf5;border:1px solid #a7f3d0;padding:8px 10px;border-radius:8px;margin-bottom:8px;">✓ <strong>Your form has been saved.</strong> When you come back to this page after registering, everything will be restored automatically.</div>' +
+(syncData.hint ? '<div style="font-size:12px;color:#6b7280;margin-top:8px;">' + syncData.hint + '</div>' : ''),
+[
+{ label: 'Not now', class: 'btn-secondary', value: 'cancel' },
+{ label: 'Create Host Account →', class: 'btn-primary', value: 'create' }
+]
+);
+if (goCreate === 'create') {
+window.location.href = '/owner-register.html';
+return;
+}
+resetBtn();
+if (statusEl) statusEl.className = 'hidden';
+return;
+}
+if (syncData.code === 'INVALID_OWNER_PASSWORD') {
+// [FIX] Save the draft here too — hosts who typo their password
+// previously lost the entire form on retry.
+saveDraft();
+if (statusEl) {
+statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
+statusEl.textContent = '❌ ' + (syncData.error || 'Invalid host password.') + ' Please check the password and try again, or log in via the Host Console.';
+}
+await showAlert('Invalid Host Password',
+'The password you entered does not match any verified host account. Please double-check it, or click "I already have one" above to log into the Host Console.<br><br><strong>Your form has been saved</strong> — nothing you typed will be lost.');
+resetBtn();
+return;
+}
+if (syncData.code === 'INVALID_BANK_CODE') {
+saveDraft();
+if (statusEl) {
+statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
+statusEl.textContent = '❌ ' + (syncData.error || 'Invalid bank code.');
+}
+await showAlert('Invalid Bank', syncData.error || 'The selected bank is not supported. Please pick another from the list.');
+resetBtn();
+return;
+}
+const errMsg = syncData.error || 'Server error';
+const hint = syncData.hint ? ' ' + syncData.hint : '';
+// [FIX] Generic server failures also preserve the draft now.
+saveDraft();
+if (statusEl) {
+statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
+statusEl.textContent = '❌ ' + errMsg + hint;
+}
+if (syncData.code === 'ALREADY_APPROVED' || syncData.code === 'ALREADY_PENDING') {
+await showAlert('Listing Already On File', errMsg + hint);
+}
+throw new Error(errMsg);
+}
+if (statusEl) {
+statusEl.className = 'block p-3 text-xs bg-emerald-50 text-emerald-800 border rounded-xl mt-3 font-semibold';
+statusEl.textContent = '✓ Secure cloud storage synchronized successfully!';
+}
+clearDraft();
+await showAlert("Listing Staged", `"${homestayName}" has been queued for admin approval.
+You can log in to your dashboard panel at Host Login once verification has concluded.`);
+window.location.href = "/";
+} catch(err) {
+if (statusEl) {
+statusEl.className = 'block p-3 text-xs bg-red-50 text-red-700 border rounded-xl mt-3 font-semibold';
+statusEl.textContent = '⚠️ Operation Interrupted: ' + err.message;
+}
+resetBtn();
+} finally {
+if (submitBtn && submitBtn.disabled) {
+submitBtn.disabled = false;
+submitBtn.textContent = 'Submit Homestay Listing for Approval';
+}
+}
+}
 (async function init() {
-  renderGuestNav();
-
-  await loadChipBanks();
-  const sel = document.getElementById('listBankName');
-  if (sel && CHIP_BANKS.length > 0) {
-    sel.innerHTML = '<option value="">Choose Bank</option>' +
-      CHIP_BANKS.map(b => `<option value="${escapeHTML(b.name)}">${escapeHTML(b.name)} (${escapeHTML(b.code)})</option>`).join('');
-  } else if (sel) {
-    sel.innerHTML = '<option value="">Could not load bank list — please refresh the page</option>';
-  }
-
-  let restored = false;
-  try { restored = restoreDraft(); } catch (e) { restored = false; }
-
-  if (restored) {
-    showDraftRestoredToast();
-  } else {
-    renderBlockedDatesList();
-  }
+renderGuestNav();
+await loadChipBanks();
+const sel = document.getElementById('listBankName');
+if (sel && CHIP_BANKS.length > 0) {
+sel.innerHTML = '<option value="">Choose Bank</option>' +
+CHIP_BANKS.map(b => `<option value="${escapeHTML(b.name)}">${escapeHTML(b.name)} (${escapeHTML(b.code)})</option>`).join('');
+} else if (sel) {
+sel.innerHTML = '<option value="">Could not load bank list — please refresh the page</option>';
+}
+let restored = false;
+try { restored = restoreDraft(); } catch (e) { restored = false; }
+if (restored) {
+showDraftRestoredToast();
+} else {
+renderBlockedDatesList();
+}
 })();
-
 (function initOwnerAwareness() {
-  fetch('/api/owner-session', { credentials: 'include', cache: 'no-store' })
-    .then(function(r) { return r.json().catch(function() { return {}; }); })
-    .then(function(data) {
-      if (!data || data.authenticated !== true) return;
-
-      window._ownerAuth = {
-        ownerId: data.ownerId,
-        whatsapp: data.whatsapp,
-        ownerName: data.ownerName,
-        ownerEmail: data.ownerEmail
-      };
-
-      var nameEl = document.getElementById('listOwnerName');
-      var waEl = document.getElementById('listWhatsapp');
-      var emailEl = document.getElementById('listOwnerEmail');
-      var icNameEl = document.getElementById('listIcName');
-
-      if (nameEl && data.ownerName) nameEl.value = data.ownerName;
-      if (waEl && data.whatsapp) waEl.value = data.whatsapp;
-      if (emailEl && data.ownerEmail) emailEl.value = data.ownerEmail;
-      if (icNameEl && data.ownerName) icNameEl.value = data.ownerName;
-
-      var pwdSection = document.getElementById('ownerPasswordSection');
-      if (pwdSection) pwdSection.style.display = 'none';
-
-      var banner = document.getElementById('accountRequiredBanner');
-      if (banner) banner.style.display = 'none';
-
-      var formCard = document.querySelector('main .card');
-      if (formCard && !document.getElementById('ownerAuthBanner')) {
-        var authBanner = document.createElement('div');
-        authBanner.id = 'ownerAuthBanner';
-        authBanner.className = 'mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-3';
-        authBanner.innerHTML =
-          '<div class="text-xl">✅</div>' +
-          '<div>' +
-            '<div class="font-bold mb-0.5">Signed in as host: ' + (data.ownerName || data.whatsapp || 'Host') + '</div>' +
-            '<div>Fill in your property details below. Your account is already verified — no password needed.</div>' +
-          '</div>';
-        formCard.insertBefore(authBanner, formCard.firstChild);
-      }
-    })
-    .catch(function() { /* silent */ });
+fetch('/api/owner-session', { credentials: 'include', cache: 'no-store' })
+.then(function(r) { return r.json().catch(function() { return {}; }); })
+.then(function(data) {
+if (!data || data.authenticated !== true) return;
+window._ownerAuth = {
+ownerId: data.ownerId,
+whatsapp: data.whatsapp,
+ownerName: data.ownerName,
+ownerEmail: data.ownerEmail
+};
+var nameEl = document.getElementById('listOwnerName');
+var waEl = document.getElementById('listWhatsapp');
+var emailEl = document.getElementById('listOwnerEmail');
+var icNameEl = document.getElementById('listIcName');
+if (nameEl && data.ownerName) nameEl.value = data.ownerName;
+if (waEl && data.whatsapp) waEl.value = data.whatsapp;
+if (emailEl && data.ownerEmail) emailEl.value = data.ownerEmail;
+if (icNameEl && data.ownerName) icNameEl.value = data.ownerName;
+var pwdSection = document.getElementById('ownerPasswordSection');
+if (pwdSection) pwdSection.style.display = 'none';
+var banner = document.getElementById('accountRequiredBanner');
+if (banner) banner.style.display = 'none';
+var formCard = document.querySelector('main .card');
+if (formCard && !document.getElementById('ownerAuthBanner')) {
+var authBanner = document.createElement('div');
+authBanner.id = 'ownerAuthBanner';
+authBanner.className = 'mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-3';
+authBanner.innerHTML =
+'<div class="text-xl">✅</div>' +
+'<div>' +
+'<div class="font-bold mb-0.5">Signed in as host: ' + (data.ownerName || data.whatsapp || 'Host') + '</div>' +
+'<div>Fill in your property details below. Your account is already verified — no password needed.</div>' +
+'</div>';
+formCard.insertBefore(authBanner, formCard.firstChild);
+}
+})
+.catch(function() { /* silent */ });
 })();
-
 (function showVerifiedWelcome() {
-  var params = new URLSearchParams(window.location.search);
-  if (params.get('verified') !== '1') return;
-
-  if (window.history && window.history.replaceState) {
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-
-  var toast = document.createElement('div');
-  toast.style.cssText =
-    'position:fixed;top:96px;left:50%;transform:translateX(-50%);z-index:99999;' +
-    'background:#0F382E;color:#fff;padding:14px 24px;border-radius:999px;' +
-    'font-family:Poppins,sans-serif;font-size:13px;font-weight:600;' +
-    'box-shadow:0 12px 30px rgba(15,56,46,0.35);display:flex;align-items:center;gap:10px;' +
-    'max-width:calc(100vw - 32px);';
-  toast.innerHTML = '<span style="font-size:18px;">✅</span> Email verified — let\'s list your homestay!';
-  document.body.appendChild(toast);
-
-  setTimeout(function() {
-    toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(-50%) translateY(-10px)';
-    setTimeout(function() { toast.remove(); }, 400);
-  }, 5000);
+var params = new URLSearchParams(window.location.search);
+if (params.get('verified') !== '1') return;
+if (window.history && window.history.replaceState) {
+window.history.replaceState({}, document.title, window.location.pathname);
+}
+var toast = document.createElement('div');
+toast.style.cssText =
+'position:fixed;top:96px;left:50%;transform:translateX(-50%);z-index:99999;' +
+'background:#0F382E;color:#fff;padding:14px 24px;border-radius:999px;' +
+'font-family:Poppins,sans-serif;font-size:13px;font-weight:600;' +
+'box-shadow:0 12px 30px rgba(15,56,46,0.35);display:flex;align-items:center;gap:10px;' +
+'max-width:calc(100vw - 32px);';
+toast.innerHTML = '<span style="font-size:18px;">✅</span> Email verified — let\'s list your homestay!';
+document.body.appendChild(toast);
+setTimeout(function() {
+toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+toast.style.opacity = '0';
+toast.style.transform = 'translateX(-50%) translateY(-10px)';
+setTimeout(function() { toast.remove(); }, 400);
+}, 5000);
 })();
-
+// ============================================================
+// [FIX] hideLoginButtonsOnMobile previously tested
+// guestNav.closest('#desktopNav'), but the login buttons live in
+// #desktopActions — so the check never matched and the function
+// was dead code. Selector corrected.
+// ============================================================
 (function() {
-  function hideLoginButtonsOnMobile() {
-    var isMobile = window.innerWidth < 768;
-    var guestNav = document.getElementById('guestNav');
-    var guestProfileNav = document.getElementById('guestProfileNav');
-
-    if (isMobile) {
-      if (guestNav && guestNav.closest('#desktopNav')) {
-        guestNav.style.display = 'none';
-        guestNav.style.setProperty('display', 'none', 'important');
-      }
-      if (guestProfileNav && guestProfileNav.closest('#desktopNav')) {
-        guestProfileNav.style.display = 'none';
-        guestProfileNav.style.setProperty('display', 'none', 'important');
-      }
-    } else {
-      if (guestNav) {
-        guestNav.style.display = '';
-        guestNav.style.removeProperty('display');
-      }
-      if (guestProfileNav) {
-        guestProfileNav.style.display = '';
-        guestProfileNav.style.removeProperty('display');
-      }
-    }
-  }
-
-  hideLoginButtonsOnMobile();
-  window.addEventListener('resize', hideLoginButtonsOnMobile);
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', hideLoginButtonsOnMobile);
-  }
-  setTimeout(hideLoginButtonsOnMobile, 100);
-  setTimeout(hideLoginButtonsOnMobile, 500);
+function hideLoginButtonsOnMobile() {
+var isMobile = window.innerWidth < 768;
+var guestNav = document.getElementById('guestNav');
+var guestProfileNav = document.getElementById('guestProfileNav');
+if (isMobile) {
+if (guestNav && guestNav.closest('#desktopActions')) {
+guestNav.style.display = 'none';
+guestNav.style.setProperty('display', 'none', 'important');
+}
+if (guestProfileNav && guestProfileNav.closest('#desktopActions')) {
+guestProfileNav.style.display = 'none';
+guestProfileNav.style.setProperty('display', 'none', 'important');
+}
+} else {
+if (guestNav) {
+guestNav.style.display = '';
+guestNav.style.removeProperty('display');
+}
+if (guestProfileNav) {
+guestProfileNav.style.display = '';
+guestProfileNav.style.removeProperty('display');
+}
+}
+}
+hideLoginButtonsOnMobile();
+window.addEventListener('resize', hideLoginButtonsOnMobile);
+if (document.readyState === 'loading') {
+document.addEventListener('DOMContentLoaded', hideLoginButtonsOnMobile);
+}
+setTimeout(hideLoginButtonsOnMobile, 100);
+setTimeout(hideLoginButtonsOnMobile, 500);
+})();
+</script>
+<script>
+// =============================================================
+// MOBILE BOTTOM NAV — active state + smart Account behaviour
+// Runs last so the nav HTML and GuestSession are both ready.
+// Identical block to index1 / explore / login / mybookings.
+// =============================================================
+(function () {
+var nav = document.getElementById('mobileBottomNav');
+if (!nav) return;
+var path = (window.location.pathname || '/').replace(/\/+$/, '') || '/';
+function isHome() {
+return path === '/' || path === '/index.html' || path === '/index1.html';
+}
+function isActive(target) {
+if (target === 'home') return isHome();
+if (target === 'explore') return path === '/explore.html';
+if (target === 'bookings') return path === '/mybookings.html';
+if (target === 'account') return path === '/login.html' || path === '/register.html';
+return false; // 'stays' is a scroll action, never persistent
+}
+nav.querySelectorAll('.bn-item').forEach(function (el) {
+if (isActive(el.getAttribute('data-nav-for'))) el.classList.add('bn-active');
+});
+// Smooth-scroll "Stays" when the guest is already on the homepage.
+var stays = nav.querySelector('[data-nav-for="stays"]');
+if (stays) {
+stays.addEventListener('click', function (e) {
+if (isHome()) {
+e.preventDefault();
+var target = document.getElementById('homePage');
+if (target) target.scrollIntoView({ behavior: 'smooth' });
+}
+});
+}
+// Logged-in guests: "Sign In" becomes "Account" and opens the
+// profile menu instead of sending them to the login page.
+// Reads GuestSession directly so it works even before async init.
+var guest = null;
+try {
+if (window.GuestSession && window.GuestSession.isGuestSessionValid()) guest = window.GuestSession.readGuest();
+} catch (e) {}
+var acc = nav.querySelector('[data-nav-for="account"]');
+if (acc && guest && guest.id) {
+var lbl = acc.querySelector('.bn-label');
+if (lbl) lbl.textContent = 'Account';
+acc.addEventListener('click', function (e) {
+e.preventDefault();
+window.toggleMobileMenu();
+});
+}
+// Hide the bottom bar while the top mobile menu is open so the
+// two never overlap on small screens.
+var origToggle = window.toggleMobileMenu;
+window.toggleMobileMenu = function () {
+origToggle();
+var menu = document.getElementById('mobileNav');
+var open = menu ? menu.classList.contains('open') : false;
+document.body.classList.toggle('bn-hidden', open);
+};
 })();
 </script>
 </body>
