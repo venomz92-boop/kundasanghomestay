@@ -1,262 +1,281 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Login - Kundasang Homestay | Sign In to Your Account</title>
-  <meta name="title" content="Login - Kundasang Homestay" />
-  <meta name="description" content="Sign in to your Kundasang Homestay account to manage bookings, view reservations, and explore verified mountain stays in Sabah." />
-  <meta name="keywords" content="kundasang homestay login, guest login, booking management" />
-  <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://kundasanghomestay.my/login.html" />
-
-  <!-- Open Graph -->
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://kundasanghomestay.my/login.html" />
-  <meta property="og:title" content="Login - Kundasang Homestay" />
-  <meta property="og:description" content="Sign in to manage your bookings and explore verified mountain homestays." />
-  <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" />
-  
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="animations.css" />
-  <link rel="stylesheet" href="styles.css" />
-  <script src="/guest-session.js"></script>
-  <script src="/csrf-auto.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<title>Login - Kundasang Homestay | Sign In to Your Account</title>
+<meta name="title" content="Login - Kundasang Homestay" />
+<meta name="description" content="Sign in to your Kundasang Homestay account to manage bookings, view reservations, and explore verified mountain stays in Sabah." />
+<meta name="keywords" content="kundasang homestay login, guest login, booking management" />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href="https://kundasanghomestay.my/login.html" />
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://kundasanghomestay.my/login.html" />
+<meta property="og:title" content="Login - Kundasang Homestay" />
+<meta property="og:description" content="Sign in to manage your bookings and explore verified mountain homestays." />
+<meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" />
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="animations.css" />
+<link rel="stylesheet" href="styles.css" />
+<script src="/guest-session.js"></script>
+<script src="/csrf-auto.js"></script>
+<style>
+/* ============================================================
+MOBILE BOTTOM NAV — Material Design 3 (mobile only)
+Pill indicator behind the active icon; hidden on desktop (lg+).
+============================================================ */
+.bn-item {
+flex: 1 1 0%;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 3px;
+padding: 8px 0 7px;
+text-decoration: none;
+-webkit-tap-highlight-color: transparent;
+}
+.bn-icon-wrap {
+width: 58px;
+height: 32px;
+border-radius: 999px;
+display: flex;
+align-items: center;
+justify-content: center;
+color: rgba(33, 33, 33, 0.55);
+transition: background 0.25s ease, color 0.25s ease;
+}
+.bn-item:active .bn-icon-wrap { background: rgba(15, 56, 46, 0.10); }
+.bn-item svg { width: 21px; height: 21px; }
+.bn-label {
+font-family: 'Poppins', sans-serif;
+font-size: 10.5px;
+font-weight: 600;
+letter-spacing: 0.2px;
+color: rgba(33, 33, 33, 0.55);
+transition: color 0.2s ease;
+}
+.bn-item.bn-active .bn-icon-wrap { background: #0F382E; color: #ffffff; }
+.bn-item.bn-active .bn-label { color: #0F382E; font-weight: 700; }
+/* Hide the bottom bar while the top mobile menu is open */
+body.bn-hidden #mobileBottomNav { display: none; }
+/* Reserve space so the fixed bar never covers page content */
+@media (max-width: 1023.98px) {
+body { padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+}
+</style>
 </head>
-
 <body>
 <div id="customModal" class="modal-overlay">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h3 id="modalTitle">Notice</h3>
-      <button onclick="closeModal()" class="modal-close">✕</button>
-    </div>
-    <div class="modal-body" id="modalBody">Message</div>
-    <div class="modal-footer" id="modalFooter">
-      <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
-    </div>
-  </div>
+<div class="modal-box">
+<div class="modal-header">
+<h3 id="modalTitle">Notice</h3>
+<button onclick="closeModal()" class="modal-close">✕</button>
 </div>
-
+<div class="modal-body" id="modalBody">Message</div>
+<div class="modal-footer" id="modalFooter">
+<button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
+</div>
+</div>
+</div>
 <script>
-  let lastToggleTime = 0;
-  window.toggleMobileMenu = function() {
-    const now = Date.now();
-    if (now - lastToggleTime < 300) return;
-    lastToggleTime = now;
-    const nav = document.getElementById('mobileNav');
-    if (nav) {
-      nav.classList.toggle('open');
-      document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
-    }
-  };
+let lastToggleTime = 0;
+window.toggleMobileMenu = function() {
+const now = Date.now();
+if (now - lastToggleTime < 300) return;
+lastToggleTime = now;
+const nav = document.getElementById('mobileNav');
+if (nav) {
+nav.classList.toggle('open');
+document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
+}
+};
 </script>
-
 <!-- ===== HEADER ===== -->
 <header class="h-[80px] bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-black/5">
-  <div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
-
-    <!-- Logo & Brand -->
-    <a href="/" class="flex items-center gap-3 shrink-0 group">
-      <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
-      <div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
-        KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px] md:text-[17px]"> • Homestay.my</span>
-        <div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Stay • Connect • Belong</div>
-      </div>
-    </a>
-
-    <!-- Desktop Primary Nav -->
-    <nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
-      <a href="/" class="setsail-nav-link">Home</a>
-      <a href="/about.html" class="setsail-nav-link">About Us</a>
-      <a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
-    </nav>
-
-    <!-- Desktop Actions -->
-    <div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
-
-      <!-- Guest state: logged out -->
-      <div id="guestNav" class="flex items-center gap-2">
-        <a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
-        <a href="/register.html" class="header-pill header-pill-accent">Register</a>
-      </div>
-
-      <!-- Guest state: logged in -->
-      <div id="guestProfileNav" class="hidden items-center gap-3">
-        <a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
-        <div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
-          <div id="guestAvatar" class="w-8 h-8 rounded-full bg-[#D4A373] text-[#0F382E] flex items-center justify-center text-xs font-bold">G</div>
-          <span id="guestNameNav" class="text-xs font-600 max-w-[90px] truncate">Guest</span>
-          <button onclick="logoutGuest()" class="ml-1 text-[10px] opacity-70 hover:opacity-100 uppercase tracking-wider transition-opacity">Logout</button>
-        </div>
-      </div>
-
-      <!-- Primary CTA — always visible -->
-      <a href="/owner-register.html" class="btn-primary" style="padding:11px 22px; font-size:11px;">List Your Homestay</a>
-
-    </div>
-
-    <!-- Mobile Menu Button -->
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
-      <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-    </button>
-
-    <script>
-      (function() {
-        var btn = document.getElementById('mobileMenuBtn');
-        if (btn) {
-          btn.removeEventListener('click', window.toggleMobileMenu);
-          btn.removeEventListener('touchstart', window.toggleMobileMenu);
-          btn.addEventListener('click', window.toggleMobileMenu);
-          btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
-        }
-      })();
-    </script>
-  </div>
+<div class="max-w-[1300px] mx-auto h-full px-6 lg:px-8 flex items-center justify-between gap-6">
+<!-- Logo & Brand -->
+<a href="/" class="flex items-center gap-3 shrink-0 group">
+<img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-14 md:h-14 transition-transform duration-300 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+<div class="font-poppins font-800 text-[19px] md:text-[21px] tracking-[-0.5px] text-[#212121] leading-none">
+KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px] md:text-[17px]"> • Homestay.my</span>
+<div class="font-500 text-[10px] tracking-[2px] uppercase text-[#212121]/50 mt-1">Stay • Connect • Belong</div>
+</div>
+</a>
+<!-- Desktop Primary Nav -->
+<nav id="desktopNav" class="hidden lg:flex items-center gap-7 ml-auto" aria-label="Primary">
+<a href="/" class="setsail-nav-link">Home</a>
+<a href="/about.html" class="setsail-nav-link">About Us</a>
+<a href="/owner.html" class="setsail-nav-link agent" style="text-decoration:none;">🔑 Host Login</a>
+</nav>
+<!-- Desktop Actions -->
+<div id="desktopActions" class="hidden lg:flex items-center gap-3 shrink-0 pl-6 border-l border-black/10">
+<!-- Guest state: logged out -->
+<div id="guestNav" class="flex items-center gap-2">
+<a href="/login.html" class="header-pill header-pill-outline">Sign In</a>
+<a href="/register.html" class="header-pill header-pill-accent">Register</a>
+</div>
+<!-- Guest state: logged in -->
+<div id="guestProfileNav" class="hidden items-center gap-3">
+<a href="/mybookings.html" class="text-[12px] font-600 tracking-wide text-[#212121]/70 hover:text-[#0F382E] transition-colors">My Bookings</a>
+<div class="flex items-center gap-2 bg-[#0F382E] text-white pl-1 pr-3 h-[40px] rounded-full">
+<div id="guestAvatar" class="w-8 h-8 rounded-full bg-[#D4A373] text-[#0F382E] flex items-center justify-center text-xs font-bold">G</div>
+<span id="guestNameNav" class="text-xs font-600 max-w-[90px] truncate">Guest</span>
+<button onclick="logoutGuest()" class="ml-1 text-[10px] opacity-70 hover:opacity-100 uppercase tracking-wider transition-opacity">Logout</button>
+</div>
+</div>
+<!-- Primary CTA — always visible -->
+<a href="/owner-register.html" class="btn-primary" style="padding:11px 22px; font-size:11px;">List Your Homestay</a>
+</div>
+<!-- Mobile Menu Button -->
+<button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
+<svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+</button>
+<script>
+(function() {
+var btn = document.getElementById('mobileMenuBtn');
+if (btn) {
+btn.removeEventListener('click', window.toggleMobileMenu);
+btn.removeEventListener('touchstart', window.toggleMobileMenu);
+btn.addEventListener('click', window.toggleMobileMenu);
+btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
+}
+})();
+</script>
+</div>
 </header>
-
 <!-- ===== MOBILE NAV ===== -->
 <div id="mobileNav">
-  <div class="p-4">
-
-    <!-- DISCOVER -->
-    <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
-    <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
-    <a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
-
-    <!-- FOR HOSTS -->
-    <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">For Hosts</div>
-
-    <a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
-      <div style="display:flex; align-items:center; gap:12px; padding:14px 14px; border-radius:14px; background:#F8F5F0; border:1px solid rgba(212,163,115,0.35); transition: background 0.2s;">
-        <div style="width:40px; height:40px; border-radius:999px; background:#0F382E; color:#ffffff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px;">🏡</div>
-        <div style="flex:1; min-width:0;">
-          <div style="font-family:Poppins, sans-serif; font-weight:700; font-size:13px; color:#212121; line-height:1.2;">List Your Homestay</div>
-          <div style="font-family:Poppins, sans-serif; font-weight:500; font-size:10.5px; color:rgba(33,33,33,0.55); margin-top:2px;">Earn from your property</div>
-        </div>
-        <svg width="16" height="16" fill="none" stroke="rgba(33,33,33,0.35)" stroke-width="2.2" viewBox="0 0 24 24" style="flex-shrink:0;">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-        </svg>
-      </div>
-    </a>
-
-    <div class="px-1 pt-1">
-      <a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a>
-    </div>
-
-    <!-- ACCOUNT -->
-    <div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
-
-    <div id="mGuestNav" class="space-y-2.5 px-1">
-      <a href="/login.html" class="guest-btn guest-btn-primary block text-center">Sign In</a>
-      <a href="/register.html" class="guest-btn block text-center">Create Account</a>
-    </div>
-
-    <div id="mGuestProfileNav" class="hidden space-y-2 px-1">
-      <div class="profile-card">
-        <div id="mGuestAvatar" class="avatar">G</div>
-        <div class="info">
-          <div id="mGuestNameNav" class="name">Guest</div>
-          <div class="sub">Verified guest</div>
-        </div>
-        <button onclick="logoutGuest()" class="logout-btn">Logout</button>
-      </div>
-      <a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
-    </div>
-  </div>
+<div class="p-4">
+<!-- DISCOVER -->
+<div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-2 pb-2">Discover</div>
+<a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 Home</a>
+<a href="/about.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">ℹ️ About Us</a>
+<!-- FOR HOSTS -->
+<div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">For Hosts</div>
+<a href="/owner-register.html" style="padding: 4px 8px 10px 8px; border-bottom: none;">
+<div style="display:flex; align-items:center; gap:12px; padding:14px 14px; border-radius:14px; background:#F8F5F0; border:1px solid rgba(212,163,115,0.35); transition: background 0.2s;">
+<div style="width:40px; height:40px; border-radius:999px; background:#0F382E; color:#ffffff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px;">🏡</div>
+<div style="flex:1; min-width:0;">
+<div style="font-family:Poppins, sans-serif; font-weight:700; font-size:13px; color:#212121; line-height:1.2;">List Your Homestay</div>
+<div style="font-family:Poppins, sans-serif; font-weight:500; font-size:10.5px; color:rgba(33,33,33,0.55); margin-top:2px;">Earn from your property</div>
 </div>
-
+<svg width="16" height="16" fill="none" stroke="rgba(33,33,33,0.35)" stroke-width="2.2" viewBox="0 0 24 24" style="flex-shrink:0;">
+<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+</svg>
+</div>
+</a>
+<div class="px-1 pt-1">
+<a href="/owner.html" class="mobile-agent-link">🔑 Host Login</a>
+</div>
+<!-- ACCOUNT -->
+<div class="text-[11px] tracking-[0.2em] uppercase text-[#0F382E] font-800 px-3 pt-5 pb-2">Account</div>
+<div id="mGuestNav" class="space-y-2.5 px-1">
+<a href="/login.html" class="guest-btn guest-btn-primary block text-center">Sign In</a>
+<a href="/register.html" class="guest-btn block text-center">Create Account</a>
+</div>
+<div id="mGuestProfileNav" class="hidden space-y-2 px-1">
+<div class="profile-card">
+<div id="mGuestAvatar" class="avatar">G</div>
+<div class="info">
+<div id="mGuestNameNav" class="name">Guest</div>
+<div class="sub">Verified guest</div>
+</div>
+<button onclick="logoutGuest()" class="logout-btn">Logout</button>
+</div>
+<a href="/mybookings.html" class="my-bookings-btn">📅 My Bookings</a>
+</div>
+</div>
+</div>
 <main class="flex-1 flex items-center justify-center px-4 py-12 md:py-20">
-  <div class="w-full max-w-[440px] animate-on-scroll">
-    <div class="text-center mb-10">
-      <div class="font-satisfy text-[#D4A373] text-[32px] leading-none">Welcome Back</div>
-      <h1 class="font-poppins font-700 text-[34px] md:text-[40px] text-[#212121] tracking-[-0.5px] mt-1">Login</h1>
-      <div class="w-[40px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
-      <p class="text-[13px] text-[#212121]/60 mt-3">Sign in to manage your bookings and account.</p>
-    </div>
-    <div class="card p-8 md:p-10">
-      <div id="loginError" class="hidden p-4 rounded-xl text-xs bg-red-50 text-red-700 border border-red-200 mb-5"></div>
-      <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5">
-        <div>
-          <label class="text-xs font-semibold text-[#212121] block mb-1.5">Email Address *</label>
-          <input id="loginEmail" type="email" placeholder="you@email.com" class="form-input" required />
-        </div>
-        <div>
-          <label class="text-xs font-semibold text-[#212121] block mb-1.5">Password *</label>
-          <input id="loginPassword" type="password" placeholder="••••••••" class="form-input" required minlength="6" />
-        </div>
-        <div class="text-right">
-          <a href="/forgot-password.html" class="text-[11px] text-[#D4A373] font-semibold hover:underline transition-colors">Forgot Password?</a>
-        </div>
-        <button type="submit" class="btn-primary w-full py-4 mt-2 text-sm tracking-widest">Login</button>
-      </form>
-      <div class="mt-6 text-center">
-        <p class="text-[13px] text-[#212121]/60">Don't have an account? <a href="/register.html" class="text-[#D4A373] font-semibold hover:underline transition-colors">Register here</a></p>
-      </div>
-      <div class="mt-6 pt-6 border-t border-black/5 text-center">
-        <p class="text-[11px] text-[#212121]/40 flex items-center justify-center gap-1.5">🔒 Your data is encrypted and secure</p>
-      </div>
-    </div>
-  </div>
+<div class="w-full max-w-[440px] animate-on-scroll">
+<div class="text-center mb-10">
+<div class="font-satisfy text-[#D4A373] text-[32px] leading-none">Welcome Back</div>
+<h1 class="font-poppins font-700 text-[34px] md:text-[40px] text-[#212121] tracking-[-0.5px] mt-1">Login</h1>
+<div class="w-[40px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mx-auto mt-3 rounded-full"></div>
+<p class="text-[13px] text-[#212121]/60 mt-3">Sign in to manage your bookings and account.</p>
+</div>
+<div class="card p-8 md:p-10">
+<div id="loginError" class="hidden p-4 rounded-xl text-xs bg-red-50 text-red-700 border border-red-200 mb-5"></div>
+<form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5">
+<div>
+<label class="text-xs font-semibold text-[#212121] block mb-1.5">Email Address *</label>
+<input id="loginEmail" type="email" placeholder="you@email.com" class="form-input" required />
+</div>
+<div>
+<label class="text-xs font-semibold text-[#212121] block mb-1.5">Password *</label>
+<input id="loginPassword" type="password" placeholder="••••••••" class="form-input" required minlength="6" />
+</div>
+<div class="text-right">
+<a href="/forgot-password.html" class="text-[11px] text-[#D4A373] font-semibold hover:underline transition-colors">Forgot Password?</a>
+</div>
+<button type="submit" class="btn-primary w-full py-4 mt-2 text-sm tracking-widest">Login</button>
+</form>
+<div class="mt-6 text-center">
+<p class="text-[13px] text-[#212121]/60">Don't have an account? <a href="/register.html" class="text-[#D4A373] font-semibold hover:underline transition-colors">Register here</a></p>
+</div>
+<div class="mt-6 pt-6 border-t border-black/5 text-center">
+<p class="text-[11px] text-[#212121]/40 flex items-center justify-center gap-1.5">🔒 Your data is encrypted and secure</p>
+</div>
+</div>
+</div>
 </main>
-
 <footer class="bg-[#212121] text-white/70 mt-20">
-  <div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
-    <div>
-      <div class="flex items-center gap-3">
-        <img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
-        <div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay.my</span></div>
-      </div>
-      <p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
-      <div class="mt-4 pt-4 border-t border-white/10">
-        <p class="text-[11px] text-white/40 font-poppins">
-          <strong class="text-white/60">Company:</strong> NICK'S CREATIONS<br>
-          <strong class="text-white/60">Business License:</strong> RNU20183012
-        </p>
-      </div>
-    </div>
-    <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
-      <div class="space-y-2 text-[13px] font-poppins">
-        <a href="/" class="hover:text-white block">Browse Homestays</a>
-        <a href="/owner-register.html" class="hover:text-white block">Host Registration</a>
-        <a href="/about.html" class="hover:text-white block">About Us</a>
-        <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
-        <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
-        <a href="/booking-policy.html" class="hover:text-white block">Booking Policy</a>
-        <a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
-        <a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
-        <a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
-        <a href="https://www.facebook.com/kundasanghomestaymy/" target="_blank" rel="noopener noreferrer" class="hover:text-white block">
-          <svg class="inline w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-          </svg>
-          Facebook Page
-        </a>
-      </div>
-    </div>
-    <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
-      <div class="space-y-2 text-[13px] font-poppins">
-        <div>✓ Host Physical Verification</div>
-        <div>✓ CHIP FPX Online Protection</div>
-        <div>✓ Anti-Scam Booking Guarantee</div>
-      </div>
-    </div>
-    <div>
-      <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
-      <div id="kdWeatherWidget" class="kd-weather-widget">
-        <div class="kd-weather-loading">Loading live weather…</div>
-      </div>
-    </div>
-  </div>
-  <div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
-    © 2026 Kundasang Homestay. All rights reserved.
-  </div>
+<div class="max-w-[1300px] mx-auto px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+<div>
+<div class="flex items-center gap-3">
+<img src="/logo.png" alt="Kundasang Homestay" class="w-12 h-12 md:w-16 md:h-16" onerror="this.src='https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=100'"/>
+<div class="font-poppins font-800 text-[18px] text-white">KUNDASANG<span class="font-600 text-white/60"> • Homestay.my</span></div>
+</div>
+<p class="text-[13px] leading-[1.6] mt-4 text-white/50 max-w-[260px] font-poppins">Made for Travelers by Locals — Kundasang edition. Handpicked mountain homestays with Kinabalu soul.</p>
+<div class="mt-4 pt-4 border-t border-white/10">
+<p class="text-[11px] text-white/40 font-poppins">
+<strong class="text-white/60">Company:</strong> NICK'S CREATIONS<br>
+<strong class="text-white/60">Business License:</strong> RNU20183012
+</p>
+</div>
+</div>
+<div>
+<div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Quick Links</div>
+<div class="space-y-2 text-[13px] font-poppins">
+<a href="/" class="hover:text-white block">Browse Homestays</a>
+<a href="/owner-register.html" class="hover:text-white block">Host Registration</a>
+<a href="/about.html" class="hover:text-white block">About Us</a>
+<a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
+<a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
+<a href="/booking-policy.html" class="hover:text-white block">Booking Policy</a>
+<a href="/refund-cancellation.html" class="hover:text-white block">Cancellation &amp; Refund</a>
+<a href="/payment-disclaimer.html" class="hover:text-white block">Payment Disclaimer</a>
+<a href="/cookie-policy.html" class="hover:text-white block">Cookie Policy</a>
+<a href="https://www.facebook.com/kundasanghomestaymy/" target="_blank" rel="noopener noreferrer" class="hover:text-white block">
+<svg class="inline w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+<path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+</svg>
+Facebook Page
+</a>
+</div>
+</div>
+<div>
+<div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust & Safety</div>
+<div class="space-y-2 text-[13px] font-poppins">
+<div>✓ Host Physical Verification</div>
+<div>✓ CHIP FPX Online Protection</div>
+<div>✓ Anti-Scam Booking Guarantee</div>
+</div>
+</div>
+<div>
+<div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Kundasang Weather</div>
+<div id="kdWeatherWidget" class="kd-weather-widget">
+<div class="kd-weather-loading">Loading live weather…</div>
+</div>
+</div>
+</div>
+<div class="border-t border-white/10 py-6 text-center text-[11px] tracking-widest uppercase font-600 text-white/40 font-poppins">
+© 2026 Kundasang Homestay. All rights reserved.
+</div>
 </footer>
-
 <!-- ===== MOBILE BOTTOM NAV (Material Design 3 style — mobile only) =====
 Fixed to the bottom of the screen on phones/tablets, hidden on
 desktop (lg:hidden). The active page gets the MD3 pill indicator.
@@ -301,236 +320,271 @@ never blocked by the bar. -->
 </a>
 </div>
 </nav>
-  
 <script src="animations.js"></script>
 <script>
-  /* ============================================================
-   * CUSTOM MODAL SYSTEM
-   * ============================================================ */
-  function showModal(title, message, buttons) {
-    return new Promise(function(resolve) {
-      var overlay = document.getElementById('customModal');
-      var titleEl = document.getElementById('modalTitle');
-      var bodyEl = document.getElementById('modalBody');
-      var footerEl = document.getElementById('modalFooter');
-      titleEl.textContent = title || 'Notice';
-      bodyEl.innerHTML = typeof message === 'string' ? message : '';
-      footerEl.innerHTML = '';
-      buttons.forEach(function(btn) {
-        var el = document.createElement('button');
-        el.textContent = btn.label;
-        el.className = 'btn ' + (btn.class || 'btn-primary');
-        el.onclick = function() {
-          overlay.classList.remove('active');
-          document.body.style.overflow = '';
-          if (btn.value !== undefined) resolve(btn.value);
-          else resolve(true);
-        };
-        footerEl.appendChild(el);
-      });
-      overlay.classList.add('active');
-      document.body.style.overflow = 'hidden';
-    });
-  }
-
-  function closeModal() {
-    var overlay = document.getElementById('customModal');
-    if (overlay) overlay.classList.remove('active');
-    document.body.style.overflow = '';
-  }
-
-  function modalConfirm() {
-    var overlay = document.getElementById('customModal');
-    if (overlay) overlay.classList.remove('active');
-    document.body.style.overflow = '';
-  }
-
-  function showAlert(title, message) {
-    return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
-  }
-
-  // Styled confirm dialog — used by guest-session.js for the logout prompt.
-  function showConfirm(title, message) {
-    return showModal(title, message, [
-      { label: 'Cancel', class: 'btn-secondary', value: false },
-      { label: 'Confirm', class: 'btn-primary', value: true }
-    ]);
-  }
-  window.showConfirm = showConfirm;
-
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      var overlay = document.getElementById('customModal');
-      if (overlay && overlay.classList.contains('active')) {
-        overlay.classList.remove('active');
-        document.body.style.overflow = '';
-      }
-    }
-  });
-
-  document.getElementById('customModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-      this.classList.remove('active');
-      document.body.style.overflow = '';
-    }
-  });
-
-  /* ============================================================
-   * SESSION CONTEXT
-   * ============================================================ */
-  var API_BASE = "/api";
-  var currentGuest = null;
-
-  if (window.GuestSession && window.GuestSession.isGuestSessionValid()) {
-    currentGuest = window.GuestSession.readGuest();
-  } else {
-    if (window.GuestSession) window.GuestSession.clearGuestSession();
-    currentGuest = null;
-  }
-
-  function renderGuestNav() {
-    if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
-      window.GuestSession.updateNavDOM();
-      return;
-    }
-    var loginNav = document.getElementById("guestNav");
-    var profileNav = document.getElementById("guestProfileNav");
-    var mLoginNav = document.getElementById("mGuestNav");
-    var mProfileNav = document.getElementById("mGuestProfileNav");
-    if (currentGuest && currentGuest.id) {
-      if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
-      if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
-      if (mLoginNav) mLoginNav.classList.add("hidden");
-      if (mProfileNav) mProfileNav.classList.remove("hidden");
-    } else {
-      if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
-      if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
-      if (mLoginNav) mLoginNav.classList.remove("hidden");
-      if (mProfileNav) mProfileNav.classList.add("hidden");
-    }
-  }
-
-  window.logoutGuest = function() {
-    if (window.GuestSession) {
-      window.GuestSession.logoutGuest();
-    }
-  };
-
-  /* ============================================================
-   * LOGIN HANDLER — cookie-based.
-   *
-   * The success popup no longer mentions a session duration. The
-   * server currently issues a 30-day guest session, but the exact
-   * number is a server-side policy that may change, so we keep the
-   * message generic. Clean and professional beats an exact figure
-   * that can drift out of date.
-   *
-   * Return-to-booking still applies: if the guest arrived here from
-   * a "Book Now" attempt, send them back to /?resume_booking=1 so
-   * index.html can reopen the booking modal with the listing and
-   * dates pre-filled. Otherwise, keep the default /mybookings.html
-   * destination.
-   * ============================================================ */
-  async function handleLogin(e) {
-    e.preventDefault();
-    var email = document.getElementById('loginEmail').value.trim().toLowerCase();
-    var password = document.getElementById('loginPassword').value.trim();
-    var errorEl = document.getElementById('loginError');
-
-    if (!email || !password) {
-      errorEl.textContent = 'Please fill in all fields.';
-      errorEl.classList.remove('hidden');
-      return;
-    }
-    errorEl.classList.add('hidden');
-
-    try {
-      var res = await fetch(API_BASE + '/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email, password: password }),
-        credentials: 'include'
-      });
-
-      var text = await res.text();
-      var data;
-      try {
-        data = JSON.parse(text);
-      } catch (parseErr) {
-        errorEl.textContent = 'Server error. Please try again later.';
-        errorEl.classList.remove('hidden');
-        return;
-      }
-
-      if (data.success && data.guest) {
-        currentGuest = data.guest;
-
-        if (window.GuestSession && typeof window.GuestSession.setSession === 'function') {
-          window.GuestSession.setSession(data.guest, data.expiresIn);
-        } else {
-          try {
-            localStorage.setItem('kd_guest', JSON.stringify(data.guest));
-            var ttl = Number(data.expiresIn) || 7200;
-            localStorage.setItem('kd_guest_expires_at', String(Date.now() + ttl * 1000));
-          } catch (e) {}
-        }
-
-        if (data.csrfToken) {
-          try { localStorage.setItem('kd_csrf_token', data.csrfToken); } catch (e) {}
-        }
-
-        renderGuestNav();
-
-        // Return-to-booking: if there's a pending intent, go back to
-        // the listing the guest was trying to book. Otherwise default
-        // to the bookings page.
-        let hasPendingIntent = false;
-        try {
-          hasPendingIntent = !!sessionStorage.getItem('kd_pending_booking_intent');
-        } catch (e) {}
-
-        await showAlert('Login Successful', 'Welcome back! You are now signed in.');
-
-        if (hasPendingIntent) {
-          window.location.href = '/?resume_booking=1';
-        } else {
-          window.location.href = '/mybookings.html';
-        }
-      } else {
-        errorEl.textContent = data.error || 'Login failed. Please try again.';
-        errorEl.classList.remove('hidden');
-      }
-    } catch (e) {
-      errorEl.textContent = 'Network error: ' + (e.message || 'Please check your connection.');
-      errorEl.classList.remove('hidden');
-    }
-  }
-
-  document.addEventListener('click', function(e) {
-    var nav = document.getElementById('mobileNav');
-    var btn = document.getElementById('mobileMenuBtn');
-    if (!nav || !btn) return;
-    if (nav.classList.contains('open') &&
-        !nav.contains(e.target) &&
-        !btn.contains(e.target)) {
-      nav.classList.remove('open');
-    }
-  });
-
-  document.addEventListener('DOMContentLoaded', function() {
-    renderGuestNav();
-
-    var urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('verified') === '1') {
-      showAlert('Email Verified', 'Your email has been verified successfully! You can now log in.');
-    } else if (urlParams.get('verified') === 'already') {
-      showAlert('Already Verified', 'Your email was already verified. Please log in.');
-    } else if (urlParams.get('expired') === '1') {
-      showAlert('Session Expired', 'Your previous session has expired. Please log in again.');
-    } else if (urlParams.get('reset') === '1') {
-      showAlert('Password Reset', 'Your password has been reset successfully. Please log in with your new password.');
-    }
-  });
+/* ============================================================
+* CUSTOM MODAL SYSTEM
+* ============================================================ */
+function showModal(title, message, buttons) {
+return new Promise(function(resolve) {
+var overlay = document.getElementById('customModal');
+var titleEl = document.getElementById('modalTitle');
+var bodyEl = document.getElementById('modalBody');
+var footerEl = document.getElementById('modalFooter');
+titleEl.textContent = title || 'Notice';
+bodyEl.innerHTML = typeof message === 'string' ? message : '';
+footerEl.innerHTML = '';
+buttons.forEach(function(btn) {
+var el = document.createElement('button');
+el.textContent = btn.label;
+el.className = 'btn ' + (btn.class || 'btn-primary');
+el.onclick = function() {
+overlay.classList.remove('active');
+document.body.style.overflow = '';
+if (btn.value !== undefined) resolve(btn.value);
+else resolve(true);
+};
+footerEl.appendChild(el);
+});
+overlay.classList.add('active');
+document.body.style.overflow = 'hidden';
+});
+}
+function closeModal() {
+var overlay = document.getElementById('customModal');
+if (overlay) overlay.classList.remove('active');
+document.body.style.overflow = '';
+}
+function modalConfirm() {
+var overlay = document.getElementById('customModal');
+if (overlay) overlay.classList.remove('active');
+document.body.style.overflow = '';
+}
+function showAlert(title, message) {
+return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
+}
+// Styled confirm dialog — used by guest-session.js for the logout prompt.
+function showConfirm(title, message) {
+return showModal(title, message, [
+{ label: 'Cancel', class: 'btn-secondary', value: false },
+{ label: 'Confirm', class: 'btn-primary', value: true }
+]);
+}
+window.showConfirm = showConfirm;
+document.addEventListener('keydown', function(e) {
+if (e.key === 'Escape') {
+var overlay = document.getElementById('customModal');
+if (overlay && overlay.classList.contains('active')) {
+overlay.classList.remove('active');
+document.body.style.overflow = '';
+}
+}
+});
+document.getElementById('customModal').addEventListener('click', function(e) {
+if (e.target === this) {
+this.classList.remove('active');
+document.body.style.overflow = '';
+}
+});
+/* ============================================================
+* SESSION CONTEXT
+* ============================================================ */
+var API_BASE = "/api";
+var currentGuest = null;
+if (window.GuestSession && window.GuestSession.isGuestSessionValid()) {
+currentGuest = window.GuestSession.readGuest();
+} else {
+if (window.GuestSession) window.GuestSession.clearGuestSession();
+currentGuest = null;
+}
+function renderGuestNav() {
+if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
+window.GuestSession.updateNavDOM();
+return;
+}
+var loginNav = document.getElementById("guestNav");
+var profileNav = document.getElementById("guestProfileNav");
+var mLoginNav = document.getElementById("mGuestNav");
+var mProfileNav = document.getElementById("mGuestProfileNav");
+if (currentGuest && currentGuest.id) {
+if (loginNav) { loginNav.classList.add("hidden"); loginNav.classList.remove("flex"); }
+if (profileNav) { profileNav.classList.remove("hidden"); profileNav.classList.add("flex"); }
+if (mLoginNav) mLoginNav.classList.add("hidden");
+if (mProfileNav) mProfileNav.classList.remove("hidden");
+} else {
+if (loginNav) { loginNav.classList.remove("hidden"); loginNav.classList.add("flex"); }
+if (profileNav) { profileNav.classList.add("hidden"); profileNav.classList.remove("flex"); }
+if (mLoginNav) mLoginNav.classList.remove("hidden");
+if (mProfileNav) mProfileNav.classList.add("hidden");
+}
+}
+window.logoutGuest = function() {
+if (window.GuestSession) {
+window.GuestSession.logoutGuest();
+}
+};
+/* ============================================================
+* LOGIN HANDLER — cookie-based.
+*
+* The success popup no longer mentions a session duration. The
+* server currently issues a 30-day guest session, but the exact
+* number is a server-side policy that may change, so we keep the
+* message generic. Clean and professional beats an exact figure
+* that can drift out of date.
+*
+* Return-to-booking still applies: if the guest arrived here from
+* a "Book Now" attempt, send them back to /?resume_booking=1 so
+* index.html can reopen the booking modal with the listing and
+* dates pre-filled. Otherwise, keep the default /mybookings.html
+* destination.
+* ============================================================ */
+async function handleLogin(e) {
+e.preventDefault();
+var email = document.getElementById('loginEmail').value.trim().toLowerCase();
+var password = document.getElementById('loginPassword').value.trim();
+var errorEl = document.getElementById('loginError');
+if (!email || !password) {
+errorEl.textContent = 'Please fill in all fields.';
+errorEl.classList.remove('hidden');
+return;
+}
+errorEl.classList.add('hidden');
+try {
+var res = await fetch(API_BASE + '/login', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ email: email, password: password }),
+credentials: 'include'
+});
+var text = await res.text();
+var data;
+try {
+data = JSON.parse(text);
+} catch (parseErr) {
+errorEl.textContent = 'Server error. Please try again later.';
+errorEl.classList.remove('hidden');
+return;
+}
+if (data.success && data.guest) {
+currentGuest = data.guest;
+if (window.GuestSession && typeof window.GuestSession.setSession === 'function') {
+window.GuestSession.setSession(data.guest, data.expiresIn);
+} else {
+try {
+localStorage.setItem('kd_guest', JSON.stringify(data.guest));
+var ttl = Number(data.expiresIn) || 7200;
+localStorage.setItem('kd_guest_expires_at', String(Date.now() + ttl * 1000));
+} catch (e) {}
+}
+if (data.csrfToken) {
+try { localStorage.setItem('kd_csrf_token', data.csrfToken); } catch (e) {}
+}
+renderGuestNav();
+// Return-to-booking: if there's a pending intent, go back to
+// the listing the guest was trying to book. Otherwise default
+// to the bookings page.
+let hasPendingIntent = false;
+try {
+hasPendingIntent = !!sessionStorage.getItem('kd_pending_booking_intent');
+} catch (e) {}
+await showAlert('Login Successful', 'Welcome back! You are now signed in.');
+if (hasPendingIntent) {
+window.location.href = '/?resume_booking=1';
+} else {
+window.location.href = '/mybookings.html';
+}
+} else {
+errorEl.textContent = data.error || 'Login failed. Please try again.';
+errorEl.classList.remove('hidden');
+}
+} catch (e) {
+errorEl.textContent = 'Network error: ' + (e.message || 'Please check your connection.');
+errorEl.classList.remove('hidden');
+}
+}
+document.addEventListener('click', function(e) {
+var nav = document.getElementById('mobileNav');
+var btn = document.getElementById('mobileMenuBtn');
+if (!nav || !btn) return;
+if (nav.classList.contains('open') &&
+!nav.contains(e.target) &&
+!btn.contains(e.target)) {
+nav.classList.remove('open');
+}
+});
+document.addEventListener('DOMContentLoaded', function() {
+renderGuestNav();
+var urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('verified') === '1') {
+showAlert('Email Verified', 'Your email has been verified successfully! You can now log in.');
+} else if (urlParams.get('verified') === 'already') {
+showAlert('Already Verified', 'Your email was already verified. Please log in.');
+} else if (urlParams.get('expired') === '1') {
+showAlert('Session Expired', 'Your previous session has expired. Please log in again.');
+} else if (urlParams.get('reset') === '1') {
+showAlert('Password Reset', 'Your password has been reset successfully. Please log in with your new password.');
+}
+});
+</script>
+<script>
+// =============================================================
+// MOBILE BOTTOM NAV — active state + smart Account behaviour
+// Runs last so the nav HTML and GuestSession are both ready.
+// =============================================================
+(function () {
+var nav = document.getElementById('mobileBottomNav');
+if (!nav) return;
+var path = (window.location.pathname || '/').replace(/\/+$/, '') || '/';
+function isHome() {
+return path === '/' || path === '/index.html' || path === '/index1.html';
+}
+function isActive(target) {
+if (target === 'home') return isHome();
+if (target === 'explore') return path === '/explore.html';
+if (target === 'bookings') return path === '/mybookings.html';
+if (target === 'account') return path === '/login.html' || path === '/register.html';
+return false; // 'stays' is a scroll action, never persistent
+}
+nav.querySelectorAll('.bn-item').forEach(function (el) {
+if (isActive(el.getAttribute('data-nav-for'))) el.classList.add('bn-active');
+});
+// Smooth-scroll "Stays" when the guest is already on the homepage.
+var stays = nav.querySelector('[data-nav-for="stays"]');
+if (stays) {
+stays.addEventListener('click', function (e) {
+if (isHome()) {
+e.preventDefault();
+var target = document.getElementById('homePage');
+if (target) target.scrollIntoView({ behavior: 'smooth' });
+}
+});
+}
+// Logged-in guests: "Sign In" becomes "Account" and opens the
+// profile menu instead of sending them to the login page.
+// Reads GuestSession directly so it works even before async init.
+var guest = null;
+try {
+if (window.GuestSession && window.GuestSession.isGuestSessionValid()) guest = window.GuestSession.readGuest();
+} catch (e) {}
+var acc = nav.querySelector('[data-nav-for="account"]');
+if (acc && guest && guest.id) {
+var lbl = acc.querySelector('.bn-label');
+if (lbl) lbl.textContent = 'Account';
+acc.addEventListener('click', function (e) {
+e.preventDefault();
+window.toggleMobileMenu();
+});
+}
+// Hide the bottom bar while the top mobile menu is open so the
+// two never overlap on small screens.
+var origToggle = window.toggleMobileMenu;
+window.toggleMobileMenu = function () {
+origToggle();
+var menu = document.getElementById('mobileNav');
+var open = menu ? menu.classList.contains('open') : false;
+document.body.classList.toggle('bn-hidden', open);
+};
+})();
 </script>
 <script src="/footer-weather.js"></script>
 </body>
