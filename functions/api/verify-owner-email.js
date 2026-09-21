@@ -1,4 +1,11 @@
 // /api/verify-owner-email.js — verifies owner email, sets cookie, redirects to list.html
+//
+// [SESSION COLLISION FIX]
+// When an owner verifies their email and receives an owner_token cookie,
+// the guest_token cookie is now explicitly cleared. This prevents the
+// same session-collision leak fixed in login.js, admin-login.js, and
+// owner-login.js: a browser holding both guest and owner cookies could
+// be ambiguous about which identity to use.
 import {
   corsHeaders,
   enforceHttps,
@@ -6,6 +13,7 @@ import {
   verifySignedToken,
   createSignedToken,
   cookieHeader,
+  clearCookieHeader,
   getClientIP,
   logAction
 } from './_utils.js';
@@ -62,10 +70,17 @@ export async function onRequestGet({ request, env }) {
         ownerSessionVersion: owner.ownerSessionVersion || 1
       }, env, OWNER_TTL_SECONDS * 1000);
 
-      return redirectTo(
-        `${domain}/list.html?verified=already`,
-        { 'Set-Cookie': cookieHeader('owner_token', session, OWNER_TTL_SECONDS) }
-      );
+      // Build headers with TWO Set-Cookie directives:
+      //   1. Set the new owner_token.
+      //   2. Clear the guest_token to prevent session collision.
+      const headers = {
+        'Location': `${domain}/list.html?verified=already`,
+        'Set-Cookie': [
+          cookieHeader('owner_token', session, OWNER_TTL_SECONDS),
+          clearCookieHeader('guest_token')
+        ].join(', ')
+      };
+      return new Response(null, { status: 302, headers });
     }
 
     owners[idx].verified = true;
@@ -107,10 +122,17 @@ export async function onRequestGet({ request, env }) {
       userId: owner.id
     });
 
-    return redirectTo(
-      `${domain}/list.html?verified=1`,
-      { 'Set-Cookie': cookieHeader('owner_token', session, OWNER_TTL_SECONDS) }
-    );
+    // Build headers with TWO Set-Cookie directives:
+    //   1. Set the new owner_token.
+    //   2. Clear the guest_token to prevent session collision.
+    const headers = {
+      'Location': `${domain}/list.html?verified=1`,
+      'Set-Cookie': [
+        cookieHeader('owner_token', session, OWNER_TTL_SECONDS),
+        clearCookieHeader('guest_token')
+      ].join(', ')
+    };
+    return new Response(null, { status: 302, headers });
 
   } catch (e) {
     console.error('Owner verification error:', e.message, e.stack);
