@@ -1060,6 +1060,51 @@
   </div>
 </footer>
 
+<!-- ===== MOBILE BOTTOM NAV (Material Design 3 style — mobile only) =====
+Fixed to the bottom of the screen on phones/tablets, hidden on
+desktop (lg:hidden). The active page gets the MD3 pill indicator.
+z-40 keeps it BELOW all modals (z-50) so the booking flow is
+never blocked by the bar. -->
+<nav id="mobileBottomNav" class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-black/5 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]" style="padding-bottom: env(safe-area-inset-bottom, 0px);" aria-label="Mobile bottom navigation">
+<div class="flex items-stretch">
+<!-- 1. Home -->
+<a href="/" class="bn-item" data-nav-for="home">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.8 12 3l9 7.8"/><path d="M5.4 9.6V21h4.8v-6.2h3.6V21h4.8V9.6"/></svg>
+</span>
+<span class="bn-label">Home</span>
+</a>
+<!-- 2. Explore -->
+<a href="/explore.html" class="bn-item" data-nav-for="explore">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M14.9 9.1l-1.7 4.2-4.2 1.7 1.7-4.2z"/></svg>
+</span>
+<span class="bn-label">Explore</span>
+</a>
+<!-- 3. Stays — jumps straight to the listings / search results -->
+<a href="/#homePage" class="bn-item" data-nav-for="stays">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 19v-7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v7"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M12 4v6"/><path d="M2 17h20"/></svg>
+</span>
+<span class="bn-label">Stays</span>
+</a>
+<!-- 4. Bookings -->
+<a href="/mybookings.html" class="bn-item" data-nav-for="bookings">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10.5h17"/></svg>
+</span>
+<span class="bn-label">Bookings</span>
+</a>
+<!-- 5. Account / Sign In — JS swaps behaviour when logged in -->
+<a href="/login.html" class="bn-item" data-nav-for="account">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5c0-3.9 3.4-6 7.5-6s7.5 2.1 7.5 6"/></svg>
+</span>
+<span class="bn-label">Sign In</span>
+</a>
+</div>
+</nav>
+
   <!-- ===== MODAL SYSTEM SCRIPT ===== -->
   <script>
     function showModal(title, message, buttons) {
