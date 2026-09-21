@@ -203,6 +203,55 @@ height: 10px;
 }
 /* Inline validation error styles */
 .input-error { border-color: #ef4444 !important; ring-color: #ef4444 !important; }
+/* ============================================================
+MOBILE BOTTOM NAV — Material Design 3 style (mobile only)
+Pill indicator sits behind the active icon (MD3 spec, style #1).
+Hidden entirely on desktop (lg and up) via the lg:hidden class.
+============================================================ */
+.bn-item {
+flex: 1 1 0%;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 3px;
+padding: 8px 0 7px;
+text-decoration: none;
+-webkit-tap-highlight-color: transparent;
+}
+.bn-icon-wrap {
+width: 58px;
+height: 32px;
+border-radius: 999px;
+display: flex;
+align-items: center;
+justify-content: center;
+color: rgba(33, 33, 33, 0.55);
+transition: background 0.25s ease, color 0.25s ease;
+}
+.bn-item:active .bn-icon-wrap { background: rgba(15, 56, 46, 0.10); }
+.bn-item svg { width: 21px; height: 21px; }
+.bn-label {
+font-family: 'Poppins', sans-serif;
+font-size: 10.5px;
+font-weight: 600;
+letter-spacing: 0.2px;
+color: rgba(33, 33, 33, 0.55);
+transition: color 0.2s ease;
+}
+.bn-item.bn-active .bn-icon-wrap {
+background: #0F382E;
+color: #ffffff;
+}
+.bn-item.bn-active .bn-label {
+color: #0F382E;
+font-weight: 700;
+}
+/* Hide the bottom bar while the top mobile menu is open */
+body.bn-hidden #mobileBottomNav { display: none; }
+/* Reserve space so the fixed bar never covers page content */
+@media (max-width: 1023.98px) {
+body { padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+}
 </style>
 </head>
 <body>
@@ -380,7 +429,7 @@ btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
 <div class="text-[11px] bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full font-600 text-emerald-800 flex items-center gap-1">
 <span>🔒 CHIP FPX Protected</span>
 </div>
-<div class="text-[11px] bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full font-600 text-emerald-800 flex items-center gap-1">
+<div class="text-[11px] bg-zinc-50 border border-zinc-200 px-3 py-1.5 rounded-full font-600 text-zinc-600">
 Accepted Payment Methods: FPX Bank
 </div>
 </div>
@@ -630,6 +679,50 @@ Facebook Page
 © 2026 Kundasang Homestay. All rights reserved.
 </div>
 </footer>
+<!-- ===== MOBILE BOTTOM NAV (Material Design 3 style — mobile only) =====
+Fixed to the bottom of the screen on phones/tablets, hidden on
+desktop (lg:hidden). The active page gets the MD3 pill indicator.
+z-40 keeps it BELOW all modals (z-50) so the booking flow is
+never blocked by the bar. -->
+<nav id="mobileBottomNav" class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-black/5 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]" style="padding-bottom: env(safe-area-inset-bottom, 0px);" aria-label="Mobile bottom navigation">
+<div class="flex items-stretch">
+<!-- 1. Home -->
+<a href="/" class="bn-item" data-nav-for="home">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.8 12 3l9 7.8"/><path d="M5.4 9.6V21h4.8v-6.2h3.6V21h4.8V9.6"/></svg>
+</span>
+<span class="bn-label">Home</span>
+</a>
+<!-- 2. Explore -->
+<a href="/explore.html" class="bn-item" data-nav-for="explore">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M14.9 9.1l-1.7 4.2-4.2 1.7 1.7-4.2z"/></svg>
+</span>
+<span class="bn-label">Explore</span>
+</a>
+<!-- 3. Stays — jumps straight to the listings / search results -->
+<a href="/#homePage" class="bn-item" data-nav-for="stays">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 19v-7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v7"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M12 4v6"/><path d="M2 17h20"/></svg>
+</span>
+<span class="bn-label">Stays</span>
+</a>
+<!-- 4. Bookings -->
+<a href="/mybookings.html" class="bn-item" data-nav-for="bookings">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10.5h17"/></svg>
+</span>
+<span class="bn-label">Bookings</span>
+</a>
+<!-- 5. Account / Sign In — JS swaps behaviour when logged in -->
+<a href="/login.html" class="bn-item" data-nav-for="account">
+<span class="bn-icon-wrap">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5c0-3.9 3.4-6 7.5-6s7.5 2.1 7.5 6"/></svg>
+</span>
+<span class="bn-label">Sign In</span>
+</a>
+</div>
+</nav>
 <!-- ===== SCRIPTS ===== -->
 <script src="animations.js"></script>
 <script>
@@ -2002,6 +2095,61 @@ container._listenerAttached = true;
 }
 renderMonth();
 }
+
+// =============================================================
+// MOBILE BOTTOM NAV — active state + smart Account behaviour
+// Runs after the main script so window.currentGuest is ready.
+// =============================================================
+(function () {
+var nav = document.getElementById('mobileBottomNav');
+if (!nav) return;
+var path = (window.location.pathname || '/').replace(/\/+$/, '') || '/';
+function isHome() {
+return path === '/' || path === '/index.html' || path === '/index1.html';
+}
+function isActive(target) {
+if (target === 'home') return isHome();
+if (target === 'explore') return path === '/explore.html';
+if (target === 'bookings') return path === '/mybookings.html';
+if (target === 'account') return path === '/login.html' || path === '/register.html';
+return false; // 'stays' is a scroll action, never persistent
+}
+nav.querySelectorAll('.bn-item').forEach(function (el) {
+if (isActive(el.getAttribute('data-nav-for'))) el.classList.add('bn-active');
+});
+// Smooth-scroll "Stays" when the guest is already on the homepage.
+var stays = nav.querySelector('[data-nav-for="stays"]');
+if (stays) {
+stays.addEventListener('click', function (e) {
+if (isHome()) {
+e.preventDefault();
+var target = document.getElementById('homePage');
+if (target) target.scrollIntoView({ behavior: 'smooth' });
+}
+});
+}
+// Logged-in guests: "Sign In" becomes "Account" and opens the
+// existing profile menu (profile card, My Bookings, Logout)
+// instead of sending them to the login page.
+var acc = nav.querySelector('[data-nav-for="account"]');
+if (acc && window.currentGuest && window.currentGuest.id) {
+var lbl = acc.querySelector('.bn-label');
+if (lbl) lbl.textContent = 'Account';
+acc.addEventListener('click', function (e) {
+e.preventDefault();
+window.toggleMobileMenu();
+});
+}
+// Hide the bottom bar while the top mobile menu is open so the
+// two never overlap on small screens.
+var origToggle = window.toggleMobileMenu;
+window.toggleMobileMenu = function () {
+origToggle();
+var menu = document.getElementById('mobileNav');
+var open = menu ? menu.classList.contains('open') : false;
+document.body.classList.toggle('bn-hidden', open);
+};
+})();
 
 // =============================================================
 // INITIALIZATION
