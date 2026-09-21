@@ -204,9 +204,8 @@ height: 10px;
 /* Inline validation error styles */
 .input-error { border-color: #ef4444 !important; ring-color: #ef4444 !important; }
 /* ============================================================
-MOBILE BOTTOM NAV — Material Design 3 style (mobile only)
-Pill indicator sits behind the active icon (MD3 spec, style #1).
-Hidden entirely on desktop (lg and up) via the lg:hidden class.
+MOBILE BOTTOM NAV — Material Design 3 (mobile only)
+Pill indicator behind the active icon; hidden on desktop (lg+).
 ============================================================ */
 .bn-item {
 flex: 1 1 0%;
@@ -238,14 +237,8 @@ letter-spacing: 0.2px;
 color: rgba(33, 33, 33, 0.55);
 transition: color 0.2s ease;
 }
-.bn-item.bn-active .bn-icon-wrap {
-background: #0F382E;
-color: #ffffff;
-}
-.bn-item.bn-active .bn-label {
-color: #0F382E;
-font-weight: 700;
-}
+.bn-item.bn-active .bn-icon-wrap { background: #0F382E; color: #ffffff; }
+.bn-item.bn-active .bn-label { color: #0F382E; font-weight: 700; }
 /* Hide the bottom bar while the top mobile menu is open */
 body.bn-hidden #mobileBottomNav { display: none; }
 /* Reserve space so the fixed bar never covers page content */
@@ -365,7 +358,7 @@ btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
 <div class="relative z-10 flex flex-col items-center justify-center text-center px-4 py-8 md:py-12 min-h-[520px] md:min-h-[640px]">
 <div class="font-satisfy text-[#D4A373] text-[28px] md:text-[38px] leading-none mb-2 drop-shadow">Breathe The Mountain Air</div>
 <h1 class="font-poppins font-700 text-white text-[30px] md:text-[62px] leading-[1.0] tracking-[-1px] drop-shadow-md">Handpicked Homestays <br class="hidden md:block"/>in Kundasang</h1>
-<p class="mt-3 font-poppins font-500 text-white/90 text-[13px] md:text-[16px] max-w-[620px] leading-[1.6] drop-shadow px-2">Verified local hosts, cool mountain climates, hot water showers, and 100% secure FPX payments.</p>
+<p class="mt-3 font-poppins font-500 text-white/90 text-[13px] md:text-[16px] max-w-[620px] leading-[1.6] drop-shadow px-2">Verified local hosts, cool mountain climates, hot water showers, and secure FPX payments.</p>
 <!-- Search Box -->
 <div class="w-full max-w-[920px] mt-6 md:mt-8 px-4 md:px-0">
 <div class="bg-white/95 backdrop-blur p-4 md:p-5 rounded-2xl shadow-2xl border border-white/40">
@@ -429,7 +422,7 @@ btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
 <div class="text-[11px] bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full font-600 text-emerald-800 flex items-center gap-1">
 <span>🔒 CHIP FPX Protected</span>
 </div>
-<div class="text-[11px] bg-zinc-50 border border-zinc-200 px-3 py-1.5 rounded-full font-600 text-zinc-600">
+<div class="text-[11px] bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full font-600 text-emerald-800 flex items-center gap-1">
 Accepted Payment Methods: FPX Bank
 </div>
 </div>
@@ -1007,6 +1000,9 @@ var ownerWhatsapp = booking.ownerWhatsapp || (selectedHomestay ? selectedHomesta
 var phone = String(ownerWhatsapp).replace(/[^0-9]/g, '');
 if (!phone || phone.length < 9) phone = '60123456789';
 if (phone.startsWith('0')) phone = '60' + phone.substring(1);
+// NOTE: '\n' escapes must stay as backslash-n. If your editor
+// converts them into real line breaks, this string becomes a
+// SyntaxError and the whole page script dies.
 var message = '🆕 *Hi,* ' + (booking.homestay || selectedHomestay?.name || 'Kundasang Homestay') + '\n' +
 '*Booking ID:* ' + (booking.id || bookingId) + '\n' +
 '*Homestay:* ' + (booking.homestay || selectedHomestay?.name || 'Kundasang Homestay') + '\n' +
@@ -2098,7 +2094,8 @@ renderMonth();
 
 // =============================================================
 // MOBILE BOTTOM NAV — active state + smart Account behaviour
-// Runs after the main script so window.currentGuest is ready.
+// Runs after the calendar code so the nav HTML and GuestSession
+// are both ready. Identical block to explore/login/mybookings.
 // =============================================================
 (function () {
 var nav = document.getElementById('mobileBottomNav');
@@ -2129,10 +2126,14 @@ if (target) target.scrollIntoView({ behavior: 'smooth' });
 });
 }
 // Logged-in guests: "Sign In" becomes "Account" and opens the
-// existing profile menu (profile card, My Bookings, Logout)
-// instead of sending them to the login page.
+// profile menu instead of sending them to the login page.
+// Reads GuestSession directly so it works even before async init.
+var guest = null;
+try {
+if (window.GuestSession && window.GuestSession.isGuestSessionValid()) guest = window.GuestSession.readGuest();
+} catch (e) {}
 var acc = nav.querySelector('[data-nav-for="account"]');
-if (acc && window.currentGuest && window.currentGuest.id) {
+if (acc && guest && guest.id) {
 var lbl = acc.querySelector('.bn-label');
 if (lbl) lbl.textContent = 'Account';
 acc.addEventListener('click', function (e) {
