@@ -7,9 +7,17 @@
 // WhatsApp number existed by measuring response time. The dummy is now
 // built at request time from the same PBKDF2_ITERATIONS value real
 // records use.
+//
+// [SESSION COLLISION FIX]
+// When an owner logs in, the `guest_token` cookie is now explicitly
+// cleared in the response. This prevents the same class of session-
+// collision leak that was fixed in login.js and admin-login.js: a
+// browser that had a guest session and then logs in as an owner would
+// hold BOTH cookies. Clearing the guest cookie on owner login removes
+// the ambiguity: one browser, one identity.
 import {
   corsHeaders, getClientIP, enforceHttps, verifyPassword, hashPassword,
-  createSignedToken, cookieHeader, jsonResponse, checkRateLimit,
+  createSignedToken, cookieHeader, clearCookieHeader, jsonResponse, checkRateLimit,
   recordRateLimit, parseJSONSafely
 } from './_utils.js';
 
@@ -176,16 +184,22 @@ export async function onRequestPost({ request, env }) {
       ownerPasswordVersion, ownerSessionVersion: _sv, ...rest
     }) => rest);
 
+    // Build headers with TWO Set-Cookie directives:
+    //   1. Set the new owner_token.
+    //   2. Clear the guest_token so this browser is unambiguously
+    //      an owner session, not a guest session. Prevents the
+    //      session-collision leak.
+    const headers = new Headers(corsHeaders(request));
+    headers.append('Set-Cookie', cookieHeader('owner_token', token));
+    headers.append('Set-Cookie', clearCookieHeader('guest_token'));
+
     return new Response(JSON.stringify({
       success: true,
       homestays: safeHomes,
       message: 'Login successful'
     }), {
       status: 200,
-      headers: {
-        ...corsHeaders(request),
-        'Set-Cookie': cookieHeader('owner_token', token)
-      }
+      headers
     });
   } catch (e) {
     console.error('Owner login error:', e.message, e.stack);
