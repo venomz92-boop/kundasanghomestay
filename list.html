@@ -706,6 +706,18 @@ function setDropZoneText(zone, text) {
     '<div>' + text + '</div>';
 }
 
+function findDropZoneForInput(input) {
+  if (!input) return null;
+  var el = input.previousElementSibling;
+  while (el) {
+    if (el.classList && el.classList.contains('drop-zone')) return el;
+    el = el.previousElementSibling;
+  }
+  var section = input.closest('section');
+  if (section) return section.querySelector('.drop-zone');
+  return null;
+}
+
 function showModal(title, message, buttons) {
 return new Promise((resolve) => {
 const overlay = document.getElementById('customModal');
@@ -1240,7 +1252,7 @@ async function handlePhotos(input) {
 const files = input.files;
 if (!files.length) return;
 const preview = document.getElementById('photoPreview');
-const zone = input.closest('.drop-zone');
+const zone = findDropZoneForInput(input);
 const clearZone = showDropZoneLoading(zone, 'Preparing photos…');
 const total = files.length;
 for (let i = 0; i < total; i++) {
@@ -1295,7 +1307,7 @@ input.value = "";
 return;
 }
 tempIcOriginalName = file.name;
-const zone = input.closest('.drop-zone');
+const zone = findDropZoneForInput(input);
 const clearZone = showDropZoneLoading(zone, 'Watermarking IC…');
 try {
 const compressedDataUrl = await compressImage(file, 1200, 0.85);
@@ -1401,7 +1413,7 @@ input.value = "";
 return;
 }
 tempBankQROriginalName = file.name;
-const zone = input.closest('.drop-zone');
+const zone = findDropZoneForInput(input);
 const clearZone = showDropZoneLoading(zone, 'Uploading QR…');
 try {
 const compressedBlob = await compressImageToBlob(file, 800, 0.8);
@@ -1505,7 +1517,7 @@ await showAlert("File Exceeded", "File size too large (max 3MB).");
 input.value = "";
 return;
 }
-const zone = input.closest('.drop-zone');
+const zone = findDropZoneForInput(input);
 const clearZone = showDropZoneLoading(zone, 'Uploading license…');
 try {
 const compressedBlob = await compressImageToBlob(file, 800, 0.7);
