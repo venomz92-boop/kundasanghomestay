@@ -1,4 +1,11 @@
 // /api/resend-verification.js
+//
+// [REVISION — 22 Sept 2026 — Phase 3]
+// - Verification email now escapes the guest's name and the verify
+//   URL with escHtml.
+// - Added a global rate limit alongside the per-IP one.
+// - Success response is now Cache-Control: no-store.
+// - Error log no longer includes the stack trace.
 import {
   corsHeaders,
   enforceHttps,
@@ -8,11 +15,20 @@ import {
   getClientIP,
   logAction,
   checkRateLimit,
-  recordRateLimit
+  recordRateLimit,
+  escHtml
 } from './_utils.js';
 
+const IP_LIMIT = 5;
+const IP_WINDOW_SECONDS = 60 * 60;
+const GLOBAL_KEY = '__resend_verification_global__';
+const GLOBAL_LIMIT = 60;
+const GLOBAL_WINDOW_SECONDS = 60 * 60;
+
 async function sendVerificationEmail(to, name, url, env) {
-  const html = `<h2>Hello ${name},</h2><p>Please verify your email address for Kundasang Homestay.</p><p><a href="${url}">Verify Email</a></p><p>This link expires in 24 hours.</p>`;
+  const safeName = escHtml(name || 'Guest');
+  const safeUrl = escHtml(url);
+  const html = `<h2>Hello ${safeName},</h2><p>Please verify your email address for Kundasang Homestay.</p><p><a href="${safeUrl}">Verify Email</a></p><p>This link expires in 24 hours.</p>`;
   try {
     if (env.RESEND_API_KEY) {
       const r = await fetch('https://api.resend.com/emails', {
@@ -41,7 +57,7 @@ async function sendVerificationEmail(to, name, url, env) {
       return r.ok;
     }
   } catch (e) {
-    console.error('Email send error:', e);
+    console.error('Email send error:', e.message);
   }
   return false;
 }
@@ -60,14 +76,18 @@ export async function onRequestPost({ request, env }) {
     if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // [SECURITY] Rate-limit per IP to stop an authenticated guest from
-    // spamming unlimited verification emails.
     const clientIP = getClientIP(request);
-    const rateOk = await checkRateLimit(db, clientIP, 'resend_verification', 5, 60 * 60);
-    if (!rateOk) {
+
+    const ipOk = await checkRateLimit(db, clientIP, 'resend_verification', IP_LIMIT, IP_WINDOW_SECONDS);
+    if (!ipOk) {
+      return jsonResponse({ error: 'Too many verification emails requested. Please wait an hour.' }, 429, request);
+    }
+    const globalOk = await checkRateLimit(db, GLOBAL_KEY, 'resend_verification', GLOBAL_LIMIT, GLOBAL_WINDOW_SECONDS);
+    if (!globalOk) {
       return jsonResponse({ error: 'Too many verification emails requested. Please wait an hour.' }, 429, request);
     }
     await recordRateLimit(db, clientIP, 'resend_verification');
+    await recordRateLimit(db, GLOBAL_KEY, 'resend_verification');
 
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
     let guests = [];
@@ -76,10 +96,9 @@ export async function onRequestPost({ request, env }) {
     if (!guest) return jsonResponse({ error: 'User not found' }, 404, request);
 
     if (guest.verified === true) {
-      return jsonResponse({ message: 'Email already verified' }, 200, request);
+      return jsonResponse({ message: 'Email already verified' }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
-    // Generate new token
     const token = await createSignedToken({
       type: 'email_verification',
       userId: guest.id,
@@ -103,9 +122,9 @@ export async function onRequestPost({ request, env }) {
       userId: guest.id
     });
 
-    return jsonResponse({ success: true, message: 'Verification email sent' }, 200, request);
+    return jsonResponse({ success: true, message: 'Verification email sent' }, 200, request, { 'Cache-Control': 'no-store' });
   } catch (e) {
-    console.error('Resend verification error:', e);
+    console.error('Resend verification error:', e.message);
     return jsonResponse({ error: 'Failed to resend verification' }, 500, request);
   }
 }
