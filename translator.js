@@ -2,22 +2,23 @@
    Kundasang Homestay — Free Auto-Translator (client-side)
    ------------------------------------------------------------
    Engine : Google "gtx" public endpoint (free, no API key) —
-            same quality as translate.google.com.
-   Cost   : RM0. No signup. No server changes.
+            the same neural translations as translate.google.com,
+            so accuracy for MS / 中文 / 日本語 / 한국어 ↔ EN is
+            best-in-class at RM0.
    Behaviour:
-     - Floating 🌐 pill (above the mobile bottom nav).
-     - Translates visible text only (never scripts, inputs,
-       price-only strings, form controls).
+     - Floating 🌐 pill (sits above the mobile bottom nav).
+     - Translates visible text only — never scripts, styles,
+       inputs, selects, or price/ID-only strings.
      - Caches every segment in localStorage → repeat visits are
        instant and make zero network calls.
      - MutationObserver auto-translates content injected later
        (listing grid, detail modal, booking summary, toasts).
      - Switching back to English restores originals in place,
        without a reload (safe mid-booking).
+   Protect any element: add class="notranslate" to it.
    Upgrade path (official SLA / unlimited volume):
-     CONFIG.mode = 'libre'  + self-host LibreTranslate (free, Docker), or
-     CONFIG.mode = 'azure'  + tiny /api/translate proxy (Azure free tier).
-   Protect any element from translation: add class="notranslate".
+     CONFIG.mode = 'libre' + self-hosted LibreTranslate (free),
+     or an Azure Translator proxy (free 2M chars/month).
    ============================================================ */
 (function () {
   'use strict';
@@ -50,21 +51,29 @@
 
   /* ---------- floating language pill ---------- */
   function buildUI() {
+    var style = document.createElement('style');
+    style.textContent =
+      '#kdTranslator{position:fixed;right:14px;bottom:92px;z-index:45;' +
+      'display:flex;align-items:center;gap:6px;' +
+      'background:rgba(255,255,255,.95);backdrop-filter:blur(8px);' +
+      '-webkit-backdrop-filter:blur(8px);' +
+      'border:1px solid rgba(0,0,0,.08);border-radius:999px;' +
+      'padding:6px 10px;box-shadow:0 6px 20px rgba(0,0,0,.12);' +
+      'font-family:Poppins,sans-serif;}' +
+      '@media(min-width:1024px){#kdTranslator{bottom:24px;}}' +
+      '#kdLangSelect{border:none;background:transparent;' +
+      'font:600 12px Poppins,sans-serif;color:#212121;outline:none;}';
+    document.head.appendChild(style);
+
     var wrap = document.createElement('div');
     wrap.id = 'kdTranslator';
     wrap.className = 'notranslate';
     wrap.setAttribute('translate', 'no');
-    wrap.style.cssText =
-      'position:fixed;right:14px;bottom:92px;z-index:45;' +
-      'display:flex;align-items:center;gap:6px;' +
-      'background:rgba(255,255,255,.95);backdrop-filter:blur(8px);' +
-      'border:1px solid rgba(0,0,0,.08);border-radius:999px;' +
-      'padding:6px 10px;box-shadow:0 6px 20px rgba(0,0,0,.12);' +
-      'font-family:Poppins,sans-serif;';
     wrap.innerHTML =
       '<span style="font-size:14px;line-height:1;">🌐</span>' +
-      '<select id="kdLangSelect" style="border:none;background:transparent;font:600 12px Poppins,sans-serif;color:#212121;outline:none;"></select>';
+      '<select id="kdLangSelect" aria-label="Select language"></select>';
     document.body.appendChild(wrap);
+
     var sel = wrap.querySelector('#kdLangSelect');
     CONFIG.languages.forEach(function (l) {
       var o = document.createElement('option');
@@ -75,9 +84,9 @@
     sel.addEventListener('change', function () {
       current = sel.value;
       localStorage.setItem(LANG_KEY, current);
+      document.documentElement.lang = current;
       if (current === 'en') restoreAll(); else translatePage(document.body);
     });
-    if (window.matchMedia('(min-width:1024px)').matches) wrap.style.bottom = '24px';
   }
 
   /* ---------- DOM walking ---------- */
@@ -104,7 +113,7 @@
   function collectBatch(root) {
     var nodes = [], texts = [];
     walk(root, function (n) {
-      if (n.__kdOrig != null) return;               // already translated
+      if (n.__kdOrig != null) return;              // already translated
       if (!isTranslatable(n.nodeValue)) return;
       nodes.push(n); texts.push(n.nodeValue.trim());
     });
@@ -112,8 +121,6 @@
   }
 
   /* ---------- translation engine ---------- */
-  function cacheKey(text) { return current + '|' + text; }
-
   function fetchTranslations(texts) {
     var q = texts.join('\n');
     if (CONFIG.mode === 'libre' && CONFIG.libreUrl) {
@@ -146,7 +153,7 @@
     var payload = missing.map(function (m) { return m[0]; });
     return fetchTranslations(payload).then(function (results) {
       if (!results || results.length !== payload.length) {
-        // Batch shape mismatch → safe per-segment fallback for this batch only
+        // Batch shape mismatch → safe per-segment fallback, this batch only
         return payload.reduce(function (chain, text, k) {
           return chain.then(function () {
             return fetchTranslations([text]).then(function (r) {
@@ -211,9 +218,13 @@
   /* ---------- boot ---------- */
   function boot() {
     buildUI();
+    document.documentElement.lang = current;
     if (current !== 'en') translatePage(document.body);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
+  window.addEventListener('load', function () {
+    if (current !== 'en') translatePage(document.body);
+  });
   window.kdRetranslate = function () { return translatePage(document.body); };
 })();
