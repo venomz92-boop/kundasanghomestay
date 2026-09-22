@@ -782,13 +782,27 @@ export async function logAction({ db, action, admin, details, ip, userId, homest
 
 const CSRF_TTL_MS = 60 * 60 * 1000;
 
-export async function generateCSRFToken(userId, env) {
-  return createSignedToken({ type: 'csrf', userId: String(userId) }, env, CSRF_TTL_MS);
+export async function generateCSRFToken(userId, env, sessionVersion = 0) {
+  return createSignedToken(
+    {
+      type: 'csrf',
+      userId: String(userId),
+      sv: Number(sessionVersion) || 0
+    },
+    env,
+    CSRF_TTL_MS
+  );
 }
 
-export async function validateCSRFToken(token, userId, env) {
+export async function validateCSRFToken(token, userId, env, sessionVersion = 0) {
   const data = await verifySignedToken(token, env);
-  return !!data && data.type === 'csrf' && String(data.userId) === String(userId);
+  if (!data) return false;
+  if (data.type !== 'csrf') return false;
+  if (String(data.userId) !== String(userId)) return false;
+  const expectedSv = Number(sessionVersion) || 0;
+  const tokenSv = Number(data.sv ?? 0);
+  if (tokenSv !== expectedSv) return false;
+  return true;
 }
 
 export function getCSRFToken(request) {
