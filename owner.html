@@ -1224,6 +1224,14 @@ async function loadRoomBlocks() {
     }
   });
 
+  // Attach the block-button handler unconditionally so it responds
+  // even when there are no rooms (shows an alert instead of doing nothing).
+  const addBtn = document.getElementById('addRoomBlockBtn');
+  if (addBtn) {
+    addBtn.removeEventListener('click', toggleRoomBlock);
+    addBtn.addEventListener('click', toggleRoomBlock);
+  }
+
   if (rooms.length === 0) {
     selector.innerHTML = '<option value="">No rooms found</option>';
     return;
@@ -1237,12 +1245,6 @@ async function loadRoomBlocks() {
   if (listDiv) {
     listDiv.removeEventListener('click', removeRoomBlockHandler);
     listDiv.addEventListener('click', removeRoomBlockHandler);
-  }
-
-  const addBtn = document.getElementById('addRoomBlockBtn');
-  if (addBtn) {
-    addBtn.removeEventListener('click', toggleRoomBlock);
-    addBtn.addEventListener('click', toggleRoomBlock);
   }
 }
 
@@ -1294,8 +1296,8 @@ async function toggleRoomBlock() {
   const selected = selector.options[selector.selectedIndex];
 
   if (!selected || !selected.value) {
-    showAlert('Error', 'Please select a room.');
-    return;
+  showAlert('No Rooms', 'This homestay has no rooms, so there are no dates to block. Add a room first.');
+  return;
   }
 
   const date = dateInput.value;
@@ -1323,12 +1325,14 @@ async function toggleRoomBlock() {
 
     const data = await res.json();
 
-    if (data.success) {
+  if (data.success) {
       await showAlert('Success', data.message);
       await loadBookings();
+      await refreshOwnerHomestays();
       await loadRoomBlocks();
       dateInput.value = '';
-    } else {
+    }
+    else {
       await showAlert('Error', data.error || 'Failed to update block.');
     }
   } catch(e) {
@@ -1363,8 +1367,10 @@ async function removeRoomBlock(date) {
     if (data.success) {
       await showAlert('Removed', date + ' unblocked.');
       await loadBookings();
+      await refreshOwnerHomestays();
       await loadRoomBlocks();
-    } else {
+    }
+    else {
       await showAlert('Error', data.error || 'Failed to remove block.');
     }
   } catch(e) {
