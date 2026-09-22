@@ -1,25 +1,42 @@
 // /api/owner-login.js — Plain English: host login.
 //
-// [THIS REVISION]
-// The dummy record used for timing-equalisation now matches the real
-// iteration count. Before this change the dummy used 600,000 iterations
-// while real records used 100,000 — an attacker could tell whether a
-// WhatsApp number existed by measuring response time. The dummy is now
-// built at request time from the same PBKDF2_ITERATIONS value real
-// records use.
+// [REVISION — 22 Sept 2026 — Phase 3]
+// - Owner login now clears admin_token (was only clearing guest_token).
+//   This closes the same session-collision class of bug that
+//   guest-login.js and admin-login.js were already patched for: a
+//   browser that had an admin session and then logged in as an owner
+//   held BOTH cookies, and if the owner session check ever failed on
+//   /api/bookings the request could fall through to the admin branch
+//   and expose admin data on an owner page.
+// - Added a global owner-login rate limit in parallel with the per-IP
+//   one, so a distributed brute force across many IPs is slowed.
+// - passwordVersion default uses ?? instead of || so a legitimate
+//   version of 0 is preserved.
+// - Success response is now Cache-Control: no-store.
+// - Error log no longer includes the stack trace.
 //
-// [SESSION COLLISION FIX]
-// When an owner logs in, the `guest_token` cookie is now explicitly
-// cleared in the response. This prevents the same class of session-
-// collision leak that was fixed in login.js and admin-login.js: a
-// browser that had a guest session and then logs in as an owner would
-// hold BOTH cookies. Clearing the guest cookie on owner login removes
-// the ambiguity: one browser, one identity.
+// NOT changed here:
+// - Owner session TTL is still 24h (matches cookieHeader default).
+//   Guest sessions are 30 days. If hosts complain about being logged
+//   out every day, raise this deliberately — do not silently extend it.
+// - Legacy-migration path still runs on successful login when the
+//   stored hash is legacy SHA-256 (see comment below).
 import {
   corsHeaders, getClientIP, enforceHttps, verifyPassword, hashPassword,
   createSignedToken, cookieHeader, clearCookieHeader, jsonResponse, checkRateLimit,
   recordRateLimit, parseJSONSafely
 } from './_utils.js';
+
+const OWNER_TTL_MS      = 24 * 60 * 60 * 1000; // 24 hours (existing behavior)
+const OWNER_TTL_SECONDS = OWNER_TTL_MS / 1000;
+
+// Per-IP limits
+const IP_LIMIT = 5;
+const IP_WINDOW_SECONDS = 15 * 60;
+// Global limit — fixed sentinel, not an IP address.
+const GLOBAL_KEY = '__owner_login_global__';
+const GLOBAL_LIMIT = 60;
+const GLOBAL_WINDOW_SECONDS = 15 * 60;
 
 const DUMMY_PASSWORD = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 const DUMMY_SALT = 'AAAAAAAAAAAAAAAAAAAAAA';
@@ -43,8 +60,15 @@ export async function onRequestPost({ request, env }) {
     if (!db) return jsonResponse({ error: 'Server configuration error' }, 500, request);
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
-    const rateOk = await checkRateLimit(db, clientIP, 'owner_login', 5, 15 * 60);
-    if (!rateOk) {
+
+    // Per-IP limit
+    const ipOk = await checkRateLimit(db, clientIP, 'owner_login', IP_LIMIT, IP_WINDOW_SECONDS);
+    if (!ipOk) {
+      return jsonResponse({ error: 'Too many login attempts. Please wait 15 minutes.' }, 429, request);
+    }
+    // Global limit
+    const globalOk = await checkRateLimit(db, GLOBAL_KEY, 'owner_login', GLOBAL_LIMIT, GLOBAL_WINDOW_SECONDS);
+    if (!globalOk) {
       return jsonResponse({ error: 'Too many login attempts. Please wait 15 minutes.' }, 429, request);
     }
 
@@ -54,6 +78,7 @@ export async function onRequestPost({ request, env }) {
     const cleanPassword = String(password || '');
     if (!cleanWhatsapp || cleanPassword.length < 1) {
       await recordRateLimit(db, clientIP, 'owner_login');
+      await recordRateLimit(db, GLOBAL_KEY, 'owner_login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
 
@@ -86,6 +111,7 @@ export async function onRequestPost({ request, env }) {
       // Run dummy PBKDF2 to keep timing constant regardless of existence.
       await verifyPassword(cleanPassword, makeDummyRecord(env), env);
       await recordRateLimit(db, clientIP, 'owner_login');
+      await recordRateLimit(db, GLOBAL_KEY, 'owner_login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
 
@@ -104,10 +130,13 @@ export async function onRequestPost({ request, env }) {
     const checked = await verifyPassword(cleanPassword, recordToCheck, env);
     if (!checked.ok) {
       await recordRateLimit(db, clientIP, 'owner_login');
+      await recordRateLimit(db, GLOBAL_KEY, 'owner_login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
     }
 
     // ---- Migrate legacy password to PBKDF2 across ALL matching records ----
+    // This is a hash-format upgrade, not a password change, so we do
+    // NOT bump ownerSessionVersion — existing sessions stay valid.
     if (checked.legacy) {
       const fresh = await hashPassword(cleanPassword, env);
       const versionBump = (rec) => (Number(rec.ownerPasswordVersion) || 0) + 1;
@@ -173,25 +202,29 @@ export async function onRequestPost({ request, env }) {
       homestayIds,
       ownerName,
       whatsapp: cleanWhatsapp,
-      passwordVersion: (ownerAccount && ownerAccount.ownerPasswordVersion)
-        || (ownerHomesWithPassword[0] && ownerHomesWithPassword[0].ownerPasswordVersion)
-        || 1,
+      passwordVersion: Number(
+        (ownerAccount && ownerAccount.ownerPasswordVersion)
+        ?? (ownerHomesWithPassword[0] && ownerHomesWithPassword[0].ownerPasswordVersion)
+        ?? 1
+      ),
       ownerSessionVersion
-    }, env);
+    }, env, OWNER_TTL_MS);
 
     const safeHomes = ownerHomes.map(({
       ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm,
       ownerPasswordVersion, ownerSessionVersion: _sv, ...rest
     }) => rest);
 
-    // Build headers with TWO Set-Cookie directives:
+    // Three Set-Cookie directives:
     //   1. Set the new owner_token.
-    //   2. Clear the guest_token so this browser is unambiguously
-    //      an owner session, not a guest session. Prevents the
-    //      session-collision leak.
+    //   2. Clear guest_token (owner + guest coexistence ambiguity).
+    //   3. Clear admin_token (session-collision fix — same class of
+    //      bug that guest-login.js and admin-login.js were patched for).
     const headers = new Headers(corsHeaders(request));
-    headers.append('Set-Cookie', cookieHeader('owner_token', token));
+    headers.set('Cache-Control', 'no-store');
+    headers.append('Set-Cookie', cookieHeader('owner_token', token, OWNER_TTL_SECONDS));
     headers.append('Set-Cookie', clearCookieHeader('guest_token'));
+    headers.append('Set-Cookie', clearCookieHeader('admin_token'));
 
     return new Response(JSON.stringify({
       success: true,
@@ -202,7 +235,7 @@ export async function onRequestPost({ request, env }) {
       headers
     });
   } catch (e) {
-    console.error('Owner login error:', e.message, e.stack);
+    console.error('Owner login error:', e.message);
     return jsonResponse({ error: 'Server error. Please try again later.' }, 500, request);
   }
 }
