@@ -49,10 +49,11 @@ export async function onRequestPost({ request, env }) {
     }
 
     const csrf = getCSRFToken(request);
-    if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) {
+    const sessionSv = Number(session.sessionVersion ?? 0);
+    if (!csrf || !(await validateCSRFToken(csrf, session.userId, env, sessionSv))) {
       return jsonResponse({ error: 'Invalid security token' }, 403, request);
     }
-
+    
     let body;
     try {
       body = await parseJSONSafely(request);
