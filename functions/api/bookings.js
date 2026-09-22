@@ -309,7 +309,8 @@ async function requireGuest(request, env, body) {
     return { error: jsonResponse({ error: 'Guest identity mismatch' }, 403, request) };
   }
   const csrf = getCSRFToken(request);
-  if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) {
+  const sessionSv = Number(session.sessionVersion ?? 0);
+  if (!csrf || !(await validateCSRFToken(csrf, session.userId, env, sessionSv))) {
     return { error: jsonResponse({ error: 'Invalid security token' }, 403, request) };
   }
   return { session };
