@@ -1,10 +1,17 @@
 // /api/resend-code.js – With CSRF + rate limiting + paid-only guard
 //
-// [THIS REVISION]
-// The check-in code email was rewritten to match the receipt email in
-// verify-payment.js and the webhook email in chip-webhook.js:
-// light-mode locked (no dark-mode inversion), table-based layout, big
-// monospace code hero, correct pluralisation.
+// [REVISION — 22 Sept 2026 — Phase 3]
+// - validateCSRFToken now receives session.sessionVersion. Without
+//   this the token's sv=1 was compared against a default of 0, so
+//   every guest resend returned 403 Invalid security token after the
+//   session-bound CSRF change shipped. (_middleware.js already
+//   validates this same token; keeping the local check as
+//   defense-in-depth, but it must use the same arguments.)
+// - Uses parseJSONSafely (was request.json) so the 1MB guard applies.
+// - Email fields escaped with escHtml (was a .replace(/[<>]/g,'')
+//   helper that left & un-escaped).
+// - Success response is now Cache-Control: no-store.
+// - Error log no longer logs the raw error object.
 import {
   corsHeaders,
   jsonResponse,
@@ -15,7 +22,9 @@ import {
   checkRateLimit,
   recordRateLimit,
   validateCSRFToken,
-  getCSRFToken
+  getCSRFToken,
+  parseJSONSafely,
+  escHtml
 } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
@@ -28,11 +37,18 @@ export async function onRequestPost({ request, env }) {
 
     // ===== CSRF PROTECTION =====
     const csrf = getCSRFToken(request);
-    if (!csrf || !(await validateCSRFToken(csrf, session.userId, env))) {
+    const sessionSv = Number(session.sessionVersion ?? 0);
+    if (!csrf || !(await validateCSRFToken(csrf, session.userId, env, sessionSv))) {
       return jsonResponse({ error: 'Invalid security token' }, 403, request);
     }
 
-    const { bookingId } = await request.json();
+    let rawBody;
+    try {
+      rawBody = await parseJSONSafely(request);
+    } catch (_) {
+      return jsonResponse({ error: 'Invalid request' }, 400, request);
+    }
+    const { bookingId } = rawBody || {};
     if (!bookingId) return jsonResponse({ error: 'Missing bookingId' }, 400, request);
 
     const db = env.DB;
@@ -47,7 +63,6 @@ export async function onRequestPost({ request, env }) {
     const booking = bookings[idx];
 
     // ===== PAID-ONLY GUARD =====
-    // Only paid bookings are allowed to request a check-in code.
     const status = String(booking.status || '');
     const isPaid = status === 'Paid - Awaiting Check-in' ||
                    status.startsWith('Completed');
@@ -66,7 +81,6 @@ export async function onRequestPost({ request, env }) {
     }
     await recordRateLimit(db, clientIP, actionKey);
 
-    // At this point booking is paid, so checkinCode MUST exist.
     if (!booking.checkinCode) {
       console.error(`Paid booking ${bookingId} has no checkinCode – this indicates a finalization bug`);
       return jsonResponse({
@@ -76,20 +90,6 @@ export async function onRequestPost({ request, env }) {
 
     const code = booking.checkinCode;
 
-    // ============================================================
-    // Check-in code email — resent on guest request.
-    //
-    // [THIS REVISION]
-    // Full cosmetic overhaul, matching the receipt email in
-    // verify-payment.js and the webhook email in chip-webhook.js:
-    //   - Forces light-mode rendering via color-scheme meta tags so
-    //     dark-mode clients cannot invert the brand colors.
-    //   - Table-based layout for email client compatibility.
-    //   - Check-in code is the visual hero — large, monospace, in its
-    //     own highlighted box.
-    //   - Fixed pluralisation: "1 nights" → "1 night".
-    // ============================================================
-    const safe = (s) => String(s || '').replace(/[<>]/g, '');
     const resendNights = Number(booking.nights) || 1;
     const resendNightLabel = resendNights === 1 ? 'night' : 'nights';
     const resendTotal = Number(booking.total || 0);
@@ -112,36 +112,33 @@ export async function onRequestPost({ request, env }) {
         <tr>
           <td style="padding:36px 32px 28px 32px;">
 
-            <!-- Header -->
             <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #0F382E;">
               <div style="font-size:22px;font-weight:800;color:#0F382E;letter-spacing:-0.3px;line-height:1.2;">Kundasang Homestay</div>
               <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:2px;margin-top:6px;">Your Check-in Code</div>
             </div>
 
-            <!-- Greeting -->
             <p style="font-size:14px;color:#212121;line-height:1.6;margin-top:24px;margin-bottom:16px;">
-              Hello ${safe(booking.guestName) || 'Guest'},
+              Hello ${escHtml(booking.guestName) || 'Guest'},
             </p>
             <p style="font-size:14px;color:#4b5563;line-height:1.6;margin:0 0 24px 0;">
-              Here is your check-in code for <strong style="color:#212121;">${safe(booking.homestay)}</strong>.
+              Here is your check-in code for <strong style="color:#212121;">${escHtml(booking.homestay)}</strong>.
             </p>
 
-            <!-- Booking summary -->
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8f5f0;border-radius:12px;">
               <tr>
                 <td style="padding:16px;">
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                     <tr>
                       <td style="padding:5px 0;font-size:12px;color:#6b7280;width:100px;">Booking ID</td>
-                      <td style="padding:5px 0;font-size:13px;color:#212121;font-weight:700;font-family:'Courier New',monospace;">${safe(booking.id)}</td>
+                      <td style="padding:5px 0;font-size:13px;color:#212121;font-weight:700;font-family:'Courier New',monospace;">${escHtml(booking.id)}</td>
                     </tr>
                     <tr>
                       <td style="padding:5px 0;font-size:12px;color:#6b7280;">Check-in</td>
-                      <td style="padding:5px 0;font-size:13px;color:#212121;font-weight:600;">${safe(booking.checkin)}</td>
+                      <td style="padding:5px 0;font-size:13px;color:#212121;font-weight:600;">${escHtml(booking.checkin)}</td>
                     </tr>
                     <tr>
                       <td style="padding:5px 0;font-size:12px;color:#6b7280;">Check-out</td>
-                      <td style="padding:5px 0;font-size:13px;color:#212121;font-weight:600;">${safe(booking.checkout)}</td>
+                      <td style="padding:5px 0;font-size:13px;color:#212121;font-weight:600;">${escHtml(booking.checkout)}</td>
                     </tr>
                     <tr>
                       <td style="padding:5px 0;font-size:12px;color:#6b7280;">Nights</td>
@@ -156,18 +153,16 @@ export async function onRequestPost({ request, env }) {
               </tr>
             </table>
 
-            <!-- Check-in code — the visual hero -->
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:32px;">
               <tr>
                 <td style="background-color:#f0fdf4;border:2px solid #86efac;border-radius:14px;padding:24px 20px;text-align:center;">
                   <div style="font-size:11px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Your Check-in Code</div>
-                  <div style="font-family:'Courier New',Consolas,monospace;font-size:38px;font-weight:800;color:#0F382E;letter-spacing:10px;line-height:1;padding-left:10px;">${safe(code)}</div>
+                  <div style="font-family:'Courier New',Consolas,monospace;font-size:38px;font-weight:800;color:#0F382E;letter-spacing:10px;line-height:1;padding-left:10px;">${escHtml(code)}</div>
                   <div style="font-size:12px;color:#166534;margin-top:16px;line-height:1.6;">Share this 6-digit code with the host when you arrive.<br>Do not share it with anyone else.</div>
                 </td>
               </tr>
             </table>
 
-            <!-- Footer -->
             <div style="text-align:center;font-size:11px;color:#9ca3af;margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;line-height:1.7;">
               Payment processed via CHIP FPX<br>
               &copy; ${new Date().getFullYear()} Kundasang Homestay
@@ -240,10 +235,10 @@ export async function onRequestPost({ request, env }) {
       message: emailSent
         ? 'Check-in code resent to your email.'
         : `Failed to send email: ${emailError || 'unknown error'}. Please contact support.`
-    }, 200, request);
+    }, 200, request, { 'Cache-Control': 'no-store' });
 
   } catch (e) {
-    console.error('Resend code error:', e);
+    console.error('Resend code error:', e.message);
     return jsonResponse({ error: 'Failed to resend: ' + e.message }, 500, request);
   }
 }
