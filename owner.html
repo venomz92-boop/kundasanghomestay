@@ -202,6 +202,16 @@
       <span id="selectedHomestayName" class="text-xs text-zinc-500 font-medium italic"></span>
     </div>
 
+       <div class="card p-6 animate-on-scroll" id="roomsManagerCard">
+      <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2">
+        <span>🛏️ Manage Rooms</span>
+        <span id="roomsManagerHint" class="text-xs text-zinc-400 font-normal italic"></span>
+      </h3>
+      <div id="roomsManagerContent">
+        <p class="text-sm text-zinc-500">Select a specific homestay above to manage its rooms.</p>
+      </div>
+    </div>
+
     <div class="card p-6 animate-on-scroll">
       <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2"><span>📅 Reservation Books</span></h3>
       <div id="ownerBookingsList" class="space-y-4">
@@ -1538,6 +1548,376 @@ async function deleteOwnerAccount() {
 
 window.deleteOwnerAccount = deleteOwnerAccount;
 
+/* ============================================================
+ * ROOM MANAGEMENT — add / edit / delete from host dashboard
+ * ============================================================ */
+
+function escapeRoomHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function compressImageToBlob(file, maxWidth, quality) {
+  return new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/')) { resolve(null); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = h * (maxWidth / w); w = maxWidth; }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
+      };
+      img.onerror = () => resolve(null);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+function openRoomFormModal(mode, homestayName, existingRoom) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('customModal');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const footerEl = document.getElementById('modalFooter');
+    const isEdit = mode === 'edit';
+    titleEl.textContent = isEdit ? 'Edit Room' : 'Add Room';
+
+    const r = existingRoom || {};
+    const safeName = escapeRoomHtml(r.name || '');
+    const safeDesc = escapeRoomHtml(r.desc || '');
+    const safePrice = r.price !== undefined ? r.price : '';
+    const safeGuests = (r.guests !== undefined && r.guests !== null) ? r.guests : '';
+
+    let currentImages = Array.isArray(r.images) ? [...r.images] : [];
+    let currentImagePublicIds = Array.isArray(r.imagePublicIds) ? [...r.imagePublicIds] : [];
+
+    bodyEl.innerHTML = `
+      <div style="text-align:left;line-height:1.6;">
+        <p style="font-size:12px;color:#6b7280;margin-bottom:12px;">Homestay: <strong>${escapeRoomHtml(homestayName)}</strong></p>
+
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Room Name *</label>
+          <input id="rf-name" type="text" value="${safeName}" placeholder="e.g. Hibiscus" maxlength="100" style="width:100%;padding:10px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;box-sizing:border-box;" />
+        </div>
+
+        <div style="display:flex;gap:10px;margin-bottom:12px;">
+          <div style="flex:1;">
+            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Price / Night (RM) *</label>
+            <input id="rf-price" type="number" min="1" step="1" value="${safePrice}" placeholder="250" style="width:100%;padding:10px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;box-sizing:border-box;" />
+          </div>
+          <div style="flex:1;">
+            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Max Guests</label>
+            <input id="rf-guests" type="number" min="1" max="50" value="${safeGuests}" placeholder="4" style="width:100%;padding:10px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;box-sizing:border-box;" />
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Description</label>
+          <textarea id="rf-desc" rows="3" maxlength="500" placeholder="Room features, view, bedding..." style="width:100%;padding:10px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;resize:vertical;box-sizing:border-box;">${safeDesc}</textarea>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:#212121;">Photos</label>
+          <div id="rf-photos" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+          <input id="rf-file" type="file" accept="image/*" multiple style="display:none;" />
+          <button type="button" id="rf-upload-btn" style="padding:8px 16px;border-radius:999px;background:#0F382E;color:#fff;border:none;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;cursor:pointer;">+ Add Photo</button>
+        </div>
+
+        <div id="rf-error" style="display:none;margin-top:12px;padding:10px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;font-size:12px;"></div>
+      </div>
+    `;
+
+    footerEl.innerHTML = '';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.onclick = () => { closeModal(); resolve(null); };
+    footerEl.appendChild(cancelBtn);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = isEdit ? 'Save Changes' : 'Add Room';
+    saveBtn.className = 'btn btn-primary';
+    saveBtn.onclick = () => {
+      const name = document.getElementById('rf-name').value.trim();
+      const price = parseFloat(document.getElementById('rf-price').value);
+      const guestsRaw = document.getElementById('rf-guests').value.trim();
+      const desc = document.getElementById('rf-desc').value.trim();
+      const errEl = document.getElementById('rf-error');
+      errEl.style.display = 'none';
+
+      if (!name) {
+        errEl.textContent = 'Room name is required.';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (!Number.isFinite(price) || price <= 0) {
+        errEl.textContent = 'Price must be a positive number.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      closeModal();
+      resolve({
+        name: name,
+        price: price,
+        guests: guestsRaw ? parseInt(guestsRaw, 10) : null,
+        desc: desc,
+        images: currentImages,
+        imagePublicIds: currentImagePublicIds
+      });
+    };
+    footerEl.appendChild(saveBtn);
+
+    function renderPhotos() {
+      const wrap = document.getElementById('rf-photos');
+      if (!wrap) return;
+      if (currentImages.length === 0) {
+        wrap.innerHTML = '<div style="font-size:11px;color:#9ca3af;">No photos yet.</div>';
+        return;
+      }
+      wrap.innerHTML = '';
+      currentImages.forEach((url, i) => {
+        const div = document.createElement('div');
+        div.style.cssText = 'position:relative;width:64px;height:64px;flex-shrink:0;';
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;';
+        const rm = document.createElement('button');
+        rm.type = 'button';
+        rm.textContent = '✕';
+        rm.style.cssText = 'position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:999px;background:#dc2626;color:#fff;border:none;font-size:11px;font-weight:700;cursor:pointer;line-height:1;padding:0;';
+        rm.onclick = () => {
+          currentImages.splice(i, 1);
+          currentImagePublicIds.splice(i, 1);
+          renderPhotos();
+        };
+        div.appendChild(img);
+        div.appendChild(rm);
+        wrap.appendChild(div);
+      });
+    }
+    renderPhotos();
+
+    const fileInput = document.getElementById('rf-file');
+    const uploadBtn = document.getElementById('rf-upload-btn');
+    uploadBtn.onclick = () => fileInput.click();
+    fileInput.onchange = async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length === 0) return;
+      uploadBtn.disabled = true;
+      const origText = uploadBtn.textContent;
+      uploadBtn.textContent = 'Uploading…';
+      const errEl = document.getElementById('rf-error');
+      try {
+        for (const file of files) {
+          if (!file.type.startsWith('image/')) continue;
+          const blob = await compressImageToBlob(file, 1000, 0.8);
+          if (!blob) continue;
+          const fd = new FormData();
+          fd.append('image', blob, file.name);
+          const res = await fetch('/api/upload-image', {
+            method: 'POST',
+            body: fd,
+            credentials: 'include'
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.url) {
+            currentImages.push(data.url);
+            if (data.publicId) currentImagePublicIds.push(data.publicId);
+            renderPhotos();
+          } else if (errEl) {
+            errEl.textContent = 'One photo failed to upload: ' + (data.error || 'unknown error');
+            errEl.style.display = 'block';
+          }
+        }
+      } catch (err) {
+        if (errEl) {
+          errEl.textContent = 'Upload failed: ' + err.message;
+          errEl.style.display = 'block';
+        }
+      } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = origText;
+        fileInput.value = '';
+      }
+    };
+
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+      const inp = document.getElementById('rf-name');
+      if (inp) inp.focus();
+    }, 200);
+  });
+}
+
+function renderRoomsManager() {
+  const content = document.getElementById('roomsManagerContent');
+  const hint = document.getElementById('roomsManagerHint');
+  if (!content) return;
+
+  if (currentHomestayId === 'all') {
+    content.innerHTML = '<p class="text-sm text-zinc-500">Select a specific homestay above to manage its rooms.</p>';
+    if (hint) hint.textContent = '';
+    return;
+  }
+
+  const homestay = allHomestays.find(h => String(h.id) === String(currentHomestayId));
+  if (!homestay) {
+    content.innerHTML = '<p class="text-sm text-zinc-500">Homestay not found.</p>';
+    if (hint) hint.textContent = '';
+    return;
+  }
+
+  const rooms = Array.isArray(homestay.rooms) ? homestay.rooms : [];
+  if (hint) hint.textContent = `(${rooms.length} room${rooms.length === 1 ? '' : 's'})`;
+
+  let html = '';
+  if (rooms.length === 0) {
+    html += '<p class="text-sm text-zinc-500 mb-3">No rooms yet. Add your first room type below.</p>';
+  } else {
+    html += '<div class="space-y-3 mb-4">';
+    rooms.forEach(r => {
+      const cover = (Array.isArray(r.images) && r.images[0]) ? escapeRoomHtml(r.images[0]) : '';
+      const thumb = cover
+        ? `<img src="${cover}" class="w-14 h-14 object-cover rounded-xl border border-zinc-200 flex-shrink-0" />`
+        : `<div class="w-14 h-14 rounded-xl bg-zinc-100 flex items-center justify-center text-xl flex-shrink-0">🛏️</div>`;
+      const guestsTxt = (r.guests !== undefined && r.guests !== null && r.guests !== '')
+        ? ` • max ${escapeRoomHtml(r.guests)} guests`
+        : '';
+      html += `
+        <div class="flex items-center gap-3 p-3 border rounded-xl bg-white">
+          ${thumb}
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-sm text-[#212121] truncate">${escapeRoomHtml(r.name || 'Unnamed room')}</div>
+            <div class="text-xs text-zinc-500">RM ${escapeRoomHtml(r.price || 0)} / night${guestsTxt}</div>
+          </div>
+          <button class="admin-action-btn" data-room-action="edit" data-room-id="${escapeRoomHtml(r.id)}">✎ Edit</button>
+          <button class="admin-action-btn" data-room-action="delete" data-room-id="${escapeRoomHtml(r.id)}" style="background:#dc2626;border-color:#dc2626;color:#fff;">✕</button>
+        </div>
+      `;
+    });
+    html += '</div>';
+  }
+
+  html += '<button id="addRoomBtn" class="btn-primary">+ Add Room</button>';
+  content.innerHTML = safeHTML(html);
+
+  const addBtn = document.getElementById('addRoomBtn');
+  if (addBtn) addBtn.onclick = () => addRoomFlow(homestay);
+
+  content.querySelectorAll('[data-room-action]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.preventDefault();
+      const action = btn.dataset.roomAction;
+      const roomId = btn.dataset.roomId;
+      const room = rooms.find(rr => String(rr.id) === String(roomId));
+      if (!room) return;
+      if (action === 'edit') editRoomFlow(homestay, room);
+      else if (action === 'delete') deleteRoomFlow(homestay, room);
+    };
+  });
+}
+
+async function refreshOwnerHomestays() {
+  try {
+    const res = await fetch(API_BASE + '/owner-session', {
+      credentials: 'include',
+      cache: 'no-store'
+    });
+    const data = await res.json();
+    if (data.authenticated && Array.isArray(data.homestays)) {
+      allHomestays = data.homestays;
+      ownerHomestayIds = allHomestays.map(h => h.id);
+      try { sessionStorage.setItem('kd_owner_homestays', JSON.stringify(allHomestays)); } catch (e) {}
+    }
+  } catch (e) { /* silent */ }
+}
+
+async function addRoomFlow(homestay) {
+  const roomData = await openRoomFormModal('add', homestay.name, null);
+  if (!roomData) return;
+  try {
+    const res = await ownerFetch(API_BASE + '/owner-update-booking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'addRoom', homestayId: homestay.id, room: roomData })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await showAlert('Room Added', '✓ ' + (data.message || 'Room added.'));
+      await refreshOwnerHomestays();
+      renderRoomsManager();
+      loadRoomBlocks();
+    } else {
+      await showAlert('Error', data.error || 'Failed to add room.');
+    }
+  } catch (e) {
+    await showAlert('Network Error', 'Could not add room. Please try again.');
+  }
+}
+
+async function editRoomFlow(homestay, room) {
+  const roomData = await openRoomFormModal('edit', homestay.name, room);
+  if (!roomData) return;
+  try {
+    const res = await ownerFetch(API_BASE + '/owner-update-booking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'updateRoom', homestayId: homestay.id, roomId: room.id, room: roomData })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await showAlert('Room Updated', '✓ ' + (data.message || 'Room updated.'));
+      await refreshOwnerHomestays();
+      renderRoomsManager();
+      loadRoomBlocks();
+    } else {
+      await showAlert('Error', data.error || 'Failed to update room.');
+    }
+  } catch (e) {
+    await showAlert('Network Error', 'Could not update room. Please try again.');
+  }
+}
+
+async function deleteRoomFlow(homestay, room) {
+  const confirmed = await showConfirm(
+    'Delete Room',
+    `Delete room <strong>${escapeRoomHtml(room.name || 'this room')}</strong>?<br><br>This cannot be undone from your dashboard. Existing bookings that reference this room keep their snapshotted room name, but future guests won't be able to book it.`
+  );
+  if (!confirmed) return;
+  try {
+    const res = await ownerFetch(API_BASE + '/owner-update-booking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'deleteRoom', homestayId: homestay.id, roomId: room.id })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await showAlert('Room Deleted', '✓ Room removed.');
+      await refreshOwnerHomestays();
+      renderRoomsManager();
+      loadRoomBlocks();
+    } else {
+      await showAlert('Cannot Delete Room', data.error || 'Failed to delete room.');
+    }
+  } catch (e) {
+    await showAlert('Network Error', 'Could not delete room. Please try again.');
+  }
+}
+
 function applyOwnerAuthedUI(homestays, ownerName) {
   ownerToken = 'cookie';
   allHomestays = Array.isArray(homestays) ? homestays : [];
@@ -1624,6 +2004,7 @@ function applyOwnerAuthedUI(homestays, ownerName) {
   loadBookings();
   loadRoomBlocks();
   loadHomestayPrice();
+  renderRoomsManager();
 }
 
 (async function init() {
@@ -1687,6 +2068,7 @@ function applyOwnerAuthedUI(homestays, ownerName) {
       currentHomestayId = this.value;
       loadBookings();
       loadHomestayPrice();
+      renderRoomsManager();
     });
   }
 
