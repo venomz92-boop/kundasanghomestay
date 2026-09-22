@@ -1,30 +1,24 @@
-// /api/owner-update-booking.js — Plain English: this file handles host
-// actions: block/unblock a room date, change the nightly price, shift a
-// booking's dates, and cancel a booking (with automatic refund).
+// /api/owner-update-booking.js — Host actions: block/unblock a room date,
+// change the nightly price, shift a booking's dates, and cancel a booking
+// (with automatic refund).
 //
-// [THIS REVISION]
-// Cancellation distinguishes two cases:
+// [PHASE 2 REFACTOR]
+// Changes:
+//   - Uses parseJSONSafely() instead of request.json() (no size limit
+//     was enforced before, and malformed input returned 500 instead of 400).
+//   - Uses escHtml() / escAttr() from _utils.js instead of the local
+//     safe() function, which only stripped <> and didn't protect
+//     attribute contexts.
+//   - Kept the CREATE TABLE IF NOT EXISTS store call, because Phase 1's
+//     _utils.js removed that from getOwnerSession for caching reasons.
 //
-//   cancelType: 'host_own'      — host cancels for their own reasons
-//                                 (overbooking, maintenance, emergency).
-//                                 Guest receives a FULL refund of everything
-//                                 they paid, including the service fee.
-//                                 Platform retains RM 0.00.
-//
-//   cancelType: 'guest_request' — guest asked to cancel, host approved.
-//                                 Guest receives the BASE amount MINUS the
-//                                 CHIP refund fee (RM 1.00 for FPX B2C).
-//                                 The service fee and gateway fee are
-//                                 retained by the platform.
-//                                 The RM 1.00 CHIP refund fee is passed on
-//                                 to the guest by reducing their refund.
-//
-// [SECURITY/PRICING FIX]
-// changeDates now resolves the room price from booking.roomId when the
-// booking is on a specific room. Previously it used homestay.ownerPrice
-// unconditionally, so a booking on a premium room silently re-priced to
-// the base homestay rate the moment the host shifted its dates. This
-// mirrors bookings.js on create and admin updateDates.
+// Confirmed correct (no changes needed):
+//   - cancel_type is written as exactly 'guest_request' or 'host_own'.
+//   - Refund math matches admin retryRefund in bookings.js:
+//       guest_request → base − CHIP_REFUND_FEE
+//       host_own      → full amount paid
+//   - refund_attempted_at is set before the CHIP call, which protects
+//     against double refunds. Kept intentionally.
 import {
   corsHeaders,
   getClientIP,
@@ -33,18 +27,22 @@ import {
   getOwnerSession,
   jsonResponse,
   withLock,
-  getOwnerHomestayIdsFresh
+  getOwnerHomestayIdsFresh,
+  parseJSONSafely,
+  escHtml,
+  escAttr
 } from './_utils.js';
 
 const MAX_NIGHTS = 60;
 const GATEWAY_FEE = 1.00;
 
-// CHIP's FPX B2C fee schedule (from chip-in.asia pricing page):
+// CHIP's FPX B2C fee schedule (chip-in.asia pricing page):
 //   - RM 1.00 per paid transaction
 //   - RM 1.00 per refund (FPX B2C only)
-// These are hardcoded because CHIP does not expose them via API. If CHIP
-// changes their published rates, update these two constants AND the
-// corresponding numbers in refund-cancellation.html.
+// These are hardcoded because CHIP doesn't expose them via API.
+// If CHIP changes their published rates, update these two constants AND
+// the corresponding numbers in refund-cancellation.html AND in
+// bookings.js (admin retryRefund).
 const CHIP_PAYMENT_FEE = 1.00;
 const CHIP_REFUND_FEE = 1.00;
 const CHIP_TOTAL_FEES_PER_CANCELLATION = CHIP_PAYMENT_FEE + CHIP_REFUND_FEE;
@@ -69,10 +67,9 @@ function calculatePrice(ownerPrice, nights = 1) {
   return { nights, base, fee, gatewayFee, total, youReceive: base };
 }
 
-// [PRICING FIX] Resolve the nightly unit price for a booking.
-// If the booking is on a specific room and that room has a numeric price,
-// use the room price. Otherwise fall back to the homestay's base price.
-// This matches the logic in bookings.js (create) and admin updateDates.
+// Resolve the nightly unit price for a booking. If the booking is on a
+// specific room and that room has a numeric price, use the room price.
+// Otherwise fall back to the homestay base price. Mirrors bookings.js.
 function resolveUnitPrice(booking, homestay) {
   let unitPrice = Number(homestay.ownerPrice);
   if (booking && booking.roomId && Array.isArray(homestay.rooms)) {
@@ -150,7 +147,8 @@ async function sendCancellationEmail(booking, refundInfo, env) {
     return { sent: false, error: 'No guest email on file' };
   }
 
-  const safe = (s) => String(s || '').replace(/[<>]/g, '');
+  const e = escHtml;
+  const ea = escAttr;
   const cancelType = String(refundInfo.cancelType || 'host_own');
   const isGuestRequest = cancelType === 'guest_request';
 
@@ -166,7 +164,6 @@ async function sendCancellationEmail(booking, refundInfo, env) {
   const baseStr = baseNum.toFixed(2);
   const chipRefundFee = CHIP_REFUND_FEE.toFixed(2);
   const feeRetainedNum = Math.max(0, Math.round((totalPaidNum - refundAmountNum) * 100) / 100);
-  const feeRetained = feeRetainedNum.toFixed(2);
 
   const initiatedBy = isGuestRequest
     ? 'at your request and confirmed by the host'
@@ -184,39 +181,22 @@ async function sendCancellationEmail(booking, refundInfo, env) {
     const refundNote = isGuestRequest
       ? `
         <p>Per our cancellation policy, on guest-requested cancellations the platform service fee and payment gateway fee are <strong>non-refundable</strong>. The payment processor's refund fee is passed on to you.</p>
-        <p>A refund of <strong>RM${refundAmount}</strong> has been processed to your original payment method via CHIP.</p>
+        <p>A refund of <strong>RM${e(refundAmount)}</strong> has been processed to your original payment method via CHIP.</p>
         <table style="font-size:13px;margin:12px 0;">
-          <tr>
-            <td style="padding:4px 12px 4px 0;color:#6b7280;">You paid</td>
-            <td style="padding:4px 0;font-weight:600;">RM ${totalPaid}</td>
-          </tr>
-          <tr>
-            <td style="padding:4px 12px 4px 0;color:#6b7280;">Base nightly rate</td>
-            <td style="padding:4px 0;font-weight:600;">RM ${baseStr}</td>
-          </tr>
-          <tr>
-            <td style="padding:4px 12px 4px 0;color:#6b7280;">Less: processor refund fee</td>
-            <td style="padding:4px 0;font-weight:600;">− RM ${chipRefundFee}</td>
-          </tr>
-          <tr>
-            <td style="padding:4px 12px 4px 0;color:#6b7280;">Less: service fee + gateway fee</td>
-            <td style="padding:4px 0;font-weight:600;">− RM ${(feeRetainedNum - CHIP_REFUND_FEE).toFixed(2)}</td>
-          </tr>
-          <tr style="border-top:1px solid #e5e7eb;">
-            <td style="padding:6px 12px 4px 0;color:#0F382E;font-weight:700;">Refunded to you</td>
-            <td style="padding:6px 0;color:#0F382E;font-weight:800;">RM ${refundAmount}</td>
-          </tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">You paid</td><td style="padding:4px 0;font-weight:600;">RM ${e(totalPaid)}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Base nightly rate</td><td style="padding:4px 0;font-weight:600;">RM ${e(baseStr)}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Less: processor refund fee</td><td style="padding:4px 0;font-weight:600;">− RM ${e(chipRefundFee)}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Less: service fee + gateway fee</td><td style="padding:4px 0;font-weight:600;">− RM ${e((feeRetainedNum - CHIP_REFUND_FEE).toFixed(2))}</td></tr>
+          <tr style="border-top:1px solid #e5e7eb;"><td style="padding:6px 12px 4px 0;color:#0F382E;font-weight:700;">Refunded to you</td><td style="padding:6px 0;color:#0F382E;font-weight:800;">RM ${e(refundAmount)}</td></tr>
         </table>
       `
-      : `
-        <p>A <strong>full refund of RM${refundAmount}</strong> has been processed to your original payment method via CHIP.</p>
-      `;
+      : `<p>A <strong>full refund of RM${e(refundAmount)}</strong> has been processed to your original payment method via CHIP.</p>`;
 
     bodyHtml = `
-      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
+      <p>Your booking at <strong>${e(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
       ${refundNote}
       <p>Refunds typically take <strong>3–7 business days</strong> to appear in your bank account, depending on your bank's processing times.</p>
-      <p><strong>Refund ID (CHIP):</strong> ${safe(refundInfo.refundId || 'N/A')}</p>
+      <p><strong>Refund ID (CHIP):</strong> ${e(refundInfo.refundId || 'N/A')}</p>
     `;
   } else if (refundInfo.isPaid && refundInfo.refundSuccess && refundInfo.refundPending) {
     subject = isGuestRequest
@@ -226,22 +206,22 @@ async function sendCancellationEmail(booking, refundInfo, env) {
     headerText = '⏳ Booking Cancelled — Refund Processing';
 
     const pendingNote = isGuestRequest
-      ? `<p>A refund of <strong>RM${refundAmount}</strong> is being processed by CHIP. Per policy, the platform service fee and gateway fee are retained, and the payment processor's refund fee is passed on to you.</p>`
-      : `<p>A <strong>full refund of RM${refundAmount}</strong> is being processed by CHIP. This usually completes within a few minutes.</p>`;
+      ? `<p>A refund of <strong>RM${e(refundAmount)}</strong> is being processed by CHIP. Per policy, the platform service fee and gateway fee are retained, and the payment processor's refund fee is passed on to you.</p>`
+      : `<p>A <strong>full refund of RM${e(refundAmount)}</strong> is being processed by CHIP. This usually completes within a few minutes.</p>`;
 
     bodyHtml = `
-      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
+      <p>Your booking at <strong>${e(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
       ${pendingNote}
       <p>Once CHIP finishes, the refund may take a further <strong>3–7 business days</strong> to appear in your bank account.</p>
-      <p><strong>Refund ID (CHIP):</strong> ${safe(refundInfo.refundId || 'N/A')}</p>
+      <p><strong>Refund ID (CHIP):</strong> ${e(refundInfo.refundId || 'N/A')}</p>
     `;
   } else if (refundInfo.isPaid && !refundInfo.refundSuccess) {
     subject = 'Booking Cancelled';
     headerColor = '#dc2626';
     headerText = '❌ Booking Cancelled — Refund Pending Review';
     bodyHtml = `
-      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
-      <p>Your payment of <strong>RM${totalPaid}</strong> was taken. The refund could not be processed automatically and is now under manual review by our team.</p>
+      <p>Your booking at <strong>${e(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
+      <p>Your payment of <strong>RM${e(totalPaid)}</strong> was taken. The refund could not be processed automatically and is now under manual review by our team.</p>
       <p>Please contact <a href="mailto:support@kundasanghomestay.my">support@kundasanghomestay.my</a> if you don't hear from us within 24 hours.</p>
     `;
   } else {
@@ -249,7 +229,7 @@ async function sendCancellationEmail(booking, refundInfo, env) {
     headerColor = '#6b7280';
     headerText = '❌ Booking Cancelled';
     bodyHtml = `
-      <p>Your booking at <strong>${safe(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
+      <p>Your booking at <strong>${e(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
       <p>No payment was taken for this booking, so no refund is needed.</p>
       <p>If you have any questions, please contact the host directly.</p>
     `;
@@ -258,14 +238,14 @@ async function sendCancellationEmail(booking, refundInfo, env) {
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
       <h2 style="color:${headerColor};">${headerText}</h2>
-      <p>Hello ${safe(booking.guestName || 'Guest')},</p>
+      <p>Hello ${e(booking.guestName) || 'Guest'},</p>
       ${bodyHtml}
       <div style="background:#f8f5f0;padding:16px;border-radius:8px;margin:16px 0;font-size:13px;">
-        <div><strong>Booking ID:</strong> ${safe(booking.id)}</div>
-        <div><strong>Homestay:</strong> ${safe(booking.homestay)}</div>
-        <div><strong>Check-in:</strong> ${safe(booking.checkin)}</div>
-        <div><strong>Check-out:</strong> ${safe(booking.checkout)}</div>
-        <div><strong>Nights:</strong> ${safe(booking.nights)}</div>
+        <div><strong>Booking ID:</strong> ${e(booking.id)}</div>
+        <div><strong>Homestay:</strong> ${e(booking.homestay)}</div>
+        <div><strong>Check-in:</strong> ${e(booking.checkin)}</div>
+        <div><strong>Check-out:</strong> ${e(booking.checkout)}</div>
+        <div><strong>Nights:</strong> ${e(booking.nights)}</div>
         <div><strong>Cancellation reason:</strong> ${isGuestRequest ? 'Guest request (approved by host)' : 'Host-initiated'}</div>
       </div>
       <p>— Kundasang Homestay Team</p>
@@ -300,8 +280,8 @@ async function sendCancellationEmail(booking, refundInfo, env) {
       return { sent: r.ok, error: r.ok ? null : 'SendGrid API error' };
     }
     return { sent: false, error: 'No email provider configured' };
-  } catch (e) {
-    return { sent: false, error: e.message };
+  } catch (err) {
+    return { sent: false, error: err.message };
   }
 }
 
@@ -317,7 +297,13 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Unauthorized' }, 401, request);
     }
 
-    const body = await request.json();
+    let body;
+    try {
+      body = await parseJSONSafely(request);
+    } catch (err) {
+      return jsonResponse({ error: 'Invalid request body' }, 400, request);
+    }
+
     const { bookingId, checkin, checkout, action } = body;
 
     const db = env.DB;
@@ -326,7 +312,7 @@ export async function onRequestPost({ request, env }) {
 
     const ownerHomestayIds = await getOwnerHomestayIdsFresh(db, ownerData);
 
-    // ===== ACTION: Update room block (LOCK PROTECTED) =====
+    // ===== ACTION: Update room block =====
     if (action === 'updateRoomBlock') {
       const { homestayId, roomId, date } = body;
       if (!homestayId || !roomId || !date) {
@@ -406,7 +392,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ success: true, message: result.message, room: result.room }, 200, request);
     }
 
-    // ===== ACTION: Update homestay price (LOCK PROTECTED) =====
+    // ===== ACTION: Update homestay price =====
     if (action === 'updateHomestayPrice') {
       const { homestayId, newPrice } = body;
       if (!homestayId || newPrice === undefined || newPrice === null) {
@@ -584,8 +570,6 @@ export async function onRequestPost({ request, env }) {
           bookings[idx].statusUpdated = new Date().toISOString();
 
           if (!isPaid) {
-            // [PRICING FIX] Use the room's nightly price when the booking
-            // is tied to a specific room. Falls back to homestay.ownerPrice.
             const unitPrice = resolveUnitPrice(booking, homestay);
             const price = calculatePrice(unitPrice, nights);
             bookings[idx].base = price.base;
@@ -633,7 +617,7 @@ export async function onRequestPost({ request, env }) {
       }, 200, request);
     }
 
-    // ========== ACTION: CANCEL BOOKING (LOCK PROTECTED) ==========
+    // ========== ACTION: CANCEL BOOKING ==========
     if (action === 'cancelBooking') {
       const cancelTypeRaw = String(body.cancelType || 'host_own').toLowerCase().trim();
       const cancelType = (cancelTypeRaw === 'guest_request') ? 'guest_request' : 'host_own';
@@ -684,8 +668,6 @@ export async function onRequestPost({ request, env }) {
           const totalPaidNum = Number(booking.amount_paid || booking.total) || 0;
           const baseAmountNum = Number(booking.base) || 0;
 
-          // For guest_request: refund = base − CHIP refund fee.
-          // For host_own: refund = full amount paid.
           const refundAmountNum = cancelType === 'guest_request'
             ? Math.max(0, Math.round((baseAmountNum - CHIP_REFUND_FEE) * 100) / 100)
             : totalPaidNum;
@@ -697,6 +679,10 @@ export async function onRequestPost({ request, env }) {
           let refundError = null;
 
           if (isPaid && booking.chip_purchase_id && refundAmountNum > 0) {
+            // Set the attempt marker BEFORE the CHIP call. If the call
+            // succeeds, chip_refund_id will be set. If it fails (network
+            // or API), the marker blocks a blind retry that could
+            // double-refund.
             bookings[idx].refund_attempted_at = new Date().toISOString();
             bookings[idx].refund_attempted_by = 'host';
             bookings[idx].refund_attempted_amount = refundAmountNum;
@@ -745,22 +731,15 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].statusUpdated = new Date().toISOString();
           }
 
-          // -----------------------------------------------------------
-          // LEDGER WRITES (unchanged from prior revision)
-          //
-          //   kd_fee_earnings — gross amount retained from the guest
-          //   kd_chip_costs   — CHIP's fees the platform paid
-          //
-          // Both writes happen in the same db.batch as the booking
-          // update. If either fails, none of the three land.
-          // -----------------------------------------------------------
+          // LEDGER WRITES (unchanged). Both writes happen in the same
+          // db.batch as the booking update, so either all three land or
+          // none do.
           let feeEarningsToWrite = null;
           let feeRecordedAmount = 0;
           let chipCostsToWrite = null;
           let chipCostRecorded = 0;
 
           if (isPaid && refundSuccess) {
-            // --- kd_fee_earnings (gross retained) ---
             try {
               const feeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
               let feeEarnings = feeRes && feeRes.data
@@ -785,7 +764,7 @@ export async function onRequestPost({ request, env }) {
                   original_amount_paid: totalPaidNum,
                   refunded_amount: refundAmountNum,
                   method: 'chip_collect_partial_refund',
-                  ip: getClientIP(request)
+                  ip: clientIP
                 });
                 feeEarningsToWrite = feeEarnings;
                 feeRecordedAmount = feeRetainedNum;
@@ -794,7 +773,6 @@ export async function onRequestPost({ request, env }) {
               console.error('Could not read fee earnings before cancel batch:', feeReadErr.message);
             }
 
-            // --- kd_chip_costs (CHIP fees) ---
             try {
               const chipRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_chip_costs').first();
               let chipCosts = chipRes && chipRes.data
@@ -816,7 +794,7 @@ export async function onRequestPost({ request, env }) {
                   date: new Date().toISOString(),
                   type: 'cancellation',
                   cancellation_type: cancelType,
-                  ip: getClientIP(request)
+                  ip: clientIP
                 });
                 chipCostsToWrite = chipCosts;
                 chipCostRecorded = CHIP_TOTAL_FEES_PER_CANCELLATION;
@@ -959,6 +937,6 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-export async function onRequestOptions({ request }) {
+export async function onRequestOptions({ request, env }) {
   return new Response(null, { headers: corsHeaders(request) });
 }
