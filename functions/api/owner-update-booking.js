@@ -454,6 +454,263 @@ export async function onRequestPost({ request, env }) {
       }, 200, request);
     }
 
+     // ===== ACTION: Add room =====
+    if (action === 'addRoom') {
+      const { homestayId, room } = body;
+      if (!homestayId || !room || typeof room !== 'object') {
+        return jsonResponse({ error: 'Missing homestayId or room data' }, 400, request);
+      }
+
+      if (!ownerHomestayIds.map(String).includes(String(homestayId))) {
+        return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
+      }
+
+      const cleanName = String(room.name || '').trim().slice(0, 100);
+      if (!cleanName) return jsonResponse({ error: 'Room name is required' }, 400, request);
+
+      const cleanPrice = Number(room.price);
+      if (!Number.isFinite(cleanPrice) || cleanPrice <= 0 || cleanPrice > 100000) {
+        return jsonResponse({ error: 'Room price must be a positive number' }, 400, request);
+      }
+
+      const cleanGuests = (room.guests !== undefined && room.guests !== null && room.guests !== '')
+        ? Math.max(1, Math.min(50, parseInt(room.guests, 10) || 1))
+        : null;
+
+      const cleanDesc = String(room.desc || '').slice(0, 500);
+
+      const cleanImages = Array.isArray(room.images)
+        ? room.images.filter(u => typeof u === 'string' && /^https?:\/\//i.test(u)).slice(0, 10)
+        : [];
+      const cleanPublicIds = Array.isArray(room.imagePublicIds)
+        ? room.imagePublicIds.filter(u => typeof u === 'string').slice(0, 10)
+        : [];
+
+      const newRoom = {
+        id: 'room-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+        name: cleanName,
+        price: cleanPrice,
+        guests: cleanGuests,
+        desc: cleanDesc,
+        images: cleanImages,
+        imagePublicIds: cleanPublicIds,
+        blockedDates: []
+      };
+
+      let result;
+      try {
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          let updated = false;
+          for (const key of ['kd_approved', 'kd_pending']) {
+            const res = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+            let arr = [];
+            if (res && res.data) { try { arr = JSON.parse(res.data); } catch (e) {} }
+            const index = arr.findIndex(h => String(h.id) === String(homestayId));
+            if (index !== -1) {
+              if (!Array.isArray(arr[index].rooms)) arr[index].rooms = [];
+              arr[index].rooms.push(newRoom);
+              await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+                .bind(key, JSON.stringify(arr))
+                .run();
+              updated = true;
+            }
+          }
+          if (!updated) return { error: 'Homestay not found in any store', status: 404 };
+          return { success: true };
+        }, 15000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another operation is in progress. Please try again in a moment.' }, 429, request);
+        }
+        throw lockErr;
+      }
+
+      if (result.error) return jsonResponse({ error: result.error }, result.status || 400, request);
+
+      await logAction({
+        db,
+        action: 'room_added',
+        admin: 'owner',
+        details: `Room "${newRoom.name}" (RM ${newRoom.price}) added to homestay ${homestayId}`,
+        ip: clientIP,
+        userId: ownerData.ownerId,
+        homestayId: homestayId
+      });
+
+      return jsonResponse({ success: true, message: `Room "${newRoom.name}" added.`, room: newRoom }, 200, request);
+    }
+
+    // ===== ACTION: Update room =====
+    if (action === 'updateRoom') {
+      const { homestayId, roomId, room } = body;
+      if (!homestayId || !roomId || !room || typeof room !== 'object') {
+        return jsonResponse({ error: 'Missing homestayId, roomId, or room data' }, 400, request);
+      }
+
+      if (!ownerHomestayIds.map(String).includes(String(homestayId))) {
+        return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
+      }
+
+      const patch = {};
+      if (room.name !== undefined) {
+        const cleanName = String(room.name || '').trim().slice(0, 100);
+        if (!cleanName) return jsonResponse({ error: 'Room name cannot be empty' }, 400, request);
+        patch.name = cleanName;
+      }
+      if (room.price !== undefined) {
+        const cleanPrice = Number(room.price);
+        if (!Number.isFinite(cleanPrice) || cleanPrice <= 0 || cleanPrice > 100000) {
+          return jsonResponse({ error: 'Room price must be a positive number' }, 400, request);
+        }
+        patch.price = cleanPrice;
+      }
+      if (room.guests !== undefined) {
+        patch.guests = (room.guests === null || room.guests === '')
+          ? null
+          : Math.max(1, Math.min(50, parseInt(room.guests, 10) || 1));
+      }
+      if (room.desc !== undefined) {
+        patch.desc = String(room.desc || '').slice(0, 500);
+      }
+      if (room.images !== undefined) {
+        patch.images = Array.isArray(room.images)
+          ? room.images.filter(u => typeof u === 'string' && /^https?:\/\//i.test(u)).slice(0, 10)
+          : [];
+      }
+      if (room.imagePublicIds !== undefined) {
+        patch.imagePublicIds = Array.isArray(room.imagePublicIds)
+          ? room.imagePublicIds.filter(u => typeof u === 'string').slice(0, 10)
+          : [];
+      }
+
+      if (Object.keys(patch).length === 0) {
+        return jsonResponse({ error: 'No fields to update' }, 400, request);
+      }
+
+      let result;
+      try {
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          let updated = false;
+          let updatedRoom = null;
+          for (const key of ['kd_approved', 'kd_pending']) {
+            const res = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+            let arr = [];
+            if (res && res.data) { try { arr = JSON.parse(res.data); } catch (e) {} }
+            const index = arr.findIndex(h => String(h.id) === String(homestayId));
+            if (index !== -1) {
+              if (!Array.isArray(arr[index].rooms)) arr[index].rooms = [];
+              const rIdx = arr[index].rooms.findIndex(r => String(r.id) === String(roomId));
+              if (rIdx === -1) continue;
+              arr[index].rooms[rIdx] = { ...arr[index].rooms[rIdx], ...patch };
+              updatedRoom = arr[index].rooms[rIdx];
+              await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+                .bind(key, JSON.stringify(arr))
+                .run();
+              updated = true;
+            }
+          }
+          if (!updated || !updatedRoom) return { error: 'Room not found', status: 404 };
+          return { success: true, room: updatedRoom };
+        }, 15000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another operation is in progress. Please try again in a moment.' }, 429, request);
+        }
+        throw lockErr;
+      }
+
+      if (result.error) return jsonResponse({ error: result.error }, result.status || 400, request);
+
+      await logAction({
+        db,
+        action: 'room_updated',
+        admin: 'owner',
+        details: `Room "${result.room.name}" updated on homestay ${homestayId}`,
+        ip: clientIP,
+        userId: ownerData.ownerId,
+        homestayId: homestayId
+      });
+
+      return jsonResponse({ success: true, message: `Room "${result.room.name}" updated.`, room: result.room }, 200, request);
+    }
+
+    // ===== ACTION: Delete room =====
+    if (action === 'deleteRoom') {
+      const { homestayId, roomId } = body;
+      if (!homestayId || !roomId) {
+        return jsonResponse({ error: 'Missing homestayId or roomId' }, 400, request);
+      }
+
+      if (!ownerHomestayIds.map(String).includes(String(homestayId))) {
+        return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
+      }
+
+      // Refuse if any live (paid / completed) booking exists on this
+      // room. Dead statuses and 15-minute payment holds don't block.
+      const bookingsRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+      let allBookings = [];
+      try { if (bookingsRes?.data) allBookings = JSON.parse(bookingsRes.data); } catch (_) {}
+
+      const activeBookings = allBookings.filter(b => {
+        if (String(b.roomId) !== String(roomId)) return false;
+        const s = String(b.status || '');
+        if (/cancelled|failed|expired|refunded|refund pending|pending payment/i.test(s)) return false;
+        return true;
+      });
+
+      if (activeBookings.length > 0) {
+        return jsonResponse({
+          error: `This room has ${activeBookings.length} active booking${activeBookings.length === 1 ? '' : 's'} (paid or completed). Please cancel or complete ${activeBookings.length === 1 ? 'it' : 'them'} before deleting this room.`
+        }, 400, request);
+      }
+
+      let result;
+      try {
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          let updated = false;
+          let removedRoom = null;
+          for (const key of ['kd_approved', 'kd_pending']) {
+            const res = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+            let arr = [];
+            if (res && res.data) { try { arr = JSON.parse(res.data); } catch (e) {} }
+            const index = arr.findIndex(h => String(h.id) === String(homestayId));
+            if (index !== -1) {
+              if (!Array.isArray(arr[index].rooms)) arr[index].rooms = [];
+              const rIdx = arr[index].rooms.findIndex(r => String(r.id) === String(roomId));
+              if (rIdx === -1) continue;
+              removedRoom = arr[index].rooms[rIdx];
+              arr[index].rooms.splice(rIdx, 1);
+              await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+                .bind(key, JSON.stringify(arr))
+                .run();
+              updated = true;
+            }
+          }
+          if (!updated) return { error: 'Room not found', status: 404 };
+          return { success: true, removed: removedRoom };
+        }, 15000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another operation is in progress. Please try again in a moment.' }, 429, request);
+        }
+        throw lockErr;
+      }
+
+      if (result.error) return jsonResponse({ error: result.error }, result.status || 400, request);
+
+      await logAction({
+        db,
+        action: 'room_deleted',
+        admin: 'owner',
+        details: `Room "${result.removed?.name || roomId}" removed from homestay ${homestayId}`,
+        ip: clientIP,
+        userId: ownerData.ownerId,
+        homestayId: homestayId
+      });
+
+      return jsonResponse({ success: true, message: 'Room removed.', removed: result.removed }, 200, request);
+    }
+
     // ===== Other actions need bookingId =====
     if (!bookingId) {
       return jsonResponse({ error: 'Missing bookingId' }, 400, request);
