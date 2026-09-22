@@ -834,8 +834,19 @@ export async function onRequestPost({ request, env }) {
         const total = Math.round((base + fee + gatewayFee) * 100) / 100;
 
         let bookingId = String(incoming.id || '');
-        if (!/^KDH-[A-Za-z0-9_-]{4,40}$/.test(bookingId) || allBookings.some(b=>String(b.id)===bookingId)) {
-          bookingId = `KDH-${crypto.randomUUID().slice(0,8).toUpperCase()}`;
+        const takenIds = new Set(allBookings.map(b => String(b.id)));
+        const incomingValid = /^KDH-\d{1,6}$/.test(bookingId) && !takenIds.has(bookingId);
+        if (!incomingValid) {
+          let generated = null;
+          for (let attempt = 0; attempt < 20; attempt++) {
+            const n = crypto.getRandomValues(new Uint32Array(1))[0] % 1000000;
+            const candidate = `KDH-${n}`;
+            if (!takenIds.has(candidate)) { generated = candidate; break; }
+          }
+          if (!generated) {
+            return { error: 'Could not generate a unique booking ID. Please try again.', status: 500 };
+          }
+          bookingId = generated;
         }
 
         const booking = {
