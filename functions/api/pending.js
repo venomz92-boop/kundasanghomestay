@@ -462,7 +462,7 @@ export async function onRequestPost({ request, env }) {
       ownerPasswordVersion: authenticatedOwnerAccount.ownerPasswordVersion || 1
     };
 
-    const clean = {
+      const clean = {
       ...h,
       id: h.id || Date.now(),
       name,
@@ -493,6 +493,10 @@ export async function onRequestPost({ request, env }) {
     };
     delete clean.password;
     delete clean.ownerPassword;
+    delete clean.chip_bank_account_id;
+    delete clean.ownerSessionVersion;
+    delete clean.passwordUpdated;
+    delete clean.verifiedAt;
 
     pending.push(clean);
     await db.prepare('INSERT OR REPLACE INTO store(key, data) VALUES(?, ?)')
