@@ -13,6 +13,31 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="animations.css" />
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* Loading states — same pattern as list.html */
+    @keyframes kdSpin { to { transform: rotate(360deg); } }
+    .kd-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: kdSpin 0.7s linear infinite;
+      vertical-align: -2px;
+      margin-right: 7px;
+    }
+    button.kd-loading {
+      opacity: 0.75;
+      cursor: not-allowed !important;
+    }
+    .kd-inline-loading {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+  </style>
   <script src="/guest-session.js"></script>
   <script src="/csrf-auto.js"></script>
 </head>
@@ -311,6 +336,21 @@
   });
 })();
 
+function setButtonLoading(btn, text) {
+  if (!btn) return function(){};
+  if (!btn.dataset.kdOrig) btn.dataset.kdOrig = btn.innerHTML;
+  btn.disabled = true;
+  btn.classList.add('kd-loading');
+  btn.innerHTML = '<span class="kd-spinner"></span>' + (text || 'Working…');
+  return function clear() {
+    btn.disabled = false;
+    btn.classList.remove('kd-loading');
+    if (btn.dataset.kdOrig) {
+      btn.innerHTML = btn.dataset.kdOrig;
+      delete btn.dataset.kdOrig;
+    }
+  };
+}
 function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
@@ -331,18 +371,33 @@ function showModal(title, message, buttons) {
     titleEl.textContent = title || 'Notice';
     bodyEl.innerHTML = typeof message === 'string' ? message : '';
     footerEl.innerHTML = '';
+
+    const finish = (val) => {
+      window.__modalCancel = null;
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+      resolve(val);
+    };
+
+    // Escape / backdrop / ✕ resolves with the "cancel-style" button's value,
+    // so showConfirm() returns false and cancelBooking() returns null.
+    const cancelLike = buttons.find(b => b.value === false || b.value === null);
+    window.__modalCancel = () => {
+      if (cancelLike) finish(cancelLike.value);
+      else finish(undefined);
+    };
+
     buttons.forEach(btn => {
       const el = document.createElement('button');
       el.textContent = btn.label;
       el.className = `btn ${btn.class || 'btn-primary'}`;
       el.onclick = () => {
-        overlay.classList.remove('active');
-        document.body.style.overflow = '';
-        if (btn.value !== undefined) resolve(btn.value);
-        else resolve(true);
+        if (btn.value !== undefined) finish(btn.value);
+        else finish(true);
       };
       footerEl.appendChild(el);
     });
+
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
   });
@@ -350,8 +405,13 @@ function showModal(title, message, buttons) {
 
 function closeModal() {
   const overlay = document.getElementById('customModal');
-  overlay.classList.remove('active');
+  if (overlay) overlay.classList.remove('active');
   document.body.style.overflow = '';
+  if (typeof window.__modalCancel === 'function') {
+    const cb = window.__modalCancel;
+    window.__modalCancel = null;
+    try { cb(); } catch (e) { /* no-op */ }
+  }
 }
 
 function modalConfirm() {
@@ -382,25 +442,28 @@ function showPrompt(title, message, defaultValue) {
     bodyEl.innerHTML = (message || '') + input;
     footerEl.innerHTML = '';
 
+    const finish = (val) => {
+      window.__modalCancel = null;
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+      resolve(val);
+    };
+
+    window.__modalCancel = () => finish(null);
+
     const okBtn = document.createElement('button');
     okBtn.textContent = 'Save Changes';
     okBtn.className = 'btn btn-primary';
     okBtn.onclick = () => {
       const val = document.getElementById('modalInput')?.value || '';
-      overlay.classList.remove('active');
-      document.body.style.overflow = '';
-      resolve(val);
+      finish(val);
     };
     footerEl.appendChild(okBtn);
 
     const cancelBtn = document.createElement('button');
     cancelBtn.textContent = 'Cancel';
     cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.onclick = () => {
-      overlay.classList.remove('active');
-      document.body.style.overflow = '';
-      resolve(null);
-    };
+    cancelBtn.onclick = () => finish(null);
     footerEl.appendChild(cancelBtn);
 
     overlay.classList.add('active');
@@ -411,7 +474,7 @@ function showPrompt(title, message, defaultValue) {
     }, 200);
   });
 }
-
+  
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') { closeModal(); }
 });
@@ -578,6 +641,9 @@ async function ownerLogin() {
     return;
   }
 
+  const loginBtn = document.querySelector('#ownerLoginForm button[type="submit"]');
+  const resetLoginBtn = setButtonLoading(loginBtn, 'Signing in…');
+
   try {
     const res = await fetch(API_BASE + '/owner-login', {
       method: 'POST',
@@ -608,12 +674,16 @@ async function ownerLogin() {
     }
   } catch(e) {
     await showAlert('Connection Error', 'Could not connect to the server: ' + e.message);
+  } finally {
+    resetLoginBtn();
   }
 }
 
 async function logoutOwner() {
   const ok = await showConfirm('Logout', 'Are you sure you want to log out?');
   if (!ok) return;
+
+  document.querySelectorAll('[onclick="logoutOwner()"]').forEach(function(b){ b.disabled = true; });
 
   try {
     await fetch('/api/owner-logout', { method: 'POST', credentials: 'include' });
@@ -640,7 +710,10 @@ async function loadBookings() {
   if (!ownerToken) return;
 
   const listDiv = document.getElementById('ownerBookingsList');
-  if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-zinc-400 py-6 text-center">Loading your bookings...</div>');
+  if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-zinc-400 py-6 text-center kd-inline-loading"><span class="kd-spinner"></span>Loading your bookings…</div>');
+
+  const refreshBtn = document.querySelector('.refresh-btn');
+  const resetRefresh = setButtonLoading(refreshBtn, 'Refreshing…');
 
   try {
     const res = await ownerFetch(API_BASE + '/owner-bookings', { cache: 'no-store' });
@@ -821,6 +894,8 @@ async function loadBookings() {
     attachBookingActionListeners();
   } catch(e) {
     if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-red-600 text-center py-6 font-semibold">Could not load bookings. Please refresh the page.</div>');
+  } finally {
+    resetRefresh();
   }
 }
 
@@ -831,7 +906,7 @@ function attachBookingActionListeners() {
   container.addEventListener('click', bookingActionHandler);
 }
 
-function bookingActionHandler(e) {
+async function bookingActionHandler(e) {
   const btn = e.target.closest('.action-btn');
   if (!btn) return;
   const action = btn.dataset.action;
@@ -839,18 +914,27 @@ function bookingActionHandler(e) {
   if (!action || !id) return;
   e.preventDefault();
 
-  switch (action) {
-    case 'confirmCheckIn':
-      confirmCheckIn(id);
-      break;
-    case 'changeBookingDates':
-      changeBookingDates(id);
-      break;
-    case 'cancelBooking':
-      cancelBooking(id);
-      break;
-    default:
-      break;
+  const labels = {
+    confirmCheckIn: 'Confirming…',
+    changeBookingDates: 'Updating…',
+    cancelBooking: 'Cancelling…'
+  };
+  const resetBtn = setButtonLoading(btn, labels[action] || 'Working…');
+
+  try {
+    switch (action) {
+      case 'confirmCheckIn':
+        await confirmCheckIn(id);
+        break;
+      case 'changeBookingDates':
+        await changeBookingDates(id);
+        break;
+      case 'cancelBooking':
+        await cancelBooking(id);
+        break;
+    }
+  } finally {
+    resetBtn();
   }
 }
 
@@ -1118,13 +1202,18 @@ function renderRoomBlockedList() {
   listDiv.innerHTML = html;
 }
 
-function removeRoomBlockHandler(e) {
+async function removeRoomBlockHandler(e) {
   const btn = e.target.closest('.remove-room-block-btn');
   if (!btn) return;
   const date = btn.dataset.date;
   if (!date) return;
   e.preventDefault();
-  removeRoomBlock(date);
+  const resetBtn = setButtonLoading(btn, '');
+  try {
+    await removeRoomBlock(date);
+  } finally {
+    resetBtn();
+  }
 }
 
 async function toggleRoomBlock() {
@@ -1143,8 +1232,10 @@ async function toggleRoomBlock() {
     return;
   }
 
-  const roomId = selected.value;
+   const roomId = selected.value;
   const homestayId = selected.dataset.homestay;
+  const addBtn = document.getElementById('addRoomBlockBtn');
+  const resetAddBtn = setButtonLoading(addBtn, 'Adding…');
 
   try {
     const res = await ownerFetch(API_BASE + '/owner-update-booking', {
@@ -1170,6 +1261,8 @@ async function toggleRoomBlock() {
     }
   } catch(e) {
     await showAlert('Error', 'Network error: ' + e.message);
+  } finally {
+    resetAddBtn();
   }
 }
 
@@ -1281,6 +1374,8 @@ async function updateHomestayPrice() {
   );
   if (!confirmed) return;
 
+  const resetBtn = setButtonLoading(btn, 'Updating…');
+
   try {
     const res = await ownerFetch(API_BASE + '/owner-update-booking', {
       method: 'POST',
@@ -1303,6 +1398,8 @@ async function updateHomestayPrice() {
     }
   } catch(e) {
     await showAlert('Network Error', 'Could not update price. Please try again.');
+  } finally {
+    resetBtn();
   }
 }
 
@@ -1391,6 +1488,9 @@ async function deleteOwnerAccount() {
     return;
   }
 
+  const delBtn = document.querySelector('button[onclick="deleteOwnerAccount()"]');
+  const resetDelBtn = setButtonLoading(delBtn, 'Deleting…');
+
   try {
     const res = await fetch('/api/delete-account', {
       method: 'POST',
@@ -1431,6 +1531,8 @@ async function deleteOwnerAccount() {
     window.location.href = '/';
   } catch (e) {
     await showAlert('Network Error', 'Could not reach the server. Please check your connection and try again.');
+  } finally {
+    resetDelBtn();
   }
 }
 
