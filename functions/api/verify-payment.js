@@ -1,17 +1,21 @@
 // /api/verify-payment.js — Plain English: when the guest comes back from
 // the CHIP payment page, this file asks CHIP whether the payment actually
-// went through and, if so, marks the booking as paid. Changes:
-// (1) All booking writes now happen inside the ONE shared global lock so
-//     this can never race with the webhook, chip-create, or a host
-//     cancellation.
-// (2) When a booking is already refunded or cancelled, we no longer
-//     pretend the payment "failed" — we say "refunded" or "cancelled"
-//     so the guest page shows the truth.
+// went through and, if so, marks the booking as paid.
 //
-// [THIS REVISION]
-// Refund calculation uses `amount_paid` (the amount CHIP actually
-// collected) instead of `total` (which can be recalculated by an admin
-// editing dates on a paid booking).
+// [PHASE 2 REFACTOR]
+// All the finalize + auto-refund + email logic that used to live here has
+// moved to _utils.js and is now called via finalizeAndNotify(). This file
+// no longer owns any local copy of:
+//   - tryAutoRefundLatePaymentLocked
+//   - sendCheckinEmail
+//   - the withLock + finalize + refund + email block
+//
+// The email-retry bug is fixed: if the webhook already finalized this
+// booking but its email send failed, finalizeAndNotify retries it. Before
+// this refactor, this file returned "already paid" and never re-sent.
+//
+// Uses per-booking locks (booking:<id>) instead of the global
+// 'bookings-global' lock, so different bookings no longer serialize.
 import {
   corsHeaders,
   getClientIP,
@@ -22,248 +26,9 @@ import {
   checkRateLimit,
   recordRateLimit,
   withLock,
-  finalizePaidBooking
+  finalizeAndNotify,
+  parseJSONSafely
 } from './_utils.js';
-
-const BOOKINGS_LOCK = 'bookings-global';
-
-// ============================================================
-// Auto-refund helper for a cancelled booking whose CHIP payment
-// settled late.
-//
-// IMPORTANT: the CALLER must already hold the bookings lock
-// (C4). We do NOT take our own lock here so verify-payment,
-// chip-create, and chip-webhook all serialize on the SAME key.
-// ============================================================
-async function tryAutoRefundLatePaymentLocked(db, bookingId, env) {
-  const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
-  let bookings = [];
-  try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
-  const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-  if (idx === -1) return { error: 'Booking not found' };
-  const b = bookings[idx];
-
-  if (b.chip_refund_id) {
-    return { alreadyRefunded: true, refundId: b.chip_refund_id };
-  }
-  if (!b.chip_purchase_id) {
-    return { error: 'No chip_purchase_id to refund' };
-  }
-
-  const secret = env.CHIP_SECRET_KEY;
-  if (!secret) return { error: 'CHIP_SECRET_KEY missing' };
-
-  // [FIX 1.4] Refund the amount CHIP actually collected.
-  const refundAmountCents = Math.round(Number(b.amount_paid || b.total) * 100);
-
-  try {
-    const res = await fetch(
-      `https://gate.chip-in.asia/api/v1/purchases/${b.chip_purchase_id}/refund/`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${secret}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ amount: refundAmountCents })
-      }
-    );
-    let data = null;
-    try { data = await res.json(); } catch (_) { data = null; }
-
-    if (!res.ok || !data || !data.id) {
-      return { error: `CHIP refund failed: ${data?.error || 'unknown'}` };
-    }
-
-    const isPending = data.status === 'pending_refund';
-
-    bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded - Late Payment';
-    bookings[idx].chip_refund_id = data.id;
-    bookings[idx].refunded_at = new Date().toISOString();
-    bookings[idx].refund_amount = Number(b.amount_paid || b.total) || 0;
-    bookings[idx].late_payment_refund = true;
-    if (isPending) bookings[idx].refund_pending = true;
-
-    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-      .bind('kd_bookings', JSON.stringify(bookings))
-      .run();
-
-    return { success: true, refundId: data.id, pending: isPending };
-  } catch (e) {
-    return { error: `Refund network error: ${e.message}` };
-  }
-}
-
-async function sendCheckinEmail(booking, env) {
-  const receiptNo = `RCP-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(booking.id || '').slice(-6)}`;
-  const base = Number(booking.base || 0);
-  const fee = Number(booking.fee || 0);
-  const gatewayFee = Number(booking.gatewayFee || 0);
-  const combinedFee = Math.round((fee + gatewayFee) * 100) / 100;
-  const total = Number(booking.total || 0);
-  const nights = Number(booking.nights) || 1;
-  const nightLabel = nights === 1 ? 'night' : 'nights';
-  const pricePerNight = nights > 0 ? base / nights : base;
-  const safe = (s) => String(s || '').replace(/[<>]/g, '');
-
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="color-scheme" content="light only">
-<meta name="supported-color-schemes" content="light">
-<title>Your Receipt</title>
-</head>
-<body style="margin:0;padding:0;background-color:#f8f5f0;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8f5f0;">
-  <tr>
-    <td align="center" style="padding:24px 16px;">
-
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;border:1px solid #e5e7eb;">
-
-        <tr>
-          <td style="padding:36px 32px 28px 32px;">
-
-            <!-- Header -->
-            <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #0F382E;">
-              <div style="font-size:22px;font-weight:800;color:#0F382E;letter-spacing:-0.3px;line-height:1.2;">Kundasang Homestay</div>
-              <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:2px;margin-top:6px;">Official Receipt</div>
-            </div>
-
-            <!-- IDs — stacked, no wrap -->
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
-              <tr>
-                <td style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;padding-bottom:4px;">Booking ID</td>
-              </tr>
-              <tr>
-                <td style="font-family:'Courier New',Consolas,monospace;font-size:17px;font-weight:700;color:#dc2626;padding-bottom:16px;letter-spacing:0.5px;word-break:break-all;">${safe(booking.id)}</td>
-              </tr>
-              <tr>
-                <td style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;padding-bottom:4px;">Receipt No.</td>
-              </tr>
-              <tr>
-                <td style="font-family:'Courier New',Consolas,monospace;font-size:13px;color:#4b5563;letter-spacing:0.4px;word-break:break-all;">${receiptNo}</td>
-              </tr>
-            </table>
-
-            <!-- Stay details -->
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:28px;">
-              <tr>
-                <td style="padding:8px 0;font-size:13px;color:#6b7280;width:110px;vertical-align:top;">Guest</td>
-                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${safe(booking.guestName) || 'Guest'}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px 0;font-size:13px;color:#6b7280;vertical-align:top;">Homestay</td>
-                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${safe(booking.homestay)}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px 0;font-size:13px;color:#6b7280;vertical-align:top;">Check-in</td>
-                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${safe(booking.checkin)}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px 0;font-size:13px;color:#6b7280;vertical-align:top;">Check-out</td>
-                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${safe(booking.checkout)}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px 0;font-size:13px;color:#6b7280;vertical-align:top;">Nights</td>
-                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${nights} ${nightLabel}</td>
-              </tr>
-            </table>
-
-            <!-- Price breakdown -->
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:28px;">
-              <tr>
-                <td colspan="2" style="border-top:1px dashed #d1d5db;padding-top:20px;"></td>
-              </tr>
-              <tr>
-                <td style="padding:8px 0;font-size:13px;color:#6b7280;">Price (RM ${pricePerNight.toFixed(2)} &times; ${nights} ${nightLabel})</td>
-                <td style="padding:8px 0;font-size:13px;color:#212121;text-align:right;font-weight:600;font-family:'Courier New',monospace;">RM ${base.toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px 0;font-size:13px;color:#6b7280;">Service Fee</td>
-                <td style="padding:8px 0;font-size:13px;color:#212121;text-align:right;font-weight:600;font-family:'Courier New',monospace;">RM ${combinedFee.toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td colspan="2" style="border-top:2px solid #0F382E;padding-top:14px;"></td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0 0 0;font-size:15px;font-weight:700;color:#0F382E;">Total paid</td>
-                <td style="padding:6px 0 0 0;font-size:19px;font-weight:800;color:#0F382E;text-align:right;font-family:'Courier New',monospace;">RM ${total.toFixed(2)}</td>
-              </tr>
-            </table>
-
-            <!-- Check-in code — the visual hero -->
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:32px;">
-              <tr>
-                <td style="background-color:#f0fdf4;border:2px solid #86efac;border-radius:14px;padding:24px 20px;text-align:center;">
-                  <div style="font-size:11px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Your Check-in Code</div>
-                  <div style="font-family:'Courier New',Consolas,monospace;font-size:38px;font-weight:800;color:#0F382E;letter-spacing:10px;line-height:1;padding-left:10px;">${safe(booking.checkinCode)}</div>
-                  <div style="font-size:12px;color:#166534;margin-top:16px;line-height:1.6;">Share this 6-digit code with the host when you arrive.<br>Do not share it with anyone else.</div>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Footer -->
-            <div style="text-align:center;font-size:11px;color:#9ca3af;margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;line-height:1.7;">
-              Payment processed via CHIP FPX<br>
-              &copy; ${new Date().getFullYear()} Kundasang Homestay
-            </div>
-
-          </td>
-        </tr>
-
-      </table>
-
-    </td>
-  </tr>
-</table>
-</body>
-</html>`;
-
-  let emailSent = false;
-  let emailError = null;
-
-  if (env.RESEND_API_KEY) {
-    try {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
-          to: booking.guestEmail,
-          subject: `Your Receipt ${receiptNo} – Check-in Code`,
-          html
-        })
-      });
-      emailSent = res.ok;
-      if (!emailSent) emailError = 'Resend API error';
-    } catch (e) {
-      emailError = e.message;
-    }
-  } else if (env.SENDGRID_API_KEY) {
-    try {
-      const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + env.SENDGRID_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email: booking.guestEmail }] }],
-          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
-          subject: `Your Receipt ${receiptNo} – Check-in Code`,
-          content: [{ type: 'text/html', value: html }]
-        })
-      });
-      emailSent = res.ok;
-      if (!emailSent) emailError = 'SendGrid API error';
-    } catch (e) {
-      emailError = e.message;
-    }
-  } else {
-    emailError = 'No email API key configured';
-  }
-
-  return { emailSent, emailError };
-}
-
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
@@ -286,18 +51,22 @@ export async function onRequestPost({ request, env }) {
     }
     await recordRateLimit(db, clientIP, 'verify_payment');
 
-    const { bookingId } = await request.json();
+    let body;
+    try {
+      body = await parseJSONSafely(request);
+    } catch (e) {
+      return jsonResponse({ error: 'Invalid request body' }, 400, request);
+    }
+    const bookingId = body?.bookingId;
     if (!bookingId) {
       return jsonResponse({ error: 'Missing bookingId' }, 400, request);
     }
-
-    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
     // Unlocked read for ownership + initial state check.
     const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
     let bookings = [];
     try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
-    const idx = bookings.findIndex(b => String(b.id) === bookingId);
+    const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
     if (idx === -1) {
       return jsonResponse({ error: 'Booking not found' }, 404, request);
     }
@@ -322,12 +91,16 @@ export async function onRequestPost({ request, env }) {
 
     // ===== 4a. ALREADY PAID (or already terminal success) =====
     if (status === 'Paid - Awaiting Check-in' || status.startsWith('Completed')) {
-      const { checkinCode, ...safeBooking } = booking;
+      // Even if we're returning early, try to fix a stuck email.
+      // This handles the case where the webhook finalized but the email
+      // send failed, and the guest is now refreshing the return page.
+      const notify = await finalizeAndNotify(db, bookingId, env);
+      const finalBooking = notify.booking || booking;
+      const { checkinCode, ...safeBooking } = finalBooking;
       return jsonResponse({ success: true, booking: safeBooking, paid: true }, 200, request);
     }
 
-    // ===== 4b. H4 FIX: refunded / cancelled are NOT "failed" =====
-    // Return a specific paymentStatus so the UI can render accurately.
+    // ===== 4b. Refunded / cancelled / expired are NOT "failed" =====
     if (/refunded/i.test(status)) {
       const { checkinCode, ...safeBooking } = booking;
       return jsonResponse({
@@ -359,186 +132,173 @@ export async function onRequestPost({ request, env }) {
       }, 200, request);
     }
 
-    // ===== 5. CHIP CHECK (if purchase ID exists) =====
-    if (booking.chip_purchase_id) {
-      const chipSecret = env.CHIP_SECRET_KEY;
-      if (!chipSecret) {
-        const { checkinCode, ...safeBooking } = booking;
-        return jsonResponse({
-          success: false,
-          message: 'Payment gateway not fully configured',
-          retry: true,
-          booking: safeBooking,
-          paymentStatus: 'pending'
-        }, 200, request);
-      }
-
-      try {
-        const resp = await fetch(`https://gate.chip-in.asia/api/v1/purchases/${booking.chip_purchase_id}/`, {
-          headers: { 'Authorization': `Bearer ${chipSecret}` }
-        });
-        if (!resp.ok) {
-          const { checkinCode, ...safeBooking } = booking;
-          return jsonResponse({
-            success: false,
-            message: 'Could not fetch purchase status',
-            retry: true,
-            booking: safeBooking,
-            paymentStatus: 'pending'
-          }, 200, request);
-        }
-        const purchase = await resp.json();
-        const purchaseStatus = purchase.status;
-
-        if (purchaseStatus === 'completed' || purchaseStatus === 'paid') {
-          // C4: canonical lock. Finalize + potential auto-refund both
-          // happen inside this one lock block.
-          let lockResult;
-          try {
-            lockResult = await withLock(db, BOOKINGS_LOCK, async (db) => {
-              const finalizeResult = await finalizePaidBooking(db, booking.id);
-              if (finalizeResult.error) return { finalizeResult };
-              if (finalizeResult.refuseFinalize) {
-                const refundResult = await tryAutoRefundLatePaymentLocked(db, booking.id, env);
-                return { finalizeResult, refundResult };
-              }
-              return { finalizeResult };
-            }, 60000);
-          } catch (lockErr) {
-            if (lockErr.message && lockErr.message.includes('in progress')) {
-              // Another confirmation path is finalizing. Give it a moment
-              // and answer from the fresh state.
-              await new Promise(res => setTimeout(res, 800));
-              const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
-              let bb = [];
-              try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
-              const cur = bb.find(b => String(b.id) === String(booking.id));
-              if (cur && (cur.status === 'Paid - Awaiting Check-in' || String(cur.status).startsWith('Completed'))) {
-                const { checkinCode, ...safeBooking } = cur;
-                return jsonResponse({ success: true, booking: safeBooking, paid: true }, 200, request);
-              }
-            }
-            throw lockErr;
-          }
-
-          const finalizeResult = lockResult.finalizeResult;
-
-          if (finalizeResult.error) {
-            return jsonResponse({ error: finalizeResult.error }, 500, request);
-          }
-
-          // Refuse to finalize = booking was cancelled before payment
-          // settled. Auto-refund already ran inside the lock.
-          if (finalizeResult.refuseFinalize) {
-            const refundResult = lockResult.refundResult || { error: 'refund not attempted' };
-            await logAction({
-              db,
-              action: refundResult.success ? 'late_payment_auto_refunded' : 'late_payment_refund_failed',
-              admin: 'system',
-              details: `Refused to finalize ${booking.id}: ${finalizeResult.reason}. Refund: ${refundResult.success ? refundResult.refundId : refundResult.error}`,
-              ip: clientIP,
-              userId: session.userId,
-              homestayId: booking.homestayId
-            });
-            return jsonResponse({
-              success: false,
-              paid: false,
-              refunded: refundResult.success === true,
-              message: refundResult.success
-                ? 'Your booking was cancelled. The payment has been refunded to your account.'
-                : 'Your booking was cancelled, but the refund could not be processed automatically. Please contact support.',
-              paymentStatus: refundResult.success ? 'refunded' : 'cancelled'
-            }, 200, request);
-          }
-
-          // If WE finalized it and code was newly generated, send email.
-          if (finalizeResult.finalized && finalizeResult.codeWasMissing) {
-            await sendCheckinEmail(finalizeResult.booking, env);
-          }
-
-          const { checkinCode, ...safeBooking } = finalizeResult.booking;
-          return jsonResponse({ success: true, booking: safeBooking, paid: true }, 200, request);
-        } else if (purchaseStatus === 'cancelled' || purchaseStatus === 'expired' || purchaseStatus === 'failed') {
-          // Only downgrade the status if the booking is still awaiting payment.
-          // C4: this write must happen under the canonical lock.
-          let writeResult;
-          try {
-            writeResult = await withLock(db, BOOKINGS_LOCK, async (db) => {
-              const rr = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
-              let bb = [];
-              try { if (rr?.data) bb = JSON.parse(rr.data); } catch (_) {}
-              const ii = bb.findIndex(b => String(b.id) === String(bookingId));
-              if (ii === -1) return { error: 'Booking not found', status: 404 };
-              const cur = bb[ii];
-              const currentStatus = String(cur.status || '');
-              const isTerminal = currentStatus === 'Paid - Awaiting Check-in'
-                || currentStatus.startsWith('Completed')
-                || /cancelled|refunded|expired/i.test(currentStatus);
-              if (isTerminal) {
-                return { isTerminal: true, booking: cur };
-              }
-              bb[ii] = {
-                ...cur,
-                status: 'Payment Failed',
-                chip_status: purchaseStatus,
-                statusUpdated: new Date().toISOString()
-              };
-              await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-                .bind('kd_bookings', JSON.stringify(bb))
-                .run();
-              return { updated: true, booking: bb[ii] };
-            }, 30000);
-          } catch (lockErr) {
-            if (lockErr.message && lockErr.message.includes('in progress')) {
-              return jsonResponse({ error: 'Another operation is in progress. Please retry in a moment.' }, 429, request);
-            }
-            throw lockErr;
-          }
-
-          if (writeResult.error) {
-            return jsonResponse({ error: writeResult.error }, writeResult.status || 400, request);
-          }
-
-          const finalBooking = writeResult.booking;
-          const { checkinCode, ...safeBooking } = finalBooking;
-          const wasTerminal = writeResult.isTerminal === true;
-          return jsonResponse({
-            success: false,
-            message: wasTerminal
-              ? 'Payment already confirmed.'
-              : 'Payment failed or expired.',
-            retry: !wasTerminal,
-            booking: safeBooking,
-            paymentStatus: wasTerminal ? 'paid' : 'failed'
-          }, 200, request);
-        } else {
-          const { checkinCode, ...safeBooking } = booking;
-          return jsonResponse({
-            success: false,
-            message: 'Payment not yet confirmed.',
-            retry: true,
-            booking: safeBooking,
-            paymentStatus: 'pending'
-          }, 200, request);
-        }
-      } catch (e) {
-        console.error('CHIP check error:', e.message);
-        const { checkinCode, ...safeBooking } = booking;
-        return jsonResponse({
-          success: false,
-          message: 'Error checking payment status',
-          retry: true,
-          booking: safeBooking,
-          paymentStatus: 'pending'
-        }, 200, request);
-      }
+    // ===== 5. CHIP CHECK =====
+    if (!booking.chip_purchase_id) {
+      // No CHIP purchase exists for this booking yet.
+      const { checkinCode, ...safeBooking } = booking;
+      return jsonResponse({
+        success: false,
+        message: 'No payment provider found for this booking.',
+        retry: true,
+        booking: safeBooking,
+        paymentStatus: 'pending'
+      }, 200, request);
     }
 
-    // ===== 6. FALLBACK =====
+    const chipSecret = env.CHIP_SECRET_KEY;
+    if (!chipSecret) {
+      const { checkinCode, ...safeBooking } = booking;
+      return jsonResponse({
+        success: false,
+        message: 'Payment gateway not fully configured',
+        retry: true,
+        booking: safeBooking,
+        paymentStatus: 'pending'
+      }, 200, request);
+    }
+
+    let purchase = null;
+    try {
+      const resp = await fetch(
+        `https://gate.chip-in.asia/api/v1/purchases/${booking.chip_purchase_id}/`,
+        { headers: { 'Authorization': `Bearer ${chipSecret}` } }
+      );
+      if (!resp.ok) {
+        const { checkinCode, ...safeBooking } = booking;
+        return jsonResponse({
+          success: false,
+          message: 'Could not fetch purchase status',
+          retry: true,
+          booking: safeBooking,
+          paymentStatus: 'pending'
+        }, 200, request);
+      }
+      purchase = await resp.json();
+    } catch (e) {
+      console.error('CHIP check error:', e.message);
+      const { checkinCode, ...safeBooking } = booking;
+      return jsonResponse({
+        success: false,
+        message: 'Error checking payment status',
+        retry: true,
+        booking: safeBooking,
+        paymentStatus: 'pending'
+      }, 200, request);
+    }
+
+    const purchaseStatus = String(purchase.status || '');
+
+    // ===== 5a. CHIP says paid =====
+    if (purchaseStatus === 'completed' || purchaseStatus === 'paid') {
+      // finalizeAndNotify handles the lock, the finalize, the auto-refund
+      // on cancelled bookings, and the check-in email (with retry).
+      const notify = await finalizeAndNotify(db, bookingId, env);
+
+      if (notify.outcome === 'error') {
+        const statusCode = notify.retryable ? 500 : 400;
+        return jsonResponse({ error: notify.error || 'Finalization failed' }, statusCode, request);
+      }
+
+      if (notify.outcome === 'lock_busy') {
+        return jsonResponse(
+          { error: 'Another operation is in progress. Please retry in a moment.' },
+          429,
+          request
+        );
+      }
+
+      if (notify.outcome === 'refused') {
+        // Booking was cancelled before payment settled. Auto-refund
+        // already ran inside finalizeAndNotify.
+        const rr = notify.refundResult || { error: 'refund not attempted' };
+        await logAction({
+          db,
+          action: rr.success ? 'late_payment_auto_refunded' : 'late_payment_refund_failed',
+          admin: 'system',
+          details: `Refused to finalize ${booking.id}: ${notify.refuseReason || 'cancelled'}. Refund: ${rr.success ? rr.refundId : rr.error}`,
+          ip: clientIP,
+          userId: session.userId,
+          homestayId: booking.homestayId
+        });
+        return jsonResponse({
+          success: false,
+          paid: false,
+          refunded: rr.success === true,
+          message: rr.success
+            ? 'Your booking was cancelled. The payment has been refunded to your account.'
+            : 'Your booking was cancelled, but the refund could not be processed automatically. Please contact support.',
+          paymentStatus: rr.success ? 'refunded' : 'cancelled'
+        }, 200, request);
+      }
+
+      // finalized or already_finalized — either way, this booking is
+      // now paid. Strip the check-in code from the response (it goes by
+      // email only).
+      const finalBooking = notify.booking || booking;
+      const { checkinCode, ...safeBooking } = finalBooking;
+      return jsonResponse({ success: true, booking: safeBooking, paid: true }, 200, request);
+    }
+
+    // ===== 5b. CHIP says cancelled / expired / failed =====
+    if (purchaseStatus === 'cancelled' || purchaseStatus === 'expired' || purchaseStatus === 'failed') {
+      let writeResult;
+      try {
+        writeResult = await withLock(db, `booking:${bookingId}`, async (db) => {
+          const rr = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+          let bb = [];
+          try { if (rr?.data) bb = JSON.parse(rr.data); } catch (_) {}
+          const ii = bb.findIndex(b => String(b.id) === String(bookingId));
+          if (ii === -1) return { error: 'Booking not found', status: 404 };
+          const cur = bb[ii];
+          const currentStatus = String(cur.status || '');
+          const isTerminal = currentStatus === 'Paid - Awaiting Check-in'
+            || currentStatus.startsWith('Completed')
+            || /cancelled|refunded|expired/i.test(currentStatus);
+          if (isTerminal) {
+            return { isTerminal: true, booking: cur };
+          }
+          bb[ii] = {
+            ...cur,
+            status: 'Payment Failed',
+            chip_status: purchaseStatus,
+            statusUpdated: new Date().toISOString()
+          };
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify(bb))
+            .run();
+          return { updated: true, booking: bb[ii] };
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse(
+            { error: 'Another operation is in progress. Please retry in a moment.' },
+            429,
+            request
+          );
+        }
+        throw lockErr;
+      }
+
+      if (writeResult.error) {
+        return jsonResponse({ error: writeResult.error }, writeResult.status || 400, request);
+      }
+
+      const { checkinCode, ...safeBooking } = writeResult.booking;
+      const wasTerminal = writeResult.isTerminal === true;
+      return jsonResponse({
+        success: false,
+        message: wasTerminal ? 'Payment already confirmed.' : 'Payment failed or expired.',
+        retry: !wasTerminal,
+        booking: safeBooking,
+        paymentStatus: wasTerminal ? 'paid' : 'failed'
+      }, 200, request);
+    }
+
+    // ===== 5c. Any other status = still pending =====
     const { checkinCode, ...safeBooking } = booking;
     return jsonResponse({
       success: false,
-      message: 'No payment provider found for this booking.',
+      message: 'Payment not yet confirmed.',
       retry: true,
       booking: safeBooking,
       paymentStatus: 'pending'
