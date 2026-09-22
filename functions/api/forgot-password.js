@@ -1,4 +1,24 @@
 // /api/forgot-password.js
+//
+// [REVISION — 22 Sept 2026 — Phase 3]
+// - Uses parseJSONSafely (was request.json) so the 1MB body-size
+//   guard applies.
+// - Reset email escapes the recipient's name with escHtml (was an
+//   incomplete .replace(/[<>]/g,''), which left & un-escaped).
+// - Added a global rate limit alongside the per-IP one.
+// - Success response is now Cache-Control: no-store.
+// - Error log no longer includes the stack trace.
+//
+// NOT changed (intentional):
+// - The response is identical whether the account exists or not
+//   (no enumeration leak).
+// - userType is scoped: guest lookup can't find owners and vice versa.
+// - Rate limit is 3 per 15 min per IP.
+// - Tokens expire in 1h and expired rows are cleaned up.
+//
+// TODO (Phase 4): store the reset token hashed rather than plaintext.
+// Requires a one-time purge of password_resets to keep old tokens
+// invalid, so it's a dedicated change.
 import {
   corsHeaders,
   getClientIP,
@@ -6,8 +26,16 @@ import {
   jsonResponse,
   logAction,
   checkRateLimit,
-  recordRateLimit
+  recordRateLimit,
+  parseJSONSafely,
+  escHtml
 } from './_utils.js';
+
+const IP_LIMIT = 3;
+const IP_WINDOW_SECONDS = 15 * 60;
+const GLOBAL_KEY = '__forgot_password_global__';
+const GLOBAL_LIMIT = 30;
+const GLOBAL_WINDOW_SECONDS = 15 * 60;
 
 async function generateResetToken() {
   const b = crypto.getRandomValues(new Uint8Array(32));
@@ -15,7 +43,9 @@ async function generateResetToken() {
 }
 
 async function sendResetEmail(email, name, url, env) {
-  const html = `<h2>Hello ${String(name || 'Guest').replace(/[<>]/g, '')}</h2><p>You requested a password reset for Kundasang Homestay.</p><p><a href="${url}">Reset your password</a></p><p>This link expires in 1 hour.</p><p>If you did not request this, ignore this email.</p>`;
+  const safeName = escHtml(name || 'Guest');
+  const safeUrl = escHtml(url);
+  const html = `<h2>Hello ${safeName}</h2><p>You requested a password reset for Kundasang Homestay.</p><p><a href="${safeUrl}">Reset your password</a></p><p>This link expires in 1 hour.</p><p>If you did not request this, ignore this email.</p>`;
   try {
     if (env.RESEND_API_KEY) {
       const r = await fetch('https://api.resend.com/emails', {
@@ -50,12 +80,10 @@ async function sendResetEmail(email, name, url, env) {
 }
 
 export async function onRequestPost({ request, env }) {
-  // [FIX] Force HTTPS, matching every other endpoint.
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
 
   try {
-    // Fail loudly if email is not configured
     if (!env.RESEND_API_KEY && !env.SENDGRID_API_KEY) {
       console.error('CRITICAL: No email provider configured. Password resets will not send.');
       return jsonResponse(
@@ -65,7 +93,14 @@ export async function onRequestPost({ request, env }) {
       );
     }
 
-    const { email, userType } = await request.json();
+    let rawBody;
+    try {
+      rawBody = await parseJSONSafely(request);
+    } catch (_) {
+      return jsonResponse({ error: 'Invalid request' }, 400, request);
+    }
+
+    const { email, userType } = rawBody || {};
     const cleanEmail = String(email || '').toLowerCase().trim();
     if (!cleanEmail || !['guest', 'owner'].includes(userType)) {
       return jsonResponse({ error: 'Invalid request' }, 400, request);
@@ -75,15 +110,21 @@ export async function onRequestPost({ request, env }) {
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'Server configuration error' }, 500, request);
 
-    const rateOk = await checkRateLimit(db, ip, 'forgot_password', 3, 15 * 60);
-    if (!rateOk) {
+    // Per-IP limit
+    const ipOk = await checkRateLimit(db, ip, 'forgot_password', IP_LIMIT, IP_WINDOW_SECONDS);
+    if (!ipOk) {
+      return jsonResponse({ error: 'Too many reset attempts. Please wait 15 minutes.' }, 429, request);
+    }
+    // Global limit
+    const globalOk = await checkRateLimit(db, GLOBAL_KEY, 'forgot_password', GLOBAL_LIMIT, GLOBAL_WINDOW_SECONDS);
+    if (!globalOk) {
       return jsonResponse({ error: 'Too many reset attempts. Please wait 15 minutes.' }, 429, request);
     }
     await recordRateLimit(db, ip, 'forgot_password');
+    await recordRateLimit(db, GLOBAL_KEY, 'forgot_password');
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // Ensure password_resets table exists, then clean up expired tokens
     await db.prepare(
       `CREATE TABLE IF NOT EXISTS password_resets (
         token TEXT PRIMARY KEY,
@@ -109,14 +150,12 @@ export async function onRequestPost({ request, env }) {
       const u = users.find(x => String(x.email || '').toLowerCase() === cleanEmail);
       if (u) { userId = u.id; userData = { name: u.name }; }
     } else {
-      // 1) Check kd_owners first (new host-account flow)
       const owners = await read('kd_owners');
       const acc = owners.find(o => String(o.ownerEmail || '').toLowerCase() === cleanEmail);
       if (acc) {
         userId = acc.id;
         userData = { name: acc.ownerName };
       } else {
-        // 2) Fall back to legacy homestay-based owner lookup
         const homes = [...(await read('kd_approved')), ...(await read('kd_pending'))];
         const h = homes.find(x => String(x.ownerEmail || '').toLowerCase() === cleanEmail);
         if (h) { userId = h.id; userData = { name: h.ownerName }; }
@@ -124,7 +163,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (!userId) {
-      return jsonResponse({ success: true, message: 'If an account exists, a reset link has been sent.' }, 200, request);
+      return jsonResponse({ success: true, message: 'If an account exists, a reset link has been sent.' }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
     const token = await generateResetToken();
@@ -141,9 +180,9 @@ export async function onRequestPost({ request, env }) {
       console.error(`Password reset email failed for ${cleanEmail}`);
     }
 
-    return jsonResponse({ success: true, message: 'If an account exists, a reset link has been sent.' }, 200, request);
+    return jsonResponse({ success: true, message: 'If an account exists, a reset link has been sent.' }, 200, request, { 'Cache-Control': 'no-store' });
   } catch (e) {
-    console.error('Forgot password error:', e.message, e.stack);
+    console.error('Forgot password error:', e.message);
     return jsonResponse({ error: 'Unable to process request. Please try again later.' }, 500, request);
   }
 }
