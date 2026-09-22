@@ -1,16 +1,11 @@
 // /api/csrf-token.js — Issues a fresh CSRF token for the account type
 // the caller asks for.
 //
-// [THIS REVISION]
-// Accepts an optional ?type=guest or ?type=owner query parameter. When
-// specified, only that session is consulted. Without a type, falls back
-// to the legacy behaviour (try guest first, then owner).
-//
-// Why: when a browser has BOTH a guest cookie and an owner cookie (which
-// happens if you ever log in as guest, then as owner without logging the
-// guest out), the legacy endpoint returns the guest token. Owner-only
-// actions then fail with "Invalid security token" because the guest token
-// belongs to a different user ID. Explicit ?type=owner fixes that.
+// [REVISION — 22 Sept 2026 — Phase 3]
+// The token is now bound to the session version of the user it was
+// issued for. See generateCSRFToken / validateCSRFToken in _utils.js.
+// Concretely: pass the session's current version so a token issued
+// before a logout/password change stops working right away.
 import {
   corsHeaders,
   enforceHttps,
@@ -32,7 +27,8 @@ export async function onRequestGet({ request, env }) {
     if (requestedType === 'guest') {
       const guest = await getGuestSession(request, env);
       if (guest && guest.userId) {
-        const token = await generateCSRFToken(guest.userId, env);
+        const sv = Number(guest.sessionVersion ?? 0);
+        const token = await generateCSRFToken(guest.userId, env, sv);
         return jsonResponse(
           { success: true, token, type: 'guest' },
           200, request,
@@ -46,7 +42,8 @@ export async function onRequestGet({ request, env }) {
     if (requestedType === 'owner') {
       const owner = await getOwnerSession(request, env);
       if (owner && owner.ownerId) {
-        const token = await generateCSRFToken(owner.ownerId, env);
+        const sv = Number(owner.ownerSessionVersion ?? 0);
+        const token = await generateCSRFToken(owner.ownerId, env, sv);
         return jsonResponse(
           { success: true, token, type: 'owner' },
           200, request,
@@ -59,7 +56,8 @@ export async function onRequestGet({ request, env }) {
     // ---- Legacy: no type specified. Try guest first, then owner. ----
     const guest = await getGuestSession(request, env);
     if (guest && guest.userId) {
-      const token = await generateCSRFToken(guest.userId, env);
+      const sv = Number(guest.sessionVersion ?? 0);
+      const token = await generateCSRFToken(guest.userId, env, sv);
       return jsonResponse(
         { success: true, token, type: 'guest' },
         200, request,
@@ -69,7 +67,8 @@ export async function onRequestGet({ request, env }) {
 
     const owner = await getOwnerSession(request, env);
     if (owner && owner.ownerId) {
-      const token = await generateCSRFToken(owner.ownerId, env);
+      const sv = Number(owner.ownerSessionVersion ?? 0);
+      const token = await generateCSRFToken(owner.ownerId, env, sv);
       return jsonResponse(
         { success: true, token, type: 'owner' },
         200, request,
