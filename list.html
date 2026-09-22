@@ -66,6 +66,60 @@ body.bn-hidden #mobileBottomNav { display: none; }
 @media (max-width: 1023.98px) {
 body { padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ============================================================
+   LOADING STATES
+   ============================================================ */
+@keyframes kdSpin { to { transform: rotate(360deg); } }
+.kd-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: kdSpin 0.7s linear infinite;
+  vertical-align: -2px;
+  margin-right: 7px;
+}
+.kd-spinner-lg {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+  margin-right: 0;
+}
+button.kd-loading {
+  opacity: 0.75;
+  cursor: not-allowed !important;
+}
+/* Drop zone loading overlay */
+.drop-zone { position: relative; }
+.drop-zone.kd-uploading { pointer-events: none; }
+.kd-drop-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border-radius: inherit;
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0F382E;
+  text-align: center;
+  padding: 8px;
+  z-index: 5;
+}
+.drop-zone.kd-uploading .kd-drop-overlay { display: flex; }
+.kd-uploading-label {
+  opacity: 0.6;
+  pointer-events: none;
+}
 </style>
 </head>
 <body>
@@ -607,6 +661,51 @@ ALLOW_DATA_ATTR: true,
 FORCE_HTTPS: true
 });
 }
+
+// ============================================================
+// LOADING STATE HELPERS
+// ============================================================
+function setButtonLoading(btn, text) {
+  if (!btn) return function(){};
+  if (!btn.dataset.kdOrig) btn.dataset.kdOrig = btn.innerHTML;
+  btn.disabled = true;
+  btn.classList.add('kd-loading');
+  btn.innerHTML = '<span class="kd-spinner"></span>' + (text || 'Loading…');
+  return function clear() {
+    btn.disabled = false;
+    btn.classList.remove('kd-loading');
+    if (btn.dataset.kdOrig) {
+      btn.innerHTML = btn.dataset.kdOrig;
+      delete btn.dataset.kdOrig;
+    }
+  };
+}
+function showDropZoneLoading(zone, text) {
+  if (!zone) return function(){};
+  var overlay = zone.querySelector('.kd-drop-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'kd-drop-overlay';
+    zone.appendChild(overlay);
+  }
+  overlay.innerHTML =
+    '<span class="kd-spinner kd-spinner-lg"></span>' +
+    '<div>' + (text || 'Uploading…') + '</div>';
+  zone.classList.add('kd-uploading');
+  return function clear() {
+    zone.classList.remove('kd-uploading');
+    overlay.innerHTML = '';
+  };
+}
+function setDropZoneText(zone, text) {
+  if (!zone) return;
+  var overlay = zone.querySelector('.kd-drop-overlay');
+  if (!overlay) return;
+  overlay.innerHTML =
+    '<span class="kd-spinner kd-spinner-lg"></span>' +
+    '<div>' + text + '</div>';
+}
+
 function showModal(title, message, buttons) {
 return new Promise((resolve) => {
 const overlay = document.getElementById('customModal');
@@ -1028,7 +1127,7 @@ html += `
 📷 Add Photos
 <input type="file" accept="image/*" multiple class="hidden" data-room-action="add-img" data-room-id="${escapeHTML(room.id)}" />
 </label>
-<span class="text-[10px] text-zinc-400">${room.images ? room.images.length : 0} images</span>
+<span class="kd-room-img-count text-[10px] text-zinc-400">${room.images ? room.images.length : 0} images</span>
 </div>
 ${imagesHtml}
 </div>
@@ -1052,12 +1151,20 @@ if (roomIndex === -1) {
 await showAlert('Upload Failed', 'Room not found. Please try again.');
 return;
 }
-for (const file of files) {
+const label = input.closest('label');
+const counterEl = label ? label.parentElement.querySelector('.kd-room-img-count') : null;
+const origCounterText = counterEl ? counterEl.textContent : '';
+if (label) label.classList.add('kd-uploading-label');
+const total = files.length;
+try {
+for (let i = 0; i < total; i++) {
+const file = files[i];
+if (counterEl) counterEl.innerHTML = '<span class="kd-spinner"></span> ' + (i + 1) + ' of ' + total + '…';
 try {
 if (!file.type.startsWith('image/')) continue;
 const compressedBlob = await compressImageToBlob(file, 800, 0.7);
 if (!compressedBlob) {
-await showAlert('Upload Failed', `Could not compress ${file.name}. Skipping.`);
+await showAlert('Upload Failed', 'Could not compress ' + file.name + '. Skipping.');
 continue;
 }
 const formData = new FormData();
@@ -1077,7 +1184,11 @@ await showAlert('Upload Failed', data.error || 'Unknown server error');
 await showAlert('Upload Failed', 'Network error or server unavailable. Please try again.');
 }
 }
+} finally {
+if (label) label.classList.remove('kd-uploading-label');
+if (counterEl) counterEl.textContent = origCounterText;
 input.value = '';
+}
 }
 function removeRoomImage(roomId, imageIndex) {
 const roomIndex = tempRooms.findIndex(r => r.id === roomId);
@@ -1129,14 +1240,20 @@ async function handlePhotos(input) {
 const files = input.files;
 if (!files.length) return;
 const preview = document.getElementById('photoPreview');
-for (const file of files) {
+const zone = input.closest('.drop-zone');
+const clearZone = showDropZoneLoading(zone, 'Preparing photos…');
+const total = files.length;
+for (let i = 0; i < total; i++) {
+const file = files[i];
 try {
 if (!file.type.startsWith('image/')) continue;
+setDropZoneText(zone, 'Compressing ' + (i + 1) + ' of ' + total + '…');
 const compressedBlob = await compressImageToBlob(file, 1000, 0.8);
 if (!compressedBlob) {
 await showAlert('Upload Failed', 'Could not compress ' + file.name);
 continue;
 }
+setDropZoneText(zone, 'Uploading ' + (i + 1) + ' of ' + total + '…');
 const formData = new FormData();
 formData.append('image', compressedBlob, file.name);
 const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
@@ -1155,6 +1272,7 @@ await showAlert('Upload Failed', data.error || 'Failed to upload ' + file.name);
 await showAlert('Upload Error', e.message || 'Upload failed');
 }
 }
+clearZone();
 input.value = '';
 }
 // ============================================================
@@ -1177,10 +1295,13 @@ input.value = "";
 return;
 }
 tempIcOriginalName = file.name;
+const zone = input.closest('.drop-zone');
+const clearZone = showDropZoneLoading(zone, 'Watermarking IC…');
 try {
 const compressedDataUrl = await compressImage(file, 1200, 0.85);
 if (!compressedDataUrl) {
 await showAlert("Error", "Failed to process image.");
+clearZone();
 return;
 }
 const img = new Image();
@@ -1235,8 +1356,10 @@ if (!watermarkedBlob) {
 tempIcWatermarked = watermarkedDataUrl;
 tempIcPublicId = "";
 if (label) label.innerHTML = safeHTML("⚠️ Could not prepare image for upload. Using local fallback.");
+clearZone();
 return;
 }
+setDropZoneText(zone, 'Uploading IC…');
 const formData = new FormData();
 formData.append('image', watermarkedBlob, 'ic-' + Date.now() + '.jpg');
 const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
@@ -1255,9 +1378,11 @@ tempIcWatermarked = watermarkedDataUrl;
 tempIcPublicId = "";
 if (label) label.innerHTML = safeHTML("⚠️ Upload error. Using local fallback.");
 }
+clearZone();
 };
 img.src = compressedDataUrl;
 } catch (e) {
+clearZone();
 await showAlert("Error", "Failed to process IC image.");
 }
 }
@@ -1276,6 +1401,8 @@ input.value = "";
 return;
 }
 tempBankQROriginalName = file.name;
+const zone = input.closest('.drop-zone');
+const clearZone = showDropZoneLoading(zone, 'Uploading QR…');
 try {
 const compressedBlob = await compressImageToBlob(file, 800, 0.8);
 if (!compressedBlob) {
@@ -1296,6 +1423,8 @@ await showAlert('Upload Failed', data.error || 'Could not upload QR image.');
 }
 } catch (e) {
 await showAlert('Upload Error', e.message || 'Upload failed');
+} finally {
+clearZone();
 }
 }
 function removeBankQR() {
@@ -1376,6 +1505,8 @@ await showAlert("File Exceeded", "File size too large (max 3MB).");
 input.value = "";
 return;
 }
+const zone = input.closest('.drop-zone');
+const clearZone = showDropZoneLoading(zone, 'Uploading license…');
 try {
 const compressedBlob = await compressImageToBlob(file, 800, 0.7);
 if (!compressedBlob) {
@@ -1396,6 +1527,8 @@ await showAlert('Upload Failed', data.error || 'Could not upload license.');
 }
 } catch (e) {
 await showAlert('Upload Error', e.message || 'Upload failed');
+} finally {
+clearZone();
 }
 }
 function removePbtLicense() {
@@ -1409,16 +1542,7 @@ async function submitHomestay() {
 const statusEl = document.getElementById('submitStatus');
 const submitBtn = document.getElementById('submitBtn');
 if (statusEl) statusEl.className = 'hidden';
-if (submitBtn) {
-submitBtn.disabled = true;
-submitBtn.textContent = '⏳ Submitting...';
-}
-const resetBtn = () => {
-if (submitBtn) {
-submitBtn.disabled = false;
-submitBtn.textContent = 'Submit Homestay Listing for Approval';
-}
-};
+const resetBtn = setButtonLoading(submitBtn, 'Submitting…');
 try {
 const ownerName = document.getElementById("listOwnerName").value.trim();
 const rawWhatsapp = document.getElementById("listWhatsapp").value.trim();
