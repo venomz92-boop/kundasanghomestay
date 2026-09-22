@@ -780,8 +780,10 @@ export async function logAction({ db, action, admin, details, ip, userId, homest
 // CSRF
 // ============================================================
 
+const CSRF_TTL_MS = 60 * 60 * 1000;
+
 export async function generateCSRFToken(userId, env) {
-  return createSignedToken({ type: 'csrf', userId: String(userId) }, env, 24 * 60 * 60 * 1000);
+  return createSignedToken({ type: 'csrf', userId: String(userId) }, env, CSRF_TTL_MS);
 }
 
 export async function validateCSRFToken(token, userId, env) {
