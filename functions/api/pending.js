@@ -246,6 +246,55 @@ export async function onRequestGet({ request, env }) {
   return jsonResponse(await read(db, 'kd_pending'), 200, request, { 'Cache-Control': 'no-store' });
 }
 
+
+// ============================================================
+// Admin force-sync sanitizer. Same class of fix as updateHomestays
+// in bookings.js: never trust the client array verbatim, because an
+// admin session (or XSS on the admin page) can smuggle fields.
+//
+// These fields are preserved from the current stored record (if one
+// exists) and stripped from the incoming payload otherwise. The
+// critical one is chip_bank_account_id — chipSendPayout() in
+// _utils.js reads it as a cache key and trusts it blindly, so an
+// attacker-injected value would route the next payout to the wrong
+// bank account.
+const PENDING_PROTECTED_FIELDS = [
+  'chip_bank_account_id',
+  'ownerPasswordHash',
+  'ownerSalt',
+  'ownerPasswordAlgorithm',
+  'ownerPasswordVersion',
+  'ownerSessionVersion',
+  'passwordUpdated',
+  'verifiedAt'
+];
+
+async function sanitizePendingSync(db, incoming) {
+  const stored = await read(db, 'kd_pending');
+  const storedById = new Map();
+  for (const h of stored) {
+    if (h && h.id !== undefined && h.id !== null) {
+      storedById.set(String(h.id), h);
+    }
+  }
+
+  const out = [];
+  for (const item of incoming) {
+    if (!item || typeof item !== 'object') continue;
+    const clean = { ...item };
+    const storedItem = storedById.get(String(item.id ?? ''));
+
+    for (const field of PENDING_PROTECTED_FIELDS) {
+      if (storedItem && Object.prototype.hasOwnProperty.call(storedItem, field)) {
+        clean[field] = storedItem[field];
+      } else {
+        delete clean[field];
+      }
+    }
+    out.push(clean);
+  }
+  return out;
+}
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -274,17 +323,18 @@ export async function onRequestPost({ request, env }) {
       if (!Array.isArray(body.pending)) {
         return jsonResponse({ error: 'Invalid pending payload' }, 400, request);
       }
+      const sanitized = await sanitizePendingSync(db, body.pending);
       await db.prepare('INSERT OR REPLACE INTO store(key, data) VALUES(?, ?)')
-        .bind('kd_pending', JSON.stringify(body.pending))
+        .bind('kd_pending', JSON.stringify(sanitized))
         .run();
       await logAction({
         db,
         action: 'pending_synced_admin',
         admin: 'admin',
-        details: `Pending list force-synced (${body.pending.length} items)`,
+        details: `Pending list force-synced (${sanitized.length} items)`,
         ip: getClientIP(request)
       });
-      return jsonResponse({ success: true, pending: body.pending }, 200, request);
+      return jsonResponse({ success: true, pending: sanitized }, 200, request);
     }
 
     // ============================================================
