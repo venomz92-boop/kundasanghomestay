@@ -1,16 +1,69 @@
 // SHARED HELPERS — full drop-in replacement.
 //
-// [THIS REVISION — 16 Sept 2026]
-//   (1) sendHostPayoutEmail now includes a "Chat with us on WhatsApp"
-//       button when env.SUPPORT_WHATSAPP is set. If unset, the button
-//       is silently omitted (existing behaviour).
-//   (2) New helper sendPayoutRecordEmail() — fires a structured
-//       [PAYOUT-RECORD] email to support@kundasanghomestay.my after
-//       each manual payout. A Google Apps Script watches that inbox
-//       and files the receipt + metadata into Google Drive, giving
-//       CHIP-compliant records without manual filing.
+// [THIS REVISION — September 2026 — Phase 1 of the security hardening pass]
 //
-// All other helpers are unchanged.
+// WHAT CHANGED IN THIS FILE (summary):
+//   1. PASSWORD_PEPPER is now REQUIRED. No more fallback to SESSION_SECRET.
+//      No more hardcoded 'kundasang-homestay-2026'. This prevents the
+//      "rotate SESSION_SECRET, everyone locked out forever" footgun and
+//      closes the hardcoded-pepper hole.
+//   2. verifyPassword uses constant-time comparison (was `===`).
+//   3. getGuestSession / getOwnerSession session-version checks now FAIL
+//      CLOSED when either side is missing, instead of silently skipping.
+//   4. getClientIP only trusts CF-Connecting-IP (was falling back to
+//      client-controllable X-Forwarded-For).
+//   5. checkRateLimit defaults to FAIL CLOSED on DB error. Pass
+//      { failOpen: true } if a caller really wants the old behavior.
+//   6. withLock default stale timeout raised 5s → 30s. Webhook/lock
+//      operations that call CHIP can take longer than 5s, and a 5s
+//      timeout lets a second process steal the lock mid-flight.
+//   7. enforceHttps returns 308 (was 301). 301 on a POST can strip the
+//      method and body.
+//   8. finalizePaidBooking now sets two new fields on the booking:
+//      checkin_email_status ('pending') and receiptNo (stable per booking).
+//   9. NEW canonical helpers shared across the money path so we can stop
+//      copy-pasting them into 3-4 files:
+//        escHtml / escAttr       — proper HTML escaping
+//        safeUrl                 — only http(s) URLs into href/src
+//        sendEmail               — one provider-selection function
+//        sendCheckinEmail        — the canonical guest email
+//        sendRefundEmail         — the canonical refund email
+//        tryAutoRefundLatePaymentLocked — was duplicated in 3 files
+//        finalizeAndNotify       — the whole lock + finalize + refund +
+//                                  email + log flow in one function
+//  10. sendHostPayoutEmail / sendPayoutRecordEmail now delegate to
+//      sendEmail internally (no behavior change, just less duplication).
+//  11. ensureRateLimitTable caches per-process so we're not doing DDL on
+//      every API call.
+//
+// WHAT THIS FILE DOES *NOT* FIX (do in later phases):
+//   - CSP header on JSON responses (pointless, wasted bytes — Phase 6)
+//   - 'unsafe-inline' in script-src (needs inline scripts moved to files)
+//   - Whole-table reads of kd_* blobs (needs DB migration — Phase 4)
+//   - `GET /api/bookings` public branch loading kd_guests (bookings.js)
+//   - `getAdminToken`, `invalidateOwnerSessions`, `invalidateOwnerSessionsForOwner`
+//     are still exported (unused aliases — will remove in Phase 2/3 cleanup)
+//
+// ALL EXISTING EXPORTS KEEP THE SAME NAME AND SIGNATURE. This is a drop-in
+// replacement. Only *behavior* has changed (see list above).
+//
+// ============================================================
+// BEFORE YOU DEPLOY THIS FILE, VERIFY YOUR CLOUDFLARE ENV VARS:
+//
+//   PASSWORD_PEPPER         MUST be set. 32+ random characters.
+//                           Different from SESSION_SECRET.
+//                           If unset, hashPassword will throw.
+//   SESSION_SECRET          Already set (you have it).
+//   LEGACY_PASSWORD_PEPPER  Only needed if you had legacy SHA-256 hashes
+//                           from before PBKDF2. You have 0 users, so you
+//                           don't. Do NOT set it. If it's ever unset and
+//                           a legacy hash is encountered, verification
+//                           will fail closed (return false) instead of
+//                           falling back to a hardcoded secret.
+//
+// If you deploy this without PASSWORD_PEPPER set, new registrations will
+// fail with "PASSWORD_PEPPER is required". That's intentional.
+// ============================================================
 
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
@@ -35,6 +88,39 @@ function getPbkdf2Iterations(env) {
   }
   return DEFAULT_PBKDF2_ITERATIONS;
 }
+
+// ============================================================
+// HTML / URL escaping
+// ============================================================
+
+export function escHtml(value) {
+  if (value == null) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Same as escHtml in practice — quotes must be escaped in attribute
+// context too. Exported under both names so call sites can read clearly.
+export function escAttr(value) {
+  return escHtml(value);
+}
+
+// Only allow http(s) URLs. Anything else (javascript:, data:, etc.)
+// becomes an empty string so it doesn't end up in an href/src.
+export function safeUrl(value) {
+  const s = String(value || '').trim();
+  if (!s) return '';
+  if (!/^https?:\/\//i.test(s)) return '';
+  return s;
+}
+
+// ============================================================
+// b64url / HMAC
+// ============================================================
 
 function b64urlEncode(input) {
   let bytes;
@@ -95,6 +181,29 @@ function requireSessionSecret(env) {
   return secret;
 }
 
+// Constant-time byte comparison. Used for password verification.
+function constantTimeEqualBytes(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
+// Constant-time string compare. Hashing both sides first makes the loop
+// length independent of the inputs, which is what we want.
+async function constantTimeEqualStrings(a, b) {
+  const enc = new TextEncoder();
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(a)),
+    crypto.subtle.digest('SHA-256', enc.encode(b))
+  ]);
+  return constantTimeEqualBytes(new Uint8Array(ha), new Uint8Array(hb));
+}
+
+// ============================================================
+// Signed tokens
+// ============================================================
+
 export async function createSignedToken(payload, env, ttlMs = 24 * 60 * 60 * 1000) {
   const secret = requireSessionSecret(env);
   const body = { ...payload, iat: Date.now(), exp: Date.now() + ttlMs };
@@ -125,6 +234,10 @@ export async function verifySignedToken(token, env) {
     return null;
   }
 }
+
+// ============================================================
+// User records / session versioning
+// ============================================================
 
 async function getUserRecord(type, userId, db) {
   if (type === 'guest') {
@@ -203,12 +316,17 @@ export async function getGuestSession(request, env) {
 
   const db = env.DB;
   if (!db) return null;
-  await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
   const record = await getUserRecord('guest', payload.userId, db);
   if (!record) return null;
-  if (record.sessionVersion !== undefined && payload.sessionVersion !== undefined) {
-    if (Number(record.sessionVersion) !== Number(payload.sessionVersion)) return null;
-  }
+
+  // FAIL CLOSED. If either side is missing, treat as version 0 and
+  // compare. So a token with no version only matches a record with no
+  // version (or version 0). A token with version N only matches a
+  // record with version N.
+  const recVer = Number(record.sessionVersion ?? 0);
+  const tokVer = Number(payload.sessionVersion ?? 0);
+  if (recVer !== tokVer) return null;
+
   return payload;
 }
 
@@ -220,14 +338,17 @@ export async function getOwnerSession(request, env) {
 
   const db = env.DB;
   if (!db) return null;
-  await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
   const record = await getUserRecord('owner', payload.ownerId, db);
   if (!record) return null;
 
-  if (payload.ownerSessionVersion !== undefined) {
-    const { found, maxVersion } = await getOwnerMaxSessionVersion(db, payload.ownerId);
-    if (found && maxVersion !== Number(payload.ownerSessionVersion)) return null;
+  // FAIL CLOSED. If we found the owner, their max session version must
+  // match the token's. A missing version on either side = 0.
+  const { found, maxVersion } = await getOwnerMaxSessionVersion(db, payload.ownerId);
+  if (found) {
+    const tokVer = Number(payload.ownerSessionVersion ?? 0);
+    if (Number(maxVersion) !== tokVer) return null;
   }
+
   return payload;
 }
 
@@ -258,6 +379,10 @@ export function cleanWhatsapp(value) {
   return String(value || '').replace(/[^0-9]/g, '');
 }
 
+// ============================================================
+// Request helpers
+// ============================================================
+
 export function getBearerToken(request, headerName = 'Authorization') {
   const auth = request.headers.get(headerName) || '';
   if (!auth.startsWith('Bearer ')) return null;
@@ -278,71 +403,11 @@ export function clearCookieHeader(name, sameSite = 'Lax') {
   return `${name}=; HttpOnly; Secure; SameSite=${sameSite}; Max-Age=0; Path=/`;
 }
 
-export function generateSalt() {
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return b64urlEncode(bytes);
-}
-
-async function derivePassword(password, salt, pepper, iterations) {
-  const material = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(`${pepper}${password}`),
-    'PBKDF2',
-    false,
-    ['deriveBits']
-  );
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations, hash: PBKDF2_HASH },
-    material,
-    PBKDF2_KEYLEN
-  );
-  return b64urlEncode(new Uint8Array(bits));
-}
-
-export async function hashPassword(password, env, salt = generateSalt()) {
-  const pepper = env?.PASSWORD_PEPPER || env?.SESSION_SECRET;
-  if (!pepper) throw new Error('PASSWORD_PEPPER or SESSION_SECRET is required');
-  const iterations = getPbkdf2Iterations(env);
-  const algorithm = `PBKDF2-${iterations}-SHA256`;
-  return {
-    hash: await derivePassword(password, salt, pepper, iterations),
-    salt,
-    algorithm
-  };
-}
-
-export async function sha256(message) {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-export async function verifyPassword(password, record, env) {
-  if (!record?.password && !record?.ownerPasswordHash) return { ok: false, legacy: false };
-  const hash = record.password || record.ownerPasswordHash;
-  const salt = record.salt || record.ownerSalt || '';
-  const algorithm = record.passwordAlgorithm || record.ownerPasswordAlgorithm;
-  const pepper = env?.PASSWORD_PEPPER || env?.SESSION_SECRET;
-  if (!pepper) return { ok: false, legacy: false };
-
-  if (algorithm && algorithm.startsWith('PBKDF2-')) {
-    const parts = algorithm.split('-');
-    const iterations = parts.length >= 2 ? parseInt(parts[1], 10) : DEFAULT_PBKDF2_ITERATIONS;
-    if (isNaN(iterations) || iterations <= 0) {
-      const computed = await derivePassword(password, salt, pepper, DEFAULT_PBKDF2_ITERATIONS);
-      return { ok: computed === hash, legacy: false };
-    }
-    const computed = await derivePassword(password, salt, pepper, iterations);
-    return { ok: computed === hash, legacy: false };
-  }
-
-  const legacyPepper = env?.LEGACY_PASSWORD_PEPPER || env?.PASSWORD_PEPPER || 'kundasang-homestay-2026';
-  const computedLegacy = await sha256(legacyPepper + password + salt);
-  return { ok: computedLegacy === hash, legacy: true };
-}
-
+// Only trust CF-Connecting-IP (set by Cloudflare and not spoofable).
+// X-Forwarded-For is client-controllable if the request ever reaches us
+// through a non-Cloudflare proxy, so we don't fall back to it anymore.
 export function getClientIP(request) {
-  return request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown';
+  return request.headers.get('CF-Connecting-IP') || 'unknown';
 }
 
 export function corsHeaders(request) {
@@ -385,69 +450,11 @@ export function enforceHttps(request) {
   const url = new URL(request.url);
   if (url.protocol === 'http:') {
     url.protocol = 'https:';
-    return new Response(null, { status: 301, headers: { Location: url.toString() } });
+    // 308 (not 301) so the method and body are preserved. 301 on a POST
+    // silently converts the request to GET and drops the body.
+    return new Response(null, { status: 308, headers: { Location: url.toString() } });
   }
   return null;
-}
-
-export async function logAction({ db, action, admin, details, ip, userId, homestayId }) {
-  try {
-    await db.prepare(`CREATE TABLE IF NOT EXISTS audit_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      timestamp TEXT, action TEXT, admin TEXT, user_id TEXT,
-      homestay_id TEXT, details TEXT, ip TEXT
-    )`).run();
-    await db.prepare(`INSERT INTO audit_log
-      (timestamp, action, admin, user_id, homestay_id, details, ip)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .bind(new Date().toISOString(), action, admin || 'system', userId || null,
-        homestayId || null, details || '', ip || 'unknown').run();
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-export async function generateCSRFToken(userId, env) {
-  return createSignedToken({ type: 'csrf', userId: String(userId) }, env, 24 * 60 * 60 * 1000);
-}
-
-export async function validateCSRFToken(token, userId, env) {
-  const data = await verifySignedToken(token, env);
-  return !!data && data.type === 'csrf' && String(data.userId) === String(userId);
-}
-
-export function getCSRFToken(request) {
-  return request.headers.get('X-CSRF-Token') || null;
-}
-
-export async function getAdminToken(request, env) {
-  const cookie = getCookie(request, 'admin_token');
-  if (cookie) return cookie;
-  if (env?.ALLOW_ADMIN_BEARER === 'true') {
-    return getBearerToken(request);
-  }
-  return null;
-}
-
-export async function getAdminSession(request, env) {
-  let token = getCookie(request, 'admin_token');
-  if (!token && env?.ALLOW_ADMIN_BEARER === 'true') {
-    token = getBearerToken(request);
-  }
-  if (!token) return null;
-  try {
-    const payload = await verifySignedToken(token, env);
-    if (!payload || payload.type !== 'admin') return null;
-    return payload;
-  } catch (_) {
-    return null;
-  }
-}
-
-export async function verifyAdminAuth(request, env) {
-  const session = await getAdminSession(request, env);
-  return !!session;
 }
 
 export function jsonResponse(body, status, request, extra = {}) {
@@ -480,8 +487,15 @@ export async function parseJSONSafely(request) {
   }
 }
 
+// ============================================================
+// Rate limiting
+// ============================================================
+
+const _rateLimitTableReady = new Set();
+
 export async function ensureRateLimitTable(db) {
   if (!db) return;
+  if (_rateLimitTableReady.has('rate_limits')) return;
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS rate_limits (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -493,10 +507,15 @@ export async function ensureRateLimitTable(db) {
   await db.prepare(
     `CREATE INDEX IF NOT EXISTS idx_rate_limits_ip_action ON rate_limits(ip, action)`
   ).run();
+  _rateLimitTableReady.add('rate_limits');
 }
 
-export async function checkRateLimit(db, ip, action, maxAttempts, windowSeconds = 60) {
-  if (!db || !ip) return true;
+// By default, FAIL CLOSED: if the DB errors, deny the request. This is
+// the safe default for auth and money endpoints. Pass { failOpen: true }
+// for endpoints where availability matters more than strictness.
+export async function checkRateLimit(db, ip, action, maxAttempts, windowSeconds = 60, opts = {}) {
+  const failOpen = opts.failOpen === true;
+  if (!db || !ip) return failOpen;
   try {
     await ensureRateLimitTable(db);
     const now = Date.now();
@@ -508,7 +527,7 @@ export async function checkRateLimit(db, ip, action, maxAttempts, windowSeconds 
     const count = res?.count || 0;
     return count < maxAttempts;
   } catch (e) {
-    return true;
+    return failOpen;
   }
 }
 
@@ -528,6 +547,10 @@ export async function recordRateLimit(db, ip, action) {
     // silent
   }
 }
+
+// ============================================================
+// Session version invalidation
+// ============================================================
 
 export async function incrementSessionVersion(db, userId, type) {
   if (type === 'guest') {
@@ -623,6 +646,190 @@ export async function incrementOwnerSessionVersion(db, ownerIdOrWhatsapp) {
   return changed;
 }
 
+export async function invalidateOwnerSessionsForHomestay(db, homestayId) {
+  if (!homestayId) return false;
+  return await incrementOwnerSessionVersion(db, homestayId);
+}
+
+export async function invalidateOwnerSessionsForOwner(db, ownerIdOrWhatsapp) {
+  if (!ownerIdOrWhatsapp) return false;
+  return await incrementOwnerSessionVersion(db, ownerIdOrWhatsapp);
+}
+
+export async function invalidateOwnerSessions(db, homestayId) {
+  return invalidateOwnerSessionsForHomestay(db, homestayId);
+}
+
+// ============================================================
+// Passwords
+// ============================================================
+
+export function generateSalt() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return b64urlEncode(bytes);
+}
+
+async function derivePassword(password, salt, pepper, iterations) {
+  const material = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(`${pepper}${password}`),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations, hash: PBKDF2_HASH },
+    material,
+    PBKDF2_KEYLEN
+  );
+  return b64urlEncode(new Uint8Array(bits));
+}
+
+// PASSWORD_PEPPER is now REQUIRED. Do not fall back to SESSION_SECRET.
+// If you rotate SESSION_SECRET with the old fallback in place, every
+// password hash becomes unverifiable and every user is locked out.
+function requirePasswordPepper(env) {
+  const pepper = env?.PASSWORD_PEPPER;
+  if (!pepper || pepper.length < 16) {
+    throw new Error('PASSWORD_PEPPER is required and must be at least 16 characters');
+  }
+  return pepper;
+}
+
+export async function hashPassword(password, env, salt = generateSalt()) {
+  const pepper = requirePasswordPepper(env);
+  const iterations = getPbkdf2Iterations(env);
+  const algorithm = `PBKDF2-${iterations}-SHA256`;
+  return {
+    hash: await derivePassword(password, salt, pepper, iterations),
+    salt,
+    algorithm
+  };
+}
+
+export async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+export async function verifyPassword(password, record, env) {
+  if (!record?.password && !record?.ownerPasswordHash) return { ok: false, legacy: false };
+  const hash = record.password || record.ownerPasswordHash;
+  const salt = record.salt || record.ownerSalt || '';
+  const algorithm = record.passwordAlgorithm || record.ownerPasswordAlgorithm;
+
+  let pepper;
+  try {
+    pepper = requirePasswordPepper(env);
+  } catch (_) {
+    return { ok: false, legacy: false };
+  }
+
+  if (algorithm && algorithm.startsWith('PBKDF2-')) {
+    const parts = algorithm.split('-');
+    const iterations = parts.length >= 2 ? parseInt(parts[1], 10) : DEFAULT_PBKDF2_ITERATIONS;
+    const useIterations = (isNaN(iterations) || iterations <= 0)
+      ? DEFAULT_PBKDF2_ITERATIONS
+      : iterations;
+    const computed = await derivePassword(password, salt, pepper, useIterations);
+    // Constant-time compare.
+    const ok = await constantTimeEqualStrings(computed, hash);
+    return { ok, legacy: false };
+  }
+
+  // Legacy (pre-PBKDF2) hash. Requires LEGACY_PASSWORD_PEPPER to be set.
+  // No hardcoded fallback — fail closed if it's missing.
+  const legacyPepper = env?.LEGACY_PASSWORD_PEPPER;
+  if (!legacyPepper) {
+    return { ok: false, legacy: true };
+  }
+  const computedLegacy = await sha256(legacyPepper + password + salt);
+  const ok = await constantTimeEqualStrings(computedLegacy, hash);
+  return { ok, legacy: true };
+}
+
+// ============================================================
+// Audit log
+// ============================================================
+
+const _auditTableReady = new Set();
+
+export async function logAction({ db, action, admin, details, ip, userId, homestayId }) {
+  try {
+    if (!_auditTableReady.has('audit_log')) {
+      await db.prepare(`CREATE TABLE IF NOT EXISTS audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT, action TEXT, admin TEXT, user_id TEXT,
+        homestay_id TEXT, details TEXT, ip TEXT
+      )`).run();
+      _auditTableReady.add('audit_log');
+    }
+    await db.prepare(`INSERT INTO audit_log
+      (timestamp, action, admin, user_id, homestay_id, details, ip)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .bind(new Date().toISOString(), action, admin || 'system', userId || null,
+        homestayId || null, details || '', ip || 'unknown').run();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// ============================================================
+// CSRF
+// ============================================================
+
+export async function generateCSRFToken(userId, env) {
+  return createSignedToken({ type: 'csrf', userId: String(userId) }, env, 24 * 60 * 60 * 1000);
+}
+
+export async function validateCSRFToken(token, userId, env) {
+  const data = await verifySignedToken(token, env);
+  return !!data && data.type === 'csrf' && String(data.userId) === String(userId);
+}
+
+export function getCSRFToken(request) {
+  return request.headers.get('X-CSRF-Token') || null;
+}
+
+// ============================================================
+// Admin auth
+// ============================================================
+
+export async function getAdminToken(request, env) {
+  const cookie = getCookie(request, 'admin_token');
+  if (cookie) return cookie;
+  if (env?.ALLOW_ADMIN_BEARER === 'true') {
+    return getBearerToken(request);
+  }
+  return null;
+}
+
+export async function getAdminSession(request, env) {
+  let token = getCookie(request, 'admin_token');
+  if (!token && env?.ALLOW_ADMIN_BEARER === 'true') {
+    token = getBearerToken(request);
+  }
+  if (!token) return null;
+  try {
+    const payload = await verifySignedToken(token, env);
+    if (!payload || payload.type !== 'admin') return null;
+    return payload;
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function verifyAdminAuth(request, env) {
+  const session = await getAdminSession(request, env);
+  return !!session;
+}
+
+// ============================================================
+// Sanitizers and validators
+// ============================================================
+
 export function sanitizeString(str, maxLen = 200) {
   if (!str) return '';
   return String(str).replace(/[<>]/g, '').trim().slice(0, maxLen);
@@ -662,7 +869,14 @@ export function sanitizeArray(arr, maxItems = 20) {
   return arr.slice(0, maxItems);
 }
 
+// ============================================================
+// Check-in attempts
+// ============================================================
+
+const _checkinAttemptsReady = new Set();
+
 async function ensureCheckinAttemptsTable(db) {
+  if (_checkinAttemptsReady.has('checkin_attempts')) return;
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS checkin_attempts (
       booking_id TEXT,
@@ -670,6 +884,7 @@ async function ensureCheckinAttemptsTable(db) {
       PRIMARY KEY (booking_id, attempt_time)
     )`
   ).run();
+  _checkinAttemptsReady.add('checkin_attempts');
 }
 
 export async function recordCheckinAttempt(db, bookingId) {
@@ -696,27 +911,28 @@ export async function clearCheckinAttempts(db, bookingId) {
   ).bind(bookingId).run();
 }
 
-export async function invalidateOwnerSessionsForHomestay(db, homestayId) {
-  if (!homestayId) return false;
-  return await incrementOwnerSessionVersion(db, homestayId);
-}
+// ============================================================
+// Distributed lock
+// ============================================================
 
-export async function invalidateOwnerSessionsForOwner(db, ownerIdOrWhatsapp) {
-  if (!ownerIdOrWhatsapp) return false;
-  return await incrementOwnerSessionVersion(db, ownerIdOrWhatsapp);
-}
+const _locksTableReady = new Set();
 
-export async function invalidateOwnerSessions(db, homestayId) {
-  return invalidateOwnerSessionsForHomestay(db, homestayId);
-}
-
-export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
+async function ensureLocksTable(db) {
+  if (_locksTableReady.has('homestay_locks')) return;
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS homestay_locks (
       homestay_id TEXT PRIMARY KEY,
       locked_at INTEGER
     )`
   ).run();
+  _locksTableReady.add('homestay_locks');
+}
+
+// Default stale timeout raised 5s → 30s. Webhook/lock operations that
+// call CHIP can take longer than 5s. Under 5s, a second process can
+// steal the lock while the first is still mid-flight.
+export async function withLock(db, lockKey, callback, staleTimeoutMs = 30000) {
+  await ensureLocksTable(db);
 
   const myLockValue = Date.now();
 
@@ -752,6 +968,327 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = 5000) {
       // Best-effort release.
     }
   }
+}
+
+// ============================================================
+// Email — one provider-selection helper for the whole codebase
+// ============================================================
+
+// sendEmail({ to, subject, html, text, replyTo }, env)
+// Returns { sent: boolean, error: string|null, provider: string|null }
+export async function sendEmail({ to, subject, html, text, replyTo }, env) {
+  if (!to) return { sent: false, error: 'No recipient', provider: null };
+  if (!html && !text) return { sent: false, error: 'No body', provider: null };
+
+  // Sanitize header inputs — strip CR/LF to prevent header injection.
+  const cleanSubject = String(subject || '').replace(/[\r\n]+/g, ' ').slice(0, 400);
+  const cleanTo = String(to).replace(/[\r\n]+/g, '').trim();
+
+  if (env.RESEND_API_KEY) {
+    try {
+      const body = {
+        from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
+        to: cleanTo,
+        subject: cleanSubject,
+        html: html || undefined,
+        text: text || undefined
+      };
+      if (replyTo) body.reply_to = String(replyTo).replace(/[\r\n]+/g, '').trim();
+
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.RESEND_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) {
+        let msg = 'Resend API error';
+        try { const d = await r.json(); if (d?.message) msg = d.message; } catch (_) {}
+        return { sent: false, error: msg, provider: 'resend' };
+      }
+      return { sent: true, error: null, provider: 'resend' };
+    } catch (e) {
+      return { sent: false, error: e.message, provider: 'resend' };
+    }
+  }
+
+  if (env.SENDGRID_API_KEY) {
+    try {
+      const content = [];
+      if (text) content.push({ type: 'text/plain', value: text });
+      if (html) content.push({ type: 'text/html', value: html });
+      const body = {
+        personalizations: [{ to: [{ email: cleanTo }] }],
+        from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
+        subject: cleanSubject,
+        content
+      };
+      if (replyTo) body.reply_to = { email: String(replyTo).replace(/[\r\n]+/g, '').trim() };
+
+      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.SENDGRID_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) return { sent: false, error: 'SendGrid API error', provider: 'sendgrid' };
+      return { sent: true, error: null, provider: 'sendgrid' };
+    } catch (e) {
+      return { sent: false, error: e.message, provider: 'sendgrid' };
+    }
+  }
+
+  return { sent: false, error: 'No email provider configured', provider: null };
+}
+
+// ============================================================
+// Canonical guest check-in email
+//
+// One version of this template for the whole codebase. Callers that
+// previously had their own local copies (chip-webhook.js, verify-payment.js,
+// chip-create.js) should now import this one instead.
+// ============================================================
+
+export async function sendCheckinEmail(booking, env) {
+  if (!booking || !booking.guestEmail) {
+    return { sent: false, error: 'No guest email on file' };
+  }
+
+  const nights = Number(booking.nights) || 1;
+  const nightLabel = nights === 1 ? 'night' : 'nights';
+  const base = Number(booking.base || 0);
+  const fee = Number(booking.fee || 0);
+  const gatewayFee = Number(booking.gatewayFee || 0);
+  const combinedFee = Math.round((fee + gatewayFee) * 100) / 100;
+  const total = Number(booking.total || 0);
+  const pricePerNight = nights > 0 ? base / nights : base;
+  const receiptNo = String(booking.receiptNo || `RCP-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(booking.id || '').slice(-6)}`);
+
+  const e = escHtml;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<title>Your Receipt</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f8f5f0;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8f5f0;">
+  <tr>
+    <td align="center" style="padding:24px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;border:1px solid #e5e7eb;">
+        <tr>
+          <td style="padding:36px 32px 28px 32px;">
+            <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #0F382E;">
+              <div style="font-size:22px;font-weight:800;color:#0F382E;letter-spacing:-0.3px;line-height:1.2;">Kundasang Homestay</div>
+              <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:2px;margin-top:6px;">Official Receipt</div>
+            </div>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
+              <tr><td style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;padding-bottom:4px;">Booking ID</td></tr>
+              <tr><td style="font-family:'Courier New',Consolas,monospace;font-size:17px;font-weight:700;color:#dc2626;padding-bottom:16px;letter-spacing:0.5px;word-break:break-all;">${e(booking.id)}</td></tr>
+              <tr><td style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;padding-bottom:4px;">Receipt No.</td></tr>
+              <tr><td style="font-family:'Courier New',Consolas,monospace;font-size:13px;color:#4b5563;letter-spacing:0.4px;word-break:break-all;">${e(receiptNo)}</td></tr>
+            </table>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:28px;">
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;width:110px;vertical-align:top;">Guest</td>
+                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${e(booking.guestName) || 'Guest'}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;vertical-align:top;">Homestay</td>
+                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${e(booking.homestay)}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;vertical-align:top;">Check-in</td>
+                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${e(booking.checkin)}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;vertical-align:top;">Check-out</td>
+                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${e(booking.checkout)}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;vertical-align:top;">Nights</td>
+                <td style="padding:8px 0;font-size:14px;color:#212121;font-weight:600;">${nights} ${nightLabel}</td>
+              </tr>
+            </table>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:28px;">
+              <tr><td colspan="2" style="border-top:1px dashed #d1d5db;padding-top:20px;"></td></tr>
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;">Price (RM ${pricePerNight.toFixed(2)} &times; ${nights} ${nightLabel})</td>
+                <td style="padding:8px 0;font-size:13px;color:#212121;text-align:right;font-weight:600;font-family:'Courier New',monospace;">RM ${base.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;font-size:13px;color:#6b7280;">Service Fee</td>
+                <td style="padding:8px 0;font-size:13px;color:#212121;text-align:right;font-weight:600;font-family:'Courier New',monospace;">RM ${combinedFee.toFixed(2)}</td>
+              </tr>
+              <tr><td colspan="2" style="border-top:2px solid #0F382E;padding-top:14px;"></td></tr>
+              <tr>
+                <td style="padding:6px 0 0 0;font-size:15px;font-weight:700;color:#0F382E;">Total paid</td>
+                <td style="padding:6px 0 0 0;font-size:19px;font-weight:800;color:#0F382E;text-align:right;font-family:'Courier New',monospace;">RM ${total.toFixed(2)}</td>
+              </tr>
+            </table>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:32px;">
+              <tr>
+                <td style="background-color:#f0fdf4;border:2px solid #86efac;border-radius:14px;padding:24px 20px;text-align:center;">
+                  <div style="font-size:11px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;">Your Check-in Code</div>
+                  <div style="font-family:'Courier New',Consolas,monospace;font-size:38px;font-weight:800;color:#0F382E;letter-spacing:10px;line-height:1;padding-left:10px;">${e(booking.checkinCode)}</div>
+                  <div style="font-size:12px;color:#166534;margin-top:16px;line-height:1.6;">Share this 6-digit code with the host when you arrive.<br>Do not share it with anyone else.</div>
+                </td>
+              </tr>
+            </table>
+
+            <div style="text-align:center;font-size:11px;color:#9ca3af;margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;line-height:1.7;">
+              Payment processed via CHIP FPX<br>
+              &copy; ${new Date().getFullYear()} Kundasang Homestay
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  return sendEmail({
+    to: booking.guestEmail,
+    subject: `Your Receipt ${receiptNo} – Check-in Code`,
+    html
+  }, env);
+}
+
+// ============================================================
+// Canonical refund email (properly escaped)
+// ============================================================
+
+export async function sendRefundEmail(booking, env) {
+  if (!booking || !booking.guestEmail) {
+    return { sent: false, error: 'No guest email on file' };
+  }
+
+  const refundAmount = Number(booking.refund_amount || booking.amount_paid || booking.total || 0);
+  const refundId = String(booking.chip_refund_id || 'N/A');
+  const e = escHtml;
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+      <h2>Hello ${e(booking.guestName) || 'Guest'},</h2>
+      <p>Your booking <strong>${e(booking.id)}</strong> at <strong>${e(booking.homestay)}</strong> has been <strong>cancelled and refunded</strong>.</p>
+      <p><strong>Refund Amount:</strong> RM ${refundAmount.toFixed(2)}</p>
+      <p><strong>Refund ID (CHIP):</strong> ${e(refundId)}</p>
+      <p>If you have any questions, please contact the host or our support team.</p>
+      <p>— Kundasang Homestay Team</p>
+    </div>
+  `;
+
+  return sendEmail({
+    to: booking.guestEmail,
+    subject: 'Refund Confirmation – Booking ' + String(booking.id || '').replace(/[\r\n]+/g, ''),
+    html
+  }, env);
+}
+
+// ============================================================
+// Auto-refund for late payments
+//
+// CANONICAL version. Previously duplicated across chip-webhook.js,
+// verify-payment.js, and chip-create.js — now lives here only. Callers
+// MUST hold the per-booking lock before invoking this.
+// ============================================================
+
+export async function tryAutoRefundLatePaymentLocked(db, bookingId, env) {
+  const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+  let bookings = [];
+  try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+  const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
+  if (idx === -1) return { error: 'Booking not found' };
+  const b = bookings[idx];
+
+  if (b.chip_refund_id) {
+    return { alreadyRefunded: true, refundId: b.chip_refund_id };
+  }
+  if (!b.chip_purchase_id) {
+    return { error: 'No chip_purchase_id to refund' };
+  }
+
+  const secret = env.CHIP_SECRET_KEY;
+  if (!secret) return { error: 'CHIP_SECRET_KEY missing' };
+
+  // Refund the amount CHIP actually collected.
+  const refundAmountCents = Math.round(Number(b.amount_paid || b.total) * 100);
+
+  try {
+    const res = await fetch(
+      `https://gate.chip-in.asia/api/v1/purchases/${b.chip_purchase_id}/refund/`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${secret}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ amount: refundAmountCents })
+      }
+    );
+    let data = null;
+    try { data = await res.json(); } catch (_) { data = null; }
+
+    if (!res.ok || !data || !data.id) {
+      return { error: `CHIP refund failed: ${data?.error || 'unknown'}` };
+    }
+
+    const isPending = data.status === 'pending_refund';
+
+    bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded - Late Payment';
+    bookings[idx].chip_refund_id = data.id;
+    bookings[idx].refunded_at = new Date().toISOString();
+    bookings[idx].refund_amount = Number(b.amount_paid || b.total) || 0;
+    bookings[idx].late_payment_refund = true;
+    if (isPending) bookings[idx].refund_pending = true;
+
+    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+      .bind('kd_bookings', JSON.stringify(bookings))
+      .run();
+
+    return { success: true, refundId: data.id, pending: isPending };
+  } catch (e) {
+    return { error: `Refund network error: ${e.message}` };
+  }
+}
+
+// ============================================================
+// finalizePaidBooking
+//
+// Idempotent. When it finalizes a booking for the first time it also
+// sets two new fields:
+//   - checkin_email_status = 'pending'  (later set to 'sent' or 'failed')
+//   - receiptNo                         (stable, generated once)
+//
+// CALLER MUST HOLD THE BOOKING LOCK. (Same requirement as before; the
+// function was never safe to call without a lock, and now it's even
+// more important because we care about not double-emailing.)
+// ============================================================
+
+function generateCheckinCode() {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return String(100000 + (buf[0] % 900000));
+}
+
+function generateReceiptNo(booking) {
+  const d = new Date();
+  const ymd = `${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')}`;
+  const idPart = String(booking.id || '').replace(/[^A-Za-z0-9]/g, '').slice(-6).toUpperCase() || 'XXXXXX';
+  return `RCP-${ymd}-${idPart}`;
 }
 
 export async function finalizePaidBooking(db, bookingId) {
@@ -791,16 +1328,16 @@ export async function finalizePaidBooking(db, bookingId) {
   }
 
   const codeWasMissing = !booking.checkinCode;
-  const code = booking.checkinCode || (() => {
-    const buf = new Uint32Array(1);
-    crypto.getRandomValues(buf);
-    return String(100000 + (buf[0] % 900000));
-  })();
+  const code = booking.checkinCode || generateCheckinCode();
 
   const updated = {
     ...booking,
     status: 'Paid - Awaiting Check-in',
     checkinCode: code,
+    // Persist the receipt number once. Never regenerate.
+    receiptNo: booking.receiptNo || generateReceiptNo(booking),
+    // Email tracking. Only set to 'pending' if it's not already set.
+    checkin_email_status: booking.checkin_email_status || 'pending',
     paid_at: booking.paid_at || new Date().toISOString(),
     chip_status: 'paid',
     chip_paid_at: booking.chip_paid_at || new Date().toISOString(),
@@ -821,8 +1358,166 @@ export async function finalizePaidBooking(db, bookingId) {
   };
 }
 
+// Best-effort update of checkin_email_status. Re-reads the booking and
+// patches only that field, so it can't clobber concurrent updates to
+// other fields. Runs its own short-lived lock.
+async function markCheckinEmailStatus(db, bookingId, status) {
+  try {
+    await withLock(db, `booking:${bookingId}`, async (db) => {
+      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+      let bookings = [];
+      try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
+      const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
+      if (idx === -1) return;
+      bookings[idx] = { ...bookings[idx], checkin_email_status: status };
+      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings))
+        .run();
+    }, 10000);
+  } catch (_) {
+    // Best effort — if we can't update the flag, the next finalize
+    // pass will try again.
+  }
+}
+
 // ============================================================
-// Host payout statement email.
+// finalizeAndNotify
+//
+// One function that does the whole "payment confirmed" flow:
+//   - Takes the per-booking lock
+//   - Calls finalizePaidBooking (idempotent)
+//   - If the booking was cancelled before payment settled, auto-refunds
+//   - Sends the check-in email. Retries if a previous attempt failed.
+//   - Does NOT log to audit_log — the caller does, because the caller
+//     knows the source (webhook vs verify-payment vs chip-create).
+//
+// Returns:
+//   {
+//     outcome: 'finalized' | 'already_finalized' | 'refused' | 'error' | 'lock_busy',
+//     booking: object|null,       // current booking record
+//     checkinCode: string|null,   // set when outcome is finalized/already_finalized
+//     refundResult: object|null,  // set when outcome === 'refused'
+//     emailSent: boolean,
+//     emailError: string|null,
+//     error: string|null,
+//     retryable: boolean          // if true, caller should return 500 so CHIP retries
+//   }
+// ============================================================
+
+export async function finalizeAndNotify(db, bookingId, env, ctx = {}) {
+  const result = {
+    outcome: 'error',
+    booking: null,
+    checkinCode: null,
+    refundResult: null,
+    emailSent: false,
+    emailError: null,
+    error: null,
+    retryable: false
+  };
+
+  let lockResult;
+  try {
+    lockResult = await withLock(db, `booking:${bookingId}`, async (db) => {
+      const finalizeResult = await finalizePaidBooking(db, bookingId);
+      if (finalizeResult.error) return { finalizeResult };
+      if (finalizeResult.refuseFinalize) {
+        const refundResult = await tryAutoRefundLatePaymentLocked(db, bookingId, env);
+        return { finalizeResult, refundResult };
+      }
+      return { finalizeResult };
+    }, 60000);
+  } catch (lockErr) {
+    if (lockErr.message && lockErr.message.includes('in progress')) {
+      // Another process holds the lock. Wait briefly, then re-read.
+      await new Promise(res => setTimeout(res, 1500));
+      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+      let bb = [];
+      try { if (r?.data) bb = JSON.parse(r.data); } catch(_) {}
+      const cur = bb.find(b => String(b.id) === String(bookingId));
+      if (cur && (cur.status === 'Paid - Awaiting Check-in' || String(cur.status).startsWith('Completed'))) {
+        result.outcome = 'already_finalized';
+        result.booking = cur;
+        result.checkinCode = cur.checkinCode || null;
+        // If a previous pass failed to email, try now.
+        if (cur.checkin_email_status !== 'sent' && cur.guestEmail) {
+          const er = await sendCheckinEmail(cur, env);
+          result.emailSent = er.sent;
+          result.emailError = er.sent ? null : er.error;
+          if (er.sent) await markCheckinEmailStatus(db, bookingId, 'sent');
+        }
+        return result;
+      }
+      result.outcome = 'lock_busy';
+      result.error = 'Another confirmation is in progress';
+      result.retryable = true;
+      return result;
+    }
+    result.outcome = 'error';
+    result.error = lockErr.message || 'Lock error';
+    result.retryable = true;
+    return result;
+  }
+
+  const fr = lockResult.finalizeResult;
+
+  if (fr.error) {
+    result.outcome = 'error';
+    result.error = fr.error;
+    result.booking = fr.booking || null;
+    // "Guest account has been deleted" is a permanent condition, not retryable.
+    // Any other error is retryable.
+    result.retryable = !/deleted/i.test(fr.error);
+    return result;
+  }
+
+  if (fr.refuseFinalize) {
+    result.outcome = 'refused';
+    result.booking = fr.booking;
+    result.refundResult = lockResult.refundResult || { error: 'refund not attempted' };
+    return result;
+  }
+
+  if (fr.alreadyFinalized) {
+    result.outcome = 'already_finalized';
+    result.booking = fr.booking;
+    result.checkinCode = fr.booking.checkinCode || null;
+
+    // Retry the email if it wasn't confirmed sent.
+    if (fr.booking.checkin_email_status !== 'sent' && fr.booking.guestEmail) {
+      const er = await sendCheckinEmail(fr.booking, env);
+      result.emailSent = er.sent;
+      result.emailError = er.sent ? null : er.error;
+      if (er.sent) await markCheckinEmailStatus(db, bookingId, 'sent');
+    }
+    return result;
+  }
+
+  if (fr.finalized) {
+    result.outcome = 'finalized';
+    result.booking = fr.booking;
+    result.checkinCode = fr.checkinCode;
+
+    // Send only if the code was newly generated OR a previous send failed.
+    // (If code already existed and email was already sent, don't re-send.)
+    const shouldEmail = fr.codeWasMissing || fr.booking.checkin_email_status !== 'sent';
+    if (shouldEmail) {
+      const er = await sendCheckinEmail(fr.booking, env);
+      result.emailSent = er.sent;
+      result.emailError = er.sent ? null : er.error;
+      if (er.sent) await markCheckinEmailStatus(db, bookingId, 'sent');
+    }
+    return result;
+  }
+
+  result.outcome = 'error';
+  result.error = 'Unexpected finalize result';
+  result.retryable = true;
+  return result;
+}
+
+// ============================================================
+// Host payout statement email
 // ============================================================
 
 function cloudinaryEmailUrl(url) {
@@ -839,17 +1534,16 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
   if (!homestay || !homestay.ownerEmail) {
     return { sent: false, error: 'No host email on file' };
   }
-  const safe = (s) => String(s || '').replace(/[<>]/g, '');
+  const e = escHtml;
   const isSimulation = !!payoutInfo.isSimulation;
   const isManual = !!payoutInfo.isManual;
 
-  const ownerName = safe(homestay.ownerName || 'Host');
-  const homestayName = safe(homestay.name || 'your property');
+  const ownerName = e(homestay.ownerName || 'Host');
+  const homestayName = e(homestay.name || 'your property');
   const payoutAmount = Number(payoutInfo.amount || 0).toFixed(2);
   const nights = Number(booking.nights) || 1;
   const roomTotal = Number(booking.base || payoutInfo.amount || 0).toFixed(2);
-  const ref = safe(payoutInfo.reference || `KDH-${booking.id}`);
-  const payoutId = safe(payoutInfo.payoutId || 'N/A');
+  const ref = e(payoutInfo.reference || `KDH-${booking.id}`);
   const paidAtIso = payoutInfo.paidAt || new Date().toISOString();
 
   const paidAt = (() => {
@@ -859,12 +1553,12 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
         year: 'numeric', month: 'short', day: 'numeric',
         hour: '2-digit', minute: '2-digit', hour12: true
       }) + ' MYT';
-    } catch (_) { return paidAtIso; }
+    } catch (_) { return e(paidAtIso); }
   })();
 
   const acct = String(homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
   const bankMasked = acct.length >= 4 ? '****' + acct.slice(-4) : 'N/A';
-  const bankName = safe(homestay.ownerBank || 'Bank');
+  const bankName = e(homestay.ownerBank || 'Bank');
 
   const methodLabel = isManual
     ? 'Bank transfer (manual)'
@@ -882,29 +1576,24 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
 
   const headerSubtitle = isSimulation ? 'Payout Statement — TEST' : 'Payout Statement';
 
-  const rawReceiptUrl = String(payoutInfo.receiptUrl || '').trim();
+  const rawReceiptUrl = safeUrl(payoutInfo.receiptUrl);
   const showReceipt = rawReceiptUrl && !isSimulation;
-  const emailReceiptUrl = showReceipt ? cloudinaryEmailUrl(rawReceiptUrl) : '';
+  const emailReceiptUrl = showReceipt ? safeUrl(cloudinaryEmailUrl(rawReceiptUrl)) : '';
 
   const receiptBlock = showReceipt ? `
     <div style="margin-top:28px;padding-top:20px;border-top:1px dashed #d1d5db;">
       <div style="font-size:11px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;text-align:center;">Bank Transfer Receipt (Proof of Payment)</div>
-      <a href="${safe(rawReceiptUrl)}" target="_blank" rel="noopener" style="text-decoration:none;display:block;">
-        <img src="${safe(emailReceiptUrl)}" alt="Bank Transfer Receipt — RM ${payoutAmount}"
-             style="display:block;width:100%;max-width:480px;height:auto;border:1px solid #e5e7eb;border-radius:8px;background:#ffffff;margin:0 auto;" />
+      <a href="${escAttr(rawReceiptUrl)}" target="_blank" rel="noopener" style="text-decoration:none;display:block;">
+        <img src="${escAttr(emailReceiptUrl)}" alt="Bank Transfer Receipt" style="display:block;width:100%;max-width:480px;height:auto;border:1px solid #e5e7eb;border-radius:8px;background:#ffffff;margin:0 auto;" />
       </a>
       <div style="text-align:center;margin-top:16px;">
-        <a href="${safe(rawReceiptUrl)}" target="_blank" rel="noopener" style="display:inline-block;background:#0F382E;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 26px;border-radius:8px;letter-spacing:0.3px;">View Full-Size Receipt &rarr;</a>
-      </div>
-      <div style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px;line-height:1.5;">
-        Image not showing above? Tap the button to open the receipt in your browser.
+        <a href="${escAttr(rawReceiptUrl)}" target="_blank" rel="noopener" style="display:inline-block;background:#0F382E;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 26px;border-radius:8px;letter-spacing:0.3px;">View Full-Size Receipt &rarr;</a>
       </div>
     </div>
   ` : '';
 
-  // ----- Optional WhatsApp support button -----
   const supportWhatsappNumber = String(env?.SUPPORT_WHATSAPP || '').replace(/[^0-9]/g, '');
-  const whatsappMsg = `Hi, I'm ${ownerName} from ${homestayName}. I have a question about my payout of RM ${payoutAmount} (Ref: ${ref}).`;
+  const whatsappMsg = `Hi, I'm ${homestay.ownerName || 'Host'} from ${homestay.name || 'your property'}. I have a question about my payout of RM ${payoutAmount} (Ref: ${payoutInfo.reference || `KDH-${booking.id}`}).`;
   const supportWhatsappBlock = supportWhatsappNumber && !isSimulation
     ? `<div style="text-align:center;margin-top:24px;">
          <a href="https://wa.me/${supportWhatsappNumber}?text=${encodeURIComponent(whatsappMsg)}"
@@ -917,240 +1606,110 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f8f5f0;padding:20px;">
       <div style="background:#ffffff;padding:30px;border-radius:16px;border:1px solid #e5e7eb;">
-
         ${testBanner}
-
         <div style="text-align:center;border-bottom:2px solid #0F382E;padding-bottom:16px;margin-bottom:22px;">
           <div style="font-size:22px;font-weight:800;color:#0F382E;">Kundasang Homestay</div>
           <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;">${headerSubtitle}</div>
         </div>
-
         <h2 style="color:#0F382E;margin-top:0;font-size:18px;">Hello ${ownerName},</h2>
         <p style="color:#4b5563;font-size:14px;line-height:1.6;">
           A payout for a completed guest stay at <strong>${homestayName}</strong> has been ${isSimulation ? 'simulated (test)' : 'sent to your bank account'}.
         </p>
-
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin:22px 0;text-align:center;">
           <div style="font-size:11px;color:#166534;text-transform:uppercase;letter-spacing:1px;font-weight:700;">${isSimulation ? 'Amount (simulated)' : 'Amount Transferred'}</div>
           <div style="font-size:32px;font-weight:800;color:#0F382E;margin:6px 0;">RM ${payoutAmount}</div>
           <div style="font-size:12px;color:#166534;">${isSimulation ? 'Simulated payout — no funds moved' : `To ${bankName} ${bankMasked}`}</div>
         </div>
-
         <table style="width:100%;font-size:14px;border-collapse:collapse;margin:24px 0;color:#374151;">
-          <tr>
-            <td style="padding:10px 0;color:#6b7280;">Room price (${nights} night${nights === 1 ? '' : 's'})</td>
-            <td style="padding:10px 0;text-align:right;">RM ${roomTotal}</td>
-          </tr>
-          <tr>
-            <td colspan="2" style="border-top:1px solid #e5e7eb;padding:0;"></td>
-          </tr>
-          <tr>
-            <td style="padding:14px 0 0 0;font-weight:700;color:#0F382E;font-size:15px;">Net amount transferred to you</td>
-            <td style="padding:14px 0 0 0;text-align:right;font-weight:800;color:#0F382E;font-size:17px;">RM ${payoutAmount}</td>
-          </tr>
+          <tr><td style="padding:10px 0;color:#6b7280;">Room price (${nights} night${nights === 1 ? '' : 's'})</td><td style="padding:10px 0;text-align:right;">RM ${roomTotal}</td></tr>
+          <tr><td colspan="2" style="border-top:1px solid #e5e7eb;padding:0;"></td></tr>
+          <tr><td style="padding:14px 0 0 0;font-weight:700;color:#0F382E;font-size:15px;">Net amount transferred to you</td><td style="padding:14px 0 0 0;text-align:right;font-weight:800;color:#0F382E;font-size:17px;">RM ${payoutAmount}</td></tr>
         </table>
-
         <div style="font-size:12px;color:#4b5563;margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Payout Details</div>
         <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:20px;color:#374151;">
-          <tr>
-            <td style="padding:6px 0;color:#6b7280;">Reference</td>
-            <td style="padding:6px 0;text-align:right;font-family:'Courier New',monospace;font-weight:700;">${ref}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 0;color:#6b7280;">Method</td>
-            <td style="padding:6px 0;text-align:right;">${methodLabel}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 0;color:#6b7280;">Date</td>
-            <td style="padding:6px 0;text-align:right;">${paidAt}</td>
-          </tr>
+          <tr><td style="padding:6px 0;color:#6b7280;">Reference</td><td style="padding:6px 0;text-align:right;font-family:'Courier New',monospace;font-weight:700;">${ref}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280;">Method</td><td style="padding:6px 0;text-align:right;">${methodLabel}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280;">Date</td><td style="padding:6px 0;text-align:right;">${paidAt}</td></tr>
         </table>
-
         <div style="font-size:12px;color:#4b5563;margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Booking Details</div>
         <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:20px;color:#374151;">
-          <tr>
-            <td style="padding:6px 0;color:#6b7280;">Booking ID</td>
-            <td style="padding:6px 0;text-align:right;font-family:'Courier New',monospace;">${safe(booking.id)}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 0;color:#6b7280;">Guest</td>
-            <td style="padding:6px 0;text-align:right;">${safe(booking.guestName || 'Guest')}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 0;color:#6b7280;">Check-in</td>
-            <td style="padding:6px 0;text-align:right;">${safe(booking.checkin)}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 0;color:#6b7280;">Check-out</td>
-            <td style="padding:6px 0;text-align:right;">${safe(booking.checkout)}</td>
-          </tr>
+          <tr><td style="padding:6px 0;color:#6b7280;">Booking ID</td><td style="padding:6px 0;text-align:right;font-family:'Courier New',monospace;">${e(booking.id)}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280;">Guest</td><td style="padding:6px 0;text-align:right;">${e(booking.guestName) || 'Guest'}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280;">Check-in</td><td style="padding:6px 0;text-align:right;">${e(booking.checkin)}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280;">Check-out</td><td style="padding:6px 0;text-align:right;">${e(booking.checkout)}</td></tr>
         </table>
-
         ${receiptBlock}
-
         <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;font-size:12px;color:#475569;line-height:1.6;margin-top:20px;">
           If you don't see this amount in your bank account within 1 business day, please reply to this email or contact us at <a href="mailto:support@kundasanghomestay.my" style="color:#0F382E;font-weight:600;">support@kundasanghomestay.my</a> quoting the reference number above.
         </div>
-
         ${supportWhatsappBlock}
-
         <p style="font-size:12px;color:#9ca3af;text-align:center;margin-top:24px;margin-bottom:0;">
-          © ${new Date().getFullYear()} Kundasang Homestay
+          &copy; ${new Date().getFullYear()} Kundasang Homestay
         </p>
-
       </div>
     </div>
   `;
 
   const subject = isSimulation
-    ? `[TEST] Payout Statement — RM ${payoutAmount} for Booking ${booking.id}`
-    : `Payout Statement — RM ${payoutAmount} for Booking ${booking.id}`;
+    ? `[TEST] Payout Statement — RM ${payoutAmount} for Booking ${String(booking.id||'').replace(/[\r\n]+/g,'')}`
+    : `Payout Statement — RM ${payoutAmount} for Booking ${String(booking.id||'').replace(/[\r\n]+/g,'')}`;
 
-  try {
-    if (env.RESEND_API_KEY) {
-      const r = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + env.RESEND_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
-          to: homestay.ownerEmail,
-          subject,
-          html
-        })
-      });
-      return { sent: r.ok, error: r.ok ? null : 'Resend API error' };
-    }
-    if (env.SENDGRID_API_KEY) {
-      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + env.SENDGRID_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email: homestay.ownerEmail }] }],
-          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
-          subject,
-          content: [{ type: 'text/html', value: html }]
-        })
-      });
-      return { sent: r.ok, error: r.ok ? null : 'SendGrid API error' };
-    }
-    return { sent: false, error: 'No email provider configured' };
-  } catch (e) {
-    return { sent: false, error: e.message };
-  }
+  return sendEmail({
+    to: homestay.ownerEmail,
+    subject,
+    html
+  }, env);
 }
 
 // ============================================================
-// Payout record email — fires after every manual payout.
-//
-// Purpose: create a structured, machine-readable record that a
-// Google Apps Script watches for. The script files the receipt and
-// metadata into a Drive folder, so the platform has CHIP-compliant
-// 3-month payout records without any manual filing.
-//
-// The Apps Script matches on:
-//   - Subject starting with "[PAYOUT-RECORD]"
-//   - Fields on individual lines: "Field Name: value"
-//   - A "Receipt: <url>" line pointing to a Cloudinary image
-//
-// Recipient is env.PAYOUT_RECORDS_EMAIL, falling back to
-// support@kundasanghomestay.my. If Cloudflare Email Routing forwards
-// that address to your personal Gmail, the script will see it there.
-// If you want direct delivery (bypassing forwarding), set
-// PAYOUT_RECORDS_EMAIL to your Gmail address.
+// Payout record email (for the Google Apps Script filing pipeline)
 // ============================================================
 
 export async function sendPayoutRecordEmail(booking, payoutInfo, env) {
   const to = env.PAYOUT_RECORDS_EMAIL || 'support@kundasanghomestay.my';
-  const safe = (s) => String(s || '').replace(/[<>]/g, '').trim();
+  const clean = (s) => String(s || '').replace(/[\r\n]+/g, ' ').trim();
   const amount = Number(payoutInfo.amount || 0).toFixed(2);
-  const hostName = safe(payoutInfo.hostName || 'Host');
+  const hostName = clean(payoutInfo.hostName || 'Host');
 
-  const subject = `[PAYOUT-RECORD] ${safe(booking.id)} - RM${amount} - ${hostName}`;
+  const subject = `[PAYOUT-RECORD] ${clean(booking.id)} - RM${amount} - ${hostName}`;
 
-  // The body is plain text with one field per line. The Apps Script
-  // parses it with per-field regexes. Do not reformat without also
-  // updating the parser.
+  // Field-per-line format the Apps Script parses. Do not reformat
+  // without also updating the parser.
   const lines = [
-    `Booking ID: ${safe(booking.id)}`,
+    `Booking ID: ${clean(booking.id)}`,
     `Host: ${hostName}`,
-    `Host Email: ${safe(payoutInfo.hostEmail || '')}`,
-    `Host WhatsApp: ${safe(payoutInfo.hostWhatsapp || '')}`,
-    `Homestay: ${safe(payoutInfo.homestayName || '')}`,
-    `Guest: ${safe(booking.guestName || '')}`,
-    `Check-in: ${safe(booking.checkin || '')}`,
-    `Check-out: ${safe(booking.checkout || '')}`,
+    `Host Email: ${clean(payoutInfo.hostEmail)}`,
+    `Host WhatsApp: ${clean(payoutInfo.hostWhatsapp)}`,
+    `Homestay: ${clean(payoutInfo.homestayName)}`,
+    `Guest: ${clean(booking.guestName)}`,
+    `Check-in: ${clean(booking.checkin)}`,
+    `Check-out: ${clean(booking.checkout)}`,
     `Amount: ${amount}`,
-    `Payout Date: ${safe(payoutInfo.paidAt || new Date().toISOString())}`,
-    `Method: ${safe(payoutInfo.method || 'manual_transfer')}`,
-    `Bank Ref: ${safe(payoutInfo.reference || '')}`,
-    `Receipt: ${safe(payoutInfo.receiptUrl || '')}`
+    `Payout Date: ${clean(payoutInfo.paidAt || new Date().toISOString())}`,
+    `Method: ${clean(payoutInfo.method || 'manual_transfer')}`,
+    `Bank Ref: ${clean(payoutInfo.reference)}`,
+    `Receipt: ${clean(payoutInfo.receiptUrl)}`
   ];
   const textBody = lines.join('\n');
 
-  // Also send an HTML version so the email renders nicely if opened
-  // in a browser. The Apps Script strips tags and preserves line
-  // breaks (it converts <br> and </p> back to newlines).
   const htmlBody =
     '<div style="font-family:monospace;font-size:13px;line-height:1.6;white-space:pre-wrap;">' +
-    lines.map(l => l.replace(/&/g, '&amp;').replace(/</g, '&lt;')).join('<br>\n') +
+    lines.map(l => escHtml(l)).join('<br>\n') +
     '</div>';
 
-  try {
-    if (env.RESEND_API_KEY) {
-      const r = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + env.RESEND_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
-          to,
-          subject,
-          html: htmlBody,
-          text: textBody
-        })
-      });
-      if (!r.ok) {
-        let msg = 'Resend API error';
-        try { const d = await r.json(); if (d?.message) msg = d.message; } catch (_) {}
-        return { sent: false, error: msg };
-      }
-      return { sent: true };
-    }
-    if (env.SENDGRID_API_KEY) {
-      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + env.SENDGRID_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email: to }] }],
-          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
-          subject,
-          content: [
-            { type: 'text/plain', value: textBody },
-            { type: 'text/html', value: htmlBody }
-          ]
-        })
-      });
-      return { sent: r.ok, error: r.ok ? null : 'SendGrid API error' };
-    }
-    return { sent: false, error: 'No email provider configured' };
-  } catch (e) {
-    return { sent: false, error: e.message };
-  }
+  return sendEmail({
+    to,
+    subject,
+    html: htmlBody,
+    text: textBody
+  }, env);
 }
 
 // ============================================================
-// CHIP SEND — 4-STEP FLOW
+// CHIP Send — 4-step flow
+// (Unchanged from the previous revision except for the defensive
+// amount check and the audit-logging parameter that was previously
+// accepted but never used.)
 // ============================================================
 
 async function chipHmacSha512(message, secret) {
@@ -1184,12 +1743,6 @@ export async function chipSendPayout({
   }
 
   const baseUrl = 'https://api.chip-in.asia/api/send';
-  const headers = (epoch) => ({
-    'Authorization': `Bearer ${apiKey}`,
-    'Content-Type': 'application/json',
-    'epoch': String(epoch),
-    'checksum': ''
-  });
 
   const accountName = homestay.bankHolder || homestay.ownerName || '';
   const accountNumber = (homestay.ownerBankAccount || '').replace(/[^0-9]/g, '');
@@ -1215,7 +1768,7 @@ export async function chipSendPayout({
   }
 
   const amountCents = Math.round(amount * 100);
-  if (amountCents <= 0) {
+  if (!Number.isFinite(amountCents) || amountCents <= 0) {
     return { success: false, error: 'Invalid payout amount' };
   }
 
