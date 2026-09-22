@@ -1,18 +1,39 @@
 // /api/reset-password.js
 //
-// [THIS REVISION]
-// Added enforceHttps() at the top of onRequestPost, matching every other
-// mutating endpoint. The root middleware already forces HTTPS, so this is
-// defensive consistency rather than a live fix — but consistency is what
-// stops the next bug.
-import { corsHeaders, hashPassword, jsonResponse, invalidateOwnerSessions, enforceHttps } from './_utils.js';
+// [REVISION — 22 Sept 2026 — Phase 3]
+// - Uses parseJSONSafely (was request.json) so the 1MB body-size
+//   guard applies.
+// - Success response is now Cache-Control: no-store.
+// - Error log no longer includes the stack trace.
+//
+// NOT changed (intentional):
+// - Guest reset bumps passwordVersion AND sessionVersion → all guest
+//   sessions across all devices die immediately.
+// - Owner reset calls invalidateOwnerSessions(db, whatsapp), which
+//   bumps ownerSessionVersion on the account and every homestay with
+//   that whatsapp → all owner sessions across all devices die.
+// - Reset token is single-use (used=1 after success).
+// - Expiry check uses UTC on both sides (expires_at is stored from
+//   toISOString(); compared against SQLite's datetime('now') which is UTC).
+//
+// TODO (Phase 4): store the reset token hashed rather than plaintext,
+// matching how passwords are stored. Requires a one-time purge of
+// password_resets first.
+import { corsHeaders, hashPassword, jsonResponse, invalidateOwnerSessions, enforceHttps, parseJSONSafely } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
 
   try {
-    const { token, password } = await request.json();
+    let rawBody;
+    try {
+      rawBody = await parseJSONSafely(request);
+    } catch (_) {
+      return jsonResponse({ error: 'Invalid reset request' }, 400, request);
+    }
+
+    const { token, password } = rawBody || {};
     if (!token || typeof password !== 'string' || password.length < 8) {
       return jsonResponse({ error: 'Invalid reset request' }, 400, request);
     }
@@ -58,14 +79,9 @@ export async function onRequestPost({ request, env }) {
 
     // ============ OWNER RESET ============
     else if (r.user_type === 'owner') {
-      // r.user_id may be an owner account id (O-...) from kd_owners,
-      // OR a numeric homestay id from the legacy flow.
-      // We resolve it to the owner's whatsapp number, then update
-      // every record that shares that whatsapp.
       let whatsapp = null;
       let matched = false;
 
-      // 1) Update kd_owners if this id matches an owner account.
       const ownersRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
       let owners = [];
       try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch (_) {}
@@ -86,9 +102,6 @@ export async function onRequestPost({ request, env }) {
         matched = true;
       }
 
-      // 2) Update every homestay owned by this person.
-      //    Match by id OR by whatsapp (discovered from step 1 or from
-      //    the homestay itself for the legacy flow).
       for (const key of ['kd_approved', 'kd_pending']) {
         const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
         let arr = [];
@@ -102,8 +115,6 @@ export async function onRequestPost({ request, env }) {
             (whatsapp && hWa === whatsapp);
           if (!isMatch) return h;
 
-          // First time we find a matching homestay in the legacy flow,
-          // capture its whatsapp so we can sweep siblings and kd_owners.
           if (!whatsapp && hWa) whatsapp = hWa;
           updated = true;
           matched = true;
@@ -125,8 +136,6 @@ export async function onRequestPost({ request, env }) {
 
       if (!matched) return jsonResponse({ error: 'Invalid reset link' }, 400, request);
 
-      // 3) If we discovered the whatsapp from a homestay but the owner
-      //    also has a kd_owners account, sync the new password there.
       if (whatsapp && ownerIdx === -1) {
         const ownersSyncIdx = owners.findIndex(
           o => String(o.whatsapp || '').replace(/[^0-9]/g, '') === whatsapp
@@ -145,8 +154,6 @@ export async function onRequestPost({ request, env }) {
         }
       }
 
-      // 4) Invalidate every active session for this owner (all their
-      //    homestays + their owner account), across all devices.
       if (whatsapp) {
         await invalidateOwnerSessions(db, whatsapp);
       }
@@ -157,9 +164,9 @@ export async function onRequestPost({ request, env }) {
     }
 
     await db.prepare('UPDATE password_resets SET used=1 WHERE token=?').bind(token).run();
-    return jsonResponse({ success: true, message: 'Password reset successful. You can now log in.' }, 200, request);
+    return jsonResponse({ success: true, message: 'Password reset successful. You can now log in.' }, 200, request, { 'Cache-Control': 'no-store' });
   } catch (e) {
-    console.error('Reset password error:', e.message, e.stack);
+    console.error('Reset password error:', e.message);
     return jsonResponse({ error: 'Failed to reset password. Please try again later.' }, 500, request);
   }
 }
