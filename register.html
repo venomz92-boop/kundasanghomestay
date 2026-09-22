@@ -295,19 +295,23 @@ function showModal(title, message, buttons) {
       };
       footerEl.appendChild(el);
     });
+    window.__modalCancel = () => { window.__modalCancel = null; resolve(null); };
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
   });
 }
 function closeModal() {
   const overlay = document.getElementById('customModal');
-  overlay.classList.remove('active');
+  if (typeof window.__modalCancel === 'function') {
+    const cancel = window.__modalCancel;
+    window.__modalCancel = null;
+    cancel();
+  }
+  if (overlay) overlay.classList.remove('active');
   document.body.style.overflow = '';
 }
 function modalConfirm() {
-  const overlay = document.getElementById('customModal');
-  overlay.classList.remove('active');
-  document.body.style.overflow = '';
+  closeModal();
 }
 function showAlert(title, message) {
   return showModal(title, message, [{ label: 'OK', class: 'btn-primary' }]);
@@ -324,17 +328,12 @@ window.showConfirm = showConfirm;
 
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    const overlay = document.getElementById('customModal');
-    if (overlay.classList.contains('active')) {
-      overlay.classList.remove('active');
-      document.body.style.overflow = '';
-    }
+    closeModal();
   }
 });
 document.getElementById('customModal').addEventListener('click', function(e) {
   if (e.target === this) {
-    this.classList.remove('active');
-    document.body.style.overflow = '';
+    closeModal();
   }
 });
 
