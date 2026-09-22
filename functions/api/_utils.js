@@ -426,17 +426,10 @@ export function corsHeaders(request) {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'X-Frame-Options': 'DENY',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    'Content-Security-Policy': [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://gate.chip-in.asia https://static.cloudflareinsights.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com data:",
-      "img-src 'self' data: blob: https://*.wikimedia.org https://images.unsplash.com https://res.cloudinary.com",
-      "connect-src 'self' https://api.chip-in.asia https://gate.chip-in.asia https://api.resend.com https://api.sendgrid.com https://api.cloudinary.com https://api.open-meteo.com https://cloudflareinsights.com",
-      "frame-src 'self' https://gate.chip-in.asia",
-      "base-uri 'self'",
-      "form-action 'self' https://gate.chip-in.asia"
-    ].join('; ') + ';',
+    // CSP deliberately NOT set on JSON responses:
+    //   - A JSON body cannot execute scripts, so CSP is inert here.
+    //   - Setting it on every /api/* call was wasted bytes.
+    //   - The real CSP for HTML pages lives in /_headers at the site root.
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
   };
   if (allowed.has(origin)) {
