@@ -336,7 +336,11 @@ export async function verifyPassword(password, record, env) {
     return { ok: computed === hash, legacy: false };
   }
 
-  const legacyPepper = env?.LEGACY_PASSWORD_PEPPER || env?.PASSWORD_PEPPER || 'kundasang-homestay-2026';
+  const legacyPepper = env?.LEGACY_PASSWORD_PEPPER;
+  if (!legacyPepper) {
+    // No legacy pepper configured — legacy hashes cannot be verified.
+    return { ok: false, legacy: false };
+  }
   const computedLegacy = await sha256(legacyPepper + password + salt);
   return { ok: computedLegacy === hash, legacy: true };
 }
@@ -345,12 +349,16 @@ export function getClientIP(request) {
   return request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown';
 }
 
-export function corsHeaders(request) {
-  const allowed = new Set([
-    'https://kundasanghomestay.my',
-    'https://kundasanghomestay.pages.dev',
-    'http://localhost:5173'
-  ]);
+export function corsHeaders(request, env) {
+  // Use environment variable for allowed origins in production.
+  // Falls back to hardcoded list only if env.ALLOWED_ORIGINS is not set.
+  const envOrigins = env?.ALLOWED_ORIGINS;
+  const allowed = envOrigins
+    ? new Set(envOrigins.split(',').map(o => o.trim()).filter(Boolean))
+    : new Set([
+        'https://kundasanghomestay.my',
+        'https://kundasanghomestay.pages.dev'
+      ]);
   const origin = request?.headers?.get('Origin') || '';
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
@@ -453,7 +461,7 @@ export async function verifyAdminAuth(request, env) {
 export function jsonResponse(body, status, request, extra = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders(request), ...extra }
+    headers: { ...corsHeaders(request, env), ...extra }
   });
 }
 

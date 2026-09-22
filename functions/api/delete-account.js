@@ -346,7 +346,7 @@ export async function onRequestPost({ request, env }) {
       }), {
         status: 200,
         headers: {
-          ...corsHeaders(request),
+          ...corsHeaders(request, env),
           'Set-Cookie': clearCookieHeader('guest_token')
         }
       });
@@ -490,7 +490,7 @@ export async function onRequestPost({ request, env }) {
     }), {
       status: 200,
       headers: {
-        ...corsHeaders(request),
+        ...corsHeaders(request, env),
         'Set-Cookie': clearCookieHeader('owner_token')
       }
     });
@@ -502,5 +502,5 @@ export async function onRequestPost({ request, env }) {
 }
 
 export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
+  return new Response(null, { headers: corsHeaders(request, env) });
 }

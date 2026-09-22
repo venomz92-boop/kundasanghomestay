@@ -262,7 +262,7 @@ export async function onRequestPost({ request, env }) {
     //   1. Set the new guest_token.
     //   2. Clear the admin_token so this browser can no longer be
     //      mistaken for an admin. Prevents the session-collision leak.
-    const headers = new Headers(corsHeaders(request));
+    const headers = new Headers(corsHeaders(request, env));
     headers.append('Set-Cookie', cookieHeader('guest_token', sessionToken, GUEST_TTL_SECONDS));
     headers.append('Set-Cookie', clearCookieHeader('admin_token'));
 
@@ -283,5 +283,5 @@ export async function onRequestPost({ request, env }) {
 }
 
 export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
+  return new Response(null, { headers: corsHeaders(request, env) });
 }

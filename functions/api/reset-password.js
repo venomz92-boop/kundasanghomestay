@@ -5,13 +5,26 @@
 // mutating endpoint. The root middleware already forces HTTPS, so this is
 // defensive consistency rather than a live fix — but consistency is what
 // stops the next bug.
-import { corsHeaders, hashPassword, jsonResponse, invalidateOwnerSessions, enforceHttps } from './_utils.js';
+//
+// [SECURITY FIX — 2026]
+// Added rate limiting to prevent brute-force attacks on password reset tokens.
+import { corsHeaders, hashPassword, jsonResponse, invalidateOwnerSessions, enforceHttps, checkRateLimit, recordRateLimit, getClientIP } from './_utils.js';
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
 
   try {
+    const clientIP = getClientIP(request);
+    const db = env.DB;
+    if (!db) return jsonResponse({ error: 'Server configuration error' }, 500, request);
+    
+    // Rate limit: 5 attempts per 15 minutes per IP
+    const rateOk = await checkRateLimit(db, clientIP, 'reset_password', 5, 15 * 60);
+    if (!rateOk) {
+      return jsonResponse({ error: 'Too many reset attempts. Please wait 15 minutes.' }, 429, request);
+    }
+
     const { token, password } = await request.json();
     if (!token || typeof password !== 'string' || password.length < 8) {
       return jsonResponse({ error: 'Invalid reset request' }, 400, request);
@@ -157,6 +170,10 @@ export async function onRequestPost({ request, env }) {
     }
 
     await db.prepare('UPDATE password_resets SET used=1 WHERE token=?').bind(token).run();
+    
+    // Record successful reset for rate limiting (prevents enumeration)
+    await recordRateLimit(db, clientIP, 'reset_password');
+    
     return jsonResponse({ success: true, message: 'Password reset successful. You can now log in.' }, 200, request);
   } catch (e) {
     console.error('Reset password error:', e.message, e.stack);
@@ -165,5 +182,5 @@ export async function onRequestPost({ request, env }) {
 }
 
 export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
+  return new Response(null, { headers: corsHeaders(request, env) });
 }

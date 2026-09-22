@@ -13,12 +13,12 @@ export async function onRequestPost({ request, env }) {
   return new Response(JSON.stringify({ success: true, message: 'Logged out' }), {
     status: 200,
     headers: {
-      ...corsHeaders(request),
+      ...corsHeaders(request, env),
       'Set-Cookie': clearCookieHeader('guest_token')
     }
   });
 }
 
 export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
+  return new Response(null, { headers: corsHeaders(request, env) });
 }

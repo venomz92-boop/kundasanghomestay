@@ -82,7 +82,7 @@ export async function onRequestPost({ request, env }) {
     //   1. Set the new admin_token.
     //   2. Clear the guest_token so this browser is unambiguously
     //      an admin session, not a guest session.
-    const headers = new Headers(corsHeaders(request));
+    const headers = new Headers(corsHeaders(request, env));
     headers.append('Set-Cookie', cookieHeader('admin_token', token, ADMIN_TTL_SECONDS));
     headers.append('Set-Cookie', clearCookieHeader('guest_token'));
 
@@ -102,5 +102,5 @@ export async function onRequestPost({ request, env }) {
 }
 
 export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
+  return new Response(null, { headers: corsHeaders(request, env) });
 }

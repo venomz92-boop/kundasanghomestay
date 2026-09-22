@@ -189,7 +189,7 @@ export async function onRequestPost({ request, env }) {
     //   2. Clear the guest_token so this browser is unambiguously
     //      an owner session, not a guest session. Prevents the
     //      session-collision leak.
-    const headers = new Headers(corsHeaders(request));
+    const headers = new Headers(corsHeaders(request, env));
     headers.append('Set-Cookie', cookieHeader('owner_token', token));
     headers.append('Set-Cookie', clearCookieHeader('guest_token'));
 
@@ -208,5 +208,5 @@ export async function onRequestPost({ request, env }) {
 }
 
 export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
+  return new Response(null, { headers: corsHeaders(request, env) });
 }

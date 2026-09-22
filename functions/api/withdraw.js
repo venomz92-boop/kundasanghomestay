@@ -679,5 +679,5 @@ export async function onRequestDelete({ request, env }) {
 
 // ===== OPTIONS =====
 export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
+  return new Response(null, { headers: corsHeaders(request, env) });
 }

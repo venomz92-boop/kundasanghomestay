@@ -255,7 +255,7 @@ async function verifyAdmin(request, env) {
   if (!ok) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: corsHeaders(request)
+      headers: corsHeaders(request, env)
     });
   }
   return null;
@@ -916,7 +916,7 @@ export async function onRequestPost({ request, env }) {
   const db = env.DB;
   if (!db) {
     return new Response(JSON.stringify({ error: 'DB not configured' }), {
-      status: 500, headers: corsHeaders(request)
+      status: 500, headers: corsHeaders(request, env)
     });
   }
 
@@ -1983,5 +1983,5 @@ export async function onRequestDelete({ request, env }) {
 }
 
 export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
+  return new Response(null, { headers: corsHeaders(request, env) });
 }

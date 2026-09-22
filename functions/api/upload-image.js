@@ -60,7 +60,7 @@ export async function onRequestPost({ request, env }) {
     if (!guest && !owner && !isAdmin) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
         status: 401,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' }
       });
     }
 
@@ -72,7 +72,7 @@ export async function onRequestPost({ request, env }) {
       if (!rateOk) {
         return new Response(
           JSON.stringify({ error: 'Too many uploads. Please wait an hour.' }),
-          { status: 429, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+          { status: 429, headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' } }
         );
       }
       await recordRateLimit(db, clientIP, 'upload_image');
@@ -90,7 +90,7 @@ export async function onRequestPost({ request, env }) {
     if (!file) {
       return new Response(JSON.stringify({ error: 'No file provided' }), {
         status: 400,
-        headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' }
       });
     }
 
@@ -98,14 +98,14 @@ export async function onRequestPost({ request, env }) {
     if (!allowedTypes.includes(file.type)) {
       return new Response(
         JSON.stringify({ error: 'Invalid file type. Only JPEG, PNG, WEBP, and GIF are allowed.' }),
-        { status: 400, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' } }
       );
     }
 
     if (file.size > 5 * 1024 * 1024) {
       return new Response(
         JSON.stringify({ error: 'File too large. Maximum size is 5MB.' }),
-        { status: 400, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -117,7 +117,7 @@ export async function onRequestPost({ request, env }) {
       console.error('Cloudinary credentials missing');
       return new Response(
         JSON.stringify({ error: 'Server configuration error – missing credentials' }),
-        { status: 500, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -127,7 +127,7 @@ export async function onRequestPost({ request, env }) {
     } catch (e) {
       return new Response(
         JSON.stringify({ error: 'Invalid file data' }),
-        { status: 400, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -161,7 +161,7 @@ export async function onRequestPost({ request, env }) {
       console.error('Cloudinary upload error:', data);
       return new Response(
         JSON.stringify({ error: data.error?.message || 'Upload failed' }),
-        { status: 500, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -172,13 +172,13 @@ export async function onRequestPost({ request, env }) {
         publicId: data.public_id,
         folder: folder
       }),
-      { headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' } }
     );
   } catch (e) {
     console.error('Upload error:', e.message, e.stack);
     return new Response(
       JSON.stringify({ error: e.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' } }
     );
   }
 }
@@ -188,11 +188,11 @@ export async function onRequestGet({ request }) {
     JSON.stringify({ error: 'Method not allowed. Use POST.' }),
     {
       status: 405,
-      headers: { ...corsHeaders(request), 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders(request, env), 'Content-Type': 'application/json' }
     }
   );
 }
 
 export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
+  return new Response(null, { headers: corsHeaders(request, env) });
 }

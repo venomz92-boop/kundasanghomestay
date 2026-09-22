@@ -361,7 +361,7 @@ export async function onRequestPost({ request, env }) {
     const isValid = await verifyChipSignature(request, env);
     if (!isValid) {
       console.warn('Invalid CHIP webhook signature');
-      return new Response('Invalid signature', { status: 401, headers: corsHeaders(request) });
+      return new Response('Invalid signature', { status: 401 });
     }
 
     const payload = await request.json();
@@ -372,11 +372,11 @@ export async function onRequestPost({ request, env }) {
     const status = payload.data?.status;
 
     if (!purchaseId || !event) {
-      return new Response('Missing fields', { status: 400, headers: corsHeaders(request) });
+      return new Response('Missing fields', { status: 400 });
     }
 
     db = env.DB;
-    if (!db) return new Response('DB error', { status: 500, headers: corsHeaders(request) });
+    if (!db) return new Response('DB error', { status: 500 });
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
     await ensureWebhookEventsTable(db);
 
@@ -388,13 +388,23 @@ export async function onRequestPost({ request, env }) {
     eventKey = `${event}:${purchaseId}`;
     const now = Date.now();
 
+    // Optional: reject events older than 5 minutes to prevent replay attacks.
+    // CHIP sends `data.created_at` in the payload as ISO 8601 timestamp.
+    if (payload.data?.created_at) {
+      const eventTime = new Date(payload.data.created_at).getTime();
+      if (isNaN(eventTime) || (now - eventTime) > 5 * 60 * 1000) {
+        console.warn(`Webhook event ${eventKey} timestamp too old or invalid. Rejecting.`);
+        return new Response('Event timestamp invalid or too old', { status: 400 });
+      }
+    }
+
     const insertRes = await db.prepare(
       `INSERT OR IGNORE INTO webhook_events (event_key, processed_at) VALUES (?, ?)`
     ).bind(eventKey, now).run();
 
     if (!insertRes.meta || insertRes.meta.changes === 0) {
       console.log(`Webhook event ${eventKey} already processed. Skipping.`);
-      return new Response('OK', { status: 200, headers: corsHeaders(request) });
+      return new Response('OK', { status: 200 });
     }
 
     // Prune stale rows (cheap DELETE; runs on every webhook).
@@ -417,7 +427,7 @@ export async function onRequestPost({ request, env }) {
       try {
         await db.prepare(`DELETE FROM webhook_events WHERE event_key = ?`).bind(eventKey).run();
       } catch (_) {}
-      return new Response('Booking not found', { status: 404, headers: corsHeaders(request) });
+      return new Response('Booking not found', { status: 404 });
     }
 
     const booking = bookings[idx];
@@ -464,7 +474,7 @@ export async function onRequestPost({ request, env }) {
         try {
           await db.prepare(`DELETE FROM webhook_events WHERE event_key = ?`).bind(eventKey).run();
         } catch (_) {}
-        return new Response('Finalize failed', { status: 500, headers: corsHeaders(request) });
+        return new Response('Finalize failed', { status: 500 });
       } else if (finalizeResult.alreadyFinalized) {
         console.log(`Booking ${booking.id} already finalized by another path. Skipping email.`);
       } else if (finalizeResult.refuseFinalize) {
@@ -568,7 +578,7 @@ export async function onRequestPost({ request, env }) {
       } catch (lockErr) {
         if (lockErr.message && lockErr.message.includes('in progress')) {
           console.warn(`Webhook refunded-event: lock busy for ${booking.id}. Reconcile later.`);
-          return new Response('OK', { status: 200, headers: corsHeaders(request) });
+          return new Response('OK', { status: 200 });
         }
         throw lockErr;
       }
@@ -627,7 +637,7 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    return new Response('OK', { status: 200, headers: corsHeaders(request) });
+    return new Response('OK', { status: 200, headers: corsHeaders(request, env) });
 
   } catch (e) {
     console.error('Webhook error:', e.message);
@@ -640,10 +650,10 @@ export async function onRequestPost({ request, env }) {
       } catch (_) { /* best-effort */ }
     }
 
-    return new Response('Internal server error', { status: 500, headers: corsHeaders(request) });
+    return new Response('Internal server error', { status: 500, headers: corsHeaders(request, env) });
   }
 }
 
 export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
+  return new Response(null, { headers: corsHeaders(request, env) });
 }

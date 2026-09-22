@@ -365,10 +365,10 @@ export async function onRequestPost({ request, env }) {
 export async function onRequestGet({ request }) {
   return new Response(JSON.stringify({ message: 'CHIP Send Payout API ready (admin-only)' }), {
     status: 200,
-    headers: corsHeaders(request)
+    headers: corsHeaders(request, env)
   });
 }
 
 export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
+  return new Response(null, { headers: corsHeaders(request, env) });
 }

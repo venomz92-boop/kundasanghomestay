@@ -66,7 +66,14 @@ const CSRF_EXEMPT_PATHS = new Set([
   '/api/chip-webhook',
   '/api/logout',
   '/api/owner-logout',
-  '/api/admin-logout'
+  '/api/admin-logout',
+  // Admin endpoints protected solely by admin auth (HTTP Basic + admin_token cookie)
+  '/api/admin-errors',
+  '/api/admin-manual-payouts',
+  // Owner/Guest session read endpoints (no state change)
+  '/api/guest-session',
+  '/api/owner-session',
+  '/api/csrf-token'
 ]);
 
 function normaliseApiPath(p) {
@@ -251,8 +258,16 @@ export async function onRequest(context) {
   const csrfBlock = await enforceCSRFGate(request, env);
   if (csrfBlock) return csrfBlock;
 
-  // 3. Skip logging for the errors endpoint itself
-  if (url.pathname === '/api/admin-errors') return next();
+  // 3. Skip logging for the errors endpoint itself and other admin endpoints
+  //    to prevent infinite loops if they fail while logging.
+  const skipLoggingPaths = new Set([
+    '/api/admin-errors',
+    '/api/admin-manual-payouts',
+    '/api/payout',
+    '/api/pending',
+    '/api/withdraw'
+  ]);
+  if (skipLoggingPaths.has(url.pathname)) return next();
 
   const clientIP =
     request.headers.get('CF-Connecting-IP') ||

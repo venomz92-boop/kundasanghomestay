@@ -24,11 +24,11 @@ export async function onRequestPost({ request, env }) {
     headers: {
       'Content-Type': 'application/json',
       'Set-Cookie': clearCookieHeader('owner_token'),
-      ...corsHeaders(request)
+      ...corsHeaders(request, env)
     }
   });
 }
 
 export async function onRequestOptions({ request }) {
-  return new Response(null, { headers: corsHeaders(request) });
+  return new Response(null, { headers: corsHeaders(request, env) });
 }
