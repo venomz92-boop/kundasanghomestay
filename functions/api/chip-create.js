@@ -1,15 +1,27 @@
-// /api/chip-create.js — Plain English: this file creates a CHIP payment
-// session for a guest's pending booking. Every write to the bookings list
-// now happens inside the one shared global lock, so it can never race with
-// a booking creation, check-in, cancellation, admin edit, or the CHIP
-// webhook. The "resume an existing payment" path also re-checks the
-// booking state inside the lock before saving, so a payment that finalized
-// a millisecond earlier cannot be silently reset back to "Pending".
+// /api/chip-create.js — Creates a CHIP payment session for a guest's
+// pending booking.
 //
-// [THIS REVISION]
-// Refund calculation uses `amount_paid` (the amount CHIP actually
-// collected) instead of `total` (which can be recalculated by an admin
-// editing dates on a paid booking).
+// [PHASE 2 REFACTOR]
+// Changes:
+//   - Deleted local tryAutoRefundLatePaymentLocked and sendCheckinCodeEmail
+//     (now in _utils.js).
+//   - Replaced the withLock + finalizePaidBooking + refund + email block
+//     with a single call to finalizeAndNotify.
+//   - Added amountCents validation before the CHIP call. Before: if
+//     booking.total was missing/non-numeric, we sent {price: null} to CHIP.
+//   - Fixed the orphaned-purchase race. If two concurrent requests both
+//     create a CHIP purchase, the second was overwriting the first's ID,
+//     leaving the first's purchase orphaned and payable — if the guest
+//     paid the orphaned URL, the webhook 404'd and their payment was lost.
+//     Now: inside the lock, if another purchase ID is already set, we do
+//     NOT overwrite. We return the existing URL instead, and log the
+//     orphan for cleanup.
+//   - request.json() → parseJSONSafely().
+//   - Per-booking locks (booking:<id>) instead of the global
+//     'bookings-global' lock.
+//   - Lock-busy fallback now re-reads the booking and returns an
+//     existing URL if one exists, instead of blindly returning the
+//     orphaned purchase URL.
 import {
   corsHeaders,
   enforceHttps,
@@ -22,127 +34,9 @@ import {
   checkRateLimit,
   recordRateLimit,
   withLock,
-  finalizePaidBooking
+  finalizeAndNotify,
+  parseJSONSafely
 } from './_utils.js';
-
-const BOOKINGS_LOCK = 'bookings-global';
-
-// ============================================================
-// Auto-refund helper.
-// IMPORTANT: the CALLER must already hold the bookings lock.
-// We do NOT take our own withLock here so that chip-create,
-// verify-payment, and chip-webhook all serialize on the SAME
-// key (C4). The CHIP refund HTTP call happens inside the caller's
-// lock; the staleTimeoutMs on that lock is long enough for a
-// typical CHIP round-trip.
-// ============================================================
-async function tryAutoRefundLatePaymentLocked(db, bookingId, env) {
-  const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
-  let bookings = [];
-  try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
-  const idx = bookings.findIndex(b => String(b.id) === String(bookingId));
-  if (idx === -1) return { error: 'Booking not found' };
-  const b = bookings[idx];
-
-  if (b.chip_refund_id) {
-    return { alreadyRefunded: true, refundId: b.chip_refund_id };
-  }
-  if (!b.chip_purchase_id) {
-    return { error: 'No chip_purchase_id to refund' };
-  }
-
-  const secret = env.CHIP_SECRET_KEY;
-  if (!secret) return { error: 'CHIP_SECRET_KEY missing' };
-
-  // [FIX 1.4] Refund the amount CHIP actually collected.
-  const refundAmountCents = Math.round(Number(b.amount_paid || b.total) * 100);
-
-  try {
-    const res = await fetch(
-      `https://gate.chip-in.asia/api/v1/purchases/${b.chip_purchase_id}/refund/`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${secret}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ amount: refundAmountCents })
-      }
-    );
-    let data = null;
-    try { data = await res.json(); } catch (_) { data = null; }
-
-    if (!res.ok || !data || !data.id) {
-      return { error: `CHIP refund failed: ${data?.error || 'unknown'}` };
-    }
-
-    const isPending = data.status === 'pending_refund';
-
-    bookings[idx].status = isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded - Late Payment';
-    bookings[idx].chip_refund_id = data.id;
-    bookings[idx].refunded_at = new Date().toISOString();
-    bookings[idx].refund_amount = Number(b.amount_paid || b.total) || 0;
-    bookings[idx].late_payment_refund = true;
-    if (isPending) bookings[idx].refund_pending = true;
-
-    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-      .bind('kd_bookings', JSON.stringify(bookings))
-      .run();
-
-    return { success: true, refundId: data.id, pending: isPending };
-  } catch (e) {
-    return { error: `Refund network error: ${e.message}` };
-  }
-}
-
-// ============================================================
-// Email helper – used when we discover an already-paid purchase
-// but the webhook/verify-payment never ran.
-// ============================================================
-async function sendCheckinCodeEmail(to, guestName, bookingId, checkinCode, homestayName, checkin, checkout, env) {
-  const html = `
-    <h2>Hello ${guestName || 'Guest'},</h2>
-    <p>Your booking <strong>${bookingId}</strong> at <strong>${homestayName}</strong> has been paid successfully.</p>
-    <p><strong>Check-in:</strong> ${checkin}</p>
-    <p><strong>Check-out:</strong> ${checkout}</p>
-    <p style="font-size:24px; font-weight:bold; background:#f0fdf4; padding:10px; border-radius:8px; border:1px solid #bbf7d0; display:inline-block;">
-      🏔️ Your 6-digit check-in code: <span style="color:#0F382E;">${checkinCode}</span>
-    </p>
-    <p>Please present this code to the host upon arrival.</p>
-    <p>Thank you for booking with Kundasang Homestay!</p>
-  `;
-  try {
-    if (env.RESEND_API_KEY) {
-      const r = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: env.FROM_EMAIL || 'support@kundasanghomestay.my',
-          to: to,
-          subject: 'Your Check-in Code – Payment Confirmed',
-          html
-        })
-      });
-      return r.ok;
-    }
-    if (env.SENDGRID_API_KEY) {
-      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + env.SENDGRID_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email: to }] }],
-          from: { email: env.FROM_EMAIL || 'support@kundasanghomestay.my' },
-          subject: 'Your Check-in Code – Payment Confirmed',
-          content: [{ type: 'text/html', value: html }]
-        })
-      });
-      return r.ok;
-    }
-  } catch (e) {
-    console.error('Email send error:', e.message);
-  }
-  return false;
-}
 
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
@@ -159,14 +53,20 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Invalid security token' }, 403, request);
     }
 
-    const { bookingId } = await request.json();
+    let body;
+    try {
+      body = await parseJSONSafely(request);
+    } catch (e) {
+      return jsonResponse({ error: 'Invalid request body' }, 400, request);
+    }
+    const bookingId = body?.bookingId;
     if (!bookingId) return jsonResponse({ error: 'Missing bookingId' }, 400, request);
 
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
 
-    // Rate limiting per guest and booking
+    // Rate limiting per guest and booking.
     const clientIP = getClientIP(request);
     const rateKey = `chip_create_${bookingId}`;
     const rateOk = await checkRateLimit(db, clientIP, rateKey, 3, 5 * 60);
@@ -175,7 +75,7 @@ export async function onRequestPost({ request, env }) {
     }
     await recordRateLimit(db, clientIP, rateKey);
 
-    // Unlocked read for ownership + initial state check
+    // Unlocked read for ownership + initial state check.
     const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
     let bookings = [];
     try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
@@ -186,7 +86,7 @@ export async function onRequestPost({ request, env }) {
 
     const booking = bookings[idx];
 
-    // Already paid — short circuit
+    // Already paid — short circuit.
     const s = String(booking.status || '');
     if (s === 'Paid - Awaiting Check-in' || s === 'Completed' || s.startsWith('Completed')) {
       return jsonResponse({
@@ -195,6 +95,16 @@ export async function onRequestPost({ request, env }) {
         message: 'This booking is already paid.',
         bookingId: booking.id
       }, 200, request);
+    }
+
+    // [PHASE 2 FIX] Validate the amount before sending anything to CHIP.
+    // Before: if booking.total was undefined / null / non-numeric,
+    // Math.round(NaN * 100) was NaN, and JSON.stringify turned that into
+    // {price: null}, which CHIP could interpret as a free transaction.
+    const amountCents = Math.round(Number(booking.total) * 100);
+    if (!Number.isFinite(amountCents) || amountCents < 100) {
+      console.error(`chip-create: invalid booking amount for ${booking.id}: total=${booking.total}`);
+      return jsonResponse({ error: 'Invalid booking amount' }, 400, request);
     }
 
     const chipSecret = env.CHIP_SECRET_KEY;
@@ -219,55 +129,27 @@ export async function onRequestPost({ request, env }) {
 
           // ---- Purchase is already paid ----
           if (status === 'paid' || status === 'completed') {
-            let lockResult;
-            try {
-              // C4: canonical lock. Finalize + potential auto-refund both
-              // happen inside this one lock block.
-              lockResult = await withLock(db, BOOKINGS_LOCK, async (db) => {
-                const finalizeResult = await finalizePaidBooking(db, booking.id);
-                if (finalizeResult.error) return { finalizeResult };
-                if (finalizeResult.refuseFinalize) {
-                  const refundResult = await tryAutoRefundLatePaymentLocked(db, booking.id, env);
-                  return { finalizeResult, refundResult };
-                }
-                return { finalizeResult };
-              }, 60000);
-            } catch (lockErr) {
-              if (lockErr.message && lockErr.message.includes('in progress')) {
-                // Some other path is finalizing this booking. Give it a
-                // moment, then re-read and answer based on the fresh state.
-                await new Promise(res => setTimeout(res, 800));
-                const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
-                let bb = [];
-                try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
-                const cur = bb.find(b => String(b.id) === String(booking.id));
-                if (cur && (cur.status === 'Paid - Awaiting Check-in' || String(cur.status).startsWith('Completed'))) {
-                  return jsonResponse({
-                    success: true,
-                    alreadyPaid: true,
-                    message: 'Payment already completed.',
-                    bookingId: booking.id
-                  }, 200, request);
-                }
-              }
-              throw lockErr;
+            const notify = await finalizeAndNotify(db, booking.id, env);
+
+            if (notify.outcome === 'lock_busy') {
+              return jsonResponse(
+                { error: 'Another operation is in progress. Please retry in a moment.' },
+                429,
+                request
+              );
             }
 
-            const finalizeResult = lockResult.finalizeResult;
-
-            if (finalizeResult.error) {
-              return jsonResponse({ error: finalizeResult.error }, 500, request);
+            if (notify.outcome === 'error') {
+              return jsonResponse({ error: notify.error || 'Finalization failed' }, 500, request);
             }
 
-            // Refused to finalize → booking was cancelled before payment
-            // settled. Auto-refund already ran inside the lock.
-            if (finalizeResult.refuseFinalize) {
-              const refundResult = lockResult.refundResult || { error: 'refund not attempted' };
+            if (notify.outcome === 'refused') {
+              const rr = notify.refundResult || { error: 'refund not attempted' };
               await logAction({
                 db,
-                action: refundResult.success ? 'late_payment_auto_refunded' : 'late_payment_refund_failed',
+                action: rr.success ? 'late_payment_auto_refunded' : 'late_payment_refund_failed',
                 admin: 'system',
-                details: `Refused to finalize ${booking.id}: ${finalizeResult.reason}. Refund: ${refundResult.success ? refundResult.refundId : refundResult.error}`,
+                details: `Refused to finalize ${booking.id}: ${notify.refuseReason || 'cancelled'}. Refund: ${rr.success ? rr.refundId : rr.error}`,
                 ip: clientIP,
                 userId: session.userId,
                 homestayId: booking.homestayId
@@ -275,36 +157,18 @@ export async function onRequestPost({ request, env }) {
               return jsonResponse({
                 success: false,
                 alreadyPaid: false,
-                refunded: refundResult.success === true,
-                message: refundResult.success
+                refunded: rr.success === true,
+                message: rr.success
                   ? 'Your booking was cancelled. The payment has been refunded to your account.'
                   : 'Your booking was cancelled, but the refund could not be processed automatically. Please contact support.'
               }, 200, request);
-            }
-
-            // Fresh finalization with a newly generated code → send email.
-            if (finalizeResult.finalized && finalizeResult.codeWasMissing) {
-              try {
-                await sendCheckinCodeEmail(
-                  finalizeResult.booking.guestEmail,
-                  finalizeResult.booking.guestName || 'Guest',
-                  finalizeResult.booking.id,
-                  finalizeResult.checkinCode,
-                  finalizeResult.booking.homestay || 'Kundasang Homestay',
-                  finalizeResult.booking.checkin,
-                  finalizeResult.booking.checkout,
-                  env
-                );
-              } catch (mailErr) {
-                console.error('Check-in email failed:', mailErr.message);
-              }
             }
 
             await logAction({
               db,
               action: 'chip_payment_already_paid',
               admin: 'guest',
-              details: `Booking ${booking.id} found paid in CHIP via chip-create; ${finalizeResult.finalized ? 'finalized' : 'already finalized'}`,
+              details: `Booking ${booking.id} found paid in CHIP via chip-create; ${notify.outcome}`,
               ip: clientIP,
               userId: session.userId,
               homestayId: booking.homestayId
@@ -331,7 +195,7 @@ export async function onRequestPost({ request, env }) {
               // We have a live session at CHIP but no cached URL. Cache it
               // inside the lock, but ONLY if the booking hasn't moved on.
               try {
-                await withLock(db, BOOKINGS_LOCK, async (db) => {
+                await withLock(db, `booking:${booking.id}`, async (db) => {
                   const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
                   let bb = [];
                   try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
@@ -342,15 +206,14 @@ export async function onRequestPost({ request, env }) {
                   if (curStatus === 'Paid - Awaiting Check-in'
                       || curStatus.startsWith('Completed')
                       || /cancelled|refunded|expired/i.test(curStatus)) {
-                    return; // Don't touch terminal bookings.
+                    return;
                   }
                   bb[ii] = { ...cur, chip_checkout_url: purchase.checkout_url };
                   await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
                     .bind('kd_bookings', JSON.stringify(bb))
                     .run();
-                }, 30000);
+                }, 15000);
               } catch (lockErr) {
-                // Not fatal: we can still return the URL to the guest.
                 console.warn('chip-create: could not cache checkout_url:', lockErr.message);
               }
               return jsonResponse({
@@ -361,10 +224,11 @@ export async function onRequestPost({ request, env }) {
               }, 200, request);
             }
           }
-          // Fall through to create a new purchase for cancelled/expired/failed
+          // Fall through to create a new purchase for cancelled/expired/failed.
         }
       } catch (e) {
-        // Network error talking to CHIP — fall through and try creating a new session.
+        // Network error talking to CHIP — fall through and try creating
+        // a new session.
         console.warn('chip-create: CHIP lookup failed:', e.message);
       }
     }
@@ -373,7 +237,6 @@ export async function onRequestPost({ request, env }) {
     // Create a NEW CHIP purchase
     // ============================================================
     const CHIP_API = 'https://gate.chip-in.asia/api/v1/purchases/';
-    const amountCents = Math.round(Number(booking.total) * 100);
     const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
 
     const payload = {
@@ -408,20 +271,31 @@ export async function onRequestPost({ request, env }) {
       body: JSON.stringify(payload)
     });
 
-    const data = await response.json();
+    let data = null;
+    try { data = await response.json(); } catch (_) { data = null; }
 
-    if (!response.ok || !data.id) {
+    if (!response.ok || !data || !data.id) {
       return jsonResponse({ error: 'Payment gateway error. Please try again.' }, 502, request);
     }
 
     // ============================================================
-    // Save the new CHIP session under the canonical lock. Re-check
-    // status INSIDE the lock — the webhook or verify-payment may have
-    // finalized or cancelled this booking while we were on the wire.
+    // Save the new CHIP session under the per-booking lock.
+    //
+    // [PHASE 2 FIX] Two concurrent requests that both call CHIP will
+    // both get a purchase ID. Before this fix, the second one to reach
+    // the lock overwrote the first's chip_purchase_id — leaving the
+    // first purchase orphaned but still payable. If the guest paid the
+    // orphaned URL, the webhook couldn't match it to a booking, returned
+    // 404, and the payment was lost.
+    //
+    // Now: inside the lock, if a DIFFERENT chip_purchase_id is already
+    // saved, we do NOT overwrite it. We return the existing URL to the
+    // guest and log the orphan so it can be cleaned up manually in the
+    // CHIP dashboard.
     // ============================================================
     let writeResult;
     try {
-      writeResult = await withLock(db, BOOKINGS_LOCK, async (db) => {
+      writeResult = await withLock(db, `booking:${booking.id}`, async (db) => {
         const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
         let bb = [];
         try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
@@ -436,6 +310,18 @@ export async function onRequestPost({ request, env }) {
         }
         if (/cancelled|refunded|expired/i.test(curStatus)) {
           return { terminal: true, booking: cur };
+        }
+
+        // [PHASE 2 FIX] Someone else already saved a different purchase
+        // ID between our read and our write. Do not overwrite theirs.
+        // Our purchase is orphaned and needs cleanup.
+        if (cur.chip_purchase_id && cur.chip_purchase_id !== data.id) {
+          return {
+            orphaned: true,
+            existingPurchaseId: cur.chip_purchase_id,
+            existingCheckoutUrl: cur.chip_checkout_url,
+            ourOrphanedPurchaseId: data.id
+          };
         }
 
         const isRetry = curStatus === 'Payment Failed';
@@ -460,18 +346,48 @@ export async function onRequestPost({ request, env }) {
       }, 30000);
     } catch (lockErr) {
       if (lockErr.message && lockErr.message.includes('in progress')) {
-        // We couldn't acquire the lock in time, but the CHIP purchase
-        // already exists. The webhook (matched by purchase id) will
-        // finalize the booking when payment succeeds. Return the URL
-        // anyway so the guest isn't stuck staring at a spinner.
+        // Couldn't acquire the lock. Do NOT blindly return our new URL —
+        // it might be orphaned. Re-read and reconcile.
+        try {
+          const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+          let bb = [];
+          try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
+          const cur = bb.find(b => String(b.id) === String(booking.id));
+
+          // Log the orphan regardless.
+          await logAction({
+            db,
+            action: 'chip_purchase_orphaned',
+            admin: 'guest',
+            details: `Purchase ${data.id} created for ${booking.id} but lock busy; not saved. Reconcile in CHIP dashboard.`,
+            ip: clientIP,
+            userId: session.userId,
+            homestayId: booking.homestayId
+          });
+
+          if (cur && (cur.status === 'Paid - Awaiting Check-in' || String(cur.status).startsWith('Completed'))) {
+            return jsonResponse({
+              success: true,
+              alreadyPaid: true,
+              message: 'Payment already completed.',
+              bookingId: booking.id
+            }, 200, request);
+          }
+          if (cur && cur.chip_purchase_id && cur.chip_checkout_url) {
+            return jsonResponse({
+              success: true,
+              url: cur.chip_checkout_url,
+              purchase_id: cur.chip_purchase_id,
+              bookingId: booking.id,
+              message: 'Resuming existing payment session.'
+            }, 200, request);
+          }
+        } catch (_) {
+          // fall through to error
+        }
         return jsonResponse({
-          success: true,
-          url: data.checkout_url,
-          purchase_id: data.id,
-          bookingId: booking.id,
-          amount: Number(booking.total),
-          warning: 'Booking record will be reconciled automatically after payment.'
-        }, 200, request);
+          error: 'Another operation is in progress. Please try again in a moment.'
+        }, 429, request);
       }
       throw lockErr;
     }
@@ -489,6 +405,36 @@ export async function onRequestPost({ request, env }) {
           : 'This booking is no longer payable.',
         bookingId: booking.id
       }, 200, request);
+    }
+
+    // [PHASE 2 FIX] Our purchase was orphaned by a concurrent request.
+    // Return the OTHER purchase's URL and log for cleanup.
+    if (writeResult.orphaned) {
+      await logAction({
+        db,
+        action: 'chip_purchase_orphaned',
+        admin: 'guest',
+        details: `Purchase ${writeResult.ourOrphanedPurchaseId} for ${booking.id} was orphaned by concurrent request. Existing purchase: ${writeResult.existingPurchaseId}. Reconcile in CHIP dashboard.`,
+        ip: clientIP,
+        userId: session.userId,
+        homestayId: booking.homestayId
+      });
+
+      if (writeResult.existingCheckoutUrl) {
+        return jsonResponse({
+          success: true,
+          url: writeResult.existingCheckoutUrl,
+          purchase_id: writeResult.existingPurchaseId,
+          bookingId: booking.id,
+          message: 'Resuming existing payment session.'
+        }, 200, request);
+      }
+
+      // No cached URL — tell the guest to retry. The next call will
+      // look up the existing purchase's URL from CHIP.
+      return jsonResponse({
+        error: 'Payment session is being set up. Please try again in a moment.'
+      }, 429, request);
     }
 
     await logAction({
