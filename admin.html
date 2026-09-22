@@ -450,6 +450,26 @@ body {
 @media (max-width: 480px) {
   .btn-primary, .btn-accent, .btn-outline, .btn-danger, .btn-success { padding: 8px 14px; font-size: 10px; }
 }
+
+/* ============================================================
+   LOADING STATES
+   ============================================================ */
+@keyframes kdSpin { to { transform: rotate(360deg); } }
+.kd-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: kdSpin 0.7s linear infinite;
+  vertical-align: -2px;
+  margin-right: 7px;
+}
+button.kd-loading {
+  opacity: 0.75;
+  cursor: not-allowed !important;
+}
 </style>
 </head>
 <body>
@@ -493,7 +513,7 @@ body {
     <h2 class="text-2xl font-bold">Admin Login</h2>
     <p class="text-xs text-zinc-500 mt-1">Login to manage bookings & payouts</p>
     <input id="adminPass" type="password" placeholder="Password" class="form-input mt-2" />
-    <button onclick="doAdminLogin()" class="btn-primary w-full mt-4">Login</button>
+    <button id="adminLoginBtn" onclick="doAdminLogin()" class="btn-primary w-full mt-4">Login</button>
     <div id="loginError" class="text-red-600 text-xs mt-2 hidden"></div>
   </div>
   <div id="adminDashboard" class="hidden">
@@ -501,7 +521,7 @@ body {
     <div class="text-[11px] text-zinc-500 mt-1 animate-on-scroll">Malaysia Time: <span id="myTimeNow"></span> • Timezone: Asia/Kuala_Lumpur (UTC+8)</div>
 
       <div class="flex items-center gap-3 flex-wrap mt-2 animate-on-scroll">
-      <button onclick="forceSync()" class="btn-accent" style="padding:8px 18px; font-size:11px;">🔄 Force Sync (Cloud)</button>
+      <button id="forceSyncBtn" onclick="forceSync()" class="btn-accent" style="padding:8px 18px; font-size:11px;">🔄 Force Sync (Cloud)</button>
         <a href="/admin-payouts.html" class="btn-primary" style="padding:8px 18px; font-size:11px; background:#0F382E; position:relative; display:inline-block;" target="_blank" rel="noopener noreferrer">
         💸 Manual Payout Queue
         <span id="payoutQueueBadge" class="hidden" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;min-width:18px;text-align:center;line-height:1.4;">0</span>
@@ -560,8 +580,8 @@ body {
             <p class="text-xs text-zinc-500 mt-1">Every 5xx response or uncaught error from your API, logged automatically. Capped at 200 entries.</p>
           </div>
           <div class="flex gap-2">
-            <button onclick="renderErrorsTab()" class="btn-outline" style="padding:8px 16px; font-size:11px;">🔄 Refresh</button>
-            <button onclick="clearAllErrors()" class="btn-danger" style="padding:8px 16px; font-size:11px;">Clear All</button>
+            <button id="errorsRefreshBtn" onclick="renderErrorsTab()" class="btn-outline" style="padding:8px 16px; font-size:11px;">🔄 Refresh</button>
+            <button id="errorsClearBtn" onclick="clearAllErrors()" class="btn-danger" style="padding:8px 16px; font-size:11px;">Clear All</button>
           </div>
         </div>
         <div id="errorsList"></div>
@@ -618,7 +638,7 @@ body {
     <div id="editHomestayForm" class="space-y-4"></div>
     <div class="flex gap-2 mt-6 justify-end">
       <button onclick="closeEditHomestayModal()" class="btn btn-secondary">Cancel</button>
-      <button onclick="saveEditHomestay()" class="btn btn-primary">Save Changes</button>
+      <button id="editHomestaySaveBtn" onclick="saveEditHomestay()" class="btn btn-primary">Save Changes</button>
     </div>
   </div>
 </div>
@@ -690,6 +710,22 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+function setButtonLoading(btn, text) {
+  if (!btn) return function(){};
+  if (!btn.dataset.kdOrig) btn.dataset.kdOrig = btn.innerHTML;
+  btn.disabled = true;
+  btn.classList.add('kd-loading');
+  btn.innerHTML = '<span class="kd-spinner"></span>' + (text || 'Working…');
+  return function clear() {
+    btn.disabled = false;
+    btn.classList.remove('kd-loading');
+    if (btn.dataset.kdOrig) {
+      btn.innerHTML = btn.dataset.kdOrig;
+      delete btn.dataset.kdOrig;
+    }
+  };
+}
+
 function showModal(title, message, buttons, options = {}) {
   const { allowHtml = false } = options;
   return new Promise((resolve) => {
@@ -704,21 +740,44 @@ function showModal(title, message, buttons, options = {}) {
       bodyEl.textContent = typeof message === 'string' ? message : '';
     }
     footerEl.innerHTML = '';
+
+    const finish = (val) => {
+      window.__modalCancel = null;
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+      resolve(val);
+    };
+
+    const cancelLike = buttons.find(b => b.value === false || b.value === null);
+    window.__modalCancel = () => {
+      if (cancelLike) finish(cancelLike.value);
+      else finish(undefined);
+    };
+
     buttons.forEach(btn => {
       const el = document.createElement('button');
       el.textContent = btn.label;
       el.className = `btn ${btn.class || 'btn-primary'}`;
-      el.onclick = () => { closeModal(); resolve(btn.value !== undefined ? btn.value : true); };
+      el.onclick = () => {
+        if (btn.value !== undefined) finish(btn.value);
+        else finish(true);
+      };
       footerEl.appendChild(el);
     });
+
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
   });
 }
 function closeModal() {
   const overlay = document.getElementById('customModal');
-  overlay.classList.remove('active');
+  if (overlay) overlay.classList.remove('active');
   document.body.style.overflow = '';
+  if (typeof window.__modalCancel === 'function') {
+    const cb = window.__modalCancel;
+    window.__modalCancel = null;
+    try { cb(); } catch (e) { /* no-op */ }
+  }
 }
 function modalConfirm() { closeModal(); }
 function showAlert(title, message, options = {}) {
@@ -743,20 +802,29 @@ function showPrompt(title, message, defaultValue, options = {}) {
     const safeMessage = allowHtml ? String(message || '') : escapeHtml(message || '');
     bodyEl.innerHTML = safeMessage + input;
     footerEl.innerHTML = '';
+
+    const finish = (val) => {
+      window.__modalCancel = null;
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+      resolve(val);
+    };
+
+    window.__modalCancel = () => finish(null);
+
     const okBtn = document.createElement('button');
     okBtn.textContent = 'OK';
     okBtn.className = 'btn btn-primary';
     okBtn.onclick = () => {
       const el = document.getElementById('modalInput');
       const val = el ? el.value : '';
-      closeModal();
-      resolve(val);
+      finish(val);
     };
     footerEl.appendChild(okBtn);
     const cancelBtn = document.createElement('button');
     cancelBtn.textContent = 'Cancel';
     cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.onclick = () => { closeModal(); resolve(null); };
+    cancelBtn.onclick = () => finish(null);
     footerEl.appendChild(cancelBtn);
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -1023,9 +1091,15 @@ async function forceSync() {
   const ts = document.getElementById('cacheTimestamp');
   if (status) status.classList.remove('hidden');
   if (ts) ts.textContent = new Date().toLocaleString();
-  await fetchCloudData();
-  renderAdmin();
-  showAlert('Sync Complete', 'Data refreshed from cloud.');
+  const btn = document.getElementById('forceSyncBtn');
+  const resetBtn = setButtonLoading(btn, 'Syncing…');
+  try {
+    await fetchCloudData();
+    renderAdmin();
+    await showAlert('Sync Complete', 'Data refreshed from cloud.');
+  } finally {
+    resetBtn();
+  }
 }
 
 async function pushHomestaysToCloud() {
@@ -1069,6 +1143,8 @@ async function doAdminLogin() {
   const pass = document.getElementById("adminPass").value;
   const errorEl = document.getElementById("loginError");
   errorEl.classList.add("hidden");
+  const btn = document.getElementById("adminLoginBtn");
+  const resetBtn = setButtonLoading(btn, 'Signing in…');
   try {
     const res = await fetch(API_BASE + "/admin-login", {
       method: "POST",
@@ -1095,6 +1171,8 @@ async function doAdminLogin() {
   } catch(e) {
     errorEl.textContent = "Login error: " + e.message;
     errorEl.classList.remove("hidden");
+  } finally {
+    resetBtn();
   }
 }
 
@@ -1225,6 +1303,9 @@ async function renderErrorsTab() {
   if (!listEl) return;
   listEl.innerHTML = '<div class="text-center text-zinc-400 py-8 text-sm">Loading errors...</div>';
 
+  const refreshBtn = document.getElementById('errorsRefreshBtn');
+  const resetRefresh = setButtonLoading(refreshBtn, 'Loading…');
+
   try {
     const res = await fetchWithAuth(API_BASE + '/admin-errors', { cache: 'no-store' });
     if (!res.ok) {
@@ -1281,12 +1362,16 @@ async function renderErrorsTab() {
     listEl.innerHTML = safeHTML(html);
   } catch (e) {
     listEl.innerHTML = safeHTML('<div class="text-center text-red-600 py-8 text-sm">Network error loading errors.</div>');
+  } finally {
+    resetRefresh();
   }
 }
 
 async function clearAllErrors() {
   const confirmed = await showConfirm('Clear Error Log', 'Permanently clear all logged errors? This cannot be undone.');
   if (!confirmed) return;
+  const btn = document.getElementById('errorsClearBtn');
+  const resetBtn = setButtonLoading(btn, 'Clearing…');
   try {
     const res = await fetchWithAuth(API_BASE + '/admin-errors', { method: 'DELETE' });
     if (res.ok) {
@@ -1297,6 +1382,8 @@ async function clearAllErrors() {
     }
   } catch (e) {
     await showAlert('Error', 'Network error.');
+  } finally {
+    resetBtn();
   }
 }
 
@@ -1394,7 +1481,7 @@ function attachAdminEventListeners() {
   document.addEventListener('click', adminActionHandler);
 }
 
-function adminActionHandler(e) {
+async function adminActionHandler(e) {
   const btn = e.target.closest('.admin-action-btn');
   if (!btn) return;
   const action = btn.dataset.action;
@@ -1412,9 +1499,15 @@ function adminActionHandler(e) {
     deleteGuest: (id) => deleteGuest(id),
     deleteOwner: (id) => deleteOwner(id),
   };
-  
-  if (actionMap[action]) {
-    actionMap[action](id);
+
+  const fn = actionMap[action];
+  if (!fn) return;
+
+  const resetBtn = setButtonLoading(btn, '');
+  try {
+    await fn(id);
+  } finally {
+    resetBtn();
   }
 }
 
@@ -1525,6 +1618,9 @@ async function saveEditHomestay() {
 
   Object.assign(h, newData);
 
+  const saveBtn = document.getElementById('editHomestaySaveBtn');
+  const resetSaveBtn = setButtonLoading(saveBtn, 'Saving…');
+
   try {
     await saveApproved();
     renderAdmin();
@@ -1534,6 +1630,8 @@ async function saveEditHomestay() {
     renderAdmin();
   } catch (e) {
     await showAlert("Error", "Failed to save: " + e.message);
+  } finally {
+    resetSaveBtn();
   }
 }
 
@@ -1777,7 +1875,7 @@ function goToBookingsPage(page) {
   renderBookingsTable(currentBookingFilter, page);
 }
 
-function bookingActionHandler(e) {
+async function bookingActionHandler(e) {
   const btn = e.target.closest('.booking-action-btn');
   if (!btn) return;
   const action = btn.dataset.action;
@@ -1785,34 +1883,49 @@ function bookingActionHandler(e) {
   if (!action || !id) return;
   e.preventDefault();
 
-  switch (action) {
-    case 'adminConfirmArrival':
-      adminConfirmArrival(id);
-      break;
-    case 'retryPayout':
-      retryPayout(id);
-      break;
-    case 'retryRefund':
-      retryRefund(id);
-      break;
-    case 'updateBookingStatus':
-      const status = btn.dataset.status || 'Completed';
-      updateBookingStatus(id, status);
-      break;
-    case 'whatsappGuest':
-      whatsappGuest(id);
-      break;
-    case 'copyBookingId':
-      copyBookingId(id);
-      break;
-    case 'changeBookingDates':
-      changeBookingDates(id);
-      break;
-    case 'deleteBooking':
-      deleteBooking(id);
-      break;
-    default:
-      break;
+  const labels = {
+    adminConfirmArrival: 'Confirming…',
+    retryPayout: 'Retrying…',
+    retryRefund: 'Retrying…',
+    updateBookingStatus: 'Updating…',
+    changeBookingDates: 'Updating…',
+    deleteBooking: 'Deleting…'
+  };
+
+  // copyBookingId and whatsappGuest are instant — no spinner needed.
+  const noSpinner = action === 'copyBookingId' || action === 'whatsappGuest';
+  const resetBtn = noSpinner ? function(){} : setButtonLoading(btn, labels[action] || 'Working…');
+
+  try {
+    switch (action) {
+      case 'adminConfirmArrival':
+        await adminConfirmArrival(id);
+        break;
+      case 'retryPayout':
+        await retryPayout(id);
+        break;
+      case 'retryRefund':
+        await retryRefund(id);
+        break;
+      case 'updateBookingStatus':
+        const status = btn.dataset.status || 'Completed';
+        await updateBookingStatus(id, status);
+        break;
+      case 'whatsappGuest':
+        whatsappGuest(id);
+        break;
+      case 'copyBookingId':
+        copyBookingId(id);
+        break;
+      case 'changeBookingDates':
+        await changeBookingDates(id);
+        break;
+      case 'deleteBooking':
+        await deleteBooking(id);
+        break;
+    }
+  } finally {
+    resetBtn();
   }
 }
 
@@ -1991,10 +2104,6 @@ async function retryRefund(bookingId) {
   );
   if (!confirmed) return;
 
-  const btn = document.querySelector(`.booking-action-btn[data-action="retryRefund"][data-id="${bookingId}"]`);
-  const origText = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Processing…'; }
-
   try {
     const res = await fetchWithAuth(API_BASE + "/bookings", {
       method: "POST",
@@ -2008,7 +2117,6 @@ async function retryRefund(bookingId) {
       const dashEl = document.getElementById("adminDashboard");
       if (loginEl) loginEl.classList.remove("hidden");
       if (dashEl) dashEl.classList.add("hidden");
-      if (btn) { btn.disabled = false; btn.textContent = origText || '🔁 RETRY REFUND'; }
       await showAlert(
         "Session Expired", 
         "Your admin session has expired or was cleared.\n\nNote: Due to the 'One-browser-one-identity' security rule, if you tested as a guest in this same browser, your admin session was intentionally cleared. Please use an Incognito window for admin tasks."
@@ -2020,7 +2128,6 @@ async function retryRefund(bookingId) {
 
     if (!res.ok || !data.success) {
       await showAlert("Refund Retry Failed", data.error || data.message || "Unknown error");
-      if (btn) { btn.disabled = false; btn.textContent = origText || '🔁 RETRY REFUND'; }
       return;
     }
 
@@ -2066,8 +2173,6 @@ async function retryRefund(bookingId) {
     renderAdmin();
   } catch (e) {
     await showAlert("Network Error", "Could not reach the server. Please try again.");
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = origText || '🔁 RETRY REFUND'; }
   }
 }
 
@@ -2120,18 +2225,17 @@ async function confirmCheckIn(id){
   }
 }
 
-function updateBookingStatus(id, newStatus){
+async function updateBookingStatus(id, newStatus){
   const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return;
   if(newStatus==="Checked In"){ return confirmCheckIn(id); }
-  showConfirm("Change Status", "Change "+id+" from \""+b.status+"\" to \""+newStatus+"\"?").then(async (confirmed) => {
-    if (!confirmed) return;
-    b.status=newStatus; b.statusUpdated=new Date().toISOString();
-    if(!b.nights) b.nights=calculateNights(b.checkin,b.checkout);
-    localStorage.setItem("kd_bookings", JSON.stringify(bookings));
-    renderBookingsTable(currentBookingFilter);
-    fetchEarnings();
-    fetchWithAuth('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id, status:newStatus, booking:b})}).catch(()=>{});
-  });
+  const confirmed = await showConfirm("Change Status", "Change "+id+" from \""+b.status+"\" to \""+newStatus+"\"?");
+  if (!confirmed) return;
+  b.status=newStatus; b.statusUpdated=new Date().toISOString();
+  if(!b.nights) b.nights=calculateNights(b.checkin,b.checkout);
+  localStorage.setItem("kd_bookings", JSON.stringify(bookings));
+  renderBookingsTable(currentBookingFilter);
+  fetchEarnings();
+  fetchWithAuth('/api/bookings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'updateStatus', id, status:newStatus, booking:b})}).catch(()=>{});
 }
 
 function whatsappGuest(id){ const b=bookings.find(x=> String(x.id)===String(id)); if(!b) return; let phone=(b.guestPhone||'').replace(/[^0-9]/g,''); if(phone.startsWith('0')) phone='60'+phone.substring(1); const msg=encodeURIComponent("Hi "+(b.guestName||'Guest')+", booking "+b.id+" for "+b.homestay+" ("+b.checkin+"→"+b.checkout+") is "+b.status+". Total RM"+b.total+"."); window.open("https://wa.me/"+phone+"?text="+msg,'_blank'); }
@@ -2680,9 +2784,7 @@ document.addEventListener('click', async (e)=>{
     const amt = parseFloat(amtInput.value);
     if(!amt || amt<=0){ await showAlert("Invalid Amount", "Enter valid amount"); return; }
     const btn = document.getElementById('kdConfirm');
-    const origText = btn.textContent;
-    btn.textContent = "Processing...";
-    btn.disabled = true;
+    const resetBtn = setButtonLoading(btn, 'Processing…');
     try{
       const res = await fetchWithAuth(API_BASE + "/withdraw", {
         method:"POST",
@@ -2703,8 +2805,7 @@ document.addEventListener('click', async (e)=>{
     }catch(err){
       await showAlert("Withdraw Error", "Withdraw error: "+err.message);
     } finally {
-      btn.textContent = origText;
-      btn.disabled = false;
+      resetBtn();
     }
   }
 });
