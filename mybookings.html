@@ -58,6 +58,32 @@ body.bn-hidden #mobileBottomNav { display: none; }
 @media (max-width: 1023.98px) {
 body { padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ============================================================
+   LOADING STATES
+   ============================================================ */
+@keyframes kdSpin { to { transform: rotate(360deg); } }
+.kd-spinner {
+display: inline-block;
+width: 14px;
+height: 14px;
+border: 2px solid currentColor;
+border-top-color: transparent;
+border-radius: 50%;
+animation: kdSpin 0.7s linear infinite;
+vertical-align: -2px;
+margin-right: 7px;
+}
+button.kd-loading {
+opacity: 0.75;
+cursor: not-allowed !important;
+}
+.kd-inline-loading {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+gap: 8px;
+}
 </style>
 </head>
 <body>
@@ -177,7 +203,7 @@ KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px] md:text-[17px]"> �
 </div>
 <main class="flex-1 max-w-[1100px] mx-auto px-4 md:px-6 py-8 md:py-12 w-full">
 <div id="loadingState" class="text-center py-20 animate-on-scroll">
-<div class="text-sm text-zinc-400">Loading your bookings...</div>
+<div class="text-sm text-zinc-400 kd-inline-loading"><span class="kd-spinner"></span>Loading your bookings…</div>
 </div>
 <div id="notLoggedIn" class="hidden text-center py-20 animate-on-scroll">
 <div class="text-6xl mb-4">🔐</div>
@@ -194,7 +220,7 @@ KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px] md:text-[17px]"> �
 <h1 class="font-poppins font-700 text-[28px] md:text-[32px] text-[#212121]">My Bookings</h1>
 <p class="text-sm text-zinc-500 mt-0.5">Logged in as <span id="guestNameDisplay" class="font-semibold text-[#0F382E]"></span></p>
 </div>
-<button onclick="loadMyBookings()" class="btn-outline flex items-center gap-2">🔄 Refresh</button>
+<button id="refreshBookingsBtn" onclick="loadMyBookings()" class="btn-outline flex items-center gap-2">🔄 Refresh</button>
 </div>
 <div id="bookingsList" class="space-y-4 animate-on-scroll"></div>
 <details class="mt-16 text-center animate-on-scroll">
@@ -204,7 +230,7 @@ KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px] md:text-[17px]"> �
 <div class="text-[11px] text-zinc-500 mt-1 leading-relaxed">
 Permanently delete your account and personal details. Past booking records stay in our accounting system, but your name and contact info will be removed.
 </div>
-<button onclick="deleteMyAccount()" class="mt-3 text-[11px] uppercase tracking-wider font-700 text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-full transition-all duration-200">
+<button id="deleteAccountBtn" onclick="deleteMyAccount()" class="mt-3 text-[11px] uppercase tracking-wider font-700 text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-full transition-all duration-200">
 Delete Account
 </button>
 </div>
@@ -331,6 +357,21 @@ ALLOW_DATA_ATTR: true,
 FORCE_HTTPS: true
 });
 }
+function setButtonLoading(btn, text) {
+if (!btn) return function(){};
+if (!btn.dataset.kdOrig) btn.dataset.kdOrig = btn.innerHTML;
+btn.disabled = true;
+btn.classList.add('kd-loading');
+btn.innerHTML = '<span class="kd-spinner"></span>' + (text || 'Working…');
+return function clear() {
+btn.disabled = false;
+btn.classList.remove('kd-loading');
+if (btn.dataset.kdOrig) {
+btn.innerHTML = btn.dataset.kdOrig;
+delete btn.dataset.kdOrig;
+}
+};
+}
 async function fetchGuestCsrfToken() {
 try {
 const res = await fetch('/api/csrf-token?type=guest', {
@@ -358,17 +399,31 @@ document.getElementById('modalTitle').textContent = title || 'Notice';
 document.getElementById('modalBody').innerHTML = typeof message === 'string' ? message : '';
 var footerEl = document.getElementById('modalFooter');
 footerEl.innerHTML = '';
+
+var finish = function(val) {
+window.__modalCancel = null;
+overlay.classList.remove('active');
+document.body.style.overflow = '';
+resolve(val);
+};
+
+var cancelLike = buttons.find(function(b){ return b.value === false || b.value === null; });
+window.__modalCancel = function() {
+if (cancelLike) finish(cancelLike.value);
+else finish(undefined);
+};
+
 buttons.forEach(function(btn) {
 var el = document.createElement('button');
 el.textContent = btn.label;
 el.className = 'btn ' + (btn.class || 'btn-primary');
 el.onclick = function() {
-overlay.classList.remove('active');
-document.body.style.overflow = '';
-resolve(btn.value !== undefined ? btn.value : true);
+if (btn.value !== undefined) finish(btn.value);
+else finish(true);
 };
 footerEl.appendChild(el);
 });
+
 overlay.classList.add('active');
 document.body.style.overflow = 'hidden';
 });
@@ -377,6 +432,11 @@ function closeModal() {
 var o = document.getElementById('customModal');
 if (o) o.classList.remove('active');
 document.body.style.overflow = '';
+if (typeof window.__modalCancel === 'function') {
+var cb = window.__modalCancel;
+window.__modalCancel = null;
+try { cb(); } catch (e) { /* no-op */ }
+}
 }
 function modalConfirm() { closeModal(); }
 function showAlert(t, m) { return showModal(t, m, [{ label: 'OK', class: 'btn-primary' }]); }
@@ -388,6 +448,7 @@ return showModal(t, m, [
 }
 document.addEventListener('keydown', function(e) {
 if (e.key === 'Escape') {
+if (typeof window.__modalCancel === 'function') { window.__modalCancel(); return; }
 var o = document.getElementById('customModal');
 if (o && o.classList.contains('active')) { o.classList.remove('active'); document.body.style.overflow = ''; }
 var f = document.getElementById('paymentFailedModal');
@@ -566,7 +627,11 @@ pendingCheckInterval = setInterval(autoCheckPendingBookings, PENDING_CHECK_INTER
 }
 function loadMyBookings() {
 var listDiv = document.getElementById('bookingsList');
-if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10">Loading your bookings...</div>';
+if (listDiv) listDiv.innerHTML = '<div class="text-sm text-zinc-400 text-center py-10 kd-inline-loading"><span class="kd-spinner"></span>Loading your bookings…</div>';
+
+var refreshBtn = document.getElementById('refreshBookingsBtn');
+var resetRefresh = setButtonLoading(refreshBtn, 'Refreshing…');
+
 fetch(API_BASE + '/bookings?t=' + Date.now(), {
 method: 'GET',
 headers: { 'Content-Type': 'application/json' },
@@ -630,6 +695,9 @@ return;
 }
 }
 showLoginRequired();
+})
+.finally(function() {
+resetRefresh();
 });
 }
 function renderBookings() {
@@ -682,16 +750,24 @@ listDiv.innerHTML = safeHTML(html);
 listDiv.removeEventListener('click', bookingActionHandler);
 listDiv.addEventListener('click', bookingActionHandler);
 }
-function bookingActionHandler(e) {
+async function bookingActionHandler(e) {
 var btn = e.target.closest('.action-btn');
 if (!btn) return;
 var action = btn.dataset.action;
 var id = btn.dataset.id;
 if (!action || !id) return;
 e.preventDefault();
-if (action === 'checkStatus') manualCheckPayment(id);
-else if (action === 'retryPayment') retryPaymentFromBookings(id);
-else if (action === 'resendCode') resendCode(id);
+
+var labels = { checkStatus: 'Checking…', retryPayment: 'Redirecting…', resendCode: 'Sending…' };
+var resetBtn = setButtonLoading(btn, labels[action] || 'Working…');
+
+try {
+if (action === 'checkStatus') await manualCheckPayment(id);
+else if (action === 'retryPayment') await retryPaymentFromBookings(id);
+else if (action === 'resendCode') await resendCode(id);
+} finally {
+resetBtn();
+}
 }
 async function manualCheckPayment(bookingId) {
 try {
@@ -834,10 +910,19 @@ bodyEl.innerHTML = `
 </div>
 `;
 footerEl.innerHTML = '';
+
+const finish = (val) => {
+window.__modalCancel = null;
+overlay.classList.remove('active');
+document.body.style.overflow = '';
+resolve(val);
+};
+window.__modalCancel = () => finish(null);
+
 const cancelBtn = document.createElement('button');
 cancelBtn.textContent = 'Cancel';
 cancelBtn.className = 'btn btn-secondary';
-cancelBtn.onclick = () => { closeModal(); resolve(null); };
+cancelBtn.onclick = () => finish(null);
 footerEl.appendChild(cancelBtn);
 const deleteBtn = document.createElement('button');
 deleteBtn.textContent = 'Delete My Account';
@@ -858,8 +943,7 @@ errEl.textContent = 'Type DELETE (all caps) to confirm.';
 errEl.style.display = 'block';
 return;
 }
-closeModal();
-resolve({ password: pw, confirmPhrase: phrase });
+finish({ password: pw, confirmPhrase: phrase });
 };
 footerEl.appendChild(deleteBtn);
 overlay.classList.add('active');
@@ -881,6 +965,8 @@ await showAlert(
 );
 return;
 }
+const delBtn = document.getElementById('deleteAccountBtn');
+const resetDelBtn = setButtonLoading(delBtn, 'Deleting…');
 try {
 const res = await fetch('/api/delete-account', {
 method: 'POST',
@@ -914,6 +1000,8 @@ await showAlert(
 window.location.href = '/';
 } catch (e) {
 await showAlert('Network Error', 'Could not reach the server. Please check your connection and try again.');
+} finally {
+resetDelBtn();
 }
 }
 window.deleteMyAccount = deleteMyAccount;
@@ -952,6 +1040,7 @@ loadMyBookings();
 // =============================================================
 // MOBILE BOTTOM NAV — active state + smart Account behaviour
 // Runs last so the nav HTML and GuestSession are both ready.
+// Identical block to index1 / explore / login / mybookings.
 // =============================================================
 (function () {
 var nav = document.getElementById('mobileBottomNav');
