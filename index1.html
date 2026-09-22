@@ -2308,9 +2308,11 @@ grid.innerHTML = safeHTML(
 });
 }
 // Returning-guest banner — only fires if logged in.
+// Wait for payment verification first so a just-paid booking
+// isn't shown as "awaiting payment".
+handlePaymentReturn().finally(function () {
 checkPendingBookingBanner();
-handlePaymentReturn();
-})();
+});
 </script>
 <script src="/footer-weather.js"></script>
 </body>
