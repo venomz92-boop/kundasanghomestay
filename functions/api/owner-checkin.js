@@ -28,7 +28,8 @@ import {
   withLock,
   chipSendPayout,
   getOwnerHomestayIdsFresh,
-  sendHostPayoutEmail
+  sendHostPayoutEmail,
+  parseJSONSafely
 } from './_utils.js';
 
 const BOOKINGS_LOCK = 'bookings-global';
@@ -46,7 +47,12 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Unauthorized' }, 401, request);
     }
 
-    const body = await request.json();
+    let body;
+    try {
+      body = await parseJSONSafely(request);
+    } catch (_) {
+      return jsonResponse({ error: 'Invalid request' }, 400, request);
+    }
     const bookingId = body.bookingId;
     const checkinCode = body.checkinCode;
 
@@ -550,7 +556,7 @@ export async function onRequestPost({ request, env }) {
     if (result.error) {
       return jsonResponse({ error: result.error, retryAfter: result.retryAfter }, result.status || 400, request);
     }
-    return jsonResponse(result, 200, request);
+    return jsonResponse(result, 200, request, { 'Cache-Control': 'no-store' });
 
   } catch (e) {
     console.error('Check-in error:', e.message);
