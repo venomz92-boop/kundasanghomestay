@@ -1,40 +1,40 @@
-// /api/bookings.js — Plain English: this file handles all booking reads and
-// writes. In THIS revision:
-//   (1) approveHomestay and rejectHomestay permanently delete verification
-//       images (IC, bank QR, PBT license) from Cloudinary on success.
-//   (2) On reject, all property + room photos are also destroyed, and the
-//       orphaned bank-QR entry in kd_homestays is removed.
-//   (3) deleteOwner now ALSO removes the account from kd_owners AND
-//       destroys every Cloudinary image (IC, bank QR, PBT, property cover,
-//       room photos) belonging to every listing that owner had — approved
-//       or pending. Previously these files were orphaned in Cloudinary
-//       forever, which is a PDPA 2010 problem and a slow storage bill.
-//       The audit log and API response now report exactly how many images
-//       were destroyed vs failed.
-//   (4) removeApprovedHomestay destroys Cloudinary images and cleans the
-//       orphaned kd_homestays row.
-//   (5) updateHomestays clears chip_bank_account_id on bank-detail change.
-//   (6) updateHomestays MERGES instead of overwriting.
-//   (7) Admin action `retryRefund` now mirrors owner-update-booking.js:
-//         - Reads stored cancel_type on the booking.
-//         - guest_request → refund base − RM 1.00 (CHIP refund fee).
-//         - host_own      → refund full amount.
-//         - missing       → treated as host_own (safe default).
-//       Booking status, kd_fee_earnings, and kd_chip_costs are written in
-//       a single db.batch. Also refuses to fire a second refund when a
-//       previous attempt left an unclear state (refund_attempted_at set
-//       but chip_refund_id missing).
-//   (8) approveHomestay sends an approval notification email to the host.
+// /api/bookings.js — All booking reads and writes.
 //
-// [THIS REVISION — 16 Sept 2026]
-//   (9) GET handler: the GUEST branch now runs BEFORE the ADMIN branch.
-//       Root cause of the "new guest sees every booking" bug: when a
-//       browser has BOTH an admin_token cookie (from a previous admin
-//       session) AND a guest_token cookie (from a fresh guest register),
-//       the old code let admin win, so the guest got the full admin
-//       payload. Guests must win when a guest session is present.
-//       An escape hatch `?view=admin` (only honoured when isAdmin is
-//       also true) lets an admin panel force the admin view if needed.
+// [PHASE 2 REFACTOR — Sept 2026]
+// Changes in this revision:
+//   1. isDeadBookingStatus now uses a LIVE_STATUSES whitelist instead of
+//      a regex. Fixes "Refund Pending - Awaiting CHIP" blocking its
+//      dates forever, and prevents future statuses from accidentally
+//      being treated as live.
+//   2. createPublicBooking: existingOwn match now includes roomId.
+//      Before, changing your mind about Room A → Room B for the same
+//      dates returned the Room A booking and the guest paid for the
+//      wrong room.
+//   3. createPublicBooking: `reopened` is now true only when a Payment
+//      Failed booking was actually reopened. Before it was always true,
+//      so the "previous payment failed" message showed even for fresh
+//      pending bookings.
+//   4. GET: the public branch no longer loads kd_guests, kd_pending,
+//      kd_demo_*, kd_deleted_demo. Only the keys each branch needs are
+//      read. Before: every anonymous homepage request read every guest.
+//   5. Admin actions now wrap their DB read-modify-write blocks in
+//      withLock(BOOKINGS_LOCK, ...) so concurrent admin operations can't
+//      lose writes: approveHomestay, rejectHomestay,
+//      removeApprovedHomestay, deleteOwner, deleteGuest, updateHomestays.
+//      Cloudinary destroys and email sends stay outside the lock
+//      (they're slow, best-effort, and don't need to be atomic with the
+//      DB write).
+//   6. updateHomestays now whitelists which fields the admin panel is
+//      allowed to set. Before, the incoming array was stored as-is, so
+//      a compromised admin session could inject chip_bank_account_id,
+//      chip_purchase_id, ownerPasswordHash, etc. into kd_approved.
+//
+// Kept as-is (intentionally):
+//   - clearAll: no confirmation step. Admin explicitly requested this.
+//   - kd_homestays writes: still mirrored. Removing them is a Phase 4
+//     cleanup that requires auditing pending.js and delete-account.js.
+//   - request.json() → parseJSONSafely: already correct.
+//   - CHIP fee constants: kept in sync with owner-update-booking.js.
 import {
   corsHeaders,
   getClientIP,
@@ -60,12 +60,36 @@ const DEFAULT_PENDING_PAGE_SIZE = 100;
 const GATEWAY_FEE = 1.00;
 const PENDING_EXPIRY_MS = 15 * 60 * 1000;
 
-// CHIP's FPX B2C fees (see owner-update-booking.js for the source).
+// CHIP's FPX B2C fees. Keep in sync with owner-update-booking.js and
+// refund-cancellation.html.
 const CHIP_PAYMENT_FEE = 1.00;
 const CHIP_REFUND_FEE = 1.00;
 const CHIP_TOTAL_FEES_PER_CANCELLATION = CHIP_PAYMENT_FEE + CHIP_REFUND_FEE;
 
 const BOOKINGS_LOCK = 'bookings-global';
+
+// ============================================================
+// Status classification
+// ============================================================
+
+// Live statuses are those where the booking still occupies its dates.
+// Whitelist, not blacklist. If you add a new "live" status later, add
+// it here. Forgetting means the new status will be treated as dead,
+// which is safer than the old behavior (forgetting meant the dates were
+// blocked forever).
+//
+// This also fixes: "Refund Pending - Awaiting CHIP" was blocking its
+// dates because the old regex only matched `refunded`, not `refund`.
+const LIVE_STATUSES = new Set([
+  'Pending Payment',
+  'Paid - Awaiting Check-in',
+  'Completed',
+  'Completed - Payout Pending'
+]);
+
+function isDeadBookingStatus(status) {
+  return !LIVE_STATUSES.has(String(status || ''));
+}
 
 // ============================================================
 // Field whitelists
@@ -81,6 +105,20 @@ const PUBLIC_HOMESTAY_FIELDS = [
 ];
 
 const ADMIN_STATUS_FIELD_WHITELIST = ['status', 'statusUpdated'];
+
+// Fields the admin panel is allowed to set via updateHomestays. Anything
+// else is stripped before the write, so a compromised admin session
+// cannot inject chip_bank_account_id, chip_purchase_id, password
+// hashes, etc. into kd_approved.
+const UPDATABLE_HOMESTAY_FIELDS = [
+  'id', 'name', 'location', 'description',
+  'ownerName', 'ownerEmail', 'whatsapp',
+  'ownerPrice', 'guests', 'bedrooms',
+  'image', 'images', 'imagePublicIds', 'rooms',
+  'blockedDates', 'approved', 'verified',
+  'rating', 'reviews', 'createdAt', 'updatedAt',
+  'bankHolder', 'bankCode', 'ownerBankAccount', 'ownerBank'
+];
 
 function pickPublicFields(h) {
   if (!h || typeof h !== 'object') return h;
@@ -226,7 +264,7 @@ function collectAllImagePublicIds(h) {
 }
 
 // ============================================================
-// Helpers
+// Date helpers
 // ============================================================
 
 function getDatesInRange(checkin, checkout) {
@@ -246,9 +284,9 @@ function getDatesInRange(checkin, checkout) {
   return dates;
 }
 
-function isDeadBookingStatus(status) {
-  return /cancelled|failed|expired|refunded/i.test(String(status || ''));
-}
+// ============================================================
+// Auth helpers
+// ============================================================
 
 async function verifyAdmin(request, env) {
   const ok = await verifyAdminAuth(request, env);
@@ -278,8 +316,9 @@ async function requireGuest(request, env, body) {
 }
 
 // ============================================================
-// Rejection notification email
+// Emails
 // ============================================================
+
 async function sendRejectionEmail(homestay, reason, env) {
   if (!homestay.ownerEmail) {
     return { sent: false, error: 'No email address on file' };
@@ -340,9 +379,6 @@ async function sendRejectionEmail(homestay, reason, env) {
   }
 }
 
-// ============================================================
-// Approval notification email
-// ============================================================
 async function sendApprovalEmail(homestay, env) {
   if (!homestay.ownerEmail) {
     return { sent: false, error: 'No email address on file' };
@@ -431,9 +467,26 @@ export async function onRequestGet({ request, env }) {
 
     const guestSession = await getGuestSession(request, env);
     const isAdmin = await verifyAdminAuth(request, env);
+    const url = new URL(request.url);
+    const forceAdminView = url.searchParams.get('view') === 'admin' && isAdmin;
 
-    const keys = ['kd_bookings', 'kd_approved', 'kd_pending', 'kd_guests',
-                  'kd_demo_overrides', 'kd_demo_blocked', 'kd_deleted_demo'];
+    // Load only what each branch actually needs.
+    //   - Guest branch: only bookings.
+    //   - Admin branch: everything.
+    //   - Public branch: bookings + approved.
+    //
+    // Before this change, every request — including anonymous homepage
+    // loads — read kd_guests and every other blob.
+    let keys;
+    if (!forceAdminView && guestSession && guestSession.type === 'guest') {
+      keys = ['kd_bookings'];
+    } else if (isAdmin) {
+      keys = ['kd_bookings', 'kd_approved', 'kd_pending', 'kd_guests',
+              'kd_demo_overrides', 'kd_demo_blocked', 'kd_deleted_demo'];
+    } else {
+      keys = ['kd_bookings', 'kd_approved'];
+    }
+
     const stmts = keys.map(key => db.prepare('SELECT data FROM store WHERE key = ?').bind(key));
     const results = await db.batch(stmts);
 
@@ -443,34 +496,27 @@ export async function onRequestGet({ request, env }) {
       try { dataMap[key] = row?.data ? JSON.parse(row.data) : []; } catch (_) { dataMap[key] = []; }
     });
 
-    const bookings = dataMap['kd_bookings'];
-    const approved = dataMap['kd_approved'];
-    const pending = dataMap['kd_pending'];
-    const guests = dataMap['kd_guests'];
-    const demoOverrides = dataMap['kd_demo_overrides'];
-    const demoBlocked = dataMap['kd_demo_blocked'];
-    const deletedDemo = dataMap['kd_deleted_demo'];
+    const bookings = dataMap['kd_bookings'] || [];
+    const approved = dataMap['kd_approved'] || [];
+    const pending = dataMap['kd_pending'] || [];
+    const guests = dataMap['kd_guests'] || [];
+    const demoOverrides = dataMap['kd_demo_overrides'] || [];
+    const demoBlocked = dataMap['kd_demo_blocked'] || [];
+    const deletedDemo = dataMap['kd_deleted_demo'] || [];
 
-    const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page')) || 1;
     const limit = parseInt(url.searchParams.get('limit')) || DEFAULT_PAGE_SIZE;
     const offset = (page - 1) * limit;
 
     // ============ GUEST BRANCH (runs FIRST) ============
     //
-    // [THIS REVISION] Moved above the admin branch. Reason: when a
-    // browser holds BOTH an admin_token cookie (from a previous admin
-    // session) and a guest_token cookie (from a fresh guest register/
-    // login), the old order let admin win and the guest saw the entire
-    // platform's bookings. Guest intent must win when a guest session
-    // is present.
+    // When a browser holds BOTH an admin_token cookie (from a previous
+    // admin session) and a guest_token cookie (from a fresh guest
+    // register/login), the guest branch must win. Otherwise the guest
+    // sees the full admin payload.
     //
-    // Escape hatch: an admin panel can force the admin branch by
-    // calling this endpoint with `?view=admin`. That param is ignored
-    // unless the request is ALSO authentically admin-authenticated,
-    // so a guest cannot use it to escalate.
-    const forceAdminView = url.searchParams.get('view') === 'admin' && isAdmin;
-
+    // Escape hatch: `?view=admin` forces admin view, but only when the
+    // request is ALSO authentically admin-authenticated.
     if (!forceAdminView && guestSession && guestSession.type === 'guest') {
       const mine = bookings.filter(b => String(b.guestId) === String(guestSession.userId));
       const paginated = mine.slice(offset, offset + limit);
@@ -674,14 +720,22 @@ export async function onRequestPost({ request, env }) {
         const guest = guests.find(g => String(g.id) === String(auth.session.userId));
         if (!guest) return { error: 'Guest not found', status: 404 };
 
+        // [PHASE 2 FIX] Include roomId in the match. Before, changing
+        // your mind about Room A → Room B for the same dates returned
+        // the Room A booking and the guest paid for the wrong room.
         const existingOwn = allBookings.find(b =>
           String(b.guestId) === String(guest.id) &&
           String(b.homestayId) === String(homestay.id) &&
+          String(b.roomId || '') === String(selectedRoom?.id || '') &&
           b.checkin === checkin &&
           b.checkout === checkout &&
           (b.status === 'Pending Payment' || b.status === 'Payment Failed')
         );
         if (existingOwn) {
+          // [PHASE 2 FIX] Only report reopened=true when a Payment Failed
+          // booking was actually reopened. Before, it was always true
+          // even for a fresh pending booking.
+          let wasReopened = false;
           if (existingOwn.status === 'Payment Failed') {
             existingOwn.status = 'Pending Payment';
             existingOwn.date = new Date().toISOString();
@@ -689,11 +743,12 @@ export async function onRequestPost({ request, env }) {
             existingOwn.reopenedAt = new Date().toISOString();
             existingOwn.reopenCount = (existingOwn.reopenCount || 0) + 1;
             delete existingOwn.lastPayoutError;
+            wasReopened = true;
             await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
               .bind('kd_bookings', JSON.stringify(allBookings))
               .run();
           }
-          return { alreadyExists: true, booking: existingOwn, reopened: true };
+          return { alreadyExists: true, booking: existingOwn, reopened: wasReopened };
         }
 
         const homestayBlocked = new Set((homestay.blockedDates || []).map(String));
@@ -932,9 +987,8 @@ export async function onRequestPost({ request, env }) {
 
     // ---- Admin: clearAll ----
     if (action === "clearAll") {
-      let result;
       try {
-        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+        await withLock(db, BOOKINGS_LOCK, async (db) => {
           await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
             .bind('kd_bookings', JSON.stringify([]))
             .run();
@@ -1109,15 +1163,13 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ---- Admin: retryRefund ----
-    // [THIS REVISION]
     // Mirrors owner-update-booking.js:
     //   - guest_request → refund base − RM 1.00 (CHIP refund fee).
     //   - host_own      → refund full amount.
     //   - missing       → host_own (safe default).
-    //   - Refuses if refund_attempted_at set but chip_refund_id missing
-    //     (prevents double refund).
-    //   - Writes booking + kd_fee_earnings (gross retained) + kd_chip_costs
-    //     (CHIP's fees) in a single db.batch.
+    //   - Refuses if refund_attempted_at set but chip_refund_id missing.
+    //   - Writes booking + kd_fee_earnings + kd_chip_costs in a single
+    //     db.batch.
     if (action === "retryRefund" && body.id) {
       const bookingId = String(body.id);
       let result;
@@ -1172,7 +1224,6 @@ export async function onRequestPost({ request, env }) {
 
           const totalPaidNum = Number(booking.amount_paid || booking.total) || 0;
           const baseAmountNum = Number(booking.base) || 0;
-          // [NEW POLICY] guest_request = base − CHIP refund fee.
           const refundAmountNum = effectiveCancelType === 'guest_request'
             ? Math.max(0, Math.round((baseAmountNum - CHIP_REFUND_FEE) * 100) / 100)
             : totalPaidNum;
@@ -1231,7 +1282,6 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].statusUpdated = new Date().toISOString();
           }
 
-          // --- Ledger writes (fee earnings + chip costs) ---
           let feeEarningsToWrite = null;
           let feeRecordedAmount = 0;
           let chipCostsToWrite = null;
@@ -1372,153 +1422,191 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ---- Admin: approveHomestay ----
+    // [PHASE 2] DB read-modify-write is now inside the canonical lock.
+    // Cloudinary destroy + email send stay outside the lock (they're
+    // slow and best-effort).
     if (action === "approveHomestay" && body.id) {
+      let locked;
       try {
-        const pendingRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
-        let pending = [];
-        if (pendingRes && pendingRes.data) {
-          try { pending = JSON.parse(pendingRes.data); } catch(e) {
-            return jsonResponse({ error: 'Corrupt pending data' }, 500, request);
+        locked = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const pendingRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
+          let pending = [];
+          if (pendingRes && pendingRes.data) {
+            try { pending = JSON.parse(pendingRes.data); } catch(e) {
+              return { error: 'Corrupt pending data', status: 500 };
+            }
           }
-        }
-        const idx = pending.findIndex(h => String(h.id) === String(body.id));
-        if (idx === -1) {
-          return jsonResponse({ error: 'Pending homestay not found' }, 404, request);
-        }
-        const homestay = pending[idx];
-
-        const verificationPublicIds = collectVerificationPublicIds(homestay);
-
-        const {
-          icImage, icOriginalName, icUploadDate, icPublicId,
-          bankQRImage, bankQROriginalName, bankQRPublicId,
-          pbtLicense, pbtLicensePublicId,
-          ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm, ownerPasswordVersion,
-          ...safeHomestay
-        } = homestay;
-        safeHomestay.approved = true;
-        safeHomestay.verified = true;
-        pending.splice(idx, 1);
-
-        const approvedRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
-        let approved = [];
-        if (approvedRes && approvedRes.data) {
-          try { approved = JSON.parse(approvedRes.data); } catch(e) {
-            return jsonResponse({ error: 'Corrupt approved data' }, 500, request);
+          const idx = pending.findIndex(h => String(h.id) === String(body.id));
+          if (idx === -1) {
+            return { error: 'Pending homestay not found', status: 404 };
           }
-        }
-        approved.push(safeHomestay);
+          const homestay = pending[idx];
 
-        const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
-        let allHomes = [];
-        if (homestaysRes && homestaysRes.data) {
-          try { allHomes = JSON.parse(homestaysRes.data); } catch(e) {}
-        }
-        const hIdx = allHomes.findIndex(h => String(h.id) === String(safeHomestay.id));
-        if (hIdx !== -1) {
-          const cleanHome = { ...allHomes[hIdx] };
-          delete cleanHome.icImage;
-          delete cleanHome.icOriginalName;
-          delete cleanHome.icUploadDate;
-          delete cleanHome.icPublicId;
-          delete cleanHome.bankQRImage;
-          delete cleanHome.bankQROriginalName;
-          delete cleanHome.bankQRPublicId;
-          delete cleanHome.pbtLicense;
-          delete cleanHome.pbtLicensePublicId;
-          delete cleanHome.ownerPasswordHash;
-          delete cleanHome.ownerSalt;
-          delete cleanHome.ownerPasswordAlgorithm;
-          delete cleanHome.ownerPasswordVersion;
-          cleanHome.approved = true;
-          cleanHome.verified = true;
-          allHomes[hIdx] = cleanHome;
-        }
+          const verificationPublicIds = collectVerificationPublicIds(homestay);
 
-        await db.batch([
-          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)').bind('kd_pending', JSON.stringify(pending)),
-          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)').bind('kd_approved', JSON.stringify(approved)),
-          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)').bind('kd_homestays', JSON.stringify(allHomes))
-        ]);
+          const {
+            icImage, icOriginalName, icUploadDate, icPublicId,
+            bankQRImage, bankQROriginalName, bankQRPublicId,
+            pbtLicense, pbtLicensePublicId,
+            ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm, ownerPasswordVersion,
+            ...safeHomestay
+          } = homestay;
+          safeHomestay.approved = true;
+          safeHomestay.verified = true;
+          pending.splice(idx, 1);
 
-        await invalidateOwnerSessionsForHomestay(db, safeHomestay.id);
-
-        let destroyReport = { attempted: 0, succeeded: 0, failed: 0 };
-        if (verificationPublicIds.length > 0) {
-          for (const pid of verificationPublicIds) {
-            const r = await destroyCloudinaryImage(pid, env);
-            destroyReport.attempted++;
-            if (r.success) destroyReport.succeeded++;
-            else destroyReport.failed++;
+          const approvedRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
+          let approved = [];
+          if (approvedRes && approvedRes.data) {
+            try { approved = JSON.parse(approvedRes.data); } catch(e) {
+              return { error: 'Corrupt approved data', status: 500 };
+            }
           }
+          approved.push(safeHomestay);
+
+          const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
+          let allHomes = [];
+          if (homestaysRes && homestaysRes.data) {
+            try { allHomes = JSON.parse(homestaysRes.data); } catch(e) {}
+          }
+          const hIdx = allHomes.findIndex(h => String(h.id) === String(safeHomestay.id));
+          if (hIdx !== -1) {
+            const cleanHome = { ...allHomes[hIdx] };
+            delete cleanHome.icImage;
+            delete cleanHome.icOriginalName;
+            delete cleanHome.icUploadDate;
+            delete cleanHome.icPublicId;
+            delete cleanHome.bankQRImage;
+            delete cleanHome.bankQROriginalName;
+            delete cleanHome.bankQRPublicId;
+            delete cleanHome.pbtLicense;
+            delete cleanHome.pbtLicensePublicId;
+            delete cleanHome.ownerPasswordHash;
+            delete cleanHome.ownerSalt;
+            delete cleanHome.ownerPasswordAlgorithm;
+            delete cleanHome.ownerPasswordVersion;
+            cleanHome.approved = true;
+            cleanHome.verified = true;
+            allHomes[hIdx] = cleanHome;
+          }
+
+          await db.batch([
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)').bind('kd_pending', JSON.stringify(pending)),
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)').bind('kd_approved', JSON.stringify(approved)),
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)').bind('kd_homestays', JSON.stringify(allHomes))
+          ]);
+
+          await invalidateOwnerSessionsForHomestay(db, safeHomestay.id);
+
+          return { safeHomestay, verificationPublicIds };
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another admin operation is in progress. Please try again.' }, 429, request);
         }
-
-        let emailResult = { sent: false, error: 'not attempted' };
-        try {
-          emailResult = await sendApprovalEmail(safeHomestay, env);
-        } catch (mailErr) {
-          console.error('Approval email error:', mailErr.message);
-          emailResult = { sent: false, error: mailErr.message };
-        }
-
-        await logAction({
-          db,
-          action: 'homestay_approved',
-          admin: 'admin',
-          details: `Approved homestay "${safeHomestay.name}" (ID: ${safeHomestay.id}) by ${safeHomestay.ownerName}. Cloudinary destroy: ${destroyReport.succeeded}/${destroyReport.attempted} verified images removed. Email: ${emailResult.sent ? 'sent' : 'failed — ' + (emailResult.error || 'unknown')}.`,
-          ip: clientIP,
-          userId: safeHomestay.ownerEmail,
-          homestayId: safeHomestay.id
-        });
-
-        return jsonResponse({
-          success: true,
-          homestay: safeHomestay,
-          emailSent: emailResult.sent,
-          emailError: emailResult.sent ? undefined : emailResult.error
-        }, 200, request);
-      } catch (approveErr) {
-        console.error('Approve homestay error:', approveErr.message);
-        return jsonResponse({ error: 'Approval failed. Please try again later.' }, 500, request);
+        throw lockErr;
       }
+
+      if (locked.error) {
+        return jsonResponse({ error: locked.error }, locked.status || 400, request);
+      }
+
+      const { safeHomestay, verificationPublicIds } = locked;
+
+      let destroyReport = { attempted: 0, succeeded: 0, failed: 0 };
+      if (verificationPublicIds.length > 0) {
+        for (const pid of verificationPublicIds) {
+          const r = await destroyCloudinaryImage(pid, env);
+          destroyReport.attempted++;
+          if (r.success) destroyReport.succeeded++;
+          else destroyReport.failed++;
+        }
+      }
+
+      let emailResult = { sent: false, error: 'not attempted' };
+      try {
+        emailResult = await sendApprovalEmail(safeHomestay, env);
+      } catch (mailErr) {
+        console.error('Approval email error:', mailErr.message);
+        emailResult = { sent: false, error: mailErr.message };
+      }
+
+      await logAction({
+        db,
+        action: 'homestay_approved',
+        admin: 'admin',
+        details: `Approved homestay "${safeHomestay.name}" (ID: ${safeHomestay.id}) by ${safeHomestay.ownerName}. Cloudinary destroy: ${destroyReport.succeeded}/${destroyReport.attempted} verified images removed. Email: ${emailResult.sent ? 'sent' : 'failed — ' + (emailResult.error || 'unknown')}.`,
+        ip: clientIP,
+        userId: safeHomestay.ownerEmail,
+        homestayId: safeHomestay.id
+      });
+
+      return jsonResponse({
+        success: true,
+        homestay: safeHomestay,
+        emailSent: emailResult.sent,
+        emailError: emailResult.sent ? undefined : emailResult.error,
+        imagesFailed: destroyReport.failed,
+        imagesAttempted: destroyReport.attempted
+      }, 200, request);
     }
 
-    // ---- Admin: rejectHomestay (with email) ----
+    // ---- Admin: rejectHomestay ----
+    // [PHASE 2] DB read-modify-write now inside the canonical lock.
     if (action === "rejectHomestay" && body.id) {
-      const pendingRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
-      let pending = [];
-      if (pendingRes && pendingRes.data) {
-        try { pending = JSON.parse(pendingRes.data); } catch(e) {}
-      }
-      const idx = pending.findIndex(h => String(h.id) === String(body.id));
-      if (idx === -1) {
-        return jsonResponse({ error: 'Pending homestay not found' }, 404, request);
-      }
-      const homestay = pending[idx];
       const reason = String(body.reason || '').slice(0, 500).trim();
 
-      const allPublicIds = collectAllImagePublicIds(homestay);
+      let locked;
+      try {
+        locked = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const pendingRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
+          let pending = [];
+          if (pendingRes && pendingRes.data) {
+            try { pending = JSON.parse(pendingRes.data); } catch(e) {}
+          }
+          const idx = pending.findIndex(h => String(h.id) === String(body.id));
+          if (idx === -1) {
+            return { error: 'Pending homestay not found', status: 404 };
+          }
+          const homestay = pending[idx];
 
-      pending.splice(idx, 1);
+          const allPublicIds = collectAllImagePublicIds(homestay);
 
-      const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
-      let allHomes = [];
-      if (homestaysRes && homestaysRes.data) {
-        try { allHomes = JSON.parse(homestaysRes.data); } catch(e) {}
+          pending.splice(idx, 1);
+
+          const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
+          let allHomes = [];
+          if (homestaysRes && homestaysRes.data) {
+            try { allHomes = JSON.parse(homestaysRes.data); } catch(e) {}
+          }
+          const hIdx = allHomes.findIndex(h => String(h.id) === String(homestay.id));
+          if (hIdx !== -1) {
+            allHomes.splice(hIdx, 1);
+          }
+
+          await db.batch([
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_pending', JSON.stringify(pending)),
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_homestays', JSON.stringify(allHomes))
+          ]);
+
+          await invalidateOwnerSessionsForHomestay(db, homestay.id);
+
+          return { homestay, allPublicIds };
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another admin operation is in progress. Please try again.' }, 429, request);
+        }
+        throw lockErr;
       }
-      const hIdx = allHomes.findIndex(h => String(h.id) === String(homestay.id));
-      if (hIdx !== -1) {
-        allHomes.splice(hIdx, 1);
+
+      if (locked.error) {
+        return jsonResponse({ error: locked.error }, locked.status || 400, request);
       }
 
-      await db.batch([
-        db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_pending', JSON.stringify(pending)),
-        db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_homestays', JSON.stringify(allHomes))
-      ]);
-
-      await invalidateOwnerSessionsForHomestay(db, homestay.id);
+      const { homestay, allPublicIds } = locked;
 
       const emailResult = await sendRejectionEmail(homestay, reason, env);
 
@@ -1547,106 +1635,115 @@ export async function onRequestPost({ request, env }) {
         emailSent: emailResult.sent,
         emailError: emailResult.sent ? undefined : emailResult.error,
         imagesDeleted: destroyReport.succeeded,
-        imagesAttempted: destroyReport.attempted
+        imagesAttempted: destroyReport.attempted,
+        imagesFailed: destroyReport.failed
       }, 200, request);
     }
 
     // ---- Admin: removeApprovedHomestay ----
+    // [PHASE 2] DB read-modify-write now inside the canonical lock.
     if (action === "removeApprovedHomestay" && body.id) {
+      const isDemo = body.isDemo === true;
+
+      let locked;
       try {
-        const isDemo = body.isDemo === true;
-
-        const approvedRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
-        let approved = [];
-        if (approvedRes && approvedRes.data) {
-          try { approved = JSON.parse(approvedRes.data); } catch(e) {
-            return jsonResponse({ error: 'Corrupt approved data' }, 500, request);
+        locked = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const approvedRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
+          let approved = [];
+          if (approvedRes && approvedRes.data) {
+            try { approved = JSON.parse(approvedRes.data); } catch(e) {
+              return { error: 'Corrupt approved data', status: 500 };
+            }
           }
-        }
 
-        const idx = approved.findIndex(h => String(h.id) === String(body.id));
-        if (idx === -1) {
-          return jsonResponse({ error: 'Approved homestay not found' }, 404, request);
-        }
-
-        const removed = approved[idx];
-        approved.splice(idx, 1);
-
-        const allPublicIds = collectAllImagePublicIds(removed);
-
-        const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
-        let allHomes = [];
-        if (homestaysRes && homestaysRes.data) {
-          try { allHomes = JSON.parse(homestaysRes.data); } catch(e) {}
-        }
-        const hIdx = allHomes.findIndex(h => String(h.id) === String(removed.id));
-        if (hIdx !== -1) {
-          allHomes.splice(hIdx, 1);
-        }
-
-        if (isDemo) {
-          const demoRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_deleted_demo').first();
-          let deletedDemo = [];
-          if (demoRes && demoRes.data) {
-            try { deletedDemo = JSON.parse(demoRes.data); } catch(e) {}
+          const idx = approved.findIndex(h => String(h.id) === String(body.id));
+          if (idx === -1) {
+            return { error: 'Approved homestay not found', status: 404 };
           }
-          if (!Array.isArray(deletedDemo)) deletedDemo = [];
-          if (!deletedDemo.includes(String(body.id))) {
-            deletedDemo.push(String(body.id));
+
+          const removed = approved[idx];
+          approved.splice(idx, 1);
+
+          const allPublicIds = collectAllImagePublicIds(removed);
+
+          const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
+          let allHomes = [];
+          if (homestaysRes && homestaysRes.data) {
+            try { allHomes = JSON.parse(homestaysRes.data); } catch(e) {}
           }
-          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-            .bind('kd_deleted_demo', JSON.stringify(deletedDemo))
-            .run();
-        }
-
-        await db.batch([
-          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-            .bind('kd_approved', JSON.stringify(approved)),
-          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-            .bind('kd_homestays', JSON.stringify(allHomes))
-        ]);
-
-        await invalidateOwnerSessionsForHomestay(db, removed.id);
-
-        let destroyReport = { attempted: 0, succeeded: 0, failed: 0 };
-        if (allPublicIds.length > 0) {
-          for (const pid of allPublicIds) {
-            const r = await destroyCloudinaryImage(pid, env);
-            destroyReport.attempted++;
-            if (r.success) destroyReport.succeeded++;
-            else destroyReport.failed++;
+          const hIdx = allHomes.findIndex(h => String(h.id) === String(removed.id));
+          if (hIdx !== -1) {
+            allHomes.splice(hIdx, 1);
           }
+
+          const stmts = [
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_approved', JSON.stringify(approved)),
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_homestays', JSON.stringify(allHomes))
+          ];
+
+          if (isDemo) {
+            const demoRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_deleted_demo').first();
+            let deletedDemo = [];
+            if (demoRes && demoRes.data) {
+              try { deletedDemo = JSON.parse(demoRes.data); } catch(e) {}
+            }
+            if (!Array.isArray(deletedDemo)) deletedDemo = [];
+            if (!deletedDemo.includes(String(body.id))) {
+              deletedDemo.push(String(body.id));
+            }
+            stmts.push(
+              db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+                .bind('kd_deleted_demo', JSON.stringify(deletedDemo))
+            );
+          }
+
+          await db.batch(stmts);
+
+          await invalidateOwnerSessionsForHomestay(db, removed.id);
+
+          return { removed, allPublicIds };
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another admin operation is in progress. Please try again.' }, 429, request);
         }
-
-        await logAction({
-          db,
-          action: 'homestay_removed',
-          admin: 'admin',
-          details: `Removed homestay "${removed.name}" (ID: ${removed.id}) from approved. Cloudinary destroy: ${destroyReport.succeeded}/${destroyReport.attempted} images removed.`,
-          ip: clientIP,
-          userId: removed.ownerEmail,
-          homestayId: removed.id
-        });
-
-        return jsonResponse({ success: true, removed: removed }, 200, request);
-      } catch (removeErr) {
-        console.error('Remove homestay error:', removeErr.message);
-        return jsonResponse({ error: 'Remove failed. Please try again later.' }, 500, request);
+        throw lockErr;
       }
+
+      if (locked.error) {
+        return jsonResponse({ error: locked.error }, locked.status || 400, request);
+      }
+
+      const { removed, allPublicIds } = locked;
+
+      let destroyReport = { attempted: 0, succeeded: 0, failed: 0 };
+      if (allPublicIds.length > 0) {
+        for (const pid of allPublicIds) {
+          const r = await destroyCloudinaryImage(pid, env);
+          destroyReport.attempted++;
+          if (r.success) destroyReport.succeeded++;
+          else destroyReport.failed++;
+        }
+      }
+
+      await logAction({
+        db,
+        action: 'homestay_removed',
+        admin: 'admin',
+        details: `Removed homestay "${removed.name}" (ID: ${removed.id}) from approved. Cloudinary destroy: ${destroyReport.succeeded}/${destroyReport.attempted} images removed.`,
+        ip: clientIP,
+        userId: removed.ownerEmail,
+        homestayId: removed.id
+      });
+
+      return jsonResponse({ success: true, removed: removed }, 200, request);
     }
 
     // ---- Admin: deleteOwner ----
-    // [THIS REVISION]
-    // Now collects every Cloudinary public ID (IC scan, bank QR, PBT
-    // license, property cover photo, and each room photo) from every
-    // listing being removed — approved AND pending — and destroys them
-    // after the database write. This closes the PDPA gap where an
-    // admin-initiated owner deletion left private documents (IC scans,
-    // bank QR codes) sitting in Cloudinary forever.
-    //
-    // The audit log and the API response now report exactly how many
-    // images were destroyed vs failed, so an admin can see at a glance
-    // whether the cleanup succeeded.
+    // [PHASE 2] DB read-modify-write now inside the canonical lock.
+    // Cloudinary destroys run outside the lock (they're slow).
     if (action === "deleteOwner") {
       const ownerId = body.ownerId ? String(body.ownerId) : '';
       const email = body.email ? String(body.email).toLowerCase().trim() : '';
@@ -1656,96 +1753,114 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Owner identifier is required' }, 400, request);
       }
 
-      const approvedRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
-      const pendingRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
-      const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
+      let locked;
+      try {
+        locked = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const approvedRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
+          const pendingRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
+          const homestaysRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_homestays').first();
 
-      let approved = []; try { if (approvedRes?.data) approved = JSON.parse(approvedRes.data); } catch (_) {}
-      let pending = []; try { if (pendingRes?.data) pending = JSON.parse(pendingRes.data); } catch (_) {}
-      let allHomes = []; try { if (homestaysRes?.data) allHomes = JSON.parse(homestaysRes.data); } catch (_) {}
+          let approved = []; try { if (approvedRes?.data) approved = JSON.parse(approvedRes.data); } catch (_) {}
+          let pending = []; try { if (pendingRes?.data) pending = JSON.parse(pendingRes.data); } catch (_) {}
+          let allHomes = []; try { if (homestaysRes?.data) allHomes = JSON.parse(homestaysRes.data); } catch (_) {}
 
-      const initialMatches = [...approved, ...pending].filter(h => {
-        const hId = String(h.id || '');
-        const hEmail = String(h.ownerEmail || '').toLowerCase().trim();
-        const hWa = String(h.whatsapp || '').replace(/[^0-9]/g, '');
-        if (ownerId && hId === ownerId) return true;
-        if (email && hEmail === email) return true;
-        if (whatsapp && hWa === whatsapp) return true;
-        return false;
-      });
+          const initialMatches = [...approved, ...pending].filter(h => {
+            const hId = String(h.id || '');
+            const hEmail = String(h.ownerEmail || '').toLowerCase().trim();
+            const hWa = String(h.whatsapp || '').replace(/[^0-9]/g, '');
+            if (ownerId && hId === ownerId) return true;
+            if (email && hEmail === email) return true;
+            if (whatsapp && hWa === whatsapp) return true;
+            return false;
+          });
 
-      if (initialMatches.length === 0) {
-        return jsonResponse({ error: 'Owner not found' }, 404, request);
+          if (initialMatches.length === 0) {
+            return { error: 'Owner not found', status: 404 };
+          }
+
+          const targetIds = new Set(initialMatches.map(h => String(h.id)));
+          const targetEmails = new Set(
+            initialMatches.map(h => String(h.ownerEmail || '').toLowerCase().trim()).filter(Boolean)
+          );
+          const targetWhatsapps = new Set(
+            initialMatches.map(h => String(h.whatsapp || '').replace(/[^0-9]/g, '')).filter(Boolean)
+          );
+
+          const matches = (h) => {
+            const hId = String(h.id || '');
+            const hEmail = String(h.ownerEmail || '').toLowerCase().trim();
+            const hWa = String(h.whatsapp || '').replace(/[^0-9]/g, '');
+            if (targetIds.has(hId)) return true;
+            if (hEmail && targetEmails.has(hEmail)) return true;
+            if (hWa && targetWhatsapps.has(hWa)) return true;
+            return false;
+          };
+
+          const removedApproved = approved.filter(matches);
+          const removedPending = pending.filter(matches);
+
+          const allPublicIds = new Set();
+          for (const h of [...removedApproved, ...removedPending]) {
+            const ids = collectAllImagePublicIds(h);
+            for (const pid of ids) allPublicIds.add(pid);
+          }
+          const publicIdsList = [...allPublicIds];
+
+          approved = approved.filter(h => !matches(h));
+          pending = pending.filter(h => !matches(h));
+          allHomes = allHomes.filter(h => !matches(h));
+
+          const ownersRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
+          let owners = [];
+          try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch (_) {}
+          const beforeOwnersCount = owners.length;
+          owners = owners.filter(o => {
+            const oId = String(o.id || '');
+            const oEmail = String(o.ownerEmail || '').toLowerCase().trim();
+            const oWa = String(o.whatsapp || '').replace(/[^0-9]/g, '');
+            if (ownerId && oId === ownerId) return false;
+            if (email && oEmail === email) return false;
+            if (whatsapp && oWa === whatsapp) return false;
+            return true;
+          });
+          const removedOwnersCount = beforeOwnersCount - owners.length;
+
+          await db.batch([
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_approved', JSON.stringify(approved)),
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_pending', JSON.stringify(pending)),
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_homestays', JSON.stringify(allHomes)),
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_owners', JSON.stringify(owners))
+          ]);
+
+          for (const h of [...removedApproved, ...removedPending]) {
+            try { await invalidateOwnerSessionsForHomestay(db, h.id); } catch (_) {}
+          }
+
+          return {
+            removedApproved,
+            removedPending,
+            removedOwnersCount,
+            targetIds: [...targetIds],
+            publicIdsList
+          };
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another admin operation is in progress. Please try again.' }, 429, request);
+        }
+        throw lockErr;
       }
 
-      const targetIds = new Set(initialMatches.map(h => String(h.id)));
-      const targetEmails = new Set(
-        initialMatches.map(h => String(h.ownerEmail || '').toLowerCase().trim()).filter(Boolean)
-      );
-      const targetWhatsapps = new Set(
-        initialMatches.map(h => String(h.whatsapp || '').replace(/[^0-9]/g, '')).filter(Boolean)
-      );
-
-      const matches = (h) => {
-        const hId = String(h.id || '');
-        const hEmail = String(h.ownerEmail || '').toLowerCase().trim();
-        const hWa = String(h.whatsapp || '').replace(/[^0-9]/g, '');
-        if (targetIds.has(hId)) return true;
-        if (hEmail && targetEmails.has(hEmail)) return true;
-        if (hWa && targetWhatsapps.has(hWa)) return true;
-        return false;
-      };
-
-      const removedApproved = approved.filter(matches);
-      const removedPending = pending.filter(matches);
-
-      // [THIS REVISION] Collect every Cloudinary public ID from every
-      // listing being removed, before we drop the references.
-      const allPublicIds = new Set();
-      for (const h of [...removedApproved, ...removedPending]) {
-        const ids = collectAllImagePublicIds(h);
-        for (const pid of ids) allPublicIds.add(pid);
-      }
-      const publicIdsList = [...allPublicIds];
-
-      approved = approved.filter(h => !matches(h));
-      pending = pending.filter(h => !matches(h));
-      allHomes = allHomes.filter(h => !matches(h));
-
-      const ownersRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
-      let owners = [];
-      try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch (_) {}
-      const beforeOwnersCount = owners.length;
-      owners = owners.filter(o => {
-        const oId = String(o.id || '');
-        const oEmail = String(o.ownerEmail || '').toLowerCase().trim();
-        const oWa = String(o.whatsapp || '').replace(/[^0-9]/g, '');
-        if (ownerId && oId === ownerId) return false;
-        if (email && oEmail === email) return false;
-        if (whatsapp && oWa === whatsapp) return false;
-        return true;
-      });
-      const removedOwnersCount = beforeOwnersCount - owners.length;
-
-      await db.batch([
-        db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_approved', JSON.stringify(approved)),
-        db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_pending', JSON.stringify(pending)),
-        db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_homestays', JSON.stringify(allHomes)),
-        db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_owners', JSON.stringify(owners))
-      ]);
-
-      for (const h of [...removedApproved, ...removedPending]) {
-        try { await invalidateOwnerSessionsForHomestay(db, h.id); } catch (_) {}
+      if (locked.error) {
+        return jsonResponse({ error: locked.error }, locked.status || 400, request);
       }
 
-      // [THIS REVISION] Destroy every collected Cloudinary image.
-      // Best-effort: a Cloudinary failure NEVER rolls back the DB delete,
-      // because the DB delete is the legally-required action. The report
-      // tells the admin what leaked so they can clean up manually if needed.
+      const { removedApproved, removedPending, removedOwnersCount, targetIds, publicIdsList } = locked;
+
       let destroyReport = { attempted: 0, succeeded: 0, failed: 0, failedIds: [] };
       if (publicIdsList.length > 0) {
         for (const pid of publicIdsList) {
@@ -1775,7 +1890,7 @@ export async function onRequestPost({ request, env }) {
           pending: removedPending.length
         },
         removedOwnerAccounts: removedOwnersCount,
-        removedIds: [...targetIds],
+        removedIds: targetIds,
         imagesDeleted: destroyReport.succeeded,
         imagesAttempted: destroyReport.attempted,
         imagesFailed: destroyReport.failed,
@@ -1784,6 +1899,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ---- Admin: deleteGuest ----
+    // [PHASE 2] DB read-modify-write now inside the canonical lock.
     if (action === "deleteGuest") {
       const guestId = body.guestId ? String(body.guestId) : '';
       const email = body.email ? String(body.email).toLowerCase().trim() : '';
@@ -1792,46 +1908,65 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Guest ID or email is required' }, 400, request);
       }
 
-      const guestRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
-      let guests = [];
-      if (guestRes?.data) { try { guests = JSON.parse(guestRes.data); } catch (_) {} }
+      let locked;
+      try {
+        locked = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const guestRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_guests').first();
+          let guests = [];
+          if (guestRes?.data) { try { guests = JSON.parse(guestRes.data); } catch (_) {} }
 
-      const deleted = guests.find(g =>
-        (guestId && String(g.id) === guestId) ||
-        (email && String(g.email || '').toLowerCase().trim() === email)
-      );
+          const deleted = guests.find(g =>
+            (guestId && String(g.id) === guestId) ||
+            (email && String(g.email || '').toLowerCase().trim() === email)
+          );
 
-      if (!deleted) {
-        return jsonResponse({ error: 'Guest not found' }, 404, request);
+          if (!deleted) {
+            return { error: 'Guest not found', status: 404 };
+          }
+
+          const deletedEmail = String(deleted.email || '').toLowerCase().trim();
+          const deletedId = String(deleted.id || '');
+          const remainingGuests = guests.filter(g => {
+            const sameId = deletedId && String(g.id || '') === deletedId;
+            const sameEmail = deletedEmail && String(g.email || '').toLowerCase().trim() === deletedEmail;
+            return !sameId && !sameEmail;
+          });
+
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_guests', JSON.stringify(remainingGuests)).run();
+
+          return { deletedId, deletedEmail };
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another admin operation is in progress. Please try again.' }, 429, request);
+        }
+        throw lockErr;
       }
 
-      const deletedEmail = String(deleted.email || '').toLowerCase().trim();
-      const deletedId = String(deleted.id || '');
-      const remainingGuests = guests.filter(g => {
-        const sameId = deletedId && String(g.id || '') === deletedId;
-        const sameEmail = deletedEmail && String(g.email || '').toLowerCase().trim() === deletedEmail;
-        return !sameId && !sameEmail;
-      });
-
-      await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_guests', JSON.stringify(remainingGuests)).run();
+      if (locked.error) {
+        return jsonResponse({ error: locked.error }, locked.status || 400, request);
+      }
 
       await logAction({
         db,
         action: 'guest_deleted',
         admin: 'admin',
-        details: `Deleted guest ${deletedEmail || deletedId}`,
+        details: `Deleted guest ${locked.deletedEmail || locked.deletedId}`,
         ip: clientIP,
-        userId: deletedId || deletedEmail
+        userId: locked.deletedId || locked.deletedEmail
       });
 
       return jsonResponse({
         success: true,
-        deleted: { id: deletedId, email: deletedEmail }
+        deleted: { id: locked.deletedId, email: locked.deletedEmail }
       }, 200, request);
     }
 
     // ---- Admin: updateHomestays (bulk sync) ----
+    // [PHASE 2] DB read-modify-write now inside the canonical lock.
+    // [PHASE 2] Field whitelist: any incoming field not in
+    // UPDATABLE_HOMESTAY_FIELDS is stripped before the write.
     if (action === "updateHomestays") {
       const { approved, demoOverrides, demoBlocked, deletedDemo } = body;
 
@@ -1845,76 +1980,108 @@ export async function onRequestPost({ request, env }) {
         }
       }
 
-      const oldApprovedRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
-      let oldApproved = [];
-      try { if (oldApprovedRes?.data) oldApproved = JSON.parse(oldApprovedRes.data); } catch (_) {}
+      let locked;
+      try {
+        locked = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const oldApprovedRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
+          let oldApproved = [];
+          try { if (oldApprovedRes?.data) oldApproved = JSON.parse(oldApprovedRes.data); } catch (_) {}
 
-      const oldById = new Map();
-      for (const h of oldApproved) oldById.set(String(h.id), h);
+          const oldById = new Map();
+          for (const h of oldApproved) oldById.set(String(h.id), h);
 
-      const incomingById = new Map();
-      for (const h of approved) incomingById.set(String(h.id), h);
+          // Whitelist incoming fields before doing anything else.
+          for (const h of approved) {
+            const kept = {};
+            for (const k of UPDATABLE_HOMESTAY_FIELDS) {
+              if (h[k] !== undefined) kept[k] = h[k];
+            }
+            // Preserve the server-managed CHIP bank account cache. It's
+            // cleared below when bank details change; the admin panel
+            // shouldn't be setting it directly.
+            if (h.chip_bank_account_id !== undefined) {
+              kept.chip_bank_account_id = h.chip_bank_account_id;
+            }
+            for (const k of Object.keys(h)) delete h[k];
+            Object.assign(h, kept);
+          }
 
-      let cacheClearedCount = 0;
-      for (const h of approved) {
-        const old = oldById.get(String(h.id));
-        if (!old) continue;
-        const oldCode = (old.bankCode || '').toUpperCase().trim();
-        const oldAcct = (old.ownerBankAccount || '').replace(/[^0-9]/g, '');
-        const oldHolder = (old.bankHolder || '').trim().toLowerCase();
-        const newCode = (h.bankCode || '').toUpperCase().trim();
-        const newAcct = (h.ownerBankAccount || '').replace(/[^0-9]/g, '');
-        const newHolder = (h.bankHolder || '').trim().toLowerCase();
-        const changed = oldCode !== newCode || oldAcct !== newAcct || oldHolder !== newHolder;
-        if (changed) {
-          delete h.chip_bank_account_id;
-          cacheClearedCount++;
+          const incomingById = new Map();
+          for (const h of approved) incomingById.set(String(h.id), h);
+
+          let cacheClearedCount = 0;
+          for (const h of approved) {
+            const old = oldById.get(String(h.id));
+            if (!old) continue;
+            const oldCode = (old.bankCode || '').toUpperCase().trim();
+            const oldAcct = (old.ownerBankAccount || '').replace(/[^0-9]/g, '');
+            const oldHolder = (old.bankHolder || '').trim().toLowerCase();
+            const newCode = (h.bankCode || '').toUpperCase().trim();
+            const newAcct = (h.ownerBankAccount || '').replace(/[^0-9]/g, '');
+            const newHolder = (h.bankHolder || '').trim().toLowerCase();
+            const changed = oldCode !== newCode || oldAcct !== newAcct || oldHolder !== newHolder;
+            if (changed) {
+              delete h.chip_bank_account_id;
+              cacheClearedCount++;
+            }
+          }
+
+          const merged = [];
+          for (const old of oldApproved) {
+            const idKey = String(old.id);
+            if (incomingById.has(idKey)) {
+              merged.push(incomingById.get(idKey));
+              incomingById.delete(idKey);
+            } else {
+              merged.push(old);
+            }
+          }
+          for (const leftover of incomingById.values()) {
+            merged.push(leftover);
+          }
+
+          const stmts = [];
+          stmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_approved', JSON.stringify(merged)));
+
+          if (demoOverrides !== undefined) {
+            stmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_demo_overrides', JSON.stringify(demoOverrides)));
+          }
+          if (demoBlocked !== undefined) {
+            stmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_demo_blocked', JSON.stringify(demoBlocked)));
+          }
+          if (deletedDemo !== undefined) {
+            stmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_deleted_demo', JSON.stringify(deletedDemo)));
+          }
+
+          await db.batch(stmts);
+
+          return { merged, cacheClearedCount, incomingCount: approved.length, oldCount: oldApproved.length };
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another admin operation is in progress. Please try again.' }, 429, request);
         }
+        throw lockErr;
       }
 
-      const merged = [];
-      for (const old of oldApproved) {
-        const idKey = String(old.id);
-        if (incomingById.has(idKey)) {
-          merged.push(incomingById.get(idKey));
-          incomingById.delete(idKey);
-        } else {
-          merged.push(old);
-        }
+      if (locked.error) {
+        return jsonResponse({ error: locked.error }, locked.status || 400, request);
       }
-      for (const leftover of incomingById.values()) {
-        merged.push(leftover);
-      }
-
-      const stmts = [];
-      stmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_approved', JSON.stringify(merged)));
-
-      if (demoOverrides !== undefined) {
-        stmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_demo_overrides', JSON.stringify(demoOverrides)));
-      }
-      if (demoBlocked !== undefined) {
-        stmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_demo_blocked', JSON.stringify(demoBlocked)));
-      }
-      if (deletedDemo !== undefined) {
-        stmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_deleted_demo', JSON.stringify(deletedDemo)));
-      }
-
-      await db.batch(stmts);
 
       await logAction({
         db,
         action: 'homestays_updated',
         admin: 'admin',
-        details: `Merged ${approved.length} incoming homestays against ${oldApproved.length} existing (final: ${merged.length}; cleared cached bank account on ${cacheClearedCount} due to bank-detail change)`,
+        details: `Merged ${locked.incomingCount} incoming homestays against ${locked.oldCount} existing (final: ${locked.merged.length}; cleared cached bank account on ${locked.cacheClearedCount} due to bank-detail change)`,
         ip: clientIP,
         userId: 'admin'
       });
 
-      return jsonResponse({ success: true, approved: merged }, 200, request);
+      return jsonResponse({ success: true, approved: locked.merged }, 200, request);
     }
 
     return jsonResponse({ success: true, message: 'Synced' }, 200, request);
@@ -1982,6 +2149,6 @@ export async function onRequestDelete({ request, env }) {
   return jsonResponse({ success: true, deleted: result.deleted }, 200, request);
 }
 
-export async function onRequestOptions({ request }) {
+export async function onRequestOptions({ request, env }) {
   return new Response(null, { headers: corsHeaders(request) });
 }
