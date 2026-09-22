@@ -513,6 +513,7 @@ document.body.style.overflow = '';
 }
 var API_BASE = "/api";
 var currentGuest = null;
+var homestayImageMap = {};
 function findLocalGuest() {
 try {
 var raw = localStorage.getItem('kd_guest');
@@ -523,6 +524,22 @@ if (!g) return null;
 if (g.id || g.email) return g;
 return null;
 } catch (e) { return null; }
+}
+async function fetchHomestayImageMap() {
+  try {
+    var res = await fetch(API_BASE + '/bookings?view=listings', {
+      credentials: 'include',
+      cache: 'default'
+    });
+    if (!res.ok) return;
+    var data = await res.json();
+    if (!data || !Array.isArray(data.listings)) return;
+    var map = {};
+    data.listings.forEach(function(h) {
+      if (h && h.id && h.image) map[String(h.id)] = h.image;
+    });
+    homestayImageMap = map;
+  } catch (e) { /* silent — placeholder stays */ }
 }
 function renderGuestNav() {
 if (window.GuestSession && typeof window.GuestSession.updateNavDOM === 'function') {
@@ -777,11 +794,15 @@ var roomLine = b.roomName
   : '';
 
 // ---- Cover image fallback chain --------------------------------
-// Best: the specific room the guest booked. Next: homestay cover.
-// Last: placeholder tile rendered by CSS.
+// 1. The specific room the guest booked (if the booking has it).
+// 2. The homestay cover, resolved from /api/bookings?view=listings.
+// 3. Legacy field names, in case an older booking has them.
+// 4. Placeholder tile (🏔️).
 var coverImage = '';
 if (Array.isArray(b.roomImages) && b.roomImages.length > 0 && b.roomImages[0]) {
   coverImage = b.roomImages[0];
+} else if (b.homestayId && homestayImageMap[String(b.homestayId)]) {
+  coverImage = homestayImageMap[String(b.homestayId)];
 } else if (b.homestayImage) {
   coverImage = b.homestayImage;
 } else if (b.image) {
@@ -1125,6 +1146,7 @@ showLoginRequired();
 return;
 }
 fetchGuestCsrfToken();
+await fetchHomestayImageMap();
 loadMyBookings();
 })();
 </script>
