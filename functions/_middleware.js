@@ -12,19 +12,45 @@
 //   ADMIN_BASIC_USER
 //   ADMIN_BASIC_PASS
 //
-// [THIS REVISION]
-// Removed /api/admin-logout from the protected list. That endpoint only
-// clears the admin cookie; it exposes nothing sensitive. Keeping it
-// behind Basic Auth caused the browser to re-prompt for credentials
-// every time an admin clicked Logout (because the logout request itself
-// hit the 401 + WWW-Authenticate wall). The worst anyone can do by
-// calling this endpoint is log themselves out, which they can already
-// do by clearing their cookies. Removing it makes Logout a clean
-// single-step action while keeping the real admin surface protected.
+// [REVISION — 22 Sept 2026 — Phase 3]
+// - http → https redirect is now 308 (was 301). 301 rewrites POST→GET
+//   per RFC and would strip the request body on any http:// POST.
+// - Protected surface is now PREFIX-based for admin APIs:
+//   any path starting with /api/admin- is protected, EXCEPT the two
+//   endpoints below that must remain reachable. Previously only 5
+//   exact paths were listed, so any /api/admin-* endpoint added
+//   later silently bypassed the gate entirely.
+// - /api/admin-login is explicitly EXEMPT. Protecting it was a
+//   chicken-and-egg bug: if the browser ever forgot the cached
+//   Basic Auth creds, the admin could never log back in because the
+//   login endpoint itself demanded Basic Auth first. Rate limiting
+//   on admin-login.js handles brute force.
+// - /api/admin-logout is explicitly EXEMPT. It only clears the admin
+//   cookie; the worst anyone can do by calling it is log themselves out.
+// - /admin.html and its trailing-slash form are both protected.
+//
+// NOTE: /api/payout, /api/retry-payout, /api/withdraw are kept under
+// Basic Auth for now (same as before). Phase 4 will revisit whether
+// those should really be Basic-Auth-gated or cookie-gated.
 
 const PROTECTED_EXACT_PATHS = new Set([
-  '/admin.html',
+  '/admin.html'
+]);
+
+// Any path starting with one of these prefixes is protected,
+// unless it is listed in PROTECTED_EXEMPT below.
+const PROTECTED_PREFIXES = [
+  '/api/admin-'
+];
+
+// Under /api/admin-* but must remain reachable without Basic Auth.
+const PROTECTED_EXEMPT = new Set([
   '/api/admin-login',
+  '/api/admin-logout'
+]);
+
+// Legacy exact paths that were protected before and we keep for now.
+const PROTECTED_LEGACY_PATHS = new Set([
   '/api/payout',
   '/api/retry-payout',
   '/api/withdraw'
@@ -33,18 +59,24 @@ const PROTECTED_EXACT_PATHS = new Set([
 function isProtected(pathname) {
   // Normalise trailing slash so /admin.html/ still matches.
   const clean = pathname.replace(/\/+$/, '') || '/';
-  return PROTECTED_EXACT_PATHS.has(clean);
+
+  if (PROTECTED_EXEMPT.has(clean)) return false;
+  if (PROTECTED_EXACT_PATHS.has(clean)) return true;
+  if (PROTECTED_LEGACY_PATHS.has(clean)) return true;
+
+  for (const prefix of PROTECTED_PREFIXES) {
+    if (clean.startsWith(prefix)) return true;
+  }
+
+  return false;
 }
 
 // Constant-time string comparison using Web Crypto.
-// Returns true only when the two strings are byte-for-byte identical.
 async function timingSafeEqual(a, b) {
   const enc = new TextEncoder();
   const bufA = enc.encode(a);
   const bufB = enc.encode(b);
 
-  // Hash both sides first so the comparison loop always runs the
-  // same number of iterations regardless of input length.
   const hashA = new Uint8Array(
     await crypto.subtle.digest('SHA-256', bufA)
   );
@@ -60,12 +92,10 @@ async function timingSafeEqual(a, b) {
 }
 
 function decodeBasicAuth(headerValue) {
-  // headerValue looks like: "Basic bmljazpzZWNyZXQ="
   if (!headerValue || !headerValue.startsWith('Basic ')) return null;
   const b64 = headerValue.slice(6).trim();
   try {
     const decoded = atob(b64);
-    // Split at the FIRST colon only — passwords may contain colons.
     const colon = decoded.indexOf(':');
     if (colon === -1) return null;
     return {
@@ -94,10 +124,11 @@ export async function onRequest(context) {
   const url = new URL(request.url);
 
   // ---- 1. Force HTTPS -----------------------------------------------
+  // 308 preserves the method and body (301 does not).
   if (url.protocol === 'http:') {
     url.protocol = 'https:';
     return new Response(null, {
-      status: 301,
+      status: 308,
       headers: { Location: url.toString() }
     });
   }
@@ -107,9 +138,6 @@ export async function onRequest(context) {
     const expectedUser = env.ADMIN_BASIC_USER;
     const expectedPass = env.ADMIN_BASIC_PASS;
 
-    // If either secret is missing, refuse to serve admin at all.
-    // This prevents a "fail open" where a misconfigured deploy
-    // accidentally exposes the admin panel to the whole internet.
     if (!expectedUser || !expectedPass) {
       console.error(
         'CRITICAL: ADMIN_BASIC_USER or ADMIN_BASIC_PASS is not set. ' +
