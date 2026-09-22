@@ -9,31 +9,20 @@
 //      CSRF token, UNLESS:
 //        (a) the endpoint is on the pre-auth / server-to-server
 //            allow-list below, OR
-//        (b) an authenticated ADMIN session is present (admins are
-//            protected by HTTP Basic Auth at the root middleware
-//            and their HttpOnly SameSite=Lax cookie).
+//        (b) an authenticated ADMIN session is present.
 //   3. Catch and log any 5xx response or uncaught error to the
 //      kd_errors store, so the admin panel can display them.
 //
-// [THIS REVISION]
-// Added an owner-session fallback to the CSRF gate. Scenario that
-// broke without it:
-//
-//   1. User logs in as a guest. Browser receives guest_token cookie.
-//   2. User registers as a host and verifies email. Browser receives
-//      owner_token cookie. Guest cookie is still present.
-//   3. User visits /list.html or /owner.html. csrf-auto.js sends an
-//      OWNER CSRF token on every mutating request (it picks the token
-//      type from the URL path).
-//   4. The gate above picks the guest session first because it checks
-//      guest before owner. It then validates the owner token against
-//      the guest user ID → mismatch → 403 CSRF_INVALID.
-//
-// The fallback below tries the owner session if the guest session
-// check fails. The token is still signed with SESSION_SECRET and
-// still carries a userId inside it, so a guest token cannot
-// impersonate an owner or vice versa — we only accept the token if
-// it matches one of the two sessions the browser actually holds.
+// [REVISION — 22 Sept 2026 — Phase 3]
+// - CSRF tokens are now session-version-bound. The gate reads the
+//   caller's current session version and passes it into
+//   validateCSRFToken, which requires an exact match. A token issued
+//   before a logout / password change stops working immediately.
+// - HTTPS redirect is now 308 (was 301). 301 rewrites POST → GET per
+//   RFC and strips the request body.
+// - Client IP now trusts only CF-Connecting-IP (matches _utils.js).
+//   X-Forwarded-For is client-controllable if the request ever reaches
+//   us through a non-Cloudflare proxy.
 
 import {
   getGuestSession,
@@ -94,9 +83,9 @@ async function enforceCSRFGate(request, env) {
   if (CSRF_EXEMPT_PATHS.has(clean)) return null;
 
   // ---- 1. ADMIN SESSION BYPASS -------------------------------------------
-  // Admins authenticate via HttpOnly SameSite=Lax cookie + HTTP Basic
-  // Auth at the root middleware. They do not carry a CSRF token.
-  // Check this FIRST so admin actions are never blocked.
+  // Admins authenticate via HttpOnly SameSite=Strict cookie. They do
+  // not carry a CSRF token. Check this FIRST so admin actions are
+  // never blocked.
   try {
     const admin = await getAdminSession(request, env);
     if (admin) return null;
@@ -112,16 +101,27 @@ async function enforceCSRFGate(request, env) {
   }
 
   // ---- 3. Resolve the caller's session(s) --------------------------------
+  // Capture both the user ID and the current session version. The CSRF
+  // token must have been issued under the same session version — so a
+  // token from before a logout/password change cannot be replayed.
   let guestUserId = null;
+  let guestSv = 0;
   try {
     const guest = await getGuestSession(request, env);
-    if (guest && guest.userId) guestUserId = String(guest.userId);
+    if (guest && guest.userId) {
+      guestUserId = String(guest.userId);
+      guestSv = Number(guest.sessionVersion ?? 0);
+    }
   } catch (_) {}
 
   let ownerUserId = null;
+  let ownerSv = 0;
   try {
     const owner = await getOwnerSession(request, env);
-    if (owner && owner.ownerId) ownerUserId = String(owner.ownerId);
+    if (owner && owner.ownerId) {
+      ownerUserId = String(owner.ownerId);
+      ownerSv = Number(owner.ownerSessionVersion ?? 0);
+    }
   } catch (_) {}
 
   if (!guestUserId && !ownerUserId) {
@@ -132,14 +132,11 @@ async function enforceCSRFGate(request, env) {
   }
 
   // ---- 4. Try the token against whichever session(s) are present ---------
-  // Previously this only checked the guest session first and stopped there.
-  // Now we try BOTH sessions so a user who holds two cookies (guest +
-  // owner) is not locked out of host-only pages.
   let ok = false;
 
   if (guestUserId) {
     try {
-      ok = await validateCSRFToken(token, guestUserId, env);
+      ok = await validateCSRFToken(token, guestUserId, env, guestSv);
     } catch (_) {
       ok = false;
     }
@@ -147,7 +144,7 @@ async function enforceCSRFGate(request, env) {
 
   if (!ok && ownerUserId) {
     try {
-      ok = await validateCSRFToken(token, ownerUserId, env);
+      ok = await validateCSRFToken(token, ownerUserId, env, ownerSv);
     } catch (_) {
       ok = false;
     }
@@ -163,7 +160,7 @@ async function enforceCSRFGate(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// Error logging (unchanged)
+// Error logging
 // ---------------------------------------------------------------------------
 function shortenStack(stack) {
   if (!stack || typeof stack !== 'string') return '';
@@ -238,11 +235,11 @@ export async function onRequest(context) {
   const { request, env, next } = context;
   const url = new URL(request.url);
 
-  // 1. Force HTTPS
+  // 1. Force HTTPS. 308 preserves the method and body (301 does not).
   if (url.protocol === 'http:') {
     url.protocol = 'https:';
     return new Response(null, {
-      status: 301,
+      status: 308,
       headers: { Location: url.toString() }
     });
   }
@@ -254,10 +251,8 @@ export async function onRequest(context) {
   // 3. Skip logging for the errors endpoint itself
   if (url.pathname === '/api/admin-errors') return next();
 
-  const clientIP =
-    request.headers.get('CF-Connecting-IP') ||
-    (request.headers.get('X-Forwarded-For') || '').split(',')[0].trim() ||
-    'unknown';
+  // Only trust CF-Connecting-IP (matches _utils.js getClientIP).
+  const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
 
   try {
     const response = await next();
