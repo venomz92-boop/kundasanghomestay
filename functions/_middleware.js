@@ -2,32 +2,41 @@
 //
 // [REVISION — 22 Sept 2026 — Phase 3]
 //
-// Basic Auth gate REMOVED for /admin.html and /api/admin-login.
+// Two changes that fix the "another sign-in keeps popping out" bug:
 //
-// Why:
-//   1. Two admin secrets is a footgun (handoff issue #3). The admin
-//      cookie set by /api/admin-login is now the single source of truth
-//      for admin identity. Every admin API endpoint validates it via
-//      getAdminSession() from _utils.js.
-//   2. The Basic Auth layer on /admin.html caused the browser's native
-//      sign-in dialog to re-prompt unpredictably (page reload after a
-//      delete, new tab, Safari session handling) — the "another sign
-//      in keeps popping out" bug. /admin.html is a static shell that
-//      contains no secrets; all real data comes from authenticated API
-//      calls, so Basic Auth on the shell added zero real security.
-//   3. /api/admin-login behind Basic Auth was a chicken-and-egg bug:
-//      if the browser forgot the cached Basic creds, the admin could
-//      never log back in because the login endpoint demanded Basic
-//      Auth first. admin-login.js has its own per-IP + global rate
-//      limiting to stop brute force.
+//   1. /admin.html and /api/admin-login are NO LONGER behind Basic Auth.
+//      - /admin.html is a static shell; all real data comes from
+//        authenticated API calls. The page itself shows a login form
+//        when there's no admin cookie (see fetchCloudData in admin.html),
+//        so Basic Auth on the shell added zero real security.
+//      - /api/admin-login behind Basic Auth was a chicken-and-egg bug:
+//        if the browser ever forgot the cached Basic creds, the admin
+//        could never log back in.
 //
-// /api/payout, /api/retry-payout, /api/withdraw are still behind Basic
-// Auth for now — they will be reviewed in Phase 4. Do not remove them
-// from the protected list until those files are audited.
+//   2. /api/payout, /api/retry-payout, /api/withdraw now accept a valid
+//      admin cookie (getAdminSession) as an ALTERNATIVE to Basic Auth.
+//      Before: the admin page had a valid cookie but the root middleware
+//      only looked at the Authorization header — so every fetch() from
+//      the admin page to /api/withdraw triggered the browser's native
+//      Basic Auth dialog. That dialog fired on every renderAdmin() call,
+//      which is why it appeared right after every delete / approve /
+//      reject action.
+//
+//      Basic Auth still works for external scripts, cron jobs, and curl.
+//      Phase 4 will audit withdraw.js / payout.js / retry-payout.js and
+//      probably drop Basic Auth entirely.
 //
 // http → https redirect is now 308 (was 301). 301 rewrites POST → GET
-// per RFC and strips the request body on any http:// POST.
+// per RFC and strips the request body.
+//
+// Credentials still come from Cloudflare env vars:
+//   ADMIN_BASIC_USER
+//   ADMIN_BASIC_PASS
 
+import { getAdminSession } from './api/_utils.js';
+
+// Money-out endpoints. These stay under the Basic Auth gate (as a
+// fallback), but a valid admin cookie also satisfies the gate.
 const PROTECTED_EXACT_PATHS = new Set([
   '/api/payout',
   '/api/retry-payout',
@@ -87,6 +96,16 @@ function unauthorized() {
   });
 }
 
+// Try to validate the admin cookie. Fail closed on any error.
+async function hasValidAdminCookie(request, env) {
+  try {
+    const admin = await getAdminSession(request, env);
+    return !!admin;
+  } catch (_) {
+    return false;
+  }
+}
+
 export async function onRequest(context) {
   const { request, env, next } = context;
   const url = new URL(request.url);
@@ -100,9 +119,14 @@ export async function onRequest(context) {
     });
   }
 
-  // ---- 2. Basic Auth gate (money-out endpoints only, Phase 4 will
-  //         revisit whether these should be cookie-gated too) --------
+  // ---- 2. Admin gate (money-out endpoints only) ---------------------
   if (isProtected(url.pathname)) {
+    // Preferred path: valid admin cookie (no popup, no secrets in URL).
+    if (await hasValidAdminCookie(request, env)) {
+      return next();
+    }
+
+    // Fallback path: Basic Auth (for external scripts / curl).
     const expectedUser = env.ADMIN_BASIC_USER;
     const expectedPass = env.ADMIN_BASIC_PASS;
 
