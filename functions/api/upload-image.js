@@ -172,10 +172,10 @@ export async function onRequestPost({ request, env }) {
         publicId: data.public_id,
         folder: folder
       }),
-      { headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders(request), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
     );
   } catch (e) {
-    console.error('Upload error:', e.message, e.stack);
+    console.error('Upload error:', e.message);
     return new Response(
       JSON.stringify({ error: e.message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders(request), 'Content-Type': 'application/json' } }
