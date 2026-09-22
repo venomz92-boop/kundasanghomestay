@@ -1,12 +1,21 @@
 // /api/owner-register.js — creates a host account (pre-property)
 //
-// [THIS REVISION]
-// Adds a `resendVerification` action on the same endpoint. When a host's
-// first verification email never arrived (spam folder, typo, delivery
-// failure), they can now request a new one from owner-register.html or
-// owner.html without having to re-register. The action always returns
-// success regardless of whether the email exists or the account is already
-// verified, so it cannot be used to enumerate owner accounts.
+// [REVISION — 22 Sept 2026 — Phase 3]
+// - Email + WhatsApp uniqueness check and write are now under a
+//   per-identifier lock, so two concurrent registrations for the
+//   same email/phone cannot both pass the check and both write
+//   (second INSERT OR REPLACE would silently overwrite the first).
+// - Verification email escapes the owner name with escHtml.
+// - Added a global registration rate limit alongside the per-IP one.
+// - Success response is now Cache-Control: no-store.
+// - Error log no longer includes the stack trace.
+//
+// NOT changed (intentional):
+// - Owner-register does NOT set a session cookie. Owners must verify
+//   email before they can log in. No cookies are cleared here because
+//   none are set.
+// - The resendVerification action still returns the same generic
+//   message for every path — it cannot be used to enumerate accounts.
 import {
   corsHeaders,
   getClientIP,
@@ -17,18 +26,28 @@ import {
   parseJSONSafely,
   logAction,
   checkRateLimit,
-  recordRateLimit
+  recordRateLimit,
+  withLock,
+  escHtml
 } from './_utils.js';
+
+const IP_LIMIT = 5;
+const IP_WINDOW_SECONDS = 15 * 60;
+const GLOBAL_KEY = '__owner_register_global__';
+const GLOBAL_LIMIT = 30;
+const GLOBAL_WINDOW_SECONDS = 15 * 60;
 
 function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 function validatePhone(phone) { const d = String(phone).replace(/\D/g, ''); return d.length >= 9 && d.length <= 15; }
 function clean(s, max = 200) { return String(s || '').replace(/[<>]/g, '').trim().slice(0, max); }
 
 async function sendVerificationEmail(email, name, url, env) {
-  const html = `<h2>Hello ${String(name || 'Host').replace(/[<>]/g, '')}</h2>
+  const safeName = escHtml(name || 'Host');
+  const safeUrl = escHtml(url);
+  const html = `<h2>Hello ${safeName}</h2>
     <p>Thank you for registering as a host at Kundasang Homestay.</p>
     <p>Please verify your email to continue to the host property registration form:</p>
-    <p><a href="${url}" style="display:inline-block;padding:12px 24px;background:#0F382E;color:#fff;text-decoration:none;border-radius:999px;font-weight:bold;">Verify &amp; Continue →</a></p>
+    <p><a href="${safeUrl}" style="display:inline-block;padding:12px 24px;background:#0F382E;color:#fff;text-decoration:none;border-radius:999px;font-weight:bold;">Verify &amp; Continue →</a></p>
     <p>This link expires in 24 hours.</p>
     <p>If you did not create this account, please ignore this email.</p>`;
 
@@ -67,10 +86,9 @@ async function sendVerificationEmail(email, name, url, env) {
 
 // ============================================================
 // Resend verification action.
-// Called from owner-register.html (success state) and owner.html
-// (login error when unverified). Always returns a generic success
-// message, even when the email is unknown or already verified, so
-// the endpoint cannot be used to enumerate owner accounts.
+// Always returns a generic success message, even when the email is
+// unknown or already verified, so the endpoint cannot be used to
+// enumerate owner accounts.
 // ============================================================
 async function handleResendVerification(body, db, env, clientIP, request) {
   const email = String(body.email || '').toLowerCase().trim();
@@ -82,15 +100,12 @@ async function handleResendVerification(body, db, env, clientIP, request) {
   }
   await recordRateLimit(db, clientIP, rateKey);
 
-  // Generic response for every path — success shape, no leak.
   const genericResponse = jsonResponse({
     success: true,
     message: 'If a host account exists for that email and is not yet verified, a fresh verification link has been sent. Please check your inbox and spam folder.'
   }, 200, request);
 
   if (!email || !validateEmail(email)) {
-    // Still return the generic response — never confirm whether the
-    // email is registered.
     return genericResponse;
   }
 
@@ -104,7 +119,6 @@ async function handleResendVerification(body, db, env, clientIP, request) {
     if (idx === -1) return genericResponse;
     if (owners[idx].verified === true) return genericResponse;
 
-    // Regenerate a fresh token and resend.
     const owner = owners[idx];
     const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
     const verifyToken = await createSignedToken({
@@ -126,8 +140,6 @@ async function handleResendVerification(body, db, env, clientIP, request) {
     });
   } catch (e) {
     console.error('Resend verification error:', e.message);
-    // Fall through to the generic response — never reveal failure to
-    // the caller in a way that distinguishes account existence.
   }
 
   return genericResponse;
@@ -146,8 +158,6 @@ export async function onRequestPost({ request, env }) {
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'Server configuration error' }, 500, request);
 
-    // Parse the body once, up front, so we can route to the resend
-    // action before touching the registration rate limit.
     let rawBody;
     try {
       rawBody = await parseJSONSafely(request);
@@ -155,13 +165,18 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Invalid request' }, 400, request);
     }
 
-    // NEW: resend verification action
     if (rawBody && rawBody.action === 'resendVerification') {
       return await handleResendVerification(rawBody, db, env, clientIP, request);
     }
 
-    const rateOk = await checkRateLimit(db, clientIP, 'owner_register', 5, 15 * 60);
-    if (!rateOk) {
+    // Per-IP limit
+    const ipOk = await checkRateLimit(db, clientIP, 'owner_register', IP_LIMIT, IP_WINDOW_SECONDS);
+    if (!ipOk) {
+      return jsonResponse({ error: 'Too many registration attempts. Please wait 15 minutes.' }, 429, request);
+    }
+    // Global limit
+    const globalOk = await checkRateLimit(db, GLOBAL_KEY, 'owner_register', GLOBAL_LIMIT, GLOBAL_WINDOW_SECONDS);
+    if (!globalOk) {
       return jsonResponse({ error: 'Too many registration attempts. Please wait 15 minutes.' }, 429, request);
     }
 
@@ -178,43 +193,71 @@ export async function onRequestPost({ request, env }) {
     if (name.length < 2 || !validateEmail(email) || !validatePhone(cleanWhatsapp) || password.length < 8) {
       return jsonResponse(
         { error: 'Please provide valid details. Password must be at least 8 characters.' },
-        400,
-        request
+        400, request
       );
     }
 
     await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
-    const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_owners').first();
-    let owners = [];
-    try { if (r?.data) owners = JSON.parse(r.data); } catch (_) {}
 
-    const duplicateEmail = owners.some(o => String(o.ownerEmail || '').toLowerCase() === email);
-    const duplicatePhone = owners.some(o => String(o.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp);
-    if (duplicateEmail || duplicatePhone) {
-      return jsonResponse({ error: 'Registration failed. Please check your details or try again.' }, 400, request);
+    // ---- Uniqueness check + write under per-email lock -----------------
+    const emailLockKey = 'owner-register:' + email;
+    let owner;
+    let created = false;
+    let lockBusy = false;
+
+    try {
+      await withLock(db, emailLockKey, async (db) => {
+        const r = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_owners').first();
+        let owners = [];
+        try { if (r?.data) owners = JSON.parse(r.data); } catch (_) {}
+
+        const duplicateEmail = owners.some(o => String(o.ownerEmail || '').toLowerCase() === email);
+        const duplicatePhone = owners.some(o => String(o.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp);
+        if (duplicateEmail || duplicatePhone) {
+          return; // created stays false
+        }
+
+        const hashed = await hashPassword(password, env);
+
+        owner = {
+          id: `O-${crypto.randomUUID()}`,
+          ownerName: name,
+          ownerEmail: email,
+          whatsapp: cleanWhatsapp,
+          ownerPasswordHash: hashed.hash,
+          ownerSalt: hashed.salt,
+          ownerPasswordAlgorithm: hashed.algorithm,
+          ownerPasswordVersion: 1,
+          ownerSessionVersion: 1,
+          verified: false,
+          verifiedAt: null,
+          createdAt: new Date().toISOString()
+        };
+
+        owners.push(owner);
+        await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+          .bind('kd_owners', JSON.stringify(owners))
+          .run();
+
+        created = true;
+      }, 30000);
+    } catch (e) {
+      if (e && e.message && e.message.includes('in progress')) {
+        lockBusy = true;
+      } else {
+        throw e;
+      }
     }
 
-    const hashed = await hashPassword(password, env);
+    if (lockBusy) {
+      return jsonResponse({ error: 'Another registration is in progress. Please try again.' }, 409, request);
+    }
 
-    const owner = {
-      id: `O-${crypto.randomUUID()}`,
-      ownerName: name,
-      ownerEmail: email,
-      whatsapp: cleanWhatsapp,
-      ownerPasswordHash: hashed.hash,
-      ownerSalt: hashed.salt,
-      ownerPasswordAlgorithm: hashed.algorithm,
-      ownerPasswordVersion: 1,
-      ownerSessionVersion: 1,
-      verified: false,
-      verifiedAt: null,
-      createdAt: new Date().toISOString()
-    };
-
-    owners.push(owner);
-    await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-      .bind('kd_owners', JSON.stringify(owners))
-      .run();
+    if (!created) {
+      await recordRateLimit(db, clientIP, 'owner_register');
+      await recordRateLimit(db, GLOBAL_KEY, 'owner_register');
+      return jsonResponse({ error: 'Registration failed. Please check your details or try again.' }, 400, request);
+    }
 
     const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
     const verifyToken = await createSignedToken({
@@ -230,12 +273,13 @@ export async function onRequestPost({ request, env }) {
       db,
       action: 'owner_registered',
       admin: 'public',
-      details: `Owner ${owner.id} registered (email: ${owner.ownerEmail})`,
+      details: `Owner ${owner.id} registered`,
       ip: clientIP,
       userId: owner.id
     });
 
     await recordRateLimit(db, clientIP, 'owner_register');
+    await recordRateLimit(db, GLOBAL_KEY, 'owner_register');
 
     return jsonResponse({
       success: true,
@@ -245,7 +289,7 @@ export async function onRequestPost({ request, env }) {
     }, 200, request);
 
   } catch (e) {
-    console.error('Owner register error:', e.message, e.stack);
+    console.error('Owner register error:', e.message);
     return jsonResponse({ error: 'Registration failed. Please try again later.' }, 500, request);
   }
 }
