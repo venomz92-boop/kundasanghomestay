@@ -471,6 +471,28 @@ export async function onRequestGet({ request, env }) {
     const url = new URL(request.url);
     const forceAdminView = url.searchParams.get('view') === 'admin' && isAdmin;
 
+    // [NEW] Lightweight public listing endpoint — used by mybookings.html
+    // to resolve homestay cover images for guest booking cards. Returns
+    // only id/name/image, which is the same public info already shown on
+    // the homepage listing cards. No auth or CSRF required.
+    if (url.searchParams.get('view') === 'listings') {
+      const approvedRes = await db.prepare('SELECT data FROM store WHERE key = ?')
+        .bind('kd_approved').first();
+      let approvedList = [];
+      try { if (approvedRes?.data) approvedList = JSON.parse(approvedRes.data); } catch (_) {}
+      const listings = approvedList
+        .filter(h => h && h.approved === true)
+        .map(h => ({
+          id: h.id,
+          name: h.name,
+          image: h.image || (Array.isArray(h.images) && h.images[0]) || ''
+        }))
+        .filter(h => h.image);
+      return jsonResponse({ listings }, 200, request, {
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=600'
+      });
+    }
+    
     // Load only what each branch actually needs.
     //   - Guest branch: only bookings.
     //   - Admin branch: everything.
