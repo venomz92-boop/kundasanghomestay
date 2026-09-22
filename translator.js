@@ -1,31 +1,17 @@
 /* ============================================================
-   Kundasang Homestay — Free Auto-Translator (client-side)
-   ------------------------------------------------------------
-   Engine : Google "gtx" public endpoint (free, no API key) —
-            the same neural translations as translate.google.com,
-            so accuracy for MS / 中文 / 日本語 / 한국어 ↔ EN is
-            best-in-class at RM0.
-   Behaviour:
-     - Floating 🌐 pill (sits above the mobile bottom nav).
-     - Translates visible text only — never scripts, styles,
-       inputs, selects, or price/ID-only strings.
-     - Caches every segment in localStorage → repeat visits are
-       instant and make zero network calls.
-     - MutationObserver auto-translates content injected later
-       (listing grid, detail modal, booking summary, toasts).
-     - Switching back to English restores originals in place,
-       without a reload (safe mid-booking).
-   Protect any element: add class="notranslate" to it.
-   Upgrade path (official SLA / unlimited volume):
-     CONFIG.mode = 'libre' + self-hosted LibreTranslate (free),
-     or an Azure Translator proxy (free 2M chars/month).
+   Kundasang Homestay — Free Auto-Translator v2 (CSP-safe)
+   - Primary engine: same-origin proxy /api/translate (never
+     blocked by Content-Security-Policy connect-src).
+   - Fallback: direct Google gtx endpoint (works only if your
+     CSP allows connect-src https://translate.googleapis.com).
+   - NEVER fails silently: shows a toast + console error.
    ============================================================ */
 (function () {
   'use strict';
 
   var CONFIG = {
-    mode: 'gtx',                 // 'gtx' | 'libre'
-    libreUrl: '',                // e.g. 'https://translate.yourdomain.com'
+    mode: 'auto',                 // 'auto' | 'proxy' | 'gtx'
+    proxyUrl: '/api/translate',   // same-origin proxy (see server snippet)
     languages: [
       ['en',    'English'],
       ['ms',    'Bahasa Melayu'],
@@ -33,13 +19,15 @@
       ['ja',    '日本語'],
       ['ko',    '한국어']
     ],
-    batchSize: 80                // text segments per request
+    batchSize: 80
   };
 
   var LANG_KEY  = 'kd_lang';
-  var CACHE_KEY = 'kd_tr_cache_v1';
+  var CACHE_KEY = 'kd_tr_cache_v2';
   var current   = localStorage.getItem(LANG_KEY) || 'en';
   var cache     = readCache();
+  var proxyBroken = false;        // set true after first proxy 404/network error
+  var errorShown  = false;
 
   function readCache() {
     try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; }
@@ -47,6 +35,22 @@
   }
   function saveCache() {
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch (e) {}
+  }
+
+  /* ---------- visible error toast (never fail silently) ---------- */
+  function showError(msg) {
+    console.error('[translator] ' + msg);
+    if (errorShown) return;
+    errorShown = true;
+    var t = document.createElement('div');
+    t.style.cssText =
+      'position:fixed;left:50%;bottom:100px;transform:translateX(-50%);z-index:99999;' +
+      'background:#b91c1c;color:#fff;padding:12px 20px;border-radius:999px;' +
+      'font:600 12px Poppins,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3);' +
+      'max-width:calc(100vw - 32px);text-align:center;';
+    t.textContent = 'Translation unavailable: ' + msg;
+    document.body.appendChild(t);
+    setTimeout(function () { t.remove(); }, 6000);
   }
 
   /* ---------- floating language pill ---------- */
@@ -83,6 +87,7 @@
     sel.value = current;
     sel.addEventListener('change', function () {
       current = sel.value;
+      errorShown = false;
       localStorage.setItem(LANG_KEY, current);
       document.documentElement.lang = current;
       if (current === 'en') restoreAll(); else translatePage(document.body);
@@ -106,40 +111,59 @@
   function isTranslatable(t) {
     var s = t.trim();
     if (!s || s.length < 2) return false;
-    // skip pure numbers / prices / dates / symbols (no letters at all)
     if (!/[a-zA-Z\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(s)) return false;
     return true;
   }
   function collectBatch(root) {
     var nodes = [], texts = [];
     walk(root, function (n) {
-      if (n.__kdOrig != null) return;              // already translated
+      if (n.__kdOrig != null) return;
       if (!isTranslatable(n.nodeValue)) return;
       nodes.push(n); texts.push(n.nodeValue.trim());
     });
     return { nodes: nodes, texts: texts };
   }
 
-  /* ---------- translation engine ---------- */
-  function fetchTranslations(texts) {
-    var q = texts.join('\n');
-    if (CONFIG.mode === 'libre' && CONFIG.libreUrl) {
-      return fetch(CONFIG.libreUrl + '/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q: q, source: 'auto', target: current, format: 'text' })
-      }).then(function (r) { return r.json(); })
-        .then(function (d) { return String(d.translatedText || '').split('\n'); });
-    }
-    var url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' +
-              encodeURIComponent(current) + '&dt=t&q=' + encodeURIComponent(q);
-    return fetch(url).then(function (res) {
-      if (!res.ok) throw new Error('translate http ' + res.status);
-      return res.json();
-    }).then(function (data) {
+  /* ---------- engines ---------- */
+  function parseGoogleShape(data) {
+    if (Array.isArray(data)) {                 // Google gtx shape
       var joined = '';
       (data[0] || []).forEach(function (seg) { joined += seg[0] || ''; });
       return joined.split('\n');
+    }
+    if (data && typeof data.translatedText === 'string') {  // Libre shape
+      return data.translatedText.split('\n');
+    }
+    return null;
+  }
+
+  function viaProxy(q) {
+    return fetch(CONFIG.proxyUrl + '?tl=' + encodeURIComponent(current) + '&q=' + encodeURIComponent(q))
+      .then(function (r) {
+        if (r.status === 404) { proxyBroken = true; throw new Error('proxy-missing'); }
+        if (!r.ok) throw new Error('proxy http ' + r.status);
+        return r.json();
+      })
+      .then(parseGoogleShape);
+  }
+
+  function viaGtx(q) {
+    var url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' +
+              encodeURIComponent(current) + '&dt=t&q=' + encodeURIComponent(q);
+    return fetch(url)
+      .then(function (r) { if (!r.ok) throw new Error('gtx http ' + r.status); return r.json(); })
+      .then(parseGoogleShape);
+  }
+
+  function fetchTranslations(texts) {
+    var q = texts.join('\n');
+    if (CONFIG.mode === 'proxy') return viaProxy(q);
+    if (CONFIG.mode === 'gtx')   return viaGtx(q);
+    // auto: proxy first (CSP-safe), fall back to direct Google
+    if (proxyBroken) return viaGtx(q);
+    return viaProxy(q).catch(function (e) {
+      if (e && e.message === 'proxy-missing') return viaGtx(q);
+      return viaGtx(q);
     });
   }
 
@@ -153,7 +177,6 @@
     var payload = missing.map(function (m) { return m[0]; });
     return fetchTranslations(payload).then(function (results) {
       if (!results || results.length !== payload.length) {
-        // Batch shape mismatch → safe per-segment fallback, this batch only
         return payload.reduce(function (chain, text, k) {
           return chain.then(function () {
             return fetchTranslations([text]).then(function (r) {
@@ -190,13 +213,13 @@
               if (n.__kdOrig == null) n.__kdOrig = n.nodeValue;
               n.nodeValue = n.nodeValue.replace(n.nodeValue.trim(), res[idx]);
             });
-          }).catch(function (e) {
-            console.warn('[translator] batch failed — staying in current text', e);
           });
         });
       })(i);
     }
-    return chain;
+    return chain.catch(function (e) {
+      showError((e && e.message) || 'translation request failed');
+    });
   }
 
   function restoreAll() {
@@ -223,8 +246,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
-  window.addEventListener('load', function () {
-    if (current !== 'en') translatePage(document.body);
-  });
   window.kdRetranslate = function () { return translatePage(document.body); };
 })();
