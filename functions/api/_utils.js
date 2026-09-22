@@ -1472,10 +1472,11 @@ export async function finalizeAndNotify(db, bookingId, env, ctx = {}) {
   }
 
   if (fr.refuseFinalize) {
-    result.outcome = 'refused';
-    result.booking = fr.booking;
-    result.refundResult = lockResult.refundResult || { error: 'refund not attempted' };
-    return result;
+  result.outcome = 'refused';
+  result.booking = fr.booking;
+  result.refundResult = lockResult.refundResult || { error: 'refund not attempted' };
+  result.refuseReason = fr.reason || null;
+  return result;
   }
 
   if (fr.alreadyFinalized) {
