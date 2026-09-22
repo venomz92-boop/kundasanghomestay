@@ -1,35 +1,23 @@
 // /api/delete-account.js
 //
-// Self-service account deletion. Guests and owners can each delete their
-// own account. This satisfies the PDPA 2010 right to have personal data
-// erased.
+// [REVISION — 22 Sept 2026 — Phase 3]
+// - validateCSRFToken now receives the caller's session version.
+//   Guest uses session.sessionVersion; owner uses session.ownerSessionVersion.
+//   Without this, every delete-account attempt returned 403 after the
+//   session-bound CSRF change shipped.
+// - Success responses are now Cache-Control: no-store.
+// - Error log no longer includes the stack trace.
 //
-// Safety rules:
-//   - Requires an active session for the account type being deleted.
-//   - Requires the user's CURRENT password (final confirmation).
-//   - Requires the literal string "DELETE" in confirmPhrase.
-//   - Requires a valid CSRF token.
-//   - REFUSES if there are any active paid bookings (upcoming stays or
-//     in-flight payouts) on the account or its listings.
-//
-// What happens on success:
-//   Guest:
-//     - Record removed from kd_guests.
-//     - Their past bookings are kept for accounting but every PII field
-//       is blanked (name/email/phone), and guestId is replaced with
-//       "DELETED-<timestamp>".
-//     - Session cookie cleared.
-//     - Confirmation email sent.
-//   Owner:
-//     - Record removed from kd_owners.
-//     - All their listings removed from kd_approved, kd_pending, and
-//       kd_homestays.
-//     - All Cloudinary images belonging to those listings destroyed
-//       (verification docs, room photos, listing cover photos).
-//     - Any bookings they made as a guest are anonymised.
-//     - Session cookie cleared.
-//     - Confirmation email sent.
-
+// NOT changed (intentional):
+// - Bookings for the deleted account are already anonymised in place
+//   (name/email/phone blanked, guestId replaced with DELETED-<ts>).
+//   This file satisfies PDPA right-to-erasure for the account itself;
+//   the admin deleteGuest / deleteOwner actions in bookings.js are
+//   separate and still leave PII in bookings (Phase 4 policy item).
+// - Guest deletion clears guest_token only (not owner_token/admin_token).
+//   Owner deletion clears owner_token only. One-browser-one-identity
+//   does not apply to self-delete; we don't want to log them out of an
+//   unrelated identity.
 import {
   corsHeaders,
   getClientIP,
@@ -46,7 +34,7 @@ import {
   sha256
 } from './_utils.js';
 
-// ---------- Cloudinary destroy (copied so this file has no cross-file deps) ----------
+// ---------- Cloudinary destroy (self-contained) ----------
 
 async function destroyCloudinaryImage(publicId, env) {
   if (!publicId || typeof publicId !== 'string') return { skipped: true };
@@ -152,7 +140,7 @@ function collectAllImagePublicIds(h) {
 
 async function sendDeletionConfirmation(email, name, userType, env) {
   if (!email) return false;
-  const safeName = String(name || '').replace(/[<>]/g, '');
+  const safeName = String(name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   const isOwner = userType === 'owner';
 
   const html = `
@@ -247,23 +235,26 @@ export async function onRequestPost({ request, env }) {
     // ---- Auth ----
     let session;
     let sessionUserId;
+    let sessionVersion = 0;
     if (userType === 'guest') {
       session = await getGuestSession(request, env);
       if (!session || session.type !== 'guest') {
         return jsonResponse({ error: 'Authentication required' }, 401, request);
       }
       sessionUserId = session.userId;
+      sessionVersion = Number(session.sessionVersion ?? 0);
     } else {
       session = await getOwnerSession(request, env);
       if (!session || session.type !== 'owner') {
         return jsonResponse({ error: 'Authentication required' }, 401, request);
       }
       sessionUserId = session.ownerId;
+      sessionVersion = Number(session.ownerSessionVersion ?? 0);
     }
 
-    // ---- CSRF ----
+    // ---- CSRF (session-version bound) ----
     const csrf = getCSRFToken(request);
-    if (!csrf || !(await validateCSRFToken(csrf, sessionUserId, env))) {
+    if (!csrf || !(await validateCSRFToken(csrf, sessionUserId, env, sessionVersion))) {
       return jsonResponse({ error: 'Invalid security token' }, 403, request);
     }
 
@@ -292,7 +283,6 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Incorrect password' }, 401, request);
       }
 
-      // Refuse if there are upcoming paid bookings the guest still needs to attend.
       const br = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
       let bookings = [];
       try { if (br?.data) bookings = JSON.parse(br.data); } catch (_) {}
@@ -347,6 +337,7 @@ export async function onRequestPost({ request, env }) {
         status: 200,
         headers: {
           ...corsHeaders(request),
+          'Cache-Control': 'no-store',
           'Set-Cookie': clearCookieHeader('guest_token')
         }
       });
@@ -405,12 +396,10 @@ export async function onRequestPost({ request, env }) {
       if (hWa && hWa === cleanWa) myHomestayIds.add(String(h.id));
     });
 
-    // Refuse if any of their properties has an active booking or in-flight payout.
     const blockingBookings = bookings.filter(b => {
       if (!myHomestayIds.has(String(b.homestayId))) return false;
       const s = String(b.status || '');
       if (s === 'Paid - Awaiting Check-in') return true;
-      // In-flight payout: attempt marker set, no success yet
       if (b.payoutAttemptedAt && !b.payoutSuccessDate && !b.payoutUnknown) return true;
       return false;
     });
@@ -464,7 +453,6 @@ export async function onRequestPost({ request, env }) {
         .bind('kd_bookings', JSON.stringify(anonymizedBookings))
     ]);
 
-    // Best-effort Cloudinary cleanup — never rolls back the deletion.
     let destroyed = 0;
     let destroyFailed = 0;
     for (const pid of allPublicIds) {
@@ -491,12 +479,13 @@ export async function onRequestPost({ request, env }) {
       status: 200,
       headers: {
         ...corsHeaders(request),
+        'Cache-Control': 'no-store',
         'Set-Cookie': clearCookieHeader('owner_token')
       }
     });
 
   } catch (e) {
-    console.error('Delete account error:', e.message, e.stack);
+    console.error('Delete account error:', e.message);
     return jsonResponse({ error: 'Could not delete account. Please contact support@kundasanghomestay.my.' }, 500, request);
   }
 }
