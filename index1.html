@@ -1658,7 +1658,7 @@ showLockedModal(
 '<div style="font-size:14px;color:#4b5563;line-height:1.65;">Creating your booking and preparing your FPX payment.<br><strong>Please wait — do not close this page.</strong></div>' +
 '</div>'
 );
-var bookingId = "KDH-" + crypto.randomUUID().slice(0,8).toUpperCase();
+var bookingId = "KDH-" + (crypto.getRandomValues(new Uint32Array(1))[0] % 1000000);
 var roomId = window._bookingRoom ? window._bookingRoom.id : null;
 var draft = {
 id: bookingId,
