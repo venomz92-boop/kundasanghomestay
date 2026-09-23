@@ -52,6 +52,7 @@ import {
   invalidateOwnerSessionsForHomestay,
   computeCancellationTier,
   computeNonTierAmounts,
+  NON_TIER_CANCEL_TYPES,
   sweepNoShows,
   sendNonTierCancellationEmail,
   sendNonTierHostNotice,
@@ -1303,8 +1304,11 @@ export async function onRequestPost({ request, env }) {
           }
 
           const status = String(booking.status || '');
+          // "Refund Failed" is included so a failed 🟣 emergency refund
+          // can be retried — its status contains neither "refund
+          // pending" nor "cancelled by host", so it used to be refused.
           const isRefundableState =
-            /refund pending|refund_pending|Refund Pending/i.test(status) ||
+            /refund pending|refund_pending|refund failed|refund_failed/i.test(status) ||
             (/cancelled by host/i.test(status) && !booking.chip_refund_id);
           if (!isRefundableState) {
             return {
@@ -1333,9 +1337,20 @@ export async function onRequestPost({ request, env }) {
           // applied — wrong in all three cases, and this is the tool used
           // when a CHIP refund fails mid-outage. Work the correct figure
           // out, and REFUSE rather than guess if we cannot.
+          //
+          // The non-tier outcomes (⚪🟣🔵) have their own amounts too, and
+          // they are NOT the full amount paid — a 🟣 emergency refunds
+          // half the room price, not everything.
+          const ntAmounts = NON_TIER_CANCEL_TYPES.includes(storedCancelType)
+            ? computeNonTierAmounts(booking, storedCancelType)
+            : null;
+
           let refundAmountNum;
           let refundSource;
-          if (effectiveCancelType !== 'guest_request') {
+          if (ntAmounts) {
+            refundAmountNum = ntAmounts.guestAmount;
+            refundSource = `policy amount for ${storedCancelType}`;
+          } else if (effectiveCancelType !== 'guest_request') {
             refundAmountNum = totalPaidNum;
             refundSource = 'host_own full refund';
           } else {
@@ -1379,12 +1394,16 @@ export async function onRequestPost({ request, env }) {
             };
           }
 
-          const feeRetainedNum = Math.max(0, Math.round((totalPaidNum - refundAmountNum) * 100) / 100);
+          // A no-show keeps only the fees; the rest of the room price
+          // goes to the host, so "totalPaid − refund" would be wrong here.
+          const feeRetainedNum = ntAmounts
+            ? ntAmounts.platformKeeps
+            : Math.max(0, Math.round((totalPaidNum - refundAmountNum) * 100) / 100);
 
           if (refundAmountNum <= 0) {
             return {
-              error: refundSource === 'recorded tier C'
-                ? 'This booking was cancelled at Tier C, where nothing is due to the guest. There is no refund to retry.'
+              error: refundSource === 'recorded tier C' || storedCancelType === 'no_show'
+                ? 'Nothing is due to the guest on this booking, so there is no refund to retry.'
                 : 'Computed refund amount is zero or negative. Cannot refund.',
               status: 400
             };
@@ -1651,15 +1670,27 @@ export async function onRequestPost({ request, env }) {
           const refundError = refund.error || null;
           const stamp = new Date().toISOString();
 
+          // A successful retry must not flatten a ⚪🟣🔵 outcome to plain
+          // "Refunded" — that would lose the fact it was a no-show or a
+          // force-majeure cancellation, and the host's payout context
+          // with it.
+          const TERMINAL_STATUS_BY_TYPE = {
+            no_show: 'No-Show - Nothing Due',
+            emergency_no_show: 'No-Show - Emergency Approved',
+            platform: 'Cancelled by Platform'
+          };
+
           if (refundData) {
             const isPending = refundData.status === 'pending_refund';
-            bookings[idx].status = isPending
-              ? 'No-Show - Emergency Approved (Refund Pending)'
-              : 'No-Show - Emergency Approved';
+            const typedTerminal = TERMINAL_STATUS_BY_TYPE[storedCancelType];
+            bookings[idx].status = typedTerminal
+              ? (isPending ? typedTerminal + ' (Refund Pending)' : typedTerminal)
+              : (isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded');
             bookings[idx].chip_refund_id = refundData.id;
-            bookings[idx].refunded_at = stamp;
-            bookings[idx].refund_amount = amounts.guestAmount;
+            bookings[idx].refunded_at = new Date().toISOString();
+            bookings[idx].refund_amount = refundAmountNum;
             bookings[idx].refund_pending = isPending;
+            bookings[idx].statusUpdated = new Date().toISOString();
             delete bookings[idx].refund_error;
           } else {
             bookings[idx].status = 'No-Show - Emergency Approved (Refund Failed)';
