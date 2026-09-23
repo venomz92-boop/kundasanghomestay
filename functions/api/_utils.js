@@ -68,32 +68,33 @@
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
 // ============================================================
-// CANCELLATION TIERS — one shared copy of the maths
+// CANCELLATION TIERS — the one true copy of the refund maths
 //
-// The refund a guest gets depends on how much notice they gave:
-//   Tier A: asked 14+ days before check-in
-//   Tier B: asked 48 hours to 13 days before
-//   Tier C: asked under 48 hours before, or after check-in
+//   Tier A: guest asked 14+ days before check-in
+//   Tier B: guest asked 48 hours to 13 days before
+//   Tier C: guest asked under 48 hours before, or after check-in
 //
-// Check-in reference time is 2:00 PM MYT on the arrival date
-// (MYT is UTC+8 with no daylight saving, so that's 06:00 UTC).
+// Check-in reference is 2:00 PM MYT on the arrival date.
+// MYT is UTC+8 with no daylight saving, so that is 06:00 UTC.
 //
 // Tier A: guest gets everything they paid, less the RM 1.00 refund
 //         fee. Host gets nothing.
 // Tier B: guest gets half the room price, rounded DOWN to the sen.
-//         Host gets the other half — so the two always add up exactly.
+//         Host gets the other half — so the two add up exactly.
 // Tier C: guest gets nothing. Host gets the full room price.
+//
+// Every caller must use this. Do not work out a refund anywhere else.
 // ============================================================
 
-export const CHIP_REFUND_FEE = 1.00;
+const TIER_REFUND_FEE = 1.00;
 
-function round2(n) {
+function tierRound2(n) {
   return Math.round((Number(n) || 0) * 100) / 100;
 }
 
 export function computeCancellationTier(booking, requestedAtMs) {
-  const base = round2(booking?.base);
-  const totalPaid = round2(Number(booking?.amount_paid) || Number(booking?.total) || 0);
+  const base = tierRound2(booking?.base);
+  const totalPaid = tierRound2(Number(booking?.amount_paid) || Number(booking?.total) || 0);
 
   const checkin = String(booking?.checkin || '');
   const refMs = /^\d{4}-\d{2}-\d{2}$/.test(checkin)
@@ -102,13 +103,16 @@ export function computeCancellationTier(booking, requestedAtMs) {
 
   const askedMs = Number(requestedAtMs);
 
-  // Can't work out the dates. Don't guess — flag it for a human.
   if (!Number.isFinite(refMs) || !Number.isFinite(askedMs)) {
     return {
       tier: null,
       needsReview: true,
       base,
       totalPaid,
+      guestAmount: 0,
+      hostAmount: 0,
+      platformKeeps: 0,
+      chipRefundFee: TIER_REFUND_FEE,
       note: 'Could not determine the check-in time or the request time. Needs manual review.'
     };
   }
@@ -123,13 +127,13 @@ export function computeCancellationTier(booking, requestedAtMs) {
   else tier = 'C';
 
   const guestAmount =
-    tier === 'A' ? round2(Math.max(0, totalPaid - CHIP_REFUND_FEE)) :
+    tier === 'A' ? tierRound2(Math.max(0, totalPaid - TIER_REFUND_FEE)) :
     tier === 'B' ? Math.floor(base * 50) / 100 :
     0;
 
   const hostAmount =
     tier === 'A' ? 0 :
-    tier === 'B' ? round2(base - guestAmount) :
+    tier === 'B' ? tierRound2(base - guestAmount) :
     base;
 
   return {
@@ -142,8 +146,8 @@ export function computeCancellationTier(booking, requestedAtMs) {
     totalPaid,
     guestAmount,
     hostAmount,
-    platformKeeps: round2(totalPaid - guestAmount - hostAmount),
-    chipRefundFee: CHIP_REFUND_FEE
+    platformKeeps: tierRound2(totalPaid - guestAmount - hostAmount),
+    chipRefundFee: TIER_REFUND_FEE
   };
 }
 
@@ -1020,7 +1024,8 @@ async function ensureLocksTable(db) {
 // Default stale timeout raised 5s → 30s. Webhook/lock operations that
 // call CHIP can take longer than 5s. Under 5s, a second process can
 // steal the lock while the first is still mid-flight.
-export async function withLock(db, lockKey, callback, staleTimeoutMs = 30000) {
+const LOCK_STALE_MS = 60000;
+export async function withLock(db, lockKey, callback, staleTimeoutMs = LOCK_STALE_MS) {
   await ensureLocksTable(db);
 
   const myLockValue = Date.now();
@@ -1034,7 +1039,7 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = 30000) {
       `SELECT locked_at FROM homestay_locks WHERE homestay_id = ?`
     ).bind(lockKey).first();
 
-    if (existing && (myLockValue - existing.locked_at) > staleTimeoutMs) {
+  if (existing && (myLockValue - existing.locked_at) > LOCK_STALE_MS) {
       const casResult = await db.prepare(
         `UPDATE homestay_locks SET locked_at = ? WHERE homestay_id = ? AND locked_at = ?`
       ).bind(myLockValue, lockKey, existing.locked_at).run();
@@ -1630,7 +1635,7 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
 
   const ownerName = e(homestay.ownerName || 'Host');
   const homestayName = e(homestay.name || 'your property');
-  const payoutAmount = Number(payoutInfo.amount || 0).toFixed(2);
+  const isCancellation = payoutInfo.kind === 'cancellation' || booking.manualPayoutKind === 'cancellation';
   const nights = Number(booking.nights) || 1;
   const roomTotal = Number(booking.base || payoutInfo.amount || 0).toFixed(2);
   const ref = e(payoutInfo.reference || `KDH-${booking.id}`);
@@ -1702,9 +1707,12 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
           <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;">${headerSubtitle}</div>
         </div>
         <h2 style="color:#0F382E;margin-top:0;font-size:18px;">Hello ${ownerName},</h2>
-        <p style="color:#4b5563;font-size:14px;line-height:1.6;">
-          A payout for a completed guest stay at <strong>${homestayName}</strong> has been ${isSimulation ? 'simulated (test)' : 'sent to your bank account'}.
+                <p style="color:#4b5563;font-size:14px;line-height:1.6;">
+          ${isCancellation
+            ? `A payout for a <strong>cancelled booking</strong> at <strong>${homestayName}</strong> has been ${isSimulation ? 'simulated (test)' : 'sent to your bank account'}.`
+            : `A payout for a completed guest stay at <strong>${homestayName}</strong> has been ${isSimulation ? 'simulated (test)' : 'sent to your bank account'}.`}
         </p>
+        ${isCancellation ? `<p style="color:#6b7280;font-size:12.5px;line-height:1.6;margin-top:6px;">The guest cancelled after the room was held for them and could no longer be resold. Under our published policy, this is your share of the room price for that booking.</p>` : ''}
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin:22px 0;text-align:center;">
           <div style="font-size:11px;color:#166534;text-transform:uppercase;letter-spacing:1px;font-weight:700;">${isSimulation ? 'Amount (simulated)' : 'Amount Transferred'}</div>
           <div style="font-size:32px;font-weight:800;color:#0F382E;margin:6px 0;">RM ${payoutAmount}</div>
