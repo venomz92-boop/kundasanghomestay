@@ -1133,7 +1133,7 @@ function kdWaitingText(booking) {
   const askedMs = Date.parse(requestedAt);
   if (!Number.isFinite(askedMs)) return 'Asked recently';
 
-  const hours = Math.floor((Date.now() - askedMs) / 3600000);
+  const hours = Math.max(0, Math.floor((Date.now() - askedMs) / 3600000));
   const deadline = kdHours(booking);
 
   if (hours >= deadline) {
@@ -1198,26 +1198,26 @@ function renderCancellationRequests() {
       '<div class="border rounded-2xl p-4 bg-white">' +
         '<div class="flex flex-wrap justify-between gap-3 items-start">' +
           '<div class="flex-1 min-w-[200px]">' +
-            '<div class="font-bold text-sm text-[#212121]">' + escapeHtml(b.homestay || 'Homestay') + '</div>' +
-            '<div class="text-xs text-zinc-600 mt-1">Guest: <strong>' + escapeHtml(b.guestName || 'Guest') + '</strong></div>' +
-            '<div class="text-xs text-zinc-600">' + escapeHtml(b.checkin || '') + ' → ' + escapeHtml(b.checkout || '') + ' (' + (b.nights || 1) + ' night' + ((b.nights || 1) === 1 ? '' : 's') + ')</div>' +
-            '<div class="text-xs font-mono text-zinc-500 mt-1">' + escapeHtml(requestedFor) + '</div>' +
+            '<div class="font-bold text-sm text-[#212121]">' + escapeRoomHtml(b.homestay || 'Homestay') + '</div>' +
+            '<div class="text-xs text-zinc-600 mt-1">Guest: <strong>' + escapeRoomHtml(b.guestName || 'Guest') + '</strong></div>' +
+            '<div class="text-xs text-zinc-600">' + escapeRoomHtml(b.checkin || '') + ' → ' + escapeRoomHtml(b.checkout || '') + ' (' + (b.nights || 1) + ' night' + ((b.nights || 1) === 1 ? '' : 's') + ')</div>' +
+            '<div class="text-xs font-mono text-zinc-500 mt-1">' + escapeRoomHtml(requestedFor) + '</div>' +
           '</div>' +
           '<div class="text-right shrink-0">' +
             '<div class="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Asked to cancel</div>' +
-            '<div class="text-xs font-semibold text-[#212121] mt-1">' + escapeHtml(askedOn) + '</div>' +
+            '<div class="text-xs font-semibold text-[#212121] mt-1">' + escapeRoomHtml(askedOn) + '</div>' +
           '</div>' +
         '</div>' +
 
         '<div class="mt-3 p-3 rounded-xl bg-zinc-50 border border-black/5">' +
           '<div class="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-1">Their reason</div>' +
-          '<div class="text-sm text-zinc-700 leading-relaxed whitespace-pre-wrap">' + escapeHtml(req.reason || '(none given)') + '</div>' +
+          '<div class="text-sm text-zinc-700 leading-relaxed whitespace-pre-wrap">' + escapeRoomHtml(req.reason || '(none given)') + '</div>' +
         '</div>' +
 
         emergencyBlock +
         moneyBlock +
 
-        '<div class="mt-3 text-xs ' + (overdue ? 'text-red-700 font-bold' : 'text-zinc-500') + '">' + escapeHtml(kdWaitingText(b)) + '</div>' +
+        '<div class="mt-3 text-xs ' + (overdue ? 'text-red-700 font-bold' : 'text-zinc-500') + '">' + escapeRoomHtml(kdWaitingText(b)) + '</div>' +
 
         '<div class="flex flex-wrap gap-2 mt-4">' +
           '<button class="btn-success action-btn" data-action="acceptCancellation" data-id="' + requestedFor + '">✓ Accept &amp; Refund</button>' +
@@ -1225,22 +1225,55 @@ function renderCancellationRequests() {
           '<button class="btn-outline action-btn" data-action="dismissRequestWarning" data-id="' + requestedFor + '" style="padding:10px 16px; font-size:11px;">⏭ Decide Later</button>' +
         '</div>' +
       '</div>';
-  }).join('');
+ }).join('');
+  attachBookingActionListeners();
 }
-
+  
 async function acceptCancellationRequest(bookingId) {
-  const b = (bookings || []).find(function(x) { return String(x.id) === String(bookingId); });
+  // Re-read from the server before showing any money. A host whose
+  // dashboard has been open since before the guest asked would otherwise
+  // see a stale or empty tier — and could accept believing they get
+  // nothing, when in fact they are owed something.
+  let freshBooking = null;
+  try {
+    const res = await ownerFetch(API_BASE + '/owner-bookings', { cache: 'no-store' });
+    const all = await res.json();
+    if (Array.isArray(all)) {
+      bookings = all;
+      freshBooking = all.find(function(x) { return String(x.id) === String(bookingId); });
+      renderCancellationRequests();
+    }
+  } catch (e) {
+    // Network problem — fall through to whatever we already have.
+  }
+
+  const b = freshBooking || (bookings || []).find(function(x) { return String(x.id) === String(bookingId); });
   if (!b) { await showAlert('Error', 'Booking not found. Refresh and try again.'); return; }
 
+  const req = b.cancellationRequest;
+  if (!req || req.status !== 'pending_host') {
+    await showAlert('Already Handled', 'This request is no longer waiting — it may have been decided in another tab or by us. The page will refresh.');
+    loadBookings();
+    return;
+  }
+
   const preview = b.tierPreview || {};
+
+  // Never let a host accept a figure we cannot stand behind.
+  if (!preview.tier) {
+    await showAlert('Please Refresh',
+      'We could not work out the refund for this request. Please refresh the page and try again. If it keeps happening, email support@kundasanghomestay.my before accepting.');
+    return;
+  }
+
   const guestGets = Number(preview.guestAmount || 0).toFixed(2);
   const hostGets = Number(preview.hostAmount || 0).toFixed(2);
-  const tier = preview.tier || '?';
+  const tier = preview.tier;
 
   const ok = await showConfirm(
     'Accept This Cancellation?',
     '<div style="text-align:left;line-height:1.6;">' +
-      '<p>This cancels booking <strong>' + escapeHtml(b.id) + '</strong> and refunds the guest at Tier <strong>' + tier + '</strong>.</p>' +
+      '<p>This cancels booking <strong>' + escapeRoomHtml(b.id) + '</strong> and refunds the guest at Tier <strong>' + tier + '</strong>.</p>' +
       '<div style="margin-top:12px;padding:12px;background:#f8f5f0;border-radius:10px;font-size:13px;">' +
         '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#6b7280;">Guest receives</span><strong>RM ' + guestGets + '</strong></div>' +
         '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#6b7280;">You receive</span><strong>RM ' + hostGets + '</strong></div>' +
@@ -1301,9 +1334,17 @@ async function declineCancellationRequest(bookingId) {
   
 function attachBookingActionListeners() {
   const container = document.getElementById('ownerBookingsList');
-  if (!container) return;
-  container.removeEventListener('click', bookingActionHandler);
-  container.addEventListener('click', bookingActionHandler);
+  if (container) {
+    container.removeEventListener('click', bookingActionHandler);
+    container.addEventListener('click', bookingActionHandler);
+  }
+  // The cancellation request panel is a SEPARATE list. Without this, its
+  // Accept / Decline buttons render but do nothing when clicked.
+  const reqContainer = document.getElementById('cancellationRequestsList');
+  if (reqContainer) {
+    reqContainer.removeEventListener('click', bookingActionHandler);
+    reqContainer.addEventListener('click', bookingActionHandler);
+  }
 }
 
 async function bookingActionHandler(e) {
