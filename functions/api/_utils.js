@@ -67,6 +67,86 @@
 
 export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
+// ============================================================
+// CANCELLATION TIERS — one shared copy of the maths
+//
+// The refund a guest gets depends on how much notice they gave:
+//   Tier A: asked 14+ days before check-in
+//   Tier B: asked 48 hours to 13 days before
+//   Tier C: asked under 48 hours before, or after check-in
+//
+// Check-in reference time is 2:00 PM MYT on the arrival date
+// (MYT is UTC+8 with no daylight saving, so that's 06:00 UTC).
+//
+// Tier A: guest gets everything they paid, less the RM 1.00 refund
+//         fee. Host gets nothing.
+// Tier B: guest gets half the room price, rounded DOWN to the sen.
+//         Host gets the other half — so the two always add up exactly.
+// Tier C: guest gets nothing. Host gets the full room price.
+// ============================================================
+
+export const CHIP_REFUND_FEE = 1.00;
+
+function round2(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+export function computeCancellationTier(booking, requestedAtMs) {
+  const base = round2(booking?.base);
+  const totalPaid = round2(Number(booking?.amount_paid) || Number(booking?.total) || 0);
+
+  const checkin = String(booking?.checkin || '');
+  const refMs = /^\d{4}-\d{2}-\d{2}$/.test(checkin)
+    ? Date.parse(checkin + 'T06:00:00Z')
+    : NaN;
+
+  const askedMs = Number(requestedAtMs);
+
+  // Can't work out the dates. Don't guess — flag it for a human.
+  if (!Number.isFinite(refMs) || !Number.isFinite(askedMs)) {
+    return {
+      tier: null,
+      needsReview: true,
+      base,
+      totalPaid,
+      note: 'Could not determine the check-in time or the request time. Needs manual review.'
+    };
+  }
+
+  const DAY = 86400000;
+  const HOUR = 3600000;
+  const leadMs = refMs - askedMs;
+
+  let tier;
+  if (leadMs >= 14 * DAY) tier = 'A';
+  else if (leadMs >= 48 * HOUR) tier = 'B';
+  else tier = 'C';
+
+  const guestAmount =
+    tier === 'A' ? round2(Math.max(0, totalPaid - CHIP_REFUND_FEE)) :
+    tier === 'B' ? Math.floor(base * 50) / 100 :
+    0;
+
+  const hostAmount =
+    tier === 'A' ? 0 :
+    tier === 'B' ? round2(base - guestAmount) :
+    base;
+
+  return {
+    tier,
+    needsReview: false,
+    leadMs,
+    leadDays: Math.floor(leadMs / DAY),
+    leadHours: Math.floor(leadMs / HOUR),
+    base,
+    totalPaid,
+    guestAmount,
+    hostAmount,
+    platformKeeps: round2(totalPaid - guestAmount - hostAmount),
+    chipRefundFee: CHIP_REFUND_FEE
+  };
+}
+
 const DEFAULT_PBKDF2_ITERATIONS = 100000;
 const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_KEYLEN = 256;
@@ -1372,7 +1452,7 @@ export async function finalizePaidBooking(db, bookingId) {
 // other fields. Runs its own short-lived lock.
 async function markCheckinEmailStatus(db, bookingId, status) {
   try {
-    await withLock(db, `booking:${bookingId}`, async (db) => {
+    await withLock(db, 'bookings-global', async (db) => {
       const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
       let bookings = [];
       try { if (r?.data) bookings = JSON.parse(r.data); } catch(_) {}
@@ -1382,7 +1462,7 @@ async function markCheckinEmailStatus(db, bookingId, status) {
       await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
         .bind('kd_bookings', JSON.stringify(bookings))
         .run();
-    }, 10000);
+    }, 60000);
   } catch (_) {
     // Best effort — if we can't update the flag, the next finalize
     // pass will try again.
@@ -1427,7 +1507,7 @@ export async function finalizeAndNotify(db, bookingId, env, ctx = {}) {
 
   let lockResult;
   try {
-    lockResult = await withLock(db, `booking:${bookingId}`, async (db) => {
+    lockResult = await withLock(db, 'bookings-global', async (db) => {
       const finalizeResult = await finalizePaidBooking(db, bookingId);
       if (finalizeResult.error) return { finalizeResult };
       if (finalizeResult.refuseFinalize) {
