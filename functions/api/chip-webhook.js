@@ -278,7 +278,7 @@ export async function onRequestPost({ request, env }) {
     // ============================================================
     if (effectiveEvent === 'failed') {
       try {
-        await withLock(db, `booking:${booking.id}`, async (db) => {
+        await withLock(db, 'bookings-global', async (db) => {
           const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
           let bb = [];
           try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
@@ -319,7 +319,7 @@ export async function onRequestPost({ request, env }) {
 
       let emailTarget = null;
       try {
-        await withLock(db, `booking:${booking.id}`, async (db) => {
+        await withLock(db, 'bookings-global', async (db) => {
           const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
           let bb = [];
           try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
@@ -375,7 +375,7 @@ export async function onRequestPost({ request, env }) {
     // ============================================================
     if (effectiveEvent === 'pending_refund') {
       try {
-        await withLock(db, `booking:${booking.id}`, async (db) => {
+        await withLock(db, 'bookings-global', async (db) => {
           const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
           let bb = [];
           try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
