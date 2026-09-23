@@ -24,6 +24,7 @@
   <script src="/csrf-auto.js"></script>
   <script src="/guest-session.js"></script>
 </head>
+<body>
 <script>
   let lastToggleTime = 0;
   window.toggleMobileMenu = function() {
@@ -164,7 +165,7 @@
         </h2>
         <ul class="mt-2 text-sm text-zinc-600 space-y-1">
           <li><span class="font-semibold">Payment:</span> Full payment is required at the time of booking. All payments are processed by CHIP (FPX).</li>
-          <li><span class="font-semibold">Service Fee:</span> An 11% service fee plus a fixed RM 1.00 gateway fee is added to your total. <strong>These fees are non-refundable</strong>, with two exceptions: if the cancellation is host-initiated, or platform-initiated (force majeure), Kundasang Homestay absorbs the fees and you receive a full refund. The complete breakdown is in the <a href="/refund-cancellation.html" class="text-[#0F382E] font-semibold hover:underline">Cancellation &amp; Refund Policy</a>.</li>
+          <li><span class="font-semibold">Service Fee:</span> An 11% service fee plus a fixed RM 1.00 gateway fee is added to your total. How much of these fees is returned to you depends on the reason for cancellation and, for guest cancellations, how far in advance you asked — see section 3 below and the <a href="/refund-cancellation.html" class="text-[#0F382E] font-semibold hover:underline">Cancellation &amp; Refund Policy</a> for the full tier table. In short: <strong>full return if the host or the platform cancels, and otherwise returned in full only when you cancel 14 or more days before check-in.</strong></li>
           <li><span class="font-semibold">Host Payout:</span> Your payment is received by Kundasang Homestay and held until your stay begins. It is released to the host <strong>within 1–2 business days after you check in</strong> and the host confirms your arrival using your 6-digit code. If you never check in, the host still receives the room price and no automatic refund is issued to you — see the <a href="/refund-cancellation.html" class="text-[#0F382E] font-semibold hover:underline">Cancellation &amp; Refund Policy</a> for the emergency exception.</li>
           <li><span class="font-semibold">Currency:</span> All prices are in Malaysian Ringgit (MYR).</li>
         </ul>
@@ -175,29 +176,87 @@
           <span class="text-[#D4A373] text-2xl">3.</span> Cancellation & Refunds
         </h2>
         <p class="text-sm text-zinc-600 mt-2 leading-relaxed">
-          Cancellation terms depend on who cancelled the booking and why. There are several refund paths; the two most common are shown here. Please refer to our full <a href="/refund-cancellation.html" class="text-[#0F382E] font-semibold hover:underline">Cancellation &amp; Refund Policy</a> for the complete matrix covering all five paths.
+          Cancellation terms depend on <strong>who cancelled the booking and why</strong>. When you cancel a booking yourself, your refund
+          is set by <strong>how far in advance you asked</strong>, measured from your scheduled check-in — 2:00 PM (MYT) on your arrival date
+          unless the listing states otherwise. <strong>You do not need the host's permission to cancel, and your host cannot block, delay or
+          renegotiate your refund.</strong> The amount is fixed by the tier table below.
         </p>
+
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full text-sm border-collapse">
+            <thead>
+              <tr class="bg-[#0F382E] text-white">
+                <th class="text-left p-3 font-semibold rounded-tl-lg">Cancellation path</th>
+                <th class="text-left p-3 font-semibold">Timing</th>
+                <th class="text-right p-3 font-semibold rounded-tr-lg">You get back</th>
+              </tr>
+            </thead>
+            <tbody class="text-zinc-700">
+              <tr class="border-b border-black/5 bg-green-50">
+                <td class="p-3 font-semibold text-green-800">🟢 Host cancelled</td>
+                <td class="p-3 text-[12px] text-zinc-600">Any time</td>
+                <td class="p-3 text-right font-bold text-green-700">Everything paid<br><span class="text-[11px] font-normal text-zinc-500">RM 278.50</span></td>
+              </tr>
+              <tr class="border-b border-black/5 bg-blue-50">
+                <td class="p-3 font-semibold text-blue-800">🔵 Platform cancelled</td>
+                <td class="p-3 text-[12px] text-zinc-600">Force majeure</td>
+                <td class="p-3 text-right font-bold text-blue-700">Everything paid<br><span class="text-[11px] font-normal text-zinc-500">RM 278.50</span></td>
+              </tr>
+              <tr class="border-b border-black/5 bg-amber-50">
+                <td class="p-3 font-semibold text-amber-800">🟡 You cancel — Tier A</td>
+                <td class="p-3 text-[12px] text-zinc-600">14+ days before check-in</td>
+                <td class="p-3 text-right font-bold text-amber-700">RM 277.50<br><span class="text-[11px] font-normal text-zinc-500">RM 1.00 deducted</span></td>
+              </tr>
+              <tr class="border-b border-black/5 bg-orange-50">
+                <td class="p-3 font-semibold text-orange-800">🟠 You cancel — Tier B</td>
+                <td class="p-3 text-[12px] text-zinc-600">48 hours – 13 days before</td>
+                <td class="p-3 text-right font-bold text-orange-700">RM 125.00<br><span class="text-[11px] font-normal text-zinc-500">50% of room price</span></td>
+              </tr>
+              <tr class="border-b border-black/5 bg-rose-50">
+                <td class="p-3 font-semibold text-rose-800">🔴 You cancel — Tier C</td>
+                <td class="p-3 text-[12px] text-zinc-600">Under 48 hours, or after check-in</td>
+                <td class="p-3 text-right font-bold text-rose-700">RM 0.00<br><span class="text-[11px] font-normal text-zinc-500">no refund</span></td>
+              </tr>
+              <tr class="border-b border-black/5 bg-purple-50">
+                <td class="p-3 font-semibold text-purple-800">🟣 No-show — emergency approved</td>
+                <td class="p-3 text-[12px] text-zinc-600">We review the evidence</td>
+                <td class="p-3 text-right font-bold text-purple-700">RM 125.00<br><span class="text-[11px] font-normal text-zinc-500">50% of room price</span></td>
+              </tr>
+              <tr class="bg-zinc-50">
+                <td class="p-3 font-semibold text-zinc-700">⚪ No-show — no contact</td>
+                <td class="p-3 text-[12px] text-zinc-600">No contact within 24 hours</td>
+                <td class="p-3 text-right font-bold text-zinc-600">RM 0.00<br><span class="text-[11px] font-normal text-zinc-500">no refund</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="text-[11px] text-zinc-500 mt-2 italic">Amounts shown for a RM 250.00 room price × 1 night, where you paid RM 278.50 in total. Your actual amounts depend on your booking.</p>
+        </div>
 
         <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="rounded-2xl border-2 border-green-500 bg-green-50 p-5">
             <div class="font-poppins font-700 text-[15px] text-green-900">🟢 Host-Initiated</div>
             <p class="text-[13px] text-green-800 mt-2 leading-relaxed">
-              If a host cancels a confirmed booking for any reason, you receive a <strong>full refund</strong> — room price + service fee + gateway fee. Kundasang Homestay absorbs all the fees, including the RM 1.00 refund-processing fee, because the guest did nothing wrong. The host's listing may be reviewed by our team.
+              If a host cancels a confirmed booking for any reason, you receive a <strong>full refund</strong> — room price + service fee + gateway fee. Kundasang Homestay absorbs all the fees, including the RM 1.00 refund-processing fee, because the guest did nothing wrong. The refund is initiated automatically; you do not need to ask. The host's listing may be reviewed by our team.
             </p>
           </div>
           <div class="rounded-2xl border-2 border-amber-500 bg-amber-50 p-5">
             <div class="font-poppins font-700 text-[15px] text-amber-900">🟡 Guest-Requested</div>
             <p class="text-[13px] text-amber-800 mt-2 leading-relaxed">
-              To cancel, please contact the host directly — guests cannot cancel through the platform, as last-minute cancellations leave hosts with empty rooms they cannot resell. If the host accept (depends on outcome), you receive the <strong>agreed amount minus RM 1.00</strong>; the RM 1.00 covers the payment provider's refund-processing fee. The service fee and gateway fee are not returned on this path.
+              Email <a href="mailto:support@kundasanghomestay.my" class="font-semibold underline">support@kundasanghomestay.my</a> from the address on your booking, with the subject line "<em>Cancellation — Booking [your booking ID]</em>", stating clearly that you want to cancel. <strong>No host approval is required, and the host cannot refuse.</strong> We acknowledge every request in writing and confirm the exact amount before anything is processed. Your refund is set by the tier table above, based on when your message was sent:
             </p>
+            <ul class="text-[13px] text-amber-800 mt-2 leading-relaxed list-disc pl-5 space-y-1">
+              <li><strong>Tier A (14+ days):</strong> RM 277.50 back — everything you paid, less the RM 1.00 refund-processing fee. The host is paid nothing.</li>
+              <li><strong>Tier B (48 h – 13 days):</strong> RM 125.00 back — half the room price. The other half goes to the host, whose room could not be resold at short notice.</li>
+              <li><strong>Tier C (under 48 h, or after check-in):</strong> RM 0.00 back. The host is paid the full room price.</li>
+            </ul>
             <p class="text-[12px] text-amber-800 mt-3 leading-relaxed italic">
-              Example: Paid RM 278.50 → receive RM 249.00. Deducted: RM 29.50.
+              A request must be clear and unconditional — "just in case" messages do not count, and a tier cannot be reserved by asking early and deciding later. If a booking is reinstated, the clock resets. A host may voluntarily refund more, but never less.
             </p>
           </div>
         </div>
 
         <p class="text-[12px] text-zinc-500 mt-3 leading-relaxed">
-          The other three paths are: platform-initiated cancellation (force majeure), no-show with no contact, and no-show with an approved emergency. Each has a different refund amount — all are set out in the <a href="/refund-cancellation.html" class="text-[#0F382E] font-semibold hover:underline">Cancellation &amp; Refund Policy</a>.
+          Two further paths also apply: <strong>platform-initiated cancellation</strong> (force majeure), and <strong>no-show</strong>. A no-show with no contact within 24 hours of the scheduled check-in time results in no refund, and the host is paid the room price in full — the same as a Tier C cancellation. A no-show or late cancellation where the guest provides evidence of a genuine emergency may be approved by us for a 50% refund of the room price — we review these cases ourselves, and they never stack on top of a refund tier. If the listing does not match what was advertised, you are entitled to a full refund including fees, at any time. See the <a href="/refund-cancellation.html" class="text-[#0F382E] font-semibold hover:underline">Cancellation &amp; Refund Policy</a> for the full rules.
         </p>
 
         <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-900">
