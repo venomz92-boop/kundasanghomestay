@@ -18,6 +18,19 @@
 //     failed" path, which would tell the guest their refund was under
 //     review when in fact nothing was ever due.
 //
+// [TIER LABEL FIX]
+//   - A tier measures how much notice the GUEST gave. When the host
+//     cancels for their own reasons there is no notice period to measure
+//     and the guest gets everything back whatever the date, so no tier
+//     applies. This file used to stamp Tier 'A' on host cancellations
+//     anyway, which mislabelled the refund in the booking record, in both
+//     ledgers, in the audit log, and in the guest's own email — the email
+//     told them the RM 1.00 fee applied while the table below showed the
+//     full amount refunded.
+//   - cancellationTier is now computed once and is null for host_own.
+//     Tier wording (host message, guest email) is gated on cancelType so
+//     a host cancellation never names a tier.
+//
 // Kept as-is (intentionally):
 //   - refund_attempted_at is set before the CHIP call, which protects
 //     against double refunds.
@@ -154,6 +167,10 @@ function isPaidBooking(booking) {
 // guessing at the status string. Tier C is its own case: nothing is
 // due, and the guest must be told that plainly rather than being told
 // a refund failed.
+//
+// Wording is gated on cancelType as well as tier. A tier only
+// describes how much notice the GUEST gave, so a host-initiated
+// cancellation must never be explained in tier language.
 // ============================================================
 
 async function sendCancellationEmail(booking, refundInfo, env) {
@@ -181,7 +198,7 @@ async function sendCancellationEmail(booking, refundInfo, env) {
 
   let subject, headerColor, headerText, bodyHtml;
 
-    if (refundInfo.noRefundDue && !isGuestRequest) {
+  if (refundInfo.noRefundDue && !isGuestRequest) {
     // A host cancellation where nothing was ever charged. The Tier C
     // wording below tells the guest *they* cancelled — they did not.
     subject = 'Booking Cancelled by Host';
@@ -1183,12 +1200,12 @@ export async function onRequestPost({ request, env }) {
               status: 'accepted',
               acceptedAt: nowIso,
               acceptedBy: 'owner',
-              acceptedTier: tierInfo.tier,
+              acceptedTier: cancellationTier,
               refundAmount: refundAmountNum,
               hostCompensation: hostCompensationNum,
               history: [
                 ...(Array.isArray(existingRequest.history) ? existingRequest.history : []),
-                { at: nowIso, event: 'accepted', note: `Tier ${tierInfo.tier || '?'}` }
+                { at: nowIso, event: 'accepted', note: `Tier ${cancellationTier || '?'}` }
               ].slice(-20)
             };
           }
@@ -1198,6 +1215,9 @@ export async function onRequestPost({ request, env }) {
           // The guest paid in full, and the money never reached the host
           // because there was no check-in. The policy still pays them, so
           // it goes into the same manual payout queue normal payouts use.
+          //
+          // This block only runs for guest_request, so tierInfo.tier here
+          // is always 'B' or 'C'.
           if (hostCompensationNum > 0) {
             const nowIso = new Date().toISOString();
 
