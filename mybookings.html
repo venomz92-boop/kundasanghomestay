@@ -119,6 +119,332 @@ gap: 8px;
   }
   .kd-cover-fallback { font-size: 44px; }
 }
+
+/* ============================================================
+   CANCELLATION REQUEST FORM
+   Self-contained — does not touch the shared modal styles.
+   ============================================================ */
+
+.kdcr-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0,0,0,0.55);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.kdcr-overlay.open { display: flex; }
+
+.kdcr-panel {
+  width: 100%;
+  max-width: 560px;
+  max-height: min(90vh, 860px);
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.28);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: auto;
+}
+
+/* ---- Header ---- */
+.kdcr-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 20px 22px 15px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  flex-shrink: 0;
+}
+.kdcr-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.25;
+  letter-spacing: -0.2px;
+  color: #212121;
+}
+.kdcr-sub {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin-top: 4px;
+  line-height: 1.45;
+}
+.kdcr-x {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: none;
+  background: #f4f4f5;
+  color: #52525b;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.kdcr-x:hover { background: #e4e4e7; color: #212121; }
+
+/* ---- Body (the scrolling part) ---- */
+.kdcr-body {
+  padding: 18px 22px 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ---- Booking context line ---- */
+.kdcr-context {
+  font-size: 12.5px;
+  color: #6b7280;
+  line-height: 1.5;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed rgba(0,0,0,0.08);
+}
+.kdcr-context:empty { display: none; }
+.kdcr-context strong { color: #212121; font-weight: 700; }
+
+/* ---- Tier card ---- */
+.kdcr-tier {
+  border-radius: 14px;
+  border: 1.5px solid;
+  padding: 15px 16px;
+}
+.kdcr-tier-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.kdcr-tier-badge {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.kdcr-tier-when {
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.kdcr-tier-when strong { font-weight: 700; }
+
+.kdcr-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding: 3px 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.kdcr-row span { color: #6b7280; }
+.kdcr-row strong {
+  color: #212121;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.kdcr-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0,0,0,0.08);
+}
+.kdcr-total-label { font-weight: 700; font-size: 13px; }
+.kdcr-total-amt {
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.kdcr-note {
+  font-size: 11.5px;
+  color: #6b7280;
+  line-height: 1.55;
+  margin-top: 12px;
+}
+
+/* ---- Reason field ---- */
+.kdcr-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #212121;
+  margin-bottom: 7px;
+  font-family: 'Poppins', sans-serif;
+}
+.kdcr-label .req { color: #dc2626; }
+
+.kdcr-textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #212121;
+  background: #fff;
+  resize: vertical;
+  min-height: 108px;
+  max-height: 260px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.kdcr-textarea::placeholder { color: #9ca3af; }
+.kdcr-textarea:focus {
+  border-color: #0F382E;
+  box-shadow: 0 0 0 3px rgba(15,56,46,0.10);
+}
+
+.kdcr-count {
+  font-size: 11px;
+  color: #9ca3af;
+  text-align: right;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.kdcr-count.warn { color: #d97706; font-weight: 600; }
+
+/* ---- Emergency checkbox as a tappable card ---- */
+.kdcr-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin-top: 16px;
+  padding: 13px 15px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.kdcr-check:hover { border-color: #cbd5e1; }
+.kdcr-check.on { border-color: #f59e0b; background: #fffbeb; }
+.kdcr-check input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  margin: 2px 0 0 0;
+  flex-shrink: 0;
+  accent-color: #0F382E;
+  cursor: pointer;
+}
+.kdcr-check-text {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #4b5563;
+}
+.kdcr-check-text strong { color: #212121; font-weight: 700; }
+
+/* ---- Info box + error ---- */
+.kdcr-info {
+  margin-top: 16px;
+  padding: 13px 15px;
+  background: #f8f5f0;
+  border-radius: 13px;
+  font-size: 11.5px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+.kdcr-info strong { color: #374151; font-weight: 700; }
+.kdcr-info a { color: #0F382E; font-weight: 600; text-decoration: none; }
+.kdcr-info a:hover { text-decoration: underline; }
+
+.kdcr-error {
+  display: none;
+  margin-top: 13px;
+  padding: 12px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 13px;
+  font-size: 12.5px;
+  color: #991b1b;
+  line-height: 1.5;
+}
+.kdcr-error.show { display: block; }
+
+/* ---- Footer ---- */
+.kdcr-foot {
+  display: flex;
+  gap: 10px;
+  padding: 15px 22px;
+  padding-bottom: calc(15px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(0,0,0,0.06);
+  background: #fafafa;
+  flex-shrink: 0;
+}
+.kdcr-foot .btn {
+  flex: 1 1 0%;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================================
+   TABLET + PHONE — bottom sheet
+   ============================================================ */
+@media (max-width: 640px) {
+  .kdcr-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .kdcr-panel {
+    max-width: 100%;
+    max-height: 94vh;
+    border-radius: 22px 22px 0 0;
+    margin: 0;
+    box-shadow: 0 -10px 50px rgba(0,0,0,0.30);
+  }
+  .kdcr-head { padding: 16px 18px 13px; }
+  .kdcr-title { font-size: 17px; }
+  .kdcr-sub { font-size: 12px; }
+  .kdcr-body { padding: 16px 18px 18px; }
+  .kdcr-tier { padding: 14px 15px; }
+  .kdcr-total-amt { font-size: 20px; }
+  .kdcr-textarea { font-size: 14px; min-height: 120px; }
+  .kdcr-foot {
+    flex-direction: column;
+    padding: 12px 18px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  .kdcr-foot .btn { width: 100%; padding-top: 14px; padding-bottom: 14px; }
+}
+
+/* Short landscape phones — let the whole panel scroll instead */
+@media (max-height: 560px) and (max-width: 900px) {
+  .kdcr-overlay { align-items: flex-start; padding: 10px; }
+  .kdcr-panel { max-height: none; margin: 0 auto; }
+  .kdcr-body { overflow-y: visible; }
+}
 </style>
 </head>
 <body>
@@ -161,6 +487,55 @@ OK, I understand
 </div>
 </div>
 </div>
+
+<!-- ===== Cancellation Request Form ===== -->
+<div id="kdcrOverlay" class="kdcr-overlay" role="dialog" aria-modal="true" aria-labelledby="kdcrTitle">
+  <div class="kdcr-panel">
+
+    <div class="kdcr-head">
+      <div style="min-width:0;">
+        <div id="kdcrTitle" class="kdcr-title">Request a Cancellation</div>
+        <div class="kdcr-sub">Your host decides. We step in if they refuse unfairly, or go quiet.</div>
+      </div>
+      <button type="button" id="kdcrClose" class="kdcr-x" aria-label="Close">✕</button>
+    </div>
+
+    <div class="kdcr-body">
+      <div id="kdcrContext" class="kdcr-context"></div>
+      <div id="kdcrTier"></div>
+
+      <div style="margin-top:18px;">
+        <label class="kdcr-label" for="kdcrReason">Why do you need to cancel? <span class="req">*</span></label>
+        <textarea id="kdcrReason" class="kdcr-textarea" rows="4" maxlength="500"
+          placeholder="Tell your host what has happened. This is part of the request, and it is the first thing we look at if you ask us to review their decision."></textarea>
+        <div id="kdcrCount" class="kdcr-count">0 / 500</div>
+      </div>
+
+      <label class="kdcr-check" id="kdcrCheckWrap" for="kdcrEmergency">
+        <input type="checkbox" id="kdcrEmergency" />
+        <span class="kdcr-check-text">
+          <strong>This is an emergency</strong> — medical, a death in the family, a travel ban, or a natural disaster.
+          We review these ourselves, and you may be asked for evidence.
+        </span>
+      </label>
+
+      <div class="kdcr-info">
+        Your host has to reply within <strong>48 hours</strong> — or <strong>6 hours</strong> if your check-in is less than
+        48 hours away. If they refuse, email
+        <a href="mailto:support@kundasanghomestay.my">support@kundasanghomestay.my</a> and we will review it.
+      </div>
+
+      <div id="kdcrError" class="kdcr-error"></div>
+    </div>
+
+    <div class="kdcr-foot">
+      <button type="button" id="kdcrCancel" class="btn btn-secondary">Never mind</button>
+      <button type="button" id="kdcrSend" class="btn btn-primary">Send Request</button>
+    </div>
+
+  </div>
+</div>
+
 <script>
 let lastToggleTime = 0;
 window.toggleMobileMenu = function() {
@@ -1025,61 +1400,172 @@ showAlert('Error', data.error || 'Failed to resend.');
 
 /* ============================================================
    CANCELLATION REQUEST FORM
-   Writes a request down so there is a record of when the guest
-   asked and why. Cancels nothing. The host still decides.
+   Records a request so there is a dated note of when the guest
+   asked and why. Cancels nothing — the host still decides.
    ============================================================ */
 
-function moneyLine(label, amount) {
-  return '<div style="display:flex;justify-content:space-between;padding:4px 0;">' +
-    '<span style="color:#6b7280;">' + label + '</span>' +
-    '<strong>RM ' + Number(amount || 0).toFixed(2) + '</strong></div>';
+var TIER_STYLE = {
+  A: { color: '#166534', bg: '#f0fdf4', border: '#bbf7d0',
+       when: 'You are asking <strong>14 or more days</strong> before check-in.' },
+  B: { color: '#92400e', bg: '#fffbeb', border: '#fde68a',
+       when: 'You are asking <strong>between 48 hours and 13 days</strong> before check-in.' },
+  C: { color: '#9f1239', bg: '#fff1f2', border: '#fecdd3',
+       when: 'You are asking <strong>less than 48 hours</strong> before check-in.' }
+};
+
+function renderTierCard(p) {
+  if (!p || p.needsReview || !p.tier) {
+    return '<div class="kdcr-tier" style="border-color:#fde68a;background:#fffbeb;">' +
+      '<div class="kdcr-tier-head">' +
+        '<span class="kdcr-tier-badge" style="color:#92400e;">Needs review</span>' +
+      '</div>' +
+      '<div class="kdcr-tier-when" style="color:#78350f;margin-bottom:0;">' +
+        'We could not work out your refund automatically. Send the request anyway — ' +
+        'our team will review it and contact you.' +
+      '</div>' +
+    '</div>';
+  }
+
+  var t = TIER_STYLE[p.tier] || TIER_STYLE.C;
+
+  var rows = '';
+  rows += '<div class="kdcr-row"><span>You paid</span><strong>RM ' + Number(p.totalPaid || 0).toFixed(2) + '</strong></div>';
+  rows += '<div class="kdcr-row"><span>Room price</span><strong>RM ' + Number(p.base || 0).toFixed(2) + '</strong></div>';
+  if (p.tier === 'A') {
+    rows += '<div class="kdcr-row"><span>Less: refund processing fee</span><strong>&minus; RM ' +
+      Number(p.chipRefundFee || 0).toFixed(2) + '</strong></div>';
+  }
+
+  var hostNote = p.hostAmount > 0
+    ? 'Your host would receive <strong>RM ' + Number(p.hostAmount).toFixed(2) + '</strong>, because the room was ' +
+      'held for you and could not be resold at short notice.'
+    : 'Your host would receive nothing — they had time to resell the room.';
+
+  return '<div class="kdcr-tier" style="border-color:' + t.border + ';background:' + t.bg + ';">' +
+    '<div class="kdcr-tier-head">' +
+      '<span class="kdcr-tier-badge" style="color:' + t.color + ';">Refund tier ' + p.tier + '</span>' +
+    '</div>' +
+    '<div class="kdcr-tier-when" style="color:' + t.color + ';">' + t.when + '</div>' +
+    rows +
+    '<div class="kdcr-total" style="border-top-color:' + t.border + ';">' +
+      '<span class="kdcr-total-label" style="color:' + t.color + ';">You would get back</span>' +
+      '<span class="kdcr-total-amt" style="color:' + t.color + ';">RM ' + Number(p.guestAmount || 0).toFixed(2) + '</span>' +
+    '</div>' +
+    '<div class="kdcr-note">' + hostNote + '</div>' +
+    '<div class="kdcr-note">This is what you get <em>if</em> the cancellation goes ahead. Your host has to reply, ' +
+      'and we can overrule them if their refusal is unreasonable.</div>' +
+  '</div>';
 }
 
-function tierExplainer(p) {
-  if (!p || p.needsReview || !p.tier) {
-    return '<div style="padding:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12px;color:#78350f;line-height:1.55;">' +
-      'We could not work out your refund automatically. Submit the request anyway — our team will review it and contact you.</div>';
+function renderBookingContext(bookingId) {
+  var b = null;
+  for (var i = 0; i < myBookings.length; i++) {
+    if (String(myBookings[i].id) === String(bookingId)) { b = myBookings[i]; break; }
   }
-  var whenText = p.tier === 'A'
-    ? 'You are asking <strong>14 or more days</strong> before check-in.'
-    : (p.tier === 'B'
-      ? 'You are asking <strong>between 48 hours and 13 days</strong> before check-in.'
-      : 'You are asking <strong>less than 48 hours</strong> before check-in.');
+  if (!b) return '';
 
-  var colour = p.tier === 'A' ? '#166534' : (p.tier === 'B' ? '#92400e' : '#9f1239');
-  var bg = p.tier === 'A' ? '#f0fdf4' : (p.tier === 'B' ? '#fffbeb' : '#fff1f2');
-  var border = p.tier === 'A' ? '#bbf7d0' : (p.tier === 'B' ? '#fde68a' : '#fecdd3');
-
-  var lines = [];
-  lines.push(moneyLine('You paid', p.totalPaid));
-  lines.push(moneyLine('Room price', p.base));
-  if (p.tier === 'A') {
-    lines.push(moneyLine('Less: refund processing fee', p.chipRefundFee));
+  var line = '<strong>' + escapeAttr(b.homestay || 'Your booking') + '</strong>';
+  if (b.roomName) line += ' &middot; ' + escapeAttr(b.roomName);
+  if (b.checkin && b.checkout) {
+    line += '<br>' + escapeAttr(b.checkin) + ' &rarr; ' + escapeAttr(b.checkout) +
+            ' &middot; ' + (b.nights || 1) + ' night' + ((b.nights || 1) === 1 ? '' : 's');
   }
-  lines.push('<div style="border-top:1px solid rgba(0,0,0,.08);margin:6px 0;"></div>');
-  lines.push('<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:14px;">' +
-    '<span style="font-weight:700;color:' + colour + ';">You would get back</span>' +
-    '<strong style="color:' + colour + ';">RM ' + Number(p.guestAmount || 0).toFixed(2) + '</strong></div>');
+  line += '<br>Booking ID ' + escapeAttr(String(b.id || ''));
 
-  var hostLine = '';
-  if (p.hostAmount > 0) {
-    hostLine = '<div style="font-size:11px;color:#6b7280;margin-top:6px;line-height:1.5;">Your host would receive RM ' +
-      Number(p.hostAmount).toFixed(2) + ', because the room was held for you and could not be resold at short notice.</div>';
-  }
+  return line;
+}
 
-  return '<div style="padding:12px;background:' + bg + ';border:1px solid ' + border + ';border-radius:10px;font-size:12px;color:#374151;line-height:1.5;">' +
-    '<div style="font-weight:700;margin-bottom:8px;color:' + colour + ';">Your refund tier: ' + p.tier + '</div>' +
-    '<div style="margin-bottom:8px;">' + whenText + '</div>' +
-    lines.join('') +
-    hostLine +
-    '<div style="font-size:11px;color:#6b7280;margin-top:8px;line-height:1.5;">This is what you get if the cancellation goes ahead. Your host has to reply, and we can overrule them if their refusal is unreasonable.</div>' +
-    '</div>';
+function kdcrOpenModal(bookingId, tier) {
+  return new Promise(function(resolve) {
+    var overlay   = document.getElementById('kdcrOverlay');
+    var contextEl = document.getElementById('kdcrContext');
+    var tierEl    = document.getElementById('kdcrTier');
+    var reasonEl  = document.getElementById('kdcrReason');
+    var countEl   = document.getElementById('kdcrCount');
+    var checkEl   = document.getElementById('kdcrEmergency');
+    var checkWrap = document.getElementById('kdcrCheckWrap');
+    var errEl     = document.getElementById('kdcrError');
+    var sendBtn   = document.getElementById('kdcrSend');
+    var cancelBtn = document.getElementById('kdcrCancel');
+    var closeBtn  = document.getElementById('kdcrClose');
+
+    contextEl.innerHTML = renderBookingContext(bookingId);
+    tierEl.innerHTML    = renderTierCard(tier);
+
+    reasonEl.value = '';
+    countEl.textContent = '0 / 500';
+    countEl.classList.remove('warn');
+    checkEl.checked = false;
+    checkWrap.classList.remove('on');
+    errEl.textContent = '';
+    errEl.classList.remove('show');
+
+    function onKey(e) {
+      if (e.key === 'Escape') finish(null);
+    }
+
+    function finish(val) {
+      closeBtn.onclick  = null;
+      cancelBtn.onclick = null;
+      sendBtn.onclick   = null;
+      overlay.onclick   = null;
+      checkEl.onchange  = null;
+      reasonEl.oninput  = null;
+      document.removeEventListener('keydown', onKey);
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+      resolve(val);
+    }
+
+    closeBtn.onclick  = function() { finish(null); };
+    cancelBtn.onclick = function() { finish(null); };
+    overlay.onclick   = function(e) { if (e.target === overlay) finish(null); };
+    document.addEventListener('keydown', onKey);
+
+    reasonEl.oninput = function() {
+      var n = reasonEl.value.length;
+      countEl.textContent = n + ' / 500';
+      countEl.classList.toggle('warn', n > 460);
+    };
+
+    checkEl.onchange = function() {
+      checkWrap.classList.toggle('on', checkEl.checked);
+    };
+
+    sendBtn.onclick = function() {
+      var reason = reasonEl.value.trim();
+      errEl.classList.remove('show');
+
+      if (reason.length === 0) {
+        errEl.textContent = 'Please tell your host why you need to cancel.';
+        errEl.classList.add('show');
+        reasonEl.focus();
+        return;
+      }
+      if (reason.length < 10) {
+        errEl.textContent = 'Please give a bit more detail — at least 10 characters.';
+        errEl.classList.add('show');
+        reasonEl.focus();
+        return;
+      }
+      finish({ reason: reason, emergency: checkEl.checked === true });
+    };
+
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    // Only auto-focus on desktop. On phones this would pop the
+    // keyboard and hide the tier card before they have read it.
+    if (window.matchMedia('(min-width: 641px)').matches) {
+      setTimeout(function() { reasonEl.focus(); }, 80);
+    }
+  });
 }
 
 async function openCancellationRequestModal(bookingId) {
-  var res, data;
+  var data;
   try {
-    res = await fetch(API_BASE + '/cancellation-request', {
+    var res = await fetch(API_BASE + '/cancellation-request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getCsrfHeader() },
       credentials: 'include',
@@ -1098,94 +1584,16 @@ async function openCancellationRequestModal(bookingId) {
   }
 
   if (data.alreadyPending) {
-    await showAlert('Request Already Sent', 'You already have a cancellation request waiting on your host. You can withdraw it from this page if you change your mind.');
+    await showAlert('Request Already Sent',
+      'You already have a cancellation request waiting on your host. You can withdraw it from this page if you change your mind.');
     loadMyBookings();
     return;
   }
 
-  var p = data.preview;
+  var answers = await kdcrOpenModal(bookingId, data.preview);
+  if (!answers) return;
 
-  return new Promise(function(resolve) {
-    var overlay = document.getElementById('customModal');
-    var titleEl = document.getElementById('modalTitle');
-    var bodyEl = document.getElementById('modalBody');
-    var footerEl = document.getElementById('modalFooter');
-
-    titleEl.textContent = 'Request a Cancellation';
-    bodyEl.innerHTML =
-      '<div style="text-align:left;line-height:1.6;">' +
-        '<p style="font-size:13px;color:#374151;">This sends a request to your host. ' +
-        '<strong>It does not cancel your booking on its own</strong> — your host decides, and we step in if they refuse unfairly or go quiet.</p>' +
-        '<div style="margin-top:14px;">' + tierExplainer(p) + '</div>' +
-        '<div style="margin-top:14px;">' +
-          '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Why do you need to cancel? <span style="color:#b91c1c;">*</span></label>' +
-          '<textarea id="cr-reason" rows="4" maxlength="500" class="form-input" style="width:100%;resize:vertical;" placeholder="Tell your host what has happened. This is part of the request, and it is the first thing we look at if you ask us to review their decision."></textarea>' +
-          '<div id="cr-count" style="font-size:11px;color:#9ca3af;margin-top:4px;">0 / 500</div>' +
-        '</div>' +
-        '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;font-size:12px;color:#374151;cursor:pointer;">' +
-          '<input id="cr-emergency" type="checkbox" style="margin-top:2px;" />' +
-          '<span>This is an emergency (medical, a death in the family, a travel ban, or a natural disaster). We review these ourselves — you may be asked for evidence.</span>' +
-        '</label>' +
-        '<div id="cr-error" style="display:none;margin-top:12px;padding:10px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;font-size:12px;"></div>' +
-        '<div style="margin-top:12px;padding:10px;background:#f8f5f0;border-radius:10px;font-size:11px;color:#6b7280;line-height:1.5;">' +
-          'Your host has to reply within 48 hours — or 6 hours if your check-in is less than 48 hours away. ' +
-          'If they refuse, email us at support@kundasanghomestay.my and we will review it.' +
-        '</div>' +
-      '</div>';
-
-    footerEl.innerHTML = '';
-
-    var finish = function(val) {
-      window.__modalCancel = null;
-      overlay.classList.remove('active');
-      document.body.style.overflow = '';
-      resolve(val);
-    };
-    window.__modalCancel = function() { finish(null); };
-
-    var cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Never mind';
-    cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.onclick = function() { finish(null); };
-    footerEl.appendChild(cancelBtn);
-
-    var sendBtn = document.createElement('button');
-    sendBtn.textContent = 'Send Request to Host';
-    sendBtn.className = 'btn btn-primary';
-    sendBtn.onclick = function() {
-      var reasonEl = document.getElementById('cr-reason');
-      var emEl = document.getElementById('cr-emergency');
-      var errEl = document.getElementById('cr-error');
-      var reason = reasonEl ? reasonEl.value.trim() : '';
-      errEl.style.display = 'none';
-
-      if (reason.length < 10) {
-        errEl.textContent = 'Please tell your host why — at least 10 characters.';
-        errEl.style.display = 'block';
-        return;
-      }
-      finish({ reason: reason, emergency: emEl ? emEl.checked : false });
-    };
-    footerEl.appendChild(sendBtn);
-
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-
-    setTimeout(function() {
-      var ta = document.getElementById('cr-reason');
-      if (ta) {
-        ta.focus();
-        ta.addEventListener('input', function() {
-          var c = document.getElementById('cr-count');
-          if (c) c.textContent = ta.value.length + ' / 500';
-        });
-      }
-    }, 200);
-
-  }).then(function(answers) {
-    if (!answers) return;
-    return submitCancellationRequest(bookingId, answers.reason, answers.emergency);
-  });
+  await submitCancellationRequest(bookingId, answers.reason, answers.emergency);
 }
 
 async function submitCancellationRequest(bookingId, reason, emergency) {
@@ -1194,7 +1602,12 @@ async function submitCancellationRequest(bookingId, reason, emergency) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getCsrfHeader() },
       credentials: 'include',
-      body: JSON.stringify({ action: 'submit', bookingId: bookingId, reason: reason, emergency: emergency === true })
+      body: JSON.stringify({
+        action: 'submit',
+        bookingId: bookingId,
+        reason: reason,
+        emergency: emergency === true
+      })
     });
     var data = await res.json();
 
@@ -1212,9 +1625,15 @@ async function submitCancellationRequest(bookingId, reason, emergency) {
     var p = data.preview || {};
     var summary = '';
     if (p.tier) {
-      summary = '<div style="margin-top:12px;padding:12px;background:#f8f5f0;border-radius:10px;font-size:13px;">' +
-        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#6b7280;">Your tier</span><strong>' + p.tier + '</strong></div>' +
-        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#6b7280;">You would get back</span><strong>RM ' + Number(p.guestAmount || 0).toFixed(2) + '</strong></div>' +
+      summary =
+        '<div style="margin-top:14px;padding:13px 15px;background:#f8f5f0;border-radius:12px;font-size:13px;">' +
+          '<div style="display:flex;justify-content:space-between;padding:3px 0;">' +
+            '<span style="color:#6b7280;">Your tier</span><strong>' + p.tier + '</strong>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;padding:3px 0;">' +
+            '<span style="color:#6b7280;">You would get back</span>' +
+            '<strong>RM ' + Number(p.guestAmount || 0).toFixed(2) + '</strong>' +
+          '</div>' +
         '</div>';
     }
 
@@ -1223,9 +1642,11 @@ async function submitCancellationRequest(bookingId, reason, emergency) {
       '<div style="text-align:left;line-height:1.6;">' +
         '<p>Your host has been told. <strong>Your booking is not cancelled yet</strong> — they have to reply first.</p>' +
         summary +
-        '<p style="margin-top:12px;font-size:12px;color:#6b7280;">We will email you as soon as they respond. If they do not reply in time, email support@kundasanghomestay.my and we will take it over.</p>' +
+        '<p style="margin-top:14px;font-size:12px;color:#6b7280;">We will email you as soon as they respond. ' +
+        'If they do not reply in time, email support@kundasanghomestay.my and we will take it over.</p>' +
       '</div>'
     );
+
     loadMyBookings();
   } catch (e) {
     await showAlert('Network Error', 'Could not reach the server. Please try again.');
@@ -1235,7 +1656,8 @@ async function submitCancellationRequest(bookingId, reason, emergency) {
 async function withdrawCancellationRequest(bookingId) {
   var ok = await showConfirm(
     'Withdraw Request',
-    'Take back your cancellation request?<br><br>Your booking goes back to normal. If you decide to cancel again later, the refund will be worked out from that <strong>new</strong> time — not the original one.'
+    'Take back your cancellation request?<br><br>Your booking goes back to normal. If you decide to cancel again later, ' +
+    'the refund will be worked out from that <strong>new</strong> time — not the original one.'
   );
   if (!ok) return;
 
@@ -1258,7 +1680,7 @@ async function withdrawCancellationRequest(bookingId) {
     await showAlert('Network Error', 'Could not reach the server. Please try again.');
   }
 }
-   
+
 function openDeleteAccountModal() {
 return new Promise((resolve) => {
 const overlay = document.getElementById('customModal');
