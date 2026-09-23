@@ -1802,6 +1802,7 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
         <span class="text-xs">Page ${page} of ${totalPages}</span>
         <button onclick="goToBookingsPage(${page + 1})" ${page >= totalPages ? 'disabled' : ''} class="px-3 py-1 border rounded-full text-xs ${page >= totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-100'}">Next →</button>
         <button onclick="renderAdmin()" class="ml-2 border rounded-full px-2 py-0.5 bg-white">Reload</button>
+        <button onclick="runNoShowSweep()" class="ml-2 border rounded-full px-2 py-0.5 bg-white" title="Applies the 24-hour no-show rule now. It also runs by itself whenever this dashboard loads.">⚪ No-Show Sweep</button>
       </div>
     </div>
     <div class="space-y-4">
@@ -1814,27 +1815,61 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
     const isAwaiting = !isManualPending && statusLower.includes("awaiting");
     const isCompleted = !isManualPending && (statusLower.includes("completed") || statusLower.includes("payout"));
     const isCancelled = statusLower.includes("cancelled");
-    const isRefundPending = (/refund pending|refund_pending/i.test(status)) ||
+    // ⚪🟣🔵 outcomes. "no-show" does not contain "cancelled", so a
+    // no-showed booking used to fall through to "Payout Queued — Manual"
+    // and read as though the guest had stayed.
+    const isEmergencyApproved = statusLower.includes("emergency approved");
+    const isNoShow = statusLower.includes("no-show") || statusLower.includes("no show");
+    const isPlatformCancel = statusLower.includes("cancelled by platform");
+    // "Refund Failed" added: without it there was no RETRY REFUND button
+    // on a failed ⚪🟣🔵 refund, which is the one case that needs it.
+    const isRefundPending = (/refund pending|refund_pending|refund failed|refund_failed/i.test(status)) ||
                             (isCancelled && !b.chip_refund_id && (b.refund_error || b.refund_attempted_at));
+    // A no-show is only meaningful once the arrival date has passed.
+    const checkinMs = Date.parse(String(b.checkin || '') + 'T00:00:00+08:00');
+    const pastCheckin = Number.isFinite(checkinMs) && Date.now() >= checkinMs;
     const homestayName = b.homestay || "Homestay";
     const nights = b.nights || calculateNights(b.checkin, b.checkout);
     const checkin = b.checkin || "", checkout = b.checkout || "", total = b.total || 0;
     const base = b.base || 0, fee = b.fee || 0, youReceive = b.youReceive || fee;
-    let badgeClass = isCancelled ? 'bg-gray-100 text-gray-600'
+    let badgeClass = isEmergencyApproved ? 'bg-purple-100 text-purple-800'
+      : isNoShow ? 'bg-zinc-100 text-zinc-700'
+      : isPlatformCancel ? 'bg-blue-100 text-blue-800'
+      : isRefundPending ? 'bg-amber-100 text-amber-800'
+      : isCancelled ? 'bg-gray-100 text-gray-600'
       : isManualPending ? 'bg-amber-100 text-amber-800'
       : isAwaiting ? 'bg-yellow-100 text-yellow-800'
       : isCompleted ? 'bg-green-100 text-green-800'
       : 'bg-blue-100 text-blue-800';
 
-    let badgeText = isRefundPending ? '⏳ Refund Pending'
+    let badgeText = isEmergencyApproved
+      ? (isRefundPending ? '🟣 Emergency Approved — Refund Pending' : '🟣 Emergency Approved')
+      : isNoShow ? '⚪ No-Show — Room Price Queued'
+      : isPlatformCancel
+        ? (isRefundPending ? '🔵 Cancelled by Us — Refund Pending' : '🔵 Cancelled by Us')
+      : isRefundPending ? '⏳ Refund Pending'
       : isCancelled ? '❌ Cancelled'
       : isManualPending ? '⏳ Payout Queued — Manual'
       : isAwaiting ? '🟡 Awaiting Check-in'
       : isCompleted ? '✅ Completed'
       : '💳 Paid';
-     let btns = "";
+    let btns = "";
     if (isAwaiting) {
       btns += `<button class="booking-action-btn px-3 py-1.5 bg-[#0F382E] text-white rounded-full text-[11px] uppercase font-700" data-action="adminConfirmArrival" data-id="${escapeHtml(b.id)}">✓ Confirm Arrival</button>`;
+    }
+    // 🟣 Emergency no-show. Offered on a booking that is past its arrival
+    // date and has no outcome yet, and on a ⚪ no-show that has not been
+    // approved. Not offered once a refund exists.
+    const noShowAwaitingDecision = isNoShow && !isEmergencyApproved && !b.chip_refund_id;
+    const canApproveEmergency = !isEmergencyApproved && !b.chip_refund_id && !isPlatformCancel &&
+      ((isAwaiting && pastCheckin) || noShowAwaitingDecision);
+    if (canApproveEmergency) {
+      btns += `<button class="booking-action-btn px-3 py-1.5 bg-purple-600 text-white rounded-full text-[11px] uppercase font-700" data-action="approveEmergencyNoShow" data-id="${escapeHtml(b.id)}">🟣 Approve Emergency</button>`;
+    }
+    // 🔵 Force majeure. Only on a paid booking that still awaits check-in
+    // and has no recorded outcome and no queued payout.
+    if (isAwaiting && !b.cancel_type && !b.chip_refund_id && !isManualPending) {
+      btns += `<button class="booking-action-btn px-3 py-1.5 bg-blue-600 text-white rounded-full text-[11px] uppercase font-700" data-action="platformCancel" data-id="${escapeHtml(b.id)}">🔵 Platform Cancel</button>`;
     }
     if (isManualPending) {
       btns += `<span class="text-[11px] text-amber-700 italic px-2">Queued for manual payout — pay from bank app, then record in Manual Payout Queue</span>`;
@@ -1849,8 +1884,22 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
       btns += `<button class="booking-action-btn px-3 py-1.5 bg-green-600 text-white rounded-full text-[11px] uppercase font-600" data-action="updateBookingStatus" data-id="${escapeHtml(b.id)}" data-status="Completed">COMPLETE</button>`;
     }
 
+        const CANCEL_TYPE_LABELS = {
+      guest_request: 'Guest request',
+      host_own: 'Host cancelled',
+      no_show: 'No-show',
+      emergency_no_show: 'Emergency no-show',
+      platform: 'Cancelled by us'
+    };
+    const CANCEL_TYPE_COLORS = {
+      guest_request: 'bg-amber-50 text-amber-700 border-amber-200',
+      host_own: 'bg-green-50 text-green-700 border-green-200',
+      no_show: 'bg-zinc-50 text-zinc-700 border-zinc-200',
+      emergency_no_show: 'bg-purple-50 text-purple-700 border-purple-200',
+      platform: 'bg-blue-50 text-blue-700 border-blue-200'
+    };
     const cancelTypeTag = b.cancel_type
-      ? `<span class="text-[10px] px-2 py-0.5 rounded-full border ${b.cancel_type === 'guest_request' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-green-50 text-green-700 border-green-200'}">Cancelled as: ${escapeHtml(b.cancel_type)}</span>`
+      ? `<span class="text-[10px] px-2 py-0.5 rounded-full border ${CANCEL_TYPE_COLORS[b.cancel_type] || 'bg-green-50 text-green-700 border-green-200'}">Cancelled as: ${escapeHtml(CANCEL_TYPE_LABELS[b.cancel_type] || b.cancel_type)}</span>`
       : '';
 
     html += `<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">${escapeHtml(b.id)}</div><div class="text-[12px] mt-1">${escapeHtml(homestayName)} • ${nights} nights • ${escapeHtml(checkin)} → ${escapeHtml(checkout)} • RM${escapeHtml(total)}</div><div class="text-[12px]">Guest: ${escapeHtml(b.guestName || '')} ${escapeHtml(b.guestEmail || '')} ${escapeHtml(b.guestPhone || '')}</div><div class="text-[10px] text-zinc-500 mt-1">Base RM${escapeHtml(base)} + Fee RM${escapeHtml(fee)} = You receive RM${escapeHtml(youReceive)} ${b.payoutAmount ? '• Owner Paid RM' + escapeHtml(b.payoutAmount) + (b.payoutDate ? ' on ' + toMYDate(b.payoutDate) : '') : ''}${b.refund_error ? ' • Refund error: ' + escapeHtml(b.refund_error) : ''}</div>${cancelTypeTag ? `<div class="mt-2">${cancelTypeTag}</div>` : ''}</div><div><span class="text-[11px] px-2 py-1 rounded-full ${badgeClass}">${badgeText}</span></div></div><div class="flex gap-2 mt-3 flex-wrap">${btns}<button class="booking-action-btn px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600" data-action="whatsappGuest" data-id="${escapeHtml(b.id)}">WHATSAPP GUEST</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="copyBookingId" data-id="${escapeHtml(b.id)}">COPY ID</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="changeBookingDates" data-id="${escapeHtml(b.id)}">CHANGE DATES</button><button class="booking-action-btn px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600" data-action="deleteBooking" data-id="${escapeHtml(b.id)}">DELETE</button></div></div>`;
@@ -1883,8 +1932,10 @@ async function bookingActionHandler(e) {
   if (!action || !id) return;
   e.preventDefault();
 
-  const labels = {
+    const labels = {
     adminConfirmArrival: 'Confirming…',
+    approveEmergencyNoShow: 'Approving…',
+    platformCancel: 'Cancelling…',
     retryPayout: 'Retrying…',
     retryRefund: 'Retrying…',
     updateBookingStatus: 'Updating…',
@@ -1922,6 +1973,12 @@ async function bookingActionHandler(e) {
         break;
       case 'deleteBooking':
         await deleteBooking(id);
+        break;
+      case 'approveEmergencyNoShow':
+        await approveEmergencyNoShow(id);
+        break;
+      case 'platformCancel':
+        await platformCancel(id);
         break;
     }
   } finally {
@@ -2012,6 +2069,190 @@ async function adminConfirmArrival(bookingId) {
   }
 }
 window.adminConfirmArrival = adminConfirmArrival;
+
+// ============================================================
+// 🟣 Approve an emergency no-show
+//
+// The guest did not arrive but produced evidence of a genuine emergency
+// and we accept it. Evidence reaches us by email — the same route as the
+// host verification documents — so this records the DECISION and the
+// evidence note, it does not upload anything.
+//
+// Settles at half the room price each way. Records NO tier: a tier
+// measures how much notice the GUEST gave, and a no-show is not the
+// guest cancelling at all.
+// ============================================================
+async function approveEmergencyNoShow(bookingId) {
+  const booking = bookings.find(b => String(b.id) === String(bookingId));
+  if (!booking) { await showAlert('Error', 'Booking not found.'); return; }
+
+  const base = Number(booking.base || 0);
+  const half = Math.floor(base * 50) / 100;
+  const hostHalf = Math.round((base - half) * 100) / 100;
+
+  const choice = await showModal(
+    '🟣 Approve Emergency No-Show',
+    '<div style="text-align:left;line-height:1.6;">' +
+      '<p>Booking <strong>' + escapeHtml(bookingId) + '</strong> — ' + escapeHtml(booking.guestName || 'Guest') + '</p>' +
+      '<p style="font-size:13px;color:#6b7280;margin-top:8px;">Check-in was <strong>' + escapeHtml(booking.checkin || '') + '</strong>. Only approve this after you have seen the guest\'s evidence — a medical certificate, a death certificate, a travel ban notice, or similar.</p>' +
+      '<div style="margin-top:14px;padding:14px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:12px;font-size:13px;">' +
+        '<div style="font-weight:800;color:#6d28d9;margin-bottom:6px;">50 / 50 SETTLEMENT</div>' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Refund to guest</span><strong>RM ' + (booking.amount_paid || booking.total ? Number(booking.refund_amount || half).toFixed(2) : half.toFixed(2)) + '</strong></div>' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Paid to host</span><strong>RM ' + hostHalf.toFixed(2) + '</strong></div>' +
+        '<div style="font-size:11.5px;color:#6b7280;margin-top:8px;">Half the room price (RM ' + base.toFixed(2) + ') each way. The CHIP fees stay with us. This will be recorded without a tier — a tier only describes notice the guest gave, and a no-show is not a guest cancellation.</div>' +
+      '</div>' +
+      '<p style="font-size:12px;color:#6b7280;margin-top:12px;">Record what evidence you saw. This is the only record of why we approved it, and the guest can be shown it.</p>' +
+      '<textarea id="adminEmergencyNote" rows="3" maxlength="500" placeholder="e.g. Medical certificate for admission on 22 Sept, sent to support@ by the guest. Photograph on file." style="margin-top:8px;width:100%;padding:12px;font-size:13px;border:2px solid #e2e8f0;border-radius:12px;box-sizing:border-box;font-family:inherit;resize:vertical;"></textarea>' +
+    '</div>',
+    [ { label: 'Cancel', class: 'btn-secondary', value: null },
+      { label: 'Approve & Refund', class: 'btn-primary', value: '__confirm__' } ],
+    { allowHtml: true }
+  );
+  if (!choice || choice === null) return;
+
+  const note = String(document.getElementById('adminEmergencyNote')?.value || '').replace(/\s+/g, ' ').trim();
+  if (note.length < 10) {
+    await showAlert('Evidence Note Needed', 'Please record what evidence the guest provided — at least 10 characters. It is the only record of why we approved this.');
+    return;
+  }
+
+  const finalConfirm = await showConfirm(
+    'Confirm Emergency Approval',
+    'Approve the emergency for ' + bookingId + '?\n\nThis refunds the guest half the room price and queues the host\'s half. It cannot be undone from here.'
+  );
+  if (!finalConfirm) return;
+
+  try {
+    const res = await fetchWithAuth(API_BASE + '/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ action: 'emergencyNoShowApproved', id: bookingId, note })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      await showAlert('Approval Failed', data.error || 'Could not process this approval.');
+      return;
+    }
+    let msg = data.message + '\n\n';
+    if (!data.refunded) {
+      msg += 'The guest refund did NOT go through. Retry it from the bookings list (🔁 RETRY REFUND).\n\n';
+    }
+    msg += 'Guest email: ' + (data.guestEmailSent ? 'sent' : 'FAILED') + '\n';
+    msg += 'Host email: ' + (data.hostEmailSent ? 'sent' : 'FAILED');
+    await showAlert('Emergency Approved', msg);
+    await fetchCloudData();
+    renderAdmin();
+  } catch (e) {
+    await showAlert('Network Error', 'Could not reach the server: ' + e.message);
+  }
+}
+window.approveEmergencyNoShow = approveEmergencyNoShow;
+
+// ============================================================
+// 🔵 Platform cancel (force majeure)
+//
+// We cancel, for reasons outside anyone's control. The guest gets
+// everything back including the payment fee; the host gets nothing; we
+// absorb the CHIP fees.
+// ============================================================
+async function platformCancel(bookingId) {
+  const booking = bookings.find(b => String(b.id) === String(bookingId));
+  if (!booking) { await showAlert('Error', 'Booking not found.'); return; }
+
+  const refund = Number(booking.amount_paid || booking.total || 0);
+  const pending = booking.cancellationRequest && booking.cancellationRequest.status === 'pending_host';
+
+  const choice = await showModal(
+    '🔵 Platform Cancel (Force Majeure)',
+    '<div style="text-align:left;line-height:1.6;">' +
+      '<p>Cancel booking <strong>' + escapeHtml(bookingId) + '</strong>?</p>' +
+      '<p style="font-size:13px;color:#6b7280;margin-top:8px;">' + escapeHtml(booking.guestName || 'Guest') + ' • ' + escapeHtml(booking.checkin || '') + ' → ' + escapeHtml(booking.checkout || '') + '</p>' +
+      (pending ? '<div style="margin-top:12px;padding:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12.5px;color:#92400e;"><strong>Note:</strong> this guest has a cancellation request waiting for the host. Cancelling here refunds them in full — more than their tier entitles them to.</div>' : '') +
+      '<div style="margin-top:14px;padding:14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;font-size:13px;">' +
+        '<div style="font-weight:800;color:#1d4ed8;margin-bottom:6px;">FULL REFUND</div>' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Refund to guest</span><strong>RM ' + refund.toFixed(2) + '</strong></div>' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Paid to host</span><strong>RM 0.00</strong></div>' +
+        '<div style="font-size:11.5px;color:#6b7280;margin-top:8px;">Everything the guest paid, including the service fee and the RM 1.00 payment fee. We keep nothing and we absorb the CHIP fees. Recorded without a tier.</div>' +
+      '</div>' +
+      '<p style="font-size:12px;color:#6b7280;margin-top:12px;">Record the reason — the guest sees this. For example: "Kundasang landslide closed the access road, stay not possible."</p>' +
+      '<textarea id="adminPlatformReason" rows="3" maxlength="500" placeholder="e.g. Landslide on the access road. District office advisory issued 22 Sept. Stay cannot go ahead." style="margin-top:8px;width:100%;padding:12px;font-size:13px;border:2px solid #e2e8f0;border-radius:12px;box-sizing:border-box;font-family:inherit;resize:vertical;"></textarea>' +
+    '</div>',
+    [ { label: 'Cancel', class: 'btn-secondary', value: null },
+      { label: 'Cancel Booking & Refund', class: 'btn-primary', value: '__confirm__' } ],
+    { allowHtml: true }
+  );
+  if (!choice || choice === null) return;
+
+  const reason = String(document.getElementById('adminPlatformReason')?.value || '').replace(/\s+/g, ' ').trim();
+  if (reason.length < 10) {
+    await showAlert('Reason Needed', 'Please record why we are cancelling — at least 10 characters. The guest sees this.');
+    return;
+  }
+
+  const finalConfirm = await showConfirm(
+    'Confirm Platform Cancellation',
+    'Refund RM ' + refund.toFixed(2) + ' to the guest on ' + bookingId + '?\n\nThe host receives nothing. This cannot be undone from here.'
+  );
+  if (!finalConfirm) return;
+
+  try {
+    const res = await fetchWithAuth(API_BASE + '/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ action: 'adminCancelPlatform', id: bookingId, reason })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      await showAlert('Cancellation Failed', data.error || 'Could not process this cancellation.');
+      return;
+    }
+    let msg = data.message + '\n\n';
+    if (!data.refunded) {
+      msg += 'The guest refund did NOT go through. Retry it from the bookings list (🔁 RETRY REFUND).\n\n';
+    }
+    msg += 'Guest email: ' + (data.guestEmailSent ? 'sent' : 'FAILED') + '\n';
+    msg += 'Host email: ' + (data.hostEmailSent ? 'sent' : 'FAILED');
+    await showAlert('Platform Cancellation Recorded', msg);
+    await fetchCloudData();
+    renderAdmin();
+  } catch (e) {
+    await showAlert('Network Error', 'Could not reach the server: ' + e.message);
+  }
+}
+window.platformCancel = platformCancel;
+
+// ============================================================
+// ⚪ Run the no-show sweep now
+//
+// It also runs by itself whenever this dashboard loads, throttled to
+// once every 10 minutes. This is for running it on demand and seeing
+// what it found. It never calls CHIP.
+// ============================================================
+async function runNoShowSweep() {
+  try {
+    const res = await fetchWithAuth(API_BASE + '/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ action: 'runNoShowSweep' })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      await showAlert('Sweep Failed', data.error || 'Could not run the sweep.');
+      return;
+    }
+    let msg = data.message;
+    if (data.error) msg += '\n\nNote: ' + data.error;
+    await showAlert('⚪ No-Show Sweep', msg);
+    await fetchCloudData();
+    renderAdmin();
+  } catch (e) {
+    await showAlert('Network Error', 'Could not reach the server: ' + e.message);
+  }
+}
+window.runNoShowSweep = runNoShowSweep;
 
 function populateBookingFilter() {
   const select = document.getElementById('bookingFilterHomestay');
