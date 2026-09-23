@@ -894,11 +894,13 @@ function renderRow(h, rowNum) {
         '<div class="info-top">' +
           '<span class="row-num">#' + rowNum + '</span>' +
           '<span class="booking-id">' + escapeHtml(h.bookingId || '—') + '</span>' +
+          (h.kind === 'cancellation' ? '<span style="display:inline-block;margin-left:6px;font-size:9px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:2px 8px;border-radius:999px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap;align-self:center;">Cancellation</span>' : '') +
           '<span class="amount">RM ' + Number(h.amount || 0).toFixed(2) + '</span>' +
         '</div>' +
         '<div class="info-subtop">Paid on ' + formatDT(h.paidAt) + '</div>' +
 
-        '<div class="info-grid">' +
+          '<div class="info-grid">' +
+          (h.kind === 'cancellation' ? '<div class="lbl">Type</div><div class="val" style="color:#92400e;font-weight:700;">Cancellation compensation — guest did not stay</div>' : '') +
           '<div class="lbl">Host</div>' +
           '<div class="val">' + escapeHtml(h.hostName || '—') + '</div>' +
 
