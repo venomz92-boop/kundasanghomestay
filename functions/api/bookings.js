@@ -1655,6 +1655,17 @@ export async function onRequestPost({ request, env }) {
             };
           }
 
+          // If an earlier attempt already reached CHIP but recorded
+          // nothing, refuse. Running again would refund a second time —
+          // the marker is the only evidence we have that money may have
+          // moved.
+          if (booking.refund_attempted_at && !booking.chip_refund_id) {
+            return {
+              error: `A refund for this booking was already attempted at ${booking.refund_attempted_at} for RM${Number(booking.refund_attempted_amount || 0).toFixed(2)}, but no refund ID was recorded. Check purchase ${booking.chip_purchase_id || ''} in the CHIP dashboard before trying again.`,
+              status: 409
+            };
+          }
+
           const amounts = computeNonTierAmounts(booking, 'emergency_no_show');
 
           // Mark the attempt BEFORE calling CHIP, so a retry cannot
@@ -1670,27 +1681,16 @@ export async function onRequestPost({ request, env }) {
           const refundError = refund.error || null;
           const stamp = new Date().toISOString();
 
-          // A successful retry must not flatten a ⚪🟣🔵 outcome to plain
-          // "Refunded" — that would lose the fact it was a no-show or a
-          // force-majeure cancellation, and the host's payout context
-          // with it.
-          const TERMINAL_STATUS_BY_TYPE = {
-            no_show: 'No-Show - Nothing Due',
-            emergency_no_show: 'No-Show - Emergency Approved',
-            platform: 'Cancelled by Platform'
-          };
-
           if (refundData) {
             const isPending = refundData.status === 'pending_refund';
-            const typedTerminal = TERMINAL_STATUS_BY_TYPE[storedCancelType];
-            bookings[idx].status = typedTerminal
-              ? (isPending ? typedTerminal + ' (Refund Pending)' : typedTerminal)
-              : (isPending ? 'Refund Pending - Awaiting CHIP' : 'Refunded');
+            bookings[idx].status = isPending
+              ? 'No-Show - Emergency Approved (Refund Pending)'
+              : 'No-Show - Emergency Approved';
             bookings[idx].chip_refund_id = refundData.id;
-            bookings[idx].refunded_at = new Date().toISOString();
-            bookings[idx].refund_amount = refundAmountNum;
+            bookings[idx].refunded_at = stamp;
+            bookings[idx].refund_amount = amounts.guestAmount;
             bookings[idx].refund_pending = isPending;
-            bookings[idx].statusUpdated = new Date().toISOString();
+            bookings[idx].statusUpdated = stamp;
             delete bookings[idx].refund_error;
           } else {
             bookings[idx].status = 'No-Show - Emergency Approved (Refund Failed)';
