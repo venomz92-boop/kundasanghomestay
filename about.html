@@ -110,7 +110,7 @@
 <link rel="stylesheet" href="styles.css" />
 <script src="/guest-session.js"></script>
 <script src="/csrf-auto.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700;800&family=Satisfy&display=swap" rel="stylesheet">
 
@@ -265,14 +265,16 @@ window.toggleMobileMenu = function() {
       <h2 id="why-we-exist-heading" class="font-poppins font-800 text-[28px] md:text-[34px] text-[#212121] tracking-[-0.5px] leading-tight">Protecting Travelers in Kundasang</h2>
       <div class="w-[48px] h-[3px] bg-gradient-to-r from-[#D4A373] to-[#0F382E] mt-4 mb-5 rounded-full"></div>
       <p class="text-[14px] text-zinc-600 leading-[1.8]">Kundasang is one of Malaysia's most beautiful travel destinations — but it was plagued by <strong>homestay scams, fake listings, and unverified hosts</strong> taking payments outside any system.</p>
-      <p class="text-[14px] text-zinc-600 leading-[1.8] mt-4">We built <strong>Kundasang Homestay</strong> to change that. Every property on our platform is physically verified by our local team. Every payment goes through <strong>CHIP FPX</strong> — Malaysia's trusted online banking gateway. No cash transfers. No scams.</p>
+      <p class="text-[14px] text-zinc-600 leading-[1.8] mt-4">We built <strong>Kundasang Homestay</strong> to change that. Every property on our platform is verified by our local team before it goes live. Every payment goes through <strong>CHIP</strong>, using FPX — Malaysia's online banking network.</p>
       <p class="text-[14px] text-zinc-600 leading-[1.8] mt-4"><strong>We are not a foreign tech company.</strong> We are locals who love Kundasang and want both travelers and hosts to thrive safely.</p>
     </div>
     <div class="relative">
-      <img src="/images/kinabalu.jpg" alt="Mount Kinabalu view from a verified Kundasang homestay in Sabah" width="600" height="320" loading="lazy" decoding="async" class="w-full h-[320px] object-cover rounded-2xl shadow-lg" onerror="this.src='https://sabahtravelguide.com/eng/wp-content/uploads/2018/08/Majestic-Mt-Kbalu-scaled-e1598333455646-1200x492.jpg'"/>
+      <div class="about-photo">
+        <img src="/images/kinabalu.jpg" alt="Mount Kinabalu view from a Kundasang homestay in Sabah" width="600" height="320" loading="lazy" decoding="async" class="w-full h-[320px] object-cover rounded-2xl shadow-lg" onerror="this.onerror=null;this.remove();"/>
+      </div>
       <div class="absolute -bottom-4 -left-4 bg-[#0F382E] text-white px-6 py-4 rounded-2xl shadow-lg">
-        <div class="text-[10px] uppercase tracking-widest text-white/60 font-600">Pine</div>
-        <div class="text-[24px] font-800 leading-none">Resort</div>
+        <div class="text-[10px] uppercase tracking-widest text-white/60 font-600">Kinabalu</div>
+        <div class="text-[24px] font-800 leading-none">18–23°C</div>
         <div class="text-[11px] text-white/70 mt-0.5">Kundasang, Sabah</div>
       </div>
     </div>
@@ -288,17 +290,17 @@ window.toggleMobileMenu = function() {
       <div class="stat-card">
         <div class="text-[36px] font-800 text-[#0F382E]">100%</div>
         <div class="text-[11px] uppercase tracking-wider text-zinc-500 font-600 mt-1">Verified Listings</div>
-        <div class="text-[12px] text-zinc-400 mt-2">Every homestay physically checked</div>
+        <div class="text-[12px] text-zinc-400 mt-2">Every homestay checked by our team</div>
       </div>
       <div class="stat-card">
         <div class="text-[36px] font-800 text-[#D4A373]">FPX</div>
         <div class="text-[11px] uppercase tracking-wider text-zinc-500 font-600 mt-1">Secured Payments</div>
-        <div class="text-[12px] text-zinc-400 mt-2">Zero outside bank transfers</div>
+        <div class="text-[12px] text-zinc-400 mt-2">No cash, no outside transfers</div>
       </div>
       <div class="stat-card">
-        <div class="text-[36px] font-800 text-[#0F382E]">Fast</div>
-        <div class="text-[11px] uppercase tracking-wider text-zinc-500 font-600 mt-1">Listing Approval</div>
-        <div class="text-[12px] text-zinc-400 mt-2">Reviewed within 2 business days</div>
+        <div class="text-[36px] font-800 text-[#0F382E]">24–48</div>
+        <div class="text-[11px] uppercase tracking-wider text-zinc-500 font-600 mt-1">Jam Kelulusan</div>
+        <div class="text-[12px] text-zinc-400 mt-2">Listing reviewed within 24–48 hours</div>
       </div>
       <div class="stat-card">
         <div class="text-[36px] font-800 text-[#D4A373]">RNU</div>
@@ -322,14 +324,14 @@ window.toggleMobileMenu = function() {
         <div class="trust-icon" aria-hidden="true">🪪</div>
         <div>
           <h3 class="font-600 text-[14px] text-[#212121]">IC Verification</h3>
-          <p class="text-[13px] text-zinc-500 mt-1 leading-relaxed">Every host submits a watermarked national ID. Our local team cross-checks identity before any listing goes live.</p>
+          <p class="text-[13px] text-zinc-500 mt-1 leading-relaxed">Every host submits a watermarked national ID. Our local team cross-checks identity before any listing goes live, and the IC image is deleted once the listing is approved.</p>
         </div>
       </div>
       <div class="trust-item">
         <div class="trust-icon" aria-hidden="true">🏦</div>
         <div>
-          <h3 class="font-600 text-[14px] text-[#212121]">CHIP FPX Gateway</h3>
-          <p class="text-[13px] text-zinc-500 mt-1 leading-relaxed">All payments route through Malaysia's licensed FPX system. Funds are held by the platform and released to hosts only after the guest's check-in is confirmed.</p>
+          <h3 class="font-600 text-[14px] text-[#212121]">Payments Held Until Check-in</h3>
+          <p class="text-[13px] text-zinc-500 mt-1 leading-relaxed">All payments route through CHIP using FPX. Funds are held by the platform and released to the host within 1–2 business days after the guest's check-in is confirmed — not before.</p>
         </div>
       </div>
       <div class="trust-item">
@@ -343,21 +345,21 @@ window.toggleMobileMenu = function() {
         <div class="trust-icon" aria-hidden="true">💬</div>
         <div>
           <h3 class="font-600 text-[14px] text-[#212121]">Direct WhatsApp Contact</h3>
-          <p class="text-[13px] text-zinc-500 mt-1 leading-relaxed">After every booking, your guest can reach you directly via WhatsApp for arrival details, questions, and check-in coordination.</p>
+          <p class="text-[13px] text-zinc-500 mt-1 leading-relaxed">After every booking, the guest can reach the host directly via WhatsApp for arrival details, questions, and check-in coordination.</p>
         </div>
       </div>
       <div class="trust-item">
         <div class="trust-icon" aria-hidden="true">🔐</div>
         <div>
-          <h3 class="font-600 text-[14px] text-[#212121]">Encrypted Host Passwords</h3>
-          <p class="text-[13px] text-zinc-500 mt-1 leading-relaxed">Host dashboard passwords are hashed with PBKDF2-SHA256 (100,000 iterations) plus per-user salt and a server-side pepper. Raw passwords are never stored.</p>
+          <h3 class="font-600 text-[14px] text-[#212121]">Encrypted Passwords</h3>
+          <p class="text-[13px] text-zinc-500 mt-1 leading-relaxed">Account passwords are hashed with PBKDF2-SHA256 (100,000 iterations) plus a per-user salt and a server-side pepper. Raw passwords are never stored.</p>
         </div>
       </div>
       <div class="trust-item">
         <div class="trust-icon" aria-hidden="true">🛡️</div>
         <div>
           <h3 class="font-600 text-[14px] text-[#212121]">XSS &amp; Injection Protection</h3>
-          <p class="text-[13px] text-zinc-500 mt-1 leading-relaxed">User input is sanitised in two layers: DOMPurify on the client before anything is rendered, and dedicated server-side sanitisers on every API endpoint before anything is stored. Neither layer trusts the other.</p>
+          <p class="text-[13px] text-zinc-500 mt-1 leading-relaxed">User input is sanitised in two layers: on the client before anything is rendered, and again on the server before anything is stored. Neither layer trusts the other.</p>
         </div>
       </div>
     </div>
@@ -387,8 +389,8 @@ window.toggleMobileMenu = function() {
       </div>
       <div class="text-center">
         <div class="step-number accent" aria-hidden="true">4</div>
-        <h3 class="font-600 text-[14px] text-[#212121]">Enjoy Kundasang</h3>
-        <p class="text-[12px] text-zinc-500 mt-2 leading-relaxed">Check in with your booking ID and enjoy the mountain hospitality!</p>
+        <h3 class="font-600 text-[14px] text-[#212121]">Check In &amp; Enjoy</h3>
+        <p class="text-[12px] text-zinc-500 mt-2 leading-relaxed">Give your 6-digit check-in code to the host, and enjoy the mountain hospitality.</p>
       </div>
     </div>
   </section>
@@ -400,12 +402,13 @@ window.toggleMobileMenu = function() {
       <div>
         <div class="font-satisfy text-[#D4A373] text-[26px] leading-none mb-2">Own a Homestay?</div>
         <h2 id="owner-cta-heading" class="font-poppins font-800 text-[26px] md:text-[32px] leading-tight tracking-[-0.5px]">Turn Your Property Into Steady Income</h2>
-        <p class="text-white/70 text-[14px] leading-[1.8] mt-4">Join Kundasang's most trusted homestay platform. Get verified, get listed, and start receiving FPX-secured bookings directly to your bank account.</p>
+        <p class="text-white/70 text-[14px] leading-[1.8] mt-4">Join Kundasang's trusted homestay platform. Get verified, get listed, and start receiving FPX-secured bookings paid directly to your bank account.</p>
         <ul class="mt-6 space-y-3 text-[13px] text-white/80">
-          <li class="flex items-center gap-2"><span class="text-[#D4A373] font-800" aria-hidden="true">✓</span> Free listing registration</li>
+          <li class="flex items-center gap-2"><span class="text-[#D4A373] font-800" aria-hidden="true">✓</span> Free listing registration, 0% commission from hosts</li>
           <li class="flex items-center gap-2"><span class="text-[#D4A373] font-800" aria-hidden="true">✓</span> Full control of your availability calendar</li>
-          <li class="flex items-center gap-2"><span class="text-[#D4A373] font-800" aria-hidden="true">✓</span> Payout released after guest check-in</li>
+          <li class="flex items-center gap-2"><span class="text-[#D4A373] font-800" aria-hidden="true">✓</span> Payout 1–2 business days after guest check-in</li>
           <li class="flex items-center gap-2"><span class="text-[#D4A373] font-800" aria-hidden="true">✓</span> Dedicated owner dashboard panel</li>
+          <li class="flex items-center gap-2"><span class="text-[#D4A373] font-800" aria-hidden="true">✓</span> No exclusivity — keep your other listings</li>
         </ul>
         <a href="/owner-register.html" class="btn-accent mt-8 inline-block">List My Homestay →</a>
       </div>
@@ -457,6 +460,7 @@ window.toggleMobileMenu = function() {
         <a href="/explore.html" class="hover:text-white block">Explore Kundasang</a>
         <a href="/about.html" class="hover:text-white block">About Us</a>
         <a href="/owner-register.html" class="hover:text-white block">Host Registration</a>
+        <a href="/host-agreement.html" class="hover:text-white block">Host Agreement</a>
         <a href="/terms.html" class="hover:text-white block">Terms &amp; Conditions</a>
         <a href="/privacy.html" class="hover:text-white block">Privacy Policy</a>
         <a href="/booking-policy.html" class="hover:text-white block">Booking Policy</a>
@@ -474,9 +478,9 @@ window.toggleMobileMenu = function() {
     <div>
       <div class="font-poppins font-700 text-[13px] uppercase tracking-widest text-white mb-4">Trust &amp; Safety</div>
       <div class="space-y-2 text-[13px] font-poppins">
-        <div>✓ Host Physical Verification</div>
-        <div>✓ CHIP FPX Online Protection</div>
-        <div>✓ Verified Host Policy</div>
+        <div>✓ Host ID Verification (IC + bank proof)</div>
+        <div>✓ Payments via CHIP (FPX)</div>
+        <div>✓ Payout 1–2 business days after check-in</div>
       </div>
     </div>
     <div>
@@ -520,6 +524,8 @@ function showModal(title, message, buttons) {
         };
         footerEl.appendChild(el);
       });
+      const first = footerEl.querySelector('button');
+      if (first) first.focus();
     }
     if (overlay) overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -598,20 +604,19 @@ function safeHTML(html) {
     ALLOWED_TAGS: [
       'div', 'span', 'p', 'a', 'img', 'br', 'b', 'i', 'u', 'strong', 'em',
       'h1','h2','h3','h4','h5','h6','ul','ol','li','table','tr','td','th',
-      'button','input','form','label','select','option','textarea',
       'section','article','header','footer','nav','main','aside',
       'code','pre','blockquote','hr','small','sub','sup','svg','path',
-      'canvas', 'figure', 'figcaption', 'cite'
+      'figure', 'figcaption', 'cite'
     ],
     ALLOWED_ATTR: [
       'id','class','style','href','src','alt','title','rel','target',
-      'method','action','type','name','value','placeholder',
-      'checked','disabled','readonly','required','multiple',
-      'min','max','step','pattern','autocomplete','inputmode',
-      'viewBox','fill','stroke','stroke-width','d','aria-*','data-*'
+      'width','height','loading','decoding',
+      'viewBox','fill','stroke','stroke-width','d',
+      'colspan','rowspan','scope','role'
     ],
-    ADD_ATTR: ['target'],
-    ALLOW_DATA_ATTR: true,
+    ALLOW_ARIA_ATTR: true,
+    ALLOW_DATA_ATTR: false,
+    ALLOW_UNKNOWN_PROTOCOLS: false,
     FORCE_HTTPS: true
   });
 }
