@@ -543,7 +543,7 @@ function renderPending(items) {
   }
   list.innerHTML = items.map(function(p) {
     var urgencyClass = 'fresh';
-    var urgencyLabel = 'Fresh — check-in today';
+    var urgencyLabel = (p.kind === 'cancellation') ? 'NEW — cancellation payout' : 'NEW — queued today';
     if (p.daysWaiting >= 3) { urgencyClass = 'urgent'; urgencyLabel = 'URGENT — ' + p.daysWaiting + ' days waiting'; }
     else if (p.daysWaiting >= 1) { urgencyClass = 'aging'; urgencyLabel = p.daysWaiting + ' day' + (p.daysWaiting === 1 ? '' : 's') + ' waiting'; }
     var fullBankLine = p.bankName + ' — ' + p.accountNumber + ' — ' + p.accountHolder;
