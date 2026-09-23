@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Untuk Pengusaha – Kundasang Homestay</title>
-<meta name="description" content="Platform homestay Kundasang untuk pengusaha tempatan. 0% komisen daripada pengusaha. Pendaftaran percuma, pembayaran melalui CHIP (FPX)." />
+<meta name="description" content="Platform homestay Kundasang untuk pengusaha tempatan. 0% komisen daripada pengusaha. Daftar akaun, kemudian senaraikan homestay anda. Bayaran melalui CHIP (FPX)." />
 <!-- Halaman ini untuk jemputan sahaja. Buang baris ini jika ingin diindeks. -->
 <meta name="robots" content="noindex, nofollow" />
 
@@ -14,14 +14,14 @@
 <meta property="og:url" content="https://kundasanghomestay.my/owner-invite.html" />
 <meta property="og:site_name" content="Kundasang Homestay.my" />
 <meta property="og:title" content="Daftar Homestay Anda – Selamat &amp; Percuma" />
-<meta property="og:description" content="0% komisen daripada pengusaha. Tetamu boleh hubungi anda terus. Wang diuruskan melalui CHIP (FPX)." />
+<meta property="og:description" content="0% komisen daripada pengusaha. Tiada eksklusif. Bayaran dilepaskan 1–2 hari bekerja selepas check-in disahkan." />
 <!-- TODO: cipta imej 1200x630 ini (Nick + Gunung Kinabalu + logo) -->
 <meta property="og:image" content="https://kundasanghomestay.my/images/og-hosts.jpg" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Daftar Homestay Anda – Selamat &amp; Percuma" />
-<meta name="twitter:description" content="0% komisen daripada pengusaha. Wang diuruskan melalui CHIP (FPX)." />
+<meta name="twitter:description" content="0% komisen daripada pengusaha. Tiada eksklusif." />
 <meta name="twitter:image" content="https://kundasanghomestay.my/images/og-hosts.jpg" />
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -30,6 +30,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<!-- Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-CG482XVS35"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-CG482XVS35');
+</script>
 
 <!-- Tailwind CDN: untuk produksi, bina versi purge (~15KB) dan buang baris ini. -->
 <script src="https://cdn.tailwindcss.com"></script>
@@ -42,6 +51,7 @@
     --beige: #F8F5F0;
     --gold: #D4A373;
     --gold-light: #E8D5B5;
+    --gold-text: #8A6A3F;
     --text-dark: #1A2E24;
     --text-muted: #5A6B60;
     --shadow-elevated: 0 20px 60px rgba(15, 30, 22, 0.12);
@@ -62,12 +72,15 @@
   }
   .font-serif { font-family: "DM Serif Display", serif; }
 
-  /* Aksesibiliti: fokus jelas + hormati prefers-reduced-motion */
   :focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; border-radius: 4px; }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
     .scroll-fade { opacity: 1 !important; transform: none !important; }
+  }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
   }
 
   .hero-section {
@@ -115,7 +128,6 @@
   .card-elevated:hover { border-color: rgba(212, 163, 115, 0.32); transform: translateY(-4px); }
   @media (min-width: 768px) { .card-elevated { padding: 32px; } }
 
-  /* FIX: kelas ini sebelum ini tersalah tulis sebagai "-photo-hero" dalam HTML */
   .founder-photo-hero {
     position: relative; border-radius: 14px; overflow: hidden;
     border: 2px solid rgba(212, 163, 115, 0.4);
@@ -163,7 +175,6 @@
   }
   .step-badge.accent { background: var(--gold); color: var(--green-dark); }
 
-  /* ---------- Jadual perbandingan: satu sumber untuk desktop + mudah alih ---------- */
   .compare-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .compare-table th, .compare-table td {
     padding: 16px 20px; text-align: left; border-bottom: 1px solid rgba(15, 30, 22, 0.05);
@@ -200,10 +211,9 @@
       font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
       text-transform: uppercase; color: var(--text-muted);
     }
-    .compare-table td.us[data-label]::before { color: #8A6A3F; }
+    .compare-table td.us[data-label]::before { color: var(--gold-text); }
   }
 
-  /* ---------- FAQ: <details> asli = boleh guna papan kekunci, tiada JS ---------- */
   .faq-item { border-bottom: 1px solid rgba(15, 30, 22, 0.06); }
   .faq-item:last-child { border-bottom: none; }
   .faq-question {
@@ -212,11 +222,12 @@
     gap: 16px; padding: 18px 0; list-style: none; transition: color 0.2s;
   }
   .faq-question::-webkit-details-marker { display: none; }
-  .faq-question:hover { color: #8A6A3F; }
+  .faq-question:hover { color: var(--gold-text); }
   .faq-toggle { font-size: 24px; font-weight: 400; color: var(--gold); flex-shrink: 0; min-width: 32px; text-align: center; }
   .faq-toggle::before { content: "+"; }
   .faq-item[open] .faq-toggle::before { content: "−"; }
   .faq-answer { font-size: 14px; color: var(--text-muted); line-height: 1.7; padding-bottom: 20px; }
+  .faq-answer a { color: var(--green-mid); text-decoration: underline; }
 
   .mobile-overlay {
     position: fixed; inset: 0; background: rgba(15, 30, 22, 0.60);
@@ -232,7 +243,6 @@
     display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
   }
   .mobile-drawer.open { right: 0; }
-  /* FIX: drawer tertutup tidak lagi boleh difokus dengan Tab */
   .mobile-drawer[inert] { visibility: hidden; }
 
   .floating-bar {
@@ -264,16 +274,6 @@
 </head>
 <body>
 
-<!--
-  ================================================================
-  ⚠️  KONFIRMASI SEBELUM TERBIT — tiga perkara ini ialah PLACEHOLDER:
-      1. "BAYARAN_TEMPOH"  → tempoh bayaran keluar ke akaun anda
-      2. "NOSHOW_TEMPOH"   → tempoh tunggu jika tetamu tak beri kod
-      3. "EKSKLUSIF"       → dasar eksklusif (saya andaikan TIDAK eksklusif)
-      Saya tidak mencipta angka ini. Sahkan dahulu, baru terbit.
-  ================================================================
--->
-
 <div class="mobile-overlay" id="mobileOverlay" aria-hidden="true"></div>
 
 <div class="mobile-drawer" id="mobileDrawer" role="dialog" aria-modal="true" aria-label="Menu utama" inert>
@@ -285,6 +285,7 @@
     <a href="/" class="hover:text-[#1E3328] py-3 px-2 rounded-xl hover:bg-[#1E3328]/5 transition-colors">Utama</a>
     <a href="/owner-register.html" class="js-register-link hover:text-[#1E3328] py-3 px-2 rounded-xl hover:bg-[#1E3328]/5 transition-colors">Daftar Homestay</a>
     <a href="/about.html" class="hover:text-[#1E3328] py-3 px-2 rounded-xl hover:bg-[#1E3328]/5 transition-colors">Tentang</a>
+    <a href="/host-agreement.html" class="hover:text-[#1E3328] py-3 px-2 rounded-xl hover:bg-[#1E3328]/5 transition-colors">Perjanjian Pengusaha</a>
     <a href="https://wa.me/60165833713?text=Hi%20Nick%2C%20saya%20berminat%20nak%20tanya%20pasal%20daftar%20homestay." target="_blank" rel="noopener noreferrer" class="hover:text-[#1E3328] py-3 px-2 rounded-xl hover:bg-[#1E3328]/5 transition-colors">💬 WhatsApp Nick</a>
     <a href="/owner.html" class="btn-primary text-center text-[10px] mt-3" style="padding:12px 20px; background:#1E3328; color:#FFFFFF;">🔑 Log Masuk Pengusaha</a>
   </nav>
@@ -296,7 +297,6 @@
 <header id="siteHeader" class="h-[72px] md:h-[80px] bg-[#0F1E16]/95 backdrop-blur-lg sticky top-0 z-50 border-b border-white/10" style="transition: box-shadow .3s ease;">
   <div class="max-w-[1300px] mx-auto h-full px-4 lg:px-8 flex items-center justify-between">
     <a href="/" class="flex items-center gap-3 group">
-      <!-- FIX: onerror lama menyebabkan gelung tak terhingga + logo bertukar jadi gambar stok -->
       <img src="/logo.png" alt="" width="64" height="64" class="w-12 h-12 md:w-16 md:h-16" onerror="this.onerror=null;this.style.display='none';" />
       <div class="leading-none">
         <div class="font-serif font-bold text-[18px] md:text-[22px] tracking-[-0.5px] text-white">
@@ -334,7 +334,7 @@
         </h1>
 
         <p class="mt-4 text-white/80 text-[15px] md:text-[18px] max-w-[560px] mx-auto lg:mx-0 leading-relaxed">
-          Kami tidak mengambil komisen daripada pengusaha. Anda terima <strong class="text-white">harga penuh</strong> yang anda tetapkan — yuran platform ditanggung oleh tetamu.
+          Kami tidak mengambil komisen daripada pengusaha. Anda terima <strong class="text-white">harga penuh</strong> yang anda tetapkan — yuran platform ditanggung oleh tetamu. Tiada kontrak eksklusif.
         </p>
 
         <div class="mt-6 flex items-center justify-center lg:justify-start gap-3">
@@ -353,7 +353,7 @@
         <div class="mt-8 flex flex-wrap items-center justify-center lg:justify-start gap-x-5 gap-y-2 text-[12px] md:text-[13px] text-white/75">
           <span class="flex items-center gap-1.5">✅ Pendaftaran Percuma</span>
           <span class="flex items-center gap-1.5">🚫 0% Komisen daripada Anda</span>
-          <span class="flex items-center gap-1.5">🔒 Pembayaran melalui CHIP (FPX)</span>
+          <span class="flex items-center gap-1.5">🔓 Tiada Eksklusif</span>
           <span class="flex items-center gap-1.5">🆔 Pengesahan ID Pengusaha</span>
         </div>
       </div>
@@ -361,7 +361,6 @@
       <div class="lg:col-span-2">
         <div class="card-elevated">
           <div class="founder-photo-hero" id="founderPhoto">
-            <!-- TODO: pastikan ini gambar sebenar Nick, bukan gambar stok -->
             <img src="/images/founder.jpg" alt="Nick, pengasas Kundasang Homestay, di Ranau, Sabah"
                  width="800" height="600" loading="lazy" decoding="async"
                  onerror="this.onerror=null;this.parentNode.classList.add('photo-missing');this.remove();" />
@@ -445,11 +444,10 @@
     <div class="card-soft text-center group">
       <div class="step-badge accent mx-auto group-hover:scale-110 transition-transform">6</div>
       <h3 class="font-serif font-bold text-[18px] text-[#1E3328] mt-4">Bayaran Penuh ke Akaun Anda</h3>
-      <p class="text-[14px] text-[#5A6B60] mt-2 leading-relaxed">Kami arahkan CHIP memindahkan <strong>jumlah penuh harga penginapan</strong> ke akaun bank anda. <span class="text-[#8A6A3F] font-semibold">Tiada potongan.</span></p>
+      <p class="text-[14px] text-[#5A6B60] mt-2 leading-relaxed">Selepas check-in disahkan, kami lepaskan bayaran <strong>jumlah penuh harga penginapan</strong> ke akaun bank anda dalam <strong>1–2 hari bekerja</strong>. <span class="text-[#8A6A3F] font-semibold">Tiada potongan komisen.</span></p>
     </div>
   </div>
 
-  <!-- Contoh kiraan: membunuh semua kekeliruan tentang yuran -->
   <div class="mt-10 max-w-3xl mx-auto bg-white rounded-2xl border border-[#D4A373]/30 p-6 md:p-8 shadow-sm">
     <h3 class="font-serif font-bold text-[18px] text-[#1E3328]">🧮 Contoh Kiraan Sebenar</h3>
     <p class="text-[13.5px] text-[#5A6B60] mt-2">Homestay anda RM150 semalam, tetamu tempah <strong>2 malam</strong>:</p>
@@ -466,25 +464,21 @@
     <p class="text-[12px] text-[#5A6B60] mt-3">Anda terima harga penuh. Tiada potongan komisen daripada pengusaha.</p>
   </div>
 
-  <!-- Soalan yang pengusaha tanya dahulu -->
   <div class="mt-10 max-w-3xl mx-auto grid sm:grid-cols-3 gap-4">
     <div class="bg-white rounded-2xl border border-[#1E3328]/10 p-5">
       <div class="text-2xl" aria-hidden="true">💰</div>
       <h4 class="font-serif font-bold text-[15px] text-[#1E3328] mt-2">Bila saya terima bayaran?</h4>
-      <!-- KONFIRMASI: angka di bawah ialah PLACEHOLDER -->
-      <p class="text-[13px] text-[#5A6B60] mt-1.5 leading-relaxed">Selepas anda sahkan check-in, kami arahkan CHIP melepaskan bayaran. Biasanya dalam <strong class="text-[#1E3328]">BAYARAN_TEMPOH</strong>.</p>
+      <p class="text-[13px] text-[#5A6B60] mt-1.5 leading-relaxed">Selepas anda sahkan check-in tetamu di dashboard, kami lepaskan bayaran penuh ke akaun bank anda dalam <strong class="text-[#1E3328]">1–2 hari bekerja</strong> (Isnin–Jumaat). Jika check-in pada hujung minggu atau cuti umum, bayaran masuk pada hari bekerja berikutnya.</p>
     </div>
     <div class="bg-white rounded-2xl border border-[#1E3328]/10 p-5">
       <div class="text-2xl" aria-hidden="true">🛡️</div>
       <h4 class="font-serif font-bold text-[15px] text-[#1E3328] mt-2">Kalau tetamu tak beri kod?</h4>
-      <!-- KONFIRMASI: angka di bawah ialah PLACEHOLDER -->
-      <p class="text-[13px] text-[#5A6B60] mt-1.5 leading-relaxed">Jangan risau. Jika tetamu tidak memberi kod dalam <strong class="text-[#1E3328]">NOSHOW_TEMPOH</strong> selepas tarikh check-in, hubungi kami — kami siasat dan lepaskan bayaran kepada anda.</p>
+      <p class="text-[13px] text-[#5A6B60] mt-1.5 leading-relaxed">Tetamu perlu menghubungi anda untuk selesaikan tempahan. Jika tetamu tidak check-in dan tidak menghubungi anda atau kami dalam <strong class="text-[#1E3328]">24 jam</strong> selepas waktu check-in, tempahan dikira <em>no-show</em> — hubungi <a href="mailto:support@kundasanghomestay.my" class="underline hover:text-[#1E3328]">support@kundasanghomestay.my</a> dan kami akan siasat.</p>
     </div>
     <div class="bg-white rounded-2xl border border-[#1E3328]/10 p-5">
       <div class="text-2xl" aria-hidden="true">🔁</div>
       <h4 class="font-serif font-bold text-[15px] text-[#1E3328] mt-2">Boleh senarai di tempat lain?</h4>
-      <!-- KONFIRMASI: saya andaikan TIDAK eksklusif — betulkan jika salah -->
-      <p class="text-[13px] text-[#5A6B60] mt-1.5 leading-relaxed">EKSKLUSIF</p>
+      <p class="text-[13px] text-[#5A6B60] mt-1.5 leading-relaxed"><strong class="text-[#1E3328]">Boleh — tiada eksklusif.</strong> Anda bebas menyenaraikan homestay anda di platform lain. Cuma kemas kini kalendar di dashboard supaya tarikh tidak bertindih.</p>
     </div>
   </div>
 
@@ -498,9 +492,11 @@
         <li class="flex items-start gap-2.5"><span class="text-[#8A6A3F] font-bold text-lg" aria-hidden="true">✓</span> Nama pemilik akaun bank mesti sepadan dengan IC</li>
       </ul>
       <p class="text-[12px] text-[#5A6B60] mt-5 italic border-t border-[#D4A373]/25 pt-4">
-        🔒 Dokumen anda digunakan <strong>hanya</strong> untuk pengesahan identiti dan pematuhan. Ia disimpan secara selamat dan tidak dikongsi dengan pihak ketiga untuk pemasaran.
-        <a href="/privacy.html" class="underline hover:text-[#1E3328]">Baca Notis Privasi (PDPA)</a>.
+        🔒 Dokumen anda digunakan <strong>hanya</strong> untuk pengesahan identiti dan pemprosesan bayaran. Mengikut Perjanjian Pengusaha kami, gambar IC dan QR bank dipadam dari sistem selepas kelulusan, melainkan anda meminta sebaliknya. Ia tidak dikongsi untuk tujuan pemasaran.
+        <a href="/privacy.html" class="underline hover:text-[#1E3328]">Notis Privasi (PDPA)</a> ·
+        <a href="/host-agreement.html" class="underline hover:text-[#1E3328]">Perjanjian Pengusaha</a>
       </p>
+      <p class="text-[11.5px] text-[#5A6B60] mt-3">Dengan mendaftar, anda bersetuju dengan <a href="/host-agreement.html" class="underline hover:text-[#1E3328]">Perjanjian Pengusaha</a>, <a href="/terms.html" class="underline hover:text-[#1E3328]">Terma &amp; Syarat</a> dan <a href="/privacy.html" class="underline hover:text-[#1E3328]">Notis Privasi</a>.</p>
     </div>
   </div>
 </section>
@@ -604,7 +600,6 @@
   </div>
 </section>
 
-<!-- ===== PERBANDINGAN: satu jadual, responsif, tiada pertindihan kod ===== -->
 <section class="py-20 md:py-24 scroll-fade">
   <div class="max-w-[1100px] mx-auto px-4">
     <div class="text-center mb-14">
@@ -658,21 +653,26 @@
             <td class="them" data-label="Platform lain"><span class="val neutral">Berbeza-beza</span></td>
           </tr>
           <tr>
+            <td class="crit"><strong>Bila pengusaha dibayar?</strong></td>
+            <td class="us" data-label="Kundasang Homestay"><span class="val good">✅ 1–2 hari bekerja selepas check-in disahkan</span></td>
+            <td class="them" data-label="Platform lain"><span class="val neutral">Berbeza-beza</span></td>
+          </tr>
+          <tr class="highlight">
             <td class="crit"><strong>Pengesahan ID pengusaha</strong></td>
             <td class="us" data-label="Kundasang Homestay"><span class="val good">✅ Wajib: IC + bukti bank</span></td>
             <td class="them" data-label="Platform lain"><span class="val neutral">Berbeza-beza</span></td>
           </tr>
-          <tr class="highlight">
+          <tr>
             <td class="crit"><strong>Yuran tersembunyi</strong></td>
             <td class="us" data-label="Kundasang Homestay"><span class="val good">✅ Tiada</span></td>
             <td class="them" data-label="Platform lain"><span class="val neutral">Berbeza-beza</span></td>
           </tr>
-          <tr>
+          <tr class="highlight">
             <td class="crit"><strong>Tetamu hubungi tuan rumah terus</strong></td>
             <td class="us" data-label="Kundasang Homestay"><span class="val good">✅ Ya</span></td>
             <td class="them" data-label="Platform lain"><span class="val neutral">Selalunya melalui platform</span></td>
           </tr>
-          <tr class="highlight">
+          <tr>
             <td class="crit"><strong>Boleh senarai di tempat lain juga</strong></td>
             <td class="us" data-label="Kundasang Homestay"><span class="val good">✅ Ya — tiada eksklusif</span></td>
             <td class="them" data-label="Platform lain"><span class="val neutral">Ada yang minta eksklusif</span></td>
@@ -726,12 +726,12 @@
         <div class="flex items-start gap-4">
           <div class="text-3xl flex-shrink-0 w-12 text-center" aria-hidden="true">🛡️</div>
           <div>
-            <h3 class="font-serif font-bold text-[18px] text-[#1E3328]">Wang Tempahan Diuruskan oleh CHIP</h3>
+            <h3 class="font-serif font-bold text-[18px] text-[#1E3328]">Bayaran Disimpan Sehingga Check-in Disahkan</h3>
             <p class="text-[14px] text-[#5A6B60] leading-relaxed">
-              Kundasang Homestay <span class="text-[#8A6A3F] font-semibold">tidak menyimpan wang tempahan</span>.
-              Pembayaran diproses melalui CHIP, dan kami hanya mengarahkan pelepasan bayaran penuh kepada anda selepas check-in disahkan.
+              Bayaran tetamu diterima oleh Kundasang Homestay dan disimpan sehingga penginapan bermula. Ia dilepaskan kepada anda
+              selepas anda sahkan check-in tetamu. Jika tetamu tidak check-in, bayaran
+              <span class="text-[#8A6A3F] font-semibold">tidak dilepaskan secara automatik</span>.
             </p>
-            <!-- TODO: dapatkan pengesahan bertulis daripada CHIP tentang mekanisme pelepasan dana sebelum menambah butiran lanjut -->
           </div>
         </div>
       </div>
@@ -746,14 +746,13 @@
           <div class="text-center"><div class="font-serif font-bold text-[#8A6A3F] text-3xl">0%</div><div class="text-[12px]">Komisen anda</div></div>
         </div>
         <div class="mt-6 bg-[#1E3328]/5 border border-[#1E3328]/10 rounded-xl p-5 text-[13.5px] text-[#1E3328] leading-relaxed">
-          ✅ <strong>Kesimpulannya:</strong> anda terima harga penuh, dan tetamu membayar melalui saluran perbankan yang mereka sudah percaya.
+          ✅ <strong>Kesimpulannya:</strong> anda terima harga penuh yang anda tetapkan, dan bayaran tetamu melalui saluran perbankan yang mereka sudah percaya.
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ===== FAQ: <details> asli — boleh guna papan kekunci & tanpa JavaScript ===== -->
 <section id="faq" class="py-20 md:py-24 scroll-mt-24 scroll-fade">
   <div class="max-w-[900px] mx-auto px-4">
     <div class="text-center mb-14">
@@ -774,25 +773,19 @@
       <details class="faq-item">
         <summary class="faq-question"><span>Bila dan berapa saya akan terima?</span><span class="faq-toggle" aria-hidden="true"></span></summary>
         <div class="faq-answer">
-          Anda menerima <strong>jumlah penuh harga penginapan</strong> yang anda tetapkan — contoh: RM500 tempahan, RM500 masuk ke akaun anda.
-          Kami arahkan CHIP melepaskan bayaran selepas anda sahkan check-in di dashboard.
-          <!-- KONFIRMASI: gantikan BAYARAN_TEMPOH dengan SLA sebenar -->
-          Tempoh biasa: <strong>BAYARAN_TEMPOH</strong>.
+          Anda menerima <strong>jumlah penuh harga penginapan</strong> yang anda tetapkan — contoh: tempahan RM500, RM500 masuk ke akaun bank anda.
+          Selepas anda sahkan check-in tetamu di dashboard, kami lepaskan bayaran ke akaun bank anda dalam <strong>1–2 hari bekerja</strong> (Isnin–Jumaat). Tiada potongan daripada jumlah itu.
         </div>
       </details>
 
       <details class="faq-item">
         <summary class="faq-question"><span>Siapa yang pegang wang tempahan?</span><span class="faq-toggle" aria-hidden="true"></span></summary>
-        <div class="faq-answer">Pembayaran diproses melalui <strong>CHIP</strong>, penyedia pembayaran yang tersenarai dengan Bank Negara Malaysia. Kundasang Homestay tidak menyimpan wang tempahan — kami hanya mengarahkan pelepasan bayaran penuh kepada anda selepas check-in disahkan.</div>
+        <div class="faq-answer">Bayaran diterima oleh <strong>Kundasang Homestay</strong> dan disimpan sehingga penginapan bermula. Ia hanya dilepaskan kepada anda selepas check-in disahkan. Pemprosesan pembayaran dibuat melalui CHIP.</div>
       </details>
 
       <details class="faq-item">
         <summary class="faq-question"><span>Bagaimana kalau tetamu tidak datang atau tidak beri kod check-in?</span><span class="faq-toggle" aria-hidden="true"></span></summary>
-        <div class="faq-answer">
-          Hubungi kami di WhatsApp. Jika tetamu tidak memberikan kod dalam
-          <!-- KONFIRMASI: gantikan NOSHOW_TEMPOH dengan polisi sebenar -->
-          <strong>NOSHOW_TEMPOH</strong> selepas tarikh check-in, kami akan menyiasat dan melepaskan bayaran kepada anda.
-        </div>
+        <div class="faq-answer">Tetamu perlu menghubungi anda untuk menyelesaikan tempahan. Jika tetamu tidak check-in dan tidak menghubungi anda atau kami dalam <strong>24 jam</strong> selepas waktu check-in yang dijadualkan, tempahan dikira <em>no-show</em>. Pada kes itu bayaran <strong>tidak dilepaskan secara automatik</strong> — hubungi <a href="mailto:support@kundasanghomestay.my">support@kundasanghomestay.my</a> dan pasukan kami akan menyiasat serta memutuskan. Jangan biarkan tempahan tanpa tindakan.</div>
       </details>
 
       <details class="faq-item">
@@ -800,16 +793,13 @@
         <div class="faq-answer">
           Kami memasarkan Kundasang Homestay.my kepada pelancong yang mencari penginapan sekitar Gunung Kinabalu, melalui Facebook, WhatsApp dan carian Google.
           <!-- TODO Nick: tambah angka sebenar — jumlah pelawat bulanan, bilangan tempahan, atau bilangan homestay tersenarai. Jangan letak angka yang tidak boleh disahkan. -->
-          Ini bahagian paling penting bagi pengusaha, jadi kami akan kongsikan angka sebenar secara terus kepada anda melalui WhatsApp.
+          Ini bahagian paling penting bagi pengusaha, jadi kami kongsikan angka sebenar secara terus kepada anda melalui WhatsApp.
         </div>
       </details>
 
       <details class="faq-item">
         <summary class="faq-question"><span>Bolehkah saya senarai di platform lain juga?</span><span class="faq-toggle" aria-hidden="true"></span></summary>
-        <div class="faq-answer">
-          <!-- KONFIRMASI: saya andaikan TIDAK eksklusif — betulkan jika salah -->
-          EKSKLUSIF
-        </div>
+        <div class="faq-answer"><strong>Boleh. Kami tidak meminta hak eksklusif.</strong> Anda bebas menyenaraikan homestay anda di platform lain. Sila kemas kini kalendar anda di dashboard supaya tarikh yang sudah ditempah di tempat lain tidak ditempah dua kali di sini.</div>
       </details>
 
       <details class="faq-item">
@@ -824,12 +814,17 @@
 
       <details class="faq-item">
         <summary class="faq-question"><span>Bolehkah saya ubah atau batalkan tempahan?</span><span class="faq-toggle" aria-hidden="true"></span></summary>
-        <div class="faq-answer">Ya. Di dashboard pengusaha, anda boleh menukar tarikh check-in/check-out atau membatalkan tempahan (dengan persetujuan tetamu). Sistem akan mengemas kini ketersediaan secara automatik. Sila rujuk <a href="/refund-cancellation.html" class="underline hover:text-[#1E3328]">Dasar Pembatalan &amp; Bayaran Balik</a>.</div>
+        <div class="faq-answer">Ya. Di dashboard pengusaha, anda boleh menukar tarikh check-in/check-out atau membatalkan tempahan (dengan persetujuan tetamu). Sistem akan mengemas kini ketersediaan secara automatik. Sila rujuk <a href="/refund-cancellation.html">Dasar Pembatalan &amp; Bayaran Balik</a>.</div>
       </details>
 
       <details class="faq-item">
         <summary class="faq-question"><span>Bagaimana data IC dan bank saya dilindungi?</span><span class="faq-toggle" aria-hidden="true"></span></summary>
-        <div class="faq-answer">Dokumen anda digunakan <strong>hanya</strong> untuk pengesahan identiti dan pematuhan, disimpan secara selamat, dan hanya boleh diakses oleh admin yang diberi kuasa. Ia tidak dikongsi dengan pihak ketiga untuk tujuan pemasaran. Baca <a href="/privacy.html" class="underline hover:text-[#1E3328]">Notis Privasi (PDPA)</a> kami.</div>
+        <div class="faq-answer">Dokumen anda digunakan <strong>hanya</strong> untuk pengesahan identiti dan pemprosesan bayaran, disimpan secara selamat, dan hanya boleh diakses oleh admin yang diberi kuasa. Mengikut Perjanjian Pengusaha kami, gambar IC dan QR bank dipadam selepas kelulusan melainkan anda meminta sebaliknya. Ia tidak dikongsi untuk tujuan pemasaran. Baca <a href="/privacy.html">Notis Privasi (PDPA)</a> kami.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-question"><span>Ada kontrak atau ikatan jangka panjang?</span><span class="faq-toggle" aria-hidden="true"></span></summary>
+        <div class="faq-answer">Tiada. Anda boleh keluarkan homestay anda pada bila-bila masa dengan menghubungi kami. Baca <a href="/host-agreement.html">Perjanjian Pengusaha</a> untuk butiran penuh.</div>
       </details>
     </div>
   </div>
@@ -871,6 +866,8 @@
         <a href="/" class="hover:text-white block transition-colors">Cari Homestay</a>
         <a href="/owner-register.html" class="js-register-link hover:text-white block transition-colors">Daftar Sebagai Pengusaha</a>
         <a href="/about.html" class="hover:text-white block transition-colors">Tentang Kami</a>
+        <a href="/host-agreement.html" class="hover:text-white block transition-colors">Perjanjian Pengusaha</a>
+        <a href="/booking-policy.html" class="hover:text-white block transition-colors">Dasar Tempahan</a>
         <a href="/terms.html" class="hover:text-white block transition-colors">Terma &amp; Syarat</a>
         <a href="/privacy.html" class="hover:text-white block transition-colors">Notis Privasi (PDPA)</a>
         <a href="/refund-cancellation.html" class="hover:text-white block transition-colors">Pembatalan &amp; Bayaran Balik</a>
@@ -891,8 +888,12 @@
       </div>
     </div>
     <div>
-      <div class="font-bold text-[11px] uppercase tracking-[0.12em] text-white/70 mb-4">Cuaca Kundasang</div>
-      <p class="text-[12px] text-white/70">Suhu purata 18°C – 23°C. Bawa jaket tebal!</p>
+      <div class="font-bold text-[11px] uppercase tracking-[0.12em] text-white/70 mb-4">Hubungi Kami</div>
+      <div class="space-y-2 text-[13px] text-white/70">
+        <a href="mailto:support@kundasanghomestay.my" class="hover:text-white block">support@kundasanghomestay.my</a>
+        <a href="https://wa.me/60165833713" target="_blank" rel="noopener noreferrer" class="hover:text-white block">WhatsApp: 016-583 3713</a>
+        <p class="text-[12px] text-white/60 pt-1">Ranau, Sabah</p>
+      </div>
     </div>
   </div>
   <div class="border-t border-white/15 py-6 text-center text-[10px] tracking-[0.15em] uppercase font-semibold text-white/60">
@@ -918,11 +919,10 @@
     if (!drawer) return;
     drawer.classList.toggle('open', open);
     if (overlay) overlay.classList.toggle('open', open);
-    // FIX: drawer tertutup tidak lagi boleh difokus dengan Tab
     if (open) { drawer.removeAttribute('inert'); } else { drawer.setAttribute('inert', ''); }
     if (toggle) toggle.setAttribute('aria-expanded', String(open));
     if (open && closeBtn) closeBtn.focus();
-    if (open) { document.body.style.overflow = 'hidden'; } else { document.body.style.overflow = ''; }
+    document.body.style.overflow = open ? 'hidden' : '';
   }
   if (toggle) toggle.addEventListener('click', function () { setMenu(!drawer.classList.contains('open')); });
   if (closeBtn) closeBtn.addEventListener('click', function () { setMenu(false); });
@@ -955,7 +955,6 @@
   /* ---------- 3. Reveal on scroll — dengan fallback ---------- */
   var fades = document.querySelectorAll('.scroll-fade');
   if (!('IntersectionObserver' in window)) {
-    // Fallback: tunjuk semua keluar terus
     for (var i = 0; i < fades.length; i++) fades[i].classList.add('visible');
   } else {
     var io = new IntersectionObserver(function (entries) {
