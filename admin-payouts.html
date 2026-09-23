@@ -766,7 +766,9 @@ function renderReceiptHtml(h) {
 
       '<div style="font-size:13.5px;color:#374151;line-height:1.6;margin-bottom:18px;">' +
         'Hello <strong>' + safe(h.hostName || 'Host') + '</strong>,<br>' +
-        'A payout for a completed guest stay at <strong>' + safe(h.homestayName || 'your property') + '</strong> has been sent to your bank account.' +
+          (h.kind === 'cancellation'
+          ? 'A payout for a <strong>cancelled booking</strong> at <strong>' + safe(h.homestayName || 'your property') + '</strong> has been sent to your bank account.'
+          : 'A payout for a completed guest stay at <strong>' + safe(h.homestayName || 'your property') + '</strong> has been sent to your bank account.') +
       '</div>' +
 
       '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:18px;text-align:center;margin-bottom:20px;">' +
