@@ -1831,7 +1831,14 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
     const homestayName = b.homestay || "Homestay";
     const nights = b.nights || calculateNights(b.checkin, b.checkout);
     const checkin = b.checkin || "", checkout = b.checkout || "", total = b.total || 0;
-    const base = b.base || 0, fee = b.fee || 0, youReceive = b.youReceive || fee;
+    const base = b.base || 0, fee = b.fee || 0;
+    const hostPay = Number(
+      b.manualPayoutAmount != null ? b.manualPayoutAmount
+        : (b.cancellationRequest && b.cancellationRequest.hostCompensation != null)
+          ? b.cancellationRequest.hostCompensation
+          : (b.cancel_type === 'platform' || b.cancel_type === 'host_own') ? 0
+            : base
+    );
     let badgeClass = isEmergencyApproved ? 'bg-purple-100 text-purple-800'
       : isNoShow ? 'bg-zinc-100 text-zinc-700'
       : isPlatformCancel ? 'bg-blue-100 text-blue-800'
@@ -1902,7 +1909,7 @@ function renderBookingsTable(filterHomestayId, page = bookingsPage) {
       ? `<span class="text-[10px] px-2 py-0.5 rounded-full border ${CANCEL_TYPE_COLORS[b.cancel_type] || 'bg-green-50 text-green-700 border-green-200'}">Cancelled as: ${escapeHtml(CANCEL_TYPE_LABELS[b.cancel_type] || b.cancel_type)}</span>`
       : '';
 
-    html += `<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">${escapeHtml(b.id)}</div><div class="text-[12px] mt-1">${escapeHtml(homestayName)} • ${nights} nights • ${escapeHtml(checkin)} → ${escapeHtml(checkout)} • RM${escapeHtml(total)}</div><div class="text-[12px]">Guest: ${escapeHtml(b.guestName || '')} ${escapeHtml(b.guestEmail || '')} ${escapeHtml(b.guestPhone || '')}</div><div class="text-[10px] text-zinc-500 mt-1">Base RM${escapeHtml(base)} + Fee RM${escapeHtml(fee)} = You receive RM${escapeHtml(youReceive)} ${b.payoutAmount ? '• Owner Paid RM' + escapeHtml(b.payoutAmount) + (b.payoutDate ? ' on ' + toMYDate(b.payoutDate) : '') : ''}${b.refund_error ? ' • Refund error: ' + escapeHtml(b.refund_error) : ''}</div>${cancelTypeTag ? `<div class="mt-2">${cancelTypeTag}</div>` : ''}</div><div><span class="text-[11px] px-2 py-1 rounded-full ${badgeClass}">${badgeText}</span></div></div><div class="flex gap-2 mt-3 flex-wrap">${btns}<button class="booking-action-btn px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600" data-action="whatsappGuest" data-id="${escapeHtml(b.id)}">WHATSAPP GUEST</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="copyBookingId" data-id="${escapeHtml(b.id)}">COPY ID</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="changeBookingDates" data-id="${escapeHtml(b.id)}">CHANGE DATES</button><button class="booking-action-btn px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600" data-action="deleteBooking" data-id="${escapeHtml(b.id)}">DELETE</button></div></div>`;
+    html += `<div class="border border-black/10 rounded-2xl p-4 bg-white"><div class="flex justify-between gap-4"><div><div class="font-800 text-[14px]">${escapeHtml(b.id)}</div><div class="text-[12px] mt-1">${escapeHtml(homestayName)} • ${nights} nights • ${escapeHtml(checkin)} → ${escapeHtml(checkout)} • RM${escapeHtml(total)}</div><div class="text-[12px]">Guest: ${escapeHtml(b.guestName || '')} ${escapeHtml(b.guestEmail || '')} ${escapeHtml(b.guestPhone || '')}</div><div class="text-[10px] text-zinc-500 mt-1">Base RM${escapeHtml(base)} + Fee RM${escapeHtml(fee)} · Host receives RM${escapeHtml(hostPay.toFixed(2))} ${b.payoutAmount ? '• Owner Paid RM' + escapeHtml(b.payoutAmount) + (b.payoutDate ? ' on ' + toMYDate(b.payoutDate) : '') : ''}${b.refund_error ? ' • Refund error: ' + escapeHtml(b.refund_error) : ''}</div>${cancelTypeTag ? `<div class="mt-2">${cancelTypeTag}</div>` : ''}</div><div><span class="text-[11px] px-2 py-1 rounded-full ${badgeClass}">${badgeText}</span></div></div><div class="flex gap-2 mt-3 flex-wrap">${btns}<button class="booking-action-btn px-3 py-1.5 bg-[#25D366] text-white rounded-full text-[11px] uppercase font-600" data-action="whatsappGuest" data-id="${escapeHtml(b.id)}">WHATSAPP GUEST</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="copyBookingId" data-id="${escapeHtml(b.id)}">COPY ID</button><button class="booking-action-btn px-3 py-1.5 bg-white border rounded-full text-[11px] uppercase font-600" data-action="changeBookingDates" data-id="${escapeHtml(b.id)}">CHANGE DATES</button><button class="booking-action-btn px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[11px] uppercase font-600" data-action="deleteBooking" data-id="${escapeHtml(b.id)}">DELETE</button></div></div>`;
   });
 
   html += '</div>';
