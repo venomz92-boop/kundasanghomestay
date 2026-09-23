@@ -146,9 +146,54 @@ export function computeCancellationTier(booking, requestedAtMs) {
     totalPaid,
     guestAmount,
     hostAmount,
-    platformKeeps: tierRound2(totalPaid - guestAmount - hostAmount),
+        platformKeeps: tierRound2(totalPaid - guestAmount - hostAmount),
     chipRefundFee: TIER_REFUND_FEE
   };
+}
+
+// ============================================================
+// NON-TIER CANCELLATION OUTCOMES
+//
+// Three published policy outcomes are NOT tier cases, because none of
+// them is caused by the guest giving a certain amount of notice. A tier
+// measures how much notice the GUEST gave; these have no notice period
+// to measure, so cancellation_tier is always null for them.
+//
+//   no_show           ⚪ guest never arrived, no contact within 24h
+//                        guest 0, host the full room price
+//   emergency_no_show 🟣 guest never arrived but proved a real emergency
+//                        guest half the room price, host the other half
+//   platform          🔵 we cancelled (force majeure, travel ban, etc.)
+//                        guest everything they paid, host nothing
+//
+// ONE copy of this maths, same as the tiers. Do not recompute it
+// anywhere else.
+// ============================================================
+
+export const NON_TIER_CANCEL_TYPES = ['no_show', 'emergency_no_show', 'platform'];
+
+export function computeNonTierAmounts(booking, cancelType) {
+  const base = tierRound2(booking?.base);
+  const totalPaid = tierRound2(Number(booking?.amount_paid) || Number(booking?.total) || 0);
+  const ct = String(cancelType || '').toLowerCase().trim();
+
+  if (ct === 'no_show') {
+    return { guestAmount: 0, hostAmount: base, platformKeeps: tierRound2(totalPaid - base), totalPaid, base };
+  }
+
+  if (ct === 'emergency_no_show') {
+    // Rounded DOWN to the sen for the guest, remainder to the host, so
+    // the two halves add up to the room price exactly.
+    const guestAmount = Math.floor(base * 50) / 100;
+    const hostAmount = tierRound2(base - guestAmount);
+    return { guestAmount, hostAmount, platformKeeps: tierRound2(totalPaid - guestAmount - hostAmount), totalPaid, base };
+  }
+
+  if (ct === 'platform') {
+    return { guestAmount: totalPaid, hostAmount: 0, platformKeeps: 0, totalPaid, base };
+  }
+
+  return { guestAmount: 0, hostAmount: 0, platformKeeps: tierRound2(totalPaid), totalPaid, base, unknownType: ct || '(empty)' };
 }
 
 const DEFAULT_PBKDF2_ITERATIONS = 100000;
@@ -1254,11 +1299,151 @@ export async function sendCheckinEmail(booking, env) {
 </body>
 </html>`;
 
-  return sendEmail({
+    return sendEmail({
     to: booking.guestEmail,
-    subject: `Your Receipt ${receiptNo} – Check-in Code`,
+    subject: 'Refund Confirmation – Booking ' + String(booking.id || '').replace(/[\r\n]+/g, ''),
     html
   }, env);
+}
+
+// ============================================================
+// Non-tier cancellation emails (no_show / emergency_no_show / platform)
+//
+// None of these is the guest's fault in the ordinary sense, so none of
+// them may be explained in tier language. The guest is told what
+// happened and what they get; the host is told what happened to their
+// money.
+// ============================================================
+
+const NON_TIER_COPY = {
+  no_show: {
+    subject: 'Booking No-Show — No Refund Due',
+    color: '#6b7280',
+    header: 'Booking No-Show'
+  },
+  emergency_no_show: {
+    subject: 'Booking No-Show — Emergency Approved',
+    color: '#7c3aed',
+    header: 'Booking No-Show — Emergency Approved'
+  },
+  platform: {
+    subject: 'Booking Cancelled by Kundasang Homestay',
+    color: '#2563eb',
+    header: 'Booking Cancelled by Us'
+  }
+};
+
+export async function sendNonTierCancellationEmail(booking, info, env) {
+  if (!booking || !booking.guestEmail) return { sent: false, error: 'No guest email on file' };
+
+  const e = escHtml;
+  const ct = String(info.cancelType || '');
+  const copy = NON_TIER_COPY[ct] || { subject: 'Booking Update', color: '#6b7280', header: 'Booking Update' };
+
+  const totalPaidNum = Number(info.totalPaid || booking.amount_paid || booking.total || 0);
+  const totalPaid = totalPaidNum.toFixed(2);
+  const refundAmount = Number(info.guestAmount || 0).toFixed(2);
+  const hostAmount = Number(info.hostAmount || 0).toFixed(2);
+  const retained = tierRound2(totalPaidNum - Number(info.guestAmount || 0) - Number(info.hostAmount || 0)).toFixed(2);
+
+  let bodyHtml;
+  if (ct === 'no_show') {
+    bodyHtml = `
+      <p>Your booking at <strong>${e(booking.homestay)}</strong> for <strong>${e(booking.checkin)}</strong> was recorded as a <strong>no-show</strong>.</p>
+      <p>We hold your room until 24 hours after your arrival date. Because you did not arrive and did not contact your host or us within that time, <strong>no refund is due</strong> under our published policy.</p>
+      <p>Your host has been paid the room price of <strong>RM${e(hostAmount)}</strong> for holding the room, which could not be resold at that point. The service and payment fees of RM${e(retained)} are not refundable.</p>
+      <p>If you did arrive, or if something happened that stopped you, email <a href="mailto:support@kundasanghomestay.my">support@kundasanghomestay.my</a> with the details. We review genuine emergencies ourselves, and can pay back 50% of the room price.</p>
+    `;
+  } else if (ct === 'emergency_no_show') {
+    bodyHtml = `
+      <p>Your booking at <strong>${e(booking.homestay)}</strong> for <strong>${e(booking.checkin)}</strong> was recorded as a no-show, and <strong>we have approved your emergency</strong>.</p>
+      <p>Under our published policy, a no-show with an approved emergency settles at <strong>50% of the room price</strong>.</p>
+      <p>A refund of <strong>RM${e(refundAmount)}</strong> has been sent back to your original payment method via CHIP. Your host receives the other half.</p>
+      <p>Refunds usually take <strong>1–7 business days</strong> to appear in your bank account.</p>
+      ${info.refundId ? `<p><strong>Refund reference (CHIP):</strong> ${e(info.refundId)}</p>` : ''}
+    `;
+  } else {
+    bodyHtml = `
+      <p>We have had to cancel your booking at <strong>${e(booking.homestay)}</strong> for <strong>${e(booking.checkin)}</strong>.</p>
+      <p>This was not your fault, and not your host's. It was decided by us, for reasons outside anyone's control.</p>
+      <p><strong>You receive everything you paid — RM${e(totalPaid)}</strong>, including the service fee and the payment fee. Nothing is held back.</p>
+      <p>A refund of <strong>RM${e(refundAmount)}</strong> has been sent back to your original payment method via CHIP, and usually takes <strong>1–7 business days</strong> to appear in your bank account.</p>
+      ${info.refundId ? `<p><strong>Refund reference (CHIP):</strong> ${e(info.refundId)}</p>` : ''}
+    `;
+  }
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+      <h2 style="color:${copy.color};">${copy.header}</h2>
+      <p>Hello ${e(booking.guestName) || 'Guest'},</p>
+      ${bodyHtml}
+      <div style="background:#f8f5f0;padding:16px;border-radius:8px;margin:16px 0;font-size:13px;">
+        <div><strong>Booking ID:</strong> ${e(booking.id)}</div>
+        <div><strong>Homestay:</strong> ${e(booking.homestay)}</div>
+        <div><strong>Check-in:</strong> ${e(booking.checkin)}</div>
+        <div><strong>Check-out:</strong> ${e(booking.checkout)}</div>
+      </div>
+      <p>— Kundasang Homestay Team</p>
+    </div>
+  `;
+
+  return sendEmail({ to: booking.guestEmail, subject: copy.subject, html }, env);
+}
+
+export async function sendNonTierHostNotice(booking, homestay, info, env) {
+  if (!homestay || !homestay.ownerEmail) return { sent: false, error: 'No host email on file' };
+
+  const e = escHtml;
+  const ct = String(info.cancelType || '');
+  const ownerName = e(homestay.ownerName || 'Host');
+  const hostAmount = Number(info.hostAmount || 0).toFixed(2);
+
+  let subject, headline, bodyHtml;
+  if (ct === 'no_show') {
+    subject = `Booking ${String(booking.id || '').replace(/[\r\n]+/g, '')} — Guest Did Not Arrive`;
+    headline = 'Guest Did Not Arrive';
+    bodyHtml = `
+      <p>The guest on booking <strong>${e(booking.id)}</strong> for <strong>${e(booking.checkin)}</strong> did not arrive, and did not contact you or us within 24 hours.</p>
+      <p>Under our published policy the room price is yours, because the room was held and could not be resold at that point.</p>
+      <p><strong>RM${e(hostAmount)} has been added to your payout queue.</strong> It will be paid to your bank account in the normal way, and you will get a separate payout statement when it is sent.</p>
+      <p>The guest has been told. If they get in touch and you believe there was a genuine emergency, tell us at <a href="mailto:support@kundasanghomestay.my">support@kundasanghomestay.my</a> and we will review it.</p>
+    `;
+  } else if (ct === 'emergency_no_show') {
+    subject = `Booking ${String(booking.id || '').replace(/[\r\n]+/g, '')} — Emergency No-Show Approved`;
+    headline = 'Emergency No-Show Approved';
+    bodyHtml = `
+      <p>We have reviewed the no-show on booking <strong>${e(booking.id)}</strong> for <strong>${e(booking.checkin)}</strong> and <strong>approved the guest's emergency</strong>.</p>
+      <p>Under our published policy, a no-show with an approved emergency settles at 50% of the room price for each side.</p>
+      <p><strong>Your share is RM${e(hostAmount)}</strong>, and it has been added to your payout queue.</p>
+      <p>We make these decisions ourselves, so you are never asked to judge your own refund. If you think this is wrong, reply to this email.</p>
+    `;
+  } else {
+    subject = `Booking ${String(booking.id || '').replace(/[\r\n]+/g, '')} — Cancelled by Kundasang Homestay`;
+    headline = 'Booking Cancelled by Us';
+    bodyHtml = `
+      <p>We have had to cancel booking <strong>${e(booking.id)}</strong> for <strong>${e(booking.checkin)}</strong>.</p>
+      <p>This was not caused by you, and not by the guest. It was decided by us, for reasons outside anyone's control.</p>
+      <p><strong>The guest is refunded in full, and no payout is due to you for this booking.</strong> We are sorry — we know that is a lost night.</p>
+      <p>There is nothing you need to do. If you have any questions, reply to this email.</p>
+    `;
+  }
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+      <h2 style="color:#0F382E;">${headline}</h2>
+      <p>Hello ${ownerName},</p>
+      ${bodyHtml}
+      <div style="background:#f8f5f0;padding:16px;border-radius:8px;margin:16px 0;font-size:13px;">
+        <div><strong>Booking ID:</strong> ${e(booking.id)}</div>
+        <div><strong>Homestay:</strong> ${e(booking.homestay)}</div>
+        <div><strong>Guest:</strong> ${e(booking.guestName) || 'Guest'}</div>
+        <div><strong>Check-in:</strong> ${e(booking.checkin)}</div>
+      </div>
+      <p>— Kundasang Homestay Team</p>
+    </div>
+  `;
+
+  return sendEmail({ to: homestay.ownerEmail, subject, html }, env);
 }
 
 // ============================================================
@@ -1605,10 +1790,274 @@ export async function finalizeAndNotify(db, bookingId, env, ctx = {}) {
     return result;
   }
 
-  result.outcome = 'error';
+    result.outcome = 'error';
   result.error = 'Unexpected finalize result';
   result.retryable = true;
   return result;
+}
+
+// ============================================================
+// NO-SHOW SWEEP  ⚪
+//
+// Pages Functions have no cron trigger, so the 24-hour rule runs as a
+// SWEEP: it is called when an admin loads the dashboard, and at most
+// once every 10 minutes. If nobody opens the dashboard for a week,
+// nothing is marked until they do. The AMOUNT is the same whenever it
+// runs — only the notification is late.
+//
+// It NEVER calls CHIP. A no-show owes the guest nothing, so there is no
+// refund to make. All it does is queue the host's room price into the
+// same manual payout queue a check-in uses — and payout.js pays a host
+// exactly Number(booking.base), which is the same figure. So if this
+// ever fires wrongly the host is paid what a check-in would have paid
+// them anyway, and no money can move the wrong way.
+//
+// Deadline: 24 hours after the arrival date BEGINS, in MYT (UTC+8).
+// A 24 Sept arrival is swept from 25 Sept 00:00 MYT.
+// ============================================================
+
+export const NO_SHOW_GRACE_MS = 24 * 60 * 60 * 1000;
+const NO_SHOW_SWEEP_THROTTLE_MS = 10 * 60 * 1000;
+const NO_SHOW_CHIP_PAYMENT_FEE = 1.00;
+
+export function noShowDeadlineMs(checkin) {
+  const s = String(checkin || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return NaN;
+  const startOfArrivalDay = Date.parse(s + 'T00:00:00+08:00');
+  if (!Number.isFinite(startOfArrivalDay)) return NaN;
+  return startOfArrivalDay + NO_SHOW_GRACE_MS;
+}
+
+export function isNoShowDue(booking, now = Date.now()) {
+  if (String(booking?.status || '') !== 'Paid - Awaiting Check-in') return false;
+
+  // A guest who has ASKED to cancel and is still waiting for a decision
+  // must NOT be swept. Their entitlement is already fixed by the date
+  // they asked; turning that into a no-show would give them nothing and
+  // contradict the published tiers.
+  const req = booking?.cancellationRequest;
+  if (req && req.status === 'pending_host') return false;
+
+  const deadline = noShowDeadlineMs(booking?.checkin);
+  if (!Number.isFinite(deadline)) return false;
+  return now >= deadline;
+}
+
+export async function sweepNoShows(db, env, { now = Date.now(), force = false } = {}) {
+  const summary = { ran: false, scanned: 0, marked: 0, bookingIds: [], emailsSent: 0, error: null };
+  if (!db) { summary.error = 'no db'; return summary; }
+
+  if (!force) {
+    try {
+      const st = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_no_show_sweep').first();
+      let last = 0;
+      try { if (st?.data) last = Number(JSON.parse(st.data)?.lastRunAt) || 0; } catch (_) {}
+      if (last && (now - last) < NO_SHOW_SWEEP_THROTTLE_MS) return summary;
+    } catch (_) {}
+  }
+
+  let locked;
+  try {
+    locked = await withLock(db, 'bookings-global', async (db) => {
+      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+      let bookings = [];
+      try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
+      if (!Array.isArray(bookings)) bookings = [];
+
+      const dueIdx = [];
+      for (let i = 0; i < bookings.length; i++) {
+        if (String(bookings[i]?.status || '') === 'Paid - Awaiting Check-in') summary.scanned++;
+        if (isNoShowDue(bookings[i], now)) dueIdx.push(i);
+      }
+      if (dueIdx.length === 0) return { marked: 0, ids: [], dueBookings: [] };
+
+      const homes = new Map();
+      for (const key of ['kd_approved', 'kd_homestays', 'kd_pending']) {
+        try {
+          const hr = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
+          let list = [];
+          try { if (hr?.data) list = JSON.parse(hr.data); } catch (_) {}
+          for (const h of (Array.isArray(list) ? list : [])) {
+            if (!homes.has(String(h.id))) homes.set(String(h.id), h);
+          }
+        } catch (_) {}
+      }
+
+      const feeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_fee_earnings').first();
+      let feeEarnings = feeRes?.data ? JSON.parse(feeRes.data) : { total: 0, available: 0, withdrawn: 0, history: [] };
+      feeEarnings.history = Array.isArray(feeEarnings.history) ? feeEarnings.history : [];
+
+      const chipRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_chip_costs').first();
+      let chipCosts = chipRes?.data ? JSON.parse(chipRes.data) : { total: 0, history: [] };
+      chipCosts.history = Array.isArray(chipCosts.history) ? chipCosts.history : [];
+
+      let feeDirty = false;
+      let chipDirty = false;
+      const stamp = new Date(now).toISOString();
+      const ids = [];
+
+      for (const i of dueIdx) {
+        const b = bookings[i];
+        const h = homes.get(String(b.homestayId)) || null;
+        const amounts = computeNonTierAmounts(b, 'no_show');
+
+        b.status = 'No-Show - Nothing Due';
+        b.cancelled_by = 'system';
+        b.cancel_type = 'no_show';
+        b.cancellation_tier = null;
+        b.cancel_reason = 'Guest did not arrive and made no contact within 24 hours of the arrival date.';
+        b.noShowDetectedAt = stamp;
+        b.refund_amount = 0;
+        b.statusUpdated = stamp;
+
+        if (amounts.hostAmount > 0) {
+          b.manualPayoutPending = true;
+          b.manualPayoutAmount = amounts.hostAmount;
+          b.manualPayoutQueuedAt = stamp;
+          b.manualPayoutKind = 'cancellation';
+          b.manualPayoutReason = 'No-show — the room was held and could not be resold';
+          b.manualPayoutHostName = h?.ownerName || '';
+          b.manualPayoutHostEmail = h?.ownerEmail || '';
+          b.manualPayoutHostWhatsapp = h?.whatsapp || '';
+          b.manualPayoutBankName = h?.ownerBank || '';
+          b.manualPayoutBankCode = h?.bankCode || '';
+          b.manualPayoutAccountNumber = h?.ownerBankAccount || '';
+          b.manualPayoutAccountHolder = h?.bankHolder || '';
+          b.manualPayoutHomestayName = h?.name || b.homestay || '';
+        }
+
+        const feeAlready = feeEarnings.history.some(x =>
+          String(x.bookingId) === String(b.id) &&
+          (x.type === 'earning' || x.type === 'cancellation_retained_fee')
+        );
+        if (!feeAlready && amounts.platformKeeps > 0) {
+          feeEarnings.total = tierRound2((feeEarnings.total || 0) + amounts.platformKeeps);
+          feeEarnings.available = tierRound2((feeEarnings.available || 0) + amounts.platformKeeps);
+          feeEarnings.history.push({
+            bookingId: b.id,
+            fee: amounts.platformKeeps,
+            date: stamp,
+            type: 'cancellation_retained_fee',
+            cancellation_type: 'no_show',
+            cancellation_tier: null,
+            original_amount_paid: amounts.totalPaid,
+            refunded_amount: 0,
+            paid_to_host: amounts.hostAmount,
+            method: 'no_show_sweep',
+            ip: 'sweep'
+          });
+          feeDirty = true;
+        }
+
+        // No refund was made, so only the payment fee applies here.
+        const chipAlready = chipCosts.history.some(x =>
+          String(x.bookingId) === String(b.id) && x.type === 'cancellation'
+        );
+        if (!chipAlready) {
+          chipCosts.total = tierRound2((chipCosts.total || 0) + NO_SHOW_CHIP_PAYMENT_FEE);
+          chipCosts.history.push({
+            bookingId: b.id,
+            amount: NO_SHOW_CHIP_PAYMENT_FEE,
+            payment_fee: NO_SHOW_CHIP_PAYMENT_FEE,
+            refund_fee: 0,
+            date: stamp,
+            type: 'cancellation',
+            cancellation_type: 'no_show',
+            cancellation_tier: null,
+            method: 'no_show_sweep',
+            ip: 'sweep'
+          });
+          chipDirty = true;
+        }
+
+        ids.push(String(b.id));
+      }
+
+      const stmts = [db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+        .bind('kd_bookings', JSON.stringify(bookings))];
+      if (feeDirty) {
+        stmts.push(db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+          .bind('kd_fee_earnings', JSON.stringify(feeEarnings)));
+      }
+      if (chipDirty) {
+        stmts.push(db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+          .bind('kd_chip_costs', JSON.stringify(chipCosts)));
+      }
+      await db.batch(stmts);
+
+      return { marked: ids.length, ids, dueBookings: dueIdx.map(i => bookings[i]) };
+    }, 60000);
+  } catch (e) {
+    if (e.message && e.message.includes('in progress')) { summary.error = 'lock busy'; return summary; }
+    summary.error = e.message;
+    return summary;
+  }
+
+  summary.ran = true;
+  summary.marked = locked.marked;
+  summary.bookingIds = locked.ids;
+
+  // Notices go out AFTER the lock is released — email is slow and must
+  // not hold the bookings lock.
+  for (const b of (locked.dueBookings || [])) {
+    try {
+      const homestay = await findHomestayForEmail(db, b.homestayId);
+      const guestResult = await sendNonTierCancellationEmail(b, {
+        cancelType: 'no_show',
+        guestAmount: 0,
+        hostAmount: Number(b.manualPayoutAmount) || 0,
+        totalPaid: Number(b.amount_paid) || Number(b.total) || 0,
+        refundSuccess: false,
+        refundId: null
+      }, env);
+      if (guestResult.sent) summary.emailsSent++;
+
+      if (homestay) {
+        await sendNonTierHostNotice(b, homestay, {
+          cancelType: 'no_show',
+          guestAmount: 0,
+          hostAmount: Number(b.manualPayoutAmount) || 0
+        }, env);
+      }
+
+      await logAction({
+        db,
+        action: 'booking_no_show_swept',
+        admin: 'system',
+        details: `Booking ${b.id} auto-marked as a no-show (arrival ${b.checkin}, 24h grace passed). Guest refund: none due. Host payout queued: RM${(Number(b.manualPayoutAmount) || 0).toFixed(2)}. Guest email: ${guestResult.sent ? 'sent' : 'failed — ' + (guestResult.error || 'unknown')}.`,
+        ip: 'sweep',
+        userId: b.guestEmail,
+        homestayId: b.homestayId
+      });
+    } catch (e) {
+      console.error('No-show notice failed for', b.id, e.message);
+    }
+  }
+
+  try {
+    await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+      .bind('kd_no_show_sweep', JSON.stringify({
+        lastRunAt: now,
+        lastRunAtIso: new Date(now).toISOString(),
+        lastMarked: summary.marked
+      }))
+      .run();
+  } catch (_) {}
+
+  return summary;
+}
+
+async function findHomestayForEmail(db, homestayId) {
+  for (const key of ['kd_approved', 'kd_homestays', 'kd_pending']) {
+    try {
+      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
+      let list = [];
+      try { if (r?.data) list = JSON.parse(r.data); } catch (_) {}
+      const found = (Array.isArray(list) ? list : []).find(x => String(x.id) === String(homestayId));
+      if (found) return found;
+    } catch (_) {}
+  }
+  return null;
 }
 
 // ============================================================
