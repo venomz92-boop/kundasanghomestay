@@ -79,6 +79,8 @@ export async function onRequestGet({ request, env }) {
       checkout: b.checkout || '',
       nights: b.nights || 1,
       amount: Number(b.manualPayoutAmount || b.base || 0),
+      kind: b.manualPayoutKind || 'stay',
+      reason: b.manualPayoutReason || '',
       hostName: b.manualPayoutHostName || '',
       hostEmail: b.manualPayoutHostEmail || '',
       // [NEW] Host WhatsApp — for the "Notify Host on WhatsApp" button
@@ -105,6 +107,8 @@ export async function onRequestGet({ request, env }) {
     hostBank: b.manualPayoutBankName || '',
     hostAccount: b.manualPayoutAccountNumber || '',
     amount: Number(b.manualPayoutAmount || b.base || 0),
+    kind: b.manualPayoutKind || 'stay',
+    reason: b.manualPayoutReason || '',
     reference: b.manualPayoutReference || '',
     method: VALID_PAYMENT_METHODS.has(b.manualPayoutMethod)
       ? b.manualPayoutMethod
