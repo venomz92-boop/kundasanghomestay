@@ -1832,7 +1832,7 @@ serverSaysLoggedIn = !!currentGuest;
 if (!serverSaysLoggedIn) {
 currentGuest = null;
 try { localStorage.removeItem('kd_guest'); } catch (e) {}
-if (window.GuestSession) window.GuestSession.clearSession();
+if (window.GuestSession && typeof window.GuestSession.clearSession === 'function') window.GuestSession.clearSession();
 renderGuestNav();
 showLoginRequired();
 return;
