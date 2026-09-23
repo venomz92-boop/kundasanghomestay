@@ -254,6 +254,20 @@
       </div>
     </div>
 
+    <div id="cancellationRequestsCard" class="hidden animate-on-scroll">
+      <div class="card p-6" style="border-left:4px solid #dc2626;">
+        <h3 class="font-bold text-lg text-[#212121] border-b pb-3 mb-4 flex items-center gap-2">
+          <span>✋ Cancellation Requests</span>
+          <span id="cancellationRequestsCount" class="text-xs text-white font-bold px-2.5 py-0.5 rounded-full" style="background:#dc2626;">0</span>
+        </h3>
+        <p class="text-xs text-zinc-500 mb-4 leading-relaxed">
+          A guest has asked to cancel. <strong>You decide.</strong> You must reply within 48 hours — or 6 hours if check-in is
+          less than 48 hours away. If you decline, say why: the guest can ask us to review it.
+        </p>
+        <div id="cancellationRequestsList" class="space-y-4"></div>
+      </div>
+    </div>
+
     <div class="flex items-center gap-3 flex-wrap bg-zinc-50 border p-4 rounded-xl animate-on-scroll">
       <span class="text-xs text-zinc-600 font-bold uppercase tracking-wider">Property Scope:</span>
       <select id="homestaySelector" class="homestay-selector"></select>
@@ -337,10 +351,16 @@
               <td class="text-zinc-600">No action needed</td>
             </tr>
             <tr>
-              <td class="kd-scenario">🟡 Guest asks to cancel, and you agree</td>
-              <td class="kd-amt kd-bad">RM 0.00<br><span class="text-[11px] font-normal text-zinc-500">no stay, no payment</span></td>
-              <td class="kd-amt">RM 249.00<br><span class="text-[11px] font-normal text-zinc-500">room price − RM 1.00</span></td>
-              <td class="text-zinc-600">You accept the request</td>
+              <td class="kd-scenario">🟡 Guest asks to cancel — Tier A <span class="font-normal text-zinc-500">(14+ days before)</span></td>
+              <td class="kd-amt kd-bad">RM 0.00</td>
+              <td class="kd-amt">RM 277.50<br><span class="text-[11px] font-normal text-zinc-500">everything paid, less RM 1.00</span></td>
+              <td class="text-zinc-600">You accept — plenty of time to resell</td>
+            </tr>
+            <tr>
+              <td class="kd-scenario">🟠 Guest asks to cancel — Tier B <span class="font-normal text-zinc-500">(48 h – 13 days)</span></td>
+              <td class="kd-amt kd-good">RM 125.00<br><span class="text-[11px] font-normal text-zinc-500">half the room price</span></td>
+              <td class="kd-amt">RM 125.00<br><span class="text-[11px] font-normal text-zinc-500">half the room price</span></td>
+              <td class="text-zinc-600">You accept — short notice</td>
             </tr>
             <tr>
               <td class="kd-scenario">🟢 You cancel the booking</td>
@@ -927,6 +947,7 @@ async function loadBookings() {
     document.getElementById('metricTotalRevenue').textContent = `RM ${totalRevenue.toFixed(2)}`;
     document.getElementById('metricCheckinsCount').textContent = completedCheckins;
     document.getElementById('metricActiveCount').textContent = upcomingCheckins;
+    renderCancellationRequests();
 
     const nameSpan = document.getElementById('selectedHomestayName');
     if (nameSpan) {
@@ -1090,6 +1111,194 @@ async function loadBookings() {
   }
 }
 
+
+/* ============================================================
+   CANCELLATION REQUESTS
+   The host decides. Accept settles the guest at the published tier
+   and queues the host's own share. Decline records the reason.
+   ============================================================ */
+
+function kdHours(booking) {
+  const requestedAt = booking && booking.cancellationRequest
+    ? booking.cancellationRequest.requestedAt : '';
+  const checkin = String((booking && booking.checkin) || '');
+  const ref = /^\d{4}-\d{2}-\d{2}$/.test(checkin) ? Date.parse(checkin + 'T06:00:00Z') : NaN;
+  const asked = requestedAt ? Date.parse(requestedAt) : NaN;
+  if (!Number.isFinite(ref) || !Number.isFinite(asked)) return 48;
+  return (ref - asked) < 48 * 3600000 ? 6 : 48;
+}
+
+function kdWaitingText(booking) {
+  const requestedAt = booking.cancellationRequest.requestedAt;
+  const askedMs = Date.parse(requestedAt);
+  if (!Number.isFinite(askedMs)) return 'Asked recently';
+
+  const hours = Math.floor((Date.now() - askedMs) / 3600000);
+  const deadline = kdHours(booking);
+
+  if (hours >= deadline) {
+    return '⚠️ OVERDUE — the guest asked ' + hours + ' hours ago. We can take this over, so please decide or tell us why.';
+  }
+  const left = deadline - hours;
+  return 'Guest asked ' + hours + ' hour' + (hours === 1 ? '' : 's') + ' ago — ' + left +
+         ' hour' + (left === 1 ? '' : 's') + ' left to reply.';
+}
+
+function renderCancellationRequests() {
+  const card = document.getElementById('cancellationRequestsCard');
+  const list = document.getElementById('cancellationRequestsList');
+  const countEl = document.getElementById('cancellationRequestsCount');
+  if (!card || !list) return;
+
+  const pending = (bookings || []).filter(function(b) {
+    return b && b.cancellationRequest && b.cancellationRequest.status === 'pending_host';
+  });
+
+  if (pending.length === 0) {
+    card.classList.add('hidden');
+    list.innerHTML = '';
+    if (countEl) countEl.textContent = '0';
+    return;
+  }
+
+  card.classList.remove('hidden');
+  if (countEl) countEl.textContent = String(pending.length);
+
+  list.innerHTML = pending.map(function(b) {
+    const req = b.cancellationRequest;
+    const preview = b.tierPreview || null;
+    const requestedFor = String(b.id || '');
+    const overdue = kdHours(b) <= Math.floor((Date.now() - Date.parse(req.requestedAt || 0)) / 3600000);
+
+    const askedOn = req.requestedAt
+      ? new Date(req.requestedAt).toLocaleString('en-MY', {
+          day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true
+        })
+      : 'unknown';
+
+    let moneyBlock = '<div class="text-xs text-zinc-500 italic">Working out the amounts…</div>';
+    if (preview && preview.tier) {
+      moneyBlock =
+        '<div class="mt-3 p-3 rounded-xl" style="background:#f8f5f0;">' +
+          '<div class="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-2">If you accept</div>' +
+          '<div class="flex justify-between text-xs py-0.5"><span class="text-zinc-500">Tier</span><strong>' + preview.tier + '</strong></div>' +
+          '<div class="flex justify-between text-xs py-0.5"><span class="text-zinc-500">Guest gets back</span><strong>RM ' + Number(preview.guestAmount || 0).toFixed(2) + '</strong></div>' +
+          '<div class="flex justify-between text-xs py-0.5"><span class="text-zinc-500">You receive</span><strong style="color:#0F382E;">RM ' + Number(preview.hostAmount || 0).toFixed(2) + '</strong></div>' +
+        '</div>';
+    } else if (preview && preview.needsReview) {
+      moneyBlock = '<div class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">' +
+        'We could not work out the refund automatically. Accepting will settle it at the standard rate; contact support if unsure.</div>';
+    }
+
+    const emergencyBlock = req.emergency
+      ? '<div class="mt-2 p-2 rounded-lg bg-purple-50 border border-purple-200 text-xs text-purple-900">🟣 <strong>The guest has flagged this as an emergency.</strong> We review emergency cases ourselves — if you decline, tell us why.</div>'
+      : '';
+
+    return '' +
+      '<div class="border rounded-2xl p-4 bg-white">' +
+        '<div class="flex flex-wrap justify-between gap-3 items-start">' +
+          '<div class="flex-1 min-w-[200px]">' +
+            '<div class="font-bold text-sm text-[#212121]">' + escapeHtml(b.homestay || 'Homestay') + '</div>' +
+            '<div class="text-xs text-zinc-600 mt-1">Guest: <strong>' + escapeHtml(b.guestName || 'Guest') + '</strong></div>' +
+            '<div class="text-xs text-zinc-600">' + escapeHtml(b.checkin || '') + ' → ' + escapeHtml(b.checkout || '') + ' (' + (b.nights || 1) + ' night' + ((b.nights || 1) === 1 ? '' : 's') + ')</div>' +
+            '<div class="text-xs font-mono text-zinc-500 mt-1">' + escapeHtml(requestedFor) + '</div>' +
+          '</div>' +
+          '<div class="text-right shrink-0">' +
+            '<div class="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Asked to cancel</div>' +
+            '<div class="text-xs font-semibold text-[#212121] mt-1">' + escapeHtml(askedOn) + '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="mt-3 p-3 rounded-xl bg-zinc-50 border border-black/5">' +
+          '<div class="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-1">Their reason</div>' +
+          '<div class="text-sm text-zinc-700 leading-relaxed whitespace-pre-wrap">' + escapeHtml(req.reason || '(none given)') + '</div>' +
+        '</div>' +
+
+        emergencyBlock +
+        moneyBlock +
+
+        '<div class="mt-3 text-xs ' + (overdue ? 'text-red-700 font-bold' : 'text-zinc-500') + '">' + escapeHtml(kdWaitingText(b)) + '</div>' +
+
+        '<div class="flex flex-wrap gap-2 mt-4">' +
+          '<button class="btn-success action-btn" data-action="acceptCancellation" data-id="' + requestedFor + '">✓ Accept &amp; Refund</button>' +
+          '<button class="btn-warning action-btn" data-action="declineCancellation" data-id="' + requestedFor + '">✕ Decline</button>' +
+          '<button class="btn-outline action-btn" data-action="dismissRequestWarning" data-id="' + requestedFor + '" style="padding:10px 16px; font-size:11px;">⏭ Decide Later</button>' +
+        '</div>' +
+      '</div>';
+  }).join('');
+}
+
+async function acceptCancellationRequest(bookingId) {
+  const b = (bookings || []).find(function(x) { return String(x.id) === String(bookingId); });
+  if (!b) { await showAlert('Error', 'Booking not found. Refresh and try again.'); return; }
+
+  const preview = b.tierPreview || {};
+  const guestGets = Number(preview.guestAmount || 0).toFixed(2);
+  const hostGets = Number(preview.hostAmount || 0).toFixed(2);
+  const tier = preview.tier || '?';
+
+  const ok = await showConfirm(
+    'Accept This Cancellation?',
+    '<div style="text-align:left;line-height:1.6;">' +
+      '<p>This cancels booking <strong>' + escapeHtml(b.id) + '</strong> and refunds the guest at Tier <strong>' + tier + '</strong>.</p>' +
+      '<div style="margin-top:12px;padding:12px;background:#f8f5f0;border-radius:10px;font-size:13px;">' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#6b7280;">Guest receives</span><strong>RM ' + guestGets + '</strong></div>' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#6b7280;">You receive</span><strong>RM ' + hostGets + '</strong></div>' +
+      '</div>' +
+      (Number(hostGets) > 0
+        ? '<p style="margin-top:12px;font-size:12px;color:#6b7280;">Your share goes into the payout queue on your dashboard, and is paid by bank transfer in the normal way.</p>'
+        : '<p style="margin-top:12px;font-size:12px;color:#6b7280;">At this tier you receive nothing — the guest gave enough notice for you to resell the room.</p>') +
+      '<p style="margin-top:12px;font-size:12px;color:#b45309;">This cannot be undone from your dashboard.</p>' +
+    '</div>'
+  );
+  if (!ok) return;
+
+  const res = await ownerFetch(API_BASE + '/owner-update-booking', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bookingId: bookingId, action: 'acceptCancellation' })
+  });
+  const data = await res.json();
+
+  if (!res.ok || !data.success) {
+    await showAlert('Could Not Accept', data.error || 'Something went wrong. Please try again.');
+    return;
+  }
+  await showAlert('Cancellation Accepted', '✓ ' + (data.message || 'Done.'));
+  loadBookings();
+}
+
+async function declineCancellationRequest(bookingId) {
+  const b = (bookings || []).find(function(x) { return String(x.id) === String(bookingId); });
+  if (!b) { await showAlert('Error', 'Booking not found. Refresh and try again.'); return; }
+
+  const reason = await showPrompt(
+    'Decline This Request',
+    'Why are you declining? The guest sees this, and so do we if they ask us to review your decision. This booking stays as it is.'
+  );
+  if (reason === null) return;
+
+  const clean = String(reason || '').replace(/\s+/g, ' ').trim();
+  if (clean.length < 10) {
+    await showAlert('Reason Needed', 'Please give at least a sentence — 10 characters or more.');
+    return;
+  }
+
+  const res = await ownerFetch(API_BASE + '/owner-update-booking', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bookingId: bookingId, action: 'declineCancellation', reason: clean })
+  });
+  const data = await res.json();
+
+  if (!res.ok || !data.success) {
+    await showAlert('Could Not Decline', data.error || 'Something went wrong. Please try again.');
+    return;
+  }
+  await showAlert('Request Declined', '✓ The booking stands, and the guest has been told why.');
+  loadBookings();
+}
+  
 function attachBookingActionListeners() {
   const container = document.getElementById('ownerBookingsList');
   if (!container) return;
@@ -1108,7 +1317,10 @@ async function bookingActionHandler(e) {
   const labels = {
     confirmCheckIn: 'Confirming…',
     changeBookingDates: 'Updating…',
-    cancelBooking: 'Cancelling…'
+    cancelBooking: 'Cancelling…',
+    acceptCancellation: 'Accepting…',
+    declineCancellation: 'Declining…',
+    dismissRequestWarning: 'Working…'
   };
   const resetBtn = setButtonLoading(btn, labels[action] || 'Working…');
 
@@ -1122,6 +1334,15 @@ async function bookingActionHandler(e) {
         break;
       case 'cancelBooking':
         await cancelBooking(id);
+        break;
+        case 'acceptCancellation':
+        await acceptCancellationRequest(id);
+        break;
+      case 'declineCancellation':
+        await declineCancellationRequest(id);
+        break;
+      case 'dismissRequestWarning':
+        await showAlert('Still Waiting', 'This request is still open. Please reply within the deadline — if you do not, we may decide it for you.');
         break;
     }
   } finally {
