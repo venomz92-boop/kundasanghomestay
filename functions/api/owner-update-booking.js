@@ -1058,6 +1058,18 @@ export async function onRequestPost({ request, env }) {
           if (booking.status && booking.status.toLowerCase().includes('cancelled')) {
             return { error: `Booking ${bookingId} is already cancelled.`, status: 400 };
           }
+          // [NO-SHOW / PLATFORM GUARD] A booking that already has a
+          // recorded outcome must not be cancelled a second time. The
+          // no-show and platform statuses do not contain the word
+          // "cancelled", so the test above is not enough on its own —
+          // without this, a no-showed booking could be cancelled again
+          // and the guest refunded twice.
+          if (booking.cancel_type || booking.noShowDetectedAt) {
+            return {
+              error: `Booking ${bookingId} already has a recorded outcome (${booking.cancel_type || 'no_show'}). It cannot be cancelled again. Contact support if it needs changing.`,
+              status: 400
+            };
+          }
           if (booking.chip_refund_id) {
             return { error: 'This booking has already been refunded.', status: 400 };
           }
