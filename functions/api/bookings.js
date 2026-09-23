@@ -50,6 +50,11 @@ import {
   checkRateLimit,
   recordRateLimit,
   invalidateOwnerSessionsForHomestay,
+  computeCancellationTier,
+  computeNonTierAmounts,
+  sweepNoShows,
+  sendNonTierCancellationEmail,
+  sendNonTierHostNotice,
   sha256
 } from './_utils.js';
 
@@ -139,6 +144,49 @@ function stripPasswordFields(h) {
     ...safe
   } = h;
   return safe;
+}
+
+// One homestay lookup for the admin money paths in this file.
+async function loadHomestayById(db, homestayId) {
+  for (const key of ['kd_approved', 'kd_homestays', 'kd_pending']) {
+    try {
+      const r = await db.prepare('SELECT data FROM store WHERE key=?').bind(key).first();
+      let list = [];
+      try { if (r?.data) list = JSON.parse(r.data); } catch (_) {}
+      const found = (Array.isArray(list) ? list : []).find(h => String(h.id) === String(homestayId));
+      if (found) return found;
+    } catch (_) {}
+  }
+  return null;
+}
+
+// One CHIP refund call for the admin money paths in this file.
+async function chipRefundPurchase(purchaseId, amountNum, env) {
+  const secret = env.CHIP_SECRET_KEY;
+  if (!secret) return { error: 'CHIP_SECRET_KEY is not configured. No refund was attempted.' };
+  if (!purchaseId) return { error: 'No CHIP purchase is on file for this booking.' };
+  const amountCents = Math.round(Number(amountNum) * 100);
+  if (!Number.isFinite(amountCents) || amountCents <= 0) {
+    return { error: 'Refund amount is zero or negative. No refund was attempted.' };
+  }
+  try {
+    const res = await fetch(
+      `https://gate.chip-in.asia/api/v1/purchases/${purchaseId}/refund/`,
+      {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${secret}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: amountCents })
+      }
+    );
+    let data = null;
+    try { data = await res.json(); } catch (_) { data = null; }
+    if (!res.ok || !data || !data.id) {
+      return { error: (data && (data.error || data.message)) || `HTTP ${res.status}` };
+    }
+    return { data };
+  } catch (e) {
+    return { error: e.message };
+  }
 }
 
 // ============================================================
@@ -470,6 +518,20 @@ export async function onRequestGet({ request, env }) {
     const isAdmin = await verifyAdminAuth(request, env);
     const url = new URL(request.url);
     const forceAdminView = url.searchParams.get('view') === 'admin' && isAdmin;
+
+    // [NO-SHOW SWEEP] Pages Functions have no cron trigger, so the
+    // published "24 hours after arrival" rule is swept whenever an admin
+    // loads the dashboard. Throttled to once every 10 minutes inside
+    // sweepNoShows(), and it never calls CHIP — it only queues a host
+    // payout for manual release. Failures here must never break the
+    // dashboard read.
+    if (isAdmin) {
+      try {
+        await sweepNoShows(db, env);
+      } catch (sweepErr) {
+        console.error('No-show sweep skipped:', sweepErr.message);
+      }
+    }
 
     // [NEW] Lightweight public listing endpoint — used by mybookings.html
     // to resolve homestay cover images for guest booking cards. Returns
@@ -947,9 +1009,12 @@ export async function onRequestPost({ request, env }) {
           }
 
           const currentStatus = String(b.status || '');
+          // no-show outcomes are terminal too. Without this, a guest's
+          // browser could still mark a no-showed booking as "Payment
+          // Failed" and overwrite a settled outcome.
           const isTerminal = currentStatus === 'Paid - Awaiting Check-in'
             || currentStatus.startsWith('Completed')
-            || /cancelled|refunded|expired/i.test(currentStatus);
+            || /cancelled|refunded|expired|no-?show/i.test(currentStatus);
 
           if (isTerminal) {
             return { noop: true, booking: b };
@@ -1258,13 +1323,71 @@ export async function onRequestPost({ request, env }) {
 
           const totalPaidNum = Number(booking.amount_paid || booking.total) || 0;
           const baseAmountNum = Number(booking.base) || 0;
-          const refundAmountNum = effectiveCancelType === 'guest_request'
-            ? Math.max(0, Math.round((baseAmountNum - CHIP_REFUND_FEE) * 100) / 100)
-            : totalPaidNum;
+
+          // [TIER FIX] This used to be `base − RM1.00` for EVERY
+          // guest-request cancellation. That is not any published tier:
+          //   Tier A refunds totalPaid − RM1.00
+          //   Tier B refunds half the room price
+          //   Tier C refunds nothing at all
+          // On a RM10 room the old line paid out RM9.00 whichever tier
+          // applied — wrong in all three cases, and this is the tool used
+          // when a CHIP refund fails mid-outage. Work the correct figure
+          // out, and REFUSE rather than guess if we cannot.
+          let refundAmountNum;
+          let refundSource;
+          if (effectiveCancelType !== 'guest_request') {
+            refundAmountNum = totalPaidNum;
+            refundSource = 'host_own full refund';
+          } else {
+            const storedTier = String(booking.cancellation_tier || '').toUpperCase();
+            if (storedTier === 'A') {
+              refundAmountNum = Math.max(0, Math.round((totalPaidNum - CHIP_REFUND_FEE) * 100) / 100);
+              refundSource = 'recorded tier A';
+            } else if (storedTier === 'B') {
+              refundAmountNum = Math.floor(baseAmountNum * 50) / 100;
+              refundSource = 'recorded tier B';
+            } else if (storedTier === 'C') {
+              refundAmountNum = 0;
+              refundSource = 'recorded tier C';
+            } else {
+              const reqAt = booking.cancellationRequest && booking.cancellationRequest.requestedAt
+                ? Date.parse(booking.cancellationRequest.requestedAt)
+                : NaN;
+              const t = Number.isFinite(reqAt)
+                ? computeCancellationTier(booking, reqAt)
+                : { needsReview: true };
+              if (!t.needsReview) {
+                refundAmountNum = t.guestAmount;
+                refundSource = `recomputed from the guest's request date (tier ${t.tier})`;
+              } else {
+                const attempted = Number(booking.refund_attempted_amount);
+                if (Number.isFinite(attempted) && attempted > 0) {
+                  refundAmountNum = Math.round(attempted * 100) / 100;
+                  refundSource = 'amount recorded before the failed attempt';
+                } else {
+                  refundAmountNum = null;
+                  refundSource = null;
+                }
+              }
+            }
+          }
+
+          if (refundAmountNum === null) {
+            return {
+              error: 'We cannot work out how much this booking should be refunded — no tier and no request date are recorded. Please contact support before retrying, so nobody is refunded the wrong amount.',
+              status: 409
+            };
+          }
+
           const feeRetainedNum = Math.max(0, Math.round((totalPaidNum - refundAmountNum) * 100) / 100);
 
           if (refundAmountNum <= 0) {
-            return { error: 'Computed refund amount is zero or negative. Cannot refund.', status: 400 };
+            return {
+              error: refundSource === 'recorded tier C'
+                ? 'This booking was cancelled at Tier C, where nothing is due to the guest. There is no refund to retry.'
+                : 'Computed refund amount is zero or negative. Cannot refund.',
+              status: 400
+            };
           }
 
           bookings[idx].refund_attempted_at = new Date().toISOString();
@@ -1422,6 +1545,7 @@ export async function onRequestPost({ request, env }) {
             refundError: refundError || null,
             cancelType: effectiveCancelType,
             refundAmount: refundAmountNum,
+            refundSource,
             feeRetained: feeRetainedNum,
             feeRecorded: feeRecordedAmount,
             chipCostRecorded,
@@ -1443,7 +1567,7 @@ export async function onRequestPost({ request, env }) {
         db,
         action: result.refunded ? 'admin_refund_retry_success' : 'admin_refund_retry_failed',
         admin: 'admin',
-        details: `Admin retry refund for ${bookingId} (type=${result.cancelType || 'unknown'}): ${
+        details: `Admin retry refund for ${bookingId} (type=${result.cancelType || 'unknown'}, amount from ${result.refundSource || 'unknown source'}): ${
           result.refunded
             ? `${result.refundId}, RM${Number(result.refundAmount || 0).toFixed(2)}`
             : result.refundError
@@ -1453,6 +1577,577 @@ export async function onRequestPost({ request, env }) {
       });
 
       return jsonResponse(result, 200, request);
+    }
+
+
+    
+        // ---- Admin: emergencyNoShowApproved  🟣 ----
+    //
+    // The guest did not arrive, but produced evidence of a genuine
+    // emergency and we accept it. Evidence reaches us by email, the same
+    // route as host verification documents, so this records the DECISION
+    // and an evidence note rather than uploading anything.
+    //
+    // Settlement: half the room price each way. No tier applies — a tier
+    // measures how much notice the GUEST gave, and a no-show is not a
+    // cancellation by the guest at all.
+    if (action === "emergencyNoShowApproved" && body.id) {
+      const bookingId = String(body.id);
+      const note = String(body.note || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+      if (note.length < 10) {
+        return jsonResponse({
+          error: 'Please record what evidence the guest provided — at least 10 characters. This is the only record of why we approved it.'
+        }, 400, request);
+      }
+
+      let result;
+      try {
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+          let bookings = [];
+          try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
+          const idx = bookings.findIndex(b => String(b.id) === bookingId);
+          if (idx === -1) return { error: 'Booking not found', status: 404 };
+          const booking = bookings[idx];
+
+          const status = String(booking.status || '');
+          if (booking.cancel_type === 'emergency_no_show') {
+            return { error: 'This booking is already recorded as an approved emergency no-show.', status: 400 };
+          }
+          if (booking.chip_refund_id) {
+            return { error: 'This booking has already been refunded. Nothing more to do.', status: 400 };
+          }
+          if (/completed/i.test(status)) {
+            return { error: `Booking ${bookingId} was checked in, so it is not a no-show. Use the normal cancellation path if a refund is needed.`, status: 400 };
+          }
+          if (status !== 'No-Show - Nothing Due' && status !== 'Paid - Awaiting Check-in') {
+            return { error: `Booking ${bookingId} is "${status}", which is not a no-show. Nothing was changed.`, status: 400 };
+          }
+          const totalPaidNum = Number(booking.amount_paid || booking.total) || 0;
+          if (totalPaidNum <= 0) {
+            return { error: 'This booking was never paid, so there is nothing to refund.', status: 400 };
+          }
+          // If the host's no-show money has already gone out we cannot
+          // take half of it back by editing a record.
+          if (booking.manualPayoutReference || booking.payoutSuccessDate || booking.manualPayoutPaidAt) {
+            return {
+              error: `The host's no-show payout for ${bookingId} is already marked as paid. Approving the emergency now would need half of it reclaimed by hand. Please contact support to settle this one manually.`,
+              status: 409
+            };
+          }
+
+          const amounts = computeNonTierAmounts(booking, 'emergency_no_show');
+
+          // Mark the attempt BEFORE calling CHIP, so a retry cannot
+          // double-refund.
+          bookings[idx].refund_attempted_at = new Date().toISOString();
+          bookings[idx].refund_attempted_by = 'admin';
+          bookings[idx].refund_attempted_amount = amounts.guestAmount;
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify(bookings)).run();
+
+          const refund = await chipRefundPurchase(booking.chip_purchase_id, amounts.guestAmount, env);
+          const refundData = refund.data || null;
+          const refundError = refund.error || null;
+          const stamp = new Date().toISOString();
+
+          if (refundData) {
+            const isPending = refundData.status === 'pending_refund';
+            bookings[idx].status = isPending
+              ? 'No-Show - Emergency Approved (Refund Pending)'
+              : 'No-Show - Emergency Approved';
+            bookings[idx].chip_refund_id = refundData.id;
+            bookings[idx].refunded_at = stamp;
+            bookings[idx].refund_amount = amounts.guestAmount;
+            bookings[idx].refund_pending = isPending;
+            delete bookings[idx].refund_error;
+          } else {
+            bookings[idx].status = 'No-Show - Emergency Approved (Refund Failed)';
+            bookings[idx].refund_error = refundError || 'Unknown error';
+          }
+
+          bookings[idx].cancelled_by = 'admin';
+          bookings[idx].cancel_type = 'emergency_no_show';
+          bookings[idx].cancellation_tier = null;
+          bookings[idx].cancel_reason = note;
+          bookings[idx].emergencyApprovedAt = stamp;
+          bookings[idx].emergencyApprovedBy = 'admin';
+          bookings[idx].statusUpdated = stamp;
+
+          const homestay = await loadHomestayById(db, booking.homestayId);
+
+          // Half the room price to the host. If the sweep already queued
+          // the FULL room price for them, reduce it — the queue entry has
+          // not been paid, so this is safe.
+          if (amounts.hostAmount > 0) {
+            bookings[idx].manualPayoutPending = true;
+            bookings[idx].manualPayoutAmount = amounts.hostAmount;
+            bookings[idx].manualPayoutQueuedAt = bookings[idx].manualPayoutQueuedAt || stamp;
+            bookings[idx].manualPayoutKind = 'cancellation';
+            bookings[idx].manualPayoutReason = 'Emergency no-show approved — half the room price (50/50 split)';
+            bookings[idx].manualPayoutHostName = homestay?.ownerName || bookings[idx].manualPayoutHostName || '';
+            bookings[idx].manualPayoutHostEmail = homestay?.ownerEmail || bookings[idx].manualPayoutHostEmail || '';
+            bookings[idx].manualPayoutHostWhatsapp = homestay?.whatsapp || bookings[idx].manualPayoutHostWhatsapp || '';
+            bookings[idx].manualPayoutBankName = homestay?.ownerBank || bookings[idx].manualPayoutBankName || '';
+            bookings[idx].manualPayoutBankCode = homestay?.bankCode || bookings[idx].manualPayoutBankCode || '';
+            bookings[idx].manualPayoutAccountNumber = homestay?.ownerBankAccount || bookings[idx].manualPayoutAccountNumber || '';
+            bookings[idx].manualPayoutAccountHolder = homestay?.bankHolder || bookings[idx].manualPayoutAccountHolder || '';
+            bookings[idx].manualPayoutHomestayName = homestay?.name || booking.homestay || '';
+          }
+
+          let feeEarningsToWrite = null;
+          let chipCostsToWrite = null;
+          let feeRecordedAmount = 0;
+          let chipCostRecorded = 0;
+
+          try {
+            const feeRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_fee_earnings').first();
+            let feeEarnings = feeRes && feeRes.data
+              ? JSON.parse(feeRes.data)
+              : { total: 0, available: 0, withdrawn: 0, history: [] };
+            feeEarnings.history = feeEarnings.history || [];
+            const alreadyRecorded = feeEarnings.history.some(h =>
+              h.bookingId === bookingId && (h.type === 'earning' || h.type === 'cancellation_retained_fee')
+            );
+            // A no-show keeps the same platform share as an emergency
+            // approval (fees + gateway either way), so if the sweep has
+            // already recorded it there is nothing to add or reverse.
+            if (!alreadyRecorded && amounts.platformKeeps > 0) {
+              feeEarnings.total = Math.round(((feeEarnings.total || 0) + amounts.platformKeeps) * 100) / 100;
+              feeEarnings.available = Math.round(((feeEarnings.available || 0) + amounts.platformKeeps) * 100) / 100;
+              feeEarnings.history.push({
+                bookingId,
+                fee: amounts.platformKeeps,
+                date: stamp,
+                type: 'cancellation_retained_fee',
+                cancellation_type: 'emergency_no_show',
+                cancellation_tier: null,
+                original_amount_paid: amounts.totalPaid,
+                refunded_amount: amounts.guestAmount,
+                paid_to_host: amounts.hostAmount,
+                method: 'admin_emergency_no_show',
+                ip: clientIP
+              });
+              feeEarningsToWrite = feeEarnings;
+              feeRecordedAmount = amounts.platformKeeps;
+            }
+          } catch (feeReadErr) {
+            console.error('Could not read fee earnings before emergency batch:', feeReadErr.message);
+          }
+
+          try {
+            const chipRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_chip_costs').first();
+            let chipCosts = chipRes && chipRes.data
+              ? JSON.parse(chipRes.data)
+              : { total: 0, history: [] };
+            chipCosts.history = chipCosts.history || [];
+            // The sweep recorded only the payment fee. Now a refund has
+            // happened, so add the refund fee as its own ledger line.
+            const refundFeeAlready = chipCosts.history.some(h =>
+              h.bookingId === bookingId && h.type === 'cancellation_refund_fee'
+            );
+            if (refundData && !refundFeeAlready) {
+              chipCosts.total = Math.round(((chipCosts.total || 0) + CHIP_REFUND_FEE) * 100) / 100;
+              chipCosts.history.push({
+                bookingId,
+                amount: CHIP_REFUND_FEE,
+                payment_fee: 0,
+                refund_fee: CHIP_REFUND_FEE,
+                date: stamp,
+                type: 'cancellation_refund_fee',
+                cancellation_type: 'emergency_no_show',
+                cancellation_tier: null,
+                method: 'admin_emergency_no_show',
+                ip: clientIP
+              });
+              chipCostsToWrite = chipCosts;
+              chipCostRecorded = CHIP_REFUND_FEE;
+            }
+          } catch (chipReadErr) {
+            console.error('Could not read chip costs before emergency batch:', chipReadErr.message);
+          }
+
+          const atomicStmts = [
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_bookings', JSON.stringify(bookings))
+          ];
+          if (feeEarningsToWrite) {
+            atomicStmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_fee_earnings', JSON.stringify(feeEarningsToWrite)));
+          }
+          if (chipCostsToWrite) {
+            atomicStmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_chip_costs', JSON.stringify(chipCostsToWrite)));
+          }
+
+          try {
+            await db.batch(atomicStmts);
+          } catch (batchErr) {
+            console.error('Atomic batch write failed during emergency approval:', batchErr.message);
+            return {
+              error: `Refund succeeded at CHIP but the booking and ledgers could not be updated (${batchErr.message}). Booking left in "attempt marker only" state. Verify refund ${refundData?.id || ''} in the CHIP dashboard, then contact support to reconcile.`,
+              status: 500
+            };
+          }
+
+          return {
+            success: true,
+            bookingId,
+            tier: null,
+            cancelType: 'emergency_no_show',
+            guestRefund: amounts.guestAmount,
+            hostCompensation: amounts.hostAmount,
+            platformKept: amounts.platformKeeps,
+            refunded: !!refundData,
+            refundPending: refundData && refundData.status === 'pending_refund',
+            refundId: refundData?.id || null,
+            refundError,
+            feeRecorded: feeRecordedAmount,
+            chipCostRecorded,
+            booking: bookings[idx],
+            homestayName: homestay?.name || booking.homestay || ''
+          };
+        }, 60000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another operation is in progress. Please try again.' }, 429, request);
+        }
+        throw lockErr;
+      }
+
+      if (result.error) {
+        return jsonResponse({ error: result.error }, result.status || 400, request);
+      }
+
+      let guestEmail = { sent: false, error: 'not attempted' };
+      let hostEmail = { sent: false, error: 'not attempted' };
+      try {
+        guestEmail = await sendNonTierCancellationEmail(result.booking, {
+          cancelType: 'emergency_no_show',
+          guestAmount: result.guestRefund,
+          hostAmount: result.hostCompensation,
+          totalPaid: Number(result.booking.amount_paid) || Number(result.booking.total) || 0,
+          refundSuccess: result.refunded,
+          refundId: result.refundId
+        }, env);
+        const homestay = await loadHomestayById(db, result.booking.homestayId);
+        if (homestay) {
+          hostEmail = await sendNonTierHostNotice(result.booking, homestay, {
+            cancelType: 'emergency_no_show',
+            guestAmount: result.guestRefund,
+            hostAmount: result.hostCompensation
+          }, env);
+        }
+      } catch (mailErr) {
+        console.error('Emergency no-show email error:', mailErr.message);
+      }
+
+      await logAction({
+        db,
+        action: result.refunded ? 'admin_emergency_no_show_approved' : 'admin_emergency_no_show_refund_failed',
+        admin: 'admin',
+        details: `Emergency no-show approved for ${result.bookingId} (no tier — not a guest-notice case). Guest refund: ${
+          result.refunded
+            ? `${result.refundPending ? 'pending' : 'sent'}, ${result.refundId}, RM${result.guestRefund.toFixed(2)}`
+            : `FAILED — ${result.refundError}`
+        }. Host payout queued: RM${result.hostCompensation.toFixed(2)}. Platform kept: RM${result.platformKept.toFixed(2)}. Evidence note: ${note}. Emails — guest: ${guestEmail.sent ? 'sent' : 'failed'}, host: ${hostEmail.sent ? 'sent' : 'failed'}.`,
+        ip: clientIP,
+        userId: result.booking.guestEmail,
+        homestayId: result.booking.homestayId
+      });
+
+      const msg = result.refunded
+        ? result.refundPending
+          ? `Emergency approved. CHIP is processing the RM${result.guestRefund.toFixed(2)} refund to the guest. RM${result.hostCompensation.toFixed(2)} is queued for the host.`
+          : `Emergency approved. RM${result.guestRefund.toFixed(2)} refunded to the guest, and RM${result.hostCompensation.toFixed(2)} queued for the host.`
+        : `Emergency approved and the host's share was queued, but the guest refund failed (${result.refundError}). The booking is marked refund-pending — retry the refund from the bookings list.`;
+
+      return jsonResponse({
+        success: true,
+        message: msg,
+        tier: null,
+        cancelType: 'emergency_no_show',
+        guestRefund: result.guestRefund,
+        hostCompensation: result.hostCompensation,
+        platformKept: result.platformKept,
+        refunded: result.refunded,
+        refundPending: result.refundPending,
+        refundId: result.refundId,
+        refundError: result.refundError || undefined,
+        booking: result.booking,
+        guestEmailSent: guestEmail.sent,
+        hostEmailSent: hostEmail.sent
+      }, 200, request);
+    }
+
+    // ---- Admin: adminCancelPlatform  🔵 ----
+    //
+    // Force majeure: a natural disaster, a travel ban, anything that
+    // makes the stay impossible and is nobody's fault. The guest gets
+    // everything back; the host gets nothing; we absorb the CHIP fees.
+    //
+    // Deliberately restricted to bookings that are still awaiting
+    // check-in and have no recorded outcome yet. If money has already
+    // been queued or sent for a booking, undoing that is an accounting
+    // reversal, and a reversal done by editing a record is how money
+    // goes missing. Those cases should be settled by hand.
+    if (action === "adminCancelPlatform" && body.id) {
+      const bookingId = String(body.id);
+      const reason = String(body.reason || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+      if (reason.length < 10) {
+        return jsonResponse({
+          error: 'Please record why we are cancelling — at least 10 characters. The guest sees this, and it is the only record we have.'
+        }, 400, request);
+      }
+
+      let result;
+      try {
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+          let bookings = [];
+          try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
+          const idx = bookings.findIndex(b => String(b.id) === bookingId);
+          if (idx === -1) return { error: 'Booking not found', status: 404 };
+          const booking = bookings[idx];
+          const status = String(booking.status || '');
+
+          if (booking.chip_refund_id) {
+            return { error: 'This booking has already been refunded.', status: 400 };
+          }
+          if (booking.cancel_type || booking.noShowDetectedAt) {
+            return {
+              error: `Booking ${bookingId} already has a recorded outcome (${booking.cancel_type || 'no_show'}). Undoing that is an accounting reversal, so please settle this one by hand with support rather than by editing the record.`,
+              status: 409
+            };
+          }
+          if (booking.manualPayoutPending || booking.payoutSuccessDate || booking.ownerPayoutId) {
+            return {
+              error: `A payout has already been queued or sent for ${bookingId}. Cancelling it now would need that reversed by hand. Please contact support.`,
+              status: 409
+            };
+          }
+          if (status !== 'Paid - Awaiting Check-in') {
+            return {
+              error: `Platform cancellation is only available for paid bookings that are still awaiting check-in. Booking ${bookingId} is "${status}". Nothing was changed.`,
+              status: 400
+            };
+          }
+          const totalPaidNum = Number(booking.amount_paid || booking.total) || 0;
+          if (totalPaidNum <= 0) {
+            return { error: 'This booking was never paid, so there is nothing to refund.', status: 400 };
+          }
+          if (!booking.chip_purchase_id) {
+            return { error: 'This booking has no CHIP purchase on file, so it cannot be refunded.', status: 400 };
+          }
+
+          const amounts = computeNonTierAmounts(booking, 'platform');
+
+          bookings[idx].refund_attempted_at = new Date().toISOString();
+          bookings[idx].refund_attempted_by = 'admin';
+          bookings[idx].refund_attempted_amount = amounts.guestAmount;
+          await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify(bookings)).run();
+
+          const refund = await chipRefundPurchase(booking.chip_purchase_id, amounts.guestAmount, env);
+          const refundData = refund.data || null;
+          const refundError = refund.error || null;
+          const stamp = new Date().toISOString();
+
+          if (refundData) {
+            const isPending = refundData.status === 'pending_refund';
+            bookings[idx].status = isPending
+              ? 'Cancelled by Platform (Refund Pending)'
+              : 'Cancelled by Platform';
+            bookings[idx].chip_refund_id = refundData.id;
+            bookings[idx].refunded_at = stamp;
+            bookings[idx].refund_amount = amounts.guestAmount;
+            bookings[idx].refund_pending = isPending;
+            delete bookings[idx].refund_error;
+          } else {
+            bookings[idx].status = 'Cancelled by Platform (Refund Failed)';
+            bookings[idx].refund_error = refundError || 'Unknown error';
+          }
+
+          bookings[idx].cancelled_by = 'admin';
+          bookings[idx].cancel_type = 'platform';
+          bookings[idx].cancellation_tier = null;
+          bookings[idx].cancel_reason = reason;
+          bookings[idx].platformCancelledAt = stamp;
+          bookings[idx].platformCancelledBy = 'admin';
+          bookings[idx].statusUpdated = stamp;
+          bookings[idx].refund_amount = amounts.guestAmount;
+
+          // We keep nothing in a force-majeure cancellation, so there is
+          // no retained-fee entry to write. Only the CHIP cost.
+          let chipCostsToWrite = null;
+          let chipCostRecorded = 0;
+          try {
+            const chipRes = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_chip_costs').first();
+            let chipCosts = chipRes && chipRes.data
+              ? JSON.parse(chipRes.data)
+              : { total: 0, history: [] };
+            chipCosts.history = chipCosts.history || [];
+            const alreadyRecordedChip = chipCosts.history.some(h =>
+              h.bookingId === bookingId && h.type === 'cancellation'
+            );
+            if (!alreadyRecordedChip) {
+              chipCosts.total = Math.round(((chipCosts.total || 0) + CHIP_TOTAL_FEES_PER_CANCELLATION) * 100) / 100;
+              chipCosts.history.push({
+                bookingId,
+                amount: CHIP_TOTAL_FEES_PER_CANCELLATION,
+                payment_fee: CHIP_PAYMENT_FEE,
+                refund_fee: CHIP_REFUND_FEE,
+                date: stamp,
+                type: 'cancellation',
+                cancellation_type: 'platform',
+                cancellation_tier: null,
+                method: 'admin_platform_cancel',
+                ip: clientIP
+              });
+              chipCostsToWrite = chipCosts;
+              chipCostRecorded = CHIP_TOTAL_FEES_PER_CANCELLATION;
+            }
+          } catch (chipReadErr) {
+            console.error('Could not read chip costs before platform cancel batch:', chipReadErr.message);
+          }
+
+          const atomicStmts = [
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_bookings', JSON.stringify(bookings))
+          ];
+          if (chipCostsToWrite) {
+            atomicStmts.push(db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_chip_costs', JSON.stringify(chipCostsToWrite)));
+          }
+
+          try {
+            await db.batch(atomicStmts);
+          } catch (batchErr) {
+            console.error('Atomic batch write failed during platform cancel:', batchErr.message);
+            return {
+              error: `Refund succeeded at CHIP but the booking and ledgers could not be updated (${batchErr.message}). Booking left in "attempt marker only" state. Verify refund ${refundData?.id || ''} in the CHIP dashboard, then contact support to reconcile.`,
+              status: 500
+            };
+          }
+
+          const homestay = await loadHomestayById(db, booking.homestayId);
+
+          return {
+            success: true,
+            bookingId,
+            tier: null,
+            cancelType: 'platform',
+            guestRefund: amounts.guestAmount,
+            hostCompensation: 0,
+            platformKept: 0,
+            refunded: !!refundData,
+            refundPending: refundData && refundData.status === 'pending_refund',
+            refundId: refundData?.id || null,
+            refundError,
+            chipCostRecorded,
+            booking: bookings[idx],
+            hostEmail: homestay?.ownerEmail || null,
+            homestayForEmail: homestay
+          };
+        }, 60000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another operation is in progress. Please try again.' }, 429, request);
+        }
+        throw lockErr;
+      }
+
+      if (result.error) {
+        return jsonResponse({ error: result.error }, result.status || 400, request);
+      }
+
+      let guestEmail = { sent: false, error: 'not attempted' };
+      let hostEmail = { sent: false, error: 'not attempted' };
+      try {
+        guestEmail = await sendNonTierCancellationEmail(result.booking, {
+          cancelType: 'platform',
+          guestAmount: result.guestRefund,
+          hostAmount: 0,
+          totalPaid: result.guestRefund,
+          refundSuccess: result.refunded,
+          refundId: result.refundId
+        }, env);
+        if (result.homestayForEmail) {
+          hostEmail = await sendNonTierHostNotice(result.booking, result.homestayForEmail, {
+            cancelType: 'platform',
+            guestAmount: result.guestRefund,
+            hostAmount: 0
+          }, env);
+        }
+      } catch (mailErr) {
+        console.error('Platform cancel email error:', mailErr.message);
+      }
+
+      await logAction({
+        db,
+        action: result.refunded ? 'admin_platform_cancel_success' : 'admin_platform_cancel_refund_failed',
+        admin: 'admin',
+        details: `Platform (force majeure) cancellation of ${result.bookingId} by admin. Reason: ${reason}. Guest refunded in full: ${
+          result.refunded
+            ? `${result.refundPending ? 'pending' : 'sent'}, ${result.refundId}, RM${result.guestRefund.toFixed(2)}`
+            : `FAILED — ${result.refundError}`
+        }. Host compensation: none. Platform kept: RM0.00. Chip cost recorded: RM${result.chipCostRecorded.toFixed(2)}. Emails — guest: ${guestEmail.sent ? 'sent' : 'failed'}, host: ${hostEmail.sent ? 'sent' : 'failed'}.`,
+        ip: clientIP,
+        userId: result.booking.guestEmail,
+        homestayId: result.booking.homestayId
+      });
+
+      const msg = result.refunded
+        ? result.refundPending
+          ? `Platform cancellation recorded. CHIP is processing the full refund of RM${result.guestRefund.toFixed(2)} to the guest. No payout is due to the host.`
+          : `Platform cancellation recorded. Full refund of RM${result.guestRefund.toFixed(2)} to the guest. No payout is due to the host.`
+        : `Platform cancellation recorded, but the guest refund failed (${result.refundError}). The booking is marked refund-pending — retry the refund from the bookings list.`;
+
+      return jsonResponse({
+        success: true,
+        message: msg,
+        tier: null,
+        cancelType: 'platform',
+        guestRefund: result.guestRefund,
+        hostCompensation: 0,
+        platformKept: 0,
+        refunded: result.refunded,
+        refundPending: result.refundPending,
+        refundId: result.refundId,
+        refundError: result.refundError || undefined,
+        booking: result.booking,
+        guestEmailSent: guestEmail.sent,
+        hostEmailSent: hostEmail.sent
+      }, 200, request);
+    }
+
+    // ---- Admin: runNoShowSweep ⚪ ----
+    //
+    // The sweep also runs by itself when the dashboard loads, throttled
+    // to once every 10 minutes. This lets you run it on demand, and see
+    // what it found.
+    if (action === "runNoShowSweep") {
+      const summary = await sweepNoShows(db, env, { force: true });
+
+      await logAction({
+        db,
+        action: 'no_show_sweep_run_manually',
+        admin: 'admin',
+        details: `Manual no-show sweep: scanned ${summary.scanned} awaiting check-in, marked ${summary.marked}${summary.bookingIds.length ? ' (' + summary.bookingIds.join(', ') + ')' : ''}. Emails sent: ${summary.emailsSent}.${summary.error ? ' Error: ' + summary.error : ''}`,
+        ip: clientIP
+      });
+
+      return jsonResponse({
+        success: true,
+        message: summary.marked === 0
+          ? `Nothing to do — ${summary.scanned} booking${summary.scanned === 1 ? '' : 's'} awaiting check-in, none past the 24-hour grace.`
+          : `${summary.marked} booking${summary.marked === 1 ? '' : 's'} marked as a no-show: ${summary.bookingIds.join(', ')}.`,
+        scanned: summary.scanned,
+        marked: summary.marked,
+        bookingIds: summary.bookingIds,
+        emailsSent: summary.emailsSent,
+        error: summary.error || undefined
+      }, 200, request);
     }
 
     // ---- Admin: approveHomestay ----
