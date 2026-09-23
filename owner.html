@@ -1544,9 +1544,12 @@ async function cancelBooking(bookingId) {
         <div style="margin-top:10px;border:1.5px solid #f59e0b;border-radius:14px;padding:14px;background:#fffbeb;">
           <div style="font-weight:700;color:#92400e;font-size:14px;">🟡 Guest-Requested Cancellation</div>
           <div style="font-size:12px;color:#78350f;margin-top:6px;line-height:1.5;">
-            The guest asked to cancel and the host has agreed.<br>
-            <strong>Guest receives the room price minus RM 1.00:</strong> RM ${guestRefund}<br>
-            <span style="color:#92400e;">The RM 1.00 covers the refund-processing fee. The platform retains the RM ${feeRetained} service fee + gateway fee (of which RM ${baseAmount} is your room price).</span>${isPaid ? '' : ' <span style="color:#6b7280;">(unpaid — no refund needed)</span>'}
+                        The guest asked to cancel and you have agreed.<br>
+            <strong>The refund follows the published tiers:</strong><br>
+            &bull; <strong>Tier A</strong> — 14+ days’ notice: everything paid, less RM 1.00<br>
+            &bull; <strong>Tier B</strong> — 48 hours to 13 days: half the room price<br>
+            &bull; <strong>Tier C</strong> — under 48 hours: nothing to the guest — you receive the room price<br>
+            <span style="color:#92400e;">The correct tier is applied automatically — from the guest’s own request date if they asked through the app, or from today if they asked you directly. Exact figures are shown once it is done.</span>${isPaid ? '' : ' <span style="color:#6b7280;">(unpaid — no refund needed)</span>'}
           </div>
         </div>
 
@@ -1585,11 +1588,16 @@ async function cancelBooking(bookingId) {
         if (phone && phone.length >= 9) {
           if (phone.startsWith('0')) phone = '60' + phone.substring(1);
 
-          const isGuestReq = choice === 'guest_request';
-          const refundLine = isGuestReq
-            ? `A refund of RM ${Number(data.refundAmount || guestRefund).toFixed(2)} has been processed. The service fee is non-refundable for guest-requested cancellations.`
-            : `A full refund of RM ${Number(data.refundAmount || totalNum).toFixed(2)} has been processed.`;
-
+       const isGuestReq = choice === 'guest_request';
+          // data.refundAmount is a number, so `||` would swallow a genuine
+          // RM 0.00 (Tier C) and fall through to a wrong figure.
+          const refundAmt = Number(data.refundAmount != null ? data.refundAmount : totalNum).toFixed(2);
+          const refundLine = data.noRefundDue
+            ? 'No refund is due under our policy — the room was held right up to check-in, so your host is paid for it.'
+            : (isGuestReq
+                ? `A refund of RM ${refundAmt} has been processed. The service fee is non-refundable for guest-requested cancellations.`
+                : `A full refund of RM ${refundAmt} has been processed.`);
+          
           const msg = `Hi ${booking.guestName || 'Guest'},\n\nYour booking ${bookingId} at ${booking.homestay} has been cancelled.\n\n${isPaid ? refundLine + '\n\n' : ''}If you have any questions, please contact the host directly.\n\nThank you.`;
           window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
         } else {
