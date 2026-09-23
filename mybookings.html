@@ -973,17 +973,27 @@ var isCancelled = cancelledByHost || s.indexOf('cancel') !== -1;
 var isRefundRelated = s.indexOf('refund') !== -1;
 var isRefundPending = isRefundRelated && s.indexOf('pending') !== -1;
 var isRefundComplete = isRefundRelated && !isRefundPending;
+var isNothingDue = s.indexOf('nothing due') !== -1;
 if (isCancelled) {
+var cancelType = String(b.cancel_type || '').toLowerCase();
+var byGuest = cancelType === 'guest_request';
+var whoText = byGuest ? 'You asked to cancel this booking' : 'The host cancelled this booking';
+var refundAmt = Number(b.refund_amount || 0);
+var amtText = refundAmt > 0 ? ' RM ' + refundAmt.toFixed(2) + ' has been refunded to you.' : '';
+
+if (isNothingDue) {
+return { key: 'cancelled_nothing_due', badgeClass: 'badge-cancelled', badgeLabel: '✕ Cancelled — Nothing Due', note: whoText + '. Because it was less than 48 hours before check-in, no refund is due under our published policy — the room was held for you and could not be resold. If you think this is wrong, email support@kundasanghomestay.my.', buttons: [] };
+}
 if (isRefundPending) {
-return { key: 'refund_pending', badgeClass: 'badge-refunded', badgeLabel: 'Cancelled by Host - Refund Processing', note: 'The host cancelled this booking. Your refund is being processed by CHIP and usually completes within a few minutes.', buttons: [] };
+return { key: 'refund_pending', badgeClass: 'badge-refunded', badgeLabel: '💧 Refund Processing', note: whoText + '. Your refund is being processed by CHIP and usually completes within a few minutes.', buttons: [] };
 }
 if (isRefundComplete) {
-return { key: 'refunded', badgeClass: 'badge-failed', badgeLabel: 'Cancelled by Host - Refunded', note: 'The host cancelled this booking. A full refund has been processed. It may take 3–7 business days to appear in your bank.', buttons: [] };
+return { key: 'refunded', badgeClass: 'badge-refunded', badgeLabel: '🔁 Refunded', note: whoText + ' and a refund has been processed.' + amtText + ' It may take 1–7 business days to appear in your bank.', buttons: [] };
 }
-return { key: 'cancelled', badgeClass: 'badge-failed', badgeLabel: 'Cancelled by Host', note: '', buttons: [] };
+return { key: 'cancelled', badgeClass: 'badge-cancelled', badgeLabel: '✕ Cancelled', note: whoText + '.' + amtText, buttons: [] };
 }
 if (isRefundComplete) {
-return { key: 'refunded', badgeClass: 'badge-refunded', badgeLabel: '🔁 Refunded', note: 'A full refund has been processed. It may take 3–7 business days to appear in your bank.', buttons: [] };
+return { key: 'refunded', badgeClass: 'badge-refunded', badgeLabel: '🔁 Refunded', note: 'A full refund has been processed. It may take 1–7 business days to appear in your bank.', buttons: [] };
 }
 if (isRefundPending) {
 return { key: 'refund_pending', badgeClass: 'badge-refunded', badgeLabel: '💧 Refund Processing', note: 'Your refund is being processed by CHIP. This usually completes within a few minutes.', buttons: [] };
@@ -1284,7 +1294,7 @@ async function manualCheckPayment(bookingId) {
 try {
 const result = await checkPaymentStatus(bookingId);
 if (result.paymentStatus === 'refunded') {
-await showAlert('Refunded', 'This booking has been refunded. Refunds may take 3–7 business days.');
+await showAlert('Refunded', 'This booking has been refunded. Refunds may take 1–7 business days.');
 loadMyBookings();
 return;
 }
