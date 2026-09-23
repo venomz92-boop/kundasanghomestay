@@ -1301,7 +1301,7 @@ export async function sendCheckinEmail(booking, env) {
 
     return sendEmail({
     to: booking.guestEmail,
-    subject: 'Refund Confirmation – Booking ' + String(booking.id || '').replace(/[\r\n]+/g, ''),
+    subject: 'Your Receipt & Check-in Code – ' + String(booking.id || '').replace(/[\r\n]+/g, ''),
     html
   }, env);
 }
@@ -2148,6 +2148,21 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
        </div>`
     : '';
 
+  const cancelTypeForPayout = String(
+    payoutInfo.cancelType || booking.cancel_type || ''
+  ).toLowerCase();
+  const noteStyle = 'color:#6b7280;font-size:12.5px;line-height:1.6;margin-top:6px;';
+  let cancellationNoteHtml = '';
+  if (cancelTypeForPayout === 'no_show') {
+    cancellationNoteHtml = `<p style="${noteStyle}">The guest did not arrive and did not make contact within 24 hours of the arrival date. The room was held for them and could not be resold, so under our published policy the room price is yours.</p>`;
+  } else if (cancelTypeForPayout === 'emergency_no_show') {
+    cancellationNoteHtml = `<p style="${noteStyle}">The guest did not arrive, and we approved their emergency. Under our published policy a no-show with an approved emergency settles at half the room price for each side. This is your half.</p>`;
+  } else if (cancelTypeForPayout === 'platform') {
+    cancellationNoteHtml = `<p style="${noteStyle}">We cancelled this booking ourselves, for reasons outside anyone's control. The guest was refunded in full and no payout is due to you for this booking.</p>`;
+  } else if (isCancellation) {
+    cancellationNoteHtml = `<p style="${noteStyle}">The guest cancelled after the room was held for them and could no longer be resold. Under our published policy, this is your share of the room price for that booking.</p>`;
+  }
+
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f8f5f0;padding:20px;">
       <div style="background:#ffffff;padding:30px;border-radius:16px;border:1px solid #e5e7eb;">
@@ -2162,7 +2177,7 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
             ? `A payout for a <strong>cancelled booking</strong> at <strong>${homestayName}</strong> has been ${isSimulation ? 'simulated (test)' : 'sent to your bank account'}.`
             : `A payout for a completed guest stay at <strong>${homestayName}</strong> has been ${isSimulation ? 'simulated (test)' : 'sent to your bank account'}.`}
         </p>
-        ${isCancellation ? `<p style="color:#6b7280;font-size:12.5px;line-height:1.6;margin-top:6px;">The guest cancelled after the room was held for them and could no longer be resold. Under our published policy, this is your share of the room price for that booking.</p>` : ''}
+        ${cancellationNoteHtml}
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin:22px 0;text-align:center;">
           <div style="font-size:11px;color:#166534;text-transform:uppercase;letter-spacing:1px;font-weight:700;">${isSimulation ? 'Amount (simulated)' : 'Amount Transferred'}</div>
           <div style="font-size:32px;font-weight:800;color:#0F382E;margin:6px 0;">RM ${payoutAmount}</div>
