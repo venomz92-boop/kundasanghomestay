@@ -623,7 +623,22 @@ if (s.indexOf('fail') !== -1) {
 return { key: 'failed', badgeClass: 'badge-failed', badgeLabel: 'Payment Failed', note: 'Your payment didn\'t go through. Click Retry Payment to try again.', buttons: ['checkStatus', 'retryPayment'] };
 }
 if (s.indexOf('paid') !== -1) {
-return { key: 'paid', badgeClass: 'badge-paid', badgeLabel: '✓ Confirmed — Ready for Stay', note: 'Your booking is confirmed! We\'ve emailed your check-in instructions and host contact details. Have a great trip! 🏔️', buttons: ['resendCode'] };
+var req = b.cancellationRequest;
+if (req && req.status === 'pending_host') {
+var askedOn = req.requestedAt
+? new Date(req.requestedAt).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
+: '';
+var closeToCheckin = new Date(b.checkin + 'T14:00:00+08:00').getTime() - Date.now() < 48 * 3600000;
+var replyWindow = closeToCheckin ? '6 hours' : '48 hours';
+return {
+key: 'cancellation_requested',
+badgeClass: 'badge-pending',
+badgeLabel: '✋ Cancellation Requested',
+note: 'You asked to cancel on ' + askedOn + '. Your host has to reply within ' + replyWindow + '. Until the cancellation is confirmed, your booking stands — so please still bring your check-in code and instructions.',
+buttons: ['withdrawRequest']
+};
+}
+return { key: 'paid', badgeClass: 'badge-paid', badgeLabel: '✓ Confirmed — Ready for Stay', note: 'Your booking is confirmed! We\'ve emailed your check-in instructions and host contact details. Have a great trip! 🏔️', buttons: ['resendCode', 'requestCancellation'] };
 }
 return { key: 'pending', badgeClass: 'badge-pending', badgeLabel: 'Awaiting Payment', note: 'Complete your payment to confirm this booking.', buttons: ['checkStatus', 'retryPayment'] };
 }
@@ -637,6 +652,12 @@ html += '<button class="btn-accent action-btn" style="padding:6px 14px; font-siz
 }
 if (actions.indexOf('retryPayment') !== -1) {
 html += '<button class="btn-primary action-btn" style="padding:6px 14px; font-size:10px; background:#D4A373;" data-action="retryPayment" data-id="' + id + '">🔄 Retry Payment</button>';
+}
+if (actions.indexOf('requestCancellation') !== -1) {
+html += '<button class="text-xs bg-white text-[#0F382E] px-3 py-1.5 rounded-full border border-[#0F382E]/30 hover:bg-[#0F382E]/5 transition action-btn" data-action="requestCancellation" data-id="' + id + '">✋ Request Cancellation</button>';
+}
+if (actions.indexOf('withdrawRequest') !== -1) {
+html += '<button class="text-xs bg-white text-zinc-600 px-3 py-1.5 rounded-full border border-zinc-300 hover:bg-zinc-50 transition action-btn" data-action="withdrawRequest" data-id="' + id + '">↩️ Withdraw Request</button>';
 }
 return html;
 }
@@ -871,13 +892,15 @@ var id = btn.dataset.id;
 if (!action || !id) return;
 e.preventDefault();
 
-var labels = { checkStatus: 'Checking…', retryPayment: 'Redirecting…', resendCode: 'Sending…' };
+var labels = { checkStatus: 'Checking…', retryPayment: 'Redirecting…', resendCode: 'Sending…', requestCancellation: 'Loading…', withdrawRequest: 'Withdrawing…' };
 var resetBtn = setButtonLoading(btn, labels[action] || 'Working…');
 
 try {
 if (action === 'checkStatus') await manualCheckPayment(id);
 else if (action === 'retryPayment') await retryPaymentFromBookings(id);
 else if (action === 'resendCode') await resendCode(id);
+else if (action === 'requestCancellation') await openCancellationRequestModal(id);
+else if (action === 'withdrawRequest') await withdrawCancellationRequest(id);
 } finally {
 resetBtn();
 }
@@ -999,6 +1022,243 @@ showAlert('Error', data.error || 'Failed to resend.');
 }
 } catch(e) { showAlert('Error', 'Network error. Please try again.'); }
 }
+
+/* ============================================================
+   CANCELLATION REQUEST FORM
+   Writes a request down so there is a record of when the guest
+   asked and why. Cancels nothing. The host still decides.
+   ============================================================ */
+
+function moneyLine(label, amount) {
+  return '<div style="display:flex;justify-content:space-between;padding:4px 0;">' +
+    '<span style="color:#6b7280;">' + label + '</span>' +
+    '<strong>RM ' + Number(amount || 0).toFixed(2) + '</strong></div>';
+}
+
+function tierExplainer(p) {
+  if (!p || p.needsReview || !p.tier) {
+    return '<div style="padding:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12px;color:#78350f;line-height:1.55;">' +
+      'We could not work out your refund automatically. Submit the request anyway — our team will review it and contact you.</div>';
+  }
+  var whenText = p.tier === 'A'
+    ? 'You are asking <strong>14 or more days</strong> before check-in.'
+    : (p.tier === 'B'
+      ? 'You are asking <strong>between 48 hours and 13 days</strong> before check-in.'
+      : 'You are asking <strong>less than 48 hours</strong> before check-in.');
+
+  var colour = p.tier === 'A' ? '#166534' : (p.tier === 'B' ? '#92400e' : '#9f1239');
+  var bg = p.tier === 'A' ? '#f0fdf4' : (p.tier === 'B' ? '#fffbeb' : '#fff1f2');
+  var border = p.tier === 'A' ? '#bbf7d0' : (p.tier === 'B' ? '#fde68a' : '#fecdd3');
+
+  var lines = [];
+  lines.push(moneyLine('You paid', p.totalPaid));
+  lines.push(moneyLine('Room price', p.base));
+  if (p.tier === 'A') {
+    lines.push(moneyLine('Less: refund processing fee', p.chipRefundFee));
+  }
+  lines.push('<div style="border-top:1px solid rgba(0,0,0,.08);margin:6px 0;"></div>');
+  lines.push('<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:14px;">' +
+    '<span style="font-weight:700;color:' + colour + ';">You would get back</span>' +
+    '<strong style="color:' + colour + ';">RM ' + Number(p.guestAmount || 0).toFixed(2) + '</strong></div>');
+
+  var hostLine = '';
+  if (p.hostAmount > 0) {
+    hostLine = '<div style="font-size:11px;color:#6b7280;margin-top:6px;line-height:1.5;">Your host would receive RM ' +
+      Number(p.hostAmount).toFixed(2) + ', because the room was held for you and could not be resold at short notice.</div>';
+  }
+
+  return '<div style="padding:12px;background:' + bg + ';border:1px solid ' + border + ';border-radius:10px;font-size:12px;color:#374151;line-height:1.5;">' +
+    '<div style="font-weight:700;margin-bottom:8px;color:' + colour + ';">Your refund tier: ' + p.tier + '</div>' +
+    '<div style="margin-bottom:8px;">' + whenText + '</div>' +
+    lines.join('') +
+    hostLine +
+    '<div style="font-size:11px;color:#6b7280;margin-top:8px;line-height:1.5;">This is what you get if the cancellation goes ahead. Your host has to reply, and we can overrule them if their refusal is unreasonable.</div>' +
+    '</div>';
+}
+
+async function openCancellationRequestModal(bookingId) {
+  var res, data;
+  try {
+    res = await fetch(API_BASE + '/cancellation-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getCsrfHeader() },
+      credentials: 'include',
+      body: JSON.stringify({ action: 'preview', bookingId: bookingId })
+    });
+    data = await res.json();
+  } catch (e) {
+    await showAlert('Network Error', 'Could not reach the server. Please try again.');
+    return;
+  }
+
+  if (!data.success) {
+    await showAlert('Cannot Cancel', data.error || 'This booking cannot be cancelled right now.');
+    loadMyBookings();
+    return;
+  }
+
+  if (data.alreadyPending) {
+    await showAlert('Request Already Sent', 'You already have a cancellation request waiting on your host. You can withdraw it from this page if you change your mind.');
+    loadMyBookings();
+    return;
+  }
+
+  var p = data.preview;
+
+  return new Promise(function(resolve) {
+    var overlay = document.getElementById('customModal');
+    var titleEl = document.getElementById('modalTitle');
+    var bodyEl = document.getElementById('modalBody');
+    var footerEl = document.getElementById('modalFooter');
+
+    titleEl.textContent = 'Request a Cancellation';
+    bodyEl.innerHTML =
+      '<div style="text-align:left;line-height:1.6;">' +
+        '<p style="font-size:13px;color:#374151;">This sends a request to your host. ' +
+        '<strong>It does not cancel your booking on its own</strong> — your host decides, and we step in if they refuse unfairly or go quiet.</p>' +
+        '<div style="margin-top:14px;">' + tierExplainer(p) + '</div>' +
+        '<div style="margin-top:14px;">' +
+          '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#212121;">Why do you need to cancel? <span style="color:#b91c1c;">*</span></label>' +
+          '<textarea id="cr-reason" rows="4" maxlength="500" class="form-input" style="width:100%;resize:vertical;" placeholder="Tell your host what has happened. This is part of the request, and it is the first thing we look at if you ask us to review their decision."></textarea>' +
+          '<div id="cr-count" style="font-size:11px;color:#9ca3af;margin-top:4px;">0 / 500</div>' +
+        '</div>' +
+        '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;font-size:12px;color:#374151;cursor:pointer;">' +
+          '<input id="cr-emergency" type="checkbox" style="margin-top:2px;" />' +
+          '<span>This is an emergency (medical, a death in the family, a travel ban, or a natural disaster). We review these ourselves — you may be asked for evidence.</span>' +
+        '</label>' +
+        '<div id="cr-error" style="display:none;margin-top:12px;padding:10px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;font-size:12px;"></div>' +
+        '<div style="margin-top:12px;padding:10px;background:#f8f5f0;border-radius:10px;font-size:11px;color:#6b7280;line-height:1.5;">' +
+          'Your host has to reply within 48 hours — or 6 hours if your check-in is less than 48 hours away. ' +
+          'If they refuse, email us at support@kundasanghomestay.my and we will review it.' +
+        '</div>' +
+      '</div>';
+
+    footerEl.innerHTML = '';
+
+    var finish = function(val) {
+      window.__modalCancel = null;
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+      resolve(val);
+    };
+    window.__modalCancel = function() { finish(null); };
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Never mind';
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.onclick = function() { finish(null); };
+    footerEl.appendChild(cancelBtn);
+
+    var sendBtn = document.createElement('button');
+    sendBtn.textContent = 'Send Request to Host';
+    sendBtn.className = 'btn btn-primary';
+    sendBtn.onclick = function() {
+      var reasonEl = document.getElementById('cr-reason');
+      var emEl = document.getElementById('cr-emergency');
+      var errEl = document.getElementById('cr-error');
+      var reason = reasonEl ? reasonEl.value.trim() : '';
+      errEl.style.display = 'none';
+
+      if (reason.length < 10) {
+        errEl.textContent = 'Please tell your host why — at least 10 characters.';
+        errEl.style.display = 'block';
+        return;
+      }
+      finish({ reason: reason, emergency: emEl ? emEl.checked : false });
+    };
+    footerEl.appendChild(sendBtn);
+
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    setTimeout(function() {
+      var ta = document.getElementById('cr-reason');
+      if (ta) {
+        ta.focus();
+        ta.addEventListener('input', function() {
+          var c = document.getElementById('cr-count');
+          if (c) c.textContent = ta.value.length + ' / 500';
+        });
+      }
+    }, 200);
+
+  }).then(function(answers) {
+    if (!answers) return;
+    return submitCancellationRequest(bookingId, answers.reason, answers.emergency);
+  });
+}
+
+async function submitCancellationRequest(bookingId, reason, emergency) {
+  try {
+    var res = await fetch(API_BASE + '/cancellation-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getCsrfHeader() },
+      credentials: 'include',
+      body: JSON.stringify({ action: 'submit', bookingId: bookingId, reason: reason, emergency: emergency === true })
+    });
+    var data = await res.json();
+
+    if (!res.ok || !data.success) {
+      await showAlert('Could Not Send', data.error || 'Could not send your request. Please try again.');
+      return;
+    }
+
+    if (data.alreadyPending) {
+      await showAlert('Already Sent', data.message || 'You already have a request waiting on your host.');
+      loadMyBookings();
+      return;
+    }
+
+    var p = data.preview || {};
+    var summary = '';
+    if (p.tier) {
+      summary = '<div style="margin-top:12px;padding:12px;background:#f8f5f0;border-radius:10px;font-size:13px;">' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#6b7280;">Your tier</span><strong>' + p.tier + '</strong></div>' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:#6b7280;">You would get back</span><strong>RM ' + Number(p.guestAmount || 0).toFixed(2) + '</strong></div>' +
+        '</div>';
+    }
+
+    await showAlert(
+      'Request Sent',
+      '<div style="text-align:left;line-height:1.6;">' +
+        '<p>Your host has been told. <strong>Your booking is not cancelled yet</strong> — they have to reply first.</p>' +
+        summary +
+        '<p style="margin-top:12px;font-size:12px;color:#6b7280;">We will email you as soon as they respond. If they do not reply in time, email support@kundasanghomestay.my and we will take it over.</p>' +
+      '</div>'
+    );
+    loadMyBookings();
+  } catch (e) {
+    await showAlert('Network Error', 'Could not reach the server. Please try again.');
+  }
+}
+
+async function withdrawCancellationRequest(bookingId) {
+  var ok = await showConfirm(
+    'Withdraw Request',
+    'Take back your cancellation request?<br><br>Your booking goes back to normal. If you decide to cancel again later, the refund will be worked out from that <strong>new</strong> time — not the original one.'
+  );
+  if (!ok) return;
+
+  try {
+    var res = await fetch(API_BASE + '/cancellation-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getCsrfHeader() },
+      credentials: 'include',
+      body: JSON.stringify({ action: 'withdraw', bookingId: bookingId })
+    });
+    var data = await res.json();
+
+    if (!res.ok || !data.success) {
+      await showAlert('Could Not Withdraw', data.error || 'Could not withdraw your request. Please try again.');
+      return;
+    }
+    await showAlert('Request Withdrawn', 'Your request has been taken back. Your booking is unchanged.');
+    loadMyBookings();
+  } catch (e) {
+    await showAlert('Network Error', 'Could not reach the server. Please try again.');
+  }
+}
+   
 function openDeleteAccountModal() {
 return new Promise((resolve) => {
 const overlay = document.getElementById('customModal');
