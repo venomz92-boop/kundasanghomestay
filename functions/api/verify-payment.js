@@ -243,7 +243,7 @@ export async function onRequestPost({ request, env }) {
     if (purchaseStatus === 'cancelled' || purchaseStatus === 'expired' || purchaseStatus === 'failed') {
       let writeResult;
       try {
-        writeResult = await withLock(db, `booking:${bookingId}`, async (db) => {
+        writeResult = await withLock(db, 'bookings-global', async (db) => {
           const rr = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
           let bb = [];
           try { if (rr?.data) bb = JSON.parse(rr.data); } catch (_) {}
