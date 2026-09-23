@@ -9,7 +9,7 @@
 // bookings were invisible on the owner dashboard even though the booking
 // existed in D1. The fallback to the JWT snapshot is kept so any legacy
 // session still works.
-import { corsHeaders, enforceHttps, getOwnerSession, jsonResponse } from './_utils.js';
+import { corsHeaders, enforceHttps, getOwnerSession, jsonResponse, computeCancellationTier } from './_utils.js';
 
 export async function onRequestGet({ request, env }) {
   const redirect = enforceHttps(request);
@@ -59,6 +59,16 @@ export async function onRequestGet({ request, env }) {
 
     const safeBookings = filtered.map(b => {
       const { checkinCode, ...rest } = b;
+      // If the guest has a request waiting, work out the tier and the
+      // amounts now so the host sees them before deciding. Uses the
+      // guest's recorded date — same maths the refund will use.
+      if (rest.cancellationRequest && rest.cancellationRequest.status === 'pending_host') {
+        const askedMs = Date.parse(rest.cancellationRequest.requestedAt);
+        rest.tierPreview = computeCancellationTier(
+          rest,
+          Number.isFinite(askedMs) ? askedMs : Date.now()
+        );
+      }
       return rest;
     });
 
