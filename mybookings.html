@@ -974,8 +974,58 @@ var isRefundRelated = s.indexOf('refund') !== -1;
 var isRefundPending = isRefundRelated && s.indexOf('pending') !== -1;
 var isRefundComplete = isRefundRelated && !isRefundPending;
 var isNothingDue = s.indexOf('nothing due') !== -1;
-if (isCancelled) {
 var cancelType = String(b.cancel_type || '').toLowerCase();
+
+// ⚪🟣🔵 outcomes are neither tier cases nor ordinary cancellations, so
+// they are handled before the isCancelled block. Without this they fell
+// through every branch: a no-showed guest was told "Awaiting Payment —
+// complete your payment to confirm this booking", on a booking they had
+// already paid for, and a FAILED emergency refund was reported as
+// "Refunded".
+if (cancelType === 'no_show' || cancelType === 'emergency_no_show' || cancelType === 'platform') {
+var refundFailed = String(b.status || '').indexOf('Failed') !== -1 || !!b.refund_error;
+var guestRefunded = Number(b.refund_amount || 0);
+var hostHeldAmt = Number(b.manualPayoutAmount || 0);
+var amtLine = guestRefunded > 0 ? ' RM ' + guestRefunded.toFixed(2) + ' has been refunded to you.' : '';
+
+if (cancelType === 'no_show') {
+return { key: 'no_show', badgeClass: 'badge-cancelled', badgeLabel: '⚪ No-Show',
+note: 'You did not arrive, and you did not contact your host or us within 24 hours of your arrival date. Under our published policy no refund is due — the room was held for you and could not be resold. Your host has been paid RM ' + hostHeldAmt.toFixed(2) + ' for the room. If something stopped you travelling, email support@kundasanghomestay.my with the details — we review genuine emergencies and can pay back half the room price.',
+buttons: [] };
+}
+
+if (cancelType === 'emergency_no_show') {
+if (refundFailed) {
+return { key: 'emergency_refund_pending', badgeClass: 'badge-failed', badgeLabel: '🟣 Emergency Approved — Refund Pending',
+note: 'We approved your emergency, so half the room price comes back to you. The refund could not be sent automatically, and our team is handling it. Email support@kundasanghomestay.my if you do not hear from us within 24 hours.',
+buttons: [] };
+}
+if (isRefundPending) {
+return { key: 'emergency_refund_processing', badgeClass: 'badge-refunded', badgeLabel: '🟣 Emergency Approved',
+note: 'We approved your emergency. A refund of RM ' + guestRefunded.toFixed(2) + ' is being processed by CHIP and usually completes within a few minutes.',
+buttons: [] };
+}
+return { key: 'emergency_approved', badgeClass: 'badge-refunded', badgeLabel: '🟣 Emergency Approved',
+note: 'We approved your emergency, so half the room price comes back to you. RM ' + guestRefunded.toFixed(2) + ' has been refunded' + ' and usually takes 1–7 business days to appear in your bank. Your host receives the other half.',
+buttons: [] };
+}
+
+if (refundFailed) {
+return { key: 'platform_refund_pending', badgeClass: 'badge-failed', badgeLabel: '🔵 Cancelled by Us — Refund Pending',
+note: 'We had to cancel this booking. It was not your fault and not your host\'s. Your full refund could not be sent automatically, and our team is handling it. Email support@kundasanghomestay.my if you do not hear from us within 24 hours.',
+buttons: [] };
+}
+if (isRefundPending) {
+return { key: 'platform_refund_processing', badgeClass: 'badge-refunded', badgeLabel: '🔵 Cancelled by Us',
+note: 'We had to cancel this booking. It was not your fault and not your host\'s. Your full refund of RM ' + guestRefunded.toFixed(2) + ' is being processed by CHIP and usually completes within a few minutes.',
+buttons: [] };
+}
+return { key: 'platform_cancelled', badgeClass: 'badge-refunded', badgeLabel: '🔵 Cancelled by Us',
+note: 'We had to cancel this booking. It was not your fault and not your host\'s. You receive everything you paid — RM ' + guestRefunded.toFixed(2) + ' — including the service fee, and nothing is held back. It usually takes 1–7 business days to appear in your bank.',
+buttons: [] };
+}
+
+if (isCancelled) {
 var byGuest = cancelType === 'guest_request';
 var whoText = byGuest ? 'You asked to cancel this booking' : 'The host cancelled this booking';
 var refundAmt = Number(b.refund_amount || 0);
