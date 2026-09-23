@@ -1635,6 +1635,7 @@ export async function sendHostPayoutEmail(booking, homestay, payoutInfo, env) {
 
   const ownerName = e(homestay.ownerName || 'Host');
   const homestayName = e(homestay.name || 'your property');
+  const payoutAmount = Number(payoutInfo.amount || 0).toFixed(2);
   const isCancellation = payoutInfo.kind === 'cancellation' || booking.manualPayoutKind === 'cancellation';
   const nights = Number(booking.nights) || 1;
   const roomTotal = Number(booking.base || payoutInfo.amount || 0).toFixed(2);
