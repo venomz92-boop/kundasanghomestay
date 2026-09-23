@@ -181,7 +181,17 @@ async function sendCancellationEmail(booking, refundInfo, env) {
 
   let subject, headerColor, headerText, bodyHtml;
 
-  if (refundInfo.noRefundDue) {
+    if (refundInfo.noRefundDue && !isGuestRequest) {
+    // A host cancellation where nothing was ever charged. The Tier C
+    // wording below tells the guest *they* cancelled — they did not.
+    subject = 'Booking Cancelled by Host';
+    headerColor = '#6b7280';
+    headerText = 'Booking Cancelled';
+    bodyHtml = `
+      <p>Your booking at <strong>${e(booking.homestay)}</strong> has been cancelled by your host.</p>
+      <p>Nothing had been charged to you for this booking, so there is nothing to refund.</p>
+    `;
+  } else if (refundInfo.noRefundDue) {
     subject = 'Booking Cancelled — Nothing To Refund';
     headerColor = '#6b7280';
     headerText = 'Booking Cancelled';
@@ -198,17 +208,22 @@ async function sendCancellationEmail(booking, refundInfo, env) {
     headerColor = '#16a34a';
     headerText = '✓ Booking Cancelled — Refund Processed';
 
-    const tierNote = tier === 'A'
-      ? `<p>You cancelled with 14 days or more notice, so you receive <strong>everything you paid, less the RM 1.00 refund-processing fee</strong>.</p>`
-      : (tier === 'B'
-          ? `<p>You cancelled between 48 hours and 13 days before check-in, so you receive <strong>half the room price</strong>. The other half is paid to your host, whose room could not be resold at short notice.</p>`
-          : `<p>A refund of <strong>RM${e(refundAmount)}</strong> has been processed to your original payment method via CHIP.</p>`);
+    const tierNote = !isGuestRequest
+      ? `<p>Your host cancelled this booking, so you receive <strong>everything you paid</strong> — the room, the service fee and the RM 1.00 payment fee. Nothing is held back.</p>`
+      : (tier === 'A'
+          ? `<p>You cancelled with 14 days or more notice, so you receive <strong>everything you paid, less the RM 1.00 refund-processing fee</strong>.</p>`
+          : (tier === 'B'
+              ? `<p>You cancelled between 48 hours and 13 days before check-in, so you receive <strong>half the room price</strong>. The other half is paid to your host, whose room could not be resold at short notice.</p>`
+              : `<p>A refund of <strong>RM${e(refundAmount)}</strong> has been processed to your original payment method via CHIP.</p>`));
 
-    const detailRows = tier === 'A'
+    const detailRows = !isGuestRequest
       ? `<tr><td style="padding:4px 12px 4px 0;color:#6b7280;">You paid</td><td style="padding:4px 0;font-weight:600;">RM ${e(totalPaid)}</td></tr>
+         <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Held back for cancelling</td><td style="padding:4px 0;font-weight:600;">None — your host cancelled</td></tr>`
+      : (tier === 'A'
+          ? `<tr><td style="padding:4px 12px 4px 0;color:#6b7280;">You paid</td><td style="padding:4px 0;font-weight:600;">RM ${e(totalPaid)}</td></tr>
          <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Less: refund-processing fee</td><td style="padding:4px 0;font-weight:600;">− RM 1.00</td></tr>`
-      : `<tr><td style="padding:4px 12px 4px 0;color:#6b7280;">You paid</td><td style="padding:4px 0;font-weight:600;">RM ${e(totalPaid)}</td></tr>
-         <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Room price</td><td style="padding:4px 0;font-weight:600;">RM ${e(baseStr)}</td></tr>`;
+          : `<tr><td style="padding:4px 12px 4px 0;color:#6b7280;">You paid</td><td style="padding:4px 0;font-weight:600;">RM ${e(totalPaid)}</td></tr>
+         <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Room price</td><td style="padding:4px 0;font-weight:600;">RM ${e(baseStr)}</td></tr>`);
 
     bodyHtml = `
       <p>Your booking at <strong>${e(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
@@ -1066,6 +1081,18 @@ export async function onRequestPost({ request, env }) {
             };
           }
 
+          // ---- Is this even a tier case? ----
+          //
+          // Tiers describe how much notice the GUEST gave. When the host
+          // cancels for their own reasons there is no notice period to
+          // measure, and the guest gets everything back whatever the date,
+          // so no tier applies. Stamping one on would mislabel the refund
+          // in the booking record, in both ledgers, and in every report
+          // that reads them.
+          const cancellationTier = cancelType === 'guest_request'
+            ? (tierInfo.tier || null)
+            : null;
+
           const refundAmountNum = cancelType === 'guest_request'
             ? tierInfo.guestAmount
             : totalPaidNum;
@@ -1124,7 +1151,7 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].refund_amount = refundAmountNum;
             bookings[idx].cancelled_by = 'host';
             bookings[idx].cancel_type = cancelType;
-            bookings[idx].cancellation_tier = tierInfo.tier;
+            bookings[idx].cancellation_tier = cancellationTier;
             bookings[idx].statusUpdated = new Date().toISOString();
             if (isPending) bookings[idx].refund_pending = true;
           } else if (isPaid && noRefundDue) {
@@ -1132,14 +1159,14 @@ export async function onRequestPost({ request, env }) {
             bookings[idx].refund_amount = 0;
             bookings[idx].cancelled_by = 'host';
             bookings[idx].cancel_type = cancelType;
-            bookings[idx].cancellation_tier = tierInfo.tier;
+            bookings[idx].cancellation_tier = cancellationTier;
             bookings[idx].statusUpdated = new Date().toISOString();
           } else if (isPaid && !refundSuccess) {
             bookings[idx].status = 'Cancelled by Host - Refund Pending';
             bookings[idx].refund_error = refundError || 'Unknown error';
             bookings[idx].cancelled_by = 'host';
             bookings[idx].cancel_type = cancelType;
-            bookings[idx].cancellation_tier = tierInfo.tier;
+            bookings[idx].cancellation_tier = cancellationTier;
             bookings[idx].statusUpdated = new Date().toISOString();
           } else {
             bookings[idx].status = cancelledLabel;
@@ -1228,7 +1255,7 @@ export async function onRequestPost({ request, env }) {
                   date: new Date().toISOString(),
                   type: 'cancellation_retained_fee',
                   cancellation_type: cancelType,
-                  cancellation_tier: tierInfo.tier,
+                  cancellation_tier: cancellationTier,
                   original_amount_paid: totalPaidNum,
                   refunded_amount: refundAmountNum,
                   paid_to_host: hostCompensationNum,
@@ -1269,7 +1296,7 @@ export async function onRequestPost({ request, env }) {
                   date: new Date().toISOString(),
                   type: 'cancellation',
                   cancellation_type: cancelType,
-                  cancellation_tier: tierInfo.tier,
+                  cancellation_tier: cancellationTier,
                   ip: clientIP
                 });
                 chipCostsToWrite = chipCosts;
@@ -1311,7 +1338,7 @@ export async function onRequestPost({ request, env }) {
             success: true,
             isPaid,
             cancelType,
-            tier: tierInfo.tier,
+            tier: cancellationTier,
             usedRecordedDate: hasRecordedDate,
             refundAmountNum,
             hostCompensationNum,
@@ -1367,7 +1394,7 @@ export async function onRequestPost({ request, env }) {
                   : 'booking_cancelled_refund_failed'))
           : 'booking_cancelled_unpaid',
         admin: 'owner',
-        details: `Booking ${bookingId} cancelled by host ${ownerData.whatsapp} — type=${result.cancelType}, tier=${result.tier || '?'}${result.usedRecordedDate ? " (guest's recorded date)" : ' (no recorded date — measured from now)'}. Guest refund: ${
+        details: `Booking ${bookingId} cancelled by host ${ownerData.whatsapp} — type=${result.cancelType}, tier=${result.tier || 'n/a'}${result.cancelType === 'guest_request' ? (result.usedRecordedDate ? " (guest's recorded date)" : ' (no recorded date — measured from now)') : ''}. Guest refund: ${
           result.noRefundDue ? 'none due'
           : (result.refundSuccess
               ? (result.refundPending ? `pending, ${result.refundData.id}, RM${result.refundAmountNum.toFixed(2)}` : `sent, ${result.refundData.id}, RM${result.refundAmountNum.toFixed(2)}`)
@@ -1381,6 +1408,20 @@ export async function onRequestPost({ request, env }) {
       const refundMsg = (() => {
         if (!result.isPaid) {
           return `Booking ${bookingId} cancelled (unpaid).`;
+        }
+        // A host-initiated cancellation has no tier. Say what actually
+        // happened rather than naming a tier that does not apply.
+        if (result.cancelType === 'host_own') {
+          if (result.noRefundDue) {
+            return `Booking ${bookingId} cancelled by you. Nothing was charged to the guest, so there is nothing to refund.`;
+          }
+          const amt = Number(result.refundAmountNum).toFixed(2);
+          if (result.refundSuccess) {
+            return result.refundPending
+              ? `Booking ${bookingId} cancelled by you. CHIP is processing the full refund of RM${amt} to the guest — this can take a few minutes. As you cancelled, no payout is due to you.`
+              : `Booking ${bookingId} cancelled by you. Full refund of RM${amt} to the guest processed. As you cancelled, no payout is due to you.`;
+          }
+          return `Booking ${bookingId} cancelled but the refund failed. Status set to 'Refund Pending'. Please contact support.`;
         }
         if (result.noRefundDue) {
           return `Booking ${bookingId} cancelled at Tier ${result.tier}. No refund is due to the guest — the room was held right up to check-in. The host's RM${result.hostCompensationNum.toFixed(2)} has been added to the payout queue.`;
