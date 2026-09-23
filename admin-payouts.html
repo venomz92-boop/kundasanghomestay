@@ -554,6 +554,9 @@ function renderPending(items) {
           '<div class="flex-1 min-w-[140px] sm:min-w-[220px]">' +
             '<div class="font-poppins font-700 text-[15px] sm:text-[17px] text-[#212121] break-words">' + escapeHtml(p.homestayName) + '</div>' +
             '<div class="text-[11px] sm:text-xs text-zinc-500 mt-1">Booking <span class="font-mono font-bold text-red-600">' + escapeHtml(p.bookingId) + '</span></div>' +
+            (p.kind === 'cancellation'
+              ? '<div class="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-900 leading-relaxed"><strong>⚠️ Cancellation compensation.</strong> ' + escapeHtml(p.reason || 'Paid under the Cancellation &amp; Refund Policy.') + ' The guest did not stay.</div>'
+              : '') +
             '<div class="text-[11px] sm:text-xs text-zinc-500 mt-0.5">Guest: <strong>' + escapeHtml(p.guestName) + '</strong></div>' +
             '<div class="text-[11px] sm:text-xs text-zinc-500 mt-0.5">' + escapeHtml(p.checkin) + ' → ' + escapeHtml(p.checkout) + ' (' + p.nights + ' night' + (p.nights === 1 ? '' : 's') + ')</div>' +
             '<div class="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ' +
@@ -601,13 +604,15 @@ function renderHistory(items) {
     var receiptLink = h.receiptUrl
       ? '<a href="' + escapeHtml(h.receiptUrl) + '" target="_blank" rel="noopener" class="text-[#0F382E] font-semibold hover:underline">📎 Bank receipt</a>'
       : '<span class="text-zinc-400">No receipt</span>';
-    var hasWhatsapp = String(h.hostWhatsapp || '').replace(/[^0-9]/g, '').length >= 9;
-
+      var hasWhatsapp = String(h.hostWhatsapp || '').replace(/[^0-9]/g, '').length >= 9;
+    var kindFlag = h.kind === 'cancellation'
+      ? '<span style="display:inline-block;margin-left:6px;font-size:9px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:1px 7px;border-radius:999px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;vertical-align:middle;">Cancellation</span>'
+      : '';
     return '' +
       '<div class="card p-4">' +
         '<div class="flex justify-between items-start gap-3 mb-2">' +
           '<div class="min-w-0 flex-1">' +
-            '<div class="text-[11px] font-mono font-bold text-[#0F382E] break-all">' + escapeHtml(h.bookingId || '—') + '</div>' +
+            '<div class="text-[11px] font-mono font-bold text-[#0F382E] break-all">' + escapeHtml(h.bookingId || '—') + kindFlag + '</div>' +
             '<div class="text-xs text-zinc-500 mt-0.5 break-words">' + escapeHtml(h.hostName || '—') + '</div>' +
           '</div>' +
           '<div class="text-right shrink-0">' +
@@ -643,7 +648,9 @@ function renderHistory(items) {
       : '<span class="text-zinc-400 text-[10px]">No #</span>';
     return '' +
       '<tr class="border-b border-zinc-100 hover:bg-zinc-50">' +
-        '<td class="p-3 text-xs font-mono">' + escapeHtml(h.bookingId) + '</td>' +
+      '<td class="p-3 text-xs font-mono">' + escapeHtml(h.bookingId) +
+        (h.kind === 'cancellation' ? ' <span style="display:inline-block;font-size:9px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:1px 7px;border-radius:999px;font-weight:700;text-transform:uppercase;">Cancel</span>' : '') +
+        '</td>' +
         '<td class="p-3 text-xs">' + escapeHtml(h.hostName) + '</td>' +
         '<td class="p-3 text-xs font-bold text-[#0F382E]">' + fmtMoney(h.amount) + '</td>' +
         '<td class="p-3 text-[11px]">' + escapeHtml(methodLabel(h.method)) + '</td>' +
@@ -768,8 +775,11 @@ function renderReceiptHtml(h) {
         '<div style="font-size:12px;color:#166534;">To ' + bank + ' ' + bankMasked + '</div>' +
       '</div>' +
 
-      '<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Payout Details</div>' +
-      '<table style="width:100%;font-size:12.5px;border-collapse:collapse;margin-bottom:16px;color:#374151;">' +
+      (h.kind === 'cancellation'
+        ? '<div style="margin:14px 0;padding:12px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12px;color:#78350f;line-height:1.6;"><strong>This is a cancellation compensation payout.</strong><br>' + escapeHtml(h.reason || 'Paid under the Cancellation &amp; Refund Policy.') + ' The guest did not stay.</div>'
+        : '') +
+        '<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Payout Details</div>' +
+        '<table style="width:100%;font-size:12.5px;border-collapse:collapse;margin-bottom:16px;color:#374151;">' +
         '<tr><td style="padding:5px 0;color:#6b7280;">Reference</td><td style="padding:5px 0;text-align:right;font-family:\'Courier New\',monospace;font-weight:700;">' + ref + '</td></tr>' +
         '<tr><td style="padding:5px 0;color:#6b7280;">Method</td><td style="padding:5px 0;text-align:right;">' + escapeHtml(methodTxt) + '</td></tr>' +
         '<tr><td style="padding:5px 0;color:#6b7280;">Date paid</td><td style="padding:5px 0;text-align:right;">' + fmtDate(h.paidAt) + '</td></tr>' +
@@ -977,7 +987,7 @@ function exportCsv() {
   var rows = [];
   rows.push(['KUNDASANG HOMESTAY — HOST SETTLEMENT REPORT  |  Generated: ' + generatedAt + ' MYT  |  Operator: NICK\'S CREATIONS (RNU20183012)  |  Total Payouts: ' + totalPayouts + '  |  Total Amount: RM ' + totalAmount.toFixed(2)]);
   rows.push([]);
-  rows.push(['Date Paid (MYT)','Booking ID','Host Name','Host Email','Host WhatsApp','Homestay','Bank','Account No.','Amount (RM)','Method','Reference','Host Receipt Sent','Bank Receipt URL','Drive Filed','Notes']);
+  rows.push(['Date Paid (MYT)','Booking ID','Host Name','Host Email','Host WhatsApp','Homestay','Bank','Account No.','Amount (RM)','Type','Method','Reference','Host Receipt Sent','Bank Receipt URL','Drive Filed','Notes']);
   latestData.history.forEach(function (h) {
     rows.push([
       formatCsvDate(h.paidAt),
@@ -989,6 +999,7 @@ function exportCsv() {
       h.hostBank || '',
       asTextValue(h.hostAccount || ''),
       Number(h.amount || 0).toFixed(2),
+      h.kind === 'cancellation' ? 'Cancellation compensation' : 'Guest stay',
       methodLabel(h.method),
       asTextValue(h.reference || ''),
       h.emailSent ? formatCsvDate(h.emailSentAt) : 'FAILED',
@@ -998,7 +1009,7 @@ function exportCsv() {
     ]);
   });
   rows.push([]);
-  rows.push(['','','','','','','','TOTAL',totalAmount.toFixed(2),'','','','','','']);
+  rows.push(['','','','','','','','TOTAL',totalAmount.toFixed(2),'','','','','','','']);
   var csv = rows.map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
   var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   var url = URL.createObjectURL(blob);
