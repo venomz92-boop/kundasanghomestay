@@ -209,9 +209,12 @@ export async function onRequestPost({ request, env }) {
       const nowIso = new Date().toISOString();
       const ownerAmount = Number(booking.manualPayoutAmount || booking.base || 0);
 
+      const isCancellationComp = booking.manualPayoutKind === 'cancellation';
       const updatedBooking = {
         ...booking,
-        status: 'Completed - Payout Success (Manual)',
+        status: isCancellationComp
+          ? (booking.status || 'Cancelled')
+          : 'Completed - Payout Success (Manual)',
         manualPayoutPending: false,
         manualPayoutCompletedAt: nowIso,
         manualPayoutCompletedBy: 'admin',
@@ -248,6 +251,7 @@ export async function onRequestPost({ request, env }) {
             reference,
             paidAt: nowIso,
             isManual: true,
+            kind: isCancellationComp ? 'cancellation' : 'stay',
             receiptUrl: receiptUrl
           },
           env
