@@ -446,6 +446,14 @@ gap: 8px;
   .kdcr-body { overflow-y: visible; }
 }
 </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-CG482XVS35"></script>
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-CG482XVS35');
+</script>
 </head>
 <body>
 <div id="customModal" class="modal-overlay">
@@ -580,7 +588,7 @@ KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px] md:text-[17px]"> �
 </div>
 <a href="/owner-register.html" class="btn-outline" style="padding:11px 22px; font-size:11px;" aria-label="List your homestay on Kundasang Homestay">List Property</a>
 </div>
-<button id="mobileMenuBtn" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation Menu" aria-expanded="false">
+<button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation Menu" aria-expanded="false">
 <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
 </button>
 </div>
@@ -775,6 +783,14 @@ return String(s == null ? '' : s)
 .replace(/</g, '&lt;')
 .replace(/>/g, '&gt;');
 }
+// Formats an ISO date (YYYY-MM-DD) as "25 Sep 2026" for guest-facing text.
+function myDate(iso) {
+  if (!iso) return 'N/A';
+  var d = new Date(iso + 'T00:00:00+08:00');
+  if (isNaN(d.getTime())) return iso;
+  var m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getDate() + ' ' + m[d.getMonth()] + ' ' + d.getFullYear();
+}
 function setButtonLoading(btn, text) {
 if (!btn) return function(){};
 if (!btn.dataset.kdOrig) btn.dataset.kdOrig = btn.innerHTML;
@@ -876,7 +892,7 @@ if (f && f.classList.contains('active')) { f.classList.remove('active'); documen
 function showPaymentFailedModal(bookingId, bookingData) {
 var overlay = document.getElementById('paymentFailedModal');
 document.getElementById('failedBookingId').textContent = bookingId || 'N/A';
-document.getElementById('failedDates').textContent = (bookingData?.checkin || '') + ' → ' + (bookingData?.checkout || '') + ' (' + (bookingData?.nights || 1) + 'N)';
+document.getElementById('failedDates').textContent = myDate(bookingData?.checkin) + ' → ' + myDate(bookingData?.checkout) + ' (' + (bookingData?.nights || 1) + 'N)';
 document.getElementById('failedTotal').textContent = 'RM ' + (parseFloat(bookingData?.total) || 0).toFixed(2);
 if (overlay) overlay.classList.add('active');
 document.body.style.overflow = 'hidden';
@@ -1237,8 +1253,8 @@ var html = '';
 sorted.forEach(function(b) {
 var id = b.id || 'N/A';
 var homestay = b.homestay || 'Kundasang Homestay';
-var checkin = b.checkin || 'N/A';
-var checkout = b.checkout || 'N/A';
+var checkin = myDate(b.checkin);
+var checkout = myDate(b.checkout);
 var nights = b.nights || 1;
 var total = parseFloat(b.total) || 0;
 var info = guestStatusInfo(b);
@@ -1527,7 +1543,7 @@ function renderBookingContext(bookingId) {
   var line = '<strong>' + escapeAttr(b.homestay || 'Your booking') + '</strong>';
   if (b.roomName) line += ' &middot; ' + escapeAttr(b.roomName);
   if (b.checkin && b.checkout) {
-    line += '<br>' + escapeAttr(b.checkin) + ' &rarr; ' + escapeAttr(b.checkout) +
+    line += '<br>' + escapeAttr(myDate(b.checkin)) + ' &rarr; ' + escapeAttr(myDate(b.checkout)) +
             ' &middot; ' + (b.nights || 1) + ' night' + ((b.nights || 1) === 1 ? '' : 's');
   }
   line += '<br>Booking ID ' + escapeAttr(String(b.id || ''));
@@ -1896,7 +1912,6 @@ loadMyBookings();
 // =============================================================
 // MOBILE BOTTOM NAV — active state + smart Account behaviour
 // Runs last so the nav HTML and GuestSession are both ready.
-// Identical block to index1 / explore / login / mybookings.
 // =============================================================
 (function () {
 var nav = document.getElementById('mobileBottomNav');
@@ -1937,20 +1952,21 @@ var acc = nav.querySelector('[data-nav-for="account"]');
 if (acc) {
 var lbl = acc.querySelector('.bn-label');
 if (guest && guest.id) {
-// Signed in: show "Account", open the profile menu, never bounce to login.
+// Signed in: label "Account", never bounce to the sign-in page.
 if (lbl) lbl.textContent = 'Account';
 acc.setAttribute('href', '/mybookings.html');
 acc.addEventListener('click', function (e) {
 e.preventDefault();
 e.stopPropagation();
 var menu = document.getElementById('mobileNav');
-if (menu && !menu.classList.contains('open')) {
+if (menu) {
 menu.classList.add('open');
+document.body.style.overflow = 'hidden';
 document.body.classList.add('bn-hidden');
 }
 });
 } else {
-// Signed out: label + destination both point at sign-in.
+// Signed out: label and destination both mean "sign in".
 if (lbl) lbl.textContent = 'Sign In';
 acc.setAttribute('href', '/login.html');
 }

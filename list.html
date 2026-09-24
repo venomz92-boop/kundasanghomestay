@@ -121,6 +121,14 @@ button.kd-loading {
   pointer-events: none;
 }
 </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-CG482XVS35"></script>
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-CG482XVS35');
+</script>
 </head>
 <body>
 <div id="customModal" class="modal-overlay">
@@ -1898,7 +1906,6 @@ setTimeout(hideLoginButtonsOnMobile, 500);
 // =============================================================
 // MOBILE BOTTOM NAV — active state + smart Account behaviour
 // Runs last so the nav HTML and GuestSession are both ready.
-// Identical block to index1 / explore / login / mybookings.
 // =============================================================
 (function () {
 var nav = document.getElementById('mobileBottomNav');
@@ -1939,20 +1946,21 @@ var acc = nav.querySelector('[data-nav-for="account"]');
 if (acc) {
 var lbl = acc.querySelector('.bn-label');
 if (guest && guest.id) {
-// Signed in: show "Account", open the profile menu, never bounce to login.
+// Signed in: label "Account", never bounce to the sign-in page.
 if (lbl) lbl.textContent = 'Account';
 acc.setAttribute('href', '/mybookings.html');
 acc.addEventListener('click', function (e) {
 e.preventDefault();
 e.stopPropagation();
 var menu = document.getElementById('mobileNav');
-if (menu && !menu.classList.contains('open')) {
+if (menu) {
 menu.classList.add('open');
+document.body.style.overflow = 'hidden';
 document.body.classList.add('bn-hidden');
 }
 });
 } else {
-// Signed out: label + destination both point at sign-in.
+// Signed out: label and destination both mean "sign in".
 if (lbl) lbl.textContent = 'Sign In';
 acc.setAttribute('href', '/login.html');
 }

@@ -252,13 +252,6 @@ body { padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
 <a href="#main-content" class="sr-only-focusable">Skip to main content</a>
 <!-- Mobile menu toggle — must be defined before the button is clicked -->
 <script>
-function myDate(iso) {
-  if (!iso) return 'N/A';
-  var d = new Date(iso + 'T00:00:00+08:00');
-  if (isNaN(d.getTime())) return iso;
-  var m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return d.getDate() + ' ' + m[d.getMonth()] + ' ' + d.getFullYear();
-}  
 let lastToggleTime = 0;
 window.toggleMobileMenu = function() {
 const now = Date.now();
@@ -792,6 +785,16 @@ FORCE_HTTPS: true
 });
 }
 
+// [FIX] Formats an ISO date (YYYY-MM-DD) as "25 Sep 2026" for guest-facing text.
+// The +08:00 offset keeps Malaysian dates from slipping back a day.
+function myDate(iso) {
+if (!iso) return 'N/A';
+var d = new Date(iso + 'T00:00:00+08:00');
+if (isNaN(d.getTime())) return iso;
+var m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+return d.getDate() + ' ' + m[d.getMonth()] + ' ' + d.getFullYear();
+}
+
 // =============================================================
 // [RETURN-TO-BOOKING] Pending intent helpers
 // =============================================================
@@ -1034,7 +1037,7 @@ var message = '🆕 *Hi,* ' + (booking.homestay || selectedHomestay?.name || 'Ku
 '*Homestay:* ' + (booking.homestay || selectedHomestay?.name || 'Kundasang Homestay') + '\n' +
 '*Guest Name:* ' + (booking.guestName || 'Guest') + '\n' +
 '*WhatsApp:* ' + (booking.guestPhone || '-') + '\n' +
-'*Dates:* ' + booking.checkin + ' to ' + booking.checkout + ' (' + booking.nights + ' nights)\n' +
+'*Dates:* ' + myDate(booking.checkin) + ' to ' + myDate(booking.checkout) + ' (' + booking.nights + ' nights)\n' +
 '*Status:* Paid via FPX (CHIP)\n' +
 'Please confirm my booking. Thank you!';
 window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(message), '_blank');
@@ -1052,7 +1055,7 @@ var idEl = document.getElementById('failedBookingId');
 var datesEl = document.getElementById('failedDates');
 var totalEl = document.getElementById('failedTotal');
 if (idEl) idEl.textContent = bookingId || 'N/A';
-if (datesEl) datesEl.textContent = (bookingData?.checkin || '') + ' → ' + (bookingData?.checkout || '') + ' (' + (bookingData?.nights || 1) + 'N)';
+if (datesEl) datesEl.textContent = myDate(bookingData?.checkin) + ' → ' + myDate(bookingData?.checkout) + ' (' + (bookingData?.nights || 1) + 'N)';
 if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(bookingData?.total) || 0).toFixed(2);
 window._failedBookingId = bookingId;
 window._failedBookingData = bookingData;
@@ -1991,7 +1994,7 @@ var hintText;
 var hintClass = 'calendar-pick-hint';
 if (container._pickPhase === 'checkin') {
 if (sel.ci && sel.co) {
-hintText = 'Tap a date to start a new selection. Currently: <strong>' + sel.ci + '</strong> → <strong>' + sel.co + '</strong>';
+hintText = 'Tap a date to start a new selection. Currently: <strong>' + myDate(sel.ci) + '</strong> → <strong>' + myDate(sel.co) + '</strong>';
 hintClass += ' complete';
 } else {
 hintText = 'Bookings start from tomorrow. Tap a <span class="text-emerald-700 font-bold">green date</span> to choose your <strong>check-in</strong>.';
@@ -2119,7 +2122,7 @@ renderMonth();
 // =============================================================
 // MOBILE BOTTOM NAV — active state + smart Account behaviour
 // Runs after the calendar code so the nav HTML and GuestSession
-// are both ready. Identical block to explore/login/mybookings.
+// are both ready.
 // =============================================================
 (function () {
 var nav = document.getElementById('mobileBottomNav');
@@ -2160,20 +2163,21 @@ var acc = nav.querySelector('[data-nav-for="account"]');
 if (acc) {
 var lbl = acc.querySelector('.bn-label');
 if (guest && guest.id) {
-// Signed in: show "Account", open the profile menu, never bounce to login.
+// Signed in: label "Account", never bounce to the sign-in page.
 if (lbl) lbl.textContent = 'Account';
 acc.setAttribute('href', '/mybookings.html');
 acc.addEventListener('click', function (e) {
 e.preventDefault();
 e.stopPropagation();
 var menu = document.getElementById('mobileNav');
-if (menu && !menu.classList.contains('open')) {
+if (menu) {
 menu.classList.add('open');
+document.body.style.overflow = 'hidden';
 document.body.classList.add('bn-hidden');
 }
 });
 } else {
-// Signed out: label + destination both point at sign-in.
+// Signed out: label and destination both mean "sign in".
 if (lbl) lbl.textContent = 'Sign In';
 acc.setAttribute('href', '/login.html');
 }
