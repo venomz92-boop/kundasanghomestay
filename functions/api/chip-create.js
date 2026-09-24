@@ -17,8 +17,10 @@
 //     NOT overwrite. We return the existing URL instead, and log the
 //     orphan for cleanup.
 //   - request.json() → parseJSONSafely().
-//   - Per-booking locks (booking:<id>) instead of the global
-//     'bookings-global' lock.
+//   - Uses the global 'bookings-global' lock. (This file previously used
+//     a per-booking lock, but a different mutex key does not exclude the
+//     other writers of the shared kd_bookings blob, so two concurrent
+//     read-modify-write cycles could silently revert each other.)
 //   - Lock-busy fallback now re-reads the booking and returns an
 //     existing URL if one exists, instead of blindly returning the
 //     orphaned purchase URL.
