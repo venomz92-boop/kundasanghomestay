@@ -130,7 +130,7 @@ KUNDASANG<span class="font-600 text-[#212121]/60 text-[15px] md:text-[17px]"> â€
 <a href="/owner-register.html" class="btn-primary" style="padding:11px 22px; font-size:11px;">List Your Homestay</a>
 </div>
 <!-- Mobile Menu Button -->
-<button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
+<button id="mobileMenuBtn" class="lg:hidden flex w-10 h-10 rounded-full bg-[#212121] text-white items-center justify-center hover:bg-[#333] transition-colors shrink-0" style="position:relative; z-index:9999999; touch-action:manipulation; cursor:pointer;" aria-label="Toggle Navigation">
 <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
 </button>
 <script>
@@ -140,7 +140,6 @@ if (btn) {
 btn.removeEventListener('click', window.toggleMobileMenu);
 btn.removeEventListener('touchstart', window.toggleMobileMenu);
 btn.addEventListener('click', window.toggleMobileMenu);
-btn.addEventListener('touchstart', window.toggleMobileMenu, { passive: false });
 }
 })();
 </script>
@@ -312,7 +311,7 @@ never blocked by the bar. -->
 <span class="bn-label">Bookings</span>
 </a>
 <!-- 5. Account / Sign In â€” JS swaps behaviour when logged in -->
-<a href="/login.html" class="bn-item" data-nav-for="account">
+<a href="/mybookings.html" class="bn-item" data-nav-for="account">
 <span class="bn-icon-wrap">
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5c0-3.9 3.4-6 7.5-6s7.5 2.1 7.5 6"/></svg>
 </span>
@@ -566,13 +565,26 @@ try {
 if (window.GuestSession && window.GuestSession.isGuestSessionValid()) guest = window.GuestSession.readGuest();
 } catch (e) {}
 var acc = nav.querySelector('[data-nav-for="account"]');
-if (acc && guest && guest.id) {
+if (acc) {
 var lbl = acc.querySelector('.bn-label');
+if (guest && guest.id) {
+// Signed in: show "Account", open the profile menu, never bounce to login.
 if (lbl) lbl.textContent = 'Account';
+acc.setAttribute('href', '/mybookings.html');
 acc.addEventListener('click', function (e) {
 e.preventDefault();
-window.toggleMobileMenu();
+e.stopPropagation();
+var menu = document.getElementById('mobileNav');
+if (menu && !menu.classList.contains('open')) {
+menu.classList.add('open');
+document.body.classList.add('bn-hidden');
+}
 });
+} else {
+// Signed out: label + destination both point at sign-in.
+if (lbl) lbl.textContent = 'Sign In';
+acc.setAttribute('href', '/login.html');
+}
 }
 // Hide the bottom bar while the top mobile menu is open so the
 // two never overlap on small screens.
