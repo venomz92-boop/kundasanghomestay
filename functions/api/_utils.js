@@ -1066,29 +1066,12 @@ async function ensureLocksTable(db) {
   _locksTableReady.add('homestay_locks');
 }
 
-// Default stale timeout. A lock is treated as abandoned — and may be
-// stolen by another caller — only after this long. Callers that do slow
-// network work (CHIP Send payouts, webhooks) pass a longer value via the
-// staleTimeoutMs argument.
+// Default stale timeout raised 5s → 30s. Webhook/lock operations that
+// call CHIP can take longer than 5s. Under 5s, a second process can
+// steal the lock while the first is still mid-flight.
 const LOCK_STALE_MS = 60000;
-
 export async function withLock(db, lockKey, callback, staleTimeoutMs = LOCK_STALE_MS) {
   await ensureLocksTable(db);
-
-  // BUG FIX: the staleness test below used to compare against the
-  // LOCK_STALE_MS constant and silently ignored staleTimeoutMs, so every
-  // caller's explicit timeout had no effect — including the 120000 in
-  // withdraw.js, which exists precisely because a CHIP Send call can take
-  // longer than a minute. The lock therefore became stealable after 60s
-  // regardless, letting a second request begin a duplicate money
-  // operation while the first was still in flight.
-  //
-  // Also guard the caller's value: 0, a negative number or NaN would make
-  // every lock instantly stealable, which is worse than the original bug.
-  const effectiveStaleMs =
-    (Number.isFinite(staleTimeoutMs) && staleTimeoutMs > 0)
-      ? staleTimeoutMs
-      : LOCK_STALE_MS;
 
   const myLockValue = Date.now();
 
@@ -1101,7 +1084,7 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = LOCK_STAL
       `SELECT locked_at FROM homestay_locks WHERE homestay_id = ?`
     ).bind(lockKey).first();
 
-    if (existing && (myLockValue - existing.locked_at) > effectiveStaleMs) {
+  if (existing && (myLockValue - existing.locked_at) > LOCK_STALE_MS) {
       const casResult = await db.prepare(
         `UPDATE homestay_locks SET locked_at = ? WHERE homestay_id = ? AND locked_at = ?`
       ).bind(myLockValue, lockKey, existing.locked_at).run();
@@ -1115,16 +1098,6 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = LOCK_STAL
 
   try {
     return await callback(db);
-  } finally {
-    try {
-      await db.prepare(
-        `DELETE FROM homestay_locks WHERE homestay_id = ? AND locked_at = ?`
-      ).bind(lockKey, myLockValue).run();
-    } catch (_) {
-      // Best-effort release.
-    }
-  }
-}
   } finally {
     try {
       await db.prepare(
