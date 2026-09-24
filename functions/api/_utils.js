@@ -1073,6 +1073,22 @@ const LOCK_STALE_MS = 60000;
 export async function withLock(db, lockKey, callback, staleTimeoutMs = LOCK_STALE_MS) {
   await ensureLocksTable(db);
 
+  // BUG FIX: staleness used to be compared against the LOCK_STALE_MS
+  // constant, which silently ignored the staleTimeoutMs argument. Every
+  // caller's explicit timeout was therefore inert — including the
+  // 120000 in withdraw.js, which exists precisely because a CHIP Send
+  // call can outlast a minute. The lock became stealable after 60s
+  // regardless, so a second request could start a duplicate money
+  // operation while the first was still in flight.
+  //
+  // Also guard the caller's value: 0, a negative number or NaN would
+  // make every lock instantly stealable, which is worse than the
+  // original bug.
+  const effectiveStaleMs =
+    (Number.isFinite(staleTimeoutMs) && staleTimeoutMs > 0)
+      ? staleTimeoutMs
+      : LOCK_STALE_MS;
+
   const myLockValue = Date.now();
 
   let insertResult = await db.prepare(
@@ -1084,7 +1100,7 @@ export async function withLock(db, lockKey, callback, staleTimeoutMs = LOCK_STAL
       `SELECT locked_at FROM homestay_locks WHERE homestay_id = ?`
     ).bind(lockKey).first();
 
-  if (existing && (myLockValue - existing.locked_at) > LOCK_STALE_MS) {
+  if (existing && (myLockValue - existing.locked_at) > effectiveStaleMs) {
       const casResult = await db.prepare(
         `UPDATE homestay_locks SET locked_at = ? WHERE homestay_id = ? AND locked_at = ?`
       ).bind(myLockValue, lockKey, existing.locked_at).run();
