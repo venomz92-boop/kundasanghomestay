@@ -1489,21 +1489,11 @@ var acc = nav.querySelector('[data-nav-for="account"]');
 if (acc) {
 var lbl = acc.querySelector('.bn-label');
 if (guest && guest.id) {
-// Signed in: label "Account", never bounce to the sign-in page.
+// Signed in: goes straight to the guest's bookings page.
 if (lbl) lbl.textContent = 'Account';
 acc.setAttribute('href', '/mybookings.html');
-acc.addEventListener('click', function (e) {
-e.preventDefault();
-e.stopPropagation();
-var menu = document.getElementById('mobileNav');
-if (menu) {
-menu.classList.add('open');
-document.body.style.overflow = 'hidden';
-document.body.classList.add('bn-hidden');
-}
-});
 } else {
-// Signed out: label and destination both mean "sign in".
+// Signed out: both label and destination mean "sign in".
 if (lbl) lbl.textContent = 'Sign In';
 acc.setAttribute('href', '/login.html');
 }
