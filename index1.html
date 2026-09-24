@@ -252,6 +252,13 @@ body { padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
 <a href="#main-content" class="sr-only-focusable">Skip to main content</a>
 <!-- Mobile menu toggle — must be defined before the button is clicked -->
 <script>
+function myDate(iso) {
+  if (!iso) return 'N/A';
+  var d = new Date(iso + 'T00:00:00+08:00');
+  if (isNaN(d.getTime())) return iso;
+  var m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getDate() + ' ' + m[d.getMonth()] + ' ' + d.getFullYear();
+}  
 let lastToggleTime = 0;
 window.toggleMobileMenu = function() {
 const now = Date.now();
@@ -972,7 +979,7 @@ if (idEl) idEl.textContent = targetId;
 var b = customBookingData || bookings.find(function(x) { return String(x.id) === String(targetId); }) || window.lastCreatedBooking;
 if (b) {
 lastBookingDetails = b;
-if (datesEl) datesEl.textContent = (b.checkin || '') + ' → ' + (b.checkout || '') + ' (' + (b.nights || 1) + 'N)';
+if (datesEl) datesEl.textContent = myDate(b.checkin) + ' → ' + myDate(b.checkout) + ' (' + (b.nights || 1) + 'N)';
 if (totalEl) totalEl.textContent = 'RM ' + (parseFloat(b.total) || 0).toFixed(2);
 }
 if (overlay) overlay.classList.add('active');
