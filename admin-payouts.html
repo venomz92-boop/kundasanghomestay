@@ -328,6 +328,36 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// Escapes a value for a SINGLE-QUOTED JavaScript string that lives
+// inside a DOUBLE-QUOTED HTML attribute, e.g.
+//     onclick="openReceiptModal('VALUE')"
+//
+// Why escapeHtml() is not enough there: the browser decodes HTML
+// entities BEFORE the JavaScript engine parses the attribute, so
+// &#39; turns back into a bare apostrophe and closes the JS string
+// early. Everything after it then runs as code in the admin's own
+// logged-in session.
+//
+// This escapes at the JavaScript layer using \x hex escapes, which
+// leaves no raw quote, angle bracket, ampersand or line break in the
+// output — so the HTML attribute layer cannot be broken out of either.
+// Use this (NOT escapeHtml) for any value placed inside an inline
+// on* handler. Keep using escapeHtml for element text and for normal
+// attributes like href/title.
+function escapeJsAttr(value) {
+  return String(value == null ? '' : value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, '\\x27')
+    .replace(/"/g, '\\x22')
+    .replace(/</g, '\\x3c')
+    .replace(/>/g, '\\x3e')
+    .replace(/&/g, '\\x26')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
 function showAlert(title, message) {
   return new Promise(function(resolve) {
     var overlay = document.getElementById('customModal');
@@ -573,17 +603,17 @@ function renderPending(items) {
           '<div class="bank-field"><span class="label">Host</span><span class="value">' + escapeHtml(p.hostName) + '</span></div>' +
           '<div class="bank-field"><span class="label">Bank</span><span class="value">' + escapeHtml(p.bankName || '—') + '</span></div>' +
           '<div class="bank-field"><span class="label">Account Number</span><span class="value">' + escapeHtml(p.accountNumber) + '</span>' +
-            '<button class="copy-btn" onclick="copyToClipboard(this, \'' + escapeHtml(p.accountNumber) + '\')">Copy</button></div>' +
+            '<button class="copy-btn" onclick="copyToClipboard(this, \'' + escapeJsAttr(p.accountNumber) + '\')">Copy</button></div>' +
           '<div class="bank-field"><span class="label">Account Holder</span><span class="value">' + escapeHtml(p.accountHolder) + '</span></div>' +
         '</div>' +
         '<div class="flex gap-2 flex-wrap mt-4">' +
           '<button class="btn-outline flex-1 md:flex-none" style="padding:10px 16px; font-size:11px; white-space:nowrap;" ' +
-            'onclick="copyToClipboard(this, \'' + escapeHtml(fullBankLine) + '\', true)">📋 Copy All Bank Details</button>' +
+            'onclick="copyToClipboard(this, \'' + escapeJsAttr(fullBankLine) + '\', true)">📋 Copy All Bank Details</button>' +
           (hasWhatsapp
-            ? '<button class="wa-btn flex-1 md:flex-none justify-center" onclick="openWhatsAppForHost(\'' + escapeHtml(p.bookingId) + '\')">📱 Notify on WhatsApp</button>'
+            ? '<button class="wa-btn flex-1 md:flex-none justify-center" onclick="openWhatsAppForHost(\'' + escapeJsAttr(p.bookingId) + '\')">📱 Notify on WhatsApp</button>'
             : '') +
           '<button class="btn-primary flex-1 md:flex-none" style="padding:10px 16px; font-size:11px; white-space:nowrap; background:#16a34a;" ' +
-            'onclick="openMarkPaidModal(\'' + escapeHtml(p.bookingId) + '\')">✓ Mark as Paid</button>' +
+            'onclick="openMarkPaidModal(\'' + escapeJsAttr(p.bookingId) + '\')">✓ Mark as Paid</button>' +
         '</div>' +
       '</div>';
   }).join('');
@@ -627,9 +657,9 @@ function renderHistory(items) {
           '<div>' + receiptLink + '</div>' +
         '</div>' +
         '<div class="mt-3 pt-3 border-t border-zinc-100 flex flex-wrap gap-2">' +
-          '<button class="rcpt-link" onclick="openReceiptModal(\'' + escapeHtml(h.bookingId) + '\')">📧 View Payout Statement</button>' +
+          '<button class="rcpt-link" onclick="openReceiptModal(\'' + escapeJsAttr(h.bookingId) + '\')">📧 View Payout Statement</button>' +
           (hasWhatsapp
-            ? '<button class="wa-btn-sm" onclick="openWhatsAppForHost(\'' + escapeHtml(h.bookingId) + '\')">📱 WhatsApp Host</button>'
+            ? '<button class="wa-btn-sm" onclick="openWhatsAppForHost(\'' + escapeJsAttr(h.bookingId) + '\')">📱 WhatsApp Host</button>'
             : '') +
         '</div>' +
       '</div>';
@@ -644,7 +674,7 @@ function renderHistory(items) {
       : '<span class="text-red-600 font-semibold" title="' + escapeHtml(h.emailError || 'Failed') + '">✗ Failed</span>';
     var hasWhatsapp = String(h.hostWhatsapp || '').replace(/[^0-9]/g, '').length >= 9;
     var waCell = hasWhatsapp
-      ? '<button class="wa-btn-sm" onclick="openWhatsAppForHost(\'' + escapeHtml(h.bookingId) + '\')">📱</button>'
+      ? '<button class="wa-btn-sm" onclick="openWhatsAppForHost(\'' + escapeJsAttr(h.bookingId) + '\')">📱</button>'
       : '<span class="text-zinc-400 text-[10px]">No #</span>';
     return '' +
       '<tr class="border-b border-zinc-100 hover:bg-zinc-50">' +
@@ -658,7 +688,7 @@ function renderHistory(items) {
         '<td class="p-3 text-[11px]">' + hostReceiptCell + '</td>' +
         '<td class="p-3 text-[11px]">' + receiptCell + '</td>' +
         '<td class="p-3 text-[11px] text-zinc-500">' + fmtDate(h.paidAt) + '</td>' +
-        '<td class="p-3 text-[11px]"><button class="rcpt-link" onclick="openReceiptModal(\'' + escapeHtml(h.bookingId) + '\')">📧 Receipt</button></td>' +
+        '<td class="p-3 text-[11px]"><button class="rcpt-link" onclick="openReceiptModal(\'' + escapeJsAttr(h.bookingId) + '\')">📧 Receipt</button></td>' +
         '<td class="p-3 text-[11px]">' + waCell + '</td>' +
       '</tr>';
   }).join('');
