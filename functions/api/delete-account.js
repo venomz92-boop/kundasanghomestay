@@ -1,5 +1,24 @@
 // /api/delete-account.js
 //
+// [REVISION — 24 Sept 2026 — lock correctness]
+// - Guest and owner deletion now perform their read -> decide -> write
+//   under the shared 'bookings-global' lock. Previously both flows read
+//   kd_bookings unlocked, then wrote it back with db.batch(), while every
+//   other writer (bookings.js, chip-create.js, chip-webhook.js,
+//   verify-payment.js, payout.js, ...) held the lock. An unlocked write
+//   racing a locked one could revert it — e.g. a booking created or
+//   finalised between this file's read and its write would be lost when
+//   the stale snapshot was written back.
+// - The password check stays OUTSIDE the lock: PBKDF2 is intentionally
+//   slow, and holding a global lock across it would serialise every
+//   deletion behind every login. The record is re-read inside the lock and
+//   re-checked before anything is written.
+// - Cloudinary image destruction and the confirmation email also stay
+//   outside the lock (slow network I/O).
+// - The blocking check (active bookings / in-flight payouts) now runs
+//   inside the lock, so a booking can no longer be created in the gap
+//   between the check and the write and be silently orphaned.
+//
 // [REVISION — 22 Sept 2026 — Phase 3]
 // - validateCSRFToken now receives the caller's session version.
 //   Guest uses session.sessionVersion; owner uses session.ownerSessionVersion.
@@ -31,8 +50,22 @@ import {
   parseJSONSafely,
   logAction,
   clearCookieHeader,
-  sha256
+  sha256,
+  withLock
 } from './_utils.js';
+
+// Same key every other writer of kd_bookings uses. Must stay in sync with
+// BOOKINGS_LOCK in bookings.js, payout.js, chip-create.js, etc. — a
+// different key would not exclude them, which is the bug this file used to
+// have by simply not locking at all.
+const BOOKINGS_LOCK = 'bookings-global';
+
+function lockBusyResponse(request) {
+  return jsonResponse({
+    error: 'Another operation is in progress. Please try again in a moment.',
+    code: 'LOCK_BUSY'
+  }, 429, request);
+}
 
 // ---------- Cloudinary destroy (self-contained) ----------
 
@@ -264,6 +297,10 @@ export async function onRequestPost({ request, env }) {
     // GUEST FLOW
     // ============================================================
     if (userType === 'guest') {
+      // ---- Password check first, OUTSIDE the lock ----
+      // PBKDF2 is intentionally slow. Holding the global bookings lock
+      // across it would stall every booking/payment operation behind an
+      // arbitrary number of failed password attempts.
       const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_guests').first();
       let guests = [];
       try { if (r?.data) guests = JSON.parse(r.data); } catch (_) {}
@@ -283,52 +320,80 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: 'Incorrect password' }, 401, request);
       }
 
-      const br = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
-      let bookings = [];
-      try { if (br?.data) bookings = JSON.parse(br.data); } catch (_) {}
+      // ---- Read -> decide -> write, all under the shared lock ----
+      let outcome;
+      try {
+        outcome = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          // Re-read inside the lock: the snapshot used for the password
+          // check may already be stale.
+          const gr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_guests').first();
+          let curGuests = [];
+          try { if (gr?.data) curGuests = JSON.parse(gr.data); } catch (_) {}
+          const cur = curGuests.find(g => String(g.id) === String(session.userId));
+          if (!cur) return { status: 404, body: { error: 'Account not found' } };
 
-      const upcomingPaid = bookings.filter(b =>
-        String(b.guestId) === String(session.userId) &&
-        String(b.status || '') === 'Paid - Awaiting Check-in'
-      );
-      if (upcomingPaid.length > 0) {
-        return jsonResponse({
-          error: `You have ${upcomingPaid.length} paid booking(s) coming up. Please complete your stay(s) or cancel them before deleting your account.`,
-          code: 'ACTIVE_BOOKINGS'
-        }, 409, request);
+          const brr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+          let bookings = [];
+          try { if (brr?.data) bookings = JSON.parse(brr.data); } catch (_) {}
+
+          const upcomingPaid = bookings.filter(b =>
+            String(b.guestId) === String(session.userId) &&
+            String(b.status || '') === 'Paid - Awaiting Check-in'
+          );
+          if (upcomingPaid.length > 0) {
+            return {
+              status: 409,
+              body: {
+                error: `You have ${upcomingPaid.length} paid booking(s) coming up. Please complete your stay(s) or cancel them before deleting your account.`,
+                code: 'ACTIVE_BOOKINGS'
+              }
+            };
+          }
+
+          const remainingGuests = curGuests.filter(g => String(g.id) !== String(session.userId));
+
+          const anonymizedBookings = bookings.map(b => {
+            if (String(b.guestId) !== String(session.userId)) return b;
+            return {
+              ...b,
+              guestName: 'Deleted User',
+              guestEmail: '',
+              guestPhone: '',
+              guestId: `DELETED-${Date.now()}`,
+              deleted_at: new Date().toISOString()
+            };
+          });
+
+          await db.batch([
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_guests', JSON.stringify(remainingGuests)),
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_bookings', JSON.stringify(anonymizedBookings))
+          ]);
+
+          return { status: 200, record: cur };
+        }, 60000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return lockBusyResponse(request);
+        }
+        throw lockErr;
       }
 
-      const remainingGuests = guests.filter(g => String(g.id) !== String(session.userId));
-
-      const anonymizedBookings = bookings.map(b => {
-        if (String(b.guestId) !== String(session.userId)) return b;
-        return {
-          ...b,
-          guestName: 'Deleted User',
-          guestEmail: '',
-          guestPhone: '',
-          guestId: `DELETED-${Date.now()}`,
-          deleted_at: new Date().toISOString()
-        };
-      });
-
-      await db.batch([
-        db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_guests', JSON.stringify(remainingGuests)),
-        db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-          .bind('kd_bookings', JSON.stringify(anonymizedBookings))
-      ]);
+      if (outcome.status !== 200) {
+        return jsonResponse(outcome.body, outcome.status, request);
+      }
 
       await logAction({
         db,
         action: 'guest_account_deleted',
         admin: 'guest',
-        details: `Guest self-deleted: ${userRecord.id} (${userRecord.email})`,
+        details: `Guest self-deleted: ${outcome.record.id} (${outcome.record.email})`,
         ip: clientIP,
-        userId: userRecord.id
+        userId: outcome.record.id
       });
 
-      sendDeletionConfirmation(userRecord.email, userRecord.name, 'guest', env).catch(() => {});
+      sendDeletionConfirmation(outcome.record.email, outcome.record.name, 'guest', env).catch(() => {});
 
       return new Response(JSON.stringify({
         success: true,
@@ -346,6 +411,7 @@ export async function onRequestPost({ request, env }) {
     // ============================================================
     // OWNER FLOW
     // ============================================================
+    // Resolve the owner record for the password check (outside the lock).
     const ownersRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
     let owners = [];
     try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch (_) {}
@@ -380,84 +446,119 @@ export async function onRequestPost({ request, env }) {
 
     const cleanWa = String(userRecord.whatsapp || '').replace(/[^0-9]/g, '');
 
-    const approvedRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_approved').first();
-    const pendingRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_pending').first();
-    const homeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_homestays').first();
-    const br = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+    // ---- Read -> decide -> write, all under the shared lock ----
+    let outcome;
+    try {
+      outcome = await withLock(db, BOOKINGS_LOCK, async (db) => {
+        const approvedRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_approved').first();
+        const pendingRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_pending').first();
+        const homeRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_homestays').first();
+        const brr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
 
-    let approved = []; try { if (approvedRes?.data) approved = JSON.parse(approvedRes.data); } catch (_) {}
-    let pending = []; try { if (pendingRes?.data) pending = JSON.parse(pendingRes.data); } catch (_) {}
-    let allHomes = []; try { if (homeRes?.data) allHomes = JSON.parse(homeRes.data); } catch (_) {}
-    let bookings = []; try { if (br?.data) bookings = JSON.parse(br.data); } catch (_) {}
+        let approved = []; try { if (approvedRes?.data) approved = JSON.parse(approvedRes.data); } catch (_) {}
+        let pending = []; try { if (pendingRes?.data) pending = JSON.parse(pendingRes.data); } catch (_) {}
+        let allHomes = []; try { if (homeRes?.data) allHomes = JSON.parse(homeRes.data); } catch (_) {}
+        let bookings = []; try { if (brr?.data) bookings = JSON.parse(brr.data); } catch (_) {}
 
-    const myHomestayIds = new Set();
-    [...approved, ...pending].forEach(h => {
-      const hWa = String(h.whatsapp || '').replace(/[^0-9]/g, '');
-      if (hWa && hWa === cleanWa) myHomestayIds.add(String(h.id));
-    });
+        // Re-resolve the owner inside the lock (the outer read may be stale).
+        const oRes = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_owners').first();
+        let curOwners = [];
+        try { if (oRes?.data) curOwners = JSON.parse(oRes.data); } catch (_) {}
+        const curOwner = curOwners.find(o => String(o.id) === String(userRecord.id));
+        if (!curOwner) {
+          return { status: 404, body: { error: 'Account not found' } };
+        }
 
-    const blockingBookings = bookings.filter(b => {
-      if (!myHomestayIds.has(String(b.homestayId))) return false;
-      const s = String(b.status || '');
-      if (s === 'Paid - Awaiting Check-in') return true;
-      if (b.payoutAttemptedAt && !b.payoutSuccessDate && !b.payoutUnknown) return true;
-      return false;
-    });
+        const myHomestayIds = new Set();
+        [...approved, ...pending].forEach(h => {
+          const hWa = String(h.whatsapp || '').replace(/[^0-9]/g, '');
+          if (hWa && hWa === cleanWa) myHomestayIds.add(String(h.id));
+        });
 
-    if (blockingBookings.length > 0) {
-      return jsonResponse({
-        error: `You have ${blockingBookings.length} active booking(s) or in-flight payouts on your properties. Please resolve those first (complete the check-in or wait for the payout to finish), then delete your account.`,
-        code: 'ACTIVE_BOOKINGS'
-      }, 409, request);
+        const blockingBookings = bookings.filter(b => {
+          if (!myHomestayIds.has(String(b.homestayId))) return false;
+          const s = String(b.status || '');
+          if (s === 'Paid - Awaiting Check-in') return true;
+          if (b.payoutAttemptedAt && !b.payoutSuccessDate && !b.payoutUnknown) return true;
+          return false;
+        });
+
+        if (blockingBookings.length > 0) {
+          return {
+            status: 409,
+            body: {
+              error: `You have ${blockingBookings.length} active booking(s) or in-flight payouts on your properties. Please resolve those first (complete the check-in or wait for the payout to finish), then delete your account.`,
+              code: 'ACTIVE_BOOKINGS'
+            }
+          };
+        }
+
+        const allPublicIds = new Set();
+        [...approved, ...pending].forEach(h => {
+          const hWa = String(h.whatsapp || '').replace(/[^0-9]/g, '');
+          if (hWa === cleanWa) {
+            collectAllImagePublicIds(h).forEach(pid => allPublicIds.add(pid));
+          }
+        });
+
+        const remainingOwners = curOwners.filter(o => String(o.id) !== String(curOwner.id));
+        const remainingApproved = approved.filter(h => String(h.whatsapp || '').replace(/[^0-9]/g, '') !== cleanWa);
+        const remainingPending = pending.filter(h => String(h.whatsapp || '').replace(/[^0-9]/g, '') !== cleanWa);
+        const remainingHomes = allHomes.filter(h => !myHomestayIds.has(String(h.id)));
+
+        const userEmailLower = String(curOwner.ownerEmail || '').toLowerCase().trim();
+        const anonymizedBookings = bookings.map(b => {
+          const bEmail = String(b.guestEmail || '').toLowerCase().trim();
+          if (bEmail && userEmailLower && bEmail === userEmailLower) {
+            return {
+              ...b,
+              guestName: 'Deleted User',
+              guestEmail: '',
+              guestPhone: '',
+              guestId: `DELETED-${Date.now()}`,
+              deleted_at: new Date().toISOString()
+            };
+          }
+          return b;
+        });
+
+        await db.batch([
+          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_owners', JSON.stringify(remainingOwners)),
+          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_approved', JSON.stringify(remainingApproved)),
+          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_pending', JSON.stringify(remainingPending)),
+          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_homestays', JSON.stringify(remainingHomes)),
+          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_bookings', JSON.stringify(anonymizedBookings))
+        ]);
+
+        return {
+          status: 200,
+          record: curOwner,
+          publicIds: [...allPublicIds],
+          homestayCount: myHomestayIds.size
+        };
+      }, 60000);
+    } catch (lockErr) {
+      if (lockErr.message && lockErr.message.includes('in progress')) {
+        return lockBusyResponse(request);
+      }
+      throw lockErr;
     }
 
-    const allPublicIds = new Set();
-    [...approved, ...pending].forEach(h => {
-      const hWa = String(h.whatsapp || '').replace(/[^0-9]/g, '');
-      if (hWa === cleanWa) {
-        collectAllImagePublicIds(h).forEach(pid => allPublicIds.add(pid));
-      }
-    });
+    if (outcome.status !== 200) {
+      return jsonResponse(outcome.body, outcome.status, request);
+    }
 
-    const remainingOwners = owners.filter(o => String(o.id) !== String(userRecord.id));
-    const remainingApproved = approved.filter(h => String(h.whatsapp || '').replace(/[^0-9]/g, '') !== cleanWa);
-    const remainingPending = pending.filter(h => String(h.whatsapp || '').replace(/[^0-9]/g, '') !== cleanWa);
-    const remainingHomes = allHomes.filter(h => !myHomestayIds.has(String(h.id)));
-
-    const userEmailLower = String(userRecord.ownerEmail || '').toLowerCase().trim();
-    const anonymizedBookings = bookings.map(b => {
-      const bEmail = String(b.guestEmail || '').toLowerCase().trim();
-      if (bEmail && userEmailLower && bEmail === userEmailLower) {
-        return {
-          ...b,
-          guestName: 'Deleted User',
-          guestEmail: '',
-          guestPhone: '',
-          guestId: `DELETED-${Date.now()}`,
-          deleted_at: new Date().toISOString()
-        };
-      }
-      return b;
-    });
-
-    await db.batch([
-      db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_owners', JSON.stringify(remainingOwners)),
-      db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_approved', JSON.stringify(remainingApproved)),
-      db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_pending', JSON.stringify(remainingPending)),
-      db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_homestays', JSON.stringify(remainingHomes)),
-      db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-        .bind('kd_bookings', JSON.stringify(anonymizedBookings))
-    ]);
-
+    // ---- Slow network work happens AFTER the lock is released ----
     let destroyed = 0;
     let destroyFailed = 0;
-    for (const pid of allPublicIds) {
-      const r = await destroyCloudinaryImage(pid, env);
-      if (r.success) destroyed++;
+    for (const pid of outcome.publicIds) {
+      const rr = await destroyCloudinaryImage(pid, env);
+      if (rr.success) destroyed++;
       else destroyFailed++;
     }
 
@@ -465,12 +566,12 @@ export async function onRequestPost({ request, env }) {
       db,
       action: 'owner_account_deleted',
       admin: 'owner',
-      details: `Owner self-deleted: ${userRecord.id} (${userRecord.ownerEmail}); ${myHomestayIds.size} listing(s) removed; ${destroyed}/${allPublicIds.size} Cloudinary images destroyed; ${destroyFailed} failed`,
+      details: `Owner self-deleted: ${outcome.record.id} (${outcome.record.ownerEmail}); ${outcome.homestayCount} listing(s) removed; ${destroyed}/${outcome.publicIds.length} Cloudinary images destroyed; ${destroyFailed} failed`,
       ip: clientIP,
-      userId: userRecord.id
+      userId: outcome.record.id
     });
 
-    sendDeletionConfirmation(userRecord.ownerEmail, userRecord.ownerName, 'owner', env).catch(() => {});
+    sendDeletionConfirmation(outcome.record.ownerEmail, outcome.record.ownerName, 'owner', env).catch(() => {});
 
     return new Response(JSON.stringify({
       success: true,
