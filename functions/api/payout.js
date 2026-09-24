@@ -343,7 +343,7 @@ export async function onRequestPost({ request, env }) {
               bookingId,
               payoutUnknown
             };
-      }, 60000);
+      }, 120000);
     } catch (lockErr) {
       if (lockErr.message && lockErr.message.includes('in progress')) {
         return jsonResponse({ error: 'Another booking operation is in progress. Please wait.' }, 429, request);
