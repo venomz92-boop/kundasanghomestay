@@ -196,7 +196,7 @@ export async function onRequestPost({ request, env }) {
               // We have a live session at CHIP but no cached URL. Cache it
               // inside the lock, but ONLY if the booking hasn't moved on.
               try {
-                await withLock(db, `booking:${booking.id}`, async (db) => {
+                await withLock(db, 'bookings-global', async (db) => {
                   const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
                   let bb = [];
                   try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
@@ -296,7 +296,7 @@ export async function onRequestPost({ request, env }) {
     // ============================================================
     let writeResult;
     try {
-      writeResult = await withLock(db, `booking:${booking.id}`, async (db) => {
+      writeResult = await withLock(db, 'bookings-global', async (db) => {
         const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
         let bb = [];
         try { if (rr?.data) bb = JSON.parse(rr.data); } catch(_) {}
