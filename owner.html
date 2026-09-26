@@ -1506,6 +1506,10 @@ async function changeBookingDates(bookingId) {
   }
 }
 
+  function todayISODate() {
+    const d = new Date(Date.now() + 8 * 3600000);
+    return d.toISOString().slice(0, 10);
+  }
 async function cancelBooking(bookingId) {
   const booking = bookings.find(b => String(b.id) === String(bookingId));
   if (!booking) {
@@ -1539,10 +1543,7 @@ async function cancelBooking(bookingId) {
 
   const baseAmount = baseNum.toFixed(2);
   const totalAmount = totalNum.toFixed(2);
-  // Guest-requested refund = room price minus the RM 1.00 refund-processing fee.
-  const guestRefund = Math.max(0, baseNum - 1).toFixed(2);
-  const feeRetained = Math.max(0, totalNum - baseNum).toFixed(2);
-
+  const needsAskedDate = !(booking.cancellationRequest && booking.cancellationRequest.status === 'pending_host');
   const paidNotice = isPaid
     ? `<div style="margin-top:14px;padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;font-size:12px;color:#991b1b;">
          ⚠️ This booking is already paid. Cancelling will trigger a refund to the guest via CHIP.
@@ -1578,7 +1579,14 @@ async function cancelBooking(bookingId) {
           </div>
         </div>
 
-        ${paidNotice}
+    ${needsAskedDate ? `
+    <div style="margin-top:10px;border:1.5px solid #f59e0b;border-radius:14px;padding:14px;background:#fffbeb;">
+      <div style="font-weight:700;color:#92400e;font-size:13px;">When did the guest ask you to cancel?</div>
+      <input type="date" id="guestAskedDateInput" max="${todayISODate()}" value="${todayISODate()}" style="margin-top:8px;width:100%;padding:10px;font-size:14px;border:2px solid #fde68a;border-radius:10px;box-sizing:border-box;" />
+      <div style="font-size:11px;color:#78350f;margin-top:6px;line-height:1.5;">Only needed if you choose Guest-Requested below. Use the day they first asked — not today.</div>
+    </div>` : ''}
+
+    ${paidNotice}
 
         <div style="margin-top:14px;font-size:11px;color:#6b7280;line-height:1.5;">
           If the guest simply never arrives, do not cancel the booking here. A no-show is handled automatically after 24 hours and you keep the room price.
@@ -1595,11 +1603,20 @@ async function cancelBooking(bookingId) {
 
   if (!choice) return;
 
+    let guestAskedDate = '';
+    if (choice === 'guest_request' && needsAskedDate) {
+      guestAskedDate = String((document.getElementById('guestAskedDateInput') || {}).value || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(guestAskedDate)) {
+        await showAlert('Date Needed', 'Please choose the date the guest asked to cancel. It sets the refund tier.');
+        return;
+      }
+    }
+
   try {
     const res = await ownerFetch(API_BASE + '/owner-update-booking', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingId, action: 'cancelBooking', cancelType: choice })
+      body: JSON.stringify({ bookingId, action: 'cancelBooking', cancelType: choice, guestAskedDate: guestAskedDate })
     });
 
     const data = await res.json();
@@ -1620,7 +1637,7 @@ async function cancelBooking(bookingId) {
           const refundLine = data.noRefundDue
             ? 'No refund is due under our policy — the room was held right up to check-in, so your host is paid for it.'
             : (isGuestReq
-                ? `A refund of RM ${refundAmt} has been processed. The service fee is non-refundable for guest-requested cancellations.`
+                ? `A refund of RM ${refundAmt} has been processed, following our published cancellation tiers.`
                 : `A full refund of RM ${refundAmt} has been processed.`);
           
           const msg = `Hi ${booking.guestName || 'Guest'},\n\nYour booking ${bookingId} at ${booking.homestay} has been cancelled.\n\n${isPaid ? refundLine + '\n\n' : ''}If you have any questions, please contact the host directly.\n\nThank you.`;
