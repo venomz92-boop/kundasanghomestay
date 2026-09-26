@@ -2318,8 +2318,27 @@ async function retryRefund(bookingId) {
 
   const amountPaid = Number(booking?.amount_paid || booking?.total || 0);
   const baseAmount = Number(booking?.base || 0);
-  const expectedRefund = isGuestRequest ? baseAmount : amountPaid;
-  const expectedRetained = isGuestRequest ? Math.max(0, amountPaid - baseAmount) : 0;
+  const storedTier = String(booking?.cancellation_tier || '').toUpperCase();
+  const isNonTier = storedCancelType === 'no_show' || storedCancelType === 'emergency_no_show' || storedCancelType === 'platform';
+
+  let expectedRefund;
+  if (isNonTier) {
+    expectedRefund = storedCancelType === 'emergency_no_show'
+      ? Math.floor(baseAmount * 50) / 100
+      : (storedCancelType === 'platform' ? amountPaid : 0);
+  } else if (!isGuestRequest) {
+    expectedRefund = amountPaid;
+  } else if (storedTier === 'A') {
+    expectedRefund = Math.max(0, Math.round((amountPaid - 1) * 100) / 100);
+  } else if (storedTier === 'B') {
+    expectedRefund = Math.floor(baseAmount * 50) / 100;
+  } else if (storedTier === 'C') {
+    expectedRefund = 0;
+  } else {
+    expectedRefund = Number(booking?.refund_attempted_amount || 0);
+  }
+
+  const expectedRetained = Math.max(0, Math.round((amountPaid - expectedRefund) * 100) / 100);
 
   const typeLabel = isGuestRequest
     ? '🟡 Guest-Requested Cancellation'
