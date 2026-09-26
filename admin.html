@@ -2353,9 +2353,15 @@ async function retryRefund(bookingId) {
 
   const expectedRetained = Math.max(0, Math.round((amountPaid - expectedRefund - expectedHostShare) * 100) / 100);
 
-  const typeLabel = isGuestRequest
-    ? '🟡 Guest-Requested Cancellation'
-    : '🟢 Host-Initiated Cancellation';
+  const typeLabel = isNonTier
+    ? (storedCancelType === 'emergency_no_show'
+        ? '🟣 Emergency No-Show — Approved'
+        : storedCancelType === 'platform'
+          ? '🔵 Cancelled by Platform (Force Majeure)'
+          : '⚪ No-Show — No Contact')
+    : isGuestRequest
+      ? '🟡 Guest-Requested Cancellation'
+      : '🟢 Host-Initiated Cancellation';
     const amountNote =
     `<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Refund to guest</span><strong>RM ${expectedRefund.toFixed(2)}</strong></div>` +
     (expectedHostShare > 0 && amountPaid > 0
