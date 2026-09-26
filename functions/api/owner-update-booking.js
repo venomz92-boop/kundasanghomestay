@@ -1091,9 +1091,11 @@ export async function onRequestPost({ request, env }) {
           // tier is fixed by it. If they only asked you on WhatsApp, there
           // is no recorded date, so we measure from now. We cannot
           // back-date a refund on someone's say-so.
-      const recordedAtMs = existingRequest && existingRequest.requestedAt
-      ? Date.parse(existingRequest.requestedAt)
-      : NaN;
+        const recordedAtMs = existingRequest
+        && existingRequest.status === 'pending_host'
+        && existingRequest.requestedAt
+        ? Date.parse(existingRequest.requestedAt)
+        : NaN;
 
     let askedAtMs;
     if (Number.isFinite(recordedAtMs)) {
