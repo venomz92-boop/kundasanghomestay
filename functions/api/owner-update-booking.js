@@ -1091,13 +1091,30 @@ export async function onRequestPost({ request, env }) {
           // tier is fixed by it. If they only asked you on WhatsApp, there
           // is no recorded date, so we measure from now. We cannot
           // back-date a refund on someone's say-so.
-          const recordedAtMs = existingRequest && existingRequest.requestedAt
-            ? Date.parse(existingRequest.requestedAt)
-            : NaN;
-          const hasRecordedDate = Number.isFinite(recordedAtMs);
-          const askedAtMs = hasRecordedDate ? recordedAtMs : Date.now();
+      const recordedAtMs = existingRequest && existingRequest.requestedAt
+      ? Date.parse(existingRequest.requestedAt)
+      : NaN;
 
-          const tierInfo = computeCancellationTier(booking, askedAtMs);
+    let askedAtMs;
+    if (Number.isFinite(recordedAtMs)) {
+      askedAtMs = recordedAtMs;
+    } else if (cancelType === 'guest_request') {
+      const rawDay = String(body.guestAskedDate || '').trim();
+      const dayMs = /^\d{4}-\d{2}-\d{2}$/.test(rawDay)
+        ? Date.parse(rawDay + 'T00:00:00+08:00')
+        : NaN;
+      if (!Number.isFinite(dayMs) || dayMs > Date.now()) {
+        return {
+          error: 'Enter the date the guest asked to cancel, as YYYY-MM-DD. It sets the refund tier and cannot be a future date.',
+          status: 400
+        };
+      }
+      askedAtMs = dayMs;
+    } else {
+      askedAtMs = Date.now();
+    }
+
+    const tierInfo = computeCancellationTier(booking, askedAtMs);
 
           // ---- Safety guard ----
           // If the tier maths could not work out the dates, we must not
@@ -1371,7 +1388,7 @@ export async function onRequestPost({ request, env }) {
             isPaid,
             cancelType,
             tier: cancellationTier,
-            usedRecordedDate: hasRecordedDate,
+            usedRecordedDate: Number.isFinite(recordedAtMs),
             refundAmountNum,
             hostCompensationNum,
             platformKeptNum,
