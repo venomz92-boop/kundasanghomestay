@@ -528,8 +528,8 @@ OK, I understand
       </label>
 
       <div class="kdcr-info">
-        Your host has to reply within <strong>48 hours</strong> — or <strong>6 hours</strong> if your check-in is less than
-        48 hours away. If they refuse, email
+        Your host has to reply within <strong>48 hours</strong> — or <strong>6 hours</strong> if your check-in is within
+        2 days. If they refuse, email
         <a href="mailto:support@kundasanghomestay.my">support@kundasanghomestay.my</a> and we will review it.
       </div>
 
@@ -1048,7 +1048,7 @@ var refundAmt = Number(b.refund_amount || 0);
 var amtText = refundAmt > 0 ? ' RM ' + refundAmt.toFixed(2) + ' has been refunded to you.' : '';
 
 if (isNothingDue) {
-return { key: 'cancelled_nothing_due', badgeClass: 'badge-cancelled', badgeLabel: '✕ Cancelled — Nothing Due', note: whoText + '. Because it was less than 48 hours before check-in, no refund is due under our published policy — the room was held for you and could not be resold. If you think this is wrong, email support@kundasanghomestay.my.', buttons: [] };
+return { key: 'cancelled_nothing_due', badgeClass: 'badge-cancelled', badgeLabel: '✕ Cancelled — Nothing Due', note: whoText + '. Because it was less than 2 days before check-in, no refund is due under our published policy — the room was held for you and could not be resold. If you think this is wrong, email support@kundasanghomestay.my.', buttons: [] };
 }
 if (isRefundPending) {
 return { key: 'refund_pending', badgeClass: 'badge-refunded', badgeLabel: '💧 Refund Processing', note: whoText + '. Your refund is being processed by CHIP and usually completes within a few minutes.', buttons: [] };
@@ -1079,7 +1079,15 @@ if (req && req.status === 'pending_host') {
 var askedOn = req.requestedAt
 ? new Date(req.requestedAt).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
 : '';
-var closeToCheckin = new Date(b.checkin + 'T14:00:00+08:00').getTime() - Date.now() < 48 * 3600000;
+var closeToCheckin = (function () {
+// Day-count only (MYT calendar dates, no clock times): check-in is
+// within 2 calendar days of the day the guest asked.
+var askedMs = req.requestedAt ? Date.parse(req.requestedAt) : NaN;
+if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.checkin || '')) || !isFinite(askedMs)) return false;
+var askedDay = new Date(askedMs + 8 * 3600000).toISOString().slice(0, 10);
+var leadDays = Math.round((Date.parse(b.checkin + 'T00:00:00Z') - Date.parse(askedDay + 'T00:00:00Z')) / 86400000);
+return leadDays < 2;
+})();
 var replyWindow = closeToCheckin ? '6 hours' : '48 hours';
 return {
 key: 'cancellation_requested',
@@ -1484,9 +1492,9 @@ var TIER_STYLE = {
   A: { color: '#166534', bg: '#f0fdf4', border: '#bbf7d0',
        when: 'You are asking <strong>14 or more days</strong> before check-in.' },
   B: { color: '#92400e', bg: '#fffbeb', border: '#fde68a',
-       when: 'You are asking <strong>between 48 hours and 13 days</strong> before check-in.' },
+       when: 'You are asking <strong>2 to 13 days</strong> before check-in.' },
   C: { color: '#9f1239', bg: '#fff1f2', border: '#fecdd3',
-       when: 'You are asking <strong>less than 48 hours</strong> before check-in.' }
+       when: 'You are asking <strong>less than 2 days</strong> before check-in.' }
 };
 
 function renderTierCard(p) {

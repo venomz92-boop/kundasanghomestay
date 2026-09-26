@@ -214,7 +214,7 @@ async function sendCancellationEmail(booking, refundInfo, env) {
     headerText = 'Booking Cancelled';
     bodyHtml = `
       <p>Your booking at <strong>${e(booking.homestay)}</strong> has been cancelled ${initiatedBy}.</p>
-      <p>Because you cancelled less than 48 hours before check-in, <strong>no refund is due</strong> under our published policy. The room was held for you and could not be resold.</p>
+      <p>Because you cancelled less than 2 days before check-in, <strong>no refund is due</strong> under our published policy. The room was held for you and could not be resold.</p>
       <p>Your host was paid the room price of <strong>RM${e(baseStr)}</strong> for holding it. That is the same outcome as a no-show.</p>
       <p>If you believe this is wrong, email <a href="mailto:support@kundasanghomestay.my">support@kundasanghomestay.my</a> and we will review it.</p>
     `;
@@ -230,7 +230,7 @@ async function sendCancellationEmail(booking, refundInfo, env) {
       : (tier === 'A'
           ? `<p>You cancelled with 14 days or more notice, so you receive <strong>everything you paid, less the RM 1.00 refund-processing fee</strong>.</p>`
           : (tier === 'B'
-              ? `<p>You cancelled between 48 hours and 13 days before check-in, so you receive <strong>half the room price</strong>. The other half is paid to your host, whose room could not be resold at short notice.</p>`
+              ? `<p>You cancelled between 2 and 13 days before check-in, so you receive <strong>half the room price</strong>. The other half is paid to your host, whose room could not be resold at short notice.</p>`
               : `<p>A refund of <strong>RM${e(refundAmount)}</strong> has been processed to your original payment method via CHIP.</p>`));
 
     const detailRows = !isGuestRequest
