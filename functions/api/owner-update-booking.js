@@ -1249,7 +1249,7 @@ export async function onRequestPost({ request, env }) {
           //
           // This block only runs for guest_request, so tierInfo.tier here
           // is always 'B' or 'C'.
-          if (hostCompensationNum > 0) {
+          if (isPaid && hostCompensationNum > 0) {
             const nowIso = new Date().toISOString();
 
             let homestayForQueue = null;
