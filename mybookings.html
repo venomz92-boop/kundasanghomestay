@@ -1048,7 +1048,10 @@ var refundAmt = Number(b.refund_amount || 0);
 var amtText = refundAmt > 0 ? ' RM ' + refundAmt.toFixed(2) + ' has been refunded to you.' : '';
 
 if (isNothingDue) {
-return { key: 'cancelled_nothing_due', badgeClass: 'badge-cancelled', badgeLabel: '✕ Cancelled — Nothing Due', note: whoText + '. Because it was less than 2 days before check-in, no refund is due under our published policy — the room was held for you and could not be resold. If you think this is wrong, email support@kundasanghomestay.my.', buttons: [] };
+        var whyNoRefund = byGuest
+          ? 'Because you asked less than 2 days before check-in, no refund is due under our published policy — the room was held for you and could not be resold.'
+          : 'No refund is due under our published policy.';
+        return { key: 'cancelled_nothing_due', badgeClass: 'badge-cancelled', badgeLabel: '✕ Cancelled — Nothing Due', note: whoText + '. ' + whyNoRefund + ' If you think this is wrong, email support@kundasanghomestay.my.', buttons: [] };
 }
 if (isRefundPending) {
 return { key: 'refund_pending', badgeClass: 'badge-refunded', badgeLabel: '💧 Refund Processing', note: whoText + '. Your refund is being processed by CHIP and usually completes within a few minutes.', buttons: [] };
