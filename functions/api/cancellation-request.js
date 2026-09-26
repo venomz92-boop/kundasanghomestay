@@ -43,7 +43,8 @@ import {
   checkRateLimit,
   recordRateLimit,
   getCSRFToken,
-  validateCSRFToken
+  validateCSRFToken,
+  computeCancellationTier
 } from './_utils.js';
 
 const BOOKINGS_LOCK = 'bookings-global';
@@ -54,88 +55,6 @@ const SUBMIT_LIMIT_PER_HOUR = 5;
 
 // Only a paid, not-yet-used booking can be cancelled.
 const CANCELLABLE_STATUS = 'Paid - Awaiting Check-in';
-
-// ============================================================
-// CANCELLATION TIERS — the refund maths
-//
-//   Tier A: guest asked 14+ days before check-in
-//   Tier B: guest asked 2 to 13 days before check-in
-//   Tier C: guest asked less than 2 days before, or after check-in
-//
-// Counting is by whole calendar days only — no clock times involved.
-// Days-before = (arrival date) minus (date the guest asked), in MYT
-// (UTC+8). The hour the guest asked does not matter; only the day.
-//
-// Tier A: guest gets everything they paid, less the RM 1.00 refund fee.
-//         Host gets nothing.
-// Tier B: guest gets half the room price, rounded DOWN to the sen.
-//         Host gets the other half — so the two always add up exactly.
-// Tier C: guest gets nothing. Host gets the full room price.
-// ============================================================
-
-const CHIP_REFUND_FEE = 1.00;
-
-function round2(n) {
-  return Math.round((Number(n) || 0) * 100) / 100;
-}
-
-function computeCancellationTier(booking, requestedAtMs) {
-  const base = round2(booking?.base);
-  const totalPaid = round2(Number(booking?.amount_paid) || Number(booking?.total) || 0);
-
-  // Whole-calendar-day counting in MYT (UTC+8), no clock times.
-  const toMytDay = (ms) => new Date(ms + 8 * 3600000).toISOString().slice(0, 10);
-
-  const checkin = String(booking?.checkin || '');
-  const askedMs = Number(requestedAtMs);
-
-  const refDay = /^\d{4}-\d{2}-\d{2}$/.test(checkin) ? checkin : '';
-  const askedDay = Number.isFinite(askedMs) ? toMytDay(askedMs) : '';
-
-  // Can't work out the dates. Don't guess — flag it for a human.
-  if (!refDay || !askedDay) {
-    return {
-      tier: null,
-      needsReview: true,
-      base,
-      totalPaid,
-      note: 'Could not determine the check-in date or the request date. Needs manual review.'
-    };
-  }
-
-  const DAY = 86400000;
-  const leadDays = Math.round((Date.parse(refDay + 'T00:00:00Z') -
-                               Date.parse(askedDay + 'T00:00:00Z')) / DAY);
-  const leadMs = leadDays * DAY;
-
-  let tier;
-  if (leadDays >= 14) tier = 'A';
-  else if (leadDays >= 2) tier = 'B';
-  else tier = 'C';
-
-  const guestAmount =
-    tier === 'A' ? round2(Math.max(0, totalPaid - CHIP_REFUND_FEE)) :
-    tier === 'B' ? Math.floor(base * 50) / 100 :
-    0;
-
-  const hostAmount =
-    tier === 'A' ? 0 :
-    tier === 'B' ? round2(base - guestAmount) :
-    base;
-
-  return {
-    tier,
-    needsReview: false,
-    leadMs,
-    leadDays: Math.floor(leadMs / DAY),
-    base,
-    totalPaid,
-    guestAmount,
-    hostAmount,
-    platformKeeps: round2(totalPaid - guestAmount - hostAmount),
-    chipRefundFee: CHIP_REFUND_FEE
-  };
-}
 
 function cleanReason(raw) {
   return String(raw || '')
