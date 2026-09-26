@@ -262,7 +262,7 @@
         </h3>
         <p class="text-xs text-zinc-500 mb-4 leading-relaxed">
           A guest has asked to cancel. <strong>You decide.</strong> You must reply within 48 hours — or 6 hours if check-in is
-          less than 48 hours away. If you decline, say why: the guest can ask us to review it.
+          within 2 days. If you decline, say why: the guest can ask us to review it.
         </p>
         <div id="cancellationRequestsList" class="space-y-4"></div>
       </div>
@@ -357,7 +357,7 @@
               <td class="text-zinc-600">You accept — plenty of time to resell</td>
             </tr>
             <tr>
-              <td class="kd-scenario">🟠 Guest asks to cancel — Tier B <span class="font-normal text-zinc-500">(48 h – 13 days)</span></td>
+              <td class="kd-scenario">🟠 Guest asks to cancel — Tier B <span class="font-normal text-zinc-500">(2 to 13 days)</span></td>
               <td class="kd-amt kd-good">RM 125.00<br><span class="text-[11px] font-normal text-zinc-500">half the room price</span></td>
               <td class="kd-amt">RM 125.00<br><span class="text-[11px] font-normal text-zinc-500">half the room price</span></td>
               <td class="text-zinc-600">You accept — short notice</td>
@@ -1137,14 +1137,20 @@ async function loadBookings() {
    and queues the host's own share. Decline records the reason.
    ============================================================ */
 
+// 6-hour reply window if check-in is within 2 calendar days of the
+// request date (day-count only, no clock times); otherwise 48 hours.
 function kdHours(booking) {
   const requestedAt = booking && booking.cancellationRequest
     ? booking.cancellationRequest.requestedAt : '';
   const checkin = String((booking && booking.checkin) || '');
-  const ref = /^\d{4}-\d{2}-\d{2}$/.test(checkin) ? Date.parse(checkin + 'T06:00:00Z') : NaN;
-  const asked = requestedAt ? Date.parse(requestedAt) : NaN;
-  if (!Number.isFinite(ref) || !Number.isFinite(asked)) return 48;
-  return (ref - asked) < 48 * 3600000 ? 6 : 48;
+  const askedMs = requestedAt ? Date.parse(requestedAt) : NaN;
+  const refDay = /^\d{4}-\d{2}-\d{2}$/.test(checkin) ? checkin : '';
+  const askedDay = Number.isFinite(askedMs)
+    ? new Date(askedMs + 8 * 3600000).toISOString().slice(0, 10) : '';
+  if (!refDay || !askedDay) return 48;
+  const leadDays = Math.round((Date.parse(refDay + 'T00:00:00Z') -
+                               Date.parse(askedDay + 'T00:00:00Z')) / 86400000);
+  return leadDays < 2 ? 6 : 48;
 }
 
 function kdWaitingText(booking) {
@@ -1566,8 +1572,8 @@ async function cancelBooking(bookingId) {
                         The guest asked to cancel and you have agreed.<br>
             <strong>The refund follows the published tiers:</strong><br>
             &bull; <strong>Tier A</strong> — 14+ days’ notice: everything paid, less RM 1.00<br>
-            &bull; <strong>Tier B</strong> — 48 hours to 13 days: half the room price<br>
-            &bull; <strong>Tier C</strong> — under 48 hours: nothing to the guest — you receive the room price<br>
+            &bull; <strong>Tier B</strong> — 2 to 13 days: half the room price<br>
+            &bull; <strong>Tier C</strong> — less than 2 days: nothing to the guest — you receive the room price<br>
             <span style="color:#92400e;">The correct tier is applied automatically — from the guest’s own request date if they asked through the app, or from today if they asked you directly. Exact figures are shown once it is done.</span>${isPaid ? '' : ' <span style="color:#6b7280;">(unpaid — no refund needed)</span>'}
           </div>
         </div>

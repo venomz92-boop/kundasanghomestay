@@ -71,11 +71,14 @@ export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 // CANCELLATION TIERS — the one true copy of the refund maths
 //
 //   Tier A: guest asked 14+ days before check-in
-//   Tier B: guest asked 48 hours to 13 days before
-//   Tier C: guest asked under 48 hours before, or after check-in
+//   Tier B: guest asked 2 to 13 days before check-in
+//   Tier C: guest asked less than 2 days before, or after check-in
 //
-// Check-in reference is 2:00 PM MYT on the arrival date.
-// MYT is UTC+8 with no daylight saving, so that is 06:00 UTC.
+// Counting is by whole calendar days only — no clock times involved.
+// Days-before = (arrival date) minus (date the guest asked), in MYT
+// (UTC+8). The hour the guest asked does not matter; only the day.
+// Example: arrival 29 Sept, asked any time on 15 Sept => 14 days => A.
+// Asked on 16 Sept => 13 days => B. Asked on 27/28/29 Sept => < 2 => C.
 //
 // Tier A: guest gets everything they paid, less the RM 1.00 refund
 //         fee. Host gets nothing.
@@ -96,14 +99,17 @@ export function computeCancellationTier(booking, requestedAtMs) {
   const base = tierRound2(booking?.base);
   const totalPaid = tierRound2(Number(booking?.amount_paid) || Number(booking?.total) || 0);
 
-  const checkin = String(booking?.checkin || '');
-  const refMs = /^\d{4}-\d{2}-\d{2}$/.test(checkin)
-    ? Date.parse(checkin + 'T06:00:00Z')
-    : NaN;
+  // Whole-calendar-day counting in MYT (UTC+8), no clock times.
+  // MYT has no daylight saving, so a fixed +08:00 offset is exact.
+  const toMytDay = (ms) => new Date(ms + 8 * 3600000).toISOString().slice(0, 10);
 
+  const checkin = String(booking?.checkin || '');
   const askedMs = Number(requestedAtMs);
 
-  if (!Number.isFinite(refMs) || !Number.isFinite(askedMs)) {
+  const refDay = /^\d{4}-\d{2}-\d{2}$/.test(checkin) ? checkin : '';
+  const askedDay = Number.isFinite(askedMs) ? toMytDay(askedMs) : '';
+
+  if (!refDay || !askedDay) {
     return {
       tier: null,
       needsReview: true,
@@ -113,17 +119,18 @@ export function computeCancellationTier(booking, requestedAtMs) {
       hostAmount: 0,
       platformKeeps: 0,
       chipRefundFee: TIER_REFUND_FEE,
-      note: 'Could not determine the check-in time or the request time. Needs manual review.'
+      note: 'Could not determine the check-in date or the request date. Needs manual review.'
     };
   }
 
   const DAY = 86400000;
-  const HOUR = 3600000;
-  const leadMs = refMs - askedMs;
+  const leadDays = Math.round((Date.parse(refDay + 'T00:00:00Z') -
+                               Date.parse(askedDay + 'T00:00:00Z')) / DAY);
+  const leadMs = leadDays * DAY;
 
   let tier;
-  if (leadMs >= 14 * DAY) tier = 'A';
-  else if (leadMs >= 48 * HOUR) tier = 'B';
+  if (leadDays >= 14) tier = 'A';
+  else if (leadDays >= 2) tier = 'B';
   else tier = 'C';
 
   const guestAmount =
@@ -141,7 +148,6 @@ export function computeCancellationTier(booking, requestedAtMs) {
     needsReview: false,
     leadMs,
     leadDays: Math.floor(leadMs / DAY),
-    leadHours: Math.floor(leadMs / HOUR),
     base,
     totalPaid,
     guestAmount,

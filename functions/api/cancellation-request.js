@@ -59,11 +59,12 @@ const CANCELLABLE_STATUS = 'Paid - Awaiting Check-in';
 // CANCELLATION TIERS — the refund maths
 //
 //   Tier A: guest asked 14+ days before check-in
-//   Tier B: guest asked 48 hours to 13 days before
-//   Tier C: guest asked under 48 hours before, or after check-in
+//   Tier B: guest asked 2 to 13 days before check-in
+//   Tier C: guest asked less than 2 days before, or after check-in
 //
-// Check-in reference time is 2:00 PM MYT on the arrival date.
-// MYT is UTC+8 with no daylight saving, so that is 06:00 UTC.
+// Counting is by whole calendar days only — no clock times involved.
+// Days-before = (arrival date) minus (date the guest asked), in MYT
+// (UTC+8). The hour the guest asked does not matter; only the day.
 //
 // Tier A: guest gets everything they paid, less the RM 1.00 refund fee.
 //         Host gets nothing.
@@ -82,31 +83,34 @@ function computeCancellationTier(booking, requestedAtMs) {
   const base = round2(booking?.base);
   const totalPaid = round2(Number(booking?.amount_paid) || Number(booking?.total) || 0);
 
-  const checkin = String(booking?.checkin || '');
-  const refMs = /^\d{4}-\d{2}-\d{2}$/.test(checkin)
-    ? Date.parse(checkin + 'T06:00:00Z')
-    : NaN;
+  // Whole-calendar-day counting in MYT (UTC+8), no clock times.
+  const toMytDay = (ms) => new Date(ms + 8 * 3600000).toISOString().slice(0, 10);
 
+  const checkin = String(booking?.checkin || '');
   const askedMs = Number(requestedAtMs);
 
+  const refDay = /^\d{4}-\d{2}-\d{2}$/.test(checkin) ? checkin : '';
+  const askedDay = Number.isFinite(askedMs) ? toMytDay(askedMs) : '';
+
   // Can't work out the dates. Don't guess — flag it for a human.
-  if (!Number.isFinite(refMs) || !Number.isFinite(askedMs)) {
+  if (!refDay || !askedDay) {
     return {
       tier: null,
       needsReview: true,
       base,
       totalPaid,
-      note: 'Could not determine the check-in time or the request time. Needs manual review.'
+      note: 'Could not determine the check-in date or the request date. Needs manual review.'
     };
   }
 
   const DAY = 86400000;
-  const HOUR = 3600000;
-  const leadMs = refMs - askedMs;
+  const leadDays = Math.round((Date.parse(refDay + 'T00:00:00Z') -
+                               Date.parse(askedDay + 'T00:00:00Z')) / DAY);
+  const leadMs = leadDays * DAY;
 
   let tier;
-  if (leadMs >= 14 * DAY) tier = 'A';
-  else if (leadMs >= 48 * HOUR) tier = 'B';
+  if (leadDays >= 14) tier = 'A';
+  else if (leadDays >= 2) tier = 'B';
   else tier = 'C';
 
   const guestAmount =
@@ -124,7 +128,6 @@ function computeCancellationTier(booking, requestedAtMs) {
     needsReview: false,
     leadMs,
     leadDays: Math.floor(leadMs / DAY),
-    leadHours: Math.floor(leadMs / HOUR),
     base,
     totalPaid,
     guestAmount,
@@ -391,7 +394,7 @@ export async function onRequestPost({ request, env }) {
       requestedAt: result.requestedAt,
       preview: tier,
       hostReplyDeadlineHours: hoursUntilDeadline(result.booking, result.requestedAt),
-      message: 'Your request has been sent. Your host must reply within 48 hours (or 6 hours if your check-in is less than 48 hours away).'
+      message: 'Your request has been sent. Your host must reply within 48 hours (or 6 hours if your check-in is within 2 days).'
     }, 200, request);
 
   } catch (e) {
@@ -416,12 +419,16 @@ function appendHistory(req, event, note) {
   return history;
 }
 
-// How long the host has to reply, in hours. 6 if check-in is close, else 48.
+// How long the host has to reply, in hours. 6 if check-in is within
+// 2 calendar days of the request date (day-count, no clock times), else 48.
 function hoursUntilDeadline(booking, requestedAtIso) {
-  const ref = Date.parse(String(booking.checkin || '') + 'T06:00:00Z');
-  const asked = Date.parse(requestedAtIso);
-  if (!Number.isFinite(ref) || !Number.isFinite(asked)) return 48;
-  return (ref - asked) < 48 * 3600000 ? 6 : 48;
+  const refDay = String(booking.checkin || '');
+  const askedMs = Date.parse(requestedAtIso);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(refDay) || !Number.isFinite(askedMs)) return 48;
+  const askedDay = new Date(askedMs + 8 * 3600000).toISOString().slice(0, 10);
+  const leadDays = Math.round((Date.parse(refDay + 'T00:00:00Z') -
+                               Date.parse(askedDay + 'T00:00:00Z')) / 86400000);
+  return leadDays < 2 ? 6 : 48;
 }
 
 function explainNotCancellable(booking) {
