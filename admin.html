@@ -2322,33 +2322,47 @@ async function retryRefund(bookingId) {
   const isNonTier = storedCancelType === 'no_show' || storedCancelType === 'emergency_no_show' || storedCancelType === 'platform';
 
   let expectedRefund;
+  let expectedHostShare;
   if (isNonTier) {
-    expectedRefund = storedCancelType === 'emergency_no_show'
-      ? Math.floor(baseAmount * 50) / 100
-      : (storedCancelType === 'platform' ? amountPaid : 0);
+    if (storedCancelType === 'emergency_no_show') {
+      expectedRefund = Math.floor(baseAmount * 50) / 100;
+      expectedHostShare = Math.round((baseAmount - expectedRefund) * 100) / 100;
+    } else if (storedCancelType === 'platform') {
+      expectedRefund = amountPaid;
+      expectedHostShare = 0;
+    } else {
+      expectedRefund = 0;
+      expectedHostShare = baseAmount;
+    }
   } else if (!isGuestRequest) {
     expectedRefund = amountPaid;
+    expectedHostShare = 0;
   } else if (storedTier === 'A') {
     expectedRefund = Math.max(0, Math.round((amountPaid - 1) * 100) / 100);
+    expectedHostShare = 0;
   } else if (storedTier === 'B') {
     expectedRefund = Math.floor(baseAmount * 50) / 100;
+    expectedHostShare = Math.round((baseAmount - expectedRefund) * 100) / 100;
   } else if (storedTier === 'C') {
     expectedRefund = 0;
+    expectedHostShare = baseAmount;
   } else {
     expectedRefund = Number(booking?.refund_attempted_amount || 0);
+    expectedHostShare = 0;
   }
 
-  const expectedRetained = Math.max(0, Math.round((amountPaid - expectedRefund) * 100) / 100);
+  const expectedRetained = Math.max(0, Math.round((amountPaid - expectedRefund - expectedHostShare) * 100) / 100);
 
   const typeLabel = isGuestRequest
     ? '🟡 Guest-Requested Cancellation'
     : '🟢 Host-Initiated Cancellation';
-  const amountNote = isGuestRequest
-    ? `<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Refund to guest</span><strong>RM ${expectedRefund.toFixed(2)}</strong></div>
-       <div style="display:flex;justify-content:space-between;padding:4px 0;color:#92400e;"><span>Platform retains</span><strong>RM ${expectedRetained.toFixed(2)}</strong></div>`
-    : `<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Refund to guest</span><strong>RM ${expectedRefund.toFixed(2)}</strong></div>
-       <div style="display:flex;justify-content:space-between;padding:4px 0;color:#166534;"><span>Platform retains</span><strong>RM 0.00</strong></div>`;
-
+    const amountNote =
+    `<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Refund to guest</span><strong>RM ${expectedRefund.toFixed(2)}</strong></div>` +
+    (expectedHostShare > 0 && amountPaid > 0
+      ? `<div style="display:flex;justify-content:space-between;padding:4px 0;color:#166534;"><span>Paid to host</span><strong>RM ${expectedHostShare.toFixed(2)}</strong></div>`
+      : '') +
+    `<div style="display:flex;justify-content:space-between;padding:4px 0;color:#92400e;"><span>Platform retains</span><strong>RM ${expectedRetained.toFixed(2)}</strong></div>`;
+  
   const confirmed = await showModal(
     "Retry Refund",
     `<div style="text-align:left;line-height:1.6;">
