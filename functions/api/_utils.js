@@ -78,7 +78,8 @@ export const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 // Days-before = (arrival date) minus (date the guest asked), in MYT
 // (UTC+8). The hour the guest asked does not matter; only the day.
 // Example: arrival 29 Sept, asked any time on 15 Sept => 14 days => A.
-// Asked on 16 Sept => 13 days => B. Asked on 27/28/29 Sept => < 2 => C.
+// Asked on 16 Sept => 13 days => B. Asked on 27 Sept => 2 days => B.
+// Asked on 28 or 29 Sept => < 2 => C.
 //
 // Tier A: guest gets everything they paid, less the RM 1.00 refund
 //         fee. Host gets nothing.
@@ -132,6 +133,20 @@ export function computeCancellationTier(booking, requestedAtMs) {
   if (leadDays >= 14) tier = 'A';
   else if (leadDays >= 2) tier = 'B';
   else tier = 'C';
+
+  if (tier !== 'A' && !(base > 0)) {
+    return {
+      tier: null,
+      needsReview: true,
+      base,
+      totalPaid,
+      guestAmount: 0,
+      hostAmount: 0,
+      platformKeeps: 0,
+      chipRefundFee: TIER_REFUND_FEE,
+      note: 'This booking has no room price recorded, so a tier refund cannot be worked out automatically. Needs manual review.'
+    };
+  }
 
   const guestAmount =
     tier === 'A' ? tierRound2(Math.max(0, totalPaid - TIER_REFUND_FEE)) :
@@ -1372,7 +1387,7 @@ export async function sendNonTierCancellationEmail(booking, info, env) {
   if (ct === 'no_show') {
     bodyHtml = `
       <p>Your booking at <strong>${e(booking.homestay)}</strong> for <strong>${e(booking.checkin)}</strong> was recorded as a <strong>no-show</strong>.</p>
-      <p>We hold your room until 24 hours after your arrival date. Because you did not arrive and did not contact your host or us within that time, <strong>no refund is due</strong> under our published policy.</p>
+          <p>We hold your room until 24 hours after your check-in time — 2:00 PM on your arrival date. Because you did not arrive and did not contact your host or us within that time, <strong>no refund is due</strong> under our published policy.</p>
       <p>Your host has been paid the room price of <strong>RM${e(hostAmount)}</strong> for holding the room, which could not be resold at that point. The service and payment fees of RM${e(retained)} are not refundable.</p>
       <p>If you did arrive, or if something happened that stopped you, email <a href="mailto:support@kundasanghomestay.my">support@kundasanghomestay.my</a> with the details. We review genuine emergencies ourselves, and can pay back 50% of the room price.</p>
     `;
@@ -1834,8 +1849,9 @@ export async function finalizeAndNotify(db, bookingId, env, ctx = {}) {
 // ever fires wrongly the host is paid what a check-in would have paid
 // them anyway, and no money can move the wrong way.
 //
-// Deadline: 24 hours after the arrival date BEGINS, in MYT (UTC+8).
-// A 24 Sept arrival is swept from 25 Sept 00:00 MYT.
+// Deadline: 24 hours after the published check-in time — 2:00 PM MYT
+// (06:00 UTC) on the arrival date. A 24 Sept arrival is swept from
+// 25 Sept 2:00 PM MYT.
 // ============================================================
 
 export const NO_SHOW_GRACE_MS = 24 * 60 * 60 * 1000;
@@ -1845,9 +1861,9 @@ const NO_SHOW_CHIP_PAYMENT_FEE = 1.00;
 export function noShowDeadlineMs(checkin) {
   const s = String(checkin || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return NaN;
-  const startOfArrivalDay = Date.parse(s + 'T00:00:00+08:00');
-  if (!Number.isFinite(startOfArrivalDay)) return NaN;
-  return startOfArrivalDay + NO_SHOW_GRACE_MS;
+  const checkinMs = Date.parse(s + 'T06:00:00Z');
+  if (!Number.isFinite(checkinMs)) return NaN;
+  return checkinMs + NO_SHOW_GRACE_MS;
 }
 
 export function isNoShowDue(booking, now = Date.now()) {
