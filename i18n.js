@@ -253,6 +253,148 @@
       "Lupa Kata Laluan - Kundasang Homestay"
   };
 
+    /* ================================================================ *
+     * list.html — Host property submission form
+     * (Highest-value page for BM: the audience is Malaysian hosts.)
+     * ================================================================ */
+    "Grow Your Business": "Kembangkan Perniagaan Anda",
+    "Host In Kundasang": "Jadi Pengusaha di Kundasang",
+    "List your property with Sabah's primary verified homestay system. Keep 100% control of your nights and payouts.":
+      "Senaraikan hartanah anda dengan sistem homestay disahkan yang utama di Sabah. Kekalkan kawalan 100% ke atas malam dan pembayaran anda.",
+    "Register Your Homestay": "Daftarkan Homestay Anda",
+    "Pending": "Menunggu",
+    "⏳ Approved within 24 Hours": "⏳ Diluluskan dalam 24 Jam",
+    "🔒 AES-256 Local Encryption Secured": "🔒 Disulitkan AES-256 Secara Setempat",
+    "A verified host account is required before you can list a property":
+      "Akaun pengusaha yang disahkan diperlukan sebelum anda boleh menyenaraikan hartanah",
+    "This protects guests from fake listings. Create a free host account, verify your email (1 minute), then return here to submit your property details.":
+      "Ini melindungi tetamu daripada penyenaraian palsu. Buat akaun pengusaha secara percuma, sahkan e-mel anda (1 minit), kemudian kembali ke sini untuk menghantar butiran hartanah anda.",
+    "Create Host Account": "Buat Akaun Pengusaha",
+    "I already have one": "Saya sudah ada akaun",
+    "Host Details": "Butiran Pengusaha",
+    "Full Host Name (as in IC / License) *": "Nama Penuh Pengusaha (seperti dalam KP / Lesen) *",
+    "WhatsApp Contact Number *": "Nombor Hubungan WhatsApp *",
+    "For automated guest receipts and direct check-in messages.":
+      "Untuk resit tetamu automatik dan mesej daftar masuk terus.",
+    "Active Email Address *": "Alamat E-mel Aktif *",
+    "Property Details": "Butiran Hartanah",
+    "Homestay Display Name *": "Nama Paparan Homestay *",
+    "Location / Area *": "Lokasi / Kawasan *",
+    "Price per Night (RM) *": "Harga Semalam (RM) *",
+    "Max Guest Capacity *": "Kapasiti Tetamu Maksimum *",
+    "Total Bedrooms *": "Jumlah Bilik Tidur *",
+    "Property Description *": "Penerangan Hartanah *",
+    "Rooms & Pricing": "Bilik & Harga",
+    "Multi‑room support": "Sokongan berbilang bilik",
+    "Add each room type separately. You can upload photos for each room.":
+      "Tambah setiap jenis bilik secara berasingan. Anda boleh memuat naik gambar untuk setiap bilik.",
+    "+ Add Room": "+ Tambah Bilik",
+    "Escrow Account Details": "Butiran Akaun Amanah (Eskrow)",
+    "Secure booking settlement runs direct. Account details provided must correlate to host legal identity.":
+      "Penyelesaian tempahan yang selamat dijalankan secara terus. Butiran akaun yang diberikan mesti sepadan dengan identiti sah pengusaha.",
+    "Receiving Bank *": "Bank Penerima *",
+    "Loading banks…": "Memuatkan bank…",
+    "Only banks supported by CHIP Send are listed. This is the account that will receive your payouts.":
+      "Hanya bank yang disokong oleh CHIP Send disenaraikan. Inilah akaun yang akan menerima pembayaran anda.",
+    "Bank Account Number *": "Nombor Akaun Bank *",
+    "Beneficiary Account Name *": "Nama Akaun Benefisiari *",
+    "DuitNow / Bank QR Code Template *": "Templat Kod QR DuitNow / Bank *",
+    "Upload your bank QR code image so guests can scan directly on success modals.":
+      "Muat naik gambar kod QR bank anda supaya tetamu boleh mengimbas terus pada tetingkap kejayaan.",
+    "Click to select DuitNow / Bank QR image": "Klik untuk pilih gambar DuitNow / Kod QR Bank",
+    "Accepts JPG, PNG up to 3MB": "Menerima JPG, PNG sehingga 3MB",
+    "Remove Image": "Buang Gambar",
+    "I confirm that this bank account matches my Host Name as per identification documents.":
+      "Saya mengesahkan bahawa akaun bank ini sepadan dengan Nama Pengusaha saya seperti dalam dokumen pengenalan diri.",
+    "Property Gallery": "Galeri Hartanah",
+    "Click to select 3-5 high-resolution photos of your property":
+      "Klik untuk pilih 3-5 gambar hartanah anda beresolusi tinggi",
+    "Primary photo will represent listing cover thumbnail":
+      "Gambar utama akan menjadi thumbnail muka depan penyenaraian",
+    "Secure Host Verification": "Pengesahan Pengusaha yang Selamat",
+    "To prevent fraud, submit a photo of your national IC (Front). A persistent security watermark is drawn inside your browser window before raw file transmission.":
+      "Untuk mencegah penipuan, hantar gambar Kad Pengenalan (Depan) anda. Tera air keselamatan kekal dilukis dalam tetingkap pelayar anda sebelum fail dihantar.",
+    "Full Legal Name as in IC *": "Nama Penuh Seperti dalam KP *",
+    "IC Number (optional)": "Nombor Kad Pengenalan (pilihan)",
+    "Upload IC (Selfie with IC) image *": "Muat Naik Gambar KP (Selfie dengan KP) *",
+    "Click to select IC document photo": "Klik untuk pilih gambar dokumen Kad Pengenalan",
+    "Secure client-side watermarks are auto-applied":
+      "Tera air selamat di pihak klien digunakan secara automatik",
+    "Secured Document Preview:": "Pratonton Dokumen Selamat:",
+    "Cancel Identification Upload": "Batal Muat Naik Pengenalan",
+    "PBT Trading License": "Lesen Perniagaan PBT",
+    "Upload": "Muat Naik",
+    "PBT (Pihak Berkuasa Tempatan)": "PBT (Pihak Berkuasa Tempatan)",
+    "trading license here.": "lesen perniagaan di sini.",
+    "Not digital PBT.": "Bukan PBT digital.",
+    "This adds extra credibility for approval to your listing.":
+      "Ini menambah kredibiliti tambahan untuk kelulusan penyenaraian anda.",
+    "Upload License (JPG/PNG)": "Muat Naik Lesen (JPG/PNG)",
+    "Tap to select or take a photo": "Ketik untuk pilih atau ambil gambar",
+    "License Preview:": "Pratonton Lesen:",
+    "Remove": "Buang",
+    "Verify with Host Account Password": "Sahkan dengan Kata Laluan Akaun Pengusaha",
+    "🔑 Password must match an existing verified host account.":
+      "🔑 Kata laluan mesti sepadan dengan akaun pengusaha yang telah disahkan.",
+    "Type the password you used when you": "Taip kata laluan yang anda gunakan semasa anda",
+    "created your host account": "membuat akaun pengusaha anda",
+    ". If you haven't created one yet, please do that first — the property submission will be rejected without it.":
+      ". Jika anda belum membuatnya, sila buat dahulu — penghantaran hartanah akan ditolak tanpanya.",
+    "Host Account Password *": "Kata Laluan Akaun Pengusaha *",
+    "Availability Exclusions": "Pengecualian Ketersediaan",
+    "Mark dates that are unavailable (such as personal use, maintenance, or off-site bookings).":
+      "Tandakan tarikh yang tidak tersedia (seperti kegunaan peribadi, penyelenggaraan, atau tempahan luar).",
+    "+ Block Date": "+ Sekat Tarikh",
+    "Block Range": "Sekat Julat",
+    "0 Dates Blocked": "0 Tarikh Disekat",
+    "Data Privacy & Consent": "Privasi Data & Persetujuan",
+    "Your IC, bank QR, and PBT trading license images are used":
+      "Gambar Kad Pengenalan, kod QR bank, dan lesen perniagaan PBT anda digunakan",
+    "only for one‑time verification": "hanya untuk pengesahan sekali sahaja",
+    ". They are": ". Ia",
+    "automatically and permanently deleted": "dipadam secara automatik dan kekal",
+    "from our servers once your listing is approved or rejected. We store only your name, contact details, and bank account information for payout purposes.":
+      "daripada pelayan kami sebaik sahaja penyenaraian anda diluluskan atau ditolak. Kami hanya menyimpan nama, butiran hubungan, dan maklumat akaun bank anda untuk tujuan pembayaran.",
+    "I consent to my data being processed for verification, listing, and payout purposes as described above.":
+      "Saya bersetuju data saya diproses untuk tujuan pengesahan, penyenaraian, dan pembayaran seperti yang dinyatakan di atas.",
+    "I have read and agree to the": "Saya telah membaca dan bersetuju dengan",
+    "Host Agreement": "Perjanjian Pengusaha",
+    "and": "dan",
+    "Submit Homestay Listing for Approval": "Hantar Penyenaraian Homestay untuk Kelulusan",
+    "By compiling this form, you acknowledge our registration policies. IC and financial records are held strictly in compliance with Sabah cyber security frameworks.":
+      "Dengan melengkapkan borang ini, anda mengakui dasar pendaftaran kami. Rekod Kad Pengenalan dan kewangan disimpan dengan patuh pada rangka kerja keselamatan siber Sabah.",
+    "Verified guest": "Tetamu Disahkan",
+
+    /* --- list.html: JS status and validation messages --- */
+    "Upload Failed": "Muat Naik Gagal",
+    "Upload Error": "Ralat Muat Naik",
+    "File Exceeded": "Fail Melebihi Had",
+    "Error": "Ralat",
+    "Warning": "Amaran",
+    "Define End Date": "Tentukan Tarikh Tamat",
+    "Invalid Date": "Tarikh Tidak Sah",
+    "Invalid Range": "Julat Tidak Sah",
+    "Bank Required": "Bank Diperlukan",
+    "Consent Required": "Persetujuan Diperlukan",
+    "Agreement Required": "Perjanjian Diperlukan",
+    "Required Field": "Ruangan Diperlukan",
+    "Escrow Agreement": "Perjanjian Amanah (Eskrow)",
+    "Host Account Required": "Akaun Pengusaha Diperlukan",
+    "Invalid Host Password": "Kata Laluan Pengusaha Tidak Sah",
+    "Invalid Bank": "Bank Tidak Sah",
+    "Listing Already On File": "Penyenaraian Sudah dalam Rekod",
+    "Listing Sent": "Penyenaraian Dihantar",
+    "Submitting…": "Menghantar…",
+    "⏳ Initializing client-to-cloud security handshake...":
+      "⏳ Memulakan jabat tangan keselamatan klien ke awan...",
+    "⏰ Your host session expired — please log in again...":
+      "⏰ Sesi pengusaha anda telah tamat — sila log masuk semula...",
+    "🔐 Host account required — redirecting you to create one...":
+      "🔐 Akaun pengusaha diperlukan — membawa anda untuk membuat akaun...",
+    "✓ Secure cloud storage synchronized successfully!":
+      "✓ Storan awan selamat berjaya disegerakkan!",
+    "⚠️ Operation Interrupted:": "⚠️ Operasi Terhenti:"
+
   /* ==================================================================== *
    * Language resolution:  ?lang=  >  saved choice  >  browser preference
    * ==================================================================== */
