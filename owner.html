@@ -328,7 +328,7 @@
         <span>🚫 Block Dates</span>
       </h3>
       <div id="roomBlockContainer">
-        <p class="text-sm text-zinc-500">Select a room and choose the dates you want to block from being booked.</p>
+        <p class="text-sm text-zinc-500">Block a <strong>whole property</strong> (for example when you are away) or a single room. Pick the dates you want to close, then press Add Block. This stops new bookings only — it does not cancel a booking that already exists.</p>
         <div class="mt-3 flex flex-wrap gap-4">
           <select id="blockRoomSelect" class="homestay-selector"></select>
           <input type="date" id="blockDateInput" class="form-input w-auto" />
@@ -1692,15 +1692,16 @@ async function loadRoomBlocks() {
   const selector = document.getElementById('blockRoomSelect');
   if (!selector) return;
 
-  const rooms = [];
-
-  allHomestays.forEach(h => {
-    if (h.rooms && h.rooms.length) {
-      h.rooms.forEach(r => {
-        rooms.push({ homestayId: h.id, homestayName: h.name, roomId: r.id, roomName: r.name, blockedDates: r.blockedDates || [] });
-      });
-    }
-  });
+    const rooms = [];
+    const homestayOptions = [];
+    allHomestays.forEach(h => {
+      homestayOptions.push({ homestayId: h.id, homestayName: h.name, blockedDates: h.blockedDates || [] });
+      if (h.rooms && h.rooms.length) {
+        h.rooms.forEach(r => {
+          rooms.push({ homestayId: h.id, homestayName: h.name, roomId: r.id, roomName: r.name, blockedDates: r.blockedDates || [] });
+        });
+      }
+    });
 
   // Attach the block-button handler unconditionally so it responds
   // even when there are no rooms (shows an alert instead of doing nothing).
@@ -1710,12 +1711,17 @@ async function loadRoomBlocks() {
     addBtn.addEventListener('click', toggleRoomBlock);
   }
 
-  if (rooms.length === 0) {
-    selector.innerHTML = '<option value="">No rooms found</option>';
-    return;
-  }
-
-  selector.innerHTML = rooms.map(r => `<option value="${r.roomId}" data-homestay="${r.homestayId}" data-blocked='${JSON.stringify(r.blockedDates)}'>${r.homestayName} – ${r.roomName}</option>`).join('');
+  if (homestayOptions.length === 0) {
+    selector.innerHTML = '<option value="">No properties found</option>';
+      renderRoomBlockedList();
+      return;
+    }
+    // Whole-property entries come first: that is what most hosts want
+    // (outstation, maintenance), and it is the only option that works for a
+    // listing with no rooms defined yet.
+    const allOpts = homestayOptions.map(h => `<option value="__ALL__" data-homestay="${h.homestayId}" data-blocked='${JSON.stringify(h.blockedDates)}'>🏠 ${h.homestayName} — Whole Property (all rooms)</option>`).join('');
+    const roomOpts = rooms.map(r => `<option value="${r.roomId}" data-homestay="${r.homestayId}" data-blocked='${JSON.stringify(r.blockedDates)}'>🛏️ ${r.homestayName} – ${r.roomName}</option>`).join('');
+    selector.innerHTML = allOpts + roomOpts;
 
   renderRoomBlockedList();
 
@@ -1737,7 +1743,7 @@ function renderRoomBlockedList() {
   const blocked = JSON.parse(selected.dataset.blocked || '[]');
 
   if (blocked.length === 0) {
-    listDiv.innerHTML = '<div class="text-xs text-zinc-400">No blocked dates for this room.</div>';
+    listDiv.innerHTML = '<div class="text-xs text-zinc-400">No blocked dates here yet.</div>';
     return;
   }
 
@@ -1768,38 +1774,27 @@ async function removeRoomBlockHandler(e) {
   }
 }
 
-async function toggleRoomBlock() {
-  const selector = document.getElementById('blockRoomSelect');
-  const dateInput = document.getElementById('blockDateInput');
-  const selected = selector.options[selector.selectedIndex];
-
-  if (!selected || !selected.value) {
-    showAlert('No Rooms', 'This homestay has no rooms, so there are no dates to block. Add a room first.');
-    return;
-  }
-
-  const date = dateInput.value;
-  if (!date) {
-    showAlert('Error', 'Please select a date.');
-    return;
-  }
-
-  const roomId = selected.value;
-  const homestayId = selected.dataset.homestay;
-  const addBtn = document.getElementById('addRoomBlockBtn');
-  const resetAddBtn = setButtonLoading(addBtn, 'Adding…');
-
-  try {
-    const res = await ownerFetch(API_BASE + '/owner-update-booking', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'updateRoomBlock',
-        homestayId: homestayId,
-        roomId: roomId,
-        date: date
-      })
-    });
+  async function toggleRoomBlock() {
+    const selector = document.getElementById('blockRoomSelect');
+    const dateInput = document.getElementById('blockDateInput');
+    const selected = selector.options[selector.selectedIndex];
+    if (!selected || !selected.value) {
+      showAlert('Nothing to Block', 'Select a whole property or a specific room first.');
+      return;
+    }
+    const date = dateInput.value;
+    if (!date) { showAlert('Error', 'Please select a date.'); return; }
+    const homestayId = selected.dataset.homestay;
+    // "__ALL__" is the whole-property entry. It writes homestay.blockedDates,
+    // which closes every room at once.
+    const isWholeProperty = selected.value === '__ALL__';
+    const addBtn = document.getElementById('addRoomBlockBtn');
+    const resetAddBtn = setButtonLoading(addBtn, 'Adding…');
+    try {
+      const payload = isWholeProperty
+        ? { action: 'updateHomestayBlock', homestayId: homestayId, date: date }
+        : { action: 'updateRoomBlock', homestayId: homestayId, roomId: selected.value, date: date };
+      const res = await ownerFetch(API_BASE + '/owner-update-booking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 
     const data = await res.json();
 
@@ -1820,26 +1815,16 @@ async function toggleRoomBlock() {
   }
 }
 
-async function removeRoomBlock(date) {
-  const selector = document.getElementById('blockRoomSelect');
-  const selected = selector.options[selector.selectedIndex];
-  if (!selected || !selected.value) return;
-
-  const roomId = selected.value;
-  const homestayId = selected.dataset.homestay;
-
-  try {
-    const res = await ownerFetch(API_BASE + '/owner-update-booking', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'updateRoomBlock',
-        homestayId: homestayId,
-        roomId: roomId,
-        date: date
-      })
-    });
-
+  async function removeRoomBlock(date) {
+    const selector = document.getElementById('blockRoomSelect');
+    const selected = selector.options[selector.selectedIndex];
+    if (!selected || !selected.value) return;
+    const homestayId = selected.dataset.homestay;
+    const payload = selected.value === '__ALL__'
+      ? { action: 'updateHomestayBlock', homestayId: homestayId, date: date }
+      : { action: 'updateRoomBlock', homestayId: homestayId, roomId: selected.value, date: date };
+    try {
+      const res = await ownerFetch(API_BASE + '/owner-update-booking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await res.json();
 
     if (data.success) {
