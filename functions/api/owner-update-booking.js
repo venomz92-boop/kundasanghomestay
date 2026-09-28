@@ -435,7 +435,93 @@ export async function onRequestPost({ request, env }) {
         homestayId: homestayId
       });
 
-      return jsonResponse({ success: true, message: result.message, room: result.room }, 200, request);
+           return jsonResponse({ success: true, message: result.message, room: result.room }, 200, request);
+    }
+
+    // ===== ACTION: Update whole-homestay block =====
+    //
+    // Blocks the ENTIRE property (every room at once) for a date — for when
+    // the host is away and nothing can be let at all. bookings.js already
+    // refuses new bookings whose dates fall inside homestay.blockedDates, and
+    // admin.html already unions it into the availability display, so this
+    // action only needs to write the date. It also works for a listing that
+    // has no rooms defined yet.
+    if (action === 'updateHomestayBlock') {
+      const { homestayId, date } = body;
+      if (!homestayId || !date) {
+        return jsonResponse({ error: 'Missing homestayId or date' }, 400, request);
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
+        return jsonResponse({ error: 'Date must be in YYYY-MM-DD format' }, 400, request);
+      }
+
+      if (!ownerHomestayIds.map(String).includes(String(homestayId))) {
+        return jsonResponse({ error: 'Unauthorized: You do not own this homestay' }, 403, request);
+      }
+
+      let result;
+      try {
+        result = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const rApproved = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_approved').first();
+          let homestays = [];
+          if (rApproved && rApproved.data) { try { homestays = JSON.parse(rApproved.data); } catch (e) {} }
+          const rPending = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_pending').first();
+          if (rPending && rPending.data) { try { homestays = [...homestays, ...JSON.parse(rPending.data)]; } catch (e) {} }
+
+          const homestay = homestays.find(h => String(h.id) === String(homestayId));
+          if (!homestay) return { error: 'Homestay not found', status: 404 };
+
+          if (!Array.isArray(homestay.blockedDates)) homestay.blockedDates = [];
+
+          const idx = homestay.blockedDates.indexOf(date);
+          let message = '';
+          if (idx !== -1) {
+            homestay.blockedDates.splice(idx, 1);
+            message = `Unblocked ${date} — the whole property is open again`;
+          } else {
+            homestay.blockedDates.push(date);
+            homestay.blockedDates.sort();
+            message = `Blocked ${date} for the whole property (all rooms)`;
+          }
+
+          let updated = false;
+          for (const key of ['kd_approved', 'kd_pending']) {
+            const res = await db.prepare('SELECT data FROM store WHERE key = ?').bind(key).first();
+            let arr = [];
+            if (res && res.data) { try { arr = JSON.parse(res.data); } catch (e) {} }
+            const index = arr.findIndex(h => String(h.id) === String(homestayId));
+            if (index !== -1) {
+              arr[index] = homestay;
+              await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+                .bind(key, JSON.stringify(arr))
+                .run();
+              updated = true;
+            }
+          }
+          if (!updated) return { error: 'Failed to save update', status: 500 };
+
+          return { success: true, message, blockedDates: homestay.blockedDates };
+        }, 15000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another operation is in progress. Please try again in a moment.' }, 429, request);
+        }
+        throw lockErr;
+      }
+
+      if (result.error) return jsonResponse({ error: result.error }, result.status || 400, request);
+
+      await logAction({
+        db,
+        action: 'homestay_block_toggle',
+        admin: 'owner',
+        details: result.message,
+        ip: clientIP,
+        userId: ownerData.ownerId,
+        homestayId: homestayId
+      });
+
+      return jsonResponse({ success: true, message: result.message, blockedDates: result.blockedDates }, 200, request);
     }
 
     // ===== ACTION: Update homestay price =====
