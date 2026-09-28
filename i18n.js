@@ -464,6 +464,7 @@
     "Failed to remove block.": "Gagal membuang sekatan.",
     "Whole Property": "Seluruh Hartanah",
     "🏠 Whole Property — all rooms": "🏠 Seluruh Hartanah — semua bilik",
+    "📍 All Linked Homestays": "📍 Semua Homestay Berkaitan",
     "Invalid Price": "Harga Tidak Sah",
     "Price Updated": "Harga Dikemas Kini",
     "Please select a specific homestay to update its price.": "Sila pilih homestay tertentu untuk mengemas kini harganya.",
@@ -739,13 +740,6 @@
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
-})();
-
   /* ============ CSS-generated content (::before labels) ============
      The mobile payout table prints its column labels via CSS
      `content:`, which is invisible to DOM walking. Override them
@@ -766,3 +760,10 @@
     st.textContent = rules;
     document.head.appendChild(st);
   }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
