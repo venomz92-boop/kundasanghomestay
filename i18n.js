@@ -731,6 +731,7 @@
 
   function boot() {
     if (LANG === 'bm') apply();
+    injectCssTranslations();
     mountToggle();
     if (LANG === 'bm') {
       var mo = new MutationObserver(function () { if (!applying) schedule(); });
@@ -744,3 +745,24 @@
     boot();
   }
 })();
+
+  /* ============ CSS-generated content (::before labels) ============
+     The mobile payout table prints its column labels via CSS
+     `content:`, which is invisible to DOM walking. Override them
+     here, scoped to BM so English is untouched. */
+  var CSS_TRANSLATIONS = [
+    { sel: '.kd-rules-table td:nth-child(2)::before', text: 'Anda terima' },
+    { sel: '.kd-rules-table td:nth-child(3)::before', text: 'Tetamu dibayar balik' },
+    { sel: '.kd-rules-table td:nth-child(4)::before', text: 'Siapa yang tentukan' }
+  ];
+  function injectCssTranslations() {
+    if (LANG !== 'bm') return;
+    if (document.getElementById('kdLangCss')) return;
+    var rules = '@media (max-width: 640px){' + CSS_TRANSLATIONS.map(function (r) {
+      return r.sel + '{content:"' + r.text + '";}';
+    }).join('') + '}';
+    var st = document.createElement('style');
+    st.id = 'kdLangCss';
+    st.textContent = rules;
+    document.head.appendChild(st);
+  }
