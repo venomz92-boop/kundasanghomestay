@@ -33,12 +33,11 @@
    *   - "boleh" for can/may (never "bisa", which means poison in Malay)
    *   - "percuma" for free (never Indonesian "gratis")
    *   - "e-mel" for email, "pautan" for link, "laman web" for website
-   *   - full diacritic-free Rumi spelling as used in Malaysian publishing
    *
    * Deliberately NOT translated:
    *   - Brand and proper nouns (Kundasang, Kinabalu, Ranau, Mesilau,
    *     Bundu Tuhan, NICK'S CREATIONS, CHIP, FPX, WhatsApp, Facebook)
-   *   - Technical tokens that Malaysians use in English (FPX, SSL, WhatsApp)
+   *   - Technical tokens Malaysians use in English (FPX, SSL, WhatsApp)
    *   - The business licence number
    *
    * Omit any string you want to leave in English. An unmapped string simply
@@ -238,20 +237,7 @@
       "Untuk mengelakkan caj berganda, gerbang pembayaran memerlukan tempoh jeda seketika sebelum anda boleh cuba semula.",
     "Go to My Bookings →": "Pergi ke Tempahan Saya →",
     "Notice": "Notis",
-    "Message": "Mesej"
-  };
-
-  /* Page titles, keyed by the exact English <title>. */
-  var TITLES = {
-    "Kundasang Homestay | Direct Local Booking in Kundasang":
-      "Kundasang Homestay | Tempahan Terus di Kundasang",
-    "Login - Kundasang Homestay | Sign In to Your Account":
-      "Log Masuk - Kundasang Homestay",
-    "Register - Kundasang Homestay | Create Your Account":
-      "Daftar - Kundasang Homestay",
-    "Forgot Password - Kundasang Homestay":
-      "Lupa Kata Laluan - Kundasang Homestay"
-  };
+    "Message": "Mesej",
 
     /* ================================================================ *
      * list.html — Host property submission form
@@ -357,7 +343,6 @@
       "daripada pelayan kami sebaik sahaja penyenaraian anda diluluskan atau ditolak. Kami hanya menyimpan nama, butiran hubungan, dan maklumat akaun bank anda untuk tujuan pembayaran.",
     "I consent to my data being processed for verification, listing, and payout purposes as described above.":
       "Saya bersetuju data saya diproses untuk tujuan pengesahan, penyenaraian, dan pembayaran seperti yang dinyatakan di atas.",
-    "I have read and agree to the": "Saya telah membaca dan bersetuju dengan",
     "Host Agreement": "Perjanjian Pengusaha",
     "and": "dan",
     "Submit Homestay Listing for Approval": "Hantar Penyenaraian Homestay untuk Kelulusan",
@@ -365,7 +350,7 @@
       "Dengan melengkapkan borang ini, anda mengakui dasar pendaftaran kami. Rekod Kad Pengenalan dan kewangan disimpan dengan patuh pada rangka kerja keselamatan siber Sabah.",
     "Verified guest": "Tetamu Disahkan",
 
-    /* --- list.html: JS status and validation messages --- */
+    /* ---------------- list.html — JS status & validation ---------------- */
     "Upload Failed": "Muat Naik Gagal",
     "Upload Error": "Ralat Muat Naik",
     "File Exceeded": "Fail Melebihi Had",
@@ -394,6 +379,21 @@
     "✓ Secure cloud storage synchronized successfully!":
       "✓ Storan awan selamat berjaya disegerakkan!",
     "⚠️ Operation Interrupted:": "⚠️ Operasi Terhenti:"
+  };
+
+  /* Page titles, keyed by the exact English <title>. */
+  var TITLES = {
+    "Kundasang Homestay | Direct Local Booking in Kundasang":
+      "Kundasang Homestay | Tempahan Terus di Kundasang",
+    "Login - Kundasang Homestay | Sign In to Your Account":
+      "Log Masuk - Kundasang Homestay",
+    "Register - Kundasang Homestay | Create Your Account":
+      "Daftar - Kundasang Homestay",
+    "Forgot Password - Kundasang Homestay":
+      "Lupa Kata Laluan - Kundasang Homestay",
+    "List Your Property - Kundasang Homestay Host Portal":
+      "Senaraikan Hartanah Anda - Portal Pengusaha Kundasang Homestay"
+  };
 
   /* ==================================================================== *
    * Language resolution:  ?lang=  >  saved choice  >  browser preference
@@ -489,8 +489,7 @@
       LANG === 'bm' ? 'Tukar ke Bahasa Inggeris' : 'Tukar kepada Bahasa Malaysia');
     btn.title = LANG === 'bm' ? 'Tukar ke Bahasa Inggeris' : 'Tukar kepada Bahasa Malaysia';
     /* 40px circle matches the menu button. Verified not to push the
-       hamburger off-screen at 320px — see the mobile header fix in
-       styles.css, which this sits alongside. */
+       hamburger off-screen at 320px. */
     btn.style.cssText = [
       'flex:0 0 auto',
       'width:40px',
@@ -525,12 +524,11 @@
     var hamburger = row ? row.querySelector('button.lg\\:hidden') : null;
 
     if (row && hamburger) {
-      row.insertBefore(btn, hamburger);   // sits left of the menu button
+      row.insertBefore(btn, hamburger);   /* sits left of the menu button */
     } else if (row) {
-      row.appendChild(btn);               // desktop-only header
+      row.appendChild(btn);               /* desktop-only header */
     } else {
-      /* No <header> on this page (admin pages). Float it clear of the
-         mobile nav so it does not overlap. */
+      /* No <header> on this page. Float it clear of the mobile nav. */
       btn.style.position = 'fixed';
       btn.style.bottom = 'calc(84px + env(safe-area-inset-bottom, 0px))';
       btn.style.left = '12px';
