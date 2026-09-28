@@ -378,8 +378,7 @@
       "🔐 Akaun pengusaha diperlukan — membawa anda untuk membuat akaun...",
     "✓ Secure cloud storage synchronized successfully!":
       "✓ Storan awan selamat berjaya disegerakkan!",
-    "⚠️ Operation Interrupted:": "⚠️ Operasi Terhenti:"
-   };  
+    "⚠️ Operation Interrupted:": "⚠️ Operasi Terhenti:",  
        
     /* ================================================================ *
      * owner.html — Host dashboard
