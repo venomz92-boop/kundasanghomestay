@@ -1716,12 +1716,15 @@ async function loadRoomBlocks() {
       renderRoomBlockedList();
       return;
     }
-    // Whole-property entries come first: that is what most hosts want
-    // (outstation, maintenance), and it is the only option that works for a
-    // listing with no rooms defined yet.
-    const allOpts = homestayOptions.map(h => `<option value="__ALL__" data-homestay="${h.homestayId}" data-blocked='${JSON.stringify(h.blockedDates)}'>🏠 ${h.homestayName} — Whole Property (all rooms)</option>`).join('');
-    const roomOpts = rooms.map(r => `<option value="${r.roomId}" data-homestay="${r.homestayId}" data-blocked='${JSON.stringify(r.blockedDates)}'>🛏️ ${r.homestayName} – ${r.roomName}</option>`).join('');
-    selector.innerHTML = allOpts + roomOpts;
+    // On a phone the picker is only ~260px wide, so a long option label gets
+    // cut off — and the part that gets cut is "Whole Property". The meaning
+    // now lives in the <optgroup> heading (shown when the list is opened) and
+    // the option itself carries just the property or room name.
+    const allOpts = homestayOptions.map(h => `<option value="__ALL__" data-homestay="${h.homestayId}" data-blocked='${JSON.stringify(h.blockedDates)}'>${h.homestayName}</option>`).join('');
+    const roomOpts = rooms.map(r => `<option value="${r.roomId}" data-homestay="${r.homestayId}" data-blocked='${JSON.stringify(r.blockedDates)}'>${r.homestayName} – ${r.roomName}</option>`).join('');
+    selector.innerHTML =
+      (allOpts ? `<optgroup label="🏠 Whole Property — all rooms">${allOpts}</optgroup>` : '') +
+      (roomOpts ? `<optgroup label="🛏️ Single Room">${roomOpts}</optgroup>` : '');
 
   renderRoomBlockedList();
 
