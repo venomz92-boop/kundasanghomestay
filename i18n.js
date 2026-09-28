@@ -379,6 +379,145 @@
     "✓ Secure cloud storage synchronized successfully!":
       "✓ Storan awan selamat berjaya disegerakkan!",
     "⚠️ Operation Interrupted:": "⚠️ Operasi Terhenti:"
+    /* ================================================================ *
+     * owner.html — Host dashboard
+     * ================================================================ */
+
+    /* --- Header / nav --- */
+    "Host Portal": "Portal Pengusaha",
+    "Support": "Sokongan",
+    "Host :": "Pengusaha :",
+    "🏠 View Website": "🏠 Lihat Laman Web",
+    "✉️ Support": "✉️ Sokongan",
+    "🏡 List Property": "🏡 Senaraikan Hartanah",
+    "Host Dashboard": "Papan Pemuka Pengusaha",
+    "Host:": "Pengusaha:",
+    "📊 Dashboard": "📊 Papan Pemuka",
+    "Owner": "Pengusaha",
+    "View Website": "Lihat Laman Web",
+
+    /* --- Login --- */
+    "Host Login": "Log Masuk Pengusaha",
+    "Log in with your registered WhatsApp number and password.":
+      "Log masuk dengan nombor WhatsApp berdaftar dan kata laluan anda.",
+    "WhatsApp Number": "Nombor WhatsApp",
+    "Dashboard Password": "Kata Laluan Papan Pemuka",
+    "Enter Dashboard": "Masuk Papan Pemuka",
+    "Never received the verification email, or the link expired?":
+      "Tidak pernah menerima e-mel pengesahan, atau pautan telah luput?",
+    "✉️ Resend verification email": "✉️ Hantar semula e-mel pengesahan",
+
+    /* --- Dashboard header --- */
+    "Welcome,": "Selamat datang,",
+    "Manage your bookings, block dates, and track your earnings.":
+      "Uruskan tempahan anda, sekat tarikh, dan pantau pendapatan anda.",
+    "🔄 Refresh": "🔄 Muat Semula",
+
+    /* --- Metrics --- */
+    "Total Earnings": "Jumlah Pendapatan",
+    "Disbursed after guest check-in": "Dibayar selepas tetamu daftar masuk",
+    "Completed Stays": "Penginapan Selesai",
+    "Checked-in and finished transactions": "Transaksi yang sudah daftar masuk dan selesai",
+    "Upcoming Stays": "Penginapan Akan Datang",
+    "Guests arriving soon": "Tetamu yang akan tiba",
+
+    /* --- Cancellation requests --- */
+    "✋ Cancellation Requests": "✋ Permintaan Pembatalan",
+    "A guest has asked to cancel.": "Seorang tetamu telah meminta pembatalan.",
+    "You decide.": "Anda yang tentukan.",
+    "You must reply within 48 hours — or 6 hours if check-in is within 2 days. If you decline, say why: the guest can ask us to review it.":
+      "Anda mesti membalas dalam masa 48 jam — atau 6 jam jika daftar masuk dalam tempoh 2 hari. Jika anda menolak, nyatakan sebabnya: tetamu boleh meminta kami menyemaknya.",
+
+    /* --- Sections --- */
+    "Property Scope:": "Skop Hartanah:",
+    "📅 Reservation Books": "📅 Buku Tempahan",
+    "Loading your bookings...": "Memuatkan tempahan anda...",
+    "🛏️ Manage Rooms": "🛏️ Urus Bilik",
+    "Select a specific homestay above to manage its rooms.":
+      "Pilih homestay tertentu di atas untuk menguruskan biliknya.",
+    "🚫 Block Dates": "🚫 Sekat Tarikh",
+
+    /* --- Block dates (the copy we wrote earlier) --- */
+    "Block a": "Sekat",
+    "whole property": "seluruh hartanah",
+    "(for example when you are away) or a single room. Pick the dates you want to close, then press Add Block. This stops new bookings only — it does not cancel a booking that already exists.":
+      "(contohnya apabila anda berada di luar kawasan) atau satu bilik sahaja. Pilih tarikh yang anda mahu tutup, kemudian tekan Tambah Sekatan. Ini hanya menghalang tempahan baharu — ia tidak membatalkan tempahan yang sudah ada.",
+    "+ Add Block": "+ Tambah Sekatan",
+
+    /* --- Nightly rate --- */
+    "💰 Update Nightly Rate": "💰 Kemas Kini Kadar Semalaman",
+    "Current Price per Night (RM)": "Harga Semasa Semalam (RM)",
+    "Update Price": "Kemas Kini Harga",
+    "Update the base price for the selected homestay. All future bookings will use this new price.":
+      "Kemas kini harga asas untuk homestay yang dipilih. Semua tempahan akan datang akan menggunakan harga baharu ini.",
+    "Tip: Most Kundasang homestays charge between RM 150 and RM 350 per night.":
+      "Petua: Kebanyakan homestay di Kundasang mengenakan kadar antara RM 150 hingga RM 350 semalam.",
+
+    /* --- Payout & cancellation rules table --- */
+    "💸 Payout & Cancellation Rules": "💸 Peraturan Pembayaran & Pembatalan",
+    "What you and your guest receive in each situation. Amounts use a":
+      "Apa yang anda dan tetamu anda terima dalam setiap keadaan. Jumlah menggunakan",
+    "room for": "bilik untuk",
+    "1 night": "1 malam",
+    "as the example — so the guest paid": "sebagai contoh — jadi tetamu membayar",
+    "(RM 250.00 room + 11% service fee RM 27.50 + RM 1.00 gateway fee). Your real amounts depend on the booking.":
+      "(RM 250.00 bilik + 11% fi perkhidmatan RM 27.50 + RM 1.00 fi gerbang). Jumlah sebenar anda bergantung pada tempahan tersebut.",
+    "Situation": "Keadaan",
+    "You receive": "Anda terima",
+    "Guest refunded": "Tetamu dibayar balik",
+    "Who decides": "Siapa yang tentukan",
+    "✅ Guest checks in normally": "✅ Tetamu daftar masuk seperti biasa",
+    "full room price": "harga penuh bilik",
+    "No action needed": "Tiada tindakan diperlukan",
+    "🟡 Guest asks to cancel — Tier A": "🟡 Tetamu minta batal — Tahap A",
+    "(14+ days before)": "(14+ hari sebelum)",
+    "everything paid, less RM 1.00": "semua yang dibayar, ditolak RM 1.00",
+    "You accept — plenty of time to resell": "Anda terima — banyak masa untuk tempah semula",
+    "🟠 Guest asks to cancel — Tier B": "🟠 Tetamu minta batal — Tahap B",
+    "(2 to 13 days)": "(2 hingga 13 hari)",
+    "half the room price": "separuh harga bilik",
+    "You accept — short notice": "Anda terima — notis singkat",
+    "🟢 You cancel the booking": "🟢 Anda batalkan tempahan",
+    "everything they paid": "semua yang mereka bayar",
+    "You": "Anda",
+    "🔵 Platform cancels": "🔵 Platform batalkan",
+    "⚪ Guest never arrives, no contact": "⚪ Tetamu tidak hadir, tiada hubung",
+    "Rule applies automatically after 24 hours": "Peraturan digunakan secara automatik selepas 24 jam",
+    "🟣 Guest never arrives, emergency approved": "🟣 Tetamu tidak hadir, kecemasan diluluskan",
+    "50% of room price": "50% daripada harga bilik",
+    "Kundasang Homestay reviews the evidence": "Kundasang Homestay menyemak bukti",
+
+    /* --- Payout info cards --- */
+    "Payout timing": "Masa pembayaran",
+    "1–2 business days": "1–2 hari bekerja",
+    "After you confirm the guest's 6-digit check-in code. Weekend or holiday check-ins pay out the next business day.":
+      "Selepas anda mengesahkan kod daftar masuk 6 digit tetamu. Daftar masuk pada hujung minggu atau cuti akan dibayar pada hari bekerja berikutnya.",
+    "What we keep": "Apa yang kami ambil",
+    "Service fee + gateway fee": "Fi perkhidmatan + fi gerbang",
+    "RM 28.50 on this example — paid by the guest, never deducted from your room price. Zero commission from hosts.":
+      "RM 28.50 dalam contoh ini — dibayar oleh tetamu, tidak pernah ditolak daripada harga bilik anda. Sifar komisen daripada pengusaha.",
+    "Refunds": "Bayaran Balik",
+    "1–7 business days": "1–7 hari bekerja",
+    "Issued by us via CHIP back to the guest's bank. You never handle a refund yourself.":
+      "Dikeluarkan oleh kami melalui CHIP kembali ke bank tetamu. Anda tidak perlu mengendalikan bayaran balik sendiri.",
+    "We review emergency no-shows ourselves, using the facts you give us — was the guest in contact, and was the night resold. You are never asked to decide your own refund, because the refund is deducted from your payout. Full wording is in the":
+      "Kami menyemak kes tidak hadir kecemasan sendiri, menggunakan fakta yang anda berikan — adakah tetamu menghubungi, dan adakah malam itu ditempah semula. Anda tidak pernah diminta memutuskan bayaran balik anda sendiri, kerana bayaran balik itu ditolak daripada pembayaran anda. Butir penuh ada dalam",
+
+    /* --- Account settings --- */
+    "Account Settings": "Tetapan Akaun",
+    "Delete My Host Account": "Padam Akaun Pengusaha Saya",
+    "Permanently delete your host account and remove all your listings. Past booking records stay in our accounting system, but your personal details will be removed.":
+      "Padam akaun pengusaha anda secara kekal dan buang semua penyenaraian anda. Rekod tempahan lepas kekal dalam sistem perakaunan kami, tetapi butiran peribadi anda akan dibuang.",
+    "Delete Account": "Padam Akaun",
+
+    /* --- Footer --- */
+    "Host portal for managing verified Kundasang homestay listings, bookings, dates, and earnings.":
+      "Portal pengusaha untuk menguruskan penyenaraian homestay Kundasang yang disahkan, tempahan, tarikh, dan pendapatan.",
+    "Host Links": "Pautan Pengusaha",
+    "Policies": "Dasar",
+    "✓ Host ID Verification (IC + bank proof)": "✓ Pengesahan ID Pengusaha (KP + bukti bank)",
+    "✓ Payments via CHIP (FPX)": "✓ Pembayaran melalui CHIP (FPX)",
+    "✓ Payout 1–2 business days after check-in": "✓ Pembayaran 1–2 hari bekerja selepas daftar masuk",
   };
 
   /* Page titles, keyed by the exact English <title>. */
