@@ -95,6 +95,38 @@
     .kd-rules-table .kd-bad { color: #9B3B3B; }
     .kd-rules-table .kd-zero { color: #9CA3AF; }
     .kd-rules-table .kd-scenario { font-weight: 600; color: #212121; }
+
+    /* On phones the 4-column table is 538px wide but only ~262px is
+       visible, so "Who decides" was off-screen and you had to scroll
+       sideways to read it. Below 640px, stack each situation as its
+       own card with a label in front of every value instead. */
+    @media (max-width: 640px) {
+      .kd-rules-table { display: block; width: 100%; font-size: 13px; }
+      .kd-rules-table thead { display: none; }
+      .kd-rules-table tbody { display: block; }
+      .kd-rules-table tr {
+        display: block; padding: 14px;
+        border-bottom: 1px solid rgba(0,0,0,.08);
+      }
+      .kd-rules-table tbody tr:nth-child(even) { background: #FAFAF8; }
+      .kd-rules-table td {
+        display: block; padding: 5px 0; border: none;
+        white-space: normal; text-align: left;
+      }
+      .kd-rules-table td:nth-child(1) {
+        font-size: 14px; padding: 0 0 9px; margin-bottom: 7px;
+        border-bottom: 1px dashed rgba(0,0,0,.09);
+      }
+      .kd-rules-table td:nth-child(n+2)::before {
+        display: block; font-size: 10px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .07em;
+        color: #6b7280; margin-bottom: 2px;
+      }
+      .kd-rules-table td:nth-child(2)::before { content: "You receive"; }
+      .kd-rules-table td:nth-child(3)::before { content: "Guest refunded"; }
+      .kd-rules-table td:nth-child(4)::before { content: "Who decides"; }
+      .kd-rules-table .kd-amt { white-space: normal; }
+    }
   </style>
   <script src="/guest-session.js"></script>
   <script src="/csrf-auto.js"></script>
