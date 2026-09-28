@@ -1971,3 +1971,21 @@ footer > div:last-child {
 .font-600 { font-weight: 600; }
 .font-500 { font-weight: 500; }
 .font-400 { font-weight: 400; }
+
+
+/* ---------------------------------------------------------
+   MOBILE HEADER FIX
+   The desktop header row needs ~407px (padding 24 + brand 295
+   + gap 24 + button 40 + padding 24) but the brand and the
+   hamburger are both shrink-0, so below that the menu button
+   was pushed off-screen, clipped by overflow-x:hidden, and
+   impossible to tap. Let the brand shrink and tighten spacing.
+   --------------------------------------------------------- */
+@media (max-width: 430px) {
+  header > div[class] { gap: .75rem; padding-left: 16px; padding-right: 16px; }
+  header a[aria-label] { gap: .5rem; min-width: 0; }
+  header a[aria-label] img { width: 34px; height: 34px; }
+  header a[aria-label] > div { font-size: 15px; min-width: 0; }
+  header a[aria-label] > div > span { font-size: 12px; }
+  header a[aria-label] > div > div { display: none; }
+}
