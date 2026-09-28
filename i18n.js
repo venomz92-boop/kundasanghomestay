@@ -379,6 +379,8 @@
     "✓ Secure cloud storage synchronized successfully!":
       "✓ Storan awan selamat berjaya disegerakkan!",
     "⚠️ Operation Interrupted:": "⚠️ Operasi Terhenti:"
+   };  
+       
     /* ================================================================ *
      * owner.html — Host dashboard
      * ================================================================ */
