@@ -115,14 +115,20 @@ function determineEvent(event, status) {
   const ev = String(event || '').toLowerCase();
   const st = String(status || '').toLowerCase();
 
+  // Names below are from CHIP Collect's event enum. Note there is no
+  // `purchase.failed` — the failure event is `purchase.payment_failure`
+  // (insufficient funds, bank declined). There is also no `purchase.refunded`
+  // event; refund completion arrives as `payment.refunded`.
   if (ev === 'purchase.paid') return 'paid';
-  if (ev === 'purchase.failed') return 'failed';
-  if (ev === 'purchase.refunded' || ev === 'payment.refunded') return 'refunded';
+  if (ev === 'purchase.payment_failure') return 'failed';
+  if (ev === 'purchase.refund_failure') return 'refund_failed';
+  if (ev === 'payment.refunded') return 'refunded';
   if (ev === 'purchase.pending_refund') return 'pending_refund';
 
-  // Unknown event name — fall back to status.
-  if (st === 'completed' || st === 'paid') return 'paid';
-  if (st === 'failed' || st === 'cancelled') return 'failed';
+  // Unknown event name — fall back to status. The Purchase status for a
+  // failed payment is `error`, not `failed`.
+  if (st === 'paid') return 'paid';
+  if (st === 'error' || st === 'failed' || st === 'cancelled') return 'failed';
   if (st === 'refunded') return 'refunded';
   if (st === 'pending_refund') return 'pending_refund';
 
@@ -147,8 +153,14 @@ export async function onRequestPost({ request, env }) {
     const payload = await request.json();
 
     const event = payload.event;
-    const purchaseId = payload.data?.id;
-    const status = payload.data?.status;
+    const data = payload.data || {};
+    // `payment.refunded` delivers a Payment object, whose `.id` is the
+    // PAYMENT id — the Purchase id is in `.related_to.id`. Lifecycle events
+    // (`purchase.*`) deliver the Purchase itself, so `.id` is the Purchase id.
+    const purchaseId = (data.related_to && data.related_to.type === 'purchase')
+      ? data.related_to.id
+      : data.id;
+    const status = data.status;
 
     // Trim PII from logs. Only log identifiers, not the full payload.
     console.log('CHIP webhook received:', { event, purchaseId, status });
