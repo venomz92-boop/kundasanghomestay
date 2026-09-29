@@ -14,8 +14,9 @@
 // booking but its email send failed, finalizeAndNotify retries it. Before
 // this refactor, this file returned "already paid" and never re-sent.
 //
-// Uses per-booking locks (booking:<id>) instead of the global
-// 'bookings-global' lock, so different bookings no longer serialize.
+// NOTE: this file uses the GLOBAL 'bookings-global' lock (see section 5b
+// and finalizeAndNotify in _utils.js), so concurrent finalizations still
+// serialize. That is deliberate — correct settlement beats throughput.
 import {
   corsHeaders,
   getClientIP,
@@ -45,7 +46,7 @@ export async function onRequestPost({ request, env }) {
     const clientIP = getClientIP(request);
     const db = env.DB;
     if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
-    const rateOk = await checkRateLimit(db, clientIP, 'verify_payment', 10, 60);
+    const rateOk = await checkRateLimit(db, clientIP, 'verify_payment', 60, 60);
     if (!rateOk) {
       return jsonResponse({ error: 'Too many requests. Please wait a moment.' }, 429, request);
     }
