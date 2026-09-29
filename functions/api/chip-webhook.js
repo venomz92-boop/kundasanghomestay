@@ -423,6 +423,62 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ============================================================
+    // EVENT: REFUND FAILED
+    //
+    // `purchase.refund_failure` — a refund we requested did not complete.
+    //
+    // IMPORTANT: do NOT put "Failed" into the booking status here.
+    // mybookings.html computes
+    //   isRefundPending  = status contains "refund" AND "pending"
+    //   isRefundComplete = status contains "refund" AND NOT "pending"
+    // so a status like "Refund Failed" is rendered to the guest as
+    // "Refunded" — a false claim that money is on its way.
+    // `refund_error` alone is the signal: admin.html shows its retry
+    // button on it, and mybookings.html uses it for the correct
+    // "refund could not be sent, our team is handling it" message.
+    // ============================================================
+    if (effectiveEvent === 'refund_failed') {
+      try {
+        await withLock(db, 'bookings-global', async (db) => {
+          const rr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+          let bb = [];
+          try { if (rr?.data) bb = JSON.parse(rr.data); } catch (_) {}
+          const ii = bb.findIndex(b => String(b.id) === String(booking.id));
+          if (ii === -1) return;
+          const cur = bb[ii];
+          bb[ii] = {
+            ...cur,
+            refund_error: payload.data?.error || payload.data?.message || 'CHIP refund failed',
+            refund_failed_at: new Date().toISOString(),
+            statusUpdated: new Date().toISOString()
+          };
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind('kd_bookings', JSON.stringify(bb))
+            .run();
+          console.log(`Booking ${booking.id} refund FAILED — flagged for admin retry`);
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          console.warn(`Webhook refund_failed-event: lock busy for ${booking.id}. Reconcile later.`);
+        } else {
+          throw lockErr;
+        }
+      }
+
+      await logAction({
+        db,
+        action: 'chip_refund_failed',
+        admin: 'webhook',
+        details: `CHIP reported a failed refund for ${booking.id} (purchase ${purchaseId}). Retry from the admin bookings list.`,
+        ip: getClientIP(request),
+        userId: booking.guestId,
+        homestayId: booking.homestayId
+      });
+
+      return new Response('OK', { status: 200, headers: corsHeaders(request) });
+    }
+
+    // ============================================================
     // EVENT: UNKNOWN — log and accept. Don't retry, since CHIP sending
     // us something we don't recognize is not our problem to fix.
     // ============================================================
