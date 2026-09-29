@@ -334,6 +334,7 @@ export async function onRequestPost({ request, env }) {
           ...cur,
           status: isRetry ? 'Pending Payment' : cur.status,
           date: isRetry ? nowIso : cur.date,
+          failed_at: null,
           statusUpdated: nowIso,
           chip_purchase_id: data.id,
           chip_checkout_url: data.checkout_url,
