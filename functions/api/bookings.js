@@ -850,6 +850,7 @@ export async function onRequestPost({ request, env }) {
             existingOwn.reopenedAt = new Date().toISOString();
             existingOwn.reopenCount = (existingOwn.reopenCount || 0) + 1;
             delete existingOwn.lastPayoutError;
+            existingOwn.failed_at = null;
             wasReopened = true;
             await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
               .bind('kd_bookings', JSON.stringify(allBookings))
