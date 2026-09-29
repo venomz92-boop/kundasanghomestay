@@ -241,7 +241,9 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ===== 5b. CHIP says cancelled / expired / failed =====
-    if (purchaseStatus === 'cancelled' || purchaseStatus === 'expired' || purchaseStatus === 'failed') {
+    // CHIP's failure status is `error` (insufficient funds / declined), not
+    // `failed`. Omitting it made every bank decline look like "still pending".
+    if (purchaseStatus === 'cancelled' || purchaseStatus === 'expired' || purchaseStatus === 'failed' || purchaseStatus === 'error') {
       let writeResult;
       try {
         writeResult = await withLock(db, 'bookings-global', async (db) => {
