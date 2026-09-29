@@ -87,14 +87,34 @@ const BOOKINGS_LOCK = 'bookings-global';
 // This also fixes: "Refund Pending - Awaiting CHIP" was blocking its
 // dates because the old regex only matched `refunded`, not `refund`.
 const LIVE_STATUSES = new Set([
-  'Pending Payment',
   'Paid - Awaiting Check-in',
   'Completed',
   'Completed - Payout Pending'
 ]);
 
-function isDeadBookingStatus(status) {
-  return !LIVE_STATUSES.has(String(status || ''));
+// Statuses that occupy their dates only until their hold expires.
+const HOLD_STATUSES = new Set(['Pending Payment', 'Payment Failed']);
+
+// When did this booking's current hold start?
+// A failed payment starts a FRESH 15 minutes from the failure, so a
+// guest whose bank was declined (or whose signal dropped) can retry
+// without losing the room.
+function holdAnchor(b) {
+  if (String(b.status || '') === 'Payment Failed') {
+    return Date.parse(b.failed_at || b.statusUpdated || b.date || '') || 0;
+  }
+  return Date.parse(b.date || '') || 0;
+}
+
+// true  = still occupies its dates
+// false = dead, or its hold has run out and the dates are free again
+function isBlockingDates(b, now) {
+  const s = String(b.status || '');
+  if (HOLD_STATUSES.has(s)) {
+    const t = holdAnchor(b);
+    return t > 0 && (now - t) <= PENDING_EXPIRY_MS;
+  }
+  return LIVE_STATUSES.has(s);
 }
 
 // ============================================================
@@ -705,10 +725,11 @@ export async function onRequestGet({ request, env }) {
       .map(pickPublicFields);
 
     const availability = {};
+    const now = Date.now();
     for (const h of safeApproved) {
       const homestayId = String(h.id);
       availability[homestayId] = bookings
-        .filter(b => String(b.homestayId) === homestayId && !isDeadBookingStatus(b.status))
+        .filter(b => String(b.homestayId) === homestayId && isBlockingDates(b, now))
         .flatMap(b => getDatesInRange(b.checkin, b.checkout));
     }
 
@@ -861,7 +882,7 @@ export async function onRequestPost({ request, env }) {
           const isPending = s === 'Pending Payment';
           const isFailed = s === 'Payment Failed';
           if (!isPending && !isFailed) return b;
-          const stamp = b.date ? Date.parse(b.date) : 0;
+          const stamp = holdAnchor(b);
           if (!stamp) return b;
           const isStale = (now - stamp) > PENDING_EXPIRY_MS;
           if (!isStale) return b;
@@ -882,10 +903,10 @@ export async function onRequestPost({ request, env }) {
             ? String(b.roomId) === String(selectedRoom.id)
             : String(b.homestayId) === String(homestay.id);
           return roomMatch &&
-                 !isDeadBookingStatus(b.status) &&
-                 !isOwnPending &&
-                 checkin < String(b.checkout||'') &&
-                 checkout > String(b.checkin||'');
+               isBlockingDates(b, now) &&
+               !isOwnPending &&
+               checkin < String(b.checkout||'') &&
+               checkout > String(b.checkin||'');
         });
         if (overlaps) {
           return { error: 'Selected dates are already booked for this room', status: 400 };
@@ -1024,7 +1045,7 @@ export async function onRequestPost({ request, env }) {
           bookings[idx] = {
             ...b,
             status: 'Payment Failed',
-            failed_at: new Date().toISOString(),
+            failed_at: b.failed_at || new Date().toISOString(),
             statusUpdated: new Date().toISOString()
           };
 
