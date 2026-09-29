@@ -293,7 +293,12 @@ export async function onRequestPost({ request, env }) {
             console.log(`Booking ${booking.id} already terminal (${currentStatus}) — ignoring failed event.`);
             return;
           }
-          bb[ii] = { ...cur, status: 'Payment Failed', chip_status: 'failed' };
+          bb[ii] = {
+            ...cur,
+            status: 'Payment Failed',
+            chip_status: 'failed',
+            failed_at: cur.failed_at || new Date().toISOString()
+          };
           await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
             .bind('kd_bookings', JSON.stringify(bb))
             .run();
