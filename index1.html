@@ -564,7 +564,10 @@ and
 </div>
 <!-- ===== UNIFIED THANK YOU & RECEIPT MODAL ===== -->
 <div id="thankyouModal" class="modal-overlay thankyou-modal">
-<div class="modal-box max-w-[500px]">
+<div class="modal-box max-w-[500px]" style="position:relative;">
+<button type="button" onclick="closeThankYouModal()"
+style="position:absolute; top:12px; right:12px; width:36px; height:36px; border-radius:999px; background:rgba(0,0,0,0.06); border:none; color:#52525b; font-size:16px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:20;"
+aria-label="Close confirmation">✕</button>
 <div class="modal-body text-center p-6 md:p-8">
 <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">🎉</div>
 <div class="font-poppins font-800 text-[22px] text-[#0F382E]">Booking Confirmed!</div>
@@ -579,8 +582,7 @@ We have emailed your booking receipt and check-in instructions. Screenshot this 
 </p>
 </div>
 <div class="modal-footer justify-center bg-zinc-50 flex-col sm:flex-row gap-2 border-t px-6 py-4">
-<button onclick="viewMyBookingsFromThankYou()" class="btn-primary w-full sm:w-auto bg-[#0F382E] hover:bg-[#1a4d3e]" aria-label="View my bookings">View My Bookings →</button>
-<button onclick="whatsappOwnerFromThankYou()" class="btn-whatsapp w-full sm:w-auto justify-center" aria-label="Send booking details to host via WhatsApp">💬 Send to Host</button>
+<button onclick="whatsappOwnerFromThankYou()" class="btn-whatsapp w-full sm:w-auto justify-center" aria-label="Send booking details to host via WhatsApp">💬 Send Confirmation to Host</button>
 </div>
 </div>
 </div>
@@ -972,6 +974,11 @@ document.body.style.overflow = '';
 // THANK YOU & RECEIPT MODAL LOGIC
 // =============================================================
 var lastBookingDetails = null;
+function closeThankYouModal() {
+var overlay = document.getElementById('thankyouModal');
+if (overlay) overlay.classList.remove('active');
+document.body.style.overflow = '';
+}  
 function showThankYouModal(bookingId, customBookingData) {
 var overlay = document.getElementById('thankyouModal');
 var idEl = document.getElementById('thankyouBookingId');
