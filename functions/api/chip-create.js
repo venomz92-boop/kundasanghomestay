@@ -100,6 +100,19 @@ export async function onRequestPost({ request, env }) {
       }, 200, request);
     }
 
+    // Dead booking — hold released, cancelled, or refunded. A CHIP purchase
+    // created now would only be discarded, so stop before calling CHIP and
+    // tell the guest what to do next.
+    if (/cancelled|refunded|expired|abandoned/i.test(s)) {
+      return jsonResponse({
+        success: false,
+        alreadyPaid: false,
+        retry: false,
+        message: 'Your hold has ended and the dates were released. Please make a new booking.',
+        bookingId: booking.id
+      }, 200, request);
+    }
+
     // [PHASE 2 FIX] Validate the amount before sending anything to CHIP.
     // Before: if booking.total was undefined / null / non-numeric,
     // Math.round(NaN * 100) was NaN, and JSON.stringify turned that into
