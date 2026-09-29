@@ -261,6 +261,7 @@ export async function onRequestPost({ request, env }) {
             ...cur,
             status: 'Payment Failed',
             chip_status: purchaseStatus,
+            failed_at: cur.failed_at || new Date().toISOString(),
             statusUpdated: new Date().toISOString()
           };
           await db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
