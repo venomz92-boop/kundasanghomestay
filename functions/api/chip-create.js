@@ -270,6 +270,11 @@ export async function onRequestPost({ request, env }) {
         ]
       },
       brand_id: env.CHIP_BRAND_ID,
+      // Lock the payform to FPX. Our entire fee model — RM 1.00 per payment,
+      // RM 1.00 per refund, and the Tier A "less RM 1.00" wording — is based
+      // on FPX B2C. Cards cost 1–3% and carry NO refund fee, so allowing them
+      // would silently break both the cost accounting and the published tiers.
+      payment_method_whitelist: ['fpx'],
       skip_thank_you: true,
       platform: 'web',
       success_redirect: `${domain}/?booking=${encodeURIComponent(booking.id)}&payment_return=1`,
