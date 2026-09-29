@@ -64,7 +64,8 @@ const DEFAULT_PAGE_SIZE = 50;
 const DEFAULT_APPROVED_PAGE_SIZE = 100;
 const DEFAULT_PENDING_PAGE_SIZE = 100;
 const GATEWAY_FEE = 1.00;
-const PENDING_EXPIRY_MS = 15 * 60 * 1000;
+const PENDING_PAYMENT_HOLD_MS = 30 * 60 * 1000;
+const PAYMENT_FAILED_HOLD_MS = 15 * 60 * 1000;
 
 // CHIP's FPX B2C fees. Keep in sync with owner-update-booking.js and
 // refund-cancellation.html.
@@ -96,14 +97,24 @@ const LIVE_STATUSES = new Set([
 const HOLD_STATUSES = new Set(['Pending Payment', 'Payment Failed']);
 
 // When did this booking's current hold start?
-// A failed payment starts a FRESH 15 minutes from the failure, so a
-// guest whose bank was declined (or whose signal dropped) can retry
-// without losing the room.
+// A failed payment starts a FRESH window from the failure, so a guest
+// whose bank was declined (or whose signal dropped) can retry without
+// losing the room.
 function holdAnchor(b) {
   if (String(b.status || '') === 'Payment Failed') {
     return Date.parse(b.failed_at || b.statusUpdated || b.date || '') || 0;
   }
   return Date.parse(b.date || '') || 0;
+}
+
+// How long this booking's hold lasts, based on its current status.
+// Single source of truth — used by BOTH the availability feed and the
+// cleanup sweep, so what the calendar shows always matches what the
+// sweep will do.
+function holdDurationMs(b) {
+  return String(b.status || '') === 'Payment Failed'
+    ? PAYMENT_FAILED_HOLD_MS
+    : PENDING_PAYMENT_HOLD_MS;
 }
 
 // true  = still occupies its dates
@@ -112,7 +123,7 @@ function isBlockingDates(b, now) {
   const s = String(b.status || '');
   if (HOLD_STATUSES.has(s)) {
     const t = holdAnchor(b);
-    return t > 0 && (now - t) <= PENDING_EXPIRY_MS;
+    return t > 0 && (now - t) <= holdDurationMs(b);
   }
   return LIVE_STATUSES.has(s);
 }
@@ -734,7 +745,7 @@ export async function onRequestGet({ request, env }) {
     }
 
     return jsonResponse({ approved: safeApproved, availability }, 200, request, {
-      'Cache-Control': 'public, max-age=60, stale-while-revalidate=120'
+      'Cache-Control': 'no-store'
     });
 
   } catch (e) {
@@ -885,7 +896,7 @@ export async function onRequestPost({ request, env }) {
           if (!isPending && !isFailed) return b;
           const stamp = holdAnchor(b);
           if (!stamp) return b;
-          const isStale = (now - stamp) > PENDING_EXPIRY_MS;
+          const isStale = (now - stamp) > holdDurationMs(b);
           if (!isStale) return b;
           const roomMatch = selectedRoom
             ? String(b.roomId) === String(selectedRoom.id)
