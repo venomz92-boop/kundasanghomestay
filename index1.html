@@ -145,6 +145,15 @@ box-shadow: 0 0 0 1px #d5ecdf;
 .calendar-day.selected-end.today {
 border-color: var(--primary) !important;
 }
+.date-fmt {
+font-size: 11px;
+font-weight: 700;
+color: #0F382E;
+margin-top: 3px;
+letter-spacing: 0.3px;
+font-family: 'Poppins', sans-serif;
+}
+.date-fmt:empty { display: none; }
 .calendar-pick-hint {
 display: flex;
 align-items: center;
@@ -815,13 +824,51 @@ FORCE_HTTPS: true
 
 // [FIX] Formats an ISO date (YYYY-MM-DD) as "25 Sep 2026" for guest-facing text.
 // The +08:00 offset keeps Malaysian dates from slipping back a day.
+// Day-first, zero-padded: "05 Oct 2026".
+// The zero-padding matters. A bare "5/10/2026" is read as 5 October by
+// a Malaysian guest but as 10 May by anyone whose browser is on a US
+// locale. Spelling the month out removes the ambiguity completely.
 function myDate(iso) {
-if (!iso) return 'N/A';
-var d = new Date(iso + 'T00:00:00+08:00');
-if (isNaN(d.getTime())) return iso;
-var m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-return d.getDate() + ' ' + m[d.getMonth()] + ' ' + d.getFullYear();
+  if (!iso) return 'N/A';
+  var d = new Date(iso + 'T00:00:00+08:00');
+  if (isNaN(d.getTime())) return iso;
+  var m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return String(d.getDate()).padStart(2, '0') + ' ' + m[d.getMonth()] + ' ' + d.getFullYear();
 }
+
+// Native <input type="date"> ALWAYS renders in the browser's locale, so
+// we cannot restyle the box itself. Instead we print the same date in
+// "05 Oct 2026" underneath every date field, so the guest can always see
+// which day they actually picked. Runs on every change, and re-adds the
+// label when a modal re-renders its innerHTML.
+function attachDateFormats() {
+  var inputs = document.querySelectorAll('input[type="date"]');
+  for (var i = 0; i < inputs.length; i++) {
+    var input = inputs[i];
+    if (!input.id) continue;
+    var labelId = input.id + 'Fmt';
+    var label = document.getElementById(labelId);
+    if (!label) {
+      label = document.createElement('div');
+      label.id = labelId;
+      label.className = 'date-fmt';
+      input.parentNode.insertBefore(label, input.nextSibling);
+    }
+    if (input.value) {
+      label.textContent = myDate(input.value);
+      label.style.display = 'block';
+    } else {
+      label.textContent = '';
+      label.style.display = 'none';
+    }
+  }
+}
+
+// Safety net — covers any date field we haven't explicitly hooked,
+// including ones added later.
+document.addEventListener('change', function (e) {
+  if (e.target && e.target.type === 'date') attachDateFormats();
+});
 
 // =============================================================
 // [RETURN-TO-BOOKING] Pending intent helpers
@@ -966,6 +1013,12 @@ return showModal(title, message, [
 ]);
 }
 window.showConfirm = showConfirm;
+// Label the home-page search boxes as soon as the page is ready.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', attachDateFormats);
+} else {
+  attachDateFormats();
+}
 document.addEventListener('keydown', function(e) {
 if (e.key === 'Escape') {
 // Locked progress modal (payment in flight) — never close it.
@@ -1664,6 +1717,9 @@ box.innerHTML = safeHTML(`
   }
 window._selectedRoom = selectedRoom;
 window._selectedPricePerNight = pricePerNight;
+// Keeps the "05 Oct 2026" labels under the date boxes in step with
+// whichever date the guest just tapped on the calendar.
+attachDateFormats();
 }
 function updateRoomImages() {
 const gallery = document.getElementById('roomImageGallery');
@@ -1781,6 +1837,7 @@ summaryEl.innerHTML = safeHTML(`
 // Update Pay Button with exact amount for better UX
 var payBtn = document.getElementById("payFpxBtn");
 if (payBtn && !payBtn.disabled) payBtn.innerHTML = 'Pay RM ' + p.total.toFixed(2) + ' via FPX';
+attachDateFormats();
 }
 
 // =============================================================
