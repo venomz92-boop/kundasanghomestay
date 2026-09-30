@@ -1071,16 +1071,32 @@ if (s.indexOf('expired') !== -1) {
 return { key: 'expired', badgeClass: 'badge-cancelled', badgeLabel: 'Expired', note: 'This booking expired before payment was completed. The dates have been released.', buttons: [] };
 }
 if (s.indexOf('completed') !== -1 || hasPayoutDate) {
-// One review per completed stay. `reviewed` is set by the guest
-// branch of /api/bookings.
-return {
-key: 'completed',
-badgeClass: 'badge-paid',
-badgeLabel: '✓ Completed',
-note: b.reviewed ? 'Thanks for reviewing this stay.' : '',
-buttons: b.reviewed ? [] : ['review']
-};
-}
+        // `myReview` comes from the guest branch of /api/bookings and
+        // carries the review id, so the guest can edit or delete it.
+        if (b.reviewed && b.myReview) {
+          var rvN = Math.max(0, Math.min(5, Number(b.myReview.rating) || 0));
+          var rvSolid = '';
+          var rvHollow = '';
+          for (var rvA = 0; rvA < rvN; rvA++) rvSolid += '★';
+          for (var rvB = rvN; rvB < 5; rvB++) rvHollow += '★';
+          return {
+            key: 'completed',
+            badgeClass: 'badge-paid',
+            badgeLabel: '✓ Completed',
+            note: 'You rated this stay ' +
+              '<span style="color:#f59e0b;font-size:14px;letter-spacing:1.5px;vertical-align:-1px;">' + rvSolid + '</span>' +
+              '<span style="color:#d4d4d8;font-size:14px;letter-spacing:1.5px;vertical-align:-1px;">' + rvHollow + '</span>',
+            buttons: ['editReview', 'deleteReview']
+          };
+        }
+        return {
+          key: 'completed',
+          badgeClass: 'badge-paid',
+          badgeLabel: '✓ Completed',
+          note: '',
+          buttons: ['review']
+        };
+      }
 if (s.indexOf('fail') !== -1) {
 return { key: 'failed', badgeClass: 'badge-failed', badgeLabel: 'Payment Failed', note: 'Your payment didn\'t go through. Click Retry Payment to try again.', buttons: ['checkStatus', 'retryPayment'] };
 }
@@ -1131,6 +1147,12 @@ html += '<button class="text-xs bg-white text-zinc-600 px-3 py-1.5 rounded-full 
 }
 if (actions.indexOf('review') !== -1) {
 html += '<button class="text-xs bg-amber-50 text-amber-800 px-3 py-1.5 rounded-full border border-amber-300 hover:bg-amber-100 transition action-btn" data-action="review" data-id="' + id + '">★ Leave a Review</button>';
+}
+if (actions.indexOf('editReview') !== -1) {
+html += '<button class="text-xs bg-white text-[#0F382E] px-3 py-1.5 rounded-full border border-[#0F382E]/30 hover:bg-[#0F382E]/5 transition action-btn" data-action="editReview" data-id="' + id + '">✎ Edit Review</button>';
+}
+if (actions.indexOf('deleteReview') !== -1) {
+html += '<button class="text-xs bg-white text-red-600 px-3 py-1.5 rounded-full border border-red-200 hover:bg-red-50 transition action-btn" data-action="deleteReview" data-id="' + id + '">🗑 Delete Review</button>';
 }
 return html;
 }
@@ -1365,7 +1387,7 @@ var id = btn.dataset.id;
 if (!action || !id) return;
 e.preventDefault();
 
-var labels = { checkStatus: 'Checking…', retryPayment: 'Redirecting…', resendCode: 'Sending…', requestCancellation: 'Loading…', withdrawRequest: 'Withdrawing…' };
+var labels = { checkStatus: 'Checking…', retryPayment: 'Redirecting…', resendCode: 'Sending…', requestCancellation: 'Loading…', withdrawRequest: 'Withdrawing…', review: 'Opening…', editReview: 'Opening…', deleteReview: 'Removing…' };
 var resetBtn = setButtonLoading(btn, labels[action] || 'Working…');
 
 try {
@@ -1375,6 +1397,8 @@ else if (action === 'resendCode') await resendCode(id);
 else if (action === 'requestCancellation') await openCancellationRequestModal(id);
 else if (action === 'withdrawRequest') await withdrawCancellationRequest(id);
 else if (action === 'review') await openReviewModal(id);
+else if (action === 'editReview') await openReviewModal(id, true);
+else if (action === 'deleteReview') await deleteMyReview(id);
 } finally {
 resetBtn();
 }
@@ -1409,12 +1433,15 @@ function ensureReviewStyles() {
   document.head.appendChild(st);
 }
 
-function openReviewModal(bookingId) {
+function openReviewModal(bookingId, isEdit) {
   var b = null;
   for (var i = 0; i < myBookings.length; i++) {
     if (String(myBookings[i].id) === String(bookingId)) { b = myBookings[i]; break; }
   }
   if (!b) return;
+
+  var existing = (isEdit && b.myReview) ? b.myReview : null;
+  if (isEdit && !existing) return;
 
   ensureReviewStyles();
 
@@ -1423,7 +1450,7 @@ function openReviewModal(bookingId) {
   overlay.innerHTML =
     '<div class="rv-card">' +
       '<div class="rv-head">' +
-        '<div class="rv-title">Rate your stay</div>' +
+        '<div class="rv-title">' + (existing ? 'Edit your review' : 'Rate your stay') + '</div>' +
         '<button type="button" class="rv-close" aria-label="Close">✕</button>' +
       '</div>' +
       '<div class="rv-sub">' + escapeAttr(b.homestay || 'Your stay') + '</div>' +
@@ -1432,15 +1459,17 @@ function openReviewModal(bookingId) {
       '<div class="rv-err" id="rvErr" style="display:none;"></div>' +
       '<div class="rv-actions">' +
         '<button type="button" class="rv-btn rv-cancel">Cancel</button>' +
-        '<button type="button" class="rv-btn rv-submit" id="rvSubmit">Submit Review</button>' +
+        '<button type="button" class="rv-btn rv-submit" id="rvSubmit">' + (existing ? 'Update Review' : 'Submit Review') + '</button>' +
       '</div>' +
     '</div>';
   document.body.appendChild(overlay);
   document.body.style.overflow = 'hidden';
 
-  var rating = 0;
+  var rating = existing ? (Number(existing.rating) || 0) : 0;
   var starsEl = overlay.querySelector('#rvStars');
   var errEl = overlay.querySelector('#rvErr');
+  var taEl = overlay.querySelector('#rvComment');
+  if (existing && existing.comment) taEl.value = existing.comment;
 
   function paintStars() {
     starsEl.innerHTML = '';
@@ -1468,44 +1497,77 @@ function openReviewModal(bookingId) {
 
   overlay.querySelector('#rvSubmit').onclick = async function () {
     var btn = overlay.querySelector('#rvSubmit');
+    var label = existing ? 'Update Review' : 'Submit Review';
     if (!rating) {
       errEl.textContent = 'Please pick a star rating first.';
       errEl.style.display = 'block';
       return;
     }
     btn.disabled = true;
-    btn.textContent = 'Submitting…';
+    btn.textContent = 'Saving…';
     try {
       var csrf = localStorage.getItem('kd_csrf_token') || await fetchGuestCsrfToken();
+      var payload = existing
+        ? { action: 'update', reviewId: existing.id, rating: rating, comment: taEl.value }
+        : { action: 'create', bookingId: bookingId, rating: rating, comment: taEl.value };
       var res = await fetch(API_BASE + '/reviews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
         credentials: 'include',
-        body: JSON.stringify({
-          bookingId: bookingId,
-          rating: rating,
-          comment: overlay.querySelector('#rvComment').value
-        })
+        body: JSON.stringify(payload)
       });
       var data = await res.json();
       if (!res.ok || !data.success) {
         errEl.textContent = data.error || 'Could not save your review. Please try again.';
         errEl.style.display = 'block';
         btn.disabled = false;
-        btn.textContent = 'Submit Review';
+        btn.textContent = label;
         return;
       }
       close();
-      await showAlert('Thank you! ⭐', data.message || 'Your review is now live on the listing.');
+      await showAlert(existing ? 'Review updated' : 'Thank you! ⭐', data.message || 'Saved.');
       await loadMyBookings();
     } catch (e) {
       errEl.textContent = 'Could not reach the server. Please try again.';
       errEl.style.display = 'block';
       btn.disabled = false;
-      btn.textContent = 'Submit Review';
+      btn.textContent = label;
     }
   };
-}   
+}
+
+async function deleteMyReview(bookingId) {
+  var b = null;
+  for (var i = 0; i < myBookings.length; i++) {
+    if (String(myBookings[i].id) === String(bookingId)) { b = myBookings[i]; break; }
+  }
+  if (!b || !b.myReview) return;
+
+  var ok = await showConfirm(
+    'Delete your review?',
+    'This removes your star rating and comment from the listing. You can write a new review afterwards.'
+  );
+  if (!ok) return;
+
+  try {
+    var csrf = localStorage.getItem('kd_csrf_token') || await fetchGuestCsrfToken();
+    var res = await fetch(API_BASE + '/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+      credentials: 'include',
+      body: JSON.stringify({ action: 'delete', reviewId: b.myReview.id })
+    });
+    var data = await res.json();
+    if (!res.ok || !data.success) {
+      await showAlert('Could Not Delete', data.error || 'Please try again.');
+      return;
+    }
+    await showAlert('Review Removed', data.message || 'Your review has been removed.');
+    await loadMyBookings();
+  } catch (e) {
+    await showAlert('Network Error', 'Could not reach the server. Please try again.');
+  }
+}
 async function manualCheckPayment(bookingId) {
 try {
 const result = await checkPaymentStatus(bookingId);
