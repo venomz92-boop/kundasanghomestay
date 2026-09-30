@@ -596,12 +596,12 @@ export async function onRequestGet({ request, env }) {
     // loads — read kd_guests and every other blob.
     let keys;
     if (!forceAdminView && guestSession && guestSession.type === 'guest') {
-      keys = ['kd_bookings'];
+    keys = ['kd_bookings', 'kd_reviews'];
     } else if (isAdmin) {
       keys = ['kd_bookings', 'kd_approved', 'kd_pending', 'kd_guests',
               'kd_demo_overrides', 'kd_demo_blocked', 'kd_deleted_demo'];
     } else {
-      keys = ['kd_bookings', 'kd_approved'];
+      keys = ['kd_bookings', 'kd_approved', 'kd_reviews'];
     }
 
     const stmts = keys.map(key => db.prepare('SELECT data FROM store WHERE key = ?').bind(key));
@@ -634,9 +634,14 @@ export async function onRequestGet({ request, env }) {
     //
     // Escape hatch: `?view=admin` forces admin view, but only when the
     // request is ALSO authentically admin-authenticated.
-    if (!forceAdminView && guestSession && guestSession.type === 'guest') {
-      const mine = bookings.filter(b => String(b.guestId) === String(guestSession.userId));
-      const paginated = mine.slice(offset, offset + limit);
+  if (!forceAdminView && guestSession && guestSession.type === 'guest') {
+    const mine = bookings.filter(b => String(b.guestId) === String(guestSession.userId));
+    const guestReviews = Array.isArray(dataMap['kd_reviews']) ? dataMap['kd_reviews'] : [];
+    const reviewedIds = new Set(guestReviews.map(r => String(r.bookingId)));
+    const paginated = mine.slice(offset, offset + limit).map(b => ({
+      ...b,
+      reviewed: reviewedIds.has(String(b.id))
+    }));
       return jsonResponse({
         bookings: paginated,
         total: mine.length,
@@ -731,9 +736,29 @@ export async function onRequestGet({ request, env }) {
     }
 
     // ============ PUBLIC BRANCH ============
+    // Real ratings come from kd_reviews, not the stored rating/reviews
+    // fields (which nothing ever wrote to). A listing with no reviews
+    // reports 0 / 0 and the card shows "New".
+    const allReviews = Array.isArray(dataMap['kd_reviews']) ? dataMap['kd_reviews'] : [];
+    const ratingMap = {};
+    for (const r of allReviews) {
+      const k = String(r.homestayId);
+      if (!ratingMap[k]) ratingMap[k] = { sum: 0, count: 0 };
+      ratingMap[k].sum += Number(r.rating) || 0;
+      ratingMap[k].count += 1;
+    }
+
     const safeApproved = approved
       .filter(h => h && h.approved === true)
-      .map(pickPublicFields);
+      .map(pickPublicFields)
+      .map(h => {
+        const agg = ratingMap[String(h.id)];
+        return {
+          ...h,
+          rating: agg ? Math.round((agg.sum / agg.count) * 10) / 10 : 0,
+          reviews: agg ? agg.count : 0
+        };
+      });
 
     const availability = {};
     const now = Date.now();
