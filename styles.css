@@ -711,20 +711,27 @@ textarea.form-input { resize: none; }
   width: 100%;
   height: 100%;
 }
+/* Free dates stay PLAIN on purpose — a white card with a dark number.
+   A filled colour is the universal "unavailable" signal, so painting
+   every free date green made an open month read as fully blocked.
+   Now the month stays quiet and only the guest's own pick is coloured. */
 .calendar-day.available {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
-  color: #166534;
+  background: #ffffff;
+  border-color: #e7e7ea;
+  color: #212121;
 }
 .calendar-day.booked {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #991b1b;
+  background: #f6f6f7;
+  border-color: #ededf0;
+  color: #b4b4bb;
   text-decoration: line-through;
+  text-decoration-color: #d4d4d8;
 }
 .calendar-day.today {
   border-color: var(--primary);
   border-width: 2px;
+  color: var(--primary);
+  font-weight: 700;
 }
 .calendar-day.empty {
   background: transparent;
@@ -771,12 +778,16 @@ textarea.form-input { resize: none; }
   display: inline-block;
 }
 .calendar-legend .dot.green {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: #ffffff;
+  border: 1px solid #d9d9de;
 }
 .calendar-legend .dot.red {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: #f6f6f7;
+  border: 1px solid #ededf0;
+}
+.calendar-legend .dot.sel {
+  background: #0F382E;
+  border: 1px solid #0F382E;
 }
 .calendar-legend .dot.today-dot {
   border: 2px solid var(--primary);
