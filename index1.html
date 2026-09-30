@@ -1300,7 +1300,7 @@ return '' +
 '<div class="h-[240px] w-full relative overflow-hidden bg-zinc-100">' +
 '<img src="' + (h.image || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800') + '" loading="lazy" alt="' + h.name + '" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onerror="this.src=\'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800\'"/>' +
 '<div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">' +
-'<span class="font-poppins font-700 text-[11px] text-[#212121]">' + (h.rating ? h.rating.toFixed(1) + ' ★' : 'New') + '</span>' +
+'<span class="font-poppins font-700 text-[11px] text-[#212121]">' + (h.rating ? h.rating.toFixed(1) + ' ★' + (h.reviews ? ' (' + h.reviews + ')' : '') : 'New') + '</span>' +
 '</div>' +
 (h.verified ? '<div class="absolute top-4 left-[76px] bg-[#D4A373] text-[#0F382E] text-[10px] px-2.5 py-1 rounded-full font-700 uppercase tracking-wider shadow-sm">Verified</div>' : '') +
 '</div>' +
@@ -1409,6 +1409,7 @@ ${selectedHomestay.verified ? '<span class="badge-verified text-xs px-3 py-1 fon
 <h2 class="text-2xl md:text-3xl font-bold font-poppins mt-3 text-[#212121]">${selectedHomestay.name}</h2>
 <p class="text-sm text-zinc-500 mt-1">Up to ${guestCount} guests • ${bedroomLabel}</p>
 <p class="text-sm mt-3 leading-relaxed text-zinc-700">${selectedHomestay.description || "A cozy mountain retreat in Kundasang. Feel free to ask the host for more details!"}</p>
+<div id="detailReviews" class="mt-4"></div>
 <div class="mt-6 bg-zinc-50 border p-4 rounded-2xl">
 <h4 class="font-bold text-xs uppercase tracking-wider text-zinc-700">Room Selection</h4>
 ${roomsHtml}
@@ -1450,7 +1451,50 @@ calContainer._currentYear = null;
 }
 renderAvailabilityCalendar(selectedHomestay, "detailAvailabilityCalendar");
 updateDetailPrice();
+loadDetailReviews(selectedHomestay.id);
 }
+// =============================================================
+// REVIEWS — pulled on demand when the detail modal opens, so the
+// listing grid stays a single request.
+// =============================================================
+function loadDetailReviews(homestayId) {
+  var host = document.getElementById('detailReviews');
+  if (!host) return;
+  host.innerHTML = '<div class="text-xs text-zinc-400">Loading reviews…</div>';
+
+  fetch(API_BASE + '/reviews?homestayId=' + encodeURIComponent(homestayId), { cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var list = Array.isArray(d.reviews) ? d.reviews : [];
+      if (list.length === 0) {
+        host.innerHTML = '<div class="text-xs text-zinc-400">No reviews yet — be the first to stay and rate it.</div>';
+        return;
+      }
+      var avg = Number(d.average || 0).toFixed(1);
+      var html =
+        '<div class="flex items-center gap-2 mb-1">' +
+          '<span class="font-poppins font-700 text-[15px] text-[#212121]">' + avg + ' ★</span>' +
+          '<span class="text-xs text-zinc-500">' + list.length + ' review' + (list.length === 1 ? '' : 's') + '</span>' +
+        '</div>';
+      list.slice(0, 5).forEach(function (rv) {
+        var n = Math.max(1, Math.min(5, Number(rv.rating) || 0));
+        var stars = '';
+        for (var i = 0; i < n; i++) stars += '★';
+        html +=
+          '<div class="border-t border-black/5 py-2">' +
+            '<div class="flex items-center justify-between">' +
+              '<span class="text-xs font-600 text-[#212121]">' + (rv.guestName || 'Guest') + '</span>' +
+              '<span class="text-[11px] text-amber-500">' + stars + '</span>' +
+            '</div>' +
+            (rv.comment ? '<div class="text-xs text-zinc-600 mt-1 leading-relaxed">' + rv.comment + '</div>' : '') +
+          '</div>';
+      });
+      host.innerHTML = safeHTML(html);
+    })
+    .catch(function () {
+      host.innerHTML = '';
+    });
+}  
 function closeDetail() {
 document.getElementById("detailModal").classList.add("hidden");
 }
