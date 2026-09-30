@@ -637,11 +637,22 @@ export async function onRequestGet({ request, env }) {
   if (!forceAdminView && guestSession && guestSession.type === 'guest') {
     const mine = bookings.filter(b => String(b.guestId) === String(guestSession.userId));
     const guestReviews = Array.isArray(dataMap['kd_reviews']) ? dataMap['kd_reviews'] : [];
-    const reviewedIds = new Set(guestReviews.map(r => String(r.bookingId)));
-    const paginated = mine.slice(offset, offset + limit).map(b => ({
-      ...b,
-      reviewed: reviewedIds.has(String(b.id))
-    }));
+    // Attach the guest's OWN review (including its id) so the UI can
+    // offer Edit / Delete. Another guest's review is never included.
+    const ownReviews = new Map();
+    for (const r of guestReviews) {
+      if (String(r.guestId) === String(guestSession.userId)) {
+        ownReviews.set(String(r.bookingId), r);
+      }
+    }
+    const paginated = mine.slice(offset, offset + limit).map(b => {
+      const rv = ownReviews.get(String(b.id));
+      return {
+        ...b,
+        reviewed: !!rv,
+        myReview: rv ? { id: rv.id, rating: rv.rating, comment: rv.comment, createdAt: rv.createdAt } : null
+      };
+    });
       return jsonResponse({
         bookings: paginated,
         total: mine.length,
