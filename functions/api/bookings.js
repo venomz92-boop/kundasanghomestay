@@ -125,6 +125,12 @@ function isBlockingDates(b, now) {
     const t = holdAnchor(b);
     return t > 0 && (now - t) <= holdDurationMs(b);
   }
+  // Any "Completed…" state means the guest has occupied the room, so it
+  // must keep holding its dates. Listing each variant was fragile —
+  // 'Completed - Payout Pending (Manual)', 'Completed - Payout Success'
+  // and 'Completed - Payout Unknown' were all missing, which released a
+  // checked-in guest's remaining nights for anyone else to book.
+  if (/^Completed/.test(s)) return true;
   return LIVE_STATUSES.has(s);
 }
 
