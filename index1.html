@@ -187,6 +187,10 @@ background-repeat: no-repeat;
 background-size: contain;
 background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230F382E' stroke-width='2' stroke-linecap='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E");
 }
+.date-field:focus-within {
+border-color: #0F382E;
+box-shadow: 0 0 0 3px rgba(15, 56, 46, 0.12);
+}  
 .calendar-pick-hint {
 display: flex;
 align-items: center;
@@ -895,6 +899,28 @@ function attachDateFormats() {
       var display = document.createElement('span');
       display.className = 'date-display';
       wrap.appendChild(display);
+
+      // Tapping anywhere in the box opens the calendar.
+      //
+      // A native date input only opens its picker from its own calendar
+      // button — tapping the text just puts a cursor in a segment. With
+      // the native text hidden, that gave no feedback at all and felt
+      // like a dead field.
+      // The far-right strip is left to the browser, which opens the
+      // picker itself; without that guard it would open twice.
+      wrap.addEventListener('click', function (ev) {
+        var rect = wrap.getBoundingClientRect();
+        if (ev.clientX > rect.right - 36) return;
+        var native = wrap.querySelector('input[type="date"]');
+        if (!native) return;
+        try {
+          native.showPicker();
+        } catch (err) {
+          // Very old browser — fall back to focusing so the guest can
+          // still type, and the browser's own icon still works.
+          try { native.focus(); } catch (e2) {}
+        }
+      });
     }
 
     var disp = wrap.querySelector('.date-display');
