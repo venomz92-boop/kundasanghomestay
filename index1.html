@@ -145,15 +145,48 @@ box-shadow: 0 0 0 1px #d5ecdf;
 .calendar-day.selected-end.today {
 border-color: var(--primary) !important;
 }
-.date-fmt {
-font-size: 11px;
-font-weight: 700;
-color: #0F382E;
-margin-top: 3px;
-letter-spacing: 0.3px;
-font-family: 'Poppins', sans-serif;
+/* Date fields read "01 Oct 2026" instead of the browser's own
+   10/01/2026. A date input always renders in the BROWSER's locale, so
+   the native control is kept (invisible) purely to supply the calendar
+   picker and the ISO value; the visible text is ours. One date only. */
+.date-field {
+position: relative;
+cursor: pointer;
+padding-right: 40px;
 }
-.date-fmt:empty { display: none; }
+.date-field .date-native {
+position: absolute;
+inset: 0;
+width: 100%;
+height: 100%;
+opacity: 0;
+cursor: pointer;
+border: 0;
+padding: 0;
+margin: 0;
+background: transparent;
+font-size: 16px;
+}
+.date-field .date-display {
+display: block;
+pointer-events: none;
+white-space: nowrap;
+}
+.date-field .date-display.empty { color: #9ca3af; }
+.date-field::after {
+content: '';
+position: absolute;
+right: 14px;
+top: 50%;
+transform: translateY(-50%);
+width: 15px;
+height: 15px;
+pointer-events: none;
+opacity: 0.5;
+background-repeat: no-repeat;
+background-size: contain;
+background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230F382E' stroke-width='2' stroke-linecap='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E");
+}
 .calendar-pick-hint {
 display: flex;
 align-items: center;
@@ -846,27 +879,42 @@ function attachDateFormats() {
   for (var i = 0; i < inputs.length; i++) {
     var input = inputs[i];
     if (!input.id) continue;
-    var labelId = input.id + 'Fmt';
-    var label = document.getElementById(labelId);
-    if (!label) {
-      label = document.createElement('div');
-      label.id = labelId;
-      label.className = 'date-fmt';
-      input.parentNode.insertBefore(label, input.nextSibling);
+
+    var wrap = input.parentNode;
+    if (!wrap || !wrap.classList || !wrap.classList.contains('date-field')) {
+      // First time we've seen this field — build the wrapper, move the
+      // native input inside it, and add the visible text on top.
+      wrap = document.createElement('div');
+      var classes = (input.className || '').split(/\s+/).filter(Boolean);
+      wrap.className = 'date-field';
+      for (var c = 0; c < classes.length; c++) wrap.classList.add(classes[c]);
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+      input.className = 'date-native';
+
+      var display = document.createElement('span');
+      display.className = 'date-display';
+      wrap.appendChild(display);
     }
-    if (input.value) {
-      label.textContent = myDate(input.value);
-      label.style.display = 'block';
-    } else {
-      label.textContent = '';
-      label.style.display = 'none';
+
+    var disp = wrap.querySelector('.date-display');
+    if (disp) {
+      if (input.value) {
+        disp.textContent = myDate(input.value);
+        disp.classList.remove('empty');
+      } else {
+        disp.textContent = 'Select date';
+        disp.classList.add('empty');
+      }
     }
   }
 }
 
-// Safety net — covers any date field we haven't explicitly hooked,
-// including ones added later.
+// Refresh on change (picker closed) and on input (guest typing).
 document.addEventListener('change', function (e) {
+  if (e.target && e.target.type === 'date') attachDateFormats();
+});
+document.addEventListener('input', function (e) {
   if (e.target && e.target.type === 'date') attachDateFormats();
 });
 
