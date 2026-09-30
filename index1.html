@@ -900,27 +900,10 @@ function attachDateFormats() {
       display.className = 'date-display';
       wrap.appendChild(display);
 
-      // Tapping anywhere in the box opens the calendar.
-      //
-      // A native date input only opens its picker from its own calendar
-      // button — tapping the text just puts a cursor in a segment. With
-      // the native text hidden, that gave no feedback at all and felt
-      // like a dead field.
-      // The far-right strip is left to the browser, which opens the
-      // picker itself; without that guard it would open twice.
-      wrap.addEventListener('click', function (ev) {
-        var rect = wrap.getBoundingClientRect();
-        if (ev.clientX > rect.right - 36) return;
-        var native = wrap.querySelector('input[type="date"]');
-        if (!native) return;
-        try {
-          native.showPicker();
-        } catch (err) {
-          // Very old browser — fall back to focusing so the guest can
-          // still type, and the browser's own icon still works.
-          try { native.focus(); } catch (e2) {}
-        }
-      });
+      // The tap handler is NOT bound here on purpose. This wrapper can be
+      // rebuilt by a re-render or the translation pass, which silently
+      // drops element-bound listeners, and the box then goes dead. The
+      // handler lives on `document` instead — see bindDateFieldTap().
     }
 
     var disp = wrap.querySelector('.date-display');
@@ -936,11 +919,37 @@ function attachDateFormats() {
   }
 }
 
+// Tapping anywhere in a date box opens the calendar.
+//
+// Bound to `document` so it survives the wrapper being rebuilt, and with
+// no x-axis guard: the native input covers the whole box, so every pixel
+// of it is a valid target. The earlier version skipped clicks within
+// 36px of the right edge and left the picker to the browser's own icon —
+// but the drawn icon sits inside that band, so it was dead to the touch.
+//
+// A native date input only opens its picker from its own calendar
+// button; tapping the text just puts a cursor in a segment. With the
+// native text hidden that gave no feedback at all.
+function bindDateFieldTap() {
+  if (bindDateFieldTap._done) return;
+  bindDateFieldTap._done = true;
+  document.addEventListener('mousedown', function (ev) {
+    var field = ev.target && ev.target.closest ? ev.target.closest('.date-field') : null;
+    if (!field) return;
+    var native = field.querySelector('input[type="date"]');
+    // No showPicker (old Safari) — leave the browser's own behaviour alone.
+    if (!native || typeof native.showPicker !== 'function') return;
+    // Stops the native indicator opening a second picker; showPicker()
+    // also consumes the gesture, so a second call would throw anyway.
+    ev.preventDefault();
+    try { native.focus({ preventScroll: true }); } catch (e) {}
+    try { native.showPicker(); } catch (err) {}
+  }, true);
+}
+bindDateFieldTap();
+
 // Refresh on change (picker closed) and on input (guest typing).
 document.addEventListener('change', function (e) {
-  if (e.target && e.target.type === 'date') attachDateFormats();
-});
-document.addEventListener('input', function (e) {
   if (e.target && e.target.type === 'date') attachDateFormats();
 });
 
