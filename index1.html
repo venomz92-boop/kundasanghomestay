@@ -90,38 +90,60 @@ header doesn't cover the listings heading. */
 scroll-margin-top: 90px;
 }
 /* ============================================================
-CALENDAR — proper two-tap range picking
-These rules override the base calendar styles from styles.css.
-Check-in and check-out are dark green; the range is light green.
-Clickable dates have a pointer cursor and a hover highlight.
+CALENDAR — two-tap range picking
+Overrides the base calendar styles from styles.css.
+
+Design rule: free dates stay PLAIN (white card, dark number).
+Only the guest's own selection carries colour:
+  check-in / check-out → solid deep green circle
+  the nights between   → pale green band, joined into one strip
 ============================================================ */
 .calendar-day {
-transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .calendar-day.clickable {
 cursor: pointer;
 user-select: none;
 }
 .calendar-day.clickable:hover {
-background: #dbeafe !important;
-border-color: #3b82f6 !important;
-color: #1e3a8a !important;
-transform: scale(1.08);
+background: #f1faf5 !important;
+border-color: #86efac !important;
+color: #0F382E !important;
 }
+.calendar-day.clickable:active {
+background: #dcfce7 !important;
+}
+/* Endpoints — solid green. No scale transform: a scaled circle
+   breaks the alignment of the range band sitting beside it. */
 .calendar-day.selected-start,
 .calendar-day.selected-end {
 background: #0F382E !important;
 border-color: #0F382E !important;
 color: #ffffff !important;
 font-weight: 800 !important;
-transform: scale(1.05);
-box-shadow: 0 2px 8px rgba(15, 56, 46, 0.35);
+box-shadow: 0 3px 10px rgba(15, 56, 46, 0.32);
+position: relative;
+z-index: 2;
 }
+/* Nights in between — flat band. The 1px halo fills the grid gap
+   so the strip reads as one continuous stay, not loose squares. */
 .calendar-day.in-range {
-background: #d1fae5 !important;
-border-color: #86efac !important;
-color: #065f46 !important;
+background: #e6f4ec !important;
+border-color: transparent !important;
+color: #0F382E !important;
 font-weight: 600 !important;
+border-radius: 0 !important;
+box-shadow: 0 0 0 1px #e6f4ec;
+}
+.calendar-day.in-range.clickable:hover {
+background: #d5ecdf !important;
+box-shadow: 0 0 0 1px #d5ecdf;
+}
+/* Today keeps its ring even when it falls inside the range. */
+.calendar-day.in-range.today,
+.calendar-day.selected-start.today,
+.calendar-day.selected-end.today {
+border-color: var(--primary) !important;
 }
 .calendar-pick-hint {
 display: flex;
@@ -2138,10 +2160,10 @@ if (sel.ci && sel.co) {
 hintText = 'Tap a date to start a new selection. Currently: <strong>' + myDate(sel.ci) + '</strong> → <strong>' + myDate(sel.co) + '</strong>';
 hintClass += ' complete';
 } else {
-hintText = 'Bookings start from tomorrow. Tap a <span class="text-emerald-700 font-bold">green date</span> to choose your <strong>check-in</strong>.';
+hintText = 'Bookings start from tomorrow. Tap any <strong>available date</strong> to choose your <strong>check-in</strong>.';
 }
 } else {
-hintText = 'Now tap a later <span class="text-emerald-700 font-bold">green date</span> to choose your <strong>check-out</strong>.';
+hintText = 'Now tap a later <strong>available date</strong> to set your <strong>check-out</strong>.';
 }
 var html = `
 <div class="${hintClass}">
@@ -2186,13 +2208,14 @@ else if (sel.co && iso === sel.co) cls += " selected-end";
 else if (sel.ci && sel.co && iso > sel.ci && iso < sel.co) cls += " in-range";
 var clickableAttr = clickable ? ' data-iso="' + iso + '"' : '';
 var titleText = iso + (isBlocked ? ' (Booked)' : isPast ? ' (Past)' : ' (Tap to select)');
-html += `<div class="${cls}"${clickableAttr} style="font-size:9px;" title="${titleText}"${clickable ? ' aria-label="' + iso + ' - Available date"' : ''}>${day}</div>`;
+html += `<div class="${cls}"${clickableAttr} style="font-size:11.5px;" title="${titleText}"${clickable ? ' aria-label="' + iso + ' - Available date"' : ''}>${day}</div>`;
 }
 html += '</div></div>';
 html += `
-<div class="calendar-legend mt-1" style="font-size:10px;gap:8px;">
+<div class="calendar-legend mt-2" style="font-size:10.5px;gap:12px;">
 <span><span class="dot green"></span> Available</span>
 <span><span class="dot red"></span> Booked</span>
+<span><span class="dot sel"></span> Your stay</span>
 ${today.getMonth() === month && today.getFullYear() === year ? '<span><span class="dot today-dot"></span> Today</span>' : ''}
 </div>
 `;
