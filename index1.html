@@ -1621,7 +1621,9 @@ function updateDetailPrice() {
 if (!selectedHomestay) return;
 const ci = document.getElementById("detailCheckin")?.value;
 const co = document.getElementById("detailCheckout")?.value;
-const nights = calculateNights(ci, co);
+// One tap sets one date, so check-out can be empty mid-pick.
+const hasRange = !!(ci && co);
+const nights = hasRange ? calculateNights(ci, co) : 0;
 let pricePerNight = selectedHomestay.ownerPrice || 200;
 let selectedRoom = null;
 const roomSelect = document.getElementById('roomSelect');
@@ -1637,6 +1639,16 @@ const p = calculatePrice(pricePerNight, nights);
 const box = document.getElementById("detailPriceBox");
 if (box) {
 const priceLabel = selectedRoom ? 'Room price' : 'Homestay price';
+if (!hasRange) {
+// Mid-pick — no price yet. Show what is still needed instead of
+// quoting a total for a stay that hasn't been chosen.
+box.innerHTML = safeHTML(`
+<div class="text-xs font-poppins space-y-1">
+<div class="flex justify-between"><span class="text-zinc-500">${ci ? 'Check-in' : 'Next step'}</span><span class="font-600 text-[#0F382E]">${ci ? myDate(ci) : 'Pick a check-in date'}</span></div>
+<div class="text-zinc-500">Now tap a <strong>check-out</strong> date on the calendar to see your total.</div>
+</div>
+`);
+} else {
 box.innerHTML = safeHTML(`
 <div class="text-xs space-y-1.5 font-poppins">
 <div class="flex justify-between"><span>${priceLabel} (${nights} night${nights === 1 ? '' : 's'})</span><span class="price-tabular">RM${p.base.toFixed(2)}</span></div>
@@ -1644,7 +1656,8 @@ box.innerHTML = safeHTML(`
 <div class="flex justify-between font-bold text-sm text-[#0F382E] border-t pt-2 mt-2"><span>Total</span><span class="price-tabular">RM${p.total.toFixed(2)}</span></div>
 </div>
 `);
-}
+    }
+  }
 window._selectedRoom = selectedRoom;
 window._selectedPricePerNight = pricePerNight;
 }
@@ -1675,6 +1688,16 @@ gallery.innerHTML = safeHTML(html);
 // the other side.
 // =============================================================
 function openBooking() {
+// One tap sets one date now, so both may not be picked yet. Check
+// here — before sending anyone to the login page and back — so an
+// incomplete range can never reach the payment step.
+var ciCheck = document.getElementById("detailCheckin")?.value;
+var coCheck = document.getElementById("detailCheckout")?.value;
+if (!ciCheck || !coCheck) {
+showAlert("Choose Your Dates",
+"Please tap a <strong>check-in</strong> date, then a <strong>check-out</strong> date on the calendar before booking.");
+return;
+}
 if (!currentGuest) {
 showModal("Sign In Required",
 "Please sign in or create an account to complete your booking.",
@@ -2245,27 +2268,24 @@ var coEl = document.getElementById('detailCheckout');
 if (!ciEl || !coEl) return;
 var currentCi = ciEl.value || '';
 var currentCo = coEl.value || '';
+// ONE TAP = ONE DATE.
+//   tap 1 → that date becomes the check-in, check-out cleared
+//   tap 2 → that date becomes the check-out
+//   tap 3 → starts a fresh pick (new check-in)
+// No date is ever filled in on the guest's behalf.
 if (container._pickPhase === 'checkin') {
-// First tap — set check-in, default check-out to +1 night,
-// then move to check-out phase.
 ciEl.value = iso;
-var next = new Date(iso + 'T00:00:00');
-next.setDate(next.getDate() + 1);
-coEl.value = dateToIso(next);
+coEl.value = '';
 container._pickPhase = 'checkout';
 } else {
-// Second tap.
 if (currentCi && iso > currentCi) {
-// Valid check-out — later than check-in.
+// Later than check-in → this is the check-out. Range complete.
 coEl.value = iso;
-// Ready for a brand-new range on the next tap.
 container._pickPhase = 'checkin';
 } else {
-// Earlier than or equal to check-in — treat as a new check-in.
+// Same as or earlier than check-in → treat as a new check-in.
 ciEl.value = iso;
-var next2 = new Date(iso + 'T00:00:00');
-next2.setDate(next2.getDate() + 1);
-coEl.value = dateToIso(next2);
+coEl.value = '';
 container._pickPhase = 'checkout';
 }
 }
