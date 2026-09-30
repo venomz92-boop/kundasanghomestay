@@ -1071,7 +1071,15 @@ if (s.indexOf('expired') !== -1) {
 return { key: 'expired', badgeClass: 'badge-cancelled', badgeLabel: 'Expired', note: 'This booking expired before payment was completed. The dates have been released.', buttons: [] };
 }
 if (s.indexOf('completed') !== -1 || hasPayoutDate) {
-return { key: 'completed', badgeClass: 'badge-paid', badgeLabel: '✓ Completed', note: '', buttons: [] };
+// One review per completed stay. `reviewed` is set by the guest
+// branch of /api/bookings.
+return {
+key: 'completed',
+badgeClass: 'badge-paid',
+badgeLabel: '✓ Completed',
+note: b.reviewed ? 'Thanks for reviewing this stay.' : '',
+buttons: b.reviewed ? [] : ['review']
+};
 }
 if (s.indexOf('fail') !== -1) {
 return { key: 'failed', badgeClass: 'badge-failed', badgeLabel: 'Payment Failed', note: 'Your payment didn\'t go through. Click Retry Payment to try again.', buttons: ['checkStatus', 'retryPayment'] };
@@ -1119,7 +1127,10 @@ if (actions.indexOf('requestCancellation') !== -1) {
 html += '<button class="text-xs bg-white text-[#0F382E] px-3 py-1.5 rounded-full border border-[#0F382E]/30 hover:bg-[#0F382E]/5 transition action-btn" data-action="requestCancellation" data-id="' + id + '">✋ Request Cancellation</button>';
 }
 if (actions.indexOf('withdrawRequest') !== -1) {
-html += '<button class="text-xs bg-white text-zinc-600 px-3 py-1.5 rounded-full border border-zinc-300 hover:bg-zinc-50 transition action-btn" data-action="withdrawRequest" data-id="' + id + '">↩️ Withdraw Request</button>';
+html += '<button class="text-xs bg-white text-zinc-600 px-3 py-1.5 rounded-full border border-zinc-300 hover:bg-zinc-50 transition action-btn" data-action="withdrawRequest" data-id="' + id + '">✕ Withdraw Request</button>';
+}
+if (actions.indexOf('review') !== -1) {
+html += '<button class="text-xs bg-amber-50 text-amber-800 px-3 py-1.5 rounded-full border border-amber-300 hover:bg-amber-100 transition action-btn" data-action="review" data-id="' + id + '">★ Leave a Review</button>';
 }
 return html;
 }
@@ -1363,10 +1374,138 @@ else if (action === 'retryPayment') await retryPaymentFromBookings(id);
 else if (action === 'resendCode') await resendCode(id);
 else if (action === 'requestCancellation') await openCancellationRequestModal(id);
 else if (action === 'withdrawRequest') await withdrawCancellationRequest(id);
+else if (action === 'review') await openReviewModal(id);
 } finally {
 resetBtn();
 }
 }
+// =============================================================
+// REVIEW MODAL — self-contained. Injects its own styles so it
+// touches nothing else on the page.
+// =============================================================
+function ensureReviewStyles() {
+  if (document.getElementById('rvStyles')) return;
+  var st = document.createElement('style');
+  st.id = 'rvStyles';
+  st.textContent =
+    '.rv-overlay{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.6);display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto}' +
+    '.rv-card{background:#fff;border-radius:20px;max-width:440px;width:100%;margin-top:48px;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,.3);font-family:Poppins,sans-serif}' +
+    '.rv-head{display:flex;align-items:center;justify-content:space-between}' +
+    '.rv-title{font-weight:800;font-size:17px;color:#212121}' +
+    '.rv-close{width:32px;height:32px;border-radius:999px;border:none;background:#f4f4f5;color:#52525b;font-size:14px;cursor:pointer}' +
+    '.rv-sub{font-size:12px;color:rgba(33,33,33,.6);margin-top:4px}' +
+    '.rv-stars{display:flex;gap:6px;justify-content:center;margin:18px 0 14px}' +
+    '.rv-star{background:none;border:none;font-size:34px;line-height:1;cursor:pointer;color:#d4d4d8;padding:0;transition:transform .1s,color .15s}' +
+    '.rv-star:hover{transform:scale(1.12)}' +
+    '.rv-star.on{color:#f59e0b}' +
+    '.rv-textarea{width:100%;min-height:84px;border:2px solid #e4e4e7;border-radius:12px;padding:10px 12px;font-family:Poppins,sans-serif;font-size:13px;resize:vertical;box-sizing:border-box}' +
+    '.rv-textarea:focus{outline:none;border-color:#0F382E}' +
+    '.rv-err{color:#b91c1c;font-size:12px;margin-top:8px}' +
+    '.rv-actions{display:flex;gap:10px;margin-top:16px}' +
+    '.rv-btn{flex:1;padding:12px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;border:none;font-family:Poppins,sans-serif}' +
+    '.rv-cancel{background:#f4f4f5;color:#3f3f46}' +
+    '.rv-submit{background:#0F382E;color:#fff}' +
+    '.rv-submit:disabled{opacity:.6;cursor:not-allowed}';
+  document.head.appendChild(st);
+}
+
+function openReviewModal(bookingId) {
+  var b = null;
+  for (var i = 0; i < myBookings.length; i++) {
+    if (String(myBookings[i].id) === String(bookingId)) { b = myBookings[i]; break; }
+  }
+  if (!b) return;
+
+  ensureReviewStyles();
+
+  var overlay = document.createElement('div');
+  overlay.className = 'rv-overlay';
+  overlay.innerHTML =
+    '<div class="rv-card">' +
+      '<div class="rv-head">' +
+        '<div class="rv-title">Rate your stay</div>' +
+        '<button type="button" class="rv-close" aria-label="Close">✕</button>' +
+      '</div>' +
+      '<div class="rv-sub">' + escapeAttr(b.homestay || 'Your stay') + '</div>' +
+      '<div class="rv-stars" id="rvStars"></div>' +
+      '<textarea id="rvComment" class="rv-textarea" maxlength="500" placeholder="Optional: tell other guests what it was like (max 500 characters)"></textarea>' +
+      '<div class="rv-err" id="rvErr" style="display:none;"></div>' +
+      '<div class="rv-actions">' +
+        '<button type="button" class="rv-btn rv-cancel">Cancel</button>' +
+        '<button type="button" class="rv-btn rv-submit" id="rvSubmit">Submit Review</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+
+  var rating = 0;
+  var starsEl = overlay.querySelector('#rvStars');
+  var errEl = overlay.querySelector('#rvErr');
+
+  function paintStars() {
+    starsEl.innerHTML = '';
+    for (var n = 1; n <= 5; n++) {
+      (function (val) {
+        var s = document.createElement('button');
+        s.type = 'button';
+        s.className = 'rv-star' + (val <= rating ? ' on' : '');
+        s.textContent = '★';
+        s.setAttribute('aria-label', val + ' star' + (val === 1 ? '' : 's'));
+        s.onclick = function () { rating = val; paintStars(); errEl.style.display = 'none'; };
+        starsEl.appendChild(s);
+      })(n);
+    }
+  }
+  paintStars();
+
+  function close() {
+    overlay.remove();
+    document.body.style.overflow = '';
+  }
+  overlay.querySelector('.rv-close').onclick = close;
+  overlay.querySelector('.rv-cancel').onclick = close;
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+
+  overlay.querySelector('#rvSubmit').onclick = async function () {
+    var btn = overlay.querySelector('#rvSubmit');
+    if (!rating) {
+      errEl.textContent = 'Please pick a star rating first.';
+      errEl.style.display = 'block';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    try {
+      var csrf = localStorage.getItem('kd_csrf_token') || await fetchGuestCsrfToken();
+      var res = await fetch(API_BASE + '/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+        credentials: 'include',
+        body: JSON.stringify({
+          bookingId: bookingId,
+          rating: rating,
+          comment: overlay.querySelector('#rvComment').value
+        })
+      });
+      var data = await res.json();
+      if (!res.ok || !data.success) {
+        errEl.textContent = data.error || 'Could not save your review. Please try again.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Submit Review';
+        return;
+      }
+      close();
+      await showAlert('Thank you! ⭐', data.message || 'Your review is now live on the listing.');
+      await loadMyBookings();
+    } catch (e) {
+      errEl.textContent = 'Could not reach the server. Please try again.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Submit Review';
+    }
+  };
+}   
 async function manualCheckPayment(bookingId) {
 try {
 const result = await checkPaymentStatus(bookingId);
