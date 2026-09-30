@@ -1300,9 +1300,13 @@ return '' +
 '<div class="h-[240px] w-full relative overflow-hidden bg-zinc-100">' +
 '<img src="' + (h.image || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800') + '" loading="lazy" alt="' + h.name + '" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onerror="this.src=\'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800\'"/>' +
 '<div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">' +
-'<span class="font-poppins font-700 text-[11px] text-[#212121]">' + (h.rating ? h.rating.toFixed(1) + ' ★' + (h.reviews ? ' (' + h.reviews + ')' : '') : 'New') + '</span>' +
+(h.rating
+? '<svg class="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="#f59e0b" aria-hidden="true"><path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.29 3.97a1 1 0 0 0 .95.69h4.17c.97 0 1.37 1.24.59 1.81l-3.38 2.45a1 1 0 0 0-.36 1.12l1.29 3.97c.3.92-.75 1.69-1.54 1.12l-3.37-2.45a1 1 0 0 0-1.18 0l-3.37 2.45c-.79.57-1.84-.2-1.54-1.12l1.29-3.97a1 1 0 0 0-.36-1.12L2.05 9.4c-.78-.57-.38-1.81.59-1.81h4.17a1 1 0 0 0 .95-.69z"/></svg>' +
+'<span class="font-poppins font-800 text-[11.5px] text-[#212121] leading-none">' + h.rating.toFixed(1) + '</span>' +
+'<span class="font-poppins font-600 text-[10px] text-[#212121]/45 leading-none">(' + (h.reviews || 0) + ')</span>'
+: '<span class="font-poppins font-700 text-[9.5px] uppercase tracking-[1.2px] text-[#212121]/40">New</span>') +
 '</div>' +
-(h.verified ? '<div class="absolute top-4 left-[76px] bg-[#D4A373] text-[#0F382E] text-[10px] px-2.5 py-1 rounded-full font-700 uppercase tracking-wider shadow-sm">Verified</div>' : '') +
+(h.verified ? '<div class="absolute top-4 left-[104px] bg-[#D4A373] text-[#0F382E] text-[10px] px-2.5 py-1 rounded-full font-700 tracking-wider shadow-sm">Verified</div>' : '') +
 '</div>' +
 '<div class="p-5 flex flex-col flex-1">' +
 '<div class="flex justify-between items-start gap-2">' +
@@ -1457,44 +1461,130 @@ loadDetailReviews(selectedHomestay.id);
 // REVIEWS — pulled on demand when the detail modal opens, so the
 // listing grid stays a single request.
 // =============================================================
+// Injected once — keeps the rating panel's styling out of the global CSS.
+function ensureRatingStyles() {
+  if (document.getElementById('rvpStyles')) return;
+  var st = document.createElement('style');
+  st.id = 'rvpStyles';
+  st.textContent =
+    '.rvp-box{border:1px solid rgba(0,0,0,.06);border-radius:16px;padding:14px 16px;background:#fff}' +
+    '.rvp-title{font-family:Poppins,sans-serif;font-weight:700;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:rgba(33,33,33,.45);margin-bottom:12px}' +
+    '.rvp-top{display:flex;align-items:center;gap:20px;flex-wrap:wrap}' +
+    '.rvp-score{font-family:Poppins,sans-serif;font-weight:800;font-size:44px;line-height:.9;letter-spacing:-2px;color:#212121}' +
+    '.rvp-meta{display:flex;flex-direction:column;gap:5px}' +
+    '.rvp-count{font-family:Poppins,sans-serif;font-size:11.5px;font-weight:600;color:rgba(33,33,33,.5)}' +
+    '.rvp-bars{flex:1;min-width:170px;display:flex;flex-direction:column;gap:4px;margin-top:2px}' +
+    '.rvb-row{display:flex;align-items:center;gap:8px}' +
+    '.rvb-label{font-family:Poppins,sans-serif;font-size:10px;font-weight:700;color:rgba(33,33,33,.45);width:26px;text-align:right}' +
+    '.rvb-track{flex:1;height:7px;background:#f1f1f3;border-radius:999px;overflow:hidden}' +
+    '.rvb-fill{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#fcd34d,#f59e0b)}' +
+    '.rvb-num{font-family:Poppins,sans-serif;font-size:10px;font-weight:600;color:rgba(33,33,33,.4);width:16px}' +
+    '.rvp-list{margin-top:14px;border-top:1px solid rgba(0,0,0,.06)}' +
+    '.rvi{display:flex;gap:11px;padding:13px 0;border-bottom:1px solid rgba(0,0,0,.045)}' +
+    '.rvi:last-child{border-bottom:none}' +
+    '.rvi-av{width:34px;height:34px;border-radius:999px;background:#0F382E;color:#fff;display:flex;align-items:center;justify-content:center;font-family:Poppins,sans-serif;font-weight:700;font-size:14px;flex-shrink:0}' +
+    '.rvi-body{flex:1;min-width:0}' +
+    '.rvi-top{display:flex;align-items:center;justify-content:space-between;gap:8px}' +
+    '.rvi-name{font-family:Poppins,sans-serif;font-weight:700;font-size:12.5px;color:#212121}' +
+    '.rvi-date{font-family:Poppins,sans-serif;font-size:10.5px;font-weight:500;color:rgba(33,33,33,.38);margin-left:5px}' +
+    '.rvi-cmt{font-size:12.5px;color:rgba(33,33,33,.72);line-height:1.65;margin-top:6px}' +
+    '.rvs{color:#e4e4e7;font-size:12.5px;letter-spacing:.6px;line-height:1}' +
+    '.rvs.on{color:#f59e0b}' +
+    '.rvp-empty{font-size:12.5px;color:rgba(33,33,33,.45);padding:14px 0;text-align:center}' +
+    '.rvp-load{font-size:12px;color:rgba(33,33,33,.4);padding:12px 0;text-align:center}';
+  document.head.appendChild(st);
+}
+
+function reviewStarsHtml(rating) {
+  var r = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
+  var out = '';
+  for (var i = 1; i <= 5; i++) {
+    out += '<span class="rvs' + (i <= r ? ' on' : '') + '">★</span>';
+  }
+  return out;
+}
+
+function reviewDate(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch (e) { return ''; }
+}
+
 function loadDetailReviews(homestayId) {
   var host = document.getElementById('detailReviews');
   if (!host) return;
-  host.innerHTML = '<div class="text-xs text-zinc-400">Loading reviews…</div>';
+  ensureRatingStyles();
+  host.innerHTML = '<div class="rvp-box"><div class="rvp-load">Loading reviews…</div></div>';
 
   fetch(API_BASE + '/reviews?homestayId=' + encodeURIComponent(homestayId), { cache: 'no-store' })
     .then(function (r) { return r.json(); })
     .then(function (d) {
       var list = Array.isArray(d.reviews) ? d.reviews : [];
+      var total = Number(d.count) || 0;
+
       if (list.length === 0) {
-        host.innerHTML = '<div class="text-xs text-zinc-400">No reviews yet — be the first to stay and rate it.</div>';
+        host.innerHTML =
+          '<div class="rvp-box">' +
+            '<div class="rvp-title">Guest Reviews</div>' +
+            '<div class="rvp-empty">No reviews yet — be the first to stay and rate it.</div>' +
+          '</div>';
         return;
       }
+
       var avg = Number(d.average || 0).toFixed(1);
+      var dist = d.distribution || {};
+
       var html =
-        '<div class="flex items-center gap-2 mb-1">' +
-          '<span class="font-poppins font-700 text-[15px] text-[#212121]">' + avg + ' ★</span>' +
-          '<span class="text-xs text-zinc-500">' + list.length + ' review' + (list.length === 1 ? '' : 's') + '</span>' +
-        '</div>';
-      list.slice(0, 5).forEach(function (rv) {
-        var n = Math.max(1, Math.min(5, Number(rv.rating) || 0));
-        var stars = '';
-        for (var i = 0; i < n; i++) stars += '★';
-        html +=
-          '<div class="border-t border-black/5 py-2">' +
-            '<div class="flex items-center justify-between">' +
-              '<span class="text-xs font-600 text-[#212121]">' + (rv.guestName || 'Guest') + '</span>' +
-              '<span class="text-[11px] text-amber-500">' + stars + '</span>' +
+        '<div class="rvp-box">' +
+          '<div class="rvp-title">Guest Reviews</div>' +
+          '<div class="rvp-top">' +
+            '<div class="rvp-meta">' +
+              '<div class="rvp-score">' + avg + '</div>' +
+              '<div>' + reviewStarsHtml(Math.round(Number(d.average) || 0)) + '</div>' +
+              '<div class="rvp-count">' + total + ' review' + (total === 1 ? '' : 's') + '</div>' +
             '</div>' +
-            (rv.comment ? '<div class="text-xs text-zinc-600 mt-1 leading-relaxed">' + rv.comment + '</div>' : '') +
+            '<div class="rvp-bars">';
+
+      for (var s = 5; s >= 1; s--) {
+        var cnt = Number(dist[s] || 0);
+        var pct = total ? Math.round((cnt / total) * 100) : 0;
+        html +=
+          '<div class="rvb-row">' +
+            '<span class="rvb-label">' + s + '★</span>' +
+            '<span class="rvb-track"><span class="rvb-fill" style="width:' + pct + '%"></span></span>' +
+            '<span class="rvb-num">' + cnt + '</span>' +
+          '</div>';
+      }
+
+      html += '</div></div><div class="rvp-list">';
+
+      list.slice(0, 5).forEach(function (rv) {
+        var initial = String(rv.guestName || 'G').trim().charAt(0).toUpperCase() || 'G';
+        html +=
+          '<div class="rvi">' +
+            '<div class="rvi-av">' + initial + '</div>' +
+            '<div class="rvi-body">' +
+              '<div class="rvi-top">' +
+                '<div>' +
+                  '<span class="rvi-name">' + rv.guestName + '</span>' +
+                  '<span class="rvi-date">' + reviewDate(rv.createdAt) + (rv.updatedAt ? ' · edited' : '') + '</span>' +
+                '</div>' +
+                '<div>' + reviewStarsHtml(rv.rating) + '</div>' +
+              '</div>' +
+              (rv.comment ? '<div class="rvi-cmt">' + rv.comment + '</div>' : '') +
+            '</div>' +
           '</div>';
       });
+
+      html += '</div></div>';
       host.innerHTML = safeHTML(html);
     })
     .catch(function () {
       host.innerHTML = '';
     });
-}  
+}
+  
 function closeDetail() {
 document.getElementById("detailModal").classList.add("hidden");
 }
