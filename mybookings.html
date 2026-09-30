@@ -2117,6 +2117,11 @@ return;
 fetchGuestCsrfToken();
 await fetchHomestayImageMap();
 loadMyBookings();
+// Deep link from the mobile account sheet on other pages.
+if (new URLSearchParams(location.search).get('account') === 'delete') {
+  history.replaceState(null, '', location.pathname);
+  setTimeout(function () { openDeleteAccountModal(); }, 300);
+}
 })();
 </script>
 <script>
