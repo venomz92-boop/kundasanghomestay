@@ -882,7 +882,7 @@ export async function onRequestPost({ request, env }) {
           const roomBlocked = new Set((selectedRoom.blockedDates || []).map(String));
           for (const ds of requestedDates) {
             if (roomBlocked.has(ds)) {
-              return { error: `Room "${selectedRoom.name}" is blocked on ${ds}`, status: 400 };
+              return { error: `The selected room is unavailable on ${ds}. Please pick another room or different dates.`, status: 400 };
             }
           }
         }
