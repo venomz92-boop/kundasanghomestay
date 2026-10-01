@@ -140,7 +140,15 @@ export async function onRequestPost({ request, env }) {
     }
 
     const action = String(body?.action || 'create').toLowerCase();
-    if (!['create', 'update', 'delete'].includes(action)) {
+    // Delete is refused outright. If a guest could remove a rating and
+    // write a fresh one, the one-edit limit below would mean nothing.
+    if (action === 'delete') {
+      return jsonResponse({
+        error: 'A review cannot be deleted once submitted.',
+        code: 'REVIEW_NOT_DELETABLE'
+      }, 400, request);
+    }
+    if (!['create', 'update'].includes(action)) {
       return jsonResponse({ error: 'Unsupported action' }, 400, request);
     }
 
@@ -150,8 +158,8 @@ export async function onRequestPost({ request, env }) {
     const comment = String(body?.comment || '').trim().slice(0, MAX_COMMENT);
 
     if (action === 'create' && !bookingId) return jsonResponse({ error: 'Missing booking' }, 400, request);
-    if (action !== 'create' && !reviewId) return jsonResponse({ error: 'Missing review' }, 400, request);
-    if (action !== 'delete' && !rating) {
+    if (action === 'update' && !reviewId) return jsonResponse({ error: 'Missing review' }, 400, request);
+    if (!rating) {
       return jsonResponse({ error: 'Please choose a star rating from 1 to 5.' }, 400, request);
     }
 
@@ -202,7 +210,7 @@ export async function onRequestPost({ request, env }) {
           return { review, mode: 'created' };
         }
 
-        // ---------------- UPDATE / DELETE ----------------
+        // ---------------- UPDATE (one edit only) ----------------
         // guestId is the only thing that grants access. A host session can
         // never reach here (getGuestSession rejects it above), so hosts
         // cannot alter or remove a guest's rating.
@@ -212,12 +220,15 @@ export async function onRequestPost({ request, env }) {
           return { error: 'You can only change your own review.', status: 403 };
         }
 
-        if (action === 'delete') {
-          const removed = reviews[idx];
-          reviews.splice(idx, 1);
-          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-            .bind(REVIEWS_KEY, JSON.stringify(reviews)).run();
-          return { removed, mode: 'deleted' };
+        // One correction, then final. updatedAt is written only by this
+        // branch, so an existing value means the edit is already spent.
+        // Checked here, inside the lock, so two fast clicks cannot both
+        // pass — a UI-only guard would lose that race.
+        if (reviews[idx].updatedAt) {
+          return {
+            error: 'You have already used your one edit — your review is now final.',
+            status: 400
+          };
         }
 
         reviews[idx] = {
@@ -244,24 +255,11 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({
         success: true,
         alreadyExists: true,
-        message: 'You have already reviewed this stay. Use Edit to change it.'
+        message: 'You have already reviewed this stay. Use Edit Review to correct it once.'
       }, 200, request);
     }
 
-    if (result.mode === 'deleted') {
       await logAction({
-        db,
-        action: 'review_deleted',
-        admin: 'guest',
-        details: `Guest deleted review ${reviewId} (booking ${result.removed.bookingId})`,
-        ip: clientIP,
-        userId: session.userId,
-        homestayId: result.removed.homestayId
-      });
-      return jsonResponse({ success: true, message: 'Your review has been removed.' }, 200, request);
-    }
-
-    await logAction({
       db,
       action: result.mode === 'updated' ? 'review_updated' : 'review_submitted',
       admin: 'guest',
@@ -273,9 +271,9 @@ export async function onRequestPost({ request, env }) {
 
     return jsonResponse({
       success: true,
-      message: result.mode === 'updated'
-        ? 'Your review has been updated.'
-        : 'Thank you! Your review is now live.',
+        message: result.mode === 'updated'
+        ? 'Your review has been updated. That was your one edit — it is now final.'
+        : 'Thank you! Your review is now live. You can correct it once if needed.',
       review: shapeReview(result.review)
     }, 200, request);
   } catch (e) {
