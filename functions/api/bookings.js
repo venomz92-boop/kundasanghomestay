@@ -656,7 +656,9 @@ export async function onRequestGet({ request, env }) {
       return {
         ...b,
         reviewed: !!rv,
-        myReview: rv ? { id: rv.id, rating: rv.rating, comment: rv.comment, createdAt: rv.createdAt } : null
+        // updatedAt is the one-edit marker: the UI retires the Edit Review
+        // button once the correction has been spent.
+        myReview: rv ? { id: rv.id, rating: rv.rating, comment: rv.comment, createdAt: rv.createdAt, updatedAt: rv.updatedAt || null } : null
       };
     });
       return jsonResponse({
