@@ -19,6 +19,7 @@ import {
   corsHeaders,
   getClientIP,
   enforceHttps,
+  verifyAdminAuth,
   getGuestSession,
   jsonResponse,
   parseJSONSafely,
@@ -73,6 +74,32 @@ export async function onRequestGet({ request, env }) {
     try { if (r?.data) reviews = JSON.parse(r.data); } catch (_) {}
     if (!Array.isArray(reviews)) reviews = [];
 
+    // Admin break-glass: list reviews whose booking no longer exists.
+    // Exactly the set that no other route can reach. Admin-gated.
+    if (String(url.searchParams.get('admin') || '') === 'orphans') {
+      if (!(await verifyAdminAuth(request, env))) {
+        return jsonResponse({ error: 'Unauthorized' }, 401, request);
+      }
+      const br = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+      let bookings = [];
+      try { if (br?.data) bookings = JSON.parse(br.data); } catch (_) {}
+      if (!Array.isArray(bookings)) bookings = [];
+      const live = new Set(bookings.map(b => String(b.id)));
+      const orphans = reviews
+        .filter(x => !live.has(String(x.bookingId)))
+        .map(x => ({
+          id: x.id,
+          bookingId: x.bookingId,
+          homestayId: x.homestayId,
+          rating: x.rating,
+          comment: String(x.comment || '').slice(0, MAX_COMMENT),
+          guestName: publicName(x.guestName),
+          createdAt: x.createdAt,
+          updatedAt: x.updatedAt || null
+        }));
+      return jsonResponse({ orphans, count: orphans.length }, 200, request, { 'Cache-Control': 'no-store' });
+    }
+
     if (homestayId) {
       const mine = reviews.filter(x => String(x.homestayId) === homestayId);
       const count = mine.length;
@@ -122,12 +149,71 @@ export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
   try {
+        const db = env.DB;
+    if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
+
+    // Parsed once, up here, because a Request body can only be consumed
+    // once and the admin branch below needs it before the guest gate.
+    // `body` was parsed above, before the admin break-glass branch — a
+    // Request body can only be consumed once, so it is not read again.
+
+    // ---------------- ADMIN BREAK-GLASS DELETE ----------------
+    // Deliberately above the guest gate: an admin is not a guest session.
+    // This is the only remaining route that can remove a review. A review
+    // whose booking was deleted is otherwise stranded — the guest UI is
+    // driven by the booking record, so with the booking gone there is no
+    // Edit or Delete to offer, and hosts are blocked from touching guest
+    // ratings by design. Without this the row would sit on the listing
+    // permanently. Admin session required; guests and hosts cannot reach it.
+    if (String(body?.action || '').toLowerCase() === 'admin-delete') {
+      if (!(await verifyAdminAuth(request, env))) {
+        return jsonResponse({ error: 'Unauthorized' }, 401, request);
+      }
+      const targetId = String(body?.reviewId || '').trim();
+      if (!targetId) return jsonResponse({ error: 'Missing review' }, 400, request);
+
+      let removed;
+      try {
+        removed = await withLock(db, BOOKINGS_LOCK, async (db) => {
+          const rr = await db.prepare('SELECT data FROM store WHERE key = ?').bind(REVIEWS_KEY).first();
+          let reviews = [];
+          try { if (rr?.data) reviews = JSON.parse(rr.data); } catch (_) {}
+          if (!Array.isArray(reviews)) reviews = [];
+          const i = reviews.findIndex(x => String(x.id) === targetId);
+          if (i === -1) return null;
+          const gone = reviews.splice(i, 1)[0];
+          await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+            .bind(REVIEWS_KEY, JSON.stringify(reviews)).run();
+          return gone;
+        }, 30000);
+      } catch (lockErr) {
+        if (lockErr.message && lockErr.message.includes('in progress')) {
+          return jsonResponse({ error: 'Another operation is in progress. Please try again in a moment.' }, 429, request);
+        }
+        throw lockErr;
+      }
+
+      if (!removed) return jsonResponse({ error: 'Review not found' }, 404, request);
+
+      // Logged as an admin action, naming the homestay, so a break-glass
+      // removal is always attributable in the audit trail.
+      await logAction({
+        db,
+        action: 'review_deleted_by_admin',
+        admin: 'admin',
+        details: `Admin break-glass delete: review ${targetId} (booking ${removed.bookingId}, homestay ${removed.homestayId}) — ${removed.rating} star`,
+        ip: getClientIP(request),
+        userId: removed.guestId,
+        homestayId: removed.homestayId
+      });
+
+      return jsonResponse({ success: true, message: 'Review permanently removed.' }, 200, request);
+    }
+
     const session = await getGuestSession(request, env);
     if (!session || session.type !== 'guest') {
       return jsonResponse({ error: 'Please sign in first.' }, 401, request);
     }
-    const db = env.DB;
-    if (!db) return jsonResponse({ error: 'Server error' }, 500, request);
 
     const clientIP = getClientIP(request);
     // Generous enough that editing a review is never blocked, still bounded.
