@@ -581,7 +581,11 @@ button.kd-loading {
               <strong>this is the only way to remove one</strong>. Deletion is permanent and written to the audit log.
             </p>
           </div>
-          <button id="orphanRefreshBtn" class="btn
+          <button id="orphanRefreshBtn" class="btn btn-secondary" style="padding:8px 16px;font-size:11px;">🔄 Check</button>
+        </div>
+        <div id="orphanReviewsList" class="mt-3 text-sm text-zinc-500">Press "Check" to scan.</div>
+      </div>
+    </div>
     <div id="adminAvailability" class="mt-4 hidden"><div id="availabilityTable" class="card p-6"></div></div>
     <div id="adminGuests" class="mt-4 hidden"><div id="guestsTable" class="card p-6"></div></div>
     <div id="adminHosts" class="mt-4 hidden"><div id="hostsTable" class="card p-6"></div></div>
@@ -1491,7 +1495,7 @@ async function loadAllReviews() {
             return;
           }
           await showAlert('Review Removed', dd.message || 'Review permanently removed.');
-          await loadOrphanReviews();
+          await loadAllReviews();
         } catch (e) {
           await showAlert('Network Error', 'Could not reach the server. Please try again.');
           btn.disabled = false;
@@ -1508,13 +1512,13 @@ async function loadAllReviews() {
 // (it starts hidden until login).
 (function () {
   const btn = document.getElementById('orphanRefreshBtn');
-  if (btn) btn.onclick = loadOrphanReviews;
+  if (btn) btn.onclick = loadAllReviews;
   const dash = document.getElementById('adminDashboard');
   if (dash && typeof MutationObserver !== 'undefined') {
     let wasVisible = !dash.classList.contains('hidden');
     new MutationObserver(function () {
       const visible = !dash.classList.contains('hidden');
-      if (visible && !wasVisible) loadOrphanReviews();
+      if (visible && !wasVisible) loadAllReviews();
       wasVisible = visible;
     }).observe(dash, { attributes: true, attributeFilter: ['class'] });
   }
