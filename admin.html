@@ -568,7 +568,20 @@ button.kd-loading {
         <select id="bookingFilterHomestay" class="homestay-selector text-sm"></select>
       </div>
       <div id="bookingsTable" class="card p-6"></div>
-    </div>
+      <!-- Break-glass. Reviews whose booking was deleted cannot be
+           reached from anywhere else: the guest UI is driven by the
+           booking record, and hosts are blocked from guest ratings by
+           design. Admin session required. -->
+      <div class="card p-6 mt-4" style="border-left:4px solid #dc2626;">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h3 class="font-bold text-sm text-[#212121]">⚠️ Orphaned Reviews</h3>
+            <p class="text-[11px] text-zinc-500 mt-1">
+              Reviews whose booking no longer exists. These cannot be edited or removed by the guest or the host —
+              deleting here is permanent and is written to the audit log.
+            </p>
+          </div>
+          <button id="orphanRefreshBtn" class="btn
     <div id="adminAvailability" class="mt-4 hidden"><div id="availabilityTable" class="card p-6"></div></div>
     <div id="adminGuests" class="mt-4 hidden"><div id="guestsTable" class="card p-6"></div></div>
     <div id="adminHosts" class="mt-4 hidden"><div id="hostsTable" class="card p-6"></div></div>
@@ -1394,6 +1407,112 @@ window.fetchErrorsCount = fetchErrorsCount;
 /* ============================================================
  * MAIN ADMIN RENDER
  * ============================================================ */
+
+// ============================================================
+// ORPHANED REVIEWS — admin break-glass
+//
+// A review whose booking was deleted is unreachable everywhere else:
+// the guest's My Bookings is driven by the booking record, so with the
+// booking gone there is no Edit or Delete to offer, and hosts are
+// blocked from touching guest ratings by design.
+// Deleting here is permanent, admin-only, and audit-logged server-side.
+// ============================================================
+async function loadOrphanReviews() {
+  const list = document.getElementById('orphanReviewsList');
+  if (!list) return;
+  list.innerHTML = '<span class="text-zinc-400">Scanning…</span>';
+  try {
+    const res = await fetchWithAuth(API_BASE + '/reviews?admin=orphans', { cache: 'no-store' });
+    if (res.status === 401) {
+      list.innerHTML = '<span class="text-red-600 font-semibold">Not signed in as admin.</span>';
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok) {
+      list.innerHTML = '<span class="text-red-600 font-semibold">' +
+        escapeRoomHtml(data.error || 'Could not load.') + '</span>';
+      return;
+    }
+    const rows = Array.isArray(data.orphans) ? data.orphans : [];
+    if (rows.length === 0) {
+      list.innerHTML = '<span class="text-green-700 font-semibold">✓ None. Every review still has its booking.</span>';
+      return;
+    }
+    list.innerHTML = rows.map(function (r) {
+      const stars = '★'.repeat(Math.max(0, Math.min(5, Number(r.rating) || 0)));
+      const when = toMYDate(r.createdAt);
+      const edited = r.updatedAt ? ' · edited ' + toMYDate(r.updatedAt) : '';
+      return '<div class="flex items-start justify-between gap-3 py-3" style="border-bottom:1px dashed rgba(0,0,0,.09);">' +
+        '<div class="min-w-0">' +
+          '<div class="text-[#f59e0b]" style="letter-spacing:1.5px;">' + stars +
+            '<span class="text-zinc-400 text-[11px] ml-2" style="color:#9ca3af !important;">' + (Number(r.rating) || 0) + '/5</span></div>' +
+          '<div class="text-[12px] text-zinc-700 mt-1">' +
+            escapeRoomHtml(r.comment || '(no comment)') + '</div>' +
+          '<div class="text-[10px] text-zinc-500 mt-1">' +
+            escapeRoomHtml(r.guestName || 'Guest') + ' · ' + escapeRoomHtml(when) + escapeRoomHtml(edited) +
+            '<br>Booking ' + escapeRoomHtml(r.bookingId || '—') +
+            ' · Homestay ' + escapeRoomHtml(r.homestayId || '—') +
+            '<br>Review ID: <span class="font-mono">' + escapeRoomHtml(r.id) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<button class="btn btn-secondary shrink-0 orphan-del-btn" data-rid="' + escapeRoomHtml(r.id) + '" ' +
+          'style="padding:6px 14px;font-size:11px;color:#dc2626;border-color:#fecaca;">Delete</button>' +
+      '</div>';
+    }).join('');
+
+    list.querySelectorAll('.orphan-del-btn').forEach(function (btn) {
+      btn.onclick = async function () {
+        const rid = btn.getAttribute('data-rid');
+        const ok = await showConfirm(
+          'Delete this review permanently?',
+          'Review <span class="font-mono">' + escapeRoomHtml(rid) + '</span> will be removed from the listing. ' +
+          'This cannot be undone, and the guest has no way to restore it.'
+        );
+        if (!ok) return;
+        btn.disabled = true;
+        btn.textContent = 'Deleting…';
+        try {
+          const del = await fetchWithAuth(API_BASE + '/reviews', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'admin-delete', reviewId: rid })
+          });
+          const dd = await del.json();
+          if (!del.ok || !dd.success) {
+            await showAlert('Could Not Delete', dd.error || 'Please try again.');
+            btn.disabled = false;
+            btn.textContent = 'Delete';
+            return;
+          }
+          await showAlert('Review Removed', dd.message || 'Review permanently removed.');
+          await loadOrphanReviews();
+        } catch (e) {
+          await showAlert('Network Error', 'Could not reach the server. Please try again.');
+          btn.disabled = false;
+          btn.textContent = 'Delete';
+        }
+      };
+    });
+  } catch (e) {
+    list.innerHTML = '<span class="text-red-600 font-semibold">Could not reach the server.</span>';
+  }
+}
+
+// Wire the button, and auto-scan once the dashboard is actually visible
+// (it starts hidden until login).
+(function () {
+  const btn = document.getElementById('orphanRefreshBtn');
+  if (btn) btn.onclick = loadOrphanReviews;
+  const dash = document.getElementById('adminDashboard');
+  if (dash && typeof MutationObserver !== 'undefined') {
+    let wasVisible = !dash.classList.contains('hidden');
+    new MutationObserver(function () {
+      const visible = !dash.classList.contains('hidden');
+      if (visible && !wasVisible) loadOrphanReviews();
+      wasVisible = visible;
+    }).observe(dash, { attributes: true, attributeFilter: ['class'] });
+  }
+})();
 
 function renderAdmin(){
   const dedup=new Map(); bookings.forEach(b=>{ if(b && b.id && !dedup.has(String(b.id))) dedup.set(String(b.id), b); }); if(dedup.size!==bookings.length){ bookings=[...dedup.values()]; localStorage.setItem("kd_bookings", JSON.stringify(bookings)); }
