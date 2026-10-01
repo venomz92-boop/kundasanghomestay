@@ -466,6 +466,16 @@ export async function onRequestPost({ request, env }) {
     if (!icName || icName.length < 2) {
       return jsonResponse({ error: 'IC name is required' }, 400, request);
     }
+    // Same floor as the listing form, enforced here because the client
+    // check is only a courtesy — this endpoint is publicly reachable.
+    // Measured on the sanitized value so markup stripped above cannot
+    // pad the count.
+    if (description.length < 50) {
+      return jsonResponse({
+        error: 'Please describe your property in at least 50 characters.',
+        code: 'DESCRIPTION_TOO_SHORT'
+      }, 400, request);
+    }
 
     // Submission rate limit (separate bucket from auth attempts, so a host
     // who mistyped their password earlier can still submit once they get in).
