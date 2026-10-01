@@ -100,6 +100,38 @@ export async function onRequestGet({ request, env }) {
       return jsonResponse({ orphans, count: orphans.length }, 200, request, { 'Cache-Control': 'no-store' });
     }
 
+        // Admin break-glass: every review, flagged with whether its booking
+    // still exists. The admin dashboard can remove any of them.
+    if (String(url.searchParams.get('admin') || '') === 'all') {
+      if (!(await verifyAdminAuth(request, env))) {
+        return jsonResponse({ error: 'Unauthorized' }, 401, request);
+      }
+      const br = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_bookings').first();
+      let bookings = [];
+      try { if (br?.data) bookings = JSON.parse(br.data); } catch (_) {}
+      if (!Array.isArray(bookings)) bookings = [];
+      const live = new Set(bookings.map(b => String(b.id)));
+      const all = reviews
+        .slice()
+        .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+        .map(x => ({
+          id: x.id,
+          bookingId: x.bookingId,
+          homestayId: x.homestayId,
+          rating: x.rating,
+          comment: String(x.comment || '').slice(0, MAX_COMMENT),
+          guestName: publicName(x.guestName),
+          createdAt: x.createdAt,
+          updatedAt: x.updatedAt || null,
+          orphaned: !live.has(String(x.bookingId))
+        }));
+      return jsonResponse({
+        reviews: all,
+        count: all.length,
+        orphanCount: all.filter(r => r.orphaned).length
+      }, 200, request, { 'Cache-Control': 'no-store' });
+    }
+
     if (homestayId) {
       const mine = reviews.filter(x => String(x.homestayId) === homestayId);
       const count = mine.length;
