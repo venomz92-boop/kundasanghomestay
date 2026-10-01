@@ -963,18 +963,26 @@ async function loadBookings() {
 
     let totalRevenue = 0, completedCheckins = 0, upcomingCheckins = 0;
 
-    bookings.forEach(b => {
-      const isPaid = (b.status || '').toLowerCase().includes('paid');
-      const isManualPending = b.manualPayoutPending === true;
-      const isCompleted = !isManualPending && (b.payoutDate || (b.status || '').toLowerCase().includes('completed'));
+  // Uses filteredBookings so the metrics follow the homestay selector.
+  // A stay counts as completed the moment the host confirms arrival —
+  // including while the payout is still queued. The old test excluded
+  // manualPayoutPending bookings from BOTH branches, so a host on manual
+  // payouts saw RM0.00 and 0 stays until the payout cleared.
+  filteredBookings.forEach(b => {
+    const status = (b.status || '').toLowerCase();
+    const isCancelled = status.includes('cancel') ||
+      status.includes('no-show') || status.includes('no show');
+    const isCompleted = !isCancelled &&
+      (b.manualPayoutPending === true || b.payoutDate || status.includes('completed'));
+    const isAwaiting = !isCancelled && !isCompleted && status.includes('awaiting');
 
-      if (isCompleted) {
-        totalRevenue += parseFloat(b.base) || 0;
-        completedCheckins++;
-      } else if (isPaid && !isManualPending) {
-        upcomingCheckins++;
-      }
-    });
+    if (isCompleted) {
+      totalRevenue += parseFloat(b.base) || 0;
+      completedCheckins++;
+    } else if (isAwaiting) {
+      upcomingCheckins++;
+    }
+  });
 
     document.getElementById('metricTotalRevenue').textContent = `RM ${totalRevenue.toFixed(2)}`;
     document.getElementById('metricCheckinsCount').textContent = completedCheckins;
@@ -1142,7 +1150,8 @@ async function loadBookings() {
           <div class="flex-1 min-w-0 space-y-1.5">
             <div class="font-bold text-sm text-[#212121]">${homestayName}</div>
             <div class="text-xs text-zinc-600">
-              <span class="font-semibold text-zinc-800">${checkin} to ${checkout}</span> (${nights} Nights) • Guest: <span class="font-semibold text-[#0F382E]">${guestName}</span>${roomInfo}
+              <span class="font-semibold text-zinc-800">${ownerDate(checkin)} → ${ownerDate(checkout)}</span> 
+              (${nights} Nights) • Guest: <span class="font-semibold text-[#0F382E]">${guestName}</span>${roomInfo}
             </div>
             <div class="inline-block text-sm text-purple-800 font-bold bg-purple-100 px-2 py-0.5 rounded-full border border-purple-300">Booking ID: ${id}</div>
             <div class="text-xs font-semibold text-zinc-500">Host Earnings: <span class="text-[#0F382E]">RM ${hostShare.toFixed(2)}</span></div>
@@ -1168,6 +1177,17 @@ async function loadBookings() {
    The host decides. Accept settles the guest at the published tier
    and queues the host's own share. Decline records the reason.
    ============================================================ */
+
+// Host-side date display. Same "10 Oct 2026" format the guest side
+// uses, so both parties read the same date the same way.
+function ownerDate(iso) {
+  var s = String(iso || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s || 'N/A';
+  var d = new Date(s + 'T00:00:00+08:00');
+  if (isNaN(d.getTime())) return s;
+  var m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return String(d.getDate()).padStart(2, '0') + ' ' + m[d.getMonth()] + ' ' + d.getFullYear();
+}
 
 // 6-hour reply window if check-in is within 2 calendar days of the
 // request date (day-count only, no clock times); otherwise 48 hours.
