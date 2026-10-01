@@ -575,10 +575,10 @@ button.kd-loading {
       <div class="card p-6 mt-4" style="border-left:4px solid #dc2626;">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h3 class="font-bold text-sm text-[#212121]">⚠️ Orphaned Reviews</h3>
+            <h3 class="font-bold text-sm text-[#212121]">⚠️ All Reviews</h3>
             <p class="text-[11px] text-zinc-500 mt-1">
-              Reviews whose booking no longer exists. These cannot be edited or removed by the guest or the host —
-              deleting here is permanent and is written to the audit log.
+              Every review on the platform. Guests cannot delete their own and hosts cannot touch them —
+              <strong>this is the only way to remove one</strong>. Deletion is permanent and written to the audit log.
             </p>
           </div>
           <button id="orphanRefreshBtn" class="btn
@@ -1417,12 +1417,12 @@ window.fetchErrorsCount = fetchErrorsCount;
 // blocked from touching guest ratings by design.
 // Deleting here is permanent, admin-only, and audit-logged server-side.
 // ============================================================
-async function loadOrphanReviews() {
+async function loadAllReviews() {
   const list = document.getElementById('orphanReviewsList');
   if (!list) return;
   list.innerHTML = '<span class="text-zinc-400">Scanning…</span>';
   try {
-    const res = await fetchWithAuth(API_BASE + '/reviews?admin=orphans', { cache: 'no-store' });
+    const res = await fetchWithAuth(API_BASE + '/reviews?admin=all', { cache: 'no-store' });
     if (res.status === 401) {
       list.innerHTML = '<span class="text-red-600 font-semibold">Not signed in as admin.</span>';
       return;
@@ -1433,19 +1433,22 @@ async function loadOrphanReviews() {
         escapeRoomHtml(data.error || 'Could not load.') + '</span>';
       return;
     }
-    const rows = Array.isArray(data.orphans) ? data.orphans : [];
+    const rows = Array.isArray(data.reviews) ? data.reviews : [];
     if (rows.length === 0) {
-      list.innerHTML = '<span class="text-green-700 font-semibold">✓ None. Every review still has its booking.</span>';
+      list.innerHTML = '<span class="text-green-700 font-semibold">✓ No reviews on the platform.</span>';
       return;
     }
     list.innerHTML = rows.map(function (r) {
       const stars = '★'.repeat(Math.max(0, Math.min(5, Number(r.rating) || 0)));
       const when = toMYDate(r.createdAt);
       const edited = r.updatedAt ? ' · edited ' + toMYDate(r.updatedAt) : '';
+      const flag = r.orphaned
+        ? '<span style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:99px;font-size:9px;font-weight:700;letter-spacing:.5px;margin-left:6px;">ORPHANED</span>'
+        : '<span style="background:#dcfce7;color:#166534;padding:1px 7px;border-radius:99px;font-size:9px;font-weight:700;letter-spacing:.5px;margin-left:6px;">LIVE BOOKING</span>';
       return '<div class="flex items-start justify-between gap-3 py-3" style="border-bottom:1px dashed rgba(0,0,0,.09);">' +
         '<div class="min-w-0">' +
-          '<div class="text-[#f59e0b]" style="letter-spacing:1.5px;">' + stars +
-            '<span class="text-zinc-400 text-[11px] ml-2" style="color:#9ca3af !important;">' + (Number(r.rating) || 0) + '/5</span></div>' +
+          '<div class="flex items-center flex-wrap"><span class="text-[#f59e0b]" style="letter-spacing:1.5px;">' + stars + '</span>' +
+          '<span class="ml-2" style="color:#9ca3af;font-size:11px;">' + (Number(r.rating) || 0) + '/5</span>' + flag + '</div>' +
           '<div class="text-[12px] text-zinc-700 mt-1">' +
             escapeRoomHtml(r.comment || '(no comment)') + '</div>' +
           '<div class="text-[10px] text-zinc-500 mt-1">' +
@@ -1455,7 +1458,8 @@ async function loadOrphanReviews() {
             '<br>Review ID: <span class="font-mono">' + escapeRoomHtml(r.id) + '</span>' +
           '</div>' +
         '</div>' +
-        '<button class="btn btn-secondary shrink-0 orphan-del-btn" data-rid="' + escapeRoomHtml(r.id) + '" ' +
+          '<button class="btn btn-secondary shrink-0 orphan-del-btn" data-rid="' + escapeRoomHtml(r.id) + '" ' +
+          'data-orphan="' + (r.orphaned ? '1' : '0') + '" ' +
           'style="padding:6px 14px;font-size:11px;color:#dc2626;border-color:#fecaca;">Delete</button>' +
       '</div>';
     }).join('');
@@ -1463,10 +1467,12 @@ async function loadOrphanReviews() {
     list.querySelectorAll('.orphan-del-btn').forEach(function (btn) {
       btn.onclick = async function () {
         const rid = btn.getAttribute('data-rid');
+        const isOrphan = btn.getAttribute('data-orphan') === '1';
         const ok = await showConfirm(
           'Delete this review permanently?',
           'Review <span class="font-mono">' + escapeRoomHtml(rid) + '</span> will be removed from the listing. ' +
-          'This cannot be undone, and the guest has no way to restore it.'
+          'This cannot be undone, and the guest has no way to restore it.' +
+          (isOrphan ? '' : '<br><br><strong>This review belongs to a live booking.</strong> The guest stayed and rated it — you are overriding their feedback.')
         );
         if (!ok) return;
         btn.disabled = true;
