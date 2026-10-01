@@ -317,6 +317,20 @@ body.bn-hidden #mobileBottomNav { display: none; }
 @media (max-width: 1023.98px) {
 body { padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
 }
+/* Listing-card description. Two lines maximum — hosts write anything
+   from a short amenity list to a full paragraph, and an unclamped block
+   makes a row of cards look ragged. Nothing is shown when the host left
+   the field empty, so cards never carry a filler sentence. */
+.kd-card-desc {
+margin-top: 8px;
+font-size: 12.5px;
+line-height: 1.55;
+color: rgba(33, 33, 33, 0.62);
+display: -webkit-box;
+-webkit-line-clamp: 2;
+-webkit-box-orient: vertical;
+overflow: hidden;
+}
 </style>
 </head>
 <body>
@@ -1476,6 +1490,7 @@ return '' +
 '<span class="text-[10px] bg-zinc-100 px-2.5 py-1 rounded-full shrink-0 font-600 uppercase tracking-wider text-[#212121]/70">' + (h.location || 'Kundasang') + '</span>' +
 '</div>' +
 '<div class="text-[12px] text-[#212121]/60 mt-2 font-medium">Up to ' + (h.guests || 2) + ' guests • ' + bedroomLabel + ' • Water Heater ♨️</div>' +
+(h.description ? '<p class="kd-card-desc">' + h.description + '</p>' : '') +
 '<div class="mt-auto pt-4 flex justify-between items-center border-t border-black/5">' +
 '<div class="font-poppins font-700 text-[18px] text-[#0F382E] price-tabular">RM' + (h.ownerPrice || 200) + '<span class="font-400 text-[12px] text-[#212121]/60 font-normal"> /night</span></div>' +
 '<div class="text-[11px] text-[#8B6239] font-700 uppercase tracking-wider">Book Now →</div>' +
