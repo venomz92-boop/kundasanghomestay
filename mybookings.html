@@ -1085,22 +1085,28 @@ if (s.indexOf('expired') !== -1) {
 return { key: 'expired', badgeClass: 'badge-cancelled', badgeLabel: 'Expired', note: 'This booking expired before payment was completed. The dates have been released.', buttons: [] };
 }
 if (s.indexOf('completed') !== -1 || hasPayoutDate) {
-        // `myReview` comes from the guest branch of /api/bookings and
-        // carries the review id, so the guest can edit or delete it.
+      // `myReview` comes from the guest branch of /api/bookings and
+      // carries the review id plus the one-edit marker.
         if (b.reviewed && b.myReview) {
           var rvN = Math.max(0, Math.min(5, Number(b.myReview.rating) || 0));
           var rvSolid = '';
           var rvHollow = '';
           for (var rvA = 0; rvA < rvN; rvA++) rvSolid += '★';
           for (var rvB = rvN; rvB < 5; rvB++) rvHollow += '★';
+          // Set the moment the one allowed edit is saved.
+          var rvEdited = !!b.myReview.updatedAt;
           return {
             key: 'completed',
             badgeClass: 'badge-paid',
             badgeLabel: '✓ Completed',
             note: 'You rated this stay ' +
               '<span style="color:#f59e0b;font-size:14px;letter-spacing:1.5px;vertical-align:-1px;">' + rvSolid + '</span>' +
-              '<span style="color:#d4d4d8;font-size:14px;letter-spacing:1.5px;vertical-align:-1px;">' + rvHollow + '</span>',
-            buttons: ['editReview', 'deleteReview']
+              '<span style="color:#d4d4d8;font-size:14px;letter-spacing:1.5px;vertical-align:-1px;">' + rvHollow + '</span>' +
+              (rvEdited ? ' — your one edit is used; this is final.' : ''),
+            // Edit is offered only while the single correction is unspent.
+            // Delete is never offered: removing a rating and writing a new
+            // one would sidestep the limit entirely.
+            buttons: rvEdited ? [] : ['editReview']
           };
         }
         return {
@@ -1163,10 +1169,7 @@ if (actions.indexOf('review') !== -1) {
 html += '<button class="text-xs bg-amber-50 text-amber-800 px-3 py-1.5 rounded-full border border-amber-300 hover:bg-amber-100 transition action-btn" data-action="review" data-id="' + id + '">★ Leave a Review</button>';
 }
 if (actions.indexOf('editReview') !== -1) {
-html += '<button class="text-xs bg-white text-[#0F382E] px-3 py-1.5 rounded-full border border-[#0F382E]/30 hover:bg-[#0F382E]/5 transition action-btn" data-action="editReview" data-id="' + id + '">✎ Edit Review</button>';
-}
-if (actions.indexOf('deleteReview') !== -1) {
-html += '<button class="text-xs bg-white text-red-600 px-3 py-1.5 rounded-full border border-red-200 hover:bg-red-50 transition action-btn" data-action="deleteReview" data-id="' + id + '">🗑 Delete Review</button>';
+html += '<button class="text-xs bg-white text-[#0F382E] px-3 py-1.5 rounded-full border border-[#0F382E]/30 hover:bg-[#0F382E]/5 transition action-btn" data-action="editReview" data-id="' + id + '">✎ Edit Review (once)</button>';
 }
 return html;
 }
@@ -1412,7 +1415,6 @@ else if (action === 'requestCancellation') await openCancellationRequestModal(id
 else if (action === 'withdrawRequest') await withdrawCancellationRequest(id);
 else if (action === 'review') await openReviewModal(id);
 else if (action === 'editReview') await openReviewModal(id, true);
-else if (action === 'deleteReview') await deleteMyReview(id);
 } finally {
 resetBtn();
 }
@@ -1447,7 +1449,7 @@ function ensureReviewStyles() {
   document.head.appendChild(st);
 }
 
-function openReviewModal(bookingId, isEdit) {
+async function openReviewModal(bookingId, isEdit) {
   var b = null;
   for (var i = 0; i < myBookings.length; i++) {
     if (String(myBookings[i].id) === String(bookingId)) { b = myBookings[i]; break; }
@@ -1456,6 +1458,21 @@ function openReviewModal(bookingId, isEdit) {
 
   var existing = (isEdit && b.myReview) ? b.myReview : null;
   if (isEdit && !existing) return;
+
+  // The one edit is already spent — say so instead of opening the editor.
+  if (isEdit && existing.updatedAt) {
+    await showAlert('Edit Already Used', 'You can correct a review once. This one has already been edited, so it is now final.');
+    return;
+  }
+
+  // Warn before they start, not after they save.
+  if (isEdit) {
+    var proceed = await showConfirm(
+      'Edit your review?',
+      'This is your <strong>one</strong> allowed edit. Once saved, your rating and comment are final — they cannot be changed or removed again.'
+    );
+    if (!proceed) return;
+  }
 
   ensureReviewStyles();
 
@@ -1550,38 +1567,8 @@ function openReviewModal(bookingId, isEdit) {
   };
 }
 
-async function deleteMyReview(bookingId) {
-  var b = null;
-  for (var i = 0; i < myBookings.length; i++) {
-    if (String(myBookings[i].id) === String(bookingId)) { b = myBookings[i]; break; }
-  }
-  if (!b || !b.myReview) return;
-
-  var ok = await showConfirm(
-    'Delete your review?',
-    'This removes your star rating and comment from the listing. You can write a new review afterwards.'
-  );
-  if (!ok) return;
-
-  try {
-    var csrf = localStorage.getItem('kd_csrf_token') || await fetchGuestCsrfToken();
-    var res = await fetch(API_BASE + '/reviews', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
-      credentials: 'include',
-      body: JSON.stringify({ action: 'delete', reviewId: b.myReview.id })
-    });
-    var data = await res.json();
-    if (!res.ok || !data.success) {
-      await showAlert('Could Not Delete', data.error || 'Please try again.');
-      return;
-    }
-    await showAlert('Review Removed', data.message || 'Your review has been removed.');
-    await loadMyBookings();
-  } catch (e) {
-    await showAlert('Network Error', 'Could not reach the server. Please try again.');
-  }
-}
+// deleteMyReview() was removed along with the Delete Review button. A
+// rating is final once written, and the API refuses the action outright.
 async function manualCheckPayment(bookingId) {
 try {
 const result = await checkPaymentStatus(bookingId);
