@@ -120,6 +120,19 @@ button.kd-loading {
   opacity: 0.6;
   pointer-events: none;
 }
+/* ------------------------------------------------------------
+   The listing form is for signed-in hosts only.
+
+   A visitor with no verified host session was shown the banner
+   AND the entire form underneath it - so scrolling down let
+   anyone fill in a listing they could never submit. Now the
+   banner stands alone until a host session is confirmed.
+
+   Hidden in CSS rather than by script so the form can never
+   flash on screen while the session check is still in flight.
+   ------------------------------------------------------------ */
+#listFormCard { display: none; }
+body.kd-host-authed #listFormCard { display: block; }   
 </style>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-CG482XVS35"></script>
@@ -272,7 +285,7 @@ This protects guests from fake listings. Create a free host account, verify your
 <a href="/owner.html" class="btn-outline" style="padding:10px 20px; font-size:11px;">I already have one</a>
 </div>
 </div>
-<div class="card p-6 md:p-10 bg-white shadow-xl animate-on-scroll">
+<div id="listFormCard" class="card p-6 md:p-10 bg-white shadow-xl animate-on-scroll">
 <div class="space-y-8">
 <section class="space-y-4">
 <div class="flex items-center gap-2 border-b pb-2">
@@ -1919,6 +1932,8 @@ var pwdSection = document.getElementById('ownerPasswordSection');
 if (pwdSection) pwdSection.style.display = 'none';
 var banner = document.getElementById('accountRequiredBanner');
 if (banner) banner.style.display = 'none';
+// Confirmed: this visitor is a verified, signed-in host - reveal the form.
+document.body.classList.add('kd-host-authed');   
 var formCard = document.querySelector('main .card');
 if (formCard && !document.getElementById('ownerAuthBanner')) {
 var authBanner = document.createElement('div');
@@ -1933,7 +1948,12 @@ authBanner.innerHTML =
 formCard.insertBefore(authBanner, formCard.firstChild);
 }
 })
-.catch(function() { /* silent */ });
+.catch(function() {
+  // Session check failed (offline, server hiccup). Fail OPEN so a real host
+  // is never locked out of the form - the server still rejects any
+  // submission that is not properly authenticated.
+  document.body.classList.add('kd-host-authed');
+});
 })();
 (function showVerifiedWelcome() {
 var params = new URLSearchParams(window.location.search);
