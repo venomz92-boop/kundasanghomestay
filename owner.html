@@ -127,6 +127,59 @@
       .kd-rules-table td:nth-child(4)::before { content: "Who decides"; }
       .kd-rules-table .kd-amt { white-space: normal; }
     }
+
+    /* ---------- DATE FIELDS — "01 Oct 2026" ----------
+       A native <input type="date"> always renders in the BROWSER's
+       locale, so the host saw "mm/dd/yyyy". The native control is kept
+       (invisible) to supply the picker and the ISO value; the visible
+       text is ours, in the same format the guest side uses.
+       inline-flex + width:auto so the field hugs its text instead of
+       stretching across the flex row and pushing the button down. */
+    .date-field {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      width: auto;
+      cursor: pointer;
+      padding-right: 40px;
+    }
+    .date-field .date-native {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      border: 0;
+      padding: 0;
+      margin: 0;
+      background: transparent;
+      font-size: 16px;
+    }
+    .date-field .date-display {
+      display: block;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .date-field .date-display.empty { color: #9ca3af; }
+    .date-field::after {
+      content: '';
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 15px;
+      height: 15px;
+      pointer-events: none;
+      opacity: 0.5;
+      background-repeat: no-repeat;
+      background-size: contain;
+      background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230F382E' stroke-width='2' stroke-linecap='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E");
+    }
+    .date-field:focus-within {
+      border-color: #0F382E;
+      box-shadow: 0 0 0 3px rgba(15, 56, 46, 0.12);
+    }
   </style>
   <script src="/guest-session.js"></script>
   <script src="/csrf-auto.js"></script>
@@ -573,6 +626,90 @@ function safeHTML(html) {
   });
 }
 
+// ============================================================
+// DATE FIELDS — "01 Oct 2026" display
+//
+// Reuses ownerDate() (defined lower down) so host and guest read the
+// same date the same way. A native date input always renders in the
+// BROWSER's locale; we keep it invisible to supply the picker and the
+// ISO value, and draw the text ourselves.
+// ============================================================
+function attachDateFormats() {
+  var inputs = document.querySelectorAll('input[type="date"]');
+  for (var i = 0; i < inputs.length; i++) {
+    var input = inputs[i];
+    if (!input.id) continue;
+
+    var wrap = input.parentNode;
+    if (!wrap || !wrap.classList || !wrap.classList.contains('date-field')) {
+      wrap = document.createElement('div');
+      var classes = (input.className || '').split(/\s+/).filter(Boolean);
+      wrap.className = 'date-field';
+      for (var c = 0; c < classes.length; c++) wrap.classList.add(classes[c]);
+
+      // The cancellation picker is styled inline (amber border). Carry
+      // that onto the wrapper so the box keeps its look, and leave the
+      // input bare for the invisible-overlay rules.
+      var inline = input.getAttribute('style');
+      if (inline) {
+        wrap.setAttribute('style', inline);
+        input.removeAttribute('style');
+      }
+      // Inline padding would otherwise win over the stylesheet and let
+      // the text run under the calendar icon.
+      wrap.style.paddingRight = '40px';
+
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+      input.className = 'date-native';
+
+      var display = document.createElement('span');
+      display.className = 'date-display';
+      wrap.appendChild(display);
+    }
+
+    var disp = wrap.querySelector('.date-display');
+    if (disp) {
+      var next = input.value ? ownerDate(input.value) : 'Select date';
+      // Only write when it actually changes — avoids needless layout.
+      if (disp.textContent !== next) disp.textContent = next;
+      if (input.value) disp.classList.remove('empty');
+      else disp.classList.add('empty');
+    }
+  }
+}
+
+// Tapping anywhere in the box opens the calendar. Bound to `document`
+// so it survives the wrapper being rebuilt; the native input covers the
+// whole box, so there is no dead zone.
+function bindDateFieldTap() {
+  if (bindDateFieldTap._done) return;
+  bindDateFieldTap._done = true;
+  document.addEventListener('mousedown', function (ev) {
+    var field = ev.target && ev.target.closest ? ev.target.closest('.date-field') : null;
+    if (!field) return;
+    var native = field.querySelector('input[type="date"]');
+    // No showPicker (old Safari) — leave the browser's own behaviour alone.
+    if (!native || typeof native.showPicker !== 'function') return;
+    ev.preventDefault();
+    try { native.focus({ preventScroll: true }); } catch (e) {}
+    try { native.showPicker(); } catch (err) {}
+  }, true);
+}
+bindDateFieldTap();
+
+document.addEventListener('change', function (e) {
+  if (e.target && e.target.type === 'date') attachDateFormats();
+});
+document.addEventListener('input', function (e) {
+  if (e.target && e.target.type === 'date') attachDateFormats();
+});
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', attachDateFormats);
+} else {
+  attachDateFormats();
+}
+
 function showModal(title, message, buttons) {
   return new Promise((resolve) => {
     const overlay = document.getElementById('customModal');
@@ -582,6 +719,8 @@ function showModal(title, message, buttons) {
     titleEl.textContent = title || 'Notice';
     bodyEl.innerHTML = typeof message === 'string' ? message : '';
     footerEl.innerHTML = '';
+    // Any date field in a freshly-rendered modal needs wrapping too.
+    attachDateFormats();
 
     const finish = (val) => {
       window.__modalCancel = null;
@@ -1827,6 +1966,9 @@ async function removeRoomBlockHandler(e) {
       await refreshOwnerHomestays();
       await loadRoomBlocks();
       dateInput.value = '';
+      // Clearing .value fires no event, so nudge the label back to
+      // "Select date" by hand.
+      attachDateFormats();
     }
     else {
       await showAlert('Error', data.error || 'Failed to update block.');
