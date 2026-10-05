@@ -1196,7 +1196,7 @@ async function loadBookings() {
       }
 
       const coverBlock = coverImage
-        ? '<div class="kd-cover-thumb"><img src="' + coverImage + '" alt="" /></div>'
+        ? '<div class="kd-cover-thumb"><img src="' + cld(coverImage, 400) + '" alt="" /></div>'
         : '<div class="kd-cover-thumb"><span class="kd-cover-fallback">🏔️</span></div>';
 
       let statusBadge = '';
@@ -2488,7 +2488,7 @@ function renderRoomsManager() {
     rooms.forEach(r => {
       const cover = (Array.isArray(r.images) && r.images[0]) ? escapeRoomHtml(r.images[0]) : '';
       const thumb = cover
-        ? `<img src="${cover}" class="w-14 h-14 object-cover rounded-xl border border-zinc-200 flex-shrink-0" />`
+        ? `<img src="${cld(cover, 160)}" class="w-14 h-14 object-cover rounded-xl border border-zinc-200 flex-shrink-0" />`
         : `<div class="w-14 h-14 rounded-xl bg-zinc-100 flex items-center justify-center text-xl flex-shrink-0">🛏️</div>`;
       const guestsTxt = (r.guests !== undefined && r.guests !== null && r.guests !== '')
         ? ` • max ${escapeRoomHtml(r.guests)} guests`
