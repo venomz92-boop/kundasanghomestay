@@ -1466,8 +1466,7 @@ if (requestedDates.length === 0) return { available: true };
 // would mark every room's bookings as blocked, so a listing that search
 // correctly showed as available (another room is free) would look fully
 // booked the moment the guest opened it.
-var _calRoomSel = document.getElementById('roomSelect');
-var blocked = getBlockedDatesForRoom(homestay, _calRoomSel ? _calRoomSel.value : null);
+var blocked = getBlockedDatesForRoom(homestay, roomId);
 if (roomId && homestay.rooms) {
 var room = homestay.rooms.find(r => r.id === roomId);
 if (room && room.blockedDates) {
