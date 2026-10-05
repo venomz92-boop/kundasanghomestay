@@ -1440,15 +1440,16 @@ if (list.length === 0) {
 //   - with no filters  → "we're still onboarding hosts"
 var hasActiveFilters = (loc !== 'all') || guests > 2 || !!(checkinVal && checkoutVal);
 var emptyHtml;
-if (hasActiveFilters) {
+if (homestays.length === 0) {
 emptyHtml =
 '<div class="col-span-3 text-center py-16">' +
-'<div class="text-4xl mb-3">🔍</div>' +
-'<div class="text-zinc-700 font-poppins font-600 text-[16px]">No homestays match your filters.</div>' +
-'<div class="text-zinc-500 font-poppins text-[13px] mt-2 max-w-md mx-auto leading-relaxed">Try a different area, fewer guests, or different dates — most of our hosts have availability on other days.</div>' +
-'<button id="resetFiltersBtn" class="mt-5 btn-outline">Reset Filters</button>' +
+'<div class="text-4xl mb-3">🏔️</div>' +
+'<div class="text-zinc-700 font-poppins font-600 text-[16px]">We\'re onboarding our founding hosts.</div>' +
+'<div class="text-zinc-500 font-poppins text-[13px] mt-2 max-w-md mx-auto leading-relaxed">We personally visit and verify every property before it appears here, so listings are added slowly and carefully rather than all at once. Founding hosts get priority placement and no platform fee on their first three bookings.</div>' +
+'<a href="/owner-register.html" class="mt-5 btn-primary inline-block">List your homestay</a>' +
+'<div class="text-zinc-400 font-poppins text-[12px] mt-3">Already hosting in Kundasang? Email <a href="mailto:support@kundasanghomestay.my" class="text-[#0F382E] font-semibold underline">support@kundasanghomestay.my</a> and we\'ll set the listing up for you.</div>' +
 '</div>';
-} else {
+} else if (hasActiveFilters) {
 emptyHtml =
 '<div class="col-span-3 text-center py-16">' +
 '<div class="text-4xl mb-3">🏔️</div>' +
