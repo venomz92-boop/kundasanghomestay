@@ -883,6 +883,16 @@ ALLOWED_ATTR: [
 'method','action','type','name','value','placeholder',
 'checked','disabled','readonly','required','multiple',
 'min','max','step','pattern','autocomplete','inputmode',
+// Missing attributes that produced silent bugs:
+//   selected        → room dropdown ignored the preselected room
+//   loading         → "loading=lazy" was stripped off every listing card,
+//                     so all card images loaded eagerly
+//   for             → label→input association lost, so clicking a
+//                     "Check-in" label no longer focused its field
+//   width / height  → logo dimensions dropped, causing layout shift
+//   colspan / rowspan → table cell spanning dropped in admin-style tables
+// All are inert attribute names, so the whitelist stays tight.
+'selected','loading','for','width','height','colspan','rowspan',
 'viewBox','fill','stroke','stroke-width','d','aria-*','data-*'
 ],
 ADD_ATTR: ['target'],
