@@ -650,6 +650,18 @@ export async function ensureRateLimitTable(db) {
   await db.prepare(
     `CREATE INDEX IF NOT EXISTS idx_rate_limits_ip_action ON rate_limits(ip, action)`
   ).run();
+  // The 24h cleanup in recordRateLimit() runs
+  //   DELETE FROM rate_limits WHERE timestamp < ?
+  // Without an index on timestamp that is a full table scan, and D1 bills
+  // rows *scanned*. The table holds ~24h of rate-limited actions, so every
+  // rate-limited request scanned the whole table: O(N) per request, O(N²)
+  // per day. On the free tier (5M rows read/day) that exhausted the daily
+  // quota somewhere around 2,000 actions/day, and a D1 quota overrun fails
+  // every query on the database — logins, bookings, listings, all of it.
+  // With this index the cleanup is an index range scan instead.
+  await db.prepare(
+    `CREATE INDEX IF NOT EXISTS idx_rate_limits_ts ON rate_limits(timestamp)`
+  ).run();
   _rateLimitTableReady.add('rate_limits');
 }
 
