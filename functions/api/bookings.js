@@ -118,6 +118,23 @@ function holdDurationMs(b) {
     : PENDING_PAYMENT_HOLD_MS;
 }
 
+// Does an existing booking occupy the same inventory this request wants?
+//
+// The old check compared only roomId when a room was selected, so a booking
+// made against the WHOLE PROPERTY (no roomId) was invisible to a guest
+// booking a specific room — both could be confirmed for the same nights.
+// Reachable only if a property was single-unit when a booking was made and
+// rooms were added afterwards, but that is exactly the path this closes.
+//
+//   same homestay required, then:
+//     booking the whole property → blocked by ANY booking on that homestay
+//     booking a specific room    → blocked by that room's bookings
+//                                  AND by whole-property bookings
+function occupiesSameInventory(b, homestayId, selectedRoom) {
+  if (String(b.homestayId) !== String(homestayId)) return false;
+  if (!selectedRoom) return true;
+  return !b.roomId || String(b.roomId) === String(selectedRoom.id);
+}
 // true  = still occupies its dates
 // false = dead, or its hold has run out and the dates are free again
 function isBlockingDates(b, now) {
@@ -986,10 +1003,7 @@ export async function onRequestPost({ request, env }) {
           if (!stamp) return b;
           const isStale = (now - stamp) > holdDurationMs(b);
           if (!isStale) return b;
-          const roomMatch = selectedRoom
-            ? String(b.roomId) === String(selectedRoom.id)
-            : String(b.homestayId) === String(homestay.id);
-          if (!roomMatch) return b;
+          if (!occupiesSameInventory(b, homestay.id, selectedRoom)) return b;
           const overlaps = checkin < String(b.checkout || '') && checkout > String(b.checkin || '');
           if (!overlaps) return b;
           modified = true;
@@ -999,17 +1013,19 @@ export async function onRequestPost({ request, env }) {
         const overlaps = allBookings.some(b => {
           const isOwnPending = String(b.guestId) === String(guest.id) &&
             (b.status === 'Pending Payment' || b.status === 'Payment Failed');
-          const roomMatch = selectedRoom
-            ? String(b.roomId) === String(selectedRoom.id)
-            : String(b.homestayId) === String(homestay.id);
-          return roomMatch &&
+            return occupiesSameInventory(b, homestay.id, selectedRoom) &&
                isBlockingDates(b, now) &&
                !isOwnPending &&
                checkin < String(b.checkout||'') &&
                checkout > String(b.checkin||'');
         });
         if (overlaps) {
-          return { error: 'Selected dates are already booked for this room', status: 400 };
+          return {
+            error: selectedRoom
+              ? 'Those dates are already taken for this room. Please pick another room or different dates.'
+              : 'Those dates are already booked. Please choose different dates.',
+            status: 400
+          };
         }
 
         const base = Math.round(ownerPrice * nights * 100) / 100;
