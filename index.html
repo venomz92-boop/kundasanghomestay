@@ -1393,32 +1393,6 @@ return dates;
 // =============================================================
 // BLOCKED DATES
 // =============================================================
-function getAllBlockedDatesForHomestay(homestay) {
-if (!homestay) return [];
-var blocked = [];
-if (homestay.blockedDates) {
-blocked = blocked.concat(homestay.blockedDates);
-}
-if (availabilityMap && availabilityMap[String(homestay.id)]) {
-blocked = blocked.concat(availabilityMap[String(homestay.id)]);
-}
-if (bookings && bookings.length) {
-var relatedBookings = bookings.filter(function(b) {
-return b.homestay === homestay.name || String(b.homestayId) === String(homestay.id);
-});
-relatedBookings.forEach(function(b) {
-var status = (b.status || '').toLowerCase();
-if (status.includes('cancelled') || status.includes('fail')) return;
-if (b.checkin && b.checkout) {
-var dates = getDatesInRange(b.checkin, b.checkout);
-blocked = blocked.concat(dates);
-}
-});
-}
-var unique = {};
-blocked.forEach(function(d) { unique[d] = true; });
-return Object.keys(unique).sort();
-}
 // Dates blocked for ONE room: whole-property blocks plus that room's own.
 // Pass roomId = null for the whole-property set (host blocks + roomless
 // bookings), which is what decides whether the listing shows at all.
