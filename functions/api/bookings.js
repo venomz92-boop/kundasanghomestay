@@ -799,16 +799,40 @@ export async function onRequestGet({ request, env }) {
         };
       });
 
-    const availability = {};
+        const availability = {};
+    const propertyAvailability = {};
+    const roomAvailability = {};
     const now = Date.now();
     for (const h of safeApproved) {
       const homestayId = String(h.id);
-      availability[homestayId] = bookings
-        .filter(b => String(b.homestayId) === homestayId && isBlockingDates(b, now))
+      const blocking = bookings.filter(
+        b => String(b.homestayId) === homestayId && isBlockingDates(b, now)
+      );
+
+      // Unchanged: every blocking booking, regardless of room. Left as-is so
+      // the admin panel and any other existing caller keep the full set.
+      availability[homestayId] = blocking
         .flatMap(b => getDatesInRange(b.checkin, b.checkout));
+
+      // Dates blocked for the WHOLE property: a booking made without choosing
+      // a room. These hide the listing from search entirely.
+      propertyAvailability[homestayId] = blocking
+        .filter(b => !b.roomId)
+        .flatMap(b => getDatesInRange(b.checkin, b.checkout));
+
+      // Dates blocked per room. One room's booking must hide only that room,
+      // so the property stays bookable while another room is free.
+      const perRoom = {};
+      for (const b of blocking) {
+        if (!b.roomId) continue;
+        const rid = String(b.roomId);
+        if (!perRoom[rid]) perRoom[rid] = [];
+        perRoom[rid] = perRoom[rid].concat(getDatesInRange(b.checkin, b.checkout));
+      }
+      roomAvailability[homestayId] = perRoom;
     }
 
-    return jsonResponse({ approved: safeApproved, availability }, 200, request, {
+    return jsonResponse({ approved: safeApproved, availability, propertyAvailability, roomAvailability }, 200, request, {
       'Cache-Control': 'no-store'
     });
 
