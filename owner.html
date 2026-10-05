@@ -613,6 +613,20 @@ function setButtonLoading(btn, text) {
     }
   };
 }
+  
+// Cloudinary delivery helper. Rewrites a stored image URL to request a
+// resized, format-negotiated, compressed derivative instead of the raw
+// original: f_auto (WebP/AVIF where supported), q_auto, w_<n>, c_limit
+// (never upscale). Cloudinary generates these on demand and caches them at
+// the edge, so already-uploaded images are optimized with no re-upload.
+// Anything that is not a Cloudinary URL passes through untouched.
+function cld(url, width) {
+  if (!url || typeof url !== 'string') return '';
+  if (url.indexOf('/image/upload/') === -1) return url;
+  if (url.indexOf('/image/upload/f_auto') !== -1) return url;
+  return url.replace('/image/upload/', '/image/upload/f_auto,q_auto,w_' + width + ',c_limit/');
+}
+
 function safeHTML(html) {
   if (!html) return '';
   return DOMPurify.sanitize(html, {
