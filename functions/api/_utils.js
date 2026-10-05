@@ -2094,6 +2094,144 @@ export async function sweepNoShows(db, env, { now = Date.now(), force = false } 
       .run();
   } catch (_) {}
 
+    return summary;
+}
+
+// ============================================================
+// Missed-payment reconciliation.
+//
+// A CHIP webhook can fail to arrive (CHIP_PUBLIC_KEY missing or wrong,
+// endpoint unreachable, signature mismatch). chip-webhook.js returns 401 and
+// only logs to console, so a guest can pay and the booking stays "Pending
+// Payment" while the money sits in the CHIP account. This sweep finds
+// unresolved bookings, asks CHIP what happened, and finalizes the ones that
+// were paid.
+//
+// Triggered from bookings.js GET when the caller presents RECONCILE_SECRET,
+// so a free external cron can run it every 10 minutes whether or not anyone
+// opens the admin dashboard.
+// ============================================================
+const RECONCILE_STATE_KEY = 'kd_payment_reconcile';
+const RECONCILE_STATUSES = ['Pending Payment', 'Payment Failed', 'Expired - Abandoned'];
+const RECONCILE_MIN_AGE_MS = 10 * 60 * 1000;       // guest may still be at their bank
+const RECONCILE_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+const RECONCILE_RECHECK_MS = 30 * 60 * 1000;       // don't re-ask CHIP too often
+const RECONCILE_THROTTLE_MS = 10 * 60 * 1000;      // ignore overlapping runs
+const RECONCILE_MAX_PER_RUN = 25;                  // cap CHIP calls per run
+
+export async function reconcilePendingPayments(db, env, { now = Date.now(), force = false } = {}) {
+  const summary = { ran: false, candidates: 0, finalized: 0, stillPending: 0, notPaid: 0, errors: [] };
+  if (!db) { summary.errors.push('no db'); return summary; }
+  if (!env || !env.CHIP_SECRET_KEY) { summary.errors.push('CHIP_SECRET_KEY not configured'); return summary; }
+
+  if (!force) {
+    try {
+      const st = await db.prepare('SELECT data FROM store WHERE key=?').bind(RECONCILE_STATE_KEY).first();
+      let last = 0;
+      try { if (st?.data) last = Number(JSON.parse(st.data)?.lastRunAt) || 0; } catch (_) {}
+      if (last && (now - last) < RECONCILE_THROTTLE_MS) { summary.skipped = 'throttled'; return summary; }
+    } catch (_) {}
+  }
+  summary.ran = true;
+
+  // 1. Candidates: bookings whose payment outcome we never confirmed.
+  let candidates = [];
+  try {
+    const r = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+    let bookings = [];
+    try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
+    if (!Array.isArray(bookings)) bookings = [];
+    candidates = bookings.filter(b => {
+      if (!b || !b.chip_purchase_id) return false;
+      if (RECONCILE_STATUSES.indexOf(String(b.status || '')) === -1) return false;
+      const age = now - (b.date ? new Date(b.date).getTime() : 0);
+      if (!(age >= RECONCILE_MIN_AGE_MS) || age > RECONCILE_LOOKBACK_MS) return false;
+      if (b.reconciledAt) {
+        const ra = new Date(b.reconciledAt).getTime();
+        if (Number.isFinite(ra) && (now - ra) < RECONCILE_RECHECK_MS) return false;
+      }
+      return true;
+    }).slice(0, RECONCILE_MAX_PER_RUN);
+  } catch (e) { summary.errors.push('read: ' + e.message); return summary; }
+  summary.candidates = candidates.length;
+
+  // 2. Ask CHIP. Network/HTTP errors leave the booking untouched so the next
+  //    run picks it up again.
+  const keepStamped = [];
+  for (const b of candidates) {
+    let purchaseStatus = '';
+    try {
+      const resp = await fetch(
+        `https://gate.chip-in.asia/api/v1/purchases/${encodeURIComponent(b.chip_purchase_id)}/`,
+        { headers: { 'Authorization': `Bearer ${env.CHIP_SECRET_KEY}` } }
+      );
+      if (!resp.ok) { summary.errors.push(`${b.id}: CHIP HTTP ${resp.status}`); continue; }
+      purchaseStatus = String((await resp.json())?.status || '');
+    } catch (e) { summary.errors.push(`${b.id}: ${e.message}`); continue; }
+
+    if (purchaseStatus === 'completed' || purchaseStatus === 'paid') {
+      // finalizeAndNotify takes the lock, finalizes, emails the guest, and
+      // auto-refunds if the booking was already cancelled/expired.
+      try {
+        const n = await finalizeAndNotify(db, b.id, env);
+        if (n.outcome === 'lock_busy') summary.errors.push(`${b.id}: lock busy, retry next run`);
+        else if (n.outcome === 'error' && !n.retryable) summary.errors.push(`${b.id}: ${n.error}`);
+        else {
+          summary.finalized++;
+          await logAction({ db, action: 'payment_reconciled', admin: 'system',
+            details: `Booking ${b.id} confirmed by reconcile sweep (CHIP: ${purchaseStatus})`,
+            userId: b.guestId, homestayId: b.homestayId });
+        }
+      } catch (e) { summary.errors.push(`${b.id}: ${e.message}`); }
+    } else if (['error', 'failed', 'cancelled'].indexOf(purchaseStatus) !== -1) {
+      summary.notPaid++; keepStamped.push(String(b.id));
+    } else {
+      summary.stillPending++; keepStamped.push(String(b.id));
+    }
+  }
+
+  // 3. Stamp checked-and-unresolved bookings so RECHECK_MS applies to them.
+  if (keepStamped.length) {
+    try {
+      await withLock(db, 'bookings-global', async (db2) => {
+        const r = await db2.prepare('SELECT data FROM store WHERE key=?').bind('kd_bookings').first();
+        let bookings = [];
+        try { if (r?.data) bookings = JSON.parse(r.data); } catch (_) {}
+        if (!Array.isArray(bookings)) return;
+        const set = new Set(keepStamped);
+        const stamp = new Date(now).toISOString();
+        let dirty = false;
+        for (const b of bookings) {
+          if (b && set.has(String(b.id))) { b.reconciledAt = stamp; dirty = true; }
+        }
+        if (dirty) await db2.prepare('INSERT OR REPLACE INTO store (key,data) VALUES (?,?)')
+          .bind('kd_bookings', JSON.stringify(bookings)).run();
+      }, 30000);
+    } catch (e) { summary.errors.push('stamp: ' + e.message); }
+  }
+
+  try {
+    await db.prepare('INSERT OR REPLACE INTO store (key,data) VALUES (?,?)')
+      .bind(RECONCILE_STATE_KEY, JSON.stringify({ lastRunAt: now, summary })).run();
+  } catch (_) {}
+
+  // 4. You are not watching, so a recovery has to reach you.
+  if (summary.finalized > 0) {
+    const to = env.RECONCILE_ALERT_EMAIL || env.PAYOUT_RECORDS_EMAIL;
+    if (to) {
+      try {
+        await sendEmail({
+          to,
+          subject: `[Kundasang] ${summary.finalized} booking(s) recovered from a missed payment notification`,
+          html: `<p>CHIP recorded these payments as paid, but the platform never confirmed them — a missed webhook.</p>
+                 <p><strong>${summary.finalized}</strong> booking(s) finalized; guest(s) emailed their check-in details.</p>
+                 <p>Still pending at CHIP: ${summary.stillPending} &middot; Confirmed unpaid: ${summary.notPaid}</p>
+                 ${summary.errors.length ? '<p>Errors:<br>' + summary.errors.join('<br>') + '</p>' : '<p>No errors.</p>'}`
+        }, env);
+      } catch (_) {}
+    }
+  }
+
   return summary;
 }
 
