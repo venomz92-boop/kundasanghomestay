@@ -1305,6 +1305,8 @@ var homestays = storedApproved.filter(function(h) { return h.approved === true; 
 var bookings = JSON.parse(localStorage.getItem("kd_bookings") || "[]");
 var selectedHomestay = null;
 var availabilityMap = JSON.parse(localStorage.getItem("kd_availability") || "{}");
+var propertyAvailabilityMap = {};
+var roomAvailabilityMap = {};
 
 // =============================================================
 // GUEST SESSION SYSTEM
@@ -1417,11 +1419,55 @@ var unique = {};
 blocked.forEach(function(d) { unique[d] = true; });
 return Object.keys(unique).sort();
 }
+// Dates blocked for ONE room: whole-property blocks plus that room's own.
+// Pass roomId = null for the whole-property set (host blocks + roomless
+// bookings), which is what decides whether the listing shows at all.
+function getBlockedDatesForRoom(homestay, roomId) {
+if (!homestay) return [];
+var id = String(homestay.id);
+var blocked = [];
+if (homestay.blockedDates) blocked = blocked.concat(homestay.blockedDates);
+if (propertyAvailabilityMap[id]) blocked = blocked.concat(propertyAvailabilityMap[id]);
+var perRoom = roomAvailabilityMap[id];
+if (roomId && perRoom && perRoom[String(roomId)]) {
+blocked = blocked.concat(perRoom[String(roomId)]);
+}
+var seen = {};
+blocked.forEach(function(d) { seen[d] = true; });
+return Object.keys(seen).sort();
+}
+
+// Search-level availability. Single-unit homestays behave exactly as before.
+// A homestay with rooms stays bookable as long as ONE room is free.
+function isPropertyAvailableForRange(homestay, checkin, checkout) {
+if (!checkin || !checkout) return true;
+var requested = getDatesInRange(checkin, checkout);
+if (requested.length === 0) return true;
+var rooms = homestay.rooms || [];
+if (rooms.length === 0) {
+return isHomestayAvailableForRange(homestay, checkin, checkout).available;
+}
+// Host-blocked dates, or a booking made without a room, hide the property.
+var propBlocked = getBlockedDatesForRoom(homestay, null);
+if (requested.some(function(d) { return propBlocked.indexOf(d) !== -1; })) return false;
+// Otherwise it is available if at least one room is free.
+return rooms.some(function(r) {
+var rb = getBlockedDatesForRoom(homestay, r.id);
+return !requested.some(function(d) { return rb.indexOf(d) !== -1; });
+});
+}
+
 function isHomestayAvailableForRange(homestay, checkin, checkout, roomId) {
 if (!checkin || !checkout) return { available: true };
 var requestedDates = getDatesInRange(checkin, checkout);
 if (requestedDates.length === 0) return { available: true };
-var blocked = getAllBlockedDatesForHomestay(homestay);
+// Room-aware. When the property has rooms, the calendar must reflect the
+// room currently chosen in #roomSelect. Using the homestay-wide set here
+// would mark every room's bookings as blocked, so a listing that search
+// correctly showed as available (another room is free) would look fully
+// booked the moment the guest opened it.
+var _calRoomSel = document.getElementById('roomSelect');
+var blocked = getBlockedDatesForRoom(homestay, _calRoomSel ? _calRoomSel.value : null);
 if (roomId && homestay.rooms) {
 var room = homestay.rooms.find(r => r.id === roomId);
 if (room && room.blockedDates) {
@@ -1453,7 +1499,7 @@ return loc === "all" || (h.location && h.location.toLowerCase().indexOf(loc.toLo
 var byGuests = byArea.filter(function(h) { return (h.guests || 2) >= guests; });
 var hasDates = !!(checkinVal && checkoutVal);
 var byDates = hasDates
-? byGuests.filter(function(h) { return isHomestayAvailableForRange(h, checkinVal, checkoutVal).available; })
+? byGuests.filter(function(h) { return isPropertyAvailableForRange(h, checkinVal, checkoutVal); })
 : byGuests;
 var list = byDates;
 
@@ -1652,6 +1698,9 @@ const descEl = document.getElementById('roomDescription');
 if (descEl && room) descEl.textContent = room.desc || '';
 updateDetailPrice();
 updateRoomImages();
+// The blocked dates belong to the room, so the calendar has to be rebuilt
+// when the guest switches rooms.
+renderAvailabilityCalendar(selectedHomestay, 'detailAvailabilityCalendar');
 });
 setTimeout(updateRoomImages, 100);
 }
@@ -2337,7 +2386,13 @@ window.goToMyBookingsFromFailed = goToMyBookingsFromFailed;
 function renderAvailabilityCalendar(homestay, containerId) {
 var container = document.getElementById(containerId);
 if (!container || !homestay) return;
-var blocked = getAllBlockedDatesForHomestay(homestay);
+// Room-aware. When the property has rooms, the calendar must reflect the
+// room currently chosen in #roomSelect. Using the homestay-wide set here
+// would mark every room's bookings as blocked, so a listing that search
+// correctly showed as available (another room is free) would look fully
+// booked the moment the guest opened it.
+var _calRoomSel = document.getElementById('roomSelect');
+var blocked = getBlockedDatesForRoom(homestay, _calRoomSel ? _calRoomSel.value : null);
 var today = new Date();
 today.setHours(0, 0, 0, 0);
 var todayIso = dateToIso(today);
@@ -2680,6 +2735,8 @@ if (data.availability) {
 availabilityMap = data.availability;
 localStorage.setItem('kd_availability', JSON.stringify(availabilityMap));
 }
+propertyAvailabilityMap = data.propertyAvailability || {};
+roomAvailabilityMap = data.roomAvailability || {};
 if (data.approved && data.approved.length > 0) {
 homestays = data.approved.map(function(h) {
 return { ...h, blockedDates: h.blockedDates || [] };
