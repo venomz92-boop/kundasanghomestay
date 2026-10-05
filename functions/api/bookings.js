@@ -54,6 +54,7 @@ import {
   computeNonTierAmounts,
   NON_TIER_CANCEL_TYPES,
   sweepNoShows,
+  reconcilePendingPayments,
   sendNonTierCancellationEmail,
   sendNonTierHostNotice,
   sha256
@@ -550,7 +551,26 @@ export async function onRequestGet({ request, env }) {
   if (!db) return jsonResponse({ error: 'DB not configured' }, 500, request);
 
   try {
-    await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+  await db.prepare('CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, data TEXT)').run();
+
+    // --- Reconciliation trigger -------------------------------------
+    // Runs the missed-payment sweep when called with the shared secret, so an
+    // external cron can run it every 10 minutes regardless of whether anyone
+    // opens the admin dashboard. Absent or wrong secret = silent no-op and the
+    // request continues normally. Secret digests are compared, not the raw
+    // values, so the comparison leaks no length or prefix information.
+    const reconcileSecret = env.RECONCILE_SECRET;
+    if (reconcileSecret && String(reconcileSecret).length >= 16) {
+      const reqUrl = new URL(request.url);
+      const provided =
+        request.headers.get('X-Reconcile-Secret') || reqUrl.searchParams.get('reconcile') || '';
+      if (provided && (await sha256(provided)) === (await sha256(String(reconcileSecret)))) {
+        const summary = await reconcilePendingPayments(db, env, {
+          force: reqUrl.searchParams.get('force') === '1'
+        });
+        return jsonResponse(summary, 200, request);
+      }
+    }
 
     const guestSession = await getGuestSession(request, env);
     const isAdmin = await verifyAdminAuth(request, env);
