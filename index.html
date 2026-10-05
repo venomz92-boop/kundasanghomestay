@@ -1441,33 +1441,50 @@ var loc = document.getElementById("filterLocation")?.value || "all";
 var guests = parseInt(document.getElementById("filterGuests")?.value) || 2;
 var checkinVal = document.getElementById("checkin")?.value;
 var checkoutVal = document.getElementById("checkout")?.value;
-var list = homestays.filter(function(h) { return h.approved === true; });
-if (loc !== "all") list = list.filter(function(h) { return h.location && h.location.toLowerCase().indexOf(loc.toLowerCase()) !== -1; });
-list = list.filter(function(h) { return (h.guests || 2) >= guests; });
-if (checkinVal && checkoutVal) {
-list = list.filter(function(h) { return isHomestayAvailableForRange(h, checkinVal, checkoutVal).available; });
-}
+// Build the list in named stages instead of reassigning `list` in place.
+// The intermediate stages are what let the empty state below say WHY nothing
+// matched. With a confirmed booking auto-blocking its dates, "everything is
+// booked for these dates" is the common case once you are taking bookings,
+// and it reads completely differently to "your filter excluded everything".
+var approved = homestays.filter(function(h) { return h.approved === true; });
+var byArea = approved.filter(function(h) {
+return loc === "all" || (h.location && h.location.toLowerCase().indexOf(loc.toLowerCase()) !== -1);
+});
+var byGuests = byArea.filter(function(h) { return (h.guests || 2) >= guests; });
+var hasDates = !!(checkinVal && checkoutVal);
+var byDates = hasDates
+? byGuests.filter(function(h) { return isHomestayAvailableForRange(h, checkinVal, checkoutVal).available; })
+: byGuests;
+var list = byDates;
+
 if (list.length === 0) {
-// Two different empty states:
-//   - with filters on  → "no matches, try different filters"
-//   - with no filters  → "we're still onboarding hosts"
-var hasActiveFilters = (loc !== 'all') || guests > 2 || !!(checkinVal && checkoutVal);
 var emptyHtml;
-if (homestays.length === 0) {
-emptyHtml =
-'<div class="col-span-3 text-center py-16">' +
-'<div class="text-4xl mb-3">🏔️</div>' +
-'<div class="text-zinc-700 font-poppins font-600 text-[16px]">We\'re onboarding our founding hosts.</div>' +
-'<div class="text-zinc-500 font-poppins text-[13px] mt-2 max-w-md mx-auto leading-relaxed">We personally visit and verify every property before it appears here, so listings are added slowly and carefully rather than all at once. Founding hosts get priority placement and no platform fee on their first three bookings.</div>' +
-'<a href="/owner-register.html" class="mt-5 btn-primary inline-block">List your homestay</a>' +
-'<div class="text-zinc-400 font-poppins text-[12px] mt-3">Already hosting in Kundasang? Email <a href="mailto:support@kundasanghomestay.my" class="text-[#0F382E] font-semibold underline">support@kundasanghomestay.my</a> and we\'ll set the listing up for you.</div>' +
-'</div>';
-} else if (hasActiveFilters) {
+if (approved.length === 0) {
+// Nothing published yet — no host has been approved.
 emptyHtml =
 '<div class="col-span-3 text-center py-16">' +
 '<div class="text-4xl mb-3">🏔️</div>' +
 '<div class="text-zinc-700 font-poppins font-600 text-[16px]">We\'re carefully verifying our first mountain stays.</div>' +
 '<div class="text-zinc-500 font-poppins text-[13px] mt-2 max-w-md mx-auto leading-relaxed">We physically inspect every property before it goes live. Check back soon — or if you own a homestay in Kundasang, <a href="/owner-register.html" class="text-[#0F382E] font-semibold underline">list it here</a>.</div>' +
+'</div>';
+} else if (byGuests.length === 0) {
+// Listings exist, but area and/or guest count excluded all of them.
+emptyHtml =
+'<div class="col-span-3 text-center py-16">' +
+'<div class="text-4xl mb-3">🔍</div>' +
+'<div class="text-zinc-700 font-poppins font-600 text-[16px]">No homestays match your filters.</div>' +
+'<div class="text-zinc-500 font-poppins text-[13px] mt-2 max-w-md mx-auto leading-relaxed">Try a different area or fewer guests.</div>' +
+'<button id="resetFiltersBtn" class="mt-5 btn-outline">Reset Filters</button>' +
+'</div>';
+} else {
+// Listings survive the filters, but none are free for the chosen dates.
+// This is the normal state once bookings start arriving.
+emptyHtml =
+'<div class="col-span-3 text-center py-16">' +
+'<div class="text-4xl mb-3">📅</div>' +
+'<div class="text-zinc-700 font-poppins font-600 text-[16px]">Fully booked for these dates.</div>' +
+'<div class="text-zinc-500 font-poppins text-[13px] mt-2 max-w-md mx-auto leading-relaxed">Our homestays are taken on the dates you selected. Try another range — or clear the dates to see every stay we have.</div>' +
+'<button id="resetFiltersBtn" class="mt-5 btn-outline">Show all dates</button>' +
 '</div>';
 }
 grid.innerHTML = safeHTML(emptyHtml);
@@ -2585,7 +2602,6 @@ var checkoutInput = document.getElementById('checkout');
 var tomorrowIso = dateToIso(tomorrow);
 var dayAfterIso = dateToIso(dayAfter);
 if (checkinInput) {
-checkinInput.value = tomorrowIso;
 checkinInput.min = tomorrowIso; // Prevent selecting today or past dates
 // Sync checkout min date when checkin changes
 checkinInput.addEventListener('change', function() {
@@ -2600,7 +2616,6 @@ checkoutInput.value = dateToIso(minCo);
 });
 }
 if (checkoutInput) {
-checkoutInput.value = dayAfterIso;
 checkoutInput.min = dateToIso(new Date(tomorrow.getTime() + 86400000));
 }
 // ============================================================
