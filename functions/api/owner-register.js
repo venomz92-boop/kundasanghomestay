@@ -254,10 +254,16 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (!created) {
-      await recordRateLimit(db, clientIP, 'owner_register');
-      await recordRateLimit(db, GLOBAL_KEY, 'owner_register');
-      return jsonResponse({ error: 'Registration failed. Please check your details or try again.' }, 400, request);
-    }
+    await recordRateLimit(db, clientIP, 'owner_register');
+    await recordRateLimit(db, GLOBAL_KEY, 'owner_register');
+    // A duplicate is not a failure. The account exists; saying
+    // "Registration failed" sends the host into a retry loop and implies
+    // they mistyped something. Point them at the email instead.
+    return jsonResponse({
+      error: 'An account already exists for this email or phone number. If you have not verified it yet, check your inbox — or open the Host Portal and use “Resend verification email”.',
+      code: 'ALREADY_REGISTERED'
+    }, 409, request);
+  }
 
     const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
     const verifyToken = await createSignedToken({
