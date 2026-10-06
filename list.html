@@ -756,82 +756,142 @@ var UPLOAD_TIMEOUT_MS = 45000;
 //   'timeout'  — no bytes moved for UPLOAD_TIMEOUT_MS
 //   'network'  — connection dropped / DNS / cancelled
 //   'offline'  — navigator.onLine was false when we started
-function uploadWithProgress(url, formData, onProgress) {
-  return new Promise(function (resolve, reject) {
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      var off = new Error('You appear to be offline.');
-      off.code = 'offline';
-      reject(off);
-      return;
-    }
-
-    var xhr = new XMLHttpRequest();
-    var settled = false;
-    var idleTimer = null;
-
-    function finish(fn, arg) {
-      if (settled) return;
-      settled = true;
-      if (idleTimer) clearTimeout(idleTimer);
-      fn(arg);
-    }
-
-    function armIdleTimer() {
-      if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(function () {
-        try { xhr.abort(); } catch (e) {}
-        var err = new Error('Timed out');
-        err.code = 'timeout';
-        finish(reject, err);
-      }, UPLOAD_TIMEOUT_MS);
-    }
-
-    xhr.open('POST', url, true);
-    xhr.withCredentials = true;              // sends the session cookie
-    xhr.responseType = 'text';
-
-    xhr.upload.onprogress = function (ev) {
-      armIdleTimer();                        // bytes moved — connection is alive
-      if (onProgress && ev.lengthComputable && ev.total > 0) {
-        onProgress(ev.loaded / ev.total);
+// Resolve the CSRF token the same way csrf-auto.js does.
+//
+// That script injects X-CSRF-Token by patching window.fetch. XMLHttpRequest
+// does NOT pass through that patch, so an XHR upload without this header is a
+// guaranteed 403 CSRF_MISSING from /api/_middleware.js.
+//
+// Prefers the helpers csrf-auto.js exposes on window.KdCsrf, and falls back to
+// reading localStorage directly if that script did not load.
+async function resolveCsrfToken() {
+  try {
+    if (window.KdCsrf && typeof window.KdCsrf.read === 'function') {
+      var t = window.KdCsrf.read();
+      if (t) return t;
+      if (typeof window.KdCsrf.refresh === 'function') {
+        return await window.KdCsrf.refresh(
+          window.KdCsrf.defaultType ? window.KdCsrf.defaultType() : 'owner'
+        );
       }
-    };
-
-    xhr.onload = function () {
-      if (xhr.status < 200 || xhr.status >= 300) {
-        var e = new Error('HTTP ' + xhr.status);
-        e.code = 'http';
-        e.status = xhr.status;
-        finish(reject, e);
-        return;
-      }
-      var parsed = null;
-      try { parsed = JSON.parse(xhr.responseText); } catch (e) {}
-      finish(resolve, parsed || {});
-    };
-
-    xhr.onerror = function () {
-      var e = new Error('Network error');
-      e.code = 'network';
-      finish(reject, e);
-    };
-    xhr.ontimeout = function () {
-      var e = new Error('Timed out');
-      e.code = 'timeout';
-      finish(reject, e);
-    };
-    xhr.onabort = function () {
-      if (settled) return;                   // our own timeout already rejected
-      var e = new Error('Cancelled');
-      e.code = 'network';
-      finish(reject, e);
-    };
-
-    armIdleTimer();
-    xhr.send(formData);
-  });
+      return null;
+    }
+    var owner = localStorage.getItem('kd_owner_csrf_token');
+    if (owner) return owner;
+    return localStorage.getItem('kd_guest_csrf_token') || localStorage.getItem('kd_csrf_token');
+  } catch (e) {
+    return null;
+  }
 }
 
+async function uploadWithProgress(url, formData, onProgress) {
+  var csrfToken = await resolveCsrfToken();
+
+  // One attempt. retryToken is null on the first pass, and a freshly refreshed
+  // token on the retry after a CSRF rejection.
+  function attempt(retryToken) {
+    return new Promise(function (resolve, reject) {
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        var off = new Error('You appear to be offline.');
+        off.code = 'offline';
+        reject(off);
+        return;
+      }
+
+      var xhr = new XMLHttpRequest();
+      var settled = false;
+      var idleTimer = null;
+
+      function finish(fn, arg) {
+        if (settled) return;
+        settled = true;
+        if (idleTimer) clearTimeout(idleTimer);
+        fn(arg);
+      }
+
+      function armIdleTimer() {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(function () {
+          try { xhr.abort(); } catch (e) {}
+          var err = new Error('Timed out');
+          err.code = 'timeout';
+          finish(reject, err);
+        }, UPLOAD_TIMEOUT_MS);
+      }
+
+      xhr.open('POST', url, true);
+      xhr.withCredentials = true;            // sends the session cookie
+      xhr.responseType = 'text';
+
+      // Required: the middleware rejects mutating /api/* calls without it.
+      var token = retryToken || csrfToken;
+      if (token) xhr.setRequestHeader('X-CSRF-Token', token);
+
+      xhr.upload.onprogress = function (ev) {
+        armIdleTimer();                      // bytes moved — connection is alive
+        if (onProgress && ev.lengthComputable && ev.total > 0) {
+          onProgress(ev.loaded / ev.total);
+        }
+      };
+
+      xhr.onload = function () {
+        if (xhr.status < 200 || xhr.status >= 300) {
+          var e = new Error('HTTP ' + xhr.status);
+          e.code = 'http';
+          e.status = xhr.status;
+          e.body = xhr.responseText || '';  // lets a CSRF 403 be retried
+          finish(reject, e);
+          return;
+        }
+        var parsed = null;
+        try { parsed = JSON.parse(xhr.responseText); } catch (e) {}
+        finish(resolve, parsed || {});
+      };
+
+      xhr.onerror = function () {
+        var e = new Error('Network error');
+        e.code = 'network';
+        finish(reject, e);
+      };
+      xhr.ontimeout = function () {
+        var e = new Error('Timed out');
+        e.code = 'timeout';
+        finish(reject, e);
+      };
+      xhr.onabort = function () {
+        if (settled) return;                 // our own timeout already rejected
+        var e = new Error('Cancelled');
+        e.code = 'network';
+        finish(reject, e);
+      };
+
+      armIdleTimer();
+      xhr.send(formData);
+    });
+  }
+
+  try {
+    return await attempt(null);
+  } catch (err) {
+    // A CSRF token can expire while the page is open. csrf-auto.js retries
+    // fetch() once on a CSRF 403; mirror that so an upload survives a stale
+    // token instead of failing with an error the host cannot act on.
+    var isCsrf = err && err.code === 'http' && err.status === 403 &&
+      /CSRF_MISSING|CSRF_INVALID/.test(err.body || '');
+    if (!isCsrf) throw err;
+
+    var fresh = null;
+    try {
+      if (window.KdCsrf && typeof window.KdCsrf.refresh === 'function') {
+        fresh = await window.KdCsrf.refresh(
+          window.KdCsrf.defaultType ? window.KdCsrf.defaultType() : 'owner'
+        );
+      }
+    } catch (e) {}
+    if (!fresh) throw err;
+    return await attempt(fresh);
+  }
+}
 // Human-readable failure text. A bare "Network error" tells a host nothing
 // about what to do next.
 function uploadErrorMessage(err, fileName) {
