@@ -173,6 +173,30 @@ button.kd-loading {
 .pg-cover-btn:hover { background: #0F382E; }
 .pg-slot.kd-uploading { pointer-events: none; }
 .pg-slot.kd-uploading .kd-drop-overlay { display: flex; }
+/* ------------------------------------------------------------
+   REORDER — drag states
+
+   touch-action: none ONLY on filled tiles. That is what lets a
+   press-and-drag reorder a photo instead of scrolling the page.
+   Empty tiles keep normal scrolling, so a gallery with no photos
+   yet still scrolls normally on a phone.
+   ------------------------------------------------------------ */
+.pg-slot-full { touch-action: none; }
+.pg-slot-empty { touch-action: manipulation; }
+.pg-slot.pg-src { opacity: 0.3; }
+.pg-slot.pg-over { box-shadow: 0 0 0 3px #0F382E, 0 0 0 7px rgba(15,56,46,0.18); }
+.pg-ghost {
+  position: fixed;
+  z-index: 999999;
+  width: 90px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 10px;
+  opacity: 0.92;
+  pointer-events: none;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.3);
+  transform: rotate(-2deg);
+}
 .kd-uploading-label {
   opacity: 0.6;
   pointer-events: none;
@@ -469,6 +493,7 @@ This protects guests from fake listings. Create a free host account, verify your
 <span class="font-bold text-[16px] text-[#212121]">Property Gallery</span>
 </div>
 <p class="text-xs text-zinc-600">Add up to 6 photos. The <strong>cover photo</strong> is the thumbnail guests see in search results — put your best shot there.</p>
+<p class="text-[11px] text-zinc-400 mt-1">To reorder: press and hold a photo, then drag it to another slot. You can also tap <strong>Make cover</strong> to promote one instantly.</p>
 <div id="photoSlots" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-1"></div>
 <input id="listPhotos" type="file" accept="image/*" class="hidden" onchange="handlePhotoPick(this)" />
 </section>
@@ -1757,6 +1782,176 @@ document.addEventListener('click', function (e) {
   var n = parseInt(slot.dataset.slot, 10);
   if (!isNaN(n)) openPhotoPicker(n);
 });
+
+// ============================================================
+// GALLERY REORDER — drag a photo to a new position
+//
+// Uses Pointer Events, NOT HTML5 drag-and-drop. dragstart / dragover / drop
+// never fire on touch devices, and phones are how hosts actually use this
+// page — HTML5 drag would work on a desktop and be dead on every phone.
+//
+// Mouse drags immediately past a small threshold. Touch and pen require a
+// short hold first, so an ordinary swipe still scrolls the page rather than
+// silently reordering photos.
+//
+// The order is insert-and-shift: dragging photo 3 onto slot 1 pushes 1 and 2
+// up. tempPhotos stays dense, so tempPhotos[0] is always the cover and the
+// submit payload is unchanged. Nothing is re-uploaded.
+// ============================================================
+var PG_HOLD_MS = 180;
+var PG_MOVE_TOLERANCE = 8;
+var _pgDrag = null;
+var _pgSuppressClick = false;
+
+// Swap-and-shift rather than swap: this is what "drag it to position 1"
+// means in every photo gallery a host has used before.
+function reorderPhoto(from, to) {
+  if (from === to) return;
+  if (!(from >= 0) || from >= tempPhotos.length) return;
+  if (!(to >= 0)) to = 0;
+  if (to > tempPhotos.length - 1) to = tempPhotos.length - 1;
+  if (from === to) return;
+  var u = tempPhotos.splice(from, 1)[0];
+  var p = tempPhotoPublicIds.splice(from, 1)[0];
+  tempPhotos.splice(to, 0, u);
+  tempPhotoPublicIds.splice(to, 0, p);
+  renderPhotoSlots();
+  saveDraft();
+}
+
+function pgSlotAt(x, y) {
+  var el = document.elementFromPoint(x, y);
+  return (el && el.closest) ? el.closest('#photoSlots .pg-slot') : null;
+}
+
+function pgCleanup() {
+  if (!_pgDrag) return;
+  if (_pgDrag.holdTimer) clearTimeout(_pgDrag.holdTimer);
+  if (_pgDrag.ghost && _pgDrag.ghost.parentNode) {
+    _pgDrag.ghost.parentNode.removeChild(_pgDrag.ghost);
+  }
+  var src = document.querySelector('#photoSlots .pg-slot.pg-src');
+  if (src) src.classList.remove('pg-src');
+  var over = document.querySelector('#photoSlots .pg-slot.pg-over');
+  if (over) over.classList.remove('pg-over');
+  _pgDrag = null;
+}
+
+function pgBeginDrag(e) {
+  if (!_pgDrag || _pgDrag.active) return;
+  _pgDrag.active = true;
+
+  var tile = document.querySelector('#photoSlots .pg-slot[data-slot="' + _pgDrag.from + '"]');
+  if (tile) tile.classList.add('pg-src');
+
+  // The floating thumbnail matters most on touch: without it the dragged
+  // photo sits under the host's finger and they cannot see what they hold.
+  var g = document.createElement('img');
+  g.src = tempPhotos[_pgDrag.from] || '';
+  g.className = 'pg-ghost';
+  document.body.appendChild(g);
+  _pgDrag.ghost = g;
+
+  if (navigator.vibrate) { try { navigator.vibrate(10); } catch (err) {} }
+  pgMoveDrag(e);
+}
+
+function pgMoveDrag(e) {
+  if (!_pgDrag || !_pgDrag.active) return;
+  if (_pgDrag.ghost) {
+    _pgDrag.ghost.style.left = (e.clientX - 45) + 'px';
+    _pgDrag.ghost.style.top = (e.clientY - 34) + 'px';
+  }
+  var over = document.querySelector('#photoSlots .pg-slot.pg-over');
+  if (over) over.classList.remove('pg-over');
+  var tile = pgSlotAt(e.clientX, e.clientY);
+  if (tile) tile.classList.add('pg-over');
+}
+
+document.addEventListener('pointerdown', function (e) {
+  if (e.button !== undefined && e.button !== 0) return;
+  if (!e.target || !e.target.closest) return;
+  // Let Remove / Make cover buttons behave as plain buttons.
+  if (e.target.closest('[data-photo-action]')) return;
+
+  var el = e.target.closest('#photoSlots .pg-slot');
+  if (!el) return;
+  if (el.classList.contains('kd-uploading')) return;
+  if (!el.classList.contains('pg-slot-full')) return;   // nothing to drag yet
+
+  var idx = parseInt(el.dataset.slot, 10);
+  if (isNaN(idx)) return;
+
+  _pgDrag = {
+    from: idx,
+    x0: e.clientX,
+    y0: e.clientY,
+    active: false,
+    moved: false,
+    ghost: null,
+    holdTimer: null,
+    isTouch: e.pointerType !== 'mouse'
+  };
+
+  // Touch needs the hold; the mouse does not.
+  if (_pgDrag.isTouch) {
+    _pgDrag.holdTimer = setTimeout(function () { pgBeginDrag(e); }, PG_HOLD_MS);
+  }
+});
+
+document.addEventListener('pointermove', function (e) {
+  if (!_pgDrag) return;
+  var far = Math.abs(e.clientX - _pgDrag.x0) > PG_MOVE_TOLERANCE ||
+            Math.abs(e.clientY - _pgDrag.y0) > PG_MOVE_TOLERANCE;
+
+  if (!_pgDrag.active) {
+    if (!far) return;
+    if (_pgDrag.isTouch) {
+      // They moved before the hold completed — that is a scroll, not a drag.
+      pgCleanup();
+    } else {
+      pgBeginDrag(e);
+    }
+    return;
+  }
+
+  _pgDrag.moved = true;
+  pgMoveDrag(e);
+  if (e.cancelable) e.preventDefault();
+}, { passive: false });
+
+document.addEventListener('pointerup', function (e) {
+  if (!_pgDrag) return;
+  var wasActive = _pgDrag.active;
+  var moved = !!_pgDrag.moved;
+  var from = _pgDrag.from;
+
+  // Only a real, moved drag counts. A slow tap (held past the threshold but
+  // never moved) must still open the picker like any other tap.
+  var tile = (wasActive && moved) ? pgSlotAt(e.clientX, e.clientY) : null;
+  var to = tile ? parseInt(tile.dataset.slot, 10) : NaN;
+
+  pgCleanup();
+
+  if (wasActive && moved && !isNaN(to) && to !== from) {
+    reorderPhoto(from, to);
+    _pgSuppressClick = true;
+    setTimeout(function () { _pgSuppressClick = false; }, 400);
+  }
+});
+
+document.addEventListener('pointercancel', function () { pgCleanup(); });
+
+// A completed drag also fires a click on the tile underneath. Swallow that
+// one click in the capture phase, before the picker handler above sees it.
+document.addEventListener('click', function (e) {
+  if (!_pgSuppressClick) return;
+  if (!e.target || !e.target.closest) return;
+  if (!e.target.closest('#photoSlots')) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+}, true);
 
 // Draw the empty tiles on load. The draft-restore path also calls
 // renderPhotoSlots(), but a host with no saved draft still needs them.
