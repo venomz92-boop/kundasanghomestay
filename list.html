@@ -116,6 +116,63 @@ button.kd-loading {
   z-index: 5;
 }
 .drop-zone.kd-uploading .kd-drop-overlay { display: flex; }
+/* ------------------------------------------------------------
+   PROPERTY GALLERY SLOTS
+
+   One tile per photo position, so a host can see which image is
+   the cover instead of dropping files into an opaque list.
+   Each tile carries its own .kd-drop-overlay, which is why the
+   upload progress bar below works with the existing
+   setDropZoneProgress() helper unchanged.
+   ------------------------------------------------------------ */
+#photoSlots { grid-auto-rows: 1fr; }
+.pg-slot {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px dashed #cbd5e1;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  text-align: center;
+  padding: 8px;
+  transition: border-color 0.2s, background 0.2s;
+  font-family: 'Poppins', sans-serif;
+}
+.pg-slot:hover { border-color: #0F382E; background: #f8fbf9; }
+.pg-slot-full { border-style: solid; border-color: transparent; padding: 0; background: #f3f4f6; }
+.pg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pg-plus { font-size: 26px; line-height: 1; color: #94a3b8; font-weight: 300; }
+.pg-label { font-size: 11.5px; font-weight: 700; color: #475569; }
+.pg-hint { font-size: 10px; color: #94a3b8; }
+.pg-badge {
+  position: absolute; left: 8px; top: 8px; z-index: 2;
+  background: #0F382E; color: #fff; font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 99px;
+}
+.pg-remove {
+  position: absolute; right: 6px; top: 6px; z-index: 3;
+  width: 26px; height: 26px; border-radius: 99px; border: none;
+  background: rgba(15,56,46,0.85); color: #fff; font-size: 17px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.pg-remove:hover { background: #b91c1c; }
+.pg-cover-btn {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+  border: none; cursor: pointer; padding: 7px 4px;
+  background: rgba(15,56,46,0.88); color: #fff;
+  font-size: 10.5px; font-weight: 700; font-family: 'Poppins', sans-serif;
+  letter-spacing: 0.03em; text-transform: uppercase;
+}
+.pg-cover-btn:hover { background: #0F382E; }
+.pg-slot.kd-uploading { pointer-events: none; }
+.pg-slot.kd-uploading .kd-drop-overlay { display: flex; }
 .kd-uploading-label {
   opacity: 0.6;
   pointer-events: none;
@@ -411,13 +468,9 @@ This protects guests from fake listings. Create a free host account, verify your
 <svg class="w-5 h-5 text-[#0F382E]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
 <span class="font-bold text-[16px] text-[#212121]">Property Gallery</span>
 </div>
-<div class="drop-zone" onclick="document.getElementById('listPhotos').click()">
-<svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-<p class="text-xs text-zinc-600 mt-2">Click to select 3-5 high-resolution photos of your property</p>
-<p class="text-[10px] text-zinc-400 mt-1">Primary photo will represent listing cover thumbnail</p>
-</div>
-<input id="listPhotos" type="file" multiple accept="image/*" class="hidden" onchange="handlePhotos(this)" />
-<div id="photoPreview" class="grid grid-cols-3 md:grid-cols-6 gap-3 mt-4"></div>
+<p class="text-xs text-zinc-600">Add up to 6 photos. The <strong>cover photo</strong> is the thumbnail guests see in search results — put your best shot there.</p>
+<div id="photoSlots" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-1"></div>
+<input id="listPhotos" type="file" accept="image/*" class="hidden" onchange="handlePhotoPick(this)" />
 </section>
 <section class="space-y-4 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
 <div class="flex items-center gap-2">
@@ -1343,16 +1396,7 @@ renderBlockedDatesList();
 if (Array.isArray(draft.tempPhotos)) {
 tempPhotos = draft.tempPhotos;
 tempPhotoPublicIds = Array.isArray(draft.tempPhotoPublicIds) ? draft.tempPhotoPublicIds : [];
-const preview = document.getElementById('photoPreview');
-if (preview) {
-preview.innerHTML = '';
-tempPhotos.forEach(url => {
-const img = document.createElement('img');
-img.src = url;
-img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
-preview.appendChild(img);
-});
-}
+renderPhotoSlots();
 }
 if (draft.tempIcWatermarked) {
 tempIcWatermarked = draft.tempIcWatermarked;
@@ -1562,48 +1606,164 @@ if (roomId) handleRoomImages(roomId, el);
 // selection, silently deleting photos the host had already
 // added. It now APPENDS new photos to the existing list.
 // ============================================================
-async function handlePhotos(input) {
-const files = input.files;
-if (!files.length) return;
-const preview = document.getElementById('photoPreview');
-const zone = findDropZoneForInput(input);
-const clearZone = showDropZoneLoading(zone, 'Preparing photos…');
-const total = files.length;
-for (let i = 0; i < total; i++) {
-const file = files[i];
-try {
-if (!isProbablyImage(file)) {
-await showAlert('Skipped', file.name + ' does not look like an image. Please use a JPG or PNG.');
-continue;
+// ============================================================
+// PROPERTY GALLERY — one tile per photo position
+//
+// Replaces the old single multi-select drop zone, which gave the host no way
+// to tell which image was the cover, no way to remove a bad photo, and no way
+// to reorder without re-uploading.
+//
+// tempPhotos stays a DENSE array and its index IS the slot position, so
+// tempPhotos[0] is still the cover and the submit payload is unchanged:
+//   image: tempPhotos[0]   images: tempPhotos   imagePublicIds: tempPhotoPublicIds
+// Nothing in the API or the server needs to change.
+// ============================================================
+var PHOTO_SLOT_COUNT = 6;
+
+function photoSlotLabel(i) {
+  return i === 0 ? 'Cover photo' : 'Photo ' + (i + 1);
 }
-setDropZoneText(zone, 'Compressing ' + (i + 1) + ' of ' + total + '…');
-const compressedBlob = await compressImageToBlob(file, 1000, 0.8);
-if (!compressedBlob) {
-await showAlert('Upload Failed', 'Could not compress ' + file.name);
-continue;
+
+function renderPhotoSlots() {
+  var wrap = document.getElementById('photoSlots');
+  if (!wrap) return;
+  var html = '';
+  for (var i = 0; i < PHOTO_SLOT_COUNT; i++) {
+    var url = tempPhotos[i] || '';
+    if (url) {
+      html +=
+        '<div class="pg-slot pg-slot-full" data-slot="' + i + '">' +
+          '<img class="pg-img" src="' + url + '" alt="' + photoSlotLabel(i) + '"/>' +
+          (i === 0 ? '<span class="pg-badge">Cover</span>' : '') +
+          '<button type="button" class="pg-remove" data-photo-action="remove" data-slot="' + i + '" aria-label="Remove ' + photoSlotLabel(i) + '">&times;</button>' +
+          (i === 0 ? '' : '<button type="button" class="pg-cover-btn" data-photo-action="cover" data-slot="' + i + '">Make cover</button>') +
+          '<div class="kd-drop-overlay"></div>' +
+        '</div>';
+    } else {
+      html +=
+        '<div class="pg-slot pg-slot-empty" data-slot="' + i + '">' +
+          '<span class="pg-plus">+</span>' +
+          '<span class="pg-label">' + photoSlotLabel(i) + '</span>' +
+          '<span class="pg-hint">' + (i === 0 ? 'Required' : 'Optional') + '</span>' +
+          '<div class="kd-drop-overlay"></div>' +
+        '</div>';
+    }
+  }
+  wrap.innerHTML = html;
 }
-setDropZoneProgress(zone, 0, 'Uploading ' + (i + 1) + ' of ' + total + '…');
-const formData = new FormData();
-formData.append('image', compressedBlob, file.name);
-const data = await uploadWithProgress('/api/upload-image', formData, function (f) {
-setDropZoneProgress(zone, f * 100, 'Uploading ' + (i + 1) + ' of ' + total + '…');
+
+// Put a freshly uploaded photo at a slot. An index past the end appends, which
+// is what clicking any empty tile should do — the empty tiles after the last
+// photo are interchangeable, so they all mean "add the next one".
+function placePhotoAt(index, url, publicId) {
+  if (!(index >= 0) || index > tempPhotos.length) index = tempPhotos.length;
+  if (index > PHOTO_SLOT_COUNT - 1) return false;   // gallery full
+  tempPhotos[index] = url;
+  tempPhotoPublicIds[index] = publicId || '';
+  return true;
+}
+
+function removePhotoAt(index) {
+  if (!(index >= 0) || index >= tempPhotos.length) return;
+  tempPhotos.splice(index, 1);
+  tempPhotoPublicIds.splice(index, 1);
+  renderPhotoSlots();
+  saveDraft();
+}
+
+// Swap with slot 0. A pure reorder — no re-upload — so a host on a weak
+// connection can change the cover without sending the file again.
+function makePhotoCover(index) {
+  if (!(index > 0) || index >= tempPhotos.length) return;
+  var u = tempPhotos[0], p = tempPhotoPublicIds[0];
+  tempPhotos[0] = tempPhotos[index];
+  tempPhotoPublicIds[0] = tempPhotoPublicIds[index];
+  tempPhotos[index] = u;
+  tempPhotoPublicIds[index] = p;
+  renderPhotoSlots();
+  saveDraft();
+}
+
+function openPhotoPicker(slotIndex) {
+  var input = document.getElementById('listPhotos');
+  if (!input) return;
+  if (!(slotIndex >= 0)) slotIndex = tempPhotos.length;
+  input.dataset.slot = String(slotIndex);
+  input.value = '';           // lets the host re-pick the same file
+  input.click();
+}
+
+async function handlePhotoPick(input) {
+  var target = parseInt(input.dataset.slot, 10);
+  if (isNaN(target)) target = tempPhotos.length;
+  var file = input.files && input.files[0];
+  if (!file) { input.dataset.slot = ''; return; }
+
+  var tile = document.querySelector('#photoSlots .pg-slot[data-slot="' + target + '"]');
+  if (tile) tile.classList.add('kd-uploading');
+
+  try {
+    if (!isProbablyImage(file)) {
+      await showAlert('Skipped', file.name + ' does not look like an image. Please use a JPG or PNG.');
+      return;
+    }
+    if (tile) setDropZoneProgress(tile, 0, 'Compressing…');
+    var blob = await compressImageToBlob(file, 1000, 0.8);
+    if (!blob) {
+      await showAlert('Upload Failed', 'Could not compress ' + file.name);
+      return;
+    }
+    if (tile) setDropZoneProgress(tile, 0, 'Uploading…');
+    var fd = new FormData();
+    fd.append('image', blob, file.name);
+    var data = await uploadWithProgress('/api/upload-image', fd, function (f) {
+      if (tile) setDropZoneProgress(tile, f * 100, 'Uploading…');
+    });
+    if (data && data.url) {
+      if (!placePhotoAt(target, data.url, data.publicId)) {
+        await showAlert('Gallery Full', 'You can add up to ' + PHOTO_SLOT_COUNT + ' photos. Remove one first.');
+      } else {
+        saveDraft();
+      }
+    } else {
+      await showAlert('Upload Failed', (data && data.error) || 'Failed to upload ' + file.name);
+    }
+  } catch (err) {
+    await showAlert('Upload Failed', uploadErrorMessage(err, file.name));
+  } finally {
+    if (tile) tile.classList.remove('kd-uploading');
+    input.value = '';
+    input.dataset.slot = '';
+    renderPhotoSlots();
+  }
+}
+
+// Delegated so the listeners survive every renderPhotoSlots() rebuild.
+document.addEventListener('click', function (e) {
+  if (!e.target || !e.target.closest) return;
+  var actionEl = e.target.closest('#photoSlots [data-photo-action]');
+  if (actionEl) {
+    e.preventDefault();
+    e.stopPropagation();
+    var idx = parseInt(actionEl.dataset.slot, 10);
+    if (isNaN(idx)) return;
+    if (actionEl.dataset.photoAction === 'remove') removePhotoAt(idx);
+    else if (actionEl.dataset.photoAction === 'cover') makePhotoCover(idx);
+    return;
+  }
+  var slot = e.target.closest('#photoSlots .pg-slot');
+  if (!slot) return;
+  if (slot.classList.contains('kd-uploading')) return;
+  var n = parseInt(slot.dataset.slot, 10);
+  if (!isNaN(n)) openPhotoPicker(n);
 });
-if (data && data.url) {
-tempPhotos.push(data.url);
-if (data.publicId) tempPhotoPublicIds.push(data.publicId);
-const img = document.createElement('img');
-img.src = data.url;
-img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
-if (preview) preview.appendChild(img);
+
+// Draw the empty tiles on load. The draft-restore path also calls
+// renderPhotoSlots(), but a host with no saved draft still needs them.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', renderPhotoSlots);
 } else {
-await showAlert('Upload Failed', (data && data.error) || 'Failed to upload ' + file.name);
-}
-} catch (e) {
-await showAlert('Upload Failed', uploadErrorMessage(e, file.name));
-}
-}
-clearZone();
-input.value = '';
+  renderPhotoSlots();
 }
 // ============================================================
 // IC file handler.
