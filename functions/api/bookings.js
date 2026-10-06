@@ -3109,9 +3109,30 @@ export async function onRequestDelete({ request, env }) {
       if (idx === -1) return { error: 'Booking not found', status: 404 };
       const deleted = bookings[idx];
       bookings.splice(idx, 1);
-      await db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
-        .bind('kd_bookings', JSON.stringify(bookings)).run();
-      return { success: true, deleted };
+
+      // Cascade: a review records a stay, so it cannot outlive its booking.
+      // Without this, deleting a booking left its rating counted in the
+      // listing average forever, and visible on the public review list —
+      // the orphan the admin break-glass delete exists to clean up.
+      const rr = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_reviews').first();
+      let allReviews = [];
+      try { if (rr?.data) allReviews = JSON.parse(rr.data); } catch (_) {}
+      if (!Array.isArray(allReviews)) allReviews = [];
+      const keptReviews = allReviews.filter(x => String(x.bookingId) !== String(id));
+      const removedReview = keptReviews.length === allReviews.length
+        ? null
+        : (allReviews.find(x => String(x.bookingId) === String(id)) || null);
+
+      await db.batch([
+        db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+          .bind('kd_bookings', JSON.stringify(bookings)),
+        ...(removedReview
+          ? [db.prepare('INSERT OR REPLACE INTO store(key,data) VALUES(?,?)')
+              .bind('kd_reviews', JSON.stringify(keptReviews))]
+          : [])
+      ]);
+
+      return { success: true, deleted, removedReview };
     }, 30000);
   } catch (lockErr) {
     if (lockErr.message && lockErr.message.includes('in progress')) {
@@ -3128,7 +3149,7 @@ export async function onRequestDelete({ request, env }) {
     db,
     action: 'booking_deleted_admin',
     admin: 'admin',
-    details: `Deleted booking ${id} (${result.deleted.homestay})`,
+    details: `Deleted booking ${id} (${result.deleted.homestay})${result.removedReview ? ` — also removed review ${result.removedReview.id} (${result.removedReview.rating} star)` : ' — no review attached'}`,
     ip: getClientIP(request),
     userId: result.deleted.guestId,
     homestayId: result.deleted.homestayId
