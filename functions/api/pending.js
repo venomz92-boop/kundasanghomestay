@@ -34,7 +34,9 @@ import {
   checkRateLimit,
   recordRateLimit,
   parseJSONSafely,
-  sha256
+  sha256,
+  sendEmail,
+  escHtml
 } from './_utils.js';
 
 import {
@@ -295,6 +297,114 @@ async function sanitizePendingSync(db, incoming) {
   }
   return out;
 }
+
+// ============================================================
+// ADMIN NEW-LISTING ALERT
+//
+// A host can submit at any hour. Without this, the only way to find out is to
+// open the admin panel and look — so a listing can sit unreviewed for days
+// while the host waits, which is the most likely way to lose a host you have
+// already recruited.
+//
+// Called after kd_pending is written. Every failure is swallowed by the
+// caller: a bounced or misconfigured email must never lose the listing.
+//
+// Recipient: ADMIN_NOTIFY_EMAIL, else RECONCILE_ALERT_EMAIL, else
+// PAYOUT_RECORDS_EMAIL — so it works with no new config if either is set.
+// ============================================================
+
+// Cloudinary thumbnail for the email. Same transform rule as cld() on the
+// site, kept inline so this file stays self-contained.
+function adminEmailThumb(url, w) {
+  if (!url || typeof url !== 'string') return '';
+  if (url.indexOf('/image/upload/') === -1) return url;
+  if (url.indexOf('/image/upload/f_auto') !== -1) return url;
+  return url.replace('/image/upload/', '/image/upload/f_auto,q_auto,w_' + w + ',c_limit/');
+}
+
+// Last 4 digits only. Email is not an encrypted channel, and the full account
+// number is already visible in the admin panel.
+function maskAccountNumber(acct) {
+  const s = String(acct || '').replace(/\s/g, '');
+  if (!s) return '—';
+  return s.length <= 4 ? s : '••••' + s.slice(-4);
+}
+
+async function notifyAdminNewListing(clean, env) {
+  const to = env.ADMIN_NOTIFY_EMAIL || env.RECONCILE_ALERT_EMAIL || env.PAYOUT_RECORDS_EMAIL;
+  if (!to) return { sent: false, error: 'No admin notification address configured' };
+
+  const e = escHtml;
+  const E = (v) => e(v == null ? '' : String(v));
+  const domain = env.PUBLIC_DOMAIN || 'https://kundasanghomestay.my';
+  const adminUrl = domain + '/admin.html';
+  const cover = adminEmailThumb(clean.image || (Array.isArray(clean.images) ? clean.images[0] : ''), 600);
+  const roomCount = Array.isArray(clean.rooms) ? clean.rooms.length : 0;
+  const photoCount = Array.isArray(clean.images) ? clean.images.length : 0;
+  const submitted = clean.createdAt ? new Date(clean.createdAt).toUTCString() : '—';
+
+  const row = (label, value) =>
+    '<tr>' +
+    '<td style="padding:6px 12px 6px 0;color:#6b7280;font-size:13px;white-space:nowrap;vertical-align:top;">' + label + '</td>' +
+    '<td style="padding:6px 0;font-size:13px;color:#212121;font-weight:600;">' + value + '</td>' +
+    '</tr>';
+
+  const html =
+    '<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;">' +
+    '<div style="background:#0F382E;padding:18px 22px;border-radius:12px 12px 0 0;">' +
+    '<div style="color:#ffffff;font-size:11px;letter-spacing:2px;font-weight:700;">KUNDASANG HOMESTAY</div>' +
+    '<div style="color:#ffffff;font-size:19px;font-weight:700;margin-top:4px;">New listing awaiting review</div>' +
+    '</div>' +
+    '<div style="border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;padding:20px 22px;">' +
+    (cover ? '<img src="' + E(cover) + '" alt="" style="width:100%;max-width:556px;height:200px;object-fit:cover;border-radius:10px;margin-bottom:16px;"/>' : '') +
+    '<div style="font-size:17px;font-weight:700;color:#212121;">' + E(clean.name) + '</div>' +
+    '<div style="font-size:13px;color:#6b7280;margin-top:2px;">' + E(clean.location || 'Kundasang') + '</div>' +
+    '<table style="width:100%;border-collapse:collapse;margin-top:16px;border-top:1px solid #f3f4f6;">' +
+    row('Host', E(clean.ownerName)) +
+    row('WhatsApp', E(clean.whatsapp)) +
+    row('Email', E(clean.ownerEmail)) +
+    row('Price / night', 'RM' + E(Number(clean.ownerPrice || 0).toFixed(2))) +
+    row('Guests', E(clean.guests || 2)) +
+    row('Bedrooms', E(clean.bedrooms || 1)) +
+    row('Rooms', roomCount ? roomCount : 'Single unit') +
+    row('Photos', photoCount) +
+    row('Bank', E(clean.ownerBank) + ' · ' + maskAccountNumber(clean.ownerBankAccount)) +
+    row('Account holder', E(clean.bankHolder)) +
+    row('Submitted', E(submitted)) +
+    '</table>' +
+    '<div style="margin-top:22px;">' +
+    '<a href="' + E(adminUrl) + '" style="display:inline-block;padding:12px 24px;background:#0F382E;color:#ffffff;text-decoration:none;border-radius:999px;font-weight:bold;font-size:14px;">Review in admin panel</a>' +
+    '</div>' +
+    '<div style="font-size:12px;color:#9ca3af;margin-top:18px;line-height:1.6;">' +
+    'This listing is <strong>not</strong> visible to guests. It stays in the pending queue until you approve it.' +
+    '</div>' +
+    '</div></div>';
+
+  const text =
+    'New listing awaiting review\n\n' +
+    'Name: ' + (clean.name || '') + '\n' +
+    'Location: ' + (clean.location || '') + '\n' +
+    'Host: ' + (clean.ownerName || '') + '\n' +
+    'WhatsApp: ' + (clean.whatsapp || '') + '\n' +
+    'Email: ' + (clean.ownerEmail || '') + '\n' +
+    'Price/night: RM' + Number(clean.ownerPrice || 0).toFixed(2) + '\n' +
+    'Guests: ' + (clean.guests || 2) + ' | Bedrooms: ' + (clean.bedrooms || 1) + '\n' +
+    'Rooms: ' + (roomCount || 'Single unit') + ' | Photos: ' + photoCount + '\n' +
+    'Bank: ' + (clean.ownerBank || '') + ' - ' + maskAccountNumber(clean.ownerBankAccount) + '\n\n' +
+    'Review: ' + adminUrl + '\n';
+
+  try {
+    return await sendEmail({
+      to,
+      subject: '[Kundasang] New listing pending review — ' + (clean.name || 'Untitled') + ' (' + (clean.location || 'Kundasang') + ')',
+      html,
+      text
+    }, env);
+  } catch (err) {
+    return { sent: false, error: err.message };
+  }
+}
+
 export async function onRequestPost({ request, env }) {
   const redirect = enforceHttps(request);
   if (redirect) return redirect;
@@ -564,7 +674,7 @@ export async function onRequestPost({ request, env }) {
       .run();
     await syncHomestayToHomestays(db, clean);
 
-    await logAction({
+        await logAction({
       db,
       action: 'homestay_submitted',
       admin: 'owner',
@@ -573,6 +683,19 @@ export async function onRequestPost({ request, env }) {
       userId: clean.ownerEmail,
       homestayId: clean.id
     });
+
+    // Alert the admin by email so a new listing cannot sit unreviewed just
+    // because nobody opened the panel. Best-effort: the listing is already
+    // stored and the host is waiting, so a failed send must never fail the
+    // request.
+    try {
+      const alert = await notifyAdminNewListing(clean, env);
+      if (!alert.sent) {
+        console.error('New-listing admin alert not sent:', alert.error);
+      }
+    } catch (alertErr) {
+      console.error('New-listing admin alert threw:', alertErr.message);
+    }
 
     return jsonResponse({
       success: true,
