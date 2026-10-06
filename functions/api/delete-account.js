@@ -364,11 +364,27 @@ export async function onRequestPost({ request, env }) {
             };
           });
 
+          // A review carries its own copy of the guest name, captured at
+          // submission, so anonymising bookings alone left the real name
+          // published on the listing. The RATING is kept — the host earned
+          // it — but the identity is scrubbed for erasure.
+          const rvr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_reviews').first();
+          let curReviews = [];
+          try { if (rvr?.data) curReviews = JSON.parse(rvr.data); } catch (_) {}
+          if (!Array.isArray(curReviews)) curReviews = [];
+          const anonymizedReviews = curReviews.map(r =>
+            String(r.guestId) === String(session.userId)
+              ? { ...r, guestName: 'Deleted User', deleted_at: new Date().toISOString() }
+              : r
+          );
+
           await db.batch([
             db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
               .bind('kd_guests', JSON.stringify(remainingGuests)),
             db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-              .bind('kd_bookings', JSON.stringify(anonymizedBookings))
+              .bind('kd_bookings', JSON.stringify(anonymizedBookings)),
+            db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+              .bind('kd_reviews', JSON.stringify(anonymizedReviews))
           ]);
 
           return { status: 200, record: cur };
@@ -506,10 +522,12 @@ export async function onRequestPost({ request, env }) {
         const remainingPending = pending.filter(h => String(h.whatsapp || '').replace(/[^0-9]/g, '') !== cleanWa);
         const remainingHomes = allHomes.filter(h => !myHomestayIds.has(String(h.id)));
 
-        const userEmailLower = String(curOwner.ownerEmail || '').toLowerCase().trim();
+                const userEmailLower = String(curOwner.ownerEmail || '').toLowerCase().trim();
+        const anonymizedBookingIds = new Set();
         const anonymizedBookings = bookings.map(b => {
           const bEmail = String(b.guestEmail || '').toLowerCase().trim();
           if (bEmail && userEmailLower && bEmail === userEmailLower) {
+            anonymizedBookingIds.add(String(b.id));
             return {
               ...b,
               guestName: 'Deleted User',
@@ -522,6 +540,19 @@ export async function onRequestPost({ request, env }) {
           return b;
         });
 
+        // Reviews carry their own name copy and have no email field, so
+        // they are matched through the bookings just anonymised. Rating
+        // kept, identity scrubbed.
+        const rvr = await db.prepare('SELECT data FROM store WHERE key=?').bind('kd_reviews').first();
+        let curReviews = [];
+        try { if (rvr?.data) curReviews = JSON.parse(rvr.data); } catch (_) {}
+        if (!Array.isArray(curReviews)) curReviews = [];
+        const anonymizedReviews = curReviews.map(r =>
+          anonymizedBookingIds.has(String(r.bookingId))
+            ? { ...r, guestName: 'Deleted User', deleted_at: new Date().toISOString() }
+            : r
+        );
+
         await db.batch([
           db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
             .bind('kd_owners', JSON.stringify(remainingOwners)),
@@ -532,7 +563,9 @@ export async function onRequestPost({ request, env }) {
           db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
             .bind('kd_homestays', JSON.stringify(remainingHomes)),
           db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
-            .bind('kd_bookings', JSON.stringify(anonymizedBookings))
+            .bind('kd_bookings', JSON.stringify(anonymizedBookings)),
+          db.prepare('INSERT OR REPLACE INTO store (key, data) VALUES (?, ?)')
+            .bind('kd_reviews', JSON.stringify(anonymizedReviews))
         ]);
 
         return {
