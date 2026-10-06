@@ -348,6 +348,9 @@ document.getElementById('customModal').addEventListener('click', function(e) {
 });
 
 const API_BASE = "/api";
+// Address awaiting email verification. Persisted so the "check your email"
+// panel survives a refresh instead of reverting to a blank form.
+const PENDING_VERIFY_KEY = 'kd_pending_verify_email';
 let currentGuest = null;
 try {
   const saved = localStorage.getItem('kd_guest');
@@ -425,11 +428,13 @@ async function handleOwnerRegister(e) {
     });
     const data = await res.json();
 
-    if (data.success) {
-      const emailEl = document.getElementById('successEmail');
-      if (emailEl) emailEl.textContent = email;
-      document.getElementById('formState').classList.add('hidden');
-      document.getElementById('successState').classList.remove('hidden');
+      if (data.success) {
+      // Remember which address is awaiting verification. The "check your
+      // email" panel is otherwise only toggled here, in JS, so a refresh
+      // dropped the host back onto a blank form — and re-submitting then
+      // returned a duplicate error with no resend button on the page.
+      try { localStorage.setItem(PENDING_VERIFY_KEY, email); } catch (_) {}
+      showPendingVerification(email);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       errorEl.textContent = data.error || 'Registration failed. Please try again.';
@@ -453,10 +458,16 @@ async function handleOwnerRegister(e) {
 // generic success message. Never reveals whether the account exists.
 // ============================================================
 async function resendOwnerVerification() {
+  // Prefer what the panel shows, but fall back to the stored address —
+  // #successEmail still holds its placeholder if the panel was restored
+  // after this button was already on screen.
   const emailEl = document.getElementById('successEmail');
-  const email = emailEl ? String(emailEl.textContent || '').trim().toLowerCase() : '';
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    await showAlert('Error', 'Could not determine the email address. Please refresh the page and try again.');
+  let email = emailEl ? String(emailEl.textContent || '').trim().toLowerCase() : '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    try { email = String(localStorage.getItem(PENDING_VERIFY_KEY) || '').trim().toLowerCase(); } catch (_) {}
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    await showAlert('Error', 'Could not determine the email address. Please log in to your Host Portal and use “Resend verification email”.');
     return;
   }
 
@@ -485,6 +496,47 @@ async function resendOwnerVerification() {
   }
 }
 window.resendOwnerVerification = resendOwnerVerification;
+
+// ============================================================
+// PENDING EMAIL VERIFICATION
+//
+// The success panel is only shown in JS after a successful POST, so a
+// refresh used to revert to an empty form. A host who then re-submitted
+// got a duplicate-account error that read like a typo, with no resend
+// button anywhere on this page. Storing the address keeps them on the
+// right screen.
+// ============================================================
+function showPendingVerification(email) {
+  const emailEl = document.getElementById('successEmail');
+  if (emailEl) emailEl.textContent = email;
+  const formEl = document.getElementById('formState');
+  const okEl = document.getElementById('successState');
+  if (formEl) formEl.classList.add('hidden');
+  if (okEl) okEl.classList.remove('hidden');
+}
+
+(function restorePendingVerification() {
+  let saved = null;
+  try { saved = localStorage.getItem(PENDING_VERIFY_KEY); } catch (_) {}
+  if (!saved) return;
+
+  // Show immediately so the normal case has no blank moment.
+  showPendingVerification(saved);
+
+  // Then correct it: a host who has already verified (or has simply logged
+  // in) belongs on the form, not on a stale "check your email" screen.
+  fetch(API_BASE + '/owner-session', { credentials: 'include', cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || d.authenticated !== true) return;
+      try { localStorage.removeItem(PENDING_VERIFY_KEY); } catch (_) {}
+      const formEl = document.getElementById('formState');
+      const okEl = document.getElementById('successState');
+      if (formEl) formEl.classList.remove('hidden');
+      if (okEl) okEl.classList.add('hidden');
+    })
+    .catch(function () { /* keep the panel — failing closed is safer here */ });
+})();
 
 document.addEventListener('DOMContentLoaded', function() {
   renderGuestNav();
