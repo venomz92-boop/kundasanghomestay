@@ -901,9 +901,27 @@ console.error('Failed to load bank list:', e.message);
 }
 return CHIP_BANKS;
 }
+// Should we try to decode this file as an image?
+//
+// Browsers and phone gallery pickers do not always populate file.type. Files
+// copied from a camera roll, sent over WhatsApp, or chosen from certain
+// Android apps arrive with type === ''. Testing only
+// file.type.startsWith('image/') rejected them — and in handlePhotos /
+// handleRoomImages that rejection was a bare `continue`, so the file vanished
+// with no upload, no error and no message. It looked exactly like a freeze.
+//
+// The type is a hint, not proof. Fall back to the extension and let the
+// decoder be the real judge: if the bytes are not an image, Image.onerror
+// fires and the caller reports it properly.
+function isProbablyImage(file) {
+if (!file) return false;
+if (file.type && file.type.startsWith('image/')) return true;
+return /\.(jpe?g|png|webp|gif|bmp|heic|heif|avif)$/i.test(file.name || '');
+}
+
 function compressImage(file, maxWidth = 800, quality = 0.7) {
 return new Promise((resolve, reject) => {
-if (!file || !file.type.startsWith('image/')) {
+if (!isProbablyImage(file)) {
 reject(new Error('Not an image file'));
 return;
 }
@@ -935,7 +953,7 @@ reader.readAsDataURL(file);
 }
 function compressImageToBlob(file, maxWidth, quality) {
 return new Promise((resolve) => {
-if (!file || !file.type.startsWith('image/')) {
+if (!isProbablyImage(file)) {
 resolve(null);
 return;
 }
@@ -1272,7 +1290,10 @@ for (let i = 0; i < total; i++) {
 const file = files[i];
 if (counterEl) counterEl.innerHTML = '<span class="kd-spinner"></span> ' + (i + 1) + ' of ' + total + '…';
 try {
-if (!file.type.startsWith('image/')) continue;
+if (!isProbablyImage(file)) {
+await showAlert('Skipped', file.name + ' does not look like an image. Please use a JPG or PNG.');
+continue;
+}
 const compressedBlob = await compressImageToBlob(file, 800, 0.7);
 if (!compressedBlob) {
 await showAlert('Upload Failed', 'Could not compress ' + file.name + '. Skipping.');
@@ -1357,7 +1378,10 @@ const total = files.length;
 for (let i = 0; i < total; i++) {
 const file = files[i];
 try {
-if (!file.type.startsWith('image/')) continue;
+if (!isProbablyImage(file)) {
+await showAlert('Skipped', file.name + ' does not look like an image. Please use a JPG or PNG.');
+continue;
+}
 setDropZoneText(zone, 'Compressing ' + (i + 1) + ' of ' + total + '…');
 const compressedBlob = await compressImageToBlob(file, 1000, 0.8);
 if (!compressedBlob) {
