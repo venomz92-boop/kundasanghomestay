@@ -732,6 +732,139 @@ function setDropZoneText(zone, text) {
     '<div>' + text + '</div>';
 }
 
+// ============================================================
+// UPLOAD TRANSPORT — progress + timeout
+//
+// Replaces fetch() for image uploads. fetch cannot report upload progress:
+// the browser exposes no bytes-sent event for it. XMLHttpRequest fires
+// upload.onprogress, which is the only way to show a real bar.
+//
+// Why this matters here: each photo is ~230KB after compression, and at a
+// weak upstream that is tens of seconds per file, uploaded one at a time.
+// With fetch the only feedback was a text counter that did not move, which
+// reads as frozen — and on a dead connection fetch hangs forever with no
+// error at all.
+//
+// UPLOAD_TIMEOUT_MS is an INACTIVITY timeout, not a wall-clock one: the
+// timer resets on every progress event, so a genuinely slow-but-alive
+// upload is never killed. Only a connection that has gone silent trips it.
+// ============================================================
+var UPLOAD_TIMEOUT_MS = 45000;
+
+// Returns a Promise resolving to the parsed response body.
+// Rejects with err.code:
+//   'timeout'  — no bytes moved for UPLOAD_TIMEOUT_MS
+//   'network'  — connection dropped / DNS / cancelled
+//   'offline'  — navigator.onLine was false when we started
+function uploadWithProgress(url, formData, onProgress) {
+  return new Promise(function (resolve, reject) {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      var off = new Error('You appear to be offline.');
+      off.code = 'offline';
+      reject(off);
+      return;
+    }
+
+    var xhr = new XMLHttpRequest();
+    var settled = false;
+    var idleTimer = null;
+
+    function finish(fn, arg) {
+      if (settled) return;
+      settled = true;
+      if (idleTimer) clearTimeout(idleTimer);
+      fn(arg);
+    }
+
+    function armIdleTimer() {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(function () {
+        try { xhr.abort(); } catch (e) {}
+        var err = new Error('Timed out');
+        err.code = 'timeout';
+        finish(reject, err);
+      }, UPLOAD_TIMEOUT_MS);
+    }
+
+    xhr.open('POST', url, true);
+    xhr.withCredentials = true;              // sends the session cookie
+    xhr.responseType = 'text';
+
+    xhr.upload.onprogress = function (ev) {
+      armIdleTimer();                        // bytes moved — connection is alive
+      if (onProgress && ev.lengthComputable && ev.total > 0) {
+        onProgress(ev.loaded / ev.total);
+      }
+    };
+
+    xhr.onload = function () {
+      if (xhr.status < 200 || xhr.status >= 300) {
+        var e = new Error('HTTP ' + xhr.status);
+        e.code = 'http';
+        e.status = xhr.status;
+        finish(reject, e);
+        return;
+      }
+      var parsed = null;
+      try { parsed = JSON.parse(xhr.responseText); } catch (e) {}
+      finish(resolve, parsed || {});
+    };
+
+    xhr.onerror = function () {
+      var e = new Error('Network error');
+      e.code = 'network';
+      finish(reject, e);
+    };
+    xhr.ontimeout = function () {
+      var e = new Error('Timed out');
+      e.code = 'timeout';
+      finish(reject, e);
+    };
+    xhr.onabort = function () {
+      if (settled) return;                   // our own timeout already rejected
+      var e = new Error('Cancelled');
+      e.code = 'network';
+      finish(reject, e);
+    };
+
+    armIdleTimer();
+    xhr.send(formData);
+  });
+}
+
+// Human-readable failure text. A bare "Network error" tells a host nothing
+// about what to do next.
+function uploadErrorMessage(err, fileName) {
+  var who = fileName ? '"' + fileName + '" ' : 'The file ';
+  if (err && err.code === 'timeout') {
+    return who + 'took too long to upload. Your connection may have dropped — please check your signal and try again.';
+  }
+  if (err && err.code === 'offline') {
+    return 'You appear to be offline. Please reconnect and try again.';
+  }
+  if (err && err.code === 'http') {
+    return who + 'was rejected by the server (error ' + err.status + '). Please try again.';
+  }
+  return who + 'could not be uploaded. Please check your connection and try again.';
+}
+
+// Progress bar for the drop-zone overlay. Rebuilt each call, so it works
+// with both showDropZoneLoading() and setDropZoneText().
+function setDropZoneProgress(zone, pct, label) {
+  if (!zone) return;
+  var overlay = zone.querySelector('.kd-drop-overlay');
+  if (!overlay) return;
+  var p = Math.max(0, Math.min(100, Math.round(pct)));
+  overlay.innerHTML =
+    '<div style="width:100%;text-align:center;padding:0 18px;">' +
+    '<div style="font-size:12px;font-weight:700;margin-bottom:7px;">' + label + '</div>' +
+    '<div style="height:6px;border-radius:99px;background:rgba(0,0,0,0.12);overflow:hidden;">' +
+    '<div style="height:100%;width:' + p + '%;background:#0F382E;border-radius:99px;transition:width 0.18s ease;"></div>' +
+    '</div>' +
+    '<div style="font-size:11px;opacity:0.75;margin-top:5px;">' + p + '%</div>' +
+    '</div>';
+}
+
 function findDropZoneForInput(input) {
   if (!input) return null;
   var el = input.previousElementSibling;
@@ -1301,19 +1434,20 @@ continue;
 }
 const formData = new FormData();
 formData.append('image', compressedBlob, file.name);
-const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
-const data = await res.json();
-if (res.ok && data.url) {
+const data = await uploadWithProgress('/api/upload-image', formData, function (f) {
+if (counterEl) counterEl.innerHTML = '<span class="kd-spinner"></span> ' + (i + 1) + ' of ' + total + ' — ' + Math.round(f * 100) + '%';
+});
+if (data && data.url) {
 if (!tempRooms[roomIndex].images) tempRooms[roomIndex].images = [];
 if (!tempRooms[roomIndex].imagePublicIds) tempRooms[roomIndex].imagePublicIds = [];
 tempRooms[roomIndex].images.push(data.url);
 if (data.publicId) tempRooms[roomIndex].imagePublicIds.push(data.publicId);
 renderRooms();
 } else {
-await showAlert('Upload Failed', data.error || 'Unknown server error');
+await showAlert('Upload Failed', (data && data.error) || 'Unknown server error');
 }
 } catch (err) {
-await showAlert('Upload Failed', 'Network error or server unavailable. Please try again.');
+await showAlert('Upload Failed', uploadErrorMessage(err, file.name));
 }
 }
 } finally {
@@ -1388,12 +1522,13 @@ if (!compressedBlob) {
 await showAlert('Upload Failed', 'Could not compress ' + file.name);
 continue;
 }
-setDropZoneText(zone, 'Uploading ' + (i + 1) + ' of ' + total + '…');
+setDropZoneProgress(zone, 0, 'Uploading ' + (i + 1) + ' of ' + total + '…');
 const formData = new FormData();
 formData.append('image', compressedBlob, file.name);
-const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
-const data = await res.json();
-if (res.ok && data.url) {
+const data = await uploadWithProgress('/api/upload-image', formData, function (f) {
+setDropZoneProgress(zone, f * 100, 'Uploading ' + (i + 1) + ' of ' + total + '…');
+});
+if (data && data.url) {
 tempPhotos.push(data.url);
 if (data.publicId) tempPhotoPublicIds.push(data.publicId);
 const img = document.createElement('img');
@@ -1401,10 +1536,10 @@ img.src = data.url;
 img.className = 'w-full h-20 object-cover rounded-xl border border-zinc-200';
 if (preview) preview.appendChild(img);
 } else {
-await showAlert('Upload Failed', data.error || 'Failed to upload ' + file.name);
+await showAlert('Upload Failed', (data && data.error) || 'Failed to upload ' + file.name);
 }
 } catch (e) {
-await showAlert('Upload Error', e.message || 'Upload failed');
+await showAlert('Upload Failed', uploadErrorMessage(e, file.name));
 }
 }
 clearZone();
