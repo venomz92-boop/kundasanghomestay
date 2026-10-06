@@ -1913,14 +1913,76 @@ renderBlockedDatesList();
 (function initOwnerAwareness() {
 fetch('/api/owner-session', { credentials: 'include', cache: 'no-store' })
 .then(function(r) { return r.json().catch(function() { return {}; }); })
-.then(function(data) {
-if (!data || data.authenticated !== true) return;
-window._ownerAuth = {
-ownerId: data.ownerId,
-whatsapp: data.whatsapp,
-ownerName: data.ownerName,
-ownerEmail: data.ownerEmail
-};
+    .then(function(data) {
+      if (!data || data.authenticated !== true) return;
+
+      // Signed in, but the email is not verified. The server refuses any
+      // submission from an unverified account, so revealing the form here
+      // would let a host fill in every field and upload their IC and bank
+      // QR, only to be turned away at the last click. Show the real state
+      // up front instead.
+      if (data.verified !== true) {
+        var noBanner = document.getElementById('accountRequiredBanner');
+        if (noBanner) noBanner.style.display = 'none';
+
+        var hostCard = document.querySelector('main .card');
+        if (hostCard && !document.getElementById('ownerUnverifiedBanner')) {
+          var ub = document.createElement('div');
+          ub.id = 'ownerUnverifiedBanner';
+          ub.className = 'mb-6 p-5 rounded-2xl bg-amber-50 border border-amber-300 text-sm text-amber-900';
+          ub.innerHTML =
+            '<div style="font-weight:800;font-size:15px;">📬 Verify your email to continue</div>' +
+            '<div style="margin-top:4px;font-size:12.5px;line-height:1.6;">' +
+              'You are signed in as <strong>' + (data.ownerEmail || data.whatsapp || 'this host') + '</strong>, ' +
+              'but this email has not been verified yet. Click the link we emailed you, then reload this page. ' +
+              'The link expires after 24 hours.' +
+            '</div>' +
+            '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">' +
+              '<button type="button" id="listResendVerifyBtn" class="btn btn-primary" style="padding:10px 20px;font-size:11px;">✉️ Resend verification email</button>' +
+              '<a href="/owner.html" class="btn-outline" style="padding:10px 20px;font-size:11px;">← Back to Dashboard</a>' +
+            '</div>' +
+            '<div id="listResendMsg" style="margin-top:10px;font-size:12px;"></div>';
+          hostCard.insertBefore(ub, hostCard.firstChild);
+
+          var rb = document.getElementById('listResendVerifyBtn');
+          if (rb) rb.onclick = function () {
+            var msg = document.getElementById('listResendMsg');
+            rb.disabled = true;
+            rb.textContent = 'Sending…';
+            fetch('/api/owner-register', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                action: 'resendVerification',
+                email: String(data.ownerEmail || '').trim().toLowerCase()
+              })
+            })
+              .then(function (r) { return r.json().catch(function () { return {}; }); })
+              .then(function (d) {
+                if (msg) {
+                  msg.textContent = d.message ||
+                    'If an unverified account exists for that address, a fresh link has been sent. Check your inbox and spam folder.';
+                }
+              })
+              .catch(function () {
+                if (msg) msg.textContent = 'Could not reach the server. Please try again.';
+              })
+              .finally(function () {
+                rb.disabled = false;
+                rb.textContent = '✉️ Resend verification email';
+              });
+          };
+        }
+        return;   // form stays hidden — kd-host-authed is NOT added
+      }
+
+      window._ownerAuth = {
+        ownerId: data.ownerId,
+        whatsapp: data.whatsapp,
+        ownerName: data.ownerName,
+        ownerEmail: data.ownerEmail
+      };
 var nameEl = document.getElementById('listOwnerName');
 var waEl = document.getElementById('listWhatsapp');
 var emailEl = document.getElementById('listOwnerEmail');
