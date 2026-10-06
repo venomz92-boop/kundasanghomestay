@@ -1434,7 +1434,7 @@ async function loadAllReviews() {
     const data = await res.json();
     if (!res.ok) {
       list.innerHTML = '<span class="text-red-600 font-semibold">' +
-        escapeRoomHtml(data.error || 'Could not load.') + '</span>';
+        escapeHtml(data.error || 'Could not load.') + '</span>';
       return;
     }
     const rows = Array.isArray(data.reviews) ? data.reviews : [];
@@ -1454,15 +1454,15 @@ async function loadAllReviews() {
           '<div class="flex items-center flex-wrap"><span class="text-[#f59e0b]" style="letter-spacing:1.5px;">' + stars + '</span>' +
           '<span class="ml-2" style="color:#9ca3af;font-size:11px;">' + (Number(r.rating) || 0) + '/5</span>' + flag + '</div>' +
           '<div class="text-[12px] text-zinc-700 mt-1">' +
-            escapeRoomHtml(r.comment || '(no comment)') + '</div>' +
+            escapeHtml(r.comment || '(no comment)') + '</div>' +
           '<div class="text-[10px] text-zinc-500 mt-1">' +
-            escapeRoomHtml(r.guestName || 'Guest') + ' · ' + escapeRoomHtml(when) + escapeRoomHtml(edited) +
-            '<br>Booking ' + escapeRoomHtml(r.bookingId || '—') +
-            ' · Homestay ' + escapeRoomHtml(r.homestayId || '—') +
-            '<br>Review ID: <span class="font-mono">' + escapeRoomHtml(r.id) + '</span>' +
+            escapeHtml(r.guestName || 'Guest') + ' · ' + escapeHtml(when) + escapeHtml(edited) +
+            '<br>Booking ' + escapeHtml(r.bookingId || '—') +
+            ' · Homestay ' + escapeHtml(r.homestayId || '—') +
+            '<br>Review ID: <span class="font-mono">' + escapeHtml(r.id) + '</span>' +
           '</div>' +
         '</div>' +
-          '<button class="btn btn-secondary shrink-0 orphan-del-btn" data-rid="' + escapeRoomHtml(r.id) + '" ' +
+          '<button class="btn btn-secondary shrink-0 orphan-del-btn" data-rid="' + escapeHtml(r.id) + '" ' +
           'data-orphan="' + (r.orphaned ? '1' : '0') + '" ' +
           'style="padding:6px 14px;font-size:11px;color:#dc2626;border-color:#fecaca;">Delete</button>' +
       '</div>';
@@ -1474,7 +1474,7 @@ async function loadAllReviews() {
         const isOrphan = btn.getAttribute('data-orphan') === '1';
         const ok = await showConfirm(
           'Delete this review permanently?',
-          'Review <span class="font-mono">' + escapeRoomHtml(rid) + '</span> will be removed from the listing. ' +
+          'Review <span class="font-mono">' + escapeHtml(rid) + '</span> will be removed from the listing. ' +
           'This cannot be undone, and the guest has no way to restore it.' +
           (isOrphan ? '' : '<br><br><strong>This review belongs to a live booking.</strong> The guest stayed and rated it — you are overriding their feedback.')
         );
