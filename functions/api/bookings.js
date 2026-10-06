@@ -2661,6 +2661,29 @@ export async function onRequestPost({ request, env }) {
           let pending = []; try { if (pendingRes?.data) pending = JSON.parse(pendingRes.data); } catch (_) {}
           let allHomes = []; try { if (homestaysRes?.data) allHomes = JSON.parse(homestaysRes.data); } catch (_) {}
 
+                    // The admin Hosts table deletes by the kd_owners ACCOUNT id
+          // (O-<uuid>), but this handler used to look for the host only
+          // among homestay records, whose ids are numeric. So only email
+          // or phone could ever match, and a host whose listing was
+          // already gone (removed, rejected, or never submitted) was
+          // unfindable — the request 404'd and the account survived, so
+          // they could still log in at the host portal. The account is now
+          // a first-class match, not just its homestays.
+          const ownersRes0 = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_owners').first();
+          let ownersAll = [];
+          try { if (ownersRes0?.data) ownersAll = JSON.parse(ownersRes0.data); } catch (_) {}
+          if (!Array.isArray(ownersAll)) ownersAll = [];
+
+          const ownerMatches = ownersAll.filter(o => {
+            const oId = String(o.id || '');
+            const oEmail = String(o.ownerEmail || '').toLowerCase().trim();
+            const oWa = String(o.whatsapp || '').replace(/[^0-9]/g, '');
+            if (ownerId && oId === ownerId) return true;
+            if (email && oEmail === email) return true;
+            if (whatsapp && oWa === whatsapp) return true;
+            return false;
+          });
+
           const initialMatches = [...approved, ...pending].filter(h => {
             const hId = String(h.id || '');
             const hEmail = String(h.ownerEmail || '').toLowerCase().trim();
@@ -2671,7 +2694,8 @@ export async function onRequestPost({ request, env }) {
             return false;
           });
 
-          if (initialMatches.length === 0) {
+          // Only give up when NEITHER an account nor a homestay matched.
+          if (initialMatches.length === 0 && ownerMatches.length === 0) {
             return { error: 'Owner not found', status: 404 };
           }
 
@@ -2682,6 +2706,18 @@ export async function onRequestPost({ request, env }) {
           const targetWhatsapps = new Set(
             initialMatches.map(h => String(h.whatsapp || '').replace(/[^0-9]/g, '')).filter(Boolean)
           );
+
+          // Widen with everything the matched ACCOUNT carries, so homestays
+          // tied to this host by email or phone go too — even when the admin
+          // only sent the account id. A kd_owners id is not added to
+          // targetIds: it is a different id space and would never match a
+          // homestay.
+          for (const o of ownerMatches) {
+            const oe = String(o.ownerEmail || '').toLowerCase().trim();
+            if (oe) targetEmails.add(oe);
+            const ow = String(o.whatsapp || '').replace(/[^0-9]/g, '');
+            if (ow) targetWhatsapps.add(ow);
+          }
 
           const matches = (h) => {
             const hId = String(h.id || '');
@@ -2711,13 +2747,17 @@ export async function onRequestPost({ request, env }) {
           let owners = [];
           try { if (ownersRes?.data) owners = JSON.parse(ownersRes.data); } catch (_) {}
           const beforeOwnersCount = owners.length;
-          owners = owners.filter(o => {
+            owners = owners.filter(o => {
             const oId = String(o.id || '');
             const oEmail = String(o.ownerEmail || '').toLowerCase().trim();
             const oWa = String(o.whatsapp || '').replace(/[^0-9]/g, '');
             if (ownerId && oId === ownerId) return false;
             if (email && oEmail === email) return false;
             if (whatsapp && oWa === whatsapp) return false;
+            // Catches an account linked to a removed homestay by the widened
+            // email/phone sets, so no orphaned account can log in later.
+            if (oEmail && targetEmails.has(oEmail)) return false;
+            if (oWa && targetWhatsapps.has(oWa)) return false;
             return true;
           });
           const removedOwnersCount = beforeOwnersCount - owners.length;
@@ -2733,6 +2773,13 @@ export async function onRequestPost({ request, env }) {
               .bind('kd_owners', JSON.stringify(owners))
           ]);
 
+          // Bump the session version for every identifier the removed host
+          // carried, so a token issued before this delete stops verifying
+          // even if some record tied to them survives. Runs AFTER the write
+          // so it sees the post-delete state.
+          for (const wa of targetWhatsapps) {
+            try { await invalidateOwnerSessionsForOwner(db, wa); } catch (_) {}
+          }
           for (const h of [...removedApproved, ...removedPending]) {
             try { await invalidateOwnerSessionsForHomestay(db, h.id); } catch (_) {}
           }
