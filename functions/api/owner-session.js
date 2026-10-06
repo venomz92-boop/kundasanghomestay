@@ -64,6 +64,12 @@ export async function onRequestGet({ request, env }) {
       ownerEmail: ownerAccount?.ownerEmail || null,
       whatsapp: cleanWa,
       hasOwnerAccount: !!ownerAccount,
+      // Without this the listing form cannot tell a verified host from an
+      // unverified one — both report authenticated:true — so an unverified
+      // host is shown the whole form and every submission is refused at the
+      // final click. Legacy homestay-only owners have no kd_owners row;
+      // treat them as verified since they predate the rule.
+      verified: ownerAccount ? ownerAccount.verified === true : true,
       homestays: safeHomes
     }, 200, request, { 'Cache-Control': 'no-store' });
   } catch (e) {
