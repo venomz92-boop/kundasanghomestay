@@ -9,12 +9,15 @@
 //   POST /api/reviews                  → { action?, bookingId?, reviewId?, rating?, comment? }
 //     action omitted or 'create' → add a review for a completed booking
 //     action 'update'            → change your own review
-//     action 'delete'            → remove your own review
-//
-//   Only the guest who wrote a review may edit or delete it. This is
-//   enforced by comparing review.guestId to the caller's guest session.
-//   Hosts use a different session type entirely, so a host can never
-//   change or remove a guest's rating — fair to both sides.
+//     action 'update'            → correct your own review, ONCE only
+//     action 'delete'            → refused (REVIEW_NOT_DELETABLE)
+//     action 'admin-delete'      → admin break-glass removal; the only
+//                                  delete path, requires an admin session
+//   A review is written once and corrected at most once. It is then
+//   final, so a host is never scored twice for one stay and a guest
+//   cannot withdraw a rating to retaliate. review.guestId is the only
+//   thing that grants access; hosts use a different session type, so a
+//   host can never alter a guest's rating.
 import {
   corsHeaders,
   getClientIP,
