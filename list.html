@@ -197,6 +197,44 @@ button.kd-loading {
   box-shadow: 0 8px 22px rgba(0,0,0,0.3);
   transform: rotate(-2deg);
 }
+/* Room galleries sit inside a room card, so the tiles are smaller. */
+.pg-room-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+.pg-room-grid .pg-slot { border-radius: 10px; padding: 4px; }
+.pg-room-grid .pg-plus { font-size: 20px; }
+.pg-room-grid .pg-label { font-size: 10px; }
+.pg-room-grid .pg-hint { font-size: 9px; }
+.pg-room-grid .pg-badge { left: 5px; top: 5px; font-size: 8.5px; padding: 2px 6px; }
+.pg-room-grid .pg-remove { right: 4px; top: 4px; width: 22px; height: 22px; font-size: 15px; }
+.pg-room-grid .pg-cover-btn { padding: 5px 3px; font-size: 9px; }
+/* ------------------------------------------------------------
+   REORDER — drag states
+
+   touch-action: none ONLY on filled tiles. That is what lets a
+   press-and-drag reorder a photo instead of scrolling the page.
+   Empty tiles keep normal scrolling, so a gallery with no photos
+   yet still scrolls normally on a phone.
+   ------------------------------------------------------------ */
+.pg-slot-full { touch-action: none; }
+.pg-slot-empty { touch-action: manipulation; }
+.pg-slot.pg-src { opacity: 0.3; }
+.pg-slot.pg-over { box-shadow: 0 0 0 3px #0F382E, 0 0 0 7px rgba(15,56,46,0.18); }
+.pg-ghost {
+  position: fixed;
+  z-index: 999999;
+  width: 90px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 10px;
+  opacity: 0.92;
+  pointer-events: none;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.3);
+  transform: rotate(-2deg);
+}
 .kd-uploading-label {
   opacity: 0.6;
   pointer-events: none;
@@ -494,7 +532,7 @@ This protects guests from fake listings. Create a free host account, verify your
 </div>
 <p class="text-xs text-zinc-600">Add up to 6 photos. The <strong>cover photo</strong> is the thumbnail guests see in search results — put your best shot there.</p>
 <p class="text-[11px] text-zinc-400 mt-1">To reorder: press and hold a photo, then drag it to another slot. You can also tap <strong>Make cover</strong> to promote one instantly.</p>
-<div id="photoSlots" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-1"></div>
+<div id="photoSlots" data-gallery="property" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-1"></div>
 <input id="listPhotos" type="file" accept="image/*" class="hidden" onchange="handlePhotoPick(this)" />
 </section>
 <section class="space-y-4 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
@@ -1491,19 +1529,6 @@ return;
 }
 let html = '';
 tempRooms.forEach((room) => {
-let imagesHtml = '';
-if (room.images && room.images.length > 0) {
-imagesHtml = '<div class="flex flex-wrap gap-1 mt-1">';
-room.images.forEach((img, imgIdx) => {
-imagesHtml += `
-<div class="relative">
-<img src="${escapeHTML(img)}" class="w-12 h-12 object-cover rounded border border-zinc-200" />
-<button type="button" data-room-action="remove-img" data-room-id="${escapeHTML(room.id)}" data-img-index="${imgIdx}" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-600">✕</button>
-</div>
-`;
-});
-imagesHtml += '</div>';
-}
 html += `
 <div class="flex flex-wrap items-start gap-3 p-3 bg-white rounded-xl border border-zinc-200">
 <div class="flex-1 min-w-[200px] space-y-2">
@@ -1513,14 +1538,12 @@ html += `
 <input class="form-input flex-1 min-w-[100px] text-sm" placeholder="Guests" type="number" value="${escapeHTML(room.guests)}" data-room-id="${escapeHTML(room.id)}" data-room-field="guests" />
 </div>
 <input class="form-input text-sm" placeholder="Room description" value="${escapeHTML(room.desc)}" data-room-id="${escapeHTML(room.id)}" data-room-field="desc" />
-<div class="flex items-center gap-2">
-<label class="text-xs font-semibold text-zinc-600 cursor-pointer bg-zinc-100 px-3 py-1.5 rounded-full hover:bg-zinc-200 transition">
-📷 Add Photos
-<input type="file" accept="image/*" multiple class="hidden" data-room-action="add-img" data-room-id="${escapeHTML(room.id)}" />
-</label>
-<span class="kd-room-img-count text-[10px] text-zinc-400">${room.images ? room.images.length : 0} images</span>
+<div class="pt-1">
+<span class="text-[11px] font-semibold text-zinc-600">Room photos</span>
+<span class="kd-room-img-count text-[10px] text-zinc-400 ml-1">${room.images ? room.images.length : 0} added</span>
+<p class="text-[10px] text-zinc-400 mt-0.5">Tap a tile to add a photo. Press and hold, then drag to reorder.</p>
+${renderRoomPhotoSlots(room)}
 </div>
-${imagesHtml}
 </div>
 <button type="button" data-room-action="remove" data-room-id="${escapeHTML(room.id)}" class="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 bg-red-50 rounded-full">✕</button>
 </div>
@@ -1585,26 +1608,40 @@ if (counterEl) counterEl.textContent = origCounterText;
 input.value = '';
 }
 }
-function removeRoomImage(roomId, imageIndex) {
-const roomIndex = tempRooms.findIndex(r => r.id === roomId);
-if (roomIndex !== -1 && tempRooms[roomIndex].images) {
-tempRooms[roomIndex].images.splice(imageIndex, 1);
-if (tempRooms[roomIndex].imagePublicIds) {
-tempRooms[roomIndex].imagePublicIds.splice(imageIndex, 1);
+// One tile per room-photo position, same behaviour as the property gallery.
+// Slot colours, drag states and the progress overlay are all shared with it
+// through the .pg-* classes and the data-gallery contract.
+function renderRoomPhotoSlots(room) {
+  var images = Array.isArray(room.images) ? room.images : [];
+  var rid = escapeHTML(room.id);
+  var html = '<div class="pg-room-grid" data-gallery="room" data-room-id="' + rid + '">';
+  for (var i = 0; i < ROOM_PHOTO_SLOT_COUNT; i++) {
+    var url = images[i] || '';
+    if (url) {
+      html +=
+        '<div class="pg-slot pg-slot-full" data-slot="' + i + '">' +
+          '<img class="pg-img" src="' + escapeHTML(url) + '" alt="Room photo ' + (i + 1) + '"/>' +
+          (i === 0 ? '<span class="pg-badge">Cover</span>' : '') +
+          '<button type="button" class="pg-remove" data-photo-action="remove" data-slot="' + i + '" aria-label="Remove room photo ' + (i + 1) + '">&times;</button>' +
+          (i === 0 ? '' : '<button type="button" class="pg-cover-btn" data-photo-action="cover" data-slot="' + i + '">Make cover</button>') +
+          '<div class="kd-drop-overlay"></div>' +
+        '</div>';
+    } else {
+      html +=
+        '<div class="pg-slot pg-slot-empty" data-slot="' + i + '">' +
+          '<span class="pg-plus">+</span>' +
+          '<span class="pg-label">' + (i === 0 ? 'Cover' : 'Photo ' + (i + 1)) + '</span>' +
+          (i === 0 ? '<span class="pg-hint">Optional</span>' : '') +
+          '<div class="kd-drop-overlay"></div>' +
+        '</div>';
+    }
+  }
+  html += '</div>';
+  return html;
 }
-renderRooms();
-}
-}
+
 renderRooms();
 document.addEventListener('click', function(e) {
-const removeImgBtn = e.target.closest('#roomsList [data-room-action="remove-img"]');
-if (removeImgBtn) {
-e.preventDefault();
-const roomId = removeImgBtn.dataset.roomId;
-const idx = parseInt(removeImgBtn.dataset.imgIndex, 10);
-if (roomId && !isNaN(idx)) removeRoomImage(roomId, idx);
-return;
-}
 const removeRoomBtn = e.target.closest('#roomsList [data-room-action="remove"]');
 if (removeRoomBtn) {
 e.preventDefault();
@@ -1619,12 +1656,6 @@ if (!el) return;
 const roomId = el.dataset.roomId;
 const field = el.dataset.roomField;
 if (roomId && field) updateRoomField(roomId, field, el.value);
-});
-document.addEventListener('change', function(e) {
-const el = e.target.closest('#roomsList input[type="file"][data-room-action="add-img"]');
-if (!el) return;
-const roomId = el.dataset.roomId;
-if (roomId) handleRoomImages(roomId, el);
 });
 // ============================================================
 // [FIX] handlePhotos previously RESET tempPhotos on every file
@@ -1680,51 +1711,122 @@ function renderPhotoSlots() {
 // Put a freshly uploaded photo at a slot. An index past the end appends, which
 // is what clicking any empty tile should do — the empty tiles after the last
 // photo are interchangeable, so they all mean "add the next one".
-function placePhotoAt(index, url, publicId) {
-  if (!(index >= 0) || index > tempPhotos.length) index = tempPhotos.length;
-  if (index > PHOTO_SLOT_COUNT - 1) return false;   // gallery full
-  tempPhotos[index] = url;
-  tempPhotoPublicIds[index] = publicId || '';
+// ============================================================
+// GALLERY STORE — one abstraction for both photo galleries
+//
+// The property gallery ("property") owns tempPhotos/tempPhotoPublicIds.
+// Each room gallery ("room") owns that room's images/imagePublicIds.
+// A container element carries data-gallery, and optionally data-room-id,
+// and every helper below resolves through here rather than hard-coding
+// global arrays. That is what lets the same render, upload, reorder and
+// drag code serve both galleries instead of being written twice.
+// ============================================================
+var ROOM_PHOTO_SLOT_COUNT = 4;
+
+function roomGalleryContainer(roomId) {
+  var all = document.querySelectorAll('[data-gallery="room"]');
+  for (var i = 0; i < all.length; i++) {
+    if (String(all[i].dataset.roomId) === String(roomId)) return all[i];
+  }
+  return null;
+}
+
+function galleryStore(container) {
+  if (!container) return null;
+  if (container.dataset.gallery === 'room') {
+    var room = tempRooms.find(function (r) { return String(r.id) === String(container.dataset.roomId); });
+    if (!room) return null;
+    if (!Array.isArray(room.images)) room.images = [];
+    if (!Array.isArray(room.imagePublicIds)) room.imagePublicIds = [];
+    return { urls: room.images, ids: room.imagePublicIds };
+  }
+  return { urls: tempPhotos, ids: tempPhotoPublicIds };
+}
+
+function gallerySlotCount(container) {
+  return (container && container.dataset.gallery === 'room') ? ROOM_PHOTO_SLOT_COUNT : PHOTO_SLOT_COUNT;
+}
+
+// Rooms redraw through renderRooms(); the property gallery redraws through
+// renderPhotoSlots().
+function galleryRender(container) {
+  if (container && container.dataset.gallery === 'room') renderRooms();
+  else renderPhotoSlots();
+}
+
+function placeGalleryPhoto(container, index, url, publicId) {
+  var store = galleryStore(container);
+  if (!store) return false;
+  var max = gallerySlotCount(container);
+  if (!(index >= 0) || index > store.urls.length) index = store.urls.length;
+  if (index > max - 1) return false;              // gallery full
+  store.urls[index] = url;
+  store.ids[index] = publicId || '';
   return true;
 }
 
-function removePhotoAt(index) {
-  if (!(index >= 0) || index >= tempPhotos.length) return;
-  tempPhotos.splice(index, 1);
-  tempPhotoPublicIds.splice(index, 1);
-  renderPhotoSlots();
+function removeGalleryPhotoAt(container, index) {
+  var store = galleryStore(container);
+  if (!store) return;
+  if (!(index >= 0) || index >= store.urls.length) return;
+  store.urls.splice(index, 1);
+  store.ids.splice(index, 1);
+  galleryRender(container);
   saveDraft();
 }
 
 // Swap with slot 0. A pure reorder — no re-upload — so a host on a weak
 // connection can change the cover without sending the file again.
-function makePhotoCover(index) {
-  if (!(index > 0) || index >= tempPhotos.length) return;
-  var u = tempPhotos[0], p = tempPhotoPublicIds[0];
-  tempPhotos[0] = tempPhotos[index];
-  tempPhotoPublicIds[0] = tempPhotoPublicIds[index];
-  tempPhotos[index] = u;
-  tempPhotoPublicIds[index] = p;
-  renderPhotoSlots();
+function makeGalleryPhotoCover(container, index) {
+  var store = galleryStore(container);
+  if (!store) return;
+  if (!(index > 0) || index >= store.urls.length) return;
+  var u = store.urls[0], p = store.ids[0];
+  store.urls[0] = store.urls[index];
+  store.ids[0] = store.ids[index];
+  store.urls[index] = u;
+  store.ids[index] = p;
+  galleryRender(container);
   saveDraft();
 }
 
-function openPhotoPicker(slotIndex) {
+// One shared file input serves every tile in both galleries. The target is
+// recorded on the input's dataset before the click, and read back in
+// handlePhotoPick().
+function openPhotoPicker(container, slotIndex) {
   var input = document.getElementById('listPhotos');
-  if (!input) return;
-  if (!(slotIndex >= 0)) slotIndex = tempPhotos.length;
+  if (!input || !container) return;
+  var store = galleryStore(container);
+  if (!store) return;
+  if (!(slotIndex >= 0)) slotIndex = store.urls.length;
+  input.dataset.gallery = container.dataset.gallery || 'property';
+  input.dataset.roomId = container.dataset.roomId || '';
   input.dataset.slot = String(slotIndex);
   input.value = '';           // lets the host re-pick the same file
   input.click();
 }
 
 async function handlePhotoPick(input) {
+  var kind = input.dataset.gallery || 'property';
+  var roomId = input.dataset.roomId || '';
   var target = parseInt(input.dataset.slot, 10);
-  if (isNaN(target)) target = tempPhotos.length;
-  var file = input.files && input.files[0];
-  if (!file) { input.dataset.slot = ''; return; }
 
-  var tile = document.querySelector('#photoSlots .pg-slot[data-slot="' + target + '"]');
+  var container = (kind === 'room') ? roomGalleryContainer(roomId) : document.getElementById('photoSlots');
+  var store = galleryStore(container);
+
+  // Reset first so a bailed-out call cannot leave stale targeting behind.
+  input.value = '';
+  input.dataset.slot = '';
+  input.dataset.roomId = '';
+  input.dataset.gallery = '';
+
+  if (!container || !store) return;
+  var file = input.files && input.files[0];
+  if (!file) return;
+  if (isNaN(target)) target = store.urls.length;
+  target = Math.min(target, gallerySlotCount(container) - 1);
+
+  var tile = container.querySelector('.pg-slot[data-slot="' + target + '"]');
   if (tile) tile.classList.add('kd-uploading');
 
   try {
@@ -1733,7 +1835,11 @@ async function handlePhotoPick(input) {
       return;
     }
     if (tile) setDropZoneProgress(tile, 0, 'Compressing…');
-    var blob = await compressImageToBlob(file, 1000, 0.8);
+    // Rooms compress harder: their tiles are small and the room gallery is a
+    // secondary view, so 800px @ 0.7 is plenty and saves the host's upstream.
+    var maxW = (kind === 'room') ? 800 : 1000;
+    var q = (kind === 'room') ? 0.7 : 0.8;
+    var blob = await compressImageToBlob(file, maxW, q);
     if (!blob) {
       await showAlert('Upload Failed', 'Could not compress ' + file.name);
       return;
@@ -1745,8 +1851,9 @@ async function handlePhotoPick(input) {
       if (tile) setDropZoneProgress(tile, f * 100, 'Uploading…');
     });
     if (data && data.url) {
-      if (!placePhotoAt(target, data.url, data.publicId)) {
-        await showAlert('Gallery Full', 'You can add up to ' + PHOTO_SLOT_COUNT + ' photos. Remove one first.');
+      if (!placeGalleryPhoto(container, target, data.url, data.publicId)) {
+        await showAlert('Gallery Full',
+          'You can add up to ' + gallerySlotCount(container) + ' photos here. Remove one first.');
       } else {
         saveDraft();
       }
@@ -1757,31 +1864,220 @@ async function handlePhotoPick(input) {
     await showAlert('Upload Failed', uploadErrorMessage(err, file.name));
   } finally {
     if (tile) tile.classList.remove('kd-uploading');
-    input.value = '';
-    input.dataset.slot = '';
-    renderPhotoSlots();
+    galleryRender(container);
   }
 }
 
-// Delegated so the listeners survive every renderPhotoSlots() rebuild.
+// Delegated so the listeners survive every re-render of either gallery.
 document.addEventListener('click', function (e) {
   if (!e.target || !e.target.closest) return;
-  var actionEl = e.target.closest('#photoSlots [data-photo-action]');
+  var actionEl = e.target.closest('[data-photo-action]');
   if (actionEl) {
+    var aSlot = actionEl.closest('.pg-slot');
+    var aContainer = aSlot ? aSlot.closest('[data-gallery]') : null;
+    if (!aContainer) return;                 // not one of ours
     e.preventDefault();
     e.stopPropagation();
     var idx = parseInt(actionEl.dataset.slot, 10);
     if (isNaN(idx)) return;
-    if (actionEl.dataset.photoAction === 'remove') removePhotoAt(idx);
-    else if (actionEl.dataset.photoAction === 'cover') makePhotoCover(idx);
+    if (actionEl.dataset.photoAction === 'remove') removeGalleryPhotoAt(aContainer, idx);
+    else if (actionEl.dataset.photoAction === 'cover') makeGalleryPhotoCover(aContainer, idx);
     return;
   }
-  var slot = e.target.closest('#photoSlots .pg-slot');
+  var slot = e.target.closest('.pg-slot');
   if (!slot) return;
+  var container = slot.closest('[data-gallery]');
+  if (!container) return;
   if (slot.classList.contains('kd-uploading')) return;
   var n = parseInt(slot.dataset.slot, 10);
-  if (!isNaN(n)) openPhotoPicker(n);
+  if (!isNaN(n)) openPhotoPicker(container, n);
 });
+
+// ============================================================
+// GALLERY REORDER — drag a photo to a new position
+//
+// Uses Pointer Events, NOT HTML5 drag-and-drop. dragstart / dragover / drop
+// never fire on touch devices, and phones are how hosts actually use this
+// page — HTML5 drag would work on a desktop and be dead on every phone.
+//
+// Mouse drags immediately past a small threshold. Touch and pen require a
+// short hold first, so an ordinary swipe still scrolls the page rather than
+// silently reordering photos.
+//
+// The order is insert-and-shift: dragging photo 3 onto slot 1 pushes 1 and 2
+// up. The array stays dense, so index 0 is always the cover and the submit
+// payload is unchanged. Nothing is re-uploaded.
+//
+// A drag is confined to the gallery it started in — a room photo cannot be
+// dropped into the property gallery.
+// ============================================================
+var PG_HOLD_MS = 180;
+var PG_MOVE_TOLERANCE = 8;
+var _pgDrag = null;
+var _pgSuppressClick = false;
+
+// Insert-and-shift rather than swap: this is what "drag it to position 1"
+// means in every photo gallery a host has used before.
+function reorderGalleryPhoto(container, from, to) {
+  var store = galleryStore(container);
+  if (!store) return;
+  var urls = store.urls, ids = store.ids;
+  if (!(from >= 0) || from >= urls.length) return;
+  if (!(to >= 0)) to = 0;
+  if (to > urls.length - 1) to = urls.length - 1;
+  if (from === to) return;
+  var u = urls.splice(from, 1)[0];
+  var p = ids.splice(from, 1)[0];
+  urls.splice(to, 0, u);
+  ids.splice(to, 0, p);
+  galleryRender(container);
+  saveDraft();
+}
+
+// Find the tile under the pointer, but only within the drag's own gallery.
+function pgSlotAt(container, x, y) {
+  var el = document.elementFromPoint(x, y);
+  if (!el || !el.closest) return null;
+  var slot = el.closest('.pg-slot');
+  if (!slot) return null;
+  var owner = slot.closest('[data-gallery]');
+  if (!owner || owner !== container) return null;
+  return slot;
+}
+
+function pgCleanup() {
+  if (!_pgDrag) return;
+  if (_pgDrag.holdTimer) clearTimeout(_pgDrag.holdTimer);
+  if (_pgDrag.ghost && _pgDrag.ghost.parentNode) {
+    _pgDrag.ghost.parentNode.removeChild(_pgDrag.ghost);
+  }
+  var src = document.querySelector('.pg-slot.pg-src');
+  if (src) src.classList.remove('pg-src');
+  var over = document.querySelector('.pg-slot.pg-over');
+  if (over) over.classList.remove('pg-over');
+  _pgDrag = null;
+}
+
+function pgBeginDrag(e) {
+  if (!_pgDrag || _pgDrag.active) return;
+  _pgDrag.active = true;
+
+  var tile = _pgDrag.container.querySelector('.pg-slot[data-slot="' + _pgDrag.from + '"]');
+  if (tile) tile.classList.add('pg-src');
+
+  // The floating thumbnail matters most on touch: without it the dragged
+  // photo sits under the host's finger and they cannot see what they hold.
+  var store = galleryStore(_pgDrag.container);
+  var g = document.createElement('img');
+  g.src = (store && store.urls[_pgDrag.from]) || '';
+  g.className = 'pg-ghost';
+  document.body.appendChild(g);
+  _pgDrag.ghost = g;
+
+  if (navigator.vibrate) { try { navigator.vibrate(10); } catch (err) {} }
+  pgMoveDrag(e);
+}
+
+function pgMoveDrag(e) {
+  if (!_pgDrag || !_pgDrag.active) return;
+  if (_pgDrag.ghost) {
+    _pgDrag.ghost.style.left = (e.clientX - 45) + 'px';
+    _pgDrag.ghost.style.top = (e.clientY - 34) + 'px';
+  }
+  var over = document.querySelector('.pg-slot.pg-over');
+  if (over) over.classList.remove('pg-over');
+  var tile = pgSlotAt(_pgDrag.container, e.clientX, e.clientY);
+  if (tile) tile.classList.add('pg-over');
+}
+
+document.addEventListener('pointerdown', function (e) {
+  if (e.button !== undefined && e.button !== 0) return;
+  if (!e.target || !e.target.closest) return;
+  // Let Remove / Make cover buttons behave as plain buttons.
+  if (e.target.closest('[data-photo-action]')) return;
+
+  var el = e.target.closest('.pg-slot');
+  if (!el) return;
+  var container = el.closest('[data-gallery]');
+  if (!container) return;
+  if (el.classList.contains('kd-uploading')) return;
+  if (!el.classList.contains('pg-slot-full')) return;   // nothing to drag yet
+
+  var idx = parseInt(el.dataset.slot, 10);
+  if (isNaN(idx)) return;
+
+  _pgDrag = {
+    from: idx,
+    container: container,
+    x0: e.clientX,
+    y0: e.clientY,
+    active: false,
+    moved: false,
+    ghost: null,
+    holdTimer: null,
+    isTouch: e.pointerType !== 'mouse'
+  };
+
+  // Touch needs the hold; the mouse does not.
+  if (_pgDrag.isTouch) {
+    _pgDrag.holdTimer = setTimeout(function () { pgBeginDrag(e); }, PG_HOLD_MS);
+  }
+});
+
+document.addEventListener('pointermove', function (e) {
+  if (!_pgDrag) return;
+  var far = Math.abs(e.clientX - _pgDrag.x0) > PG_MOVE_TOLERANCE ||
+            Math.abs(e.clientY - _pgDrag.y0) > PG_MOVE_TOLERANCE;
+
+  if (!_pgDrag.active) {
+    if (!far) return;
+    if (_pgDrag.isTouch) {
+      // They moved before the hold completed — that is a scroll, not a drag.
+      pgCleanup();
+    } else {
+      pgBeginDrag(e);
+    }
+    return;
+  }
+
+  _pgDrag.moved = true;
+  pgMoveDrag(e);
+  if (e.cancelable) e.preventDefault();
+}, { passive: false });
+
+document.addEventListener('pointerup', function (e) {
+  if (!_pgDrag) return;
+  var wasActive = _pgDrag.active;
+  var moved = !!_pgDrag.moved;
+  var from = _pgDrag.from;
+  var container = _pgDrag.container;
+
+  // Only a real, moved drag counts. A slow tap (held past the threshold but
+  // never moved) must still open the picker like any other tap.
+  var tile = (wasActive && moved) ? pgSlotAt(container, e.clientX, e.clientY) : null;
+  var to = tile ? parseInt(tile.dataset.slot, 10) : NaN;
+
+  pgCleanup();
+
+  if (wasActive && moved && !isNaN(to) && to !== from) {
+    reorderGalleryPhoto(container, from, to);
+    _pgSuppressClick = true;
+    setTimeout(function () { _pgSuppressClick = false; }, 400);
+  }
+});
+
+document.addEventListener('pointercancel', function () { pgCleanup(); });
+
+// A completed drag also fires a click on the tile underneath. Swallow that
+// one click in the capture phase, before the picker handler above sees it.
+document.addEventListener('click', function (e) {
+  if (!_pgSuppressClick) return;
+  if (!e.target || !e.target.closest) return;
+  if (!e.target.closest('.pg-slot')) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+}, true);
 
 // ============================================================
 // GALLERY REORDER — drag a photo to a new position
