@@ -234,8 +234,9 @@
         <a href="/owner-register.html" class="header-pill header-pill-outline">List Property</a>
       </div>
 
-      <div id="ownerLoggedInNav" class="hidden items-center gap-3">
+        <div id="ownerLoggedInNav" class="hidden items-center gap-3">
         <span class="text-xs font-600 text-[#212121]/70">Host : <span id="ownerNameHeader" class="text-[#0F382E]">Owner</span></span>
+        <a href="/list.html" class="header-pill header-pill-outline">＋ List Property</a>
         <button onclick="logoutOwner()" class="header-pill header-pill-outline">Logout</button>
       </div>
     </div>
@@ -261,6 +262,7 @@
         Host: <span id="ownerNameMobile" class="text-[#0F382E]">Owner</span>
       </div>
       <a href="/owner.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">📊 Dashboard</a>
+      <a href="/list.html" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏡 List Property</a>
       <a href="/" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">🏠 View Website</a>
       <a href="mailto:support@kundasanghomestay.my" class="block w-full text-left font-poppins font-600 text-[14px] tracking-wide py-3 border-b border-black/5">✉️ Support</a>
       <button onclick="logoutOwner()" class="guest-btn block text-center w-full mt-3">Logout</button>
@@ -315,6 +317,7 @@
       </div>
       <div class="flex gap-2 flex-wrap">
         <button onclick="loadBookings()" class="refresh-btn">🔄 Refresh</button>
+        <a href="/list.html" class="btn btn-primary">Submit a Listing</a>
         <a href="/" class="btn-outline">View Website</a>
       </div>
     </div>
@@ -1154,7 +1157,7 @@ async function loadBookings() {
 
     if (filteredBookings.length === 0) {
       const msg = (allHomestays.length === 0)
-        ? 'You don\'t have any listings yet. Go to <strong>List Property</strong> to submit your first homestay.'
+        ? 'You don\'t have any listings yet. <a href="/list.html" style="color:#0F382E;font-weight:700;text-decoration:underline;">Submit your first homestay</a>.'
         : 'No bookings found for this property.';
       if (listDiv) listDiv.innerHTML = safeHTML('<div class="text-sm text-zinc-500 py-6 text-center">' + msg + '</div>');
       return;
