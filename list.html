@@ -1925,7 +1925,10 @@ fetch('/api/owner-session', { credentials: 'include', cache: 'no-store' })
         var noBanner = document.getElementById('accountRequiredBanner');
         if (noBanner) noBanner.style.display = 'none';
 
-        var hostCard = document.querySelector('main .card');
+        // Must target the page wrapper, NOT `main .card` — that selector
+        // matches #listFormCard itself, which CSS hides for non-hosts, so
+        // the banner would be hidden along with it.
+        var hostCard = document.querySelector('main .page-content') || document.querySelector('main');
         if (hostCard && !document.getElementById('ownerUnverifiedBanner')) {
           var ub = document.createElement('div');
           ub.id = 'ownerUnverifiedBanner';
