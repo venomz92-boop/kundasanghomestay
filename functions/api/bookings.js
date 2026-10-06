@@ -752,6 +752,49 @@ export async function onRequestGet({ request, env }) {
       };
       approved.forEach(addOwner);
       pending.forEach(addOwner);
+
+      // Overlay every registered account from kd_owners. Without this the
+      // panel lists only hosts who currently hold a homestay, so a host
+      // whose listing was removed — or who never submitted one — is
+      // invisible in the Hosts tab. That made the account undeletable
+      // through the UI while it could still log in at the host portal.
+      const ownersResAdmin = await db.prepare('SELECT data FROM store WHERE key = ?').bind('kd_owners').first();
+      let ownersAdmin = [];
+      try { if (ownersResAdmin?.data) ownersAdmin = JSON.parse(ownersResAdmin.data); } catch (_) {}
+      if (!Array.isArray(ownersAdmin)) ownersAdmin = [];
+
+      for (const o of ownersAdmin) {
+        const email = String(o.ownerEmail || '').toLowerCase().trim();
+        const wa = String(o.whatsapp || '').replace(/[^0-9]/g, '');
+        const key = email || wa || String(o.id || '');
+        if (!key) continue;
+
+        const existing = ownerMap.get(key);
+        if (existing) {
+          // The account is authoritative for identity and contact, and its
+          // id is the one the panel should delete by (a homestay id is a
+          // different id space and would never match kd_owners).
+          existing.id = o.id || existing.id;
+          existing.ownerName = o.ownerName || existing.ownerName;
+          existing.ownerEmail = o.ownerEmail || existing.ownerEmail;
+          existing.whatsapp = o.whatsapp || existing.whatsapp;
+          existing.createdAt = o.createdAt || existing.createdAt;
+          if (o.verified === true) existing.verified = true;
+          existing.hasAccount = true;
+        } else {
+          ownerMap.set(key, {
+            id: o.id,
+            ownerName: o.ownerName || '',
+            ownerEmail: o.ownerEmail || '',
+            whatsapp: o.whatsapp || '',
+            verified: o.verified === true,
+            createdAt: o.createdAt || null,
+            homestayNames: [],
+            hasAccount: true
+          });
+        }
+      }
+
       const owners = [...ownerMap.values()];
 
       const safeApprovedAdmin = approved.map(stripPasswordFields);
