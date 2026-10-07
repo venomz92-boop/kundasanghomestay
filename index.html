@@ -374,6 +374,36 @@ img[data-zoom] { cursor: zoom-in; }
 @media (prefers-reduced-motion: reduce) {
   #kdLightbox .kd-lb-spinner { animation-duration: 3s; }
 }
+/* Left / right arrows. Only rendered when the photo has siblings
+   (e.g. the room photo set), so a lone photo shows no controls.
+   48px targets — comfortable for thumbs. */
+#kdLightbox .kd-lb-nav { position: fixed; top: 50%; transform: translateY(-50%);
+  width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+  padding: 0; border: 0; border-radius: 999px; cursor: pointer;
+  background: rgba(255,255,255,0.16); color: #fff; touch-action: manipulation; }
+#kdLightbox .kd-lb-nav:hover { background: rgba(255,255,255,0.3); }
+#kdLightbox .kd-lb-nav:focus-visible { outline: 3px solid #D4A373; outline-offset: 2px; }
+#kdLightbox .kd-lb-nav[hidden] { display: none; }
+#kdLightbox .kd-lb-nav svg { width: 22px; height: 22px; }
+#kdLightbox .kd-lb-prev { left: 8px; }
+#kdLightbox .kd-lb-next { right: 8px; }
+#kdLightbox .kd-lb-count { color: rgba(255,255,255,0.72);
+  font-family: Poppins, sans-serif; font-size: 12px; font-weight: 600;
+  letter-spacing: 0.08em; }
+#kdLightbox .kd-lb-count[hidden] { display: none; }
+/* Desktop: pull the picture in so the arrows don't sit over it. */
+@media (min-width: 768px) {
+  #kdLightbox .kd-lb-img { max-width: min(78vw, 1200px); }
+}
+/* Phones: same idea, tighter — photo and caption stay between the
+   two arrows instead of hiding under them. */
+@media (max-width: 767px) {
+  #kdLightbox .kd-lb-img { max-width: calc(100vw - 104px); max-height: 70vh; }
+  #kdLightbox .kd-lb-caption { max-width: calc(100vw - 104px); }
+  #kdLightbox .kd-lb-nav { width: 44px; height: 44px; }
+  #kdLightbox .kd-lb-prev { left: 6px; }
+  #kdLightbox .kd-lb-next { right: 6px; }
+}
 </style>
 </head>
 <body>
@@ -615,7 +645,7 @@ Questions? Email <a href="mailto:support@kundasanghomestay.my" class="text-[#0F3
 <!-- ===== DETAIL MODAL ===== -->
 <div id="detailModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm p-3 md:p-5 overflow-y-auto">
 <div class="detail-card max-w-[900px] mx-auto card overflow-hidden mt-6 md:mt-10">
-<div id="detailContent" class="p-5 md:p-6 overflow-y-auto flex-1"></div>
+<div id="detailContent" data-zoom-group="homestay" class="p-5 md:p-6 overflow-y-auto flex-1"></div>
 <div class="p-5 border-t flex flex-col md:flex-row justify-between items-center gap-3 bg-zinc-50 shrink-0">
 <button onclick="closeDetail()" class="btn-outline w-full md:w-auto" aria-label="Back to listings">Back</button>
 <div class="flex gap-3 w-full md:w-auto justify-end">
@@ -763,10 +793,17 @@ Please retry payment from <strong>My Bookings</strong>
 <!-- ===== PHOTO LIGHTBOX (full-size photo viewer) ===== -->
 <div id="kdLightbox" role="dialog" aria-modal="true" aria-label="Full size photo">
 <button type="button" id="kdLightboxClose" class="kd-lb-close" onclick="closeLightbox()" aria-label="Close photo">✕</button>
+<button type="button" id="kdLightboxPrev" class="kd-lb-nav kd-lb-prev" onclick="kdLightboxGo(-1)" aria-label="Previous photo" hidden>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+</button>
+<button type="button" id="kdLightboxNext" class="kd-lb-nav kd-lb-next" onclick="kdLightboxGo(1)" aria-label="Next photo" hidden>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+</button>
 <div class="kd-lb-spinner" aria-hidden="true"></div>
 <figure class="kd-lb-figure">
 <img id="kdLightboxImg" class="kd-lb-img" src="" alt="" />
 <figcaption id="kdLightboxCaption" class="kd-lb-caption"></figcaption>
+<div id="kdLightboxCount" class="kd-lb-count" aria-live="polite" hidden></div>
 <button type="button" id="kdLightboxAction" class="kd-lb-action" style="display:none"></button>
 </figure>
 </div>
@@ -1209,6 +1246,9 @@ if (document.readyState === 'loading') {
 // =============================================================
 var _lbLastFocus = null;
 var _lbPrevOverflow = '';
+var _lbItems = [];      // every photo in the set the guest opened from
+var _lbIndex = 0;       // which of them is on screen
+var _lbAction = null;   // { label, fn } — optional "View details" button
 
 function kdLightboxOpen() {
 var el = document.getElementById('kdLightbox');
@@ -1224,41 +1264,119 @@ var img = el.tagName === 'IMG' ? el : el.querySelector('img');
 return img ? (img.currentSrc || img.src || '') : '';
 }
 
-function openLightbox(opts) {
-opts = opts || {};
-var src = opts.src;
-if (!src) return;
+function kdLightboxItem(el) {
+return {
+src: kdLightboxSrc(el),
+alt: el.getAttribute('data-alt') || el.getAttribute('alt') || 'Photo',
+caption: el.getAttribute('data-caption') || ''
+};
+}
+
+// Everything that belongs with the photo the guest tapped. The set is
+// the innermost [data-zoom-group] container — the detail modal body,
+// i.e. the homestay's main photo plus that room's photos. Anything
+// not grouped stands alone, so unrelated photos on the page (other
+// homestays' cards, the hero) are never mixed into one slideshow.
+function kdLightboxCollect(el) {
+var single = { items: [kdLightboxItem(el)], index: 0 };
+if (el.closest) {
+var group = el.closest('[data-zoom-group]');
+if (group) {
+var nodes = [].slice.call(group.querySelectorAll('[data-zoom]'));
+if (group.hasAttribute('data-zoom') && nodes.indexOf(group) === -1) {
+nodes.unshift(group);
+}
+var pos = nodes.indexOf(el);
+if (pos !== -1) {
+var items = [];
+var index = 0;
+nodes.forEach(function (node, i) {
+var it = kdLightboxItem(node);
+if (!it.src) return;      // skip anything with nothing to show
+if (i === pos) index = items.length;
+items.push(it);
+});
+if (items.length) return { items: items, index: index };
+}
+}
+}
+return single;
+}
+
+// Draw whichever photo _lbIndex points at, and reveal the arrows and
+// the "2 / 5" counter only when the set actually has more than one.
+function kdLightboxRender() {
 var overlay = document.getElementById('kdLightbox');
+var item = _lbItems[_lbIndex];
+if (!overlay || !item) return;
 var img = document.getElementById('kdLightboxImg');
 var caption = document.getElementById('kdLightboxCaption');
+var count = document.getElementById('kdLightboxCount');
 var action = document.getElementById('kdLightboxAction');
-var spinner = overlay ? overlay.querySelector('.kd-lb-spinner') : null;
-if (!overlay || !img) return;
-
-// Remember where the guest was, so closing puts focus back.
-_lbLastFocus = document.activeElement;
-_lbPrevOverflow = document.body.style.overflow;
+var spinner = overlay.querySelector('.kd-lb-spinner');
+var prev = document.getElementById('kdLightboxPrev');
+var next = document.getElementById('kdLightboxNext');
+if (!img) return;
 
 if (spinner) spinner.style.display = '';
 img.onload = function () { if (spinner) spinner.style.display = 'none'; };
 img.onerror = function () { if (spinner) spinner.style.display = 'none'; };
-img.src = src;
-img.alt = opts.alt || 'Photo';
+img.src = item.src;
+img.alt = item.alt || 'Photo';
 
 if (caption) {
-caption.textContent = opts.caption || '';
-caption.style.display = opts.caption ? '' : 'none';
+caption.textContent = item.caption || '';
+caption.style.display = item.caption ? '' : 'none';
+}
+var many = _lbItems.length > 1;
+if (prev) prev.hidden = !many;
+if (next) next.hidden = !many;
+if (count) {
+count.textContent = many ? (_lbIndex + 1) + ' / ' + _lbItems.length : '';
+count.hidden = !many;
 }
 if (action) {
-if (opts.actionLabel && typeof opts.actionFn === 'function') {
-action.textContent = opts.actionLabel;
-action.onclick = function () { closeLightbox(); opts.actionFn(); };
+if (_lbAction && _lbAction.label) {
+action.textContent = _lbAction.label;
+action.onclick = function () { closeLightbox(); _lbAction.fn(); };
 action.style.display = '';
 } else {
 action.onclick = null;
 action.style.display = 'none';
 }
 }
+}
+
+// Step through the set. Wraps around, so the arrows never dead-end.
+function kdLightboxGo(step) {
+if (!kdLightboxOpen() || _lbItems.length < 2) return;
+_lbIndex = (_lbIndex + step + _lbItems.length) % _lbItems.length;
+kdLightboxRender();
+}
+window.kdLightboxGo = kdLightboxGo;
+
+function openLightbox(opts) {
+opts = opts || {};
+// Two ways in: a whole set (room photos…) or a single photo.
+var items = (opts.items && opts.items.length)
+? opts.items.slice()
+: [{ src: opts.src, alt: opts.alt || 'Photo', caption: opts.caption || '' }];
+items = items.filter(function (it) { return it && it.src; });
+if (!items.length) return;
+var overlay = document.getElementById('kdLightbox');
+if (!overlay) return;
+
+_lbItems = items;
+_lbIndex = (typeof opts.index === 'number' && opts.index >= 0 && opts.index < items.length) ? opts.index : 0;
+_lbAction = (opts.actionLabel && typeof opts.actionFn === 'function')
+? { label: opts.actionLabel, fn: opts.actionFn }
+: null;
+
+// Remember where the guest was, so closing puts focus back.
+_lbLastFocus = document.activeElement;
+_lbPrevOverflow = document.body.style.overflow;
+
+kdLightboxRender();
 
 overlay.classList.add('kd-lb-open');
 document.body.style.overflow = 'hidden';
@@ -1280,6 +1398,9 @@ if (_lbLastFocus && typeof _lbLastFocus.focus === 'function') {
 _lbLastFocus.focus({ preventScroll: true });
 }
 _lbLastFocus = null;
+_lbItems = [];
+_lbIndex = 0;
+_lbAction = null;
 return true;
 }
 window.openLightbox = openLightbox;
@@ -1291,22 +1412,52 @@ window.closeLightbox = closeLightbox;
 document.addEventListener('click', function (e) {
 var el = e.target && e.target.closest ? e.target.closest('[data-zoom]') : null;
 if (!el) return;
-var src = kdLightboxSrc(el);
-if (!src) return; // nothing to show — let the click behave normally
+var set = kdLightboxCollect(el);
+if (!set.items.length || !set.items[0].src) return; // nothing to show — let the click behave normally
 e.preventDefault();
 e.stopPropagation(); // and don't also open the detail modal
 var card = el.closest('article[data-id]');
 var id = card ? card.getAttribute('data-id') : null;
 openLightbox({
-src: src,
-alt: el.getAttribute('data-alt') || el.getAttribute('alt') || 'Photo',
-caption: el.getAttribute('data-caption') || '',
+items: set.items,
+index: set.index,
 actionLabel: id ? 'View homestay details →' : '',
 actionFn: id ? function () { openDetail(isNaN(parseInt(id)) ? id : parseInt(id)); } : null
 });
 }, true);
 
+// Swipe = the same arrows under your thumb. One finger, horizontal,
+// at least 45px, and a plain tap never triggers it.
+(function kdLightboxInitSwipe() {
+var overlay = document.getElementById('kdLightbox');
+if (!overlay) return;
+var startX = null;
+var startY = null;
+overlay.addEventListener('touchstart', function (e) {
+if (e.touches.length !== 1) { startX = null; return; } // ignore pinch
+startX = e.touches[0].clientX;
+startY = e.touches[0].clientY;
+}, { passive: true });
+overlay.addEventListener('touchend', function (e) {
+if (startX === null) return;
+var t = e.changedTouches[0];
+var dx = t.clientX - startX;
+var dy = t.clientY - startY;
+startX = null;
+if (_lbItems.length < 2) return;
+if (Math.abs(dx) < 45 || Math.abs(dx) <= Math.abs(dy)) return;
+kdLightboxGo(dx < 0 ? 1 : -1); // swipe left → next
+}, { passive: true });
+})();
+
 document.addEventListener('keydown', function(e) {
+// Left / right arrows step through the photo set while the viewer is
+// open — the keyboard twin of the on-screen arrows.
+if (kdLightboxOpen() && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+e.preventDefault();
+kdLightboxGo(e.key === 'ArrowLeft' ? -1 : 1);
+return;
+}
 if (e.key === 'Escape' || e.key === 'Esc') {
 // Photo viewer sits on top of every modal — close it first.
 if (kdLightboxOpen()) { closeLightbox(); return; }
@@ -1829,6 +1980,7 @@ roomsHtml = `
 ${rooms.map(r => `<option value="${r.id}" data-price="${r.price}" data-guests="${r.guests}" data-name="${r.name}"${r.id === defaultRoomId ? ' selected' : ''}>${r.name} – RM ${r.price}/night (up to ${r.guests} guests)</option>`).join('')}
 </select>
 <div id="roomImageGallery" class="mt-2 flex gap-2 overflow-x-auto pb-2"></div>
+<p id="roomImageHint" class="text-[10px] text-zinc-400 mt-1" style="display:none">Tap photo to view</p>
 <div id="roomDescription" class="text-xs text-zinc-500 mt-1">${rooms[0]?.desc || ''}</div>
 </div>
 `;
@@ -2107,12 +2259,16 @@ attachDateFormats();
 function updateRoomImages() {
 const gallery = document.getElementById('roomImageGallery');
 if (!gallery) return;
+// Caption under the thumbnails. Kept off a room with no photos so it
+// never dangles under an empty row.
+const hint = document.getElementById('roomImageHint');
 const roomSelect = document.getElementById('roomSelect');
 if (!roomSelect) return;
 const rooms = selectedHomestay.rooms || [];
 const selectedRoom = rooms.find(r => r.id === roomSelect.value);
 if (!selectedRoom || !selectedRoom.images || selectedRoom.images.length === 0) {
 gallery.innerHTML = '<div class="text-[10px] text-zinc-400">No images for this room</div>';
+if (hint) hint.style.display = 'none';
 return;
 }
 let html = '';
@@ -2120,6 +2276,13 @@ selectedRoom.images.forEach(img => {
 html += `<img src="${cld(img, 200)}" data-zoom data-full="${cld(img, 1600)}" data-alt="${selectedRoom.name}" data-caption="${selectedRoom.name}" loading="lazy" class="w-20 h-20 object-cover rounded-lg border border-zinc-200 flex-shrink-0" />`;
 });
 gallery.innerHTML = safeHTML(html);
+if (hint) {
+// Only promise stepping controls when there's a second photo.
+hint.textContent = selectedRoom.images.length > 1
+? 'Tap photo to view full size — swipe or use ‹ › for more'
+: 'Tap photo to view full size';
+hint.style.display = '';
+}
 }
 
 // =============================================================
