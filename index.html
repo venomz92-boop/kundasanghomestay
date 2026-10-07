@@ -331,6 +331,49 @@ display: -webkit-box;
 -webkit-box-orient: vertical;
 overflow: hidden;
 }
+/* =============================================================
+   PHOTO LIGHTBOX — tap/click any photo to see it full size.
+   Closes three ways so it works on every device:
+     • the ✕ button (phones/tablets, always visible top-right)
+     • Escape (keyboard / desktop)
+     • a tap on the dark backdrop
+   ============================================================= */
+img[data-zoom] { cursor: zoom-in; }
+#kdLightbox { display: none; position: fixed; inset: 0; z-index: 9999;
+  align-items: center; justify-content: center;
+  padding: 64px 12px 20px; background: rgba(0,0,0,0.92);
+  overscroll-behavior: contain; -webkit-tap-highlight-color: transparent; }
+#kdLightbox.kd-lb-open { display: flex; }
+#kdLightbox .kd-lb-figure { margin: 0; display: flex; flex-direction: column;
+  align-items: center; gap: 10px; max-width: 100%; }
+#kdLightbox .kd-lb-img { max-width: 94vw; max-height: 76vh; width: auto; height: auto;
+  object-fit: contain; border-radius: 8px; background: #111;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+@media (min-width: 768px) {
+  #kdLightbox .kd-lb-img { max-width: 88vw; max-height: 82vh; }
+}
+#kdLightbox .kd-lb-caption { color: rgba(255,255,255,0.85);
+  font-family: Poppins, sans-serif; font-size: 13px; line-height: 1.4;
+  text-align: center; max-width: 90vw; }
+#kdLightbox .kd-lb-close { position: fixed; top: 10px; right: 10px;
+  width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 999px; cursor: pointer; background: rgba(255,255,255,0.94);
+  color: #212121; font-size: 22px; line-height: 1; font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35); touch-action: manipulation; }
+#kdLightbox .kd-lb-close:hover { background: #fff; }
+#kdLightbox .kd-lb-close:focus-visible { outline: 3px solid #D4A373; outline-offset: 2px; }
+#kdLightbox .kd-lb-action { border: 0; cursor: pointer; min-height: 44px;
+  padding: 12px 22px; border-radius: 999px; background: #D4A373; color: #0F382E;
+  font-family: Poppins, sans-serif; font-size: 13px; font-weight: 600; }
+#kdLightbox .kd-lb-action:hover { background: #e0b485; }
+#kdLightbox .kd-lb-spinner { position: fixed; top: 50%; left: 50%;
+  width: 34px; height: 34px; margin: -17px 0 0 -17px; pointer-events: none;
+  border: 3px solid rgba(255,255,255,0.25); border-top-color: #D4A373;
+  border-radius: 50%; animation: kdLbSpin 0.8s linear infinite; }
+@keyframes kdLbSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  #kdLightbox .kd-lb-spinner { animation-duration: 3s; }
+}
 </style>
 </head>
 <body>
@@ -457,7 +500,7 @@ btn.addEventListener('click', window.toggleMobileMenu);
 </div>
 <!-- ===== HERO ===== -->
 <section id="hero" class="relative w-full overflow-visible pb-4 md:pb-0">
-<div class="absolute inset-0 w-full h-full overflow-hidden">
+<div class="absolute inset-0 w-full h-full overflow-hidden" data-zoom data-full="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" data-alt="Mount Kinabalu at sunset" data-caption="Mount Kinabalu at sunset • Kundasang, Sabah">
 <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Gunung_Kinabalu_during_sunset.jpg" alt="Mount Kinabalu Sunrise" class="w-full h-full object-cover" />
 <div class="absolute inset-0 bg-black/30"></div>
 <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/30"></div>
@@ -716,6 +759,16 @@ Please retry payment from <strong>My Bookings</strong>
 <button onclick="modalConfirm()" class="btn btn-primary" id="modalConfirmBtn">OK</button>
 </div>
 </div>
+</div>
+<!-- ===== PHOTO LIGHTBOX (full-size photo viewer) ===== -->
+<div id="kdLightbox" role="dialog" aria-modal="true" aria-label="Full size photo">
+<button type="button" id="kdLightboxClose" class="kd-lb-close" onclick="closeLightbox()" aria-label="Close photo">✕</button>
+<div class="kd-lb-spinner" aria-hidden="true"></div>
+<figure class="kd-lb-figure">
+<img id="kdLightboxImg" class="kd-lb-img" src="" alt="" />
+<figcaption id="kdLightboxCaption" class="kd-lb-caption"></figcaption>
+<button type="button" id="kdLightboxAction" class="kd-lb-action" style="display:none"></button>
+</figure>
 </div>
 <!-- ===== FOOTER ===== -->
 <footer class="bg-[#212121] text-white/70 mt-20">
@@ -1145,8 +1198,118 @@ if (document.readyState === 'loading') {
 } else {
   attachDateFormats();
 }
+// =============================================================
+// PHOTO LIGHTBOX
+//
+// Tap/click a photo anywhere on the page → full-size copy opens on
+// top of everything. Three ways out, so it works on all devices:
+// ✕ button, Escape, backdrop tap. Opened from a listing card it
+// also shows "View homestay details", so tapping a photo to see it
+// big never hides the way to book.
+// =============================================================
+var _lbLastFocus = null;
+var _lbPrevOverflow = '';
+
+function kdLightboxOpen() {
+var el = document.getElementById('kdLightbox');
+return !!(el && el.classList.contains('kd-lb-open'));
+}
+
+// Largest URL we can show for the tapped picture.
+function kdLightboxSrc(el) {
+if (!el || !el.getAttribute) return '';
+var full = el.getAttribute('data-full');
+if (full) return full;
+var img = el.tagName === 'IMG' ? el : el.querySelector('img');
+return img ? (img.currentSrc || img.src || '') : '';
+}
+
+function openLightbox(opts) {
+opts = opts || {};
+var src = opts.src;
+if (!src) return;
+var overlay = document.getElementById('kdLightbox');
+var img = document.getElementById('kdLightboxImg');
+var caption = document.getElementById('kdLightboxCaption');
+var action = document.getElementById('kdLightboxAction');
+var spinner = overlay ? overlay.querySelector('.kd-lb-spinner') : null;
+if (!overlay || !img) return;
+
+// Remember where the guest was, so closing puts focus back.
+_lbLastFocus = document.activeElement;
+_lbPrevOverflow = document.body.style.overflow;
+
+if (spinner) spinner.style.display = '';
+img.onload = function () { if (spinner) spinner.style.display = 'none'; };
+img.onerror = function () { if (spinner) spinner.style.display = 'none'; };
+img.src = src;
+img.alt = opts.alt || 'Photo';
+
+if (caption) {
+caption.textContent = opts.caption || '';
+caption.style.display = opts.caption ? '' : 'none';
+}
+if (action) {
+if (opts.actionLabel && typeof opts.actionFn === 'function') {
+action.textContent = opts.actionLabel;
+action.onclick = function () { closeLightbox(); opts.actionFn(); };
+action.style.display = '';
+} else {
+action.onclick = null;
+action.style.display = 'none';
+}
+}
+
+overlay.classList.add('kd-lb-open');
+document.body.style.overflow = 'hidden';
+// Backdrop tap closes. Bound here (not inline) so a tap that ends
+// on the photo itself never closes the viewer.
+overlay.onclick = function (e) { if (e.target === overlay) closeLightbox(); };
+var btn = document.getElementById('kdLightboxClose');
+if (btn) btn.focus({ preventScroll: true });
+}
+
+function closeLightbox() {
+var overlay = document.getElementById('kdLightbox');
+if (!overlay || !overlay.classList.contains('kd-lb-open')) return false;
+overlay.classList.remove('kd-lb-open');
+var img = document.getElementById('kdLightboxImg');
+if (img) img.removeAttribute('src'); // cancels a slow download, frees memory
+document.body.style.overflow = _lbPrevOverflow;
+if (_lbLastFocus && typeof _lbLastFocus.focus === 'function') {
+_lbLastFocus.focus({ preventScroll: true });
+}
+_lbLastFocus = null;
+return true;
+}
+window.openLightbox = openLightbox;
+window.closeLightbox = closeLightbox;
+
+// ONE delegated listener (capture phase) covers the photos that
+// exist now AND the ones renderGrid()/openDetail() inject later, so
+// nothing needs re-binding when the grid re-renders.
+document.addEventListener('click', function (e) {
+var el = e.target && e.target.closest ? e.target.closest('[data-zoom]') : null;
+if (!el) return;
+var src = kdLightboxSrc(el);
+if (!src) return; // nothing to show — let the click behave normally
+e.preventDefault();
+e.stopPropagation(); // and don't also open the detail modal
+var card = el.closest('article[data-id]');
+var id = card ? card.getAttribute('data-id') : null;
+openLightbox({
+src: src,
+alt: el.getAttribute('data-alt') || el.getAttribute('alt') || 'Photo',
+caption: el.getAttribute('data-caption') || '',
+actionLabel: id ? 'View homestay details →' : '',
+actionFn: id ? function () { openDetail(isNaN(parseInt(id)) ? id : parseInt(id)); } : null
+});
+}, true);
+
 document.addEventListener('keydown', function(e) {
-if (e.key === 'Escape') {
+if (e.key === 'Escape' || e.key === 'Esc') {
+// Photo viewer sits on top of every modal — close it first.
+if (kdLightboxOpen()) { closeLightbox(); return; }
 // Locked progress modal (payment in flight) — never close it.
 if (_modalLocked) return;
 var dModal = document.getElementById('detailModal');
@@ -1540,7 +1703,7 @@ var bedroomLabel = bedroomCount === 1 ? '1 bedroom' : bedroomCount + ' bedrooms'
 return '' +
 '<article class="group bg-white rounded-2xl shadow-[0_2px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-black/[0.04] flex flex-col overflow-hidden" data-id="' + h.id + '">' +
 '<div class="h-[240px] w-full relative overflow-hidden bg-zinc-100">' +
-'<img src="' + (cld(h.image, 800) || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800') + '" loading="lazy" alt="' + h.name + '" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onerror="this.src=\'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800\'"/>' +
+'<img src="' + (cld(h.image, 800) || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800') + '" data-zoom data-full="' + (cld(h.image, 1600) || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=1600') + '" data-alt="' + h.name + '" data-caption="' + h.name + (h.location ? ' • ' + h.location : '') + '" loading="lazy" alt="' + h.name + '" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onerror="this.src=\'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800\'"/>' +
 '<div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">' +
 (h.rating
 ? '<svg class="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="#f59e0b" aria-hidden="true"><path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.29 3.97a1 1 0 0 0 .95.69h4.17c.97 0 1.37 1.24.59 1.81l-3.38 2.45a1 1 0 0 0-.36 1.12l1.29 3.97c.3.92-.75 1.69-1.54 1.12l-3.37-2.45a1 1 0 0 0-1.18 0l-3.37 2.45c-.79.57-1.84-.2-1.54-1.12l1.29-3.97a1 1 0 0 0-.36-1.12L2.05 9.4c-.78-.57-.38-1.81.59-1.81h4.17a1 1 0 0 0 .95-.69z"/></svg>' +
@@ -1674,7 +1837,7 @@ var guestCount = selectedHomestay.guests || 2;
 var bedroomCount = selectedHomestay.bedrooms || 1;
 var bedroomLabel = bedroomCount === 1 ? '1 bedroom' : bedroomCount + ' bedrooms';
 document.getElementById("detailContent").innerHTML = safeHTML(`
-<img src="${cld(selectedHomestay.image, 1200) || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800'}" alt="${selectedHomestay.name}" class="w-full h-[320px] object-cover rounded-2xl"/>
+<img <img src="${cld(selectedHomestay.image, 1200) || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800'}" data-zoom data-full="${cld(selectedHomestay.image, 1600) || 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=1600'}" data-alt="${selectedHomestay.name}" data-caption="${selectedHomestay.name} • ${selectedHomestay.location || 'Kundasang'}" class="w-full h-[320px] object-cover rounded-2xl"/>
 <div class="flex gap-2 mt-4 flex-wrap">
 ${selectedHomestay.verified ? '<span class="badge-verified text-xs px-3 py-1 font-semibold">✓ Verified Host — ' + (selectedHomestay.ownerName || 'Local Host') + '</span>' : ''}
 <span class="bg-zinc-100 text-xs px-3 py-1 rounded-full font-semibold">📍 ${selectedHomestay.location || 'Kundasang'}</span>
@@ -1954,7 +2117,7 @@ return;
 }
 let html = '';
 selectedRoom.images.forEach(img => {
-html += `<img src="${cld(img, 200)}" class="w-20 h-20 object-cover rounded-lg border border-zinc-200 flex-shrink-0" />`;
+html += `<img src="${cld(img, 200)}" data-zoom data-full="${cld(img, 1600)}" data-alt="${selectedRoom.name}" data-caption="${selectedRoom.name}" loading="lazy" class="w-20 h-20 object-cover rounded-lg border border-zinc-200 flex-shrink-0" />`;
 });
 gallery.innerHTML = safeHTML(html);
 }
