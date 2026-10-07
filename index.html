@@ -1338,7 +1338,11 @@ count.hidden = !many;
 if (action) {
 if (_lbAction && _lbAction.label) {
 action.textContent = _lbAction.label;
-action.onclick = function () { closeLightbox(); _lbAction.fn(); };
+action.onclick = function () {
+var fn = _lbAction && _lbAction.fn;
+closeLightbox();
+if (typeof fn === 'function') fn();
+};
 action.style.display = '';
 } else {
 action.onclick = null;
