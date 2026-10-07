@@ -404,6 +404,28 @@ img[data-zoom] { cursor: zoom-in; }
   #kdLightbox .kd-lb-prev { left: 6px; }
   #kdLightbox .kd-lb-next { right: 6px; }
 }
+/* =============================================================
+   DETAIL-CARD CLOSE (✕) — the card is full white with its only
+   exit ("Back") at the very bottom, so phones mean a long scroll
+   to get out. This floats a ✕ over the card's top-right corner.
+   Dark pill: the button lands on white card, not on the photo, so
+   it stays visible either way — and it stands out from the white
+   "Back" / "Book Now" buttons below.
+   ============================================================= */
+.detail-card { position: relative; }
+.detail-close { position: absolute; top: 12px; right: 12px; z-index: 5;
+  width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  padding: 0; border: 0; border-radius: 999px; cursor: pointer;
+  background: rgba(33,33,33,0.92); color: #fff;
+  font-size: 20px; line-height: 1; font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.28); touch-action: manipulation; }
+.detail-close:hover { background: #212121; }
+.detail-close:focus-visible { outline: 3px solid #D4A373; outline-offset: 2px; }
+/* Desktop: .max-w-[900px] collapses .card's 24px padding, so the
+   photo starts ~1px from the card edge — push the ✕ clear of it. */
+@media (min-width: 768px) {
+  .detail-close { top: 28px; right: 14px; width: 44px; height: 44px; font-size: 22px; }
+}
 </style>
 </head>
 <body>
@@ -645,6 +667,7 @@ Questions? Email <a href="mailto:support@kundasanghomestay.my" class="text-[#0F3
 <!-- ===== DETAIL MODAL ===== -->
 <div id="detailModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm p-3 md:p-5 overflow-y-auto">
 <div class="detail-card max-w-[900px] mx-auto card overflow-hidden mt-6 md:mt-10">
+<button type="button" class="detail-close" onclick="closeDetail()" aria-label="Close homestay details">✕</button>
 <div id="detailContent" data-zoom-group="homestay" class="p-5 md:p-6 overflow-y-auto flex-1"></div>
 <div class="p-5 border-t flex flex-col md:flex-row justify-between items-center gap-3 bg-zinc-50 shrink-0">
 <button onclick="closeDetail()" class="btn-outline w-full md:w-auto" aria-label="Back to listings">Back</button>
@@ -2205,6 +2228,18 @@ function loadDetailReviews(homestayId) {
   
 function closeDetail() {
 document.getElementById("detailModal").classList.add("hidden");
+}
+window.closeDetail = closeDetail;
+// Attached keyboards — and every device that reports any touch input —
+// must be able to dismiss the card with Escape, not only the ✕/Back.
+if (!window.__kdDetailEscBound) {
+  window.__kdDetailEscBound = true;
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' && e.key !== 'Esc') return;
+    if (typeof kdLightboxOpen === 'function' && kdLightboxOpen()) return; // viewer owns ESC while open
+    var dm = document.getElementById('detailModal');
+    if (dm && !dm.classList.contains('hidden')) closeDetail();
+  });
 }
 function closeBooking() {
 document.getElementById("bookingModal").classList.add("hidden");
