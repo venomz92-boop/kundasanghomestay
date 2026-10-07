@@ -2084,6 +2084,11 @@ myDate(clash[0]) + '. Please pick new dates, or choose another room.');
 setTimeout(updateRoomImages, 100);
 }
 document.getElementById("detailModal").classList.remove("hidden");
+// Stop the page behind the card from scrolling. Without this the
+// background can be scrolled back to the very top while the card is
+// open, which slides the header down over the card's ✕ (the header
+// sits at z-index 999999, far above this modal's z-50).
+document.body.style.overflow = 'hidden';
 // Reset the calendar's pick phase so a fresh open always starts
 // at "pick check-in". Without this, reopening the modal after
 // setting a full range would leave the calendar stuck in
@@ -2228,6 +2233,9 @@ function loadDetailReviews(homestayId) {
   
 function closeDetail() {
 document.getElementById("detailModal").classList.add("hidden");
+// Release the background-scroll lock taken in openDetail(). This is the
+// only path that hides the modal, so the page can never stay frozen.
+document.body.style.overflow = '';
 }
 window.closeDetail = closeDetail;
 // Attached keyboards — and every device that reports any touch input —
