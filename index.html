@@ -426,6 +426,27 @@ img[data-zoom] { cursor: zoom-in; }
 @media (min-width: 768px) {
   .detail-close { top: 28px; right: 14px; width: 44px; height: 44px; font-size: 22px; }
 }
+/* =============================================================
+   BACKGROUND SCROLL LOCK
+   Locks the page (the <html> element, NOT <body>) while a
+   full-screen overlay is open, so the header can't be scrolled
+   back down over the ✕ button.
+
+   It MUST go on <html>: styles.css sets `html { overflow-x: hidden }`,
+   and per spec body's overflow only reaches the viewport when the
+   root's is `visible` — so the existing body-based locks elsewhere
+   do nothing. Measured: with a body lock the page still scrolled
+   600px -> 1450px.
+
+   It is also deliberately CSS, not JS: the lock is keyed to whether
+   these elements are actually visible, so it releases by itself no
+   matter which code path closed them (✕, Back, Escape, anything
+   added later). A JS lock has to be released on every exit path,
+   and the one ESC path in this file hides the modal without calling
+   closeDetail() — which is exactly how a page ends up frozen.
+   ============================================================= */
+html:has(#detailModal:not(.hidden)) { overflow: hidden !important; }
+html:has(#kdLightbox.kd-lb-open)    { overflow: hidden !important; }
 </style>
 </head>
 <body>
@@ -2083,7 +2104,15 @@ myDate(clash[0]) + '. Please pick new dates, or choose another room.');
 });
 setTimeout(updateRoomImages, 100);
 }
-document.getElementById("detailModal").classList.remove("hidden");
+var kdDetailEl = document.getElementById("detailModal");
+kdDetailEl.classList.remove("hidden");
+// Always start the card at the top. The modal keeps the scroll
+// position from the last time it was open, so a guest who scrolled
+// down, closed and reopened landed mid-card with the ✕ and the hero
+// photo ~800px above the viewport. Nothing in this file resets
+// scrollTop, so it has to happen here — after the modal is visible
+// (scrollTop is ignored while it is display:none).
+kdDetailEl.scrollTop = 0;
 // Stop the page behind the card from scrolling. Without this the
 // background can be scrolled back to the very top while the card is
 // open, which slides the header down over the card's ✕ (the header
@@ -2233,22 +2262,13 @@ function loadDetailReviews(homestayId) {
   
 function closeDetail() {
 document.getElementById("detailModal").classList.add("hidden");
-// Release the background-scroll lock taken in openDetail(). This is the
-// only path that hides the modal, so the page can never stay frozen.
-document.body.style.overflow = '';
+// The scroll lock is deliberately NOT released here. It is the CSS rule
+// `html:has(#detailModal:not(.hidden))`, so it lifts the moment this
+// line hides the modal — whichever path got here. (The old
+// `document.body.style.overflow = ''` is gone: it never locked anything,
+// because body's overflow does not reach the viewport on this site.)
 }
 window.closeDetail = closeDetail;
-// Attached keyboards — and every device that reports any touch input —
-// must be able to dismiss the card with Escape, not only the ✕/Back.
-if (!window.__kdDetailEscBound) {
-  window.__kdDetailEscBound = true;
-  document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Escape' && e.key !== 'Esc') return;
-    if (typeof kdLightboxOpen === 'function' && kdLightboxOpen()) return; // viewer owns ESC while open
-    var dm = document.getElementById('detailModal');
-    if (dm && !dm.classList.contains('hidden')) closeDetail();
-  });
-}
 function closeBooking() {
 document.getElementById("bookingModal").classList.add("hidden");
 }
