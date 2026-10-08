@@ -404,7 +404,12 @@ This protects guests from fake listings. Create a free host account, verify your
 <a href="/owner.html" class="btn-outline" style="padding:10px 20px; font-size:11px;">I already have one</a>
 </div>
 </div>
-<div id="listFormCard" class="card p-6 md:p-10 bg-white shadow-xl animate-on-scroll">
+<!-- No animate-on-scroll here: this form is 4800px tall and only shows
+     after the host session is confirmed, so the scroll-reveal (which needs
+     10% = ~480px on screen) left it invisible until the host scrolled
+     ~380px. A freshly verified host saw blank space and had to hunt for
+     the form. It now appears the moment the session is confirmed. -->
+<div id="listFormCard" class="card p-6 md:p-10 bg-white shadow-xl">
 <div class="space-y-8">
 <section class="space-y-4">
 <div class="flex items-center gap-2 border-b pb-2">
@@ -2882,6 +2887,16 @@ authBanner.innerHTML =
 '<div>Fill in your property details below. Your account is already verified — no password needed.</div>' +
 '</div>';
 formCard.insertBefore(authBanner, formCard.firstChild);
+// Land the host directly on the form. A freshly-verified host arrives with
+// no idea the form exists below the hero, and the confirmation above it is
+// the signal that they're in the right place — so bring it to them instead
+// of leaving them to scroll and find it. Offset of 90px parks the card top
+// just clear of the 80px header. rAF lets the scrollHeight settle first, or
+// the measurement can be a few pixels off.
+requestAnimationFrame(function () {
+var top = formCard.getBoundingClientRect().top + window.pageYOffset;
+window.scrollTo({ top: Math.max(0, top - 90), behavior: 'smooth' });
+});
 }
 })
 .catch(function() {
