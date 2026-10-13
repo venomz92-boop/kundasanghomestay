@@ -1669,7 +1669,6 @@ function openEditHomestayModal(id) {
     { label: 'Image URL', id: 'edit_image', type: 'url', value: h.image || '' },
     { label: 'IC Image URL', id: 'edit_icImage', type: 'url', value: h.icImage || '' },
     { label: 'Bank QR Image URL', id: 'edit_bankQRImage', type: 'url', value: h.bankQRImage || '' },
-    { label: 'PBT License URL', id: 'edit_pbtLicense', type: 'url', value: h.pbtLicense || '' },
   ];
 
   let html = '';
@@ -1706,7 +1705,7 @@ async function saveEditHomestay() {
   const fields = [
     'name', 'location', 'description', 'ownerPrice', 'ownerName', 'ownerEmail',
     'ownerPhone', 'ownerBank', 'bankCode', 'ownerBankAccount', 'bankHolder',
-    'icName', 'icNumber', 'image', 'icImage', 'bankQRImage', 'pbtLicense'
+    'icName', 'icNumber', 'image', 'icImage', 'bankQRImage'
   ];
   const newData = {};
   fields.forEach(f => {
@@ -1841,7 +1840,6 @@ function viewPendingDetails(id) {
           </div>
           <div><span class="text-sm font-bold">IC Uploaded:</span> ${h.icImage ? '✅ Yes' : '❌ No'}</div>
           <div><span class="text-sm font-bold">QR Uploaded:</span> ${h.bankQRImage ? '✅ Yes' : '❌ No'}</div>
-          <div><span class="text-sm font-bold">PBT License:</span> ${h.pbtLicense ? '✅ Uploaded' : '❌ Not uploaded'}</div>
         </div>
       </div>
     </div>
@@ -1863,17 +1861,6 @@ function viewPendingDetails(id) {
         <div class="text-sm font-semibold text-zinc-500">Bank QR / DuitNow</div>
         <div class="mt-2 border rounded-xl p-3 bg-green-50">
           <img src="${escapeHtml(h.bankQRImage)}" class="detail-modal-img max-h-[400px] w-auto mx-auto cursor-pointer lightbox-trigger" data-lightbox-src="${escapeHtml(h.bankQRImage)}" />
-          <div class="text-[10px] text-zinc-500 mt-2 text-center">Tap image to enlarge</div>
-        </div>
-      </div>
-    `;
-  }
-  if (h.pbtLicense) {
-    html += `
-      <div class="mt-4">
-        <div class="text-sm font-semibold text-zinc-500">PBT Trading License</div>
-        <div class="mt-2 border rounded-xl p-3 bg-blue-50">
-          <img src="${escapeHtml(h.pbtLicense)}" class="detail-modal-img max-h-[400px] w-auto mx-auto cursor-pointer lightbox-trigger" data-lightbox-src="${escapeHtml(h.pbtLicense)}" />
           <div class="text-[10px] text-zinc-500 mt-2 text-center">Tap image to enlarge</div>
         </div>
       </div>
