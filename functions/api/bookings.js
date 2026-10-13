@@ -325,13 +325,6 @@ function collectVerificationPublicIds(h) {
     const pid = extractPublicIdFromCloudinaryUrl(h.bankQRImage);
     if (pid) ids.push(pid);
   }
-
-  if (h.pbtLicensePublicId) ids.push(h.pbtLicensePublicId);
-  else if (h.pbtLicense) {
-    const pid = extractPublicIdFromCloudinaryUrl(h.pbtLicense);
-    if (pid) ids.push(pid);
-  }
-
   return ids.filter(Boolean);
 }
 
@@ -2385,10 +2378,9 @@ export async function onRequestPost({ request, env }) {
 
           const verificationPublicIds = collectVerificationPublicIds(homestay);
 
-          const {
+        const {
             icImage, icOriginalName, icUploadDate, icPublicId,
             bankQRImage, bankQROriginalName, bankQRPublicId,
-            pbtLicense, pbtLicensePublicId,
             ownerPasswordHash, ownerSalt, ownerPasswordAlgorithm, ownerPasswordVersion,
             ...safeHomestay
           } = homestay;
@@ -2420,8 +2412,6 @@ export async function onRequestPost({ request, env }) {
             delete cleanHome.bankQRImage;
             delete cleanHome.bankQROriginalName;
             delete cleanHome.bankQRPublicId;
-            delete cleanHome.pbtLicense;
-            delete cleanHome.pbtLicensePublicId;
             delete cleanHome.ownerPasswordHash;
             delete cleanHome.ownerSalt;
             delete cleanHome.ownerPasswordAlgorithm;
@@ -2565,7 +2555,7 @@ export async function onRequestPost({ request, env }) {
         db,
         action: 'homestay_rejected',
         admin: 'admin',
-        details: `Rejected homestay "${homestay.name}" (ID: ${homestay.id}). Reason: ${reason || '(none)'}. Email: ${emailResult.sent ? 'sent' : 'failed — ' + (emailResult.error || 'unknown')}. Cloudinary destroy: ${destroyReport.succeeded}/${destroyReport.attempted} images removed (IC, bank QR, PBT, property, room photos).`,
+        details: `Rejected homestay "${homestay.name}" (ID: ${homestay.id}). Reason: ${reason || '(none)'}. Email: ${emailResult.sent ? 'sent' : 'failed — ' + (emailResult.error || 'unknown')}. Cloudinary destroy: ${destroyReport.succeeded}/${destroyReport.attempted} images removed (IC, bank QR, property, room photos).`,
         ip: clientIP,
         userId: homestay.ownerEmail,
         homestayId: homestay.id
