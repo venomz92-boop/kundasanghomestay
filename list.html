@@ -563,29 +563,6 @@ btn.addEventListener('click', window.toggleMobileMenu);
 <canvas id="icCanvas" class="hidden"></canvas>
 </div>
 </section>
-<section class="space-y-4 border-l-4 border-blue-400 bg-blue-50/50 p-4 rounded-xl">
-<div class="flex items-center gap-2">
-<svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-<span class="font-bold text-[16px] text-blue-950">PBT Trading License</span>
-</div>
-<p class="text-xs text-zinc-600">
-Upload <strong>PBT (Pihak Berkuasa Tempatan)</strong> trading license here. <strong>Not digital PBT.</strong>
-This adds extra credibility for approval to your listing.
-</p>
-<div>
-<label class="text-xs font-semibold text-[#212121]">Upload License (JPG/PNG)</label>
-<div class="drop-zone mt-1" onclick="document.getElementById('listPbtLicense').click()">
-<svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-<p class="text-xs text-zinc-600 mt-2">Tap to select or take a photo</p>
-</div>
-<input id="listPbtLicense" type="file" accept="image/*" capture="environment" class="hidden" onchange="handlePbtLicense(this)" />
-<div id="pbtPreviewWrap" class="mt-4 hidden space-y-3">
-<div class="text-xs font-semibold text-zinc-700">License Preview:</div>
-<img id="pbtPreview" class="w-full max-w-[440px] border rounded-xl shadow bg-white" alt="PBT License preview" />
-<button onclick="removePbtLicense()" type="button" class="px-4 py-1.5 border bg-white text-xs text-zinc-700 font-semibold rounded-full hover:bg-zinc-50">Remove</button>
-</div>
-</div>
-</section>
 <section id="ownerPasswordSection" class="space-y-4 border-l-4 border-purple-400 bg-purple-50/50 p-4 rounded-xl">
 <div class="flex items-center gap-2">
 <svg class="w-5 h-5 text-purple-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m-2 2a2 2 0 002-2m2 0a2 2 0 012 2m3 5a3 3 0 01-3 3H9a3 3 0 01-3-3m9.93 0l-1.977-1.977A1.5 1.5 0 0011.66 11.1l-1.977-1.977M15 7h.01M15 11h.01"/></svg>
@@ -623,7 +600,7 @@ If you haven't created one yet, please do that first — the property submission
 <span class="font-bold text-[16px] text-amber-900">Data Privacy & Consent</span>
 </div>
 <p class="text-xs text-zinc-600">
-Your IC, bank QR, and PBT trading license images are used <strong>only for one‑time verification</strong>.
+Your IC, Bank QR and Bank Account images are used <strong>only for one‑time verification</strong>.
 They are <strong>automatically and permanently deleted</strong> from our servers once your listing is approved or rejected.
 We store only your name, contact details, and bank account information for payout purposes.
 </p>
@@ -1297,8 +1274,6 @@ let tempIcOriginalName = "";
 let tempBankQRWatermarked = "";
 let tempBankQRPublicId = "";
 let tempBankQROriginalName = "";
-let tempPbtLicense = "";
-let tempPbtPublicId = "";
 let tempRooms = [];
 const DRAFT_KEY = 'kd_list_draft_v1';
 function saveDraft() {
@@ -1334,8 +1309,6 @@ tempIcOriginalName: tempIcOriginalName || '',
 tempBankQRWatermarked: tempBankQRWatermarked || '',
 tempBankQRPublicId: tempBankQRPublicId || '',
 tempBankQROriginalName: tempBankQROriginalName || '',
-tempPbtLicense: tempPbtLicense || '',
-tempPbtPublicId: tempPbtPublicId || ''
 };
 localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
 } catch (e) { /* storage unavailable — silent */ }
@@ -1480,14 +1453,6 @@ tempBankQROriginalName = draft.tempBankQROriginalName || '';
 const img = document.getElementById('bankQRImg');
 if (img) img.src = tempBankQRWatermarked;
 const wrap = document.getElementById('bankQRPreview');
-if (wrap) wrap.classList.remove('hidden');
-}
-if (draft.tempPbtLicense) {
-tempPbtLicense = draft.tempPbtLicense;
-tempPbtPublicId = draft.tempPbtPublicId || '';
-const img = document.getElementById('pbtPreview');
-if (img) img.src = tempPbtLicense;
-const wrap = document.getElementById('pbtPreviewWrap');
 if (wrap) wrap.classList.remove('hidden');
 }
 return true;
@@ -2479,47 +2444,6 @@ e.preventDefault();
 const date = btn.dataset.blockedDate;
 if (date) removeBlockedDate(date);
 });
-async function handlePbtLicense(input) {
-const file = input.files[0];
-if (!file) return;
-if (file.size > 3 * 1024 * 1024) {
-await showAlert("File Exceeded", "File size too large (max 3MB).");
-input.value = "";
-return;
-}
-const zone = findDropZoneForInput(input);
-const clearZone = showDropZoneLoading(zone, 'Uploading license…');
-try {
-const compressedBlob = await compressImageToBlob(file, 800, 0.7);
-if (!compressedBlob) {
-await showAlert('Upload Failed', 'Could not process license image.');
-return;
-}
-const formData = new FormData();
-formData.append('image', compressedBlob, 'pbt-' + Date.now() + '.jpg');
-const res = await fetch('/api/upload-image', { method: 'POST', body: formData, credentials: 'include' });
-const data = await res.json();
-if (res.ok && data.url) {
-tempPbtLicense = data.url;
-if (data.publicId) tempPbtPublicId = data.publicId;
-document.getElementById("pbtPreview").src = data.url;
-document.getElementById("pbtPreviewWrap").classList.remove("hidden");
-} else {
-await showAlert('Upload Failed', data.error || 'Could not upload license.');
-}
-} catch (e) {
-await showAlert('Upload Error', e.message || 'Upload failed');
-} finally {
-clearZone();
-}
-}
-function removePbtLicense() {
-tempPbtLicense = "";
-tempPbtPublicId = "";
-document.getElementById("listPbtLicense").value = "";
-document.getElementById("pbtPreviewWrap").classList.add("hidden");
-document.getElementById("pbtPreview").src = "";
-}
 async function submitHomestay() {
 const statusEl = document.getElementById('submitStatus');
 const submitBtn = document.getElementById('submitBtn');
@@ -2543,7 +2467,6 @@ const bankConfirm = document.getElementById("listBankConfirm").checked;
 const icName = document.getElementById("listIcName").value.trim();
 const icNumber = document.getElementById("listIcNumber").value.trim();
 const ownerPassword = document.getElementById("listOwnerPassword").value.trim();
-const pbtLicense = tempPbtLicense || "";
 let bankCode = '';
 const bankMatch = CHIP_BANKS.find(b => b.name === bankName);
 if (bankMatch) {
@@ -2629,8 +2552,6 @@ icUploadDate: new Date().toISOString(),
 bankQRImage: tempBankQRWatermarked,
 bankQRPublicId: tempBankQRPublicId,
 bankQROriginalName: tempBankQROriginalName,
-pbtLicense: pbtLicense,
-pbtLicensePublicId: tempPbtPublicId,
 description: description,
 blockedDates: [...tempBlockedDates],
 approved: false,
