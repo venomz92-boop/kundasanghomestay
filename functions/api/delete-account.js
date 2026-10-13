@@ -137,11 +137,6 @@ function collectAllImagePublicIds(h) {
     const pid = extractPublicIdFromCloudinaryUrl(h.bankQRImage);
     if (pid) ids.push(pid);
   }
-  if (h.pbtLicensePublicId) ids.push(h.pbtLicensePublicId);
-  else if (h.pbtLicense) {
-    const pid = extractPublicIdFromCloudinaryUrl(h.pbtLicense);
-    if (pid) ids.push(pid);
-  }
   if (Array.isArray(h.imagePublicIds)) {
     h.imagePublicIds.forEach(p => { if (p) ids.push(p); });
   } else if (Array.isArray(h.images)) {
