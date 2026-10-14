@@ -10,10 +10,17 @@
 // - Success response is now Cache-Control: no-store.
 // - Error log no longer includes the stack trace.
 //
-// NOT changed (intentional):
-// - Owner-register does NOT set a session cookie. Owners must verify
-//   email before they can log in. No cookies are cleared here because
-//   none are set.
+// CHANGED (see note below):
+// - Registration now DOES set the owner session cookie. A host who
+//   registers on a laptop and opens the verification link on their phone
+//   used to be stranded: the cookie lands on the phone, so the laptop had
+//   no session and fell back to "a verified host account is required".
+//   The session issued here is an ordinary UNVERIFIED owner session —
+//   /api/owner-session reports verified:false until the emailed link is
+//   clicked, and the submission endpoints still refuse unverified accounts.
+//   This grants nothing new: owner-login.js has never checked `verified`,
+//   so the same browser could already obtain this session by signing in
+//   with the password it just chose.
 // - The resendVerification action still returns the same generic
 //   message for every path — it cannot be used to enumerate accounts.
 import {
@@ -22,6 +29,7 @@ import {
   enforceHttps,
   hashPassword,
   createSignedToken,
+  cookieHeader,
   jsonResponse,
   parseJSONSafely,
   logAction,
@@ -287,12 +295,29 @@ export async function onRequestPost({ request, env }) {
     await recordRateLimit(db, clientIP, 'owner_register');
     await recordRateLimit(db, GLOBAL_KEY, 'owner_register');
 
+    // Establish the owner session on THIS device, at the moment of
+    // registration. Shaped exactly like the one verify-owner-email.js
+    // issues, so the same cookie keeps working after the link is clicked —
+    // verification only flips owner.verified in the database, it does not
+    // bump ownerSessionVersion, so this token stays valid.
+    const session = await createSignedToken({
+      type: 'owner',
+      ownerId: owner.whatsapp,
+      whatsapp: owner.whatsapp,
+      ownerName: owner.ownerName,
+      homestayIds: [],
+      ownerSessionVersion: owner.ownerSessionVersion
+    }, env, 24 * 60 * 60 * 1000);
+
     return jsonResponse({
       success: true,
       message: emailSent
         ? 'Registration successful. Please check your email to verify your account and continue to the property form.'
         : 'Registration successful, but verification email could not be sent. Please use the resend button on this page.'
-    }, 200, request);
+    }, 200, request, {
+      'Cache-Control': 'no-store',
+      'Set-Cookie': cookieHeader('owner_token', session, 24 * 60 * 60)
+    });
 
   } catch (e) {
     console.error('Owner register error:', e.message);
