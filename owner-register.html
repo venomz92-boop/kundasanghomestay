@@ -499,6 +499,56 @@ async function resendOwnerVerification() {
 window.resendOwnerVerification = resendOwnerVerification;
 
 // ============================================================
+// CONTINUE AUTOMATICALLY ONCE THE EMAIL IS VERIFIED
+//
+// The host registers on this device, so this browser already holds the
+// owner session — owner-register.js sets it. They then verify from
+// whichever device is nearest, usually their phone. Verification only
+// flips owner.verified in the database; this session stays valid, and
+// /api/owner-session starts reporting verified:true.
+//
+// So rather than making them walk back to the laptop and hunt for a
+// button, watch for that flip and continue on our own. The button stays
+// as a manual fallback for anyone who would rather press it.
+// ============================================================
+let kdWatchTimer = null;
+function kdWatchForVerification() {
+  if (kdWatchTimer) return;                 // already watching
+  let tries = 0;
+  const EVERY_MS = 5000;
+  const MAX_TRIES = 180;                    // ~15 min, then stop quietly
+
+  async function check() {
+    tries++;
+    let d = null;
+    try {
+      const r = await fetch(API_BASE + '/owner-session', { credentials: 'include', cache: 'no-store' });
+      d = await r.json().catch(function () { return null; });
+    } catch (_) { /* offline — keep trying */ }
+
+    if (d) {
+      if (d.authenticated === true && d.verified === true) {
+        clearInterval(kdWatchTimer); kdWatchTimer = null;
+        try { localStorage.removeItem(PENDING_VERIFY_KEY); } catch (_) {}
+        window.location.href = '/list.html';
+        return;
+      }
+      // No session on THIS device — registered elsewhere, or the cookie
+      // expired. Polling can never succeed here, so stop rather than
+      // hammering the endpoint. The button still covers this case.
+      if (d.authenticated !== true) {
+        clearInterval(kdWatchTimer); kdWatchTimer = null;
+        return;
+      }
+    }
+    if (tries >= MAX_TRIES) { clearInterval(kdWatchTimer); kdWatchTimer = null; }
+  }
+
+  check();                                   // immediate, so an already-verified host continues at once
+  kdWatchTimer = setInterval(check, EVERY_MS);
+}
+
+// ============================================================
 // PENDING EMAIL VERIFICATION
 //
 // The success panel is only shown in JS after a successful POST, so a
@@ -514,6 +564,7 @@ function showPendingVerification(email) {
   const okEl = document.getElementById('successState');
   if (formEl) formEl.classList.add('hidden');
   if (okEl) okEl.classList.remove('hidden');
+  kdWatchForVerification();
 }
 
 (function restorePendingVerification() {
