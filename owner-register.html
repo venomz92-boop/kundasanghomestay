@@ -577,17 +577,33 @@ function showPendingVerification(email) {
 
   // Then correct it: a host who has already verified (or has simply logged
   // in) belongs on the form, not on a stale "check your email" screen.
-  fetch(API_BASE + '/owner-session', { credentials: 'include', cache: 'no-store' })
+    fetch(API_BASE + '/owner-session', { credentials: 'include', cache: 'no-store' })
     .then(function (r) { return r.json(); })
     .then(function (d) {
-      if (!d || d.authenticated !== true) return;
-      try { localStorage.removeItem(PENDING_VERIFY_KEY); } catch (_) {}
       const formEl = document.getElementById('formState');
       const okEl = document.getElementById('successState');
+
+      if (!d || d.authenticated !== true) {
+        // No live session on THIS device. Either the account was removed,
+        // the 24h cookie expired, or registration happened on another
+        // device. In all of those the "check your email" panel is a lie:
+        // nothing on this screen can be verified, and every button on it
+        // points away from the form — Resend emails a deleted account and
+        // Continue lands on "a verified host account is required". The
+        // marker alone was pinning the panel, so clear it and give the
+        // host the form back. They can register again or sign in from the
+        // header, instead of being stuck on a screen with no way forward.
+        try { localStorage.removeItem(PENDING_VERIFY_KEY); } catch (_) {}
+        if (formEl) formEl.classList.remove('hidden');
+        if (okEl) okEl.classList.add('hidden');
+        return;
+      }
+
+      try { localStorage.removeItem(PENDING_VERIFY_KEY); } catch (_) {}
       if (formEl) formEl.classList.remove('hidden');
       if (okEl) okEl.classList.add('hidden');
     })
-    .catch(function () { /* keep the panel — failing closed is safer here */ });
+    .catch(function () { /* offline — keep the panel, it is still true */ });
 })();
 
 document.addEventListener('DOMContentLoaded', function() {
