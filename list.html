@@ -251,6 +251,10 @@ button.kd-loading {
    flash on screen while the session check is still in flight.
    ------------------------------------------------------------ */
 #listFormCard { display: none; }
+/* 3-step listing wizard */
+.kd-step-hidden { display: none !important; }
+.kd-field-error { color: #b91c1c; font-size: 10.5px; font-weight: 600; margin-top: 4px; }
+.kd-input-error { border-color: #ef4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.12) !important; }
 body.kd-host-authed #listFormCard { display: block; }   
 </style>
 <!-- Google tag (gtag.js) -->
@@ -406,6 +410,16 @@ btn.addEventListener('click', window.toggleMobileMenu);
      ~380px. A freshly verified host saw blank space and had to hunt for
      the form. It now appears the moment the session is confirmed. -->
 <div id="listFormCard" class="card p-6 md:p-10 bg-white shadow-xl">
+<div id="kdStepBar" class="mb-6 rounded-2xl border border-black/5 bg-[#F8F5F0] p-4">
+<div class="flex items-center justify-center gap-2 text-[10px] uppercase font-700 tracking-wider flex-wrap">
+<span data-kd-step-pill="1" class="bg-[#0F382E] text-white px-3 py-1.5 rounded-full">1. Property</span>
+<span class="text-zinc-300">→</span>
+<span data-kd-step-pill="2" class="bg-white text-zinc-500 px-3 py-1.5 rounded-full">2. Payout &amp; IC</span>
+<span class="text-zinc-300">→</span>
+<span data-kd-step-pill="3" class="bg-white text-zinc-500 px-3 py-1.5 rounded-full">3. Review</span>
+</div>
+<div class="mt-2 text-[11px] text-[#212121]/50 text-center">Step <span id="kdStepNow">1</span> of 3. Your answers save automatically on this device.</div>
+</div>
 <div class="space-y-8">
 <section class="space-y-4">
 <div class="flex items-center gap-2 border-b pb-2">
@@ -541,17 +555,29 @@ btn.addEventListener('click', window.toggleMobileMenu);
 <svg class="w-5 h-5 text-blue-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
 <span class="font-bold text-[16px] text-blue-950">Secure Host Verification</span>
 </div>
-<p class="text-xs text-zinc-600">To prevent fraud, submit a photo of your national IC (Front). A persistent security watermark is drawn inside your browser window before raw file transmission.</p>
+<p class="text-xs text-zinc-600">To prevent fraud, upload a clear photo of the <strong>front of your IC</strong> — not a selfie. All four corners should be visible, with no glare. A security watermark is added in your browser before the file is uploaded.</p>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 <div><label class="text-xs font-semibold text-[#212121]">Full Legal Name as in IC *</label><input id="listIcName" type="text" placeholder="As printed in identification card" class="form-input mt-1 uppercase" /></div>
 <div><label class="text-xs font-semibold text-[#212121]">IC Number (optional)</label><input id="listIcNumber" type="text" placeholder="e.g. 880101-12-1234" class="form-input mt-1" /></div>
 </div>
 <div class="mt-4">
-<label class="text-xs font-semibold text-[#212121]">Upload IC (Selfie with IC) image *</label>
-<div class="drop-zone" onclick="document.getElementById('listIcFront').click()">
+<label class="text-xs font-semibold text-[#212121]">Upload a photo of your IC (front) *</label>
+<div class="mt-2 mb-3 flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-3">
+<svg width="72" height="46" viewBox="0 0 72 46" role="img" aria-label="Example IC layout" class="shrink-0 rounded-md border border-zinc-300 bg-[#F3F6FB]">
+<rect x="6" y="8" width="22" height="26" rx="2" fill="#D8E0EA"/>
+<rect x="34" y="12" width="30" height="4" rx="2" fill="#B9C6D6"/>
+<rect x="34" y="20" width="24" height="4" rx="2" fill="#B9C6D6"/>
+<rect x="34" y="28" width="28" height="4" rx="2" fill="#B9C6D6"/>
+</svg>
+<div class="text-[10.5px] leading-snug text-zinc-500">
+<strong class="text-zinc-700">Example:</strong> the front of your IC, flat and fully in frame.<br>
+No selfie, no fingers covering the text, no flash glare.
+</div>
+</div>
+<div id="icDropZone" class="drop-zone" onclick="document.getElementById('listIcFront').click()">
 <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-<p class="text-xs text-zinc-600 mt-2">Click to select IC document photo</p>
-<p class="text-[10px] text-zinc-400 mt-1">Secure client-side watermarks are auto-applied</p>
+<p class="text-xs text-zinc-600 mt-2">Click to select a photo of your IC (front)</p>
+<p class="text-[10px] text-zinc-400 mt-1">JPG or PNG. A security watermark is applied automatically.</p>
 </div>
 <input id="listIcFront" type="file" accept="image/*" class="hidden" onchange="handleIcFile(this)" />
 <div id="icPreviewWrap" class="mt-4 hidden space-y-3">
@@ -625,7 +651,11 @@ and
 <div class="pt-6 space-y-4">
 <button onclick="submitHomestay()" class="w-full btn-primary py-4 text-sm tracking-widest font-800" id="submitBtn">Submit Homestay Listing for Approval</button>
 <div id="submitStatus" class="hidden p-4 rounded-xl border text-sm"></div>
-<p class="text-center text-zinc-400 text-[11px] font-medium leading-relaxed">By compiling this form, you acknowledge our registration policies. IC and financial records are held strictly in compliance with Sabah cyber security frameworks.</p>
+<p class="text-center text-zinc-400 text-[11px] font-medium leading-relaxed">By compiling this form, you acknowledge our registration policies. IC and financial records are held strictly in compliance with Sabah cyber security frameworks.</p><p class="text-center text-zinc-400 text-[11px] font-medium leading-relaxed">By compiling this form, you acknowledge our registration policies. IC and financial records are held strictly in compliance with Sabah cyber security frameworks.</p>
+</div>
+<div id="kdStepNav" class="mt-6 flex items-center justify-between gap-3">
+<button type="button" id="kdStepBack" class="btn-outline" style="padding:12px 22px;font-size:11px;">← Back</button>
+<button type="button" id="kdStepNext" class="btn-primary" style="padding:12px 26px;font-size:11px;">Continue →</button>
 </div>
 </div>
 </div>
@@ -2980,5 +3010,212 @@ document.body.classList.toggle('bn-hidden', open);
 })();
 </script>
 <script src="/bottom-nav.js"></script>   
+<script>
+/* 3-step listing wizard: property → payout/IC → review.
+   Keeps the existing form and submit function untouched; only groups
+   the existing sections and validates each step before moving on. */
+(function () {
+  var card = document.getElementById('listFormCard');
+  var root = card && card.querySelector('.space-y-8');
+  if (!root) return;
+
+  var sections = Array.prototype.slice.call(root.children).filter(function (el) {
+    return el.tagName === 'SECTION';
+  });
+  var submitBlock = Array.prototype.slice.call(root.children).filter(function (el) {
+    return el.classList && el.classList.contains('pt-6');
+  })[0];
+
+  function byTitle(title) {
+    for (var i = 0; i < sections.length; i++) {
+      var h = sections[i].querySelector('span.font-bold');
+      if (h && h.textContent.indexOf(title) !== -1) return sections[i];
+    }
+    return null;
+  }
+
+  var stepTitles = {
+    1: ['Host Details', 'Property Details', 'Rooms & Pricing', 'Property Gallery'],
+    2: ['Escrow Account Details', 'Secure Host Verification', 'Verify with Host Account Password'],
+    3: ['Availability Exclusions', 'Data Privacy & Consent']
+  };
+  var allBlocks = sections.slice();
+  if (submitBlock) allBlocks.push(submitBlock);
+
+  function blocksFor(step) {
+    var out = [];
+    stepTitles[step].forEach(function (t) {
+      var el = byTitle(t);
+      if (el) out.push(el);
+    });
+    if (step === 3 && submitBlock) out.push(submitBlock);
+    return out;
+  }
+
+  var current = 1;
+
+  function render(shouldScroll) {
+    document.querySelectorAll('#listFormCard .kd-field-error').forEach(function (p) { p.remove(); });
+    document.querySelectorAll('#listFormCard .kd-input-error').forEach(function (el) { el.classList.remove('kd-input-error'); });
+    allBlocks.forEach(function (b) { b.classList.add('kd-step-hidden'); });
+    blocksFor(current).forEach(function (b) { b.classList.remove('kd-step-hidden'); });
+
+    var pills = document.querySelectorAll('[data-kd-step-pill]');
+    for (var i = 0; i < pills.length; i++) {
+      var n = Number(pills[i].getAttribute('data-kd-step-pill'));
+      pills[i].className = n === current
+        ? 'bg-[#0F382E] text-white px-3 py-1.5 rounded-full'
+        : 'bg-white text-zinc-500 px-3 py-1.5 rounded-full';
+    }
+    var now = document.getElementById('kdStepNow');
+    if (now) now.textContent = String(current);
+    var back = document.getElementById('kdStepBack');
+    var next = document.getElementById('kdStepNext');
+    if (back) back.style.display = current === 1 ? 'none' : 'inline-block';
+    if (next) next.style.display = current === 3 ? 'none' : 'inline-block';
+
+    if (shouldScroll) {
+      var top = card.getBoundingClientRect().top + window.pageYOffset - 90;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    }
+  }
+
+  function clearError(el) {
+    if (!el || !el.classList) return;
+    el.classList.remove('kd-input-error');
+    var n = el.nextElementSibling;
+    if (n && n.classList && n.classList.contains('kd-field-error')) n.remove();
+  }
+
+  function showError(el, msg) {
+    if (!el || !el.classList) return;
+    clearError(el);
+    el.classList.add('kd-input-error');
+    var p = document.createElement('p');
+    p.className = 'kd-field-error';
+    p.textContent = msg;
+    el.insertAdjacentElement('afterend', p);
+  }
+
+  function validateStep(step) {
+    var firstBad = null;
+    function fail(el, msg) {
+      showError(el, msg);
+      if (!firstBad) firstBad = el;
+    }
+    function text(id, label) {
+      var el = document.getElementById(id);
+      if (!el) return true;
+      if (!String(el.value || '').trim()) { fail(el, label + ' is required.'); return false; }
+      clearError(el);
+      return true;
+    }
+    function checked(id, msg) {
+      var el = document.getElementById(id);
+      var anchor = el ? (el.closest('label') || el) : null;
+      if (!el || !el.checked) { fail(anchor, msg); return false; }
+      clearError(anchor);
+      return true;
+    }
+
+    if (step === 1) {
+      text('listOwnerName', 'Full host name');
+      text('listWhatsapp', 'WhatsApp number');
+      text('listHomestayName', 'Homestay name');
+
+      var email = document.getElementById('listOwnerEmail');
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email.value || '').trim())) {
+        fail(email, 'Enter a valid email address.');
+      } else if (email) { clearError(email); }
+
+      var wa = document.getElementById('listWhatsapp');
+      if (wa && String(wa.value || '').replace(/\D/g, '').length < 9) {
+        fail(wa, 'Enter a valid WhatsApp number (at least 9 digits).');
+      }
+
+      var priceEl = document.getElementById('listPrice');
+      var price = priceEl ? parseInt(priceEl.value, 10) : NaN;
+      if (!price || price <= 0) { fail(priceEl, 'Enter a nightly price greater than RM 0.'); }
+      else { clearError(priceEl); }
+
+      var descEl = document.getElementById('listDescription');
+      if (descEl && String(descEl.value || '').trim().length < 50) {
+        fail(descEl, 'Write at least 50 characters about the property.');
+      } else if (descEl) { clearError(descEl); }
+
+      var photoSlots = document.getElementById('photoSlots');
+      var photos = document.querySelectorAll('#photoSlots .pg-slot-full').length;
+      if (!photos) fail(photoSlots, 'Add at least one property photo.');
+      else if (photoSlots) clearError(photoSlots);
+    }
+
+    if (step === 2) {
+      text('listBankName', 'Receiving bank');
+      text('listBankAccount', 'Bank account number');
+      text('listBankHolder', 'Beneficiary account name');
+      text('listIcName', 'Full legal name as in IC');
+
+      var acct = document.getElementById('listBankAccount');
+      if (acct && String(acct.value || '').replace(/\D/g, '').length < 8) {
+        fail(acct, 'Enter a valid bank account number (at least 8 digits).');
+      }
+
+      checked('listBankConfirm', 'Tick the box to confirm the bank account matches your IC name.');
+
+      var icWrap = document.getElementById('icPreviewWrap');
+      var icDrop = document.getElementById('icDropZone');
+      if (!icWrap || icWrap.classList.contains('hidden')) {
+        fail(icDrop, 'Upload a photo of your IC (front).');
+      } else if (icDrop) { clearError(icDrop); }
+
+      var pwdSection = document.getElementById('ownerPasswordSection');
+      if (pwdSection && getComputedStyle(pwdSection).display !== 'none') {
+        text('listOwnerPassword', 'Host account password');
+      }
+    }
+
+    if (step === 3) {
+      checked('listConsent', 'Tick the data processing consent.');
+      checked('listHostAgreement', 'Tick the Host Agreement and Terms box.');
+    }
+
+    if (firstBad) {
+      firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return false;
+    }
+    return true;
+  }
+
+  var back = document.getElementById('kdStepBack');
+  var next = document.getElementById('kdStepNext');
+  if (next) next.addEventListener('click', function () {
+    if (validateStep(current) && current < 3) {
+      current++;
+      render(true);
+    }
+  });
+  if (back) back.addEventListener('click', function () {
+    if (current > 1) {
+      current--;
+      render(true);
+    }
+  });
+
+  root.addEventListener('input', function (e) {
+    if (e.target && e.target.classList) {
+      clearError(e.target);
+      if (e.target.closest) clearError(e.target.closest('label'));
+    }
+  });
+  root.addEventListener('change', function (e) {
+    if (e.target && e.target.classList) {
+      clearError(e.target);
+      if (e.target.closest) clearError(e.target.closest('label'));
+    }
+  });
+
+  render(false);
+})();
+</script>
 </body>
 </html>
