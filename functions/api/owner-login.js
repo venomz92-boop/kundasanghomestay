@@ -73,10 +73,13 @@ export async function onRequestPost({ request, env }) {
     }
 
     const body = await parseJSONSafely(request);
-    const { whatsapp, password } = body;
-    const cleanWhatsapp = String(whatsapp || '').replace(/[^0-9]/g, '');
+    const { whatsapp, email, password } = body;
+    const rawIdentifier = String(email || whatsapp || '').trim();
+    const isEmailLogin = rawIdentifier.indexOf('@') !== -1;
+    const cleanEmail = isEmailLogin ? rawIdentifier.toLowerCase() : '';
+    const cleanWhatsapp = isEmailLogin ? '' : rawIdentifier.replace(/[^0-9]/g, '');
     const cleanPassword = String(password || '');
-    if (!cleanWhatsapp || cleanPassword.length < 1) {
+    if ((!cleanEmail && !cleanWhatsapp) || cleanPassword.length < 1) {
       await recordRateLimit(db, clientIP, 'owner_login');
       await recordRateLimit(db, GLOBAL_KEY, 'owner_login');
       return jsonResponse({ error: 'Invalid credentials' }, 401, request);
@@ -92,13 +95,16 @@ export async function onRequestPost({ request, env }) {
     try { if (a?.data) homes = JSON.parse(a.data); } catch(_) {}
     try { if (p?.data) homes = homes.concat(JSON.parse(p.data)); } catch(_) {}
 
-    const ownerAccount = owners.find(o =>
-      String(o.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp
-    ) || null;
+    const matchesOwner = (o) => isEmailLogin
+      ? String(o.ownerEmail || '').toLowerCase().trim() === cleanEmail
+      : String(o.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp;
+    const matchesHome = (h) => isEmailLogin
+      ? String(h.ownerEmail || '').toLowerCase().trim() === cleanEmail
+      : String(h.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp;
 
-    const ownerHomes = homes.filter(h =>
-      String(h.whatsapp || '').replace(/[^0-9]/g, '') === cleanWhatsapp
-    );
+    const ownerAccount = owners.find(matchesOwner) || null;
+
+    const ownerHomes = homes.filter(matchesHome);
 
     const ownerHomesWithPassword = ownerHomes.filter(h =>
       h.ownerPasswordHash && h.ownerSalt
@@ -143,8 +149,7 @@ export async function onRequestPost({ request, env }) {
 
       if (accountHasPassword) {
         owners = owners.map(o => {
-          const oWa = String(o.whatsapp || '').replace(/[^0-9]/g, '');
-          if (oWa !== cleanWhatsapp) return o;
+          if (!matchesOwner(o)) return o;
           return {
             ...o,
             ownerPasswordHash: fresh.hash,
@@ -163,8 +168,7 @@ export async function onRequestPost({ request, env }) {
         try { if (rr?.data) arr = JSON.parse(rr.data); } catch(_) {}
         let changed = false;
         arr = arr.map(h => {
-          const hWa = String(h.whatsapp || '').replace(/[^0-9]/g, '');
-          if (hWa !== cleanWhatsapp) return h;
+          if (!matchesHome(h)) return h;
           changed = true;
           return {
             ...h,
@@ -183,9 +187,13 @@ export async function onRequestPost({ request, env }) {
 
     const homestayIds = ownerHomes.map(h => h.id);
 
+    const ownerWa = ownerAccount ? String(ownerAccount.whatsapp || '').replace(/[^0-9]/g, '') : '';
+    const homeWa = ownerHomes[0] ? String(ownerHomes[0].whatsapp || '').replace(/[^0-9]/g, '') : '';
+    const sessionWhatsapp = ownerWa || homeWa || cleanWhatsapp;
+
     const ownerId = ownerAccount
       ? String(ownerAccount.id)
-      : (ownerHomes[0] ? String(ownerHomes[0].id) : `O-${cleanWhatsapp}`);
+      : (ownerHomes[0] ? String(ownerHomes[0].id) : `O-${sessionWhatsapp}`);
 
     const ownerName = ownerAccount
       ? ownerAccount.ownerName
@@ -201,7 +209,7 @@ export async function onRequestPost({ request, env }) {
       ownerId,
       homestayIds,
       ownerName,
-      whatsapp: cleanWhatsapp,
+      whatsapp: sessionWhatsapp,
       passwordVersion: Number(
         (ownerAccount && ownerAccount.ownerPasswordVersion)
         ?? (ownerHomesWithPassword[0] && ownerHomesWithPassword[0].ownerPasswordVersion)
