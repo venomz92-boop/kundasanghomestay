@@ -277,13 +277,13 @@
 <main class="max-w-[1100px] mx-auto p-6 py-12 min-h-[75vh]">
   <div id="loginSection" class="max-w-md mx-auto card p-6 md:p-10 mt-10 animate-on-scroll">
     <h2 class="text-2xl font-bold font-poppins text-[#212121]">Host Login</h2>
-    <p class="text-xs text-zinc-500 mt-1">Log in with your registered WhatsApp number and password.</p>
+    <p class="text-xs text-zinc-500 mt-1">Log in with your registered WhatsApp number or email, and your password.</p>
 
     <form id="ownerLoginForm" onsubmit="event.preventDefault(); ownerLogin();">
       <div class="mt-6 space-y-4">
         <div>
-          <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-500 mb-1">WhatsApp Number</label>
-          <input id="ownerWhatsapp" type="tel" placeholder="e.g. 0123456789" class="form-input text-sm" />
+          <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-500 mb-1">WhatsApp Number or Email</label>
+          <input id="ownerWhatsapp" type="text" placeholder="e.g. 0123456789 or you@email.com" class="form-input text-sm" autocomplete="username" />
         </div>
         <div>
           <label class="block text-[11px] font-700 uppercase tracking-wider text-zinc-500 mb-1">Dashboard Password</label>
@@ -303,6 +303,7 @@
     <div class="mt-5 pt-5 border-t border-black/5 text-center">
       <p class="text-[11px] text-zinc-500 leading-relaxed">Never received the verification email, or the link expired?</p>
       <button type="button" onclick="openResendVerification()" class="mt-2 text-xs text-[#0F382E] font-bold hover:underline">✉️ Resend verification email</button>
+      <p class="text-[11px] text-zinc-400 mt-2 leading-relaxed">Still nothing after 10 minutes? Email <a href="mailto:support@kundasanghomestay.my?subject=Host%20verification%20email%20not%20received" class="text-[#0F382E] font-semibold underline">support@kundasanghomestay.my</a> and we'll verify you manually.</p>
     </div>
   </div>
 
@@ -1020,13 +1021,13 @@ function openResendVerification() {
 window.openResendVerification = openResendVerification;
 
 async function ownerLogin() {
-  const whatsapp = document.getElementById('ownerWhatsapp').value.replace(/[^0-9]/g, '');
+  const identifier = document.getElementById('ownerWhatsapp').value.trim();
   const password = document.getElementById('ownerPassword').value;
   const errorEl = document.getElementById('loginError');
   if (errorEl) errorEl.classList.add('hidden');
 
-  if (!whatsapp || !password) {
-    await showAlert('Incomplete Form', 'Please provide both your WhatsApp number and Host Account password.');
+  if (!identifier || !password) {
+    await showAlert('Incomplete Form', 'Please provide your WhatsApp number or email, and your Host Account password.');
     return;
   }
 
@@ -1038,7 +1039,7 @@ async function ownerLogin() {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ whatsapp, password })
+      body: JSON.stringify({ whatsapp: identifier, password })
     });
 
     const data = await res.json();
@@ -1054,7 +1055,7 @@ async function ownerLogin() {
 
       applyOwnerAuthedUI(homestays, ownerName);
     } else {
-      let errorMsg = data.error || "Wrong WhatsApp number or password.";
+      let errorMsg = data.error || "Wrong WhatsApp number/email or password.";
       if (errorEl) {
         errorEl.innerText = errorMsg;
         errorEl.className = 'text-red-600 text-xs mt-3 block p-2 bg-red-50 border border-red-200 rounded-xl';
